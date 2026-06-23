@@ -12,15 +12,15 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 - **Full Management API coverage** — content, media, document types, data types, languages, templates, members, users, dictionary items, webhooks
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
-- **Cross-platform** — Windows, macOS, Linux via .NET 8
-- **Secure auth** — OAuth2 Client Credentials stored in the OS credential store; environment variable fallback for CI/CD
+- **Cross-platform** — Windows, macOS, Linux via .NET 9
+- **Secure auth** — OAuth2 Client Credentials stored in `~/.umbraco/config.json`; environment variable fallback for CI/CD
 - **Human-readable mode** — Spectre.Console tables and colours when running interactively
 
 ---
 
 ## Requirements
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) or later
 - Umbraco 14+ instance with the Management API enabled
 
 ---
@@ -224,8 +224,11 @@ Exit codes: `0` success · `1` API error · `2` auth error · `3` argument error
 
 Stored automatically after `umbraco auth login`:
 
-- **Linux/macOS**: `~/.umbraco/config.json`
+- **Linux**: `~/.config/Umbraco/config.json`
+- **macOS**: `~/Library/Application Support/Umbraco/config.json`
 - **Windows**: `%APPDATA%\Umbraco\config.json`
+
+Override with the `--config <path>` flag or the `UMBRACO_HOST` / `UMBRACO_CLIENT_ID` / `UMBRACO_CLIENT_SECRET` environment variables.
 
 ---
 
@@ -233,8 +236,7 @@ Stored automatically after `umbraco auth login`:
 
 ### Prerequisites
 
-- .NET 8 SDK
-- [Kiota](https://learn.microsoft.com/en-us/openapi/kiota/overview): `dotnet tool install -g Microsoft.OpenApi.Kiota`
+- .NET 9 SDK
 - A running Umbraco 14+ instance for integration testing
 
 ### Build
@@ -286,10 +288,11 @@ The client project is isolated so it can be regenerated when the Umbraco API cha
 See the [GitHub Project board](https://github.com/worm-brain/Umbraco.Cli/projects) for current status.
 
 - [x] Project scaffold & planning
-- [ ] Phase 1: Auth + infrastructure
-- [ ] Phase 2: Content, media, document types
-- [ ] Phase 3: Languages, templates, members, users, dictionary, webhooks
-- [ ] Phase 4: NuGet publish + CI/CD
+- [x] Phase 1: Auth + infrastructure (OAuth2, config store, DI, output writers)
+- [x] Phase 2: Content, media, document types
+- [x] Phase 3: Languages, templates, members, users, dictionary, webhooks
+- [x] Phase 4: Comprehensive help text, NuGet metadata
+- [ ] Phase 5: GitHub Actions CI, NuGet.org publish
 
 ---
 
