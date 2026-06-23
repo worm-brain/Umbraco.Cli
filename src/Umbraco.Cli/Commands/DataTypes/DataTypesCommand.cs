@@ -6,7 +6,7 @@ public static class DataTypesCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("data-types", "List and inspect Umbraco data types.");
+        var cmd = new Command("data-types", "List and inspect Umbraco data types (property editors).\n\nExample:\n  umbraco data-types list --output json");
         cmd.Add(DataTypesListCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
         cmd.Add(DataTypesGetCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
         return cmd;

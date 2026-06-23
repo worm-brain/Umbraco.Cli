@@ -7,7 +7,7 @@ public static class MediaDeleteCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("delete", "Delete a media item.");
+        var cmd = new Command("delete", "Permanently delete a media item by UUID.\n\nExample:\n  umbraco media delete 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);
 

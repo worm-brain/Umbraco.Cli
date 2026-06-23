@@ -7,8 +7,8 @@ public static class LanguagesDeleteCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("delete", "Remove a language.");
-        var isoArg = new Argument<string>("iso-code") { Description = "ISO culture code (e.g. en-US)." }; cmd.Add(isoArg);
+        var cmd = new Command("delete", "Remove a language by its ISO culture code.\n\nExample:\n  umbraco languages delete fr-FR");
+        var isoArg = new Argument<string>("iso-code") { Description = "ISO culture code of the language to remove (e.g. en-US, fr-FR)." }; cmd.Add(isoArg);
         cmd.SetAction(async (parseResult, ct) =>
         {
             CommandContext ctx;

@@ -47,7 +47,14 @@ var configOpt = new Option<string?>("--config")
     { Description = $"Path to config file (default: {ConfigStore.DefaultConfigPath})." };
 
 // ── Root command ──────────────────────────────────────────────────────────────
-var root = new RootCommand("Umbraco CLI — manage your Umbraco CMS from the terminal.");
+var root = new RootCommand(
+    "Umbraco CLI — manage your Umbraco CMS from the terminal.\n\n" +
+    "Quick start:\n" +
+    "  umbraco auth login --host https://mysite.com\n" +
+    "  umbraco content list --output json\n" +
+    "  umbraco content list | jq '.data[].name'\n\n" +
+    "All commands support --output json (default when stdout is piped).\n" +
+    "Use UMBRACO_HOST, UMBRACO_CLIENT_ID, UMBRACO_CLIENT_SECRET for CI/CD.");
 root.Add(hostOpt);
 root.Add(tokenOpt);
 root.Add(outputOpt);

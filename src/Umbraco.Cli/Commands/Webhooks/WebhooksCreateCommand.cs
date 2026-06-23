@@ -10,7 +10,7 @@ public static class WebhooksCreateCommand
     {
         var cmd = new Command("create", "Create a webhook.");
         var urlOpt = new Option<string>("--url") { Required = true };
-        var eventsOpt = new Option<string[]>("--events") { Description = "Event names (e.g. --events ContentPublished --events ContentDeleted).", Required = true, AllowMultipleArgumentsPerToken = true  };
+        var eventsOpt = new Option<string[]>("--events") { Description = "Event names to subscribe to. Repeat --events for multiple: --events ContentPublished --events MediaSaved.", Required = true, AllowMultipleArgumentsPerToken = true  };
         cmd.Add(urlOpt); cmd.Add(eventsOpt);
         cmd.SetAction(async (parseResult, ct) =>
         {

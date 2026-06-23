@@ -14,7 +14,7 @@ public static class AuthCommand
         UmbracoAuthService authService,
         CommandContextFactory factory)
     {
-        var cmd = new Command("auth", "Manage authentication with your Umbraco instance.");
+        var cmd = new Command("auth", "Manage authentication with your Umbraco instance.\n\nExamples:\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth whoami\n  umbraco auth logout");
         cmd.Add(LoginCommand.Build(hostOption, outputOption, configStore, authService));
         cmd.Add(LogoutCommand.Build(outputOption, configStore));
         cmd.Add(WhoAmICommand.Build(hostOption, tokenOption, outputOption, factory));

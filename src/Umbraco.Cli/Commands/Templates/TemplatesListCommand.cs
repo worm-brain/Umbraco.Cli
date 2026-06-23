@@ -7,7 +7,7 @@ public static class TemplatesListCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("list", "List templates.");
+        var cmd = new Command("list", "List all Razor view templates in the Umbraco instance.\n\nExample:\n  umbraco templates list --output json");
         var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
         var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 20 };
         cmd.Add(skipOpt); cmd.Add(takeOpt);

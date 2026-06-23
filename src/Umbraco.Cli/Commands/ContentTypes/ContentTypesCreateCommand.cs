@@ -8,7 +8,7 @@ public static class ContentTypesCreateCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("create", "Create a new document type.");
+        var cmd = new Command("create", "Create a new document type with a given name and alias.\n\nExamples:\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root");
         var nameOpt = new Option<string>("--name") { Required = true };
         var aliasOpt = new Option<string>("--alias") { Required = true };
         var descOpt = new Option<string?>("--description");

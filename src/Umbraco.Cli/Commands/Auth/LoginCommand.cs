@@ -14,10 +14,10 @@ public static class LoginCommand
         ConfigStore configStore,
         UmbracoAuthService authService)
     {
-        var cmd = new Command("login", "Authenticate with an Umbraco instance using Client Credentials.");
+        var cmd = new Command("login", "Authenticate with an Umbraco instance using Client Credentials.\nCredentials are saved to config for future calls.\n\nExamples:\n  umbraco auth login\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth login --output json --host https://mysite.com --client-id <id> --client-secret <secret>");
 
-        var clientIdOpt = new Option<string?>("--client-id") { Description = "API User client ID." };
-        var clientSecretOpt = new Option<string?>("--client-secret") { Description = "API User client secret." };
+        var clientIdOpt = new Option<string?>("--client-id") { Description = "OAuth2 Client ID from the Umbraco API Users section." };
+        var clientSecretOpt = new Option<string?>("--client-secret") { Description = "OAuth2 Client Secret from the Umbraco API Users section." };
 
         cmd.Add(clientIdOpt);
         cmd.Add(clientSecretOpt);

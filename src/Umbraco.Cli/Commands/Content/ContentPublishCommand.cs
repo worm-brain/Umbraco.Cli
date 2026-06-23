@@ -9,9 +9,9 @@ public static class ContentPublishCommand
         Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt,
         CommandContextFactory factory)
     {
-        var cmd = new Command("publish", "Publish a content item.");
+        var cmd = new Command("publish", "Publish a content item, making it live. Optionally target specific cultures.\n\nExamples:\n  umbraco content publish 3f7a8b2e-...\n  umbraco content publish 3f7a8b2e-... --cultures en-US da-DK");
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
-        var culturesOpt = new Option<string[]>("--cultures") { Description = "Cultures to publish (comma-separated ISO codes). Defaults to all.", AllowMultipleArgumentsPerToken = true  };
+        var culturesOpt = new Option<string[]>("--cultures") { Description = "ISO culture codes to publish (e.g. en-US da-DK). Publishes all cultures if omitted.", AllowMultipleArgumentsPerToken = true  };
         cmd.Add(idArg); cmd.Add(culturesOpt);
 
         cmd.SetAction(async (parseResult, ct) =>

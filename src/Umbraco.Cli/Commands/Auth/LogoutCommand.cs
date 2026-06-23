@@ -8,7 +8,7 @@ public static class LogoutCommand
 {
     public static Command Build(Option<string?> outputOption, ConfigStore configStore)
     {
-        var cmd = new Command("logout", "Clear stored Umbraco credentials.");
+        var cmd = new Command("logout", "Clear stored Umbraco credentials from the local config file.\n\nExample:\n  umbraco auth logout");
 
         cmd.SetAction((parseResult, ct) =>
         {

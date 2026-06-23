@@ -7,7 +7,7 @@ public static class MembersDeleteCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("delete", "Delete a member.");
+        var cmd = new Command("delete", "Permanently delete a member by UUID.\n\nExample:\n  umbraco members delete 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id"); cmd.Add(idArg);
         cmd.SetAction(async (parseResult, ct) =>
         {

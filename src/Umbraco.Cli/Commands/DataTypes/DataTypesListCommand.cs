@@ -7,7 +7,7 @@ public static class DataTypesListCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("list", "List data types.");
+        var cmd = new Command("list", "List all data types (property editors) configured in the Umbraco instance.\n\nExample:\n  umbraco data-types list");
         var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
         var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 20 };
         cmd.Add(skipOpt); cmd.Add(takeOpt);

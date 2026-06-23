@@ -7,7 +7,7 @@ public static class MembersGetCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("get", "Get a member by ID.");
+        var cmd = new Command("get", "Get a member by their UUID.\n\nExample:\n  umbraco members get 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id"); cmd.Add(idArg);
         cmd.SetAction(async (parseResult, ct) =>
         {

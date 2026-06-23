@@ -9,8 +9,8 @@ public static class MediaUploadCommand
     {
         var cmd = new Command("upload", "Upload a file as a media item.");
         var fileArg = new Argument<FileInfo>("file") { Description = "Local file to upload." };
-        var parentOpt = new Option<Guid>("--parent") { Description = "Parent folder ID.", Required = true  };
-        var nameOpt = new Option<string?>("--name") { Description = "Media item name (defaults to filename)." };
+        var parentOpt = new Option<Guid>("--parent") { Description = "UUID of the media folder to upload into.", Required = true  };
+        var nameOpt = new Option<string?>("--name") { Description = "Display name for the media item. Defaults to the filename." };
         cmd.Add(fileArg); cmd.Add(parentOpt); cmd.Add(nameOpt);
 
         cmd.SetAction(async (parseResult, ct) =>

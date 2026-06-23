@@ -7,7 +7,7 @@ public static class ContentTypesDeleteCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("delete", "Delete a document type.");
+        var cmd = new Command("delete", "Delete a document type by UUID. All content of this type must be removed first.\n\nExample:\n  umbraco content-types delete 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id"); cmd.Add(idArg);
         cmd.SetAction(async (parseResult, ct) =>
         {

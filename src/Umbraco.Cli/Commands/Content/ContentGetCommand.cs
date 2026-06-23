@@ -9,7 +9,7 @@ public static class ContentGetCommand
         Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt,
         CommandContextFactory factory)
     {
-        var cmd = new Command("get", "Get a content item by ID.");
+        var cmd = new Command("get", "Get a content item by its UUID, including all property values.\n\nExample:\n  umbraco content get 3f7a8b2e-1234-5678-abcd-ef0123456789");
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         cmd.Add(idArg);
 

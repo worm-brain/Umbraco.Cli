@@ -7,7 +7,7 @@ public static class ContentTypesGetCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("get", "Get a document type by ID.");
+        var cmd = new Command("get", "Get a document type by UUID or alias, including its property groups.\n\nExamples:\n  umbraco content-types get textPage\n  umbraco content-types get 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);
         cmd.SetAction(async (parseResult, ct) =>

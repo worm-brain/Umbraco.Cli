@@ -7,7 +7,7 @@ public static class WebhooksDeleteCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("delete", "Delete a webhook.");
+        var cmd = new Command("delete", "Delete a webhook subscription by UUID.\n\nExample:\n  umbraco webhooks delete 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id"); cmd.Add(idArg);
         cmd.SetAction(async (parseResult, ct) =>
         {

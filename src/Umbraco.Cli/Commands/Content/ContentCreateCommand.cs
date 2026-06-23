@@ -11,11 +11,11 @@ public static class ContentCreateCommand
         Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt,
         CommandContextFactory factory)
     {
-        var cmd = new Command("create", "Create a new content item.");
-        var typeOpt = new Option<string>("--content-type") { Description = "Document type alias.", Required = true  };
-        var nameOpt = new Option<string>("--name") { Description = "Content item name.", Required = true  };
-        var parentOpt = new Option<Guid?>("--parent") { Description = "Parent content item ID." };
-        var bodyOpt = new Option<FileInfo?>("--json-body") { Description = "Path to JSON file with full request body." };
+        var cmd = new Command("create", "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --content-type textPage --name \"About\"\n  umbraco content create --content-type textPage --name \"Child\" --parent <id>\n  umbraco content create --content-type blogPost --name \"Post\" --json-body ./body.json");
+        var typeOpt = new Option<string>("--content-type") { Description = "Alias of the document type to create (e.g. textPage, blogPost).", Required = true  };
+        var nameOpt = new Option<string>("--name") { Description = "Display name for the new content item.", Required = true  };
+        var parentOpt = new Option<Guid?>("--parent") { Description = "Parent content item UUID. Omit to create at the root." };
+        var bodyOpt = new Option<FileInfo?>("--json-body") { Description = "Path to a JSON file containing the full create request body (overrides other flags)." };
         cmd.Add(typeOpt); cmd.Add(nameOpt); cmd.Add(parentOpt); cmd.Add(bodyOpt);
 
         cmd.SetAction(async (parseResult, ct) =>

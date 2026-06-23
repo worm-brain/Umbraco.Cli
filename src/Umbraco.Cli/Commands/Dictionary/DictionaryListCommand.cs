@@ -7,7 +7,7 @@ public static class DictionaryListCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("list", "List dictionary items.");
+        var cmd = new Command("list", "List all dictionary items in the Umbraco instance.\n\nExample:\n  umbraco dictionary list --output json");
         var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
         var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 20 };
         cmd.Add(skipOpt); cmd.Add(takeOpt);

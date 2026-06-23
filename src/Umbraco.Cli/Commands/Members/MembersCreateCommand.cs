@@ -8,10 +8,10 @@ public static class MembersCreateCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("create", "Create a new member.");
+        var cmd = new Command("create", "Create a new Umbraco member.\n\nExample:\n  umbraco members create --email user@example.com --name \"Jane Doe\" --type Member");
         var emailOpt = new Option<string>("--email") { Required = true };
         var nameOpt = new Option<string>("--name") { Required = true };
-        var typeOpt = new Option<string>("--type") { Description = "Member type alias.", Required = true  };
+        var typeOpt = new Option<string>("--type") { Description = "Alias of the member type (e.g. Member).", Required = true  };
         cmd.Add(emailOpt); cmd.Add(nameOpt); cmd.Add(typeOpt);
         cmd.SetAction(async (parseResult, ct) =>
         {

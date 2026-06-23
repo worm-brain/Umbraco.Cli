@@ -9,9 +9,9 @@ public static class LanguagesCreateCommand
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
         var cmd = new Command("create", "Add a language.");
-        var cultureOpt = new Option<string>("--culture") { Description = "ISO culture code (e.g. en-US).", Required = true  };
-        var defaultOpt = new Option<bool>("--default") { DefaultValueFactory = _ => false, Description = "Set as default language." };
-        var mandatoryOpt = new Option<bool>("--mandatory") { DefaultValueFactory = _ => false, Description = "Mark as mandatory." };
+        var cultureOpt = new Option<string>("--culture") { Description = "ISO 4646 culture code for the language (e.g. en-US, fr-FR, da-DK).", Required = true  };
+        var defaultOpt = new Option<bool>("--default") { DefaultValueFactory = _ => false, Description = "Set this language as the default for new content." };
+        var mandatoryOpt = new Option<bool>("--mandatory") { DefaultValueFactory = _ => false, Description = "Mark this language as mandatory (content must be translated into it)." };
         cmd.Add(cultureOpt); cmd.Add(defaultOpt); cmd.Add(mandatoryOpt);
         cmd.SetAction(async (parseResult, ct) =>
         {

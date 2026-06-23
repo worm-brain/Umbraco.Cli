@@ -7,7 +7,7 @@ public static class UsersListCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("list", "List backoffice users.");
+        var cmd = new Command("list", "List Umbraco back-office users.\n\nExample:\n  umbraco users list --output json");
         var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
         var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 20 };
         cmd.Add(skipOpt); cmd.Add(takeOpt);

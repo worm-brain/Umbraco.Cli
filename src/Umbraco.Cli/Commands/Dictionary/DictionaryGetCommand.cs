@@ -7,7 +7,7 @@ public static class DictionaryGetCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("get", "Get a dictionary item by key.");
+        var cmd = new Command("get", "Get a dictionary item and its translations by key.\n\nExample:\n  umbraco dictionary get Common.Search");
         var keyArg = new Argument<string>("key"); cmd.Add(keyArg);
         cmd.SetAction(async (parseResult, ct) =>
         {

@@ -9,9 +9,9 @@ public static class ContentUnpublishCommand
         Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt,
         CommandContextFactory factory)
     {
-        var cmd = new Command("unpublish", "Unpublish a content item.");
+        var cmd = new Command("unpublish", "Unpublish a content item, taking it offline. Optionally target specific cultures.\n\nExamples:\n  umbraco content unpublish 3f7a8b2e-...\n  umbraco content unpublish 3f7a8b2e-... --cultures en-US");
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
-        var culturesOpt = new Option<string[]>("--cultures") { Description = "Cultures to unpublish.", AllowMultipleArgumentsPerToken = true  };
+        var culturesOpt = new Option<string[]>("--cultures") { Description = "ISO culture codes to unpublish. Unpublishes all cultures if omitted.", AllowMultipleArgumentsPerToken = true  };
         cmd.Add(idArg); cmd.Add(culturesOpt);
 
         cmd.SetAction(async (parseResult, ct) =>

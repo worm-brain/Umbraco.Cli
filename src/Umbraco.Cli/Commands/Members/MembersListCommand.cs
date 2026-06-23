@@ -7,7 +7,7 @@ public static class MembersListCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("list", "List members.");
+        var cmd = new Command("list", "List Umbraco members, optionally filtered by member group.\n\nExamples:\n  umbraco members list\n  umbraco members list --group Subscribers --output json");
         var groupOpt = new Option<string?>("--group"); var skipOpt = new Option<int>("--skip"); var takeOpt = new Option<int>("--take");
         cmd.Add(groupOpt); cmd.Add(skipOpt); cmd.Add(takeOpt);
         cmd.SetAction(async (parseResult, ct) =>

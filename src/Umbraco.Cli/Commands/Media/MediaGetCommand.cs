@@ -7,7 +7,7 @@ public static class MediaGetCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("get", "Get a media item by ID.");
+        var cmd = new Command("get", "Get a media item by its UUID, including URL and metadata.\n\nExample:\n  umbraco media get 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);
 

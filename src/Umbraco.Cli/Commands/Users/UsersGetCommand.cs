@@ -7,7 +7,7 @@ public static class UsersGetCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("get", "Get a user by ID.");
+        var cmd = new Command("get", "Get a back-office user by their UUID.\n\nExample:\n  umbraco users get 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id"); cmd.Add(idArg);
         cmd.SetAction(async (parseResult, ct) =>
         {

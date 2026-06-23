@@ -8,7 +8,7 @@ public static class UsersInviteCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("invite", "Invite a new backoffice user.");
+        var cmd = new Command("invite", "Send an email invitation to a new back-office user.\n\nExamples:\n  umbraco users invite --email editor@example.com --name \"Jane Smith\"\n  umbraco users invite --email admin@example.com --name \"Bob\" --message \"Welcome to the team!\"");
         var emailOpt = new Option<string>("--email") { Required = true };
         var nameOpt = new Option<string>("--name") { Required = true };
         var msgOpt = new Option<string?>("--message");

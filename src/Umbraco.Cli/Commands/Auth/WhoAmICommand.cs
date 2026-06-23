@@ -11,7 +11,7 @@ public static class WhoAmICommand
         Option<string?> outputOption,
         CommandContextFactory factory)
     {
-        var cmd = new Command("whoami", "Show the currently authenticated user.");
+        var cmd = new Command("whoami", "Show the currently authenticated backoffice user and instance details.\n\nExamples:\n  umbraco auth whoami\n  umbraco auth whoami --output json");
 
         cmd.SetAction(async (parseResult, ct) =>
         {

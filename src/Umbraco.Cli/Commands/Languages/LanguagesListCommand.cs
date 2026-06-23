@@ -7,7 +7,7 @@ public static class LanguagesListCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("list", "List configured languages.");
+        var cmd = new Command("list", "List all languages configured in the Umbraco instance.\n\nExample:\n  umbraco languages list --output json");
         cmd.SetAction(async (parseResult, ct) =>
         {
             CommandContext ctx;

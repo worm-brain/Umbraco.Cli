@@ -8,10 +8,10 @@ public static class DictionaryCreateCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("create", "Create a dictionary item.");
+        var cmd = new Command("create", "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Nav.Home\" --values en=Home --values da=Hjem --values fr=Accueil");
         var keyOpt = new Option<string>("--key") { Required = true };
         // --values accepts en=Hello da=Hej style pairs
-        var valuesOpt = new Option<string[]>("--values") { Description = "Translations as lang=value pairs (e.g. --values en=Hello --values da=Hej).", AllowMultipleArgumentsPerToken = true  };
+        var valuesOpt = new Option<string[]>("--values") { Description = "Translation pairs in lang=value format. Repeat for multiple languages: --values en=Home --values da=Hjem", AllowMultipleArgumentsPerToken = true  };
         cmd.Add(keyOpt); cmd.Add(valuesOpt);
         cmd.SetAction(async (parseResult, ct) =>
         {

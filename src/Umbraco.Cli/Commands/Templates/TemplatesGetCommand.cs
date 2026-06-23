@@ -7,7 +7,7 @@ public static class TemplatesGetCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("get", "Get a template by alias.");
+        var cmd = new Command("get", "Get a template by its alias, including the view file content.\n\nExample:\n  umbraco templates get master\n  umbraco templates get textPage");
         var aliasArg = new Argument<string>("alias"); cmd.Add(aliasArg);
         cmd.SetAction(async (parseResult, ct) =>
         {

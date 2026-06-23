@@ -11,9 +11,9 @@ public static class ContentUpdateCommand
         Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt,
         CommandContextFactory factory)
     {
-        var cmd = new Command("update", "Update an existing content item.");
+        var cmd = new Command("update", "Update an existing content item by replacing its values with those from a JSON body file.\n\nExample:\n  umbraco content update 3f7a8b2e-... --json-body ./update.json");
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
-        var bodyOpt = new Option<FileInfo>("--json-body") { Description = "Path to JSON file with update request body.", Required = true  };
+        var bodyOpt = new Option<FileInfo>("--json-body") { Description = "Path to a JSON file containing the update request body.", Required = true  };
         cmd.Add(idArg); cmd.Add(bodyOpt);
 
         cmd.SetAction(async (parseResult, ct) =>

@@ -7,7 +7,7 @@ public static class DataTypesGetCommand
 {
     public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
     {
-        var cmd = new Command("get", "Get a data type by ID.");
+        var cmd = new Command("get", "Get a data type (property editor) by UUID.\n\nExample:\n  umbraco data-types get 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id"); cmd.Add(idArg);
         cmd.SetAction(async (parseResult, ct) =>
         {
