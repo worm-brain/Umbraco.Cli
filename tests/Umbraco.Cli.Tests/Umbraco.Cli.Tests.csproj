@@ -15,7 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Umbraco.Cli\Umbraco.Cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="System.Text.Json" />
   </ItemGroup>
 
 </Project>

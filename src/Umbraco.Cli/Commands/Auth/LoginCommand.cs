@@ -72,7 +72,7 @@ public static class LoginCommand
         return cmd;
     }
 
-    internal static OutputFormat? ParseOutputFormat(string? value) =>
+    public static OutputFormat? ParseOutputFormat(string? value) =>
         value?.ToLowerInvariant() switch
         {
             "json" => OutputFormat.Json,

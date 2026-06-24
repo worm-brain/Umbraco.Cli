@@ -32,19 +32,19 @@ var factory = sp.GetRequiredService<CommandContextFactory>();
 
 // ── Global options (recursive — available on every command) ───────────────────
 var hostOpt = new Option<string?>("--host", new[] { "-H" })
-    { Description = "Umbraco instance base URL (overrides config / UMBRACO_HOST)." };
+    { Description = "Umbraco instance base URL (overrides config / UMBRACO_HOST).", Recursive = true };
 
 var tokenOpt = new Option<string?>("--token")
-    { Description = "Raw bearer token (overrides credential store)." };
+    { Description = "Raw bearer token (overrides credential store).", Recursive = true };
 
 var outputOpt = new Option<string?>("--output", new[] { "-o" })
-    { Description = "Output format: json | human (default: json when piped, human in terminal)." };
+    { Description = "Output format: json | human (default: json when piped, human in terminal).", Recursive = true };
 
 var verboseOpt = new Option<bool>("--verbose", new[] { "-v" })
-    { Description = "Write HTTP request/response details to stderr." };
+    { Description = "Write HTTP request/response details to stderr.", Recursive = true };
 
 var configOpt = new Option<string?>("--config")
-    { Description = $"Path to config file (default: {ConfigStore.DefaultConfigPath})." };
+    { Description = $"Path to config file (default: {ConfigStore.DefaultConfigPath}).", Recursive = true };
 
 // ── Root command ──────────────────────────────────────────────────────────────
 var root = new RootCommand(
