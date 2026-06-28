@@ -1,15 +1,12 @@
 using System.CommandLine;
 using System.Text.Json;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Auth;
 
 namespace Umbraco.Cli.Commands.Content;
 
 public static class ContentCreateCommand
 {
-    public static Command Build(
-        Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt,
-        CommandContextFactory factory)
+    public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command("create", "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --content-type textPage --name \"About\"\n  umbraco content create --content-type textPage --name \"Child\" --parent <id>\n  umbraco content create --content-type blogPost --name \"Post\" --json-body ./body.json");
         var typeOpt = new Option<string>("--content-type") { Description = "Alias of the document type to create (e.g. textPage, blogPost).", Required = true  };
@@ -20,10 +17,6 @@ public static class ContentCreateCommand
 
         cmd.SetAction(async (parseResult, ct) =>
         {
-            CommandContext ctx;
-            try { ctx = await factory.CreateAsync(parseResult.GetValue(hostOpt), parseResult.GetValue(tokenOpt), LoginCommand.ParseOutputFormat(parseResult.GetValue(outputOpt)), "content.create", ct); }
-            catch (OperationCanceledException) { return 2; }
-
             CreateContentRequest request;
             var bodyFile = parseResult.GetValue(bodyOpt);
             if (bodyFile is not null)
@@ -45,10 +38,10 @@ public static class ContentCreateCommand
                 };
             }
 
-            var result = await ctx.Client.CreateContentAsync(request, ct);
-            if (!result.IsSuccess) { ctx.Output.WriteError(result.StatusCode, result.ErrorMessage!); return 1; }
-            ctx.Output.WriteSuccess(result.Data, ctx.CommandName, ctx.Stopwatch.ElapsedMilliseconds);
-            return 0;
+            return await executor.RunObjectAsync(
+                parseResult, "content.create",
+                (client, c) => client.CreateContentAsync(request, c),
+                ct);
         });
 
         return cmd;

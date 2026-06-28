@@ -31,29 +31,24 @@ public class CommandParseTests
         var configStore = new ConfigStore(
             Path.Combine(Path.GetTempPath(), $"umbraco-parse-test-{Guid.NewGuid()}.json"));
         var authService = new UmbracoAuthService(stub);
-        var factory = new CommandContextFactory(configStore, authService, stub);
-
-        var hostOpt = new Option<string?>("--host", new[] { "-H" }) { Recursive = true };
-        var tokenOpt = new Option<string?>("--token") { Recursive = true };
-        var outputOpt = new Option<string?>("--output", new[] { "-o" }) { Recursive = true };
-        var verboseOpt = new Option<bool>("--verbose", new[] { "-v" }) { Recursive = true };
-        var configOpt = new Option<string?>("--config") { Recursive = true };
+        var globalOptions = new GlobalOptions();
+        var factory = new CommandContextFactory(configStore, authService, stub, globalOptions);
+        var executor = new CommandExecutor(factory);
 
         var root = new RootCommand("Umbraco CLI");
-        root.Add(hostOpt); root.Add(tokenOpt); root.Add(outputOpt);
-        root.Add(verboseOpt); root.Add(configOpt);
+        globalOptions.AddTo(root);
 
-        root.Add(AuthCommand.Build(hostOpt, tokenOpt, outputOpt, configStore, authService, factory));
-        root.Add(ContentCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        root.Add(MediaCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        root.Add(ContentTypesCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        root.Add(DataTypesCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        root.Add(LanguagesCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        root.Add(TemplatesCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        root.Add(MembersCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        root.Add(UsersCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        root.Add(DictionaryCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        root.Add(WebhooksCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
+        root.Add(AuthCommand.Build(globalOptions, configStore, authService, executor));
+        root.Add(ContentCommand.Build(executor));
+        root.Add(MediaCommand.Build(executor));
+        root.Add(ContentTypesCommand.Build(executor));
+        root.Add(DataTypesCommand.Build(executor));
+        root.Add(LanguagesCommand.Build(executor));
+        root.Add(TemplatesCommand.Build(executor));
+        root.Add(MembersCommand.Build(executor));
+        root.Add(UsersCommand.Build(executor));
+        root.Add(DictionaryCommand.Build(executor));
+        root.Add(WebhooksCommand.Build(executor));
 
         return root;
     }
