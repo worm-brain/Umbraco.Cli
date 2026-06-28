@@ -24,7 +24,7 @@ public static class LoginCommand
 
         cmd.SetAction(async (parseResult, ct) =>
         {
-            var outputFormat = ParseOutputFormat(parseResult.GetValue(outputOption));
+            var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(outputOption));
             var writer = OutputWriterFactory.Create(outputFormat);
 
             var host = parseResult.GetValue(hostOption)
@@ -71,12 +71,4 @@ public static class LoginCommand
 
         return cmd;
     }
-
-    public static OutputFormat? ParseOutputFormat(string? value) =>
-        value?.ToLowerInvariant() switch
-        {
-            "json" => OutputFormat.Json,
-            "human" => OutputFormat.Human,
-            _ => null,
-        };
 }

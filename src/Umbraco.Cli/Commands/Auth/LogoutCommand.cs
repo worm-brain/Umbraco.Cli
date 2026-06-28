@@ -12,7 +12,7 @@ public static class LogoutCommand
 
         cmd.SetAction((parseResult, ct) =>
         {
-            var writer = OutputWriterFactory.Create(LoginCommand.ParseOutputFormat(parseResult.GetValue(outputOption)));
+            var writer = OutputWriterFactory.Create(OutputFormatParser.Parse(parseResult.GetValue(outputOption)));
             configStore.Delete();
             writer.WriteMessage("Logged out. Credentials removed.");
             return Task.CompletedTask;

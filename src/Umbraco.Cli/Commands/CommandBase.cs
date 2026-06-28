@@ -2,7 +2,6 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Auth;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
@@ -47,7 +46,7 @@ public sealed class CommandContextFactory
     {
         var hostOverride = parseResult.GetValue(_globalOptions.Host);
         var tokenOverride = parseResult.GetValue(_globalOptions.Token);
-        var outputFormat = LoginCommand.ParseOutputFormat(parseResult.GetValue(_globalOptions.Output));
+        var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(_globalOptions.Output));
 
         var output = OutputWriterFactory.Create(outputFormat);
         var config = _configStore.Load();
