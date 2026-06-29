@@ -21,17 +21,20 @@ public sealed class CommandContextFactory
     private readonly UmbracoAuthService _authService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly GlobalOptions _globalOptions;
+    private readonly IUmbracoManagementClientFactory _clientFactory;
 
     public CommandContextFactory(
         ConfigStore configStore,
         UmbracoAuthService authService,
         IHttpClientFactory httpClientFactory,
-        GlobalOptions globalOptions)
+        GlobalOptions globalOptions,
+        IUmbracoManagementClientFactory clientFactory)
     {
         _configStore = configStore;
         _authService = authService;
         _httpClientFactory = httpClientFactory;
         _globalOptions = globalOptions;
+        _clientFactory = clientFactory;
     }
 
     /// <summary>
@@ -81,7 +84,7 @@ public sealed class CommandContextFactory
         return new CommandContext
         {
             Output = output,
-            Client = new UmbracoManagementClient(http),
+            Client = _clientFactory.Create(http),
             CommandName = commandName,
         };
     }

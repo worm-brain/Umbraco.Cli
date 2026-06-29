@@ -21,11 +21,13 @@ services.AddHttpClient();
 services.AddSingleton<ConfigStore>();
 services.AddSingleton<UmbracoAuthService>();
 services.AddSingleton<GlobalOptions>();
+services.AddSingleton<IUmbracoManagementClientFactory, UmbracoManagementClientFactory>();
 services.AddSingleton(sp => new CommandContextFactory(
     sp.GetRequiredService<ConfigStore>(),
     sp.GetRequiredService<UmbracoAuthService>(),
     sp.GetRequiredService<IHttpClientFactory>(),
-    sp.GetRequiredService<GlobalOptions>()));
+    sp.GetRequiredService<GlobalOptions>(),
+    sp.GetRequiredService<IUmbracoManagementClientFactory>()));
 services.AddSingleton(sp => new CommandExecutor(sp.GetRequiredService<CommandContextFactory>()));
 
 var sp = services.BuildServiceProvider();

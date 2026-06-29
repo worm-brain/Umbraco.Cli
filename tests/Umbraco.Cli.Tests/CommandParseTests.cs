@@ -32,7 +32,8 @@ public class CommandParseTests
             Path.Combine(Path.GetTempPath(), $"umbraco-parse-test-{Guid.NewGuid()}.json"));
         var authService = new UmbracoAuthService(stub);
         var globalOptions = new GlobalOptions();
-        var factory = new CommandContextFactory(configStore, authService, stub, globalOptions);
+        var factory = new CommandContextFactory(
+            configStore, authService, stub, globalOptions, new UmbracoManagementClientFactory());
         var executor = new CommandExecutor(factory);
 
         var root = new RootCommand("Umbraco CLI");
