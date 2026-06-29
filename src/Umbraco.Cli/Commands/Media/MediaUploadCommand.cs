@@ -12,18 +12,18 @@ public static class MediaUploadCommand
         var nameOpt = new Option<string?>("--name") { Description = "Display name for the media item. Defaults to the filename." };
         cmd.Add(fileArg); cmd.Add(parentOpt); cmd.Add(nameOpt);
 
-        cmd.SetAction(async (parseResult, ct) =>
-        {
-            var file = parseResult.GetValue(fileArg)!;
-            var name = parseResult.GetValue(nameOpt) ?? file.Name;
-            var mimeType = MimeTypeFor(file.Extension);
+        cmd.SetAction((parseResult, ct) => executor.RunObjectAsync(
+            parseResult, "media.upload",
+            async (client, c) =>
+            {
+                var file = parseResult.GetValue(fileArg)!;
+                var name = parseResult.GetValue(nameOpt) ?? file.Name;
+                var mimeType = MimeTypeFor(file.Extension);
 
-            await using var stream = file.OpenRead();
-            return await executor.RunObjectAsync(
-                parseResult, "media.upload",
-                (client, c) => client.UploadMediaAsync(parseResult.GetValue(parentOpt), name, stream, file.Name, mimeType, c),
-                ct);
-        });
+                await using var stream = file.OpenRead();
+                return await client.UploadMediaAsync(parseResult.GetValue(parentOpt), name, stream, file.Name, mimeType, c);
+            },
+            ct));
 
         return cmd;
     }

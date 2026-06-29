@@ -122,6 +122,23 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task RunObject_CallThrows_BackstopWritesErrorAndReturnsOne()
+    {
+        var (executor, parse) = Build(new FakeUmbracoManagementClient());
+
+        var (stdout, stderr, exit) = await Capture(() => executor.RunObjectAsync<ContentItemResponse>(
+            parse, "content.create",
+            (c, ct) => throw new InvalidOperationException("Invalid JSON body."),
+            CancellationToken.None));
+
+        Assert.Equal(1, exit);
+        Assert.Empty(stdout);
+        using var doc = JsonDocument.Parse(stderr);
+        Assert.Equal("error", doc.RootElement.GetProperty("status").GetString());
+        Assert.Contains("Invalid JSON body", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task RunObject_NoHostOrCredentials_AbortsWithTwo()
     {
         // No --host and an empty config → CreateAsync aborts before any client call.

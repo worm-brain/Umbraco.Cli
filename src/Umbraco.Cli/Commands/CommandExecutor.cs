@@ -27,12 +27,13 @@ public sealed class CommandExecutor
         Action<CommandContext, T?> render,
         CancellationToken ct)
     {
+        CommandContext ctx;
+        try { ctx = await _factory.CreateAsync(parseResult, commandName, ct); }
+        catch (CommandAbortedException) { return 2; }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return 130; }
+
         try
         {
-            CommandContext ctx;
-            try { ctx = await _factory.CreateAsync(parseResult, commandName, ct); }
-            catch (CommandAbortedException) { return 2; }
-
             var result = await call(ctx.Client, ct);
             if (!result.IsSuccess) { ctx.Output.WriteError(result.StatusCode, result.ErrorMessage!); return 1; }
 
@@ -42,6 +43,13 @@ public sealed class CommandExecutor
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             return 130; // 128 + SIGINT — distinct from a config abort (2)
+        }
+        catch (Exception ex)
+        {
+            // Backstop: any unforeseen failure (e.g. a malformed --json-body, a missing
+            // upload file) becomes a clean error instead of a raw stack trace.
+            ctx.Output.WriteError(1, ex.Message);
+            return 1;
         }
     }
 

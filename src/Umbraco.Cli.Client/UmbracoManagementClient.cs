@@ -192,40 +192,72 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private async Task<UmbracoResponse<TResponse>> GetAsync<TResponse>(string url, CancellationToken ct)
-    {
-        var response = await _http.GetAsync(url, ct);
-        return await DeserializeAsync<TResponse>(response, ct);
-    }
+    private Task<UmbracoResponse<TResponse>> GetAsync<TResponse>(string url, CancellationToken ct)
+        => GuardedAsync(async () =>
+        {
+            var response = await _http.GetAsync(url, ct);
+            return await DeserializeAsync<TResponse>(response, ct);
+        }, ct);
 
-    private async Task<UmbracoResponse<TResponse>> PostAsync<TRequest, TResponse>(
+    private Task<UmbracoResponse<TResponse>> PostAsync<TRequest, TResponse>(
         string url, TRequest body, CancellationToken ct)
-    {
-        var response = await _http.PostAsJsonAsync(url, body, JsonOptions, ct);
-        return await DeserializeAsync<TResponse>(response, ct);
-    }
+        => GuardedAsync(async () =>
+        {
+            var response = await _http.PostAsJsonAsync(url, body, JsonOptions, ct);
+            return await DeserializeAsync<TResponse>(response, ct);
+        }, ct);
 
-    private async Task<UmbracoResponse<TResponse>> PutAsync<TRequest, TResponse>(
+    private Task<UmbracoResponse<TResponse>> PutAsync<TRequest, TResponse>(
         string url, TRequest body, CancellationToken ct)
-    {
-        var response = await _http.PutAsJsonAsync(url, body, JsonOptions, ct);
-        return await DeserializeAsync<TResponse>(response, ct);
-    }
+        => GuardedAsync(async () =>
+        {
+            var response = await _http.PutAsJsonAsync(url, body, JsonOptions, ct);
+            return await DeserializeAsync<TResponse>(response, ct);
+        }, ct);
 
-    private async Task<UmbracoResponse<object>> DeleteAsync(string url, CancellationToken ct)
-    {
-        var response = await _http.DeleteAsync(url, ct);
-        return response.IsSuccessStatusCode
-            ? UmbracoResponse<object>.Success(new object(), (int)response.StatusCode)
-            : await BuildErrorAsync<object>(response, ct);
-    }
+    private Task<UmbracoResponse<object>> DeleteAsync(string url, CancellationToken ct)
+        => GuardedAsync(async () =>
+        {
+            var response = await _http.DeleteAsync(url, ct);
+            return response.IsSuccessStatusCode
+                ? UmbracoResponse<object>.Success(new object(), (int)response.StatusCode)
+                : await BuildErrorAsync<object>(response, ct);
+        }, ct);
 
-    private async Task<UmbracoResponse<TResponse>> SendAsync<TResponse>(
+    private Task<UmbracoResponse<TResponse>> SendAsync<TResponse>(
         HttpMethod method, string url, HttpContent content, CancellationToken ct)
+        => GuardedAsync(async () =>
+        {
+            var request = new HttpRequestMessage(method, url) { Content = content };
+            var response = await _http.SendAsync(request, ct);
+            return await DeserializeAsync<TResponse>(response, ct);
+        }, ct);
+
+    /// <summary>
+    /// Converts transport-level failures (host unreachable, timeout, unreadable body)
+    /// into a failed <see cref="UmbracoResponse{T}"/> with status code 0, so callers
+    /// see a normal failure instead of an exception. A genuine cancellation requested
+    /// via <paramref name="ct"/> is left to propagate.
+    /// </summary>
+    private static async Task<UmbracoResponse<T>> GuardedAsync<T>(
+        Func<Task<UmbracoResponse<T>>> action, CancellationToken ct)
     {
-        var request = new HttpRequestMessage(method, url) { Content = content };
-        var response = await _http.SendAsync(request, ct);
-        return await DeserializeAsync<TResponse>(response, ct);
+        try
+        {
+            return await action();
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return UmbracoResponse<T>.Failure(0, "The request to the Umbraco instance timed out.");
+        }
+        catch (HttpRequestException ex)
+        {
+            return UmbracoResponse<T>.Failure(0, $"Could not reach the Umbraco instance: {ex.Message}");
+        }
+        catch (JsonException ex)
+        {
+            return UmbracoResponse<T>.Failure(0, $"The Umbraco instance returned an unreadable response: {ex.Message}");
+        }
     }
 
     private static async Task<UmbracoResponse<TResponse>> DeserializeAsync<TResponse>(

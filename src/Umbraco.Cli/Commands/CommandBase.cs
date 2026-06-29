@@ -73,7 +73,15 @@ public sealed class CommandContextFactory
                 output.WriteError(2, "Not authenticated. Run 'umbraco auth login' or set UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET.");
                 throw new CommandAbortedException();
             }
-            bearerToken = await _authService.GetTokenAsync(host, config.ClientId!, config.ClientSecret!, ct);
+            try
+            {
+                bearerToken = await _authService.GetTokenAsync(host, config.ClientId!, config.ClientSecret!, ct);
+            }
+            catch (UmbracoAuthException ex)
+            {
+                output.WriteError(2, $"Authentication failed: {ex.Message}");
+                throw new CommandAbortedException();
+            }
         }
 
         var http = _httpClientFactory.CreateClient("umbraco");
