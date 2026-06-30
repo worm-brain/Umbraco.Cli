@@ -10,10 +10,16 @@ public static class AuthCommand
         GlobalOptions global,
         ConfigStore configStore,
         UmbracoAuthService authService,
-        CommandExecutor executor)
+        CommandExecutor executor
+    )
     {
-        var cmd = new Command("auth", "Manage authentication with your Umbraco instance.\n\nExamples:\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth whoami\n  umbraco auth logout");
-        cmd.Add(LoginCommand.Build(global.Host, global.Output, global.Config, configStore, authService));
+        var cmd = new Command(
+            "auth",
+            "Manage authentication with your Umbraco instance.\n\nExamples:\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth whoami\n  umbraco auth logout"
+        );
+        cmd.Add(
+            LoginCommand.Build(global.Host, global.Output, global.Config, configStore, authService)
+        );
         cmd.Add(LogoutCommand.Build(global.Output, global.Config, configStore));
         cmd.Add(WhoAmICommand.Build(executor));
         return cmd;

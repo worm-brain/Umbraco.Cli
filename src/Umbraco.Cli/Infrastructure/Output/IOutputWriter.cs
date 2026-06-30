@@ -1,6 +1,10 @@
 namespace Umbraco.Cli.Infrastructure.Output;
 
-public enum OutputFormat { Human, Json }
+public enum OutputFormat
+{
+    Human,
+    Json,
+}
 
 public interface IOutputWriter
 {

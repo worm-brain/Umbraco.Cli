@@ -6,13 +6,25 @@ public static class LanguagesDeleteCommand
 {
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Remove a language by its ISO culture code.\n\nExample:\n  umbraco languages delete fr-FR");
-        var isoArg = new Argument<string>("iso-code") { Description = "ISO culture code of the language to remove (e.g. en-US, fr-FR)." }; cmd.Add(isoArg);
-        cmd.SetAction((parseResult, ct) => executor.RunMessageAsync(
-            parseResult, "languages.delete",
-            (client, c) => client.DeleteLanguageAsync(parseResult.GetValue(isoArg)!, c),
-            "Language removed.",
-            ct));
+        var cmd = new Command(
+            "delete",
+            "Remove a language by its ISO culture code.\n\nExample:\n  umbraco languages delete fr-FR"
+        );
+        var isoArg = new Argument<string>("iso-code")
+        {
+            Description = "ISO culture code of the language to remove (e.g. en-US, fr-FR).",
+        };
+        cmd.Add(isoArg);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunMessageAsync(
+                    parseResult,
+                    "languages.delete",
+                    (client, c) => client.DeleteLanguageAsync(parseResult.GetValue(isoArg)!, c),
+                    "Language removed.",
+                    ct
+                )
+        );
 
         return cmd;
     }

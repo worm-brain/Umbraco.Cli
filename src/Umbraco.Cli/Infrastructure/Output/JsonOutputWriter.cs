@@ -31,7 +31,12 @@ public sealed class JsonOutputWriter : IOutputWriter
 
     public void WriteError(int code, string message)
     {
-        var envelope = new { status = "error", code, message };
+        var envelope = new
+        {
+            status = "error",
+            code,
+            message,
+        };
         Console.Error.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 

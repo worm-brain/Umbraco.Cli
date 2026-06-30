@@ -12,7 +12,9 @@ namespace Umbraco.Cli.Infrastructure.Http;
 public sealed class VerboseHttpHandler : DelegatingHandler
 {
     protected override async Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request, CancellationToken cancellationToken)
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
         Console.Error.WriteLine($"> {request.Method} {request.RequestUri}");
         foreach (var (name, values) in request.Headers)
@@ -22,7 +24,9 @@ public sealed class VerboseHttpHandler : DelegatingHandler
         var response = await base.SendAsync(request, cancellationToken);
         sw.Stop();
 
-        Console.Error.WriteLine($"< {(int)response.StatusCode} {response.ReasonPhrase} ({sw.ElapsedMilliseconds} ms)");
+        Console.Error.WriteLine(
+            $"< {(int)response.StatusCode} {response.ReasonPhrase} ({sw.ElapsedMilliseconds} ms)"
+        );
         return response;
     }
 

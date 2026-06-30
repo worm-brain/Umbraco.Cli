@@ -25,17 +25,31 @@ public sealed class CommandExecutor
         string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         Action<CommandContext, T?> render,
-        CancellationToken ct)
+        CancellationToken ct
+    )
     {
         CommandContext ctx;
-        try { ctx = await _factory.CreateAsync(parseResult, commandName, ct); }
-        catch (CommandAbortedException) { return 2; }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return 130; }
+        try
+        {
+            ctx = await _factory.CreateAsync(parseResult, commandName, ct);
+        }
+        catch (CommandAbortedException)
+        {
+            return 2;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return 130;
+        }
 
         try
         {
             var result = await call(ctx.Client, ct);
-            if (!result.IsSuccess) { ctx.Output.WriteError(result.StatusCode, result.ErrorMessage!); return 1; }
+            if (!result.IsSuccess)
+            {
+                ctx.Output.WriteError(result.StatusCode, result.ErrorMessage!);
+                return 1;
+            }
 
             render(ctx, result.Data);
             return 0;
@@ -58,9 +72,16 @@ public sealed class CommandExecutor
         ParseResult parseResult,
         string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
-        CancellationToken ct)
-        => RunAsync(parseResult, commandName, call,
-            static (ctx, data) => ctx.Output.WriteSuccess(data, ctx.CommandName, ctx.Stopwatch.ElapsedMilliseconds), ct);
+        CancellationToken ct
+    ) =>
+        RunAsync(
+            parseResult,
+            commandName,
+            call,
+            static (ctx, data) =>
+                ctx.Output.WriteSuccess(data, ctx.CommandName, ctx.Stopwatch.ElapsedMilliseconds),
+            ct
+        );
 
     /// <summary>Writes a fixed success message via <see cref="IOutputWriter.WriteMessage"/>.</summary>
     public Task<int> RunMessageAsync<T>(
@@ -68,9 +89,15 @@ public sealed class CommandExecutor
         string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         string successMessage,
-        CancellationToken ct)
-        => RunAsync(parseResult, commandName, call,
-            (ctx, _) => ctx.Output.WriteMessage(successMessage), ct);
+        CancellationToken ct
+    ) =>
+        RunAsync(
+            parseResult,
+            commandName,
+            call,
+            (ctx, _) => ctx.Output.WriteMessage(successMessage),
+            ct
+        );
 
     /// <summary>Projects the result into table rows via <see cref="IOutputWriter.WriteTable"/>.</summary>
     public Task<int> RunTableAsync<T>(
@@ -79,7 +106,13 @@ public sealed class CommandExecutor
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         string[] headers,
         Func<T?, IEnumerable<string[]>> rows,
-        CancellationToken ct)
-        => RunAsync(parseResult, commandName, call,
-            (ctx, data) => ctx.Output.WriteTable(headers, rows(data)), ct);
+        CancellationToken ct
+    ) =>
+        RunAsync(
+            parseResult,
+            commandName,
+            call,
+            (ctx, data) => ctx.Output.WriteTable(headers, rows(data)),
+            ct
+        );
 }

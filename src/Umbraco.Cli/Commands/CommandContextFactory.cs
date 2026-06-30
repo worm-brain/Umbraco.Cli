@@ -19,7 +19,8 @@ public sealed class CommandContextFactory
         UmbracoAuthService authService,
         IHttpClientFactory httpClientFactory,
         GlobalOptions globalOptions,
-        IUmbracoManagementClientFactory clientFactory)
+        IUmbracoManagementClientFactory clientFactory
+    )
     {
         _configStore = configStore;
         _authService = authService;
@@ -36,7 +37,8 @@ public sealed class CommandContextFactory
     public async Task<CommandContext> CreateAsync(
         ParseResult parseResult,
         string commandName,
-        CancellationToken ct = default)
+        CancellationToken ct = default
+    )
     {
         var hostOverride = parseResult.GetValue(_globalOptions.Host);
         var tokenOverride = parseResult.GetValue(_globalOptions.Token);
@@ -48,7 +50,10 @@ public sealed class CommandContextFactory
         var host = hostOverride ?? config.Host;
         if (string.IsNullOrEmpty(host))
         {
-            output.WriteError(2, "No Umbraco host configured. Run 'umbraco auth login' or set UMBRACO_HOST.");
+            output.WriteError(
+                2,
+                "No Umbraco host configured. Run 'umbraco auth login' or set UMBRACO_HOST."
+            );
             throw new CommandAbortedException();
         }
 
@@ -61,12 +66,20 @@ public sealed class CommandContextFactory
         {
             if (!config.IsComplete)
             {
-                output.WriteError(2, "Not authenticated. Run 'umbraco auth login' or set UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET.");
+                output.WriteError(
+                    2,
+                    "Not authenticated. Run 'umbraco auth login' or set UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET."
+                );
                 throw new CommandAbortedException();
             }
             try
             {
-                bearerToken = await _authService.GetTokenAsync(host, config.ClientId!, config.ClientSecret!, ct);
+                bearerToken = await _authService.GetTokenAsync(
+                    host,
+                    config.ClientId!,
+                    config.ClientSecret!,
+                    ct
+                );
             }
             catch (UmbracoAuthException ex)
             {
@@ -78,8 +91,10 @@ public sealed class CommandContextFactory
         var verbose = parseResult.GetValue(_globalOptions.Verbose);
         var http = _httpClientFactory.CreateClient(verbose ? "umbraco-verbose" : "umbraco");
         http.BaseAddress = new Uri(host.TrimEnd('/') + "/");
-        http.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", bearerToken);
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            bearerToken
+        );
 
         return new CommandContext
         {

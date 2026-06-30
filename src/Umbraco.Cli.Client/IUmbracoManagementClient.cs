@@ -15,15 +15,15 @@ namespace Umbraco.Cli.Client;
 ///     --namespace-name Umbraco.Cli.Client \
 ///     --class-name UmbracoManagementClient
 /// </summary>
-public interface IUmbracoManagementClient :
-    IAuthClient,
-    IContentClient,
-    IMediaClient,
-    IDocumentTypeClient,
-    IDataTypeClient,
-    ILanguageClient,
-    ITemplateClient,
-    IMemberClient,
-    IUserClient,
-    IDictionaryClient,
-    IWebhookClient;
+public interface IUmbracoManagementClient
+    : IAuthClient,
+        IContentClient,
+        IMediaClient,
+        IDocumentTypeClient,
+        IDataTypeClient,
+        ILanguageClient,
+        ITemplateClient,
+        IMemberClient,
+        IUserClient,
+        IDictionaryClient,
+        IWebhookClient;

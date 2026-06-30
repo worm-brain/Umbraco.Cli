@@ -7,13 +7,22 @@ public class UmbracoManagementClientTests
     private sealed class ThrowingHandler : HttpMessageHandler
     {
         private readonly Exception _ex;
+
         public ThrowingHandler(Exception ex) => _ex = ex;
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-            => throw _ex;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken ct
+        ) => throw _ex;
     }
 
     private static UmbracoManagementClient ClientThatThrows(Exception ex) =>
-        new(new HttpClient(new ThrowingHandler(ex)) { BaseAddress = new Uri("https://example.com/") });
+        new(
+            new HttpClient(new ThrowingHandler(ex))
+            {
+                BaseAddress = new Uri("https://example.com/"),
+            }
+        );
 
     [Fact]
     public async Task TransportFailure_BecomesFailureNotException()
@@ -46,7 +55,8 @@ public class UmbracoManagementClientTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => client.GetContentByIdAsync(Guid.NewGuid(), cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            client.GetContentByIdAsync(Guid.NewGuid(), cts.Token)
+        );
     }
 }

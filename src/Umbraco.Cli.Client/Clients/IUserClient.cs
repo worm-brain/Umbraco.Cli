@@ -4,9 +4,15 @@ namespace Umbraco.Cli.Client;
 public interface IUserClient
 {
     Task<UmbracoResponse<PagedResponse<UserResponse>>> GetUsersAsync(
-        int skip = 0, int take = 20, CancellationToken ct = default);
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    );
 
     Task<UmbracoResponse<UserResponse>> GetUserByIdAsync(Guid id, CancellationToken ct = default);
 
-    Task<UmbracoResponse<Empty>> InviteUserAsync(InviteUserRequest request, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> InviteUserAsync(
+        InviteUserRequest request,
+        CancellationToken ct = default
+    );
 }

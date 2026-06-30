@@ -9,7 +9,9 @@ public sealed class ConfigStore
     public static string DefaultConfigPath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Umbraco", "config.json");
+            "Umbraco",
+            "config.json"
+        );
 
     private readonly string _configPath;
 
@@ -29,14 +31,17 @@ public sealed class ConfigStore
     {
         // Environment variables take precedence over the config file.
         var fromEnv = LoadFromEnvironment();
-        if (fromEnv.IsComplete) return fromEnv;
+        if (fromEnv.IsComplete)
+            return fromEnv;
 
-        if (!File.Exists(_configPath)) return fromEnv;
+        if (!File.Exists(_configPath))
+            return fromEnv;
 
         try
         {
             var json = File.ReadAllText(_configPath);
-            var fromFile = JsonSerializer.Deserialize<CliConfig>(json, JsonOptions) ?? new CliConfig();
+            var fromFile =
+                JsonSerializer.Deserialize<CliConfig>(json, JsonOptions) ?? new CliConfig();
 
             // Env vars override individual file values.
             return new CliConfig
@@ -65,10 +70,11 @@ public sealed class ConfigStore
             File.Delete(_configPath);
     }
 
-    private static CliConfig LoadFromEnvironment() => new()
-    {
-        Host = Environment.GetEnvironmentVariable("UMBRACO_HOST"),
-        ClientId = Environment.GetEnvironmentVariable("UMBRACO_CLIENT_ID"),
-        ClientSecret = Environment.GetEnvironmentVariable("UMBRACO_CLIENT_SECRET"),
-    };
+    private static CliConfig LoadFromEnvironment() =>
+        new()
+        {
+            Host = Environment.GetEnvironmentVariable("UMBRACO_HOST"),
+            ClientId = Environment.GetEnvironmentVariable("UMBRACO_CLIENT_ID"),
+            ClientSecret = Environment.GetEnvironmentVariable("UMBRACO_CLIENT_SECRET"),
+        };
 }

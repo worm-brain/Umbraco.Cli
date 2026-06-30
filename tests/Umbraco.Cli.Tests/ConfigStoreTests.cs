@@ -4,8 +4,10 @@ namespace Umbraco.Cli.Tests;
 
 public class ConfigStoreTests : IDisposable
 {
-    private readonly string _tempPath =
-        Path.Combine(Path.GetTempPath(), $"umbraco-cli-test-{Guid.NewGuid()}.json");
+    private readonly string _tempPath = Path.Combine(
+        Path.GetTempPath(),
+        $"umbraco-cli-test-{Guid.NewGuid()}.json"
+    );
 
     private ConfigStore Store => new(_tempPath);
 
@@ -53,7 +55,11 @@ public class ConfigStoreTests : IDisposable
     public void Save_CreatesParentDirectoryIfMissing()
     {
         var deepPath = Path.Combine(
-            Path.GetTempPath(), $"umbraco-deep-{Guid.NewGuid()}", "sub", "config.json");
+            Path.GetTempPath(),
+            $"umbraco-deep-{Guid.NewGuid()}",
+            "sub",
+            "config.json"
+        );
         try
         {
             new ConfigStore(deepPath).Save(new CliConfig { Host = "https://test.com" });
@@ -92,7 +98,12 @@ public class ConfigStoreTests : IDisposable
     [Fact]
     public void IsComplete_AllFieldsSet_ReturnsTrue()
     {
-        var cfg = new CliConfig { Host = "https://host.com", ClientId = "id", ClientSecret = "s" };
+        var cfg = new CliConfig
+        {
+            Host = "https://host.com",
+            ClientId = "id",
+            ClientSecret = "s",
+        };
         Assert.True(cfg.IsComplete);
     }
 
@@ -104,7 +115,12 @@ public class ConfigStoreTests : IDisposable
     [InlineData("https://host.com", "", "secret")]
     public void IsComplete_MissingField_ReturnsFalse(string? host, string? id, string? secret)
     {
-        var cfg = new CliConfig { Host = host, ClientId = id, ClientSecret = secret };
+        var cfg = new CliConfig
+        {
+            Host = host,
+            ClientId = id,
+            ClientSecret = secret,
+        };
         Assert.False(cfg.IsComplete);
     }
 
@@ -113,12 +129,14 @@ public class ConfigStoreTests : IDisposable
     [Fact]
     public void Load_AllEnvVarsSet_ReturnsEnvValuesWithoutReadingFile()
     {
-        Store.Save(new CliConfig
-        {
-            Host = "https://from-file.com",
-            ClientId = "file-id",
-            ClientSecret = "file-secret",
-        });
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://from-file.com",
+                ClientId = "file-id",
+                ClientSecret = "file-secret",
+            }
+        );
 
         Environment.SetEnvironmentVariable("UMBRACO_HOST", "https://from-env.com");
         Environment.SetEnvironmentVariable("UMBRACO_CLIENT_ID", "env-id");
@@ -141,12 +159,14 @@ public class ConfigStoreTests : IDisposable
     [Fact]
     public void Load_PartialEnvVars_MergesWithFileValues()
     {
-        Store.Save(new CliConfig
-        {
-            Host = "https://from-file.com",
-            ClientId = "file-id",
-            ClientSecret = "file-secret",
-        });
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://from-file.com",
+                ClientId = "file-id",
+                ClientSecret = "file-secret",
+            }
+        );
 
         Environment.SetEnvironmentVariable("UMBRACO_HOST", "https://from-env.com");
         try

@@ -4,7 +4,13 @@ namespace Umbraco.Cli.Client;
 public interface IDataTypeClient
 {
     Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
-        int skip = 0, int take = 20, CancellationToken ct = default);
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    );
 
-    Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(Guid id, CancellationToken ct = default);
+    Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
+        Guid id,
+        CancellationToken ct = default
+    );
 }

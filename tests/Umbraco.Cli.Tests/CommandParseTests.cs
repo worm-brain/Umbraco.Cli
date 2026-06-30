@@ -29,11 +29,17 @@ public class CommandParseTests
     {
         var stub = new StubHttpClientFactory();
         var configStore = new ConfigStore(
-            Path.Combine(Path.GetTempPath(), $"umbraco-parse-test-{Guid.NewGuid()}.json"));
+            Path.Combine(Path.GetTempPath(), $"umbraco-parse-test-{Guid.NewGuid()}.json")
+        );
         var authService = new UmbracoAuthService(stub);
         var globalOptions = new GlobalOptions();
         var factory = new CommandContextFactory(
-            configStore, authService, stub, globalOptions, new UmbracoManagementClientFactory());
+            configStore,
+            authService,
+            stub,
+            globalOptions,
+            new UmbracoManagementClientFactory()
+        );
         var executor = new CommandExecutor(factory);
 
         var root = new RootCommand("Umbraco CLI");
@@ -82,7 +88,10 @@ public class CommandParseTests
     }
 
     [Theory]
-    [InlineData("content", new[] { "list", "get", "create", "update", "delete", "publish", "unpublish" })]
+    [InlineData(
+        "content",
+        new[] { "list", "get", "create", "update", "delete", "publish", "unpublish" }
+    )]
     [InlineData("media", new[] { "list", "get", "upload", "delete" })]
     [InlineData("auth", new[] { "login", "logout", "whoami" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)

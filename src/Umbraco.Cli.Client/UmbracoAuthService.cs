@@ -20,7 +20,11 @@ public sealed class UmbracoAuthService
 
     /// <summary>Returns a valid bearer token, fetching/refreshing as needed.</summary>
     public async Task<string> GetTokenAsync(
-        string host, string clientId, string clientSecret, CancellationToken ct = default)
+        string host,
+        string clientId,
+        string clientSecret,
+        CancellationToken ct = default
+    )
     {
         await _lock.WaitAsync(ct);
         try
@@ -29,7 +33,8 @@ public sealed class UmbracoAuthService
                 return _cachedToken;
 
             var http = _httpClientFactory.CreateClient();
-            var tokenUrl = $"{host.TrimEnd('/')}/umbraco/management/api/v1/security/back-office/token";
+            var tokenUrl =
+                $"{host.TrimEnd('/')}/umbraco/management/api/v1/security/back-office/token";
 
             var form = new Dictionary<string, string>
             {
@@ -38,16 +43,23 @@ public sealed class UmbracoAuthService
                 ["client_secret"] = clientSecret,
             };
 
-            using var response = await http.PostAsync(tokenUrl, new FormUrlEncodedContent(form), ct);
+            using var response = await http.PostAsync(
+                tokenUrl,
+                new FormUrlEncodedContent(form),
+                ct
+            );
 
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync(ct);
-                throw new UmbracoAuthException((int)response.StatusCode,
-                    $"Token request failed ({(int)response.StatusCode}): {body}");
+                throw new UmbracoAuthException(
+                    (int)response.StatusCode,
+                    $"Token request failed ({(int)response.StatusCode}): {body}"
+                );
             }
 
-            var token = await response.Content.ReadFromJsonAsync<TokenResponse>(ct)
+            var token =
+                await response.Content.ReadFromJsonAsync<TokenResponse>(ct)
                 ?? throw new UmbracoAuthException(0, "Empty token response");
 
             _cachedToken = token.AccessToken;
@@ -63,8 +75,15 @@ public sealed class UmbracoAuthService
     public void Invalidate()
     {
         _lock.Wait();
-        try { _cachedToken = null; _tokenExpiry = DateTimeOffset.MinValue; }
-        finally { _lock.Release(); }
+        try
+        {
+            _cachedToken = null;
+            _tokenExpiry = DateTimeOffset.MinValue;
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 }
 

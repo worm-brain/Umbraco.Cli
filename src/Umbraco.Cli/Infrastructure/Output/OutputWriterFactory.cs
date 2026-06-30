@@ -8,7 +8,8 @@ public static class OutputWriterFactory
     /// </summary>
     public static IOutputWriter Create(OutputFormat? requested = null)
     {
-        var format = requested ?? (Console.IsOutputRedirected ? OutputFormat.Json : OutputFormat.Human);
+        var format =
+            requested ?? (Console.IsOutputRedirected ? OutputFormat.Json : OutputFormat.Human);
         return format == OutputFormat.Json ? new JsonOutputWriter() : new HumanOutputWriter();
     }
 }

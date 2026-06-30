@@ -17,19 +17,30 @@ public class CommandExecutorTests
     private sealed class FakeClientFactory : IUmbracoManagementClientFactory
     {
         private readonly IUmbracoManagementClient _client;
+
         public FakeClientFactory(IUmbracoManagementClient client) => _client = client;
+
         public IUmbracoManagementClient Create(HttpClient http) => _client;
     }
 
     private static (CommandExecutor executor, ParseResult parse) Build(
-        IUmbracoManagementClient client, string args = "--host https://example.com --token tok --output json")
+        IUmbracoManagementClient client,
+        string args = "--host https://example.com --token tok --output json"
+    )
     {
         var stub = new StubHttpClientFactory();
         var configStore = new ConfigStore(
-            Path.Combine(Path.GetTempPath(), $"umbraco-exec-test-{Guid.NewGuid()}.json"));
+            Path.Combine(Path.GetTempPath(), $"umbraco-exec-test-{Guid.NewGuid()}.json")
+        );
         var authService = new UmbracoAuthService(stub);
         var global = new GlobalOptions();
-        var factory = new CommandContextFactory(configStore, authService, stub, global, new FakeClientFactory(client));
+        var factory = new CommandContextFactory(
+            configStore,
+            authService,
+            stub,
+            global,
+            new FakeClientFactory(client)
+        );
         var executor = new CommandExecutor(factory);
 
         var root = new RootCommand();
@@ -37,7 +48,9 @@ public class CommandExecutorTests
         return (executor, root.Parse(args));
     }
 
-    private static async Task<(string stdout, string stderr, int exit)> Capture(Func<Task<int>> action)
+    private static async Task<(string stdout, string stderr, int exit)> Capture(
+        Func<Task<int>> action
+    )
     {
         var outSw = new StringWriter();
         var errSw = new StringWriter();
@@ -65,14 +78,19 @@ public class CommandExecutorTests
         var client = new FakeUmbracoManagementClient
         {
             ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(
-                new ContentItemResponse { Id = Guid.NewGuid(), Name = "About" }),
+                new ContentItemResponse { Id = Guid.NewGuid(), Name = "About" }
+            ),
         };
         var (executor, parse) = Build(client);
 
-        var (stdout, stderr, exit) = await Capture(() => executor.RunObjectAsync(
-            parse, "content.get",
-            (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
-            CancellationToken.None));
+        var (stdout, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal(0, exit);
         Assert.Empty(stderr);
@@ -90,10 +108,14 @@ public class CommandExecutorTests
         };
         var (executor, parse) = Build(client);
 
-        var (stdout, stderr, exit) = await Capture(() => executor.RunObjectAsync(
-            parse, "content.get",
-            (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
-            CancellationToken.None));
+        var (stdout, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal(1, exit);
         Assert.Empty(stdout);
@@ -109,14 +131,20 @@ public class CommandExecutorTests
         var id = Guid.NewGuid();
         var client = new FakeUmbracoManagementClient
         {
-            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(new ContentItemResponse()),
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(
+                new ContentItemResponse()
+            ),
         };
         var (executor, parse) = Build(client);
 
-        await Capture(() => executor.RunObjectAsync(
-            parse, "content.get",
-            (c, ct) => c.GetContentByIdAsync(id, ct),
-            CancellationToken.None));
+        await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(id, ct),
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal(id, client.LastRequestedId);
     }
@@ -126,10 +154,14 @@ public class CommandExecutorTests
     {
         var (executor, parse) = Build(new FakeUmbracoManagementClient());
 
-        var (stdout, stderr, exit) = await Capture(() => executor.RunObjectAsync<ContentItemResponse>(
-            parse, "content.create",
-            (c, ct) => throw new InvalidOperationException("Invalid JSON body."),
-            CancellationToken.None));
+        var (stdout, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync<ContentItemResponse>(
+                parse,
+                "content.create",
+                (c, ct) => throw new InvalidOperationException("Invalid JSON body."),
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal(1, exit);
         Assert.Empty(stdout);
@@ -144,10 +176,14 @@ public class CommandExecutorTests
         // No --host and an empty config → CreateAsync aborts before any client call.
         var (executor, parse) = Build(new FakeUmbracoManagementClient(), args: "--output json");
 
-        var (stdout, stderr, exit) = await Capture(() => executor.RunObjectAsync(
-            parse, "content.get",
-            (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
-            CancellationToken.None));
+        var (stdout, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal(2, exit);
         Assert.Empty(stdout);

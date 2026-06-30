@@ -19,6 +19,7 @@ using Umbraco.Cli.Infrastructure.Http;
 // ── DI ────────────────────────────────────────────────────────────────────────
 var services = new ServiceCollection();
 services.AddHttpClient();
+
 // A second named client that logs request/response to stderr; selected by --verbose.
 services.AddTransient<VerboseHttpHandler>();
 services.AddHttpClient("umbraco-verbose").AddHttpMessageHandler<VerboseHttpHandler>();
@@ -31,7 +32,8 @@ services.AddSingleton(sp => new CommandContextFactory(
     sp.GetRequiredService<UmbracoAuthService>(),
     sp.GetRequiredService<IHttpClientFactory>(),
     sp.GetRequiredService<GlobalOptions>(),
-    sp.GetRequiredService<IUmbracoManagementClientFactory>()));
+    sp.GetRequiredService<IUmbracoManagementClientFactory>()
+));
 services.AddSingleton(sp => new CommandExecutor(sp.GetRequiredService<CommandContextFactory>()));
 
 var sp = services.BuildServiceProvider();
@@ -42,13 +44,14 @@ var executor = sp.GetRequiredService<CommandExecutor>();
 
 // ── Root command ──────────────────────────────────────────────────────────────
 var root = new RootCommand(
-    "Umbraco CLI — manage your Umbraco CMS from the terminal.\n\n" +
-    "Quick start:\n" +
-    "  umbraco auth login --host https://mysite.com\n" +
-    "  umbraco content list --output json\n" +
-    "  umbraco content list | jq '.data[].name'\n\n" +
-    "All commands support --output json (default when stdout is piped).\n" +
-    "Use UMBRACO_HOST, UMBRACO_CLIENT_ID, UMBRACO_CLIENT_SECRET for CI/CD.");
+    "Umbraco CLI — manage your Umbraco CMS from the terminal.\n\n"
+        + "Quick start:\n"
+        + "  umbraco auth login --host https://mysite.com\n"
+        + "  umbraco content list --output json\n"
+        + "  umbraco content list | jq '.data[].name'\n\n"
+        + "All commands support --output json (default when stdout is piped).\n"
+        + "Use UMBRACO_HOST, UMBRACO_CLIENT_ID, UMBRACO_CLIENT_SECRET for CI/CD."
+);
 
 // Global options are recursive — available on every command.
 globalOptions.AddTo(root);

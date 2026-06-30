@@ -8,35 +8,57 @@ public static class MediaUploadCommand
     {
         var cmd = new Command("upload", "Upload a file as a media item.");
         var fileArg = new Argument<FileInfo>("file") { Description = "Local file to upload." };
-        var parentOpt = new Option<Guid>("--parent") { Description = "UUID of the media folder to upload into.", Required = true  };
-        var nameOpt = new Option<string?>("--name") { Description = "Display name for the media item. Defaults to the filename." };
-        cmd.Add(fileArg); cmd.Add(parentOpt); cmd.Add(nameOpt);
+        var parentOpt = new Option<Guid>("--parent")
+        {
+            Description = "UUID of the media folder to upload into.",
+            Required = true,
+        };
+        var nameOpt = new Option<string?>("--name")
+        {
+            Description = "Display name for the media item. Defaults to the filename.",
+        };
+        cmd.Add(fileArg);
+        cmd.Add(parentOpt);
+        cmd.Add(nameOpt);
 
-        cmd.SetAction((parseResult, ct) => executor.RunObjectAsync(
-            parseResult, "media.upload",
-            async (client, c) =>
-            {
-                var file = parseResult.GetValue(fileArg)!;
-                var name = parseResult.GetValue(nameOpt) ?? file.Name;
-                var mimeType = MimeTypeFor(file.Extension);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunObjectAsync(
+                    parseResult,
+                    "media.upload",
+                    async (client, c) =>
+                    {
+                        var file = parseResult.GetValue(fileArg)!;
+                        var name = parseResult.GetValue(nameOpt) ?? file.Name;
+                        var mimeType = MimeTypeFor(file.Extension);
 
-                await using var stream = file.OpenRead();
-                return await client.UploadMediaAsync(parseResult.GetValue(parentOpt), name, stream, file.Name, mimeType, c);
-            },
-            ct));
+                        await using var stream = file.OpenRead();
+                        return await client.UploadMediaAsync(
+                            parseResult.GetValue(parentOpt),
+                            name,
+                            stream,
+                            file.Name,
+                            mimeType,
+                            c
+                        );
+                    },
+                    ct
+                )
+        );
 
         return cmd;
     }
 
-    private static string MimeTypeFor(string ext) => ext.ToLowerInvariant() switch
-    {
-        ".jpg" or ".jpeg" => "image/jpeg",
-        ".png" => "image/png",
-        ".gif" => "image/gif",
-        ".webp" => "image/webp",
-        ".svg" => "image/svg+xml",
-        ".pdf" => "application/pdf",
-        ".mp4" => "video/mp4",
-        _ => "application/octet-stream",
-    };
+    private static string MimeTypeFor(string ext) =>
+        ext.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".svg" => "image/svg+xml",
+            ".pdf" => "application/pdf",
+            ".mp4" => "video/mp4",
+            _ => "application/octet-stream",
+        };
 }

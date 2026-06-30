@@ -16,7 +16,10 @@ public class JsonOutputWriterTests
         var originalErr = Console.Error;
         Console.SetOut(outSw);
         Console.SetError(errSw);
-        try { action(); }
+        try
+        {
+            action();
+        }
         finally
         {
             Console.SetOut(originalOut);
@@ -46,7 +49,9 @@ public class JsonOutputWriterTests
     [Fact]
     public void WriteSuccess_MetaContainsCommandAndDuration()
     {
-        var (stdout, _) = Capture(() => _writer.WriteSuccess(42, commandName: "content.list", durationMs: 99));
+        var (stdout, _) = Capture(() =>
+            _writer.WriteSuccess(42, commandName: "content.list", durationMs: 99)
+        );
         var doc = JsonDocument.Parse(stdout);
         var meta = doc.RootElement.GetProperty("meta");
         Assert.Equal("content.list", meta.GetProperty("command").GetString());
