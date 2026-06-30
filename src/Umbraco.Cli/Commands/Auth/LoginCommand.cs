@@ -44,7 +44,7 @@ public static class LoginCommand
 
             if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
             {
-                writer.WriteError(3, "--host, --client-id, and --client-secret are all required.");
+                writer.WriteError(2, "--host, --client-id, and --client-secret are all required.");
                 return 2;
             }
 
