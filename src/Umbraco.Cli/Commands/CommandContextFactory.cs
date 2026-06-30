@@ -43,7 +43,7 @@ public sealed class CommandContextFactory
         var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(_globalOptions.Output));
 
         var output = OutputWriterFactory.Create(outputFormat);
-        var config = _configStore.Load();
+        var config = ResolveConfigStore(parseResult).Load();
 
         var host = hostOverride ?? config.Host;
         if (string.IsNullOrEmpty(host))
@@ -87,4 +87,11 @@ public sealed class CommandContextFactory
             CommandName = commandName,
         };
     }
+
+    /// <summary>
+    /// Honours <c>--config</c>: when a path is supplied, reads from a store rooted there;
+    /// otherwise falls back to the injected store (default path / env vars).
+    /// </summary>
+    private ConfigStore ResolveConfigStore(ParseResult parseResult) =>
+        ConfigStore.Resolve(parseResult.GetValue(_globalOptions.Config), _configStore);
 }

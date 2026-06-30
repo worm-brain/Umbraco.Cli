@@ -18,6 +18,13 @@ public sealed class ConfigStore
         _configPath = configPath ?? DefaultConfigPath;
     }
 
+    /// <summary>
+    /// Returns a store rooted at <paramref name="path"/> when one is supplied (honouring
+    /// <c>--config</c>), otherwise the <paramref name="fallback"/> store (default path / env vars).
+    /// </summary>
+    public static ConfigStore Resolve(string? path, ConfigStore fallback) =>
+        string.IsNullOrEmpty(path) ? fallback : new ConfigStore(path);
+
     public CliConfig Load()
     {
         // Environment variables take precedence over the config file.

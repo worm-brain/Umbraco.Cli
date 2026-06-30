@@ -11,6 +11,7 @@ public static class LoginCommand
     public static Command Build(
         Option<string?> hostOption,
         Option<string?> outputOption,
+        Option<string?> configOption,
         ConfigStore configStore,
         UmbracoAuthService authService)
     {
@@ -58,7 +59,8 @@ public static class LoginCommand
                 return 2;
             }
 
-            configStore.Save(new CliConfig
+            var store = ConfigStore.Resolve(parseResult.GetValue(configOption), configStore);
+            store.Save(new CliConfig
             {
                 Host = host,
                 ClientId = clientId,
