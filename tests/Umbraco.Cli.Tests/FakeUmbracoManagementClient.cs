@@ -27,11 +27,11 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
 
     public Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(Guid id, UpdateContentRequest request, CancellationToken ct = default) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<object>> DeleteContentAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> DeleteContentAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<object>> PublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> PublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<object>> UnpublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> UnpublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> GetMediaAsync( Guid? parentId = null, int skip = 0, int take = 20, CancellationToken ct = default) => throw new NotImplementedException();
 
@@ -39,7 +39,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
 
     public Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(Guid parentId, string name, Stream fileStream, string fileName, string contentType, CancellationToken ct = default) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<object>> DeleteMediaAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> DeleteMediaAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<UmbracoResponse<PagedResponse<DocumentTypeResponse>>> GetDocumentTypesAsync( int skip = 0, int take = 20, CancellationToken ct = default) => throw new NotImplementedException();
 
@@ -47,7 +47,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
 
     public Task<UmbracoResponse<DocumentTypeResponse>> CreateDocumentTypeAsync(CreateDocumentTypeRequest request, CancellationToken ct = default) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<object>> DeleteDocumentTypeAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> DeleteDocumentTypeAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync( int skip = 0, int take = 20, CancellationToken ct = default) => throw new NotImplementedException();
 
@@ -57,7 +57,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
 
     public Task<UmbracoResponse<LanguageResponse>> CreateLanguageAsync(CreateLanguageRequest request, CancellationToken ct = default) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<object>> DeleteLanguageAsync(string isoCode, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> DeleteLanguageAsync(string isoCode, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<UmbracoResponse<PagedResponse<TemplateResponse>>> GetTemplatesAsync( int skip = 0, int take = 20, CancellationToken ct = default) => throw new NotImplementedException();
 
@@ -69,13 +69,13 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
 
     public Task<UmbracoResponse<MemberResponse>> CreateMemberAsync(CreateMemberRequest request, CancellationToken ct = default) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<object>> DeleteMemberAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> DeleteMemberAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<UmbracoResponse<PagedResponse<UserResponse>>> GetUsersAsync( int skip = 0, int take = 20, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<UmbracoResponse<UserResponse>> GetUserByIdAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<object>> InviteUserAsync(InviteUserRequest request, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> InviteUserAsync(InviteUserRequest request, CancellationToken ct = default) => throw new NotImplementedException();
 
     public Task<UmbracoResponse<PagedResponse<DictionaryItemResponse>>> GetDictionaryItemsAsync( int skip = 0, int take = 20, CancellationToken ct = default) => throw new NotImplementedException();
 
@@ -87,5 +87,5 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
 
     public Task<UmbracoResponse<WebhookResponse>> CreateWebhookAsync(CreateWebhookRequest request, CancellationToken ct = default) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<object>> DeleteWebhookAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> DeleteWebhookAsync(Guid id, CancellationToken ct = default) => throw new NotImplementedException();
 }

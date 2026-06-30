@@ -18,6 +18,16 @@ public record UmbracoResponse<T>
         new() { IsSuccess = false, StatusCode = code, ErrorMessage = message };
 }
 
+/// <summary>
+/// The unit payload for operations that succeed without returning data (delete,
+/// publish, invite, …). Used as <c>UmbracoResponse&lt;Empty&gt;</c> so the "no payload"
+/// intent is explicit in the type, replacing a meaningless <c>object</c> placeholder.
+/// </summary>
+public sealed record Empty
+{
+    public static readonly Empty Value = new();
+}
+
 public record PagedResponse<T>
 {
     [JsonPropertyName("total")] public int Total { get; init; }

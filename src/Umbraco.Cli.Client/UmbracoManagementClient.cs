@@ -44,21 +44,21 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     public async Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(Guid id, UpdateContentRequest request, CancellationToken ct = default) =>
         await PutAsync<UpdateContentRequest, ContentItemResponse>($"umbraco/management/api/v1/document/{id}", request, ct);
 
-    public async Task<UmbracoResponse<object>> DeleteContentAsync(Guid id, CancellationToken ct = default) =>
+    public async Task<UmbracoResponse<Empty>> DeleteContentAsync(Guid id, CancellationToken ct = default) =>
         await DeleteAsync($"umbraco/management/api/v1/document/{id}", ct);
 
-    public async Task<UmbracoResponse<object>> PublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default)
+    public async Task<UmbracoResponse<Empty>> PublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default)
     {
         var schedules = (cultures ?? ["*"]).Select(c => new PublishSchedule { Culture = c });
-        return await PutAsync<PublishContentRequest, object>(
+        return await PutAsync<PublishContentRequest, Empty>(
             $"umbraco/management/api/v1/document/{id}/publish",
             new PublishContentRequest { PublishSchedules = schedules }, ct);
     }
 
-    public async Task<UmbracoResponse<object>> UnpublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default)
+    public async Task<UmbracoResponse<Empty>> UnpublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default)
     {
         var schedules = (cultures ?? ["*"]).Select(c => new PublishSchedule { Culture = c });
-        return await PutAsync<PublishContentRequest, object>(
+        return await PutAsync<PublishContentRequest, Empty>(
             $"umbraco/management/api/v1/document/{id}/unpublish",
             new PublishContentRequest { PublishSchedules = schedules }, ct);
     }
@@ -88,7 +88,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         return await SendAsync<MediaItemResponse>(HttpMethod.Post, "umbraco/management/api/v1/media", form, ct);
     }
 
-    public async Task<UmbracoResponse<object>> DeleteMediaAsync(Guid id, CancellationToken ct = default) =>
+    public async Task<UmbracoResponse<Empty>> DeleteMediaAsync(Guid id, CancellationToken ct = default) =>
         await DeleteAsync($"umbraco/management/api/v1/media/{id}", ct);
 
     // ── Document Types ───────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     public async Task<UmbracoResponse<DocumentTypeResponse>> CreateDocumentTypeAsync(CreateDocumentTypeRequest request, CancellationToken ct = default) =>
         await PostAsync<CreateDocumentTypeRequest, DocumentTypeResponse>("umbraco/management/api/v1/document-type", request, ct);
 
-    public async Task<UmbracoResponse<object>> DeleteDocumentTypeAsync(Guid id, CancellationToken ct = default) =>
+    public async Task<UmbracoResponse<Empty>> DeleteDocumentTypeAsync(Guid id, CancellationToken ct = default) =>
         await DeleteAsync($"umbraco/management/api/v1/document-type/{id}", ct);
 
     // ── Data Types ───────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     public async Task<UmbracoResponse<LanguageResponse>> CreateLanguageAsync(CreateLanguageRequest request, CancellationToken ct = default) =>
         await PostAsync<CreateLanguageRequest, LanguageResponse>("umbraco/management/api/v1/language", request, ct);
 
-    public async Task<UmbracoResponse<object>> DeleteLanguageAsync(string isoCode, CancellationToken ct = default) =>
+    public async Task<UmbracoResponse<Empty>> DeleteLanguageAsync(string isoCode, CancellationToken ct = default) =>
         await DeleteAsync($"umbraco/management/api/v1/language/{isoCode}", ct);
 
     // ── Templates ────────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     public async Task<UmbracoResponse<MemberResponse>> CreateMemberAsync(CreateMemberRequest request, CancellationToken ct = default) =>
         await PostAsync<CreateMemberRequest, MemberResponse>("umbraco/management/api/v1/member", request, ct);
 
-    public async Task<UmbracoResponse<object>> DeleteMemberAsync(Guid id, CancellationToken ct = default) =>
+    public async Task<UmbracoResponse<Empty>> DeleteMemberAsync(Guid id, CancellationToken ct = default) =>
         await DeleteAsync($"umbraco/management/api/v1/member/{id}", ct);
 
     // ── Users ─────────────────────────────────────────────────────────────────
@@ -163,8 +163,8 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     public async Task<UmbracoResponse<UserResponse>> GetUserByIdAsync(Guid id, CancellationToken ct = default) =>
         await GetAsync<UserResponse>($"umbraco/management/api/v1/user/{id}", ct);
 
-    public async Task<UmbracoResponse<object>> InviteUserAsync(InviteUserRequest request, CancellationToken ct = default) =>
-        await PostAsync<InviteUserRequest, object>("umbraco/management/api/v1/user/invite", request, ct);
+    public async Task<UmbracoResponse<Empty>> InviteUserAsync(InviteUserRequest request, CancellationToken ct = default) =>
+        await PostAsync<InviteUserRequest, Empty>("umbraco/management/api/v1/user/invite", request, ct);
 
     // ── Dictionary ───────────────────────────────────────────────────────────
 
@@ -187,7 +187,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     public async Task<UmbracoResponse<WebhookResponse>> CreateWebhookAsync(CreateWebhookRequest request, CancellationToken ct = default) =>
         await PostAsync<CreateWebhookRequest, WebhookResponse>("umbraco/management/api/v1/webhook", request, ct);
 
-    public async Task<UmbracoResponse<object>> DeleteWebhookAsync(Guid id, CancellationToken ct = default) =>
+    public async Task<UmbracoResponse<Empty>> DeleteWebhookAsync(Guid id, CancellationToken ct = default) =>
         await DeleteAsync($"umbraco/management/api/v1/webhook/{id}", ct);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -215,13 +215,13 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             return await DeserializeAsync<TResponse>(response, ct);
         }, ct);
 
-    private Task<UmbracoResponse<object>> DeleteAsync(string url, CancellationToken ct)
+    private Task<UmbracoResponse<Empty>> DeleteAsync(string url, CancellationToken ct)
         => GuardedAsync(async () =>
         {
             var response = await _http.DeleteAsync(url, ct);
             return response.IsSuccessStatusCode
-                ? UmbracoResponse<object>.Success(new object(), (int)response.StatusCode)
-                : await BuildErrorAsync<object>(response, ct);
+                ? UmbracoResponse<Empty>.Success(Empty.Value, (int)response.StatusCode)
+                : await BuildErrorAsync<Empty>(response, ct);
         }, ct);
 
     private Task<UmbracoResponse<TResponse>> SendAsync<TResponse>(

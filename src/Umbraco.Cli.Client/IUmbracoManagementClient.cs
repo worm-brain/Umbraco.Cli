@@ -30,11 +30,11 @@ public interface IUmbracoManagementClient
 
     Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(Guid id, UpdateContentRequest request, CancellationToken ct = default);
 
-    Task<UmbracoResponse<object>> DeleteContentAsync(Guid id, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> DeleteContentAsync(Guid id, CancellationToken ct = default);
 
-    Task<UmbracoResponse<object>> PublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> PublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default);
 
-    Task<UmbracoResponse<object>> UnpublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> UnpublishContentAsync(Guid id, IEnumerable<string>? cultures = null, CancellationToken ct = default);
 
     // ── Media ────────────────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ public interface IUmbracoManagementClient
 
     Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(Guid parentId, string name, Stream fileStream, string fileName, string contentType, CancellationToken ct = default);
 
-    Task<UmbracoResponse<object>> DeleteMediaAsync(Guid id, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> DeleteMediaAsync(Guid id, CancellationToken ct = default);
 
     // ── Document Types ───────────────────────────────────────────────────────
 
@@ -56,7 +56,7 @@ public interface IUmbracoManagementClient
 
     Task<UmbracoResponse<DocumentTypeResponse>> CreateDocumentTypeAsync(CreateDocumentTypeRequest request, CancellationToken ct = default);
 
-    Task<UmbracoResponse<object>> DeleteDocumentTypeAsync(Guid id, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> DeleteDocumentTypeAsync(Guid id, CancellationToken ct = default);
 
     // ── Data Types ───────────────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ public interface IUmbracoManagementClient
 
     Task<UmbracoResponse<LanguageResponse>> CreateLanguageAsync(CreateLanguageRequest request, CancellationToken ct = default);
 
-    Task<UmbracoResponse<object>> DeleteLanguageAsync(string isoCode, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> DeleteLanguageAsync(string isoCode, CancellationToken ct = default);
 
     // ── Templates ────────────────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ public interface IUmbracoManagementClient
 
     Task<UmbracoResponse<MemberResponse>> CreateMemberAsync(CreateMemberRequest request, CancellationToken ct = default);
 
-    Task<UmbracoResponse<object>> DeleteMemberAsync(Guid id, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> DeleteMemberAsync(Guid id, CancellationToken ct = default);
 
     // ── Users ─────────────────────────────────────────────────────────────────
 
@@ -98,7 +98,7 @@ public interface IUmbracoManagementClient
 
     Task<UmbracoResponse<UserResponse>> GetUserByIdAsync(Guid id, CancellationToken ct = default);
 
-    Task<UmbracoResponse<object>> InviteUserAsync(InviteUserRequest request, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> InviteUserAsync(InviteUserRequest request, CancellationToken ct = default);
 
     // ── Dictionary ───────────────────────────────────────────────────────────
 
@@ -116,5 +116,5 @@ public interface IUmbracoManagementClient
 
     Task<UmbracoResponse<WebhookResponse>> CreateWebhookAsync(CreateWebhookRequest request, CancellationToken ct = default);
 
-    Task<UmbracoResponse<object>> DeleteWebhookAsync(Guid id, CancellationToken ct = default);
+    Task<UmbracoResponse<Empty>> DeleteWebhookAsync(Guid id, CancellationToken ct = default);
 }
