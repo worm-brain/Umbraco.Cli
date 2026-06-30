@@ -1,19 +1,10 @@
 using System.CommandLine;
-using System.Diagnostics;
 using System.Net.Http.Headers;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands;
-
-public sealed class CommandContext
-{
-    public required IOutputWriter Output { get; init; }
-    public required IUmbracoManagementClient Client { get; init; }
-    public required string CommandName { get; init; }
-    public Stopwatch Stopwatch { get; } = Stopwatch.StartNew();
-}
 
 public sealed class CommandContextFactory
 {
