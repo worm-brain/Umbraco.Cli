@@ -62,6 +62,14 @@ umbraco content list --output json | jq '.data[].name'
 
 Umbraco.Cli uses [API Users](https://docs.umbraco.com/umbraco-cms/manage-and-publish-content/users-and-members/users/api-users) with the OAuth2 Client Credentials flow.
 
+### Get a client ID and client secret
+
+1. Sign in to Umbraco Backoffice with an administrator account.
+2. Go to **Users** and open the **API Users** area.
+3. Create a new API user (or open an existing one) and assign the permissions your CLI usage needs.
+4. Save the API user and copy the generated **Client ID** and **Client Secret**.
+5. Store the secret somewhere safe immediately (password manager/CI secret store), then use both values with `umbraco auth login`.
+
 ### Interactive setup
 
 ```bash
