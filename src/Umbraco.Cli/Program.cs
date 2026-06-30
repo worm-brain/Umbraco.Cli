@@ -20,31 +20,21 @@ var services = new ServiceCollection();
 services.AddHttpClient();
 services.AddSingleton<ConfigStore>();
 services.AddSingleton<UmbracoAuthService>();
+services.AddSingleton<GlobalOptions>();
+services.AddSingleton<IUmbracoManagementClientFactory, UmbracoManagementClientFactory>();
 services.AddSingleton(sp => new CommandContextFactory(
     sp.GetRequiredService<ConfigStore>(),
     sp.GetRequiredService<UmbracoAuthService>(),
-    sp.GetRequiredService<IHttpClientFactory>()));
+    sp.GetRequiredService<IHttpClientFactory>(),
+    sp.GetRequiredService<GlobalOptions>(),
+    sp.GetRequiredService<IUmbracoManagementClientFactory>()));
+services.AddSingleton(sp => new CommandExecutor(sp.GetRequiredService<CommandContextFactory>()));
 
 var sp = services.BuildServiceProvider();
 var configStore = sp.GetRequiredService<ConfigStore>();
 var authService = sp.GetRequiredService<UmbracoAuthService>();
-var factory = sp.GetRequiredService<CommandContextFactory>();
-
-// ── Global options (recursive — available on every command) ───────────────────
-var hostOpt = new Option<string?>("--host", new[] { "-H" })
-    { Description = "Umbraco instance base URL (overrides config / UMBRACO_HOST).", Recursive = true };
-
-var tokenOpt = new Option<string?>("--token")
-    { Description = "Raw bearer token (overrides credential store).", Recursive = true };
-
-var outputOpt = new Option<string?>("--output", new[] { "-o" })
-    { Description = "Output format: json | human (default: json when piped, human in terminal).", Recursive = true };
-
-var verboseOpt = new Option<bool>("--verbose", new[] { "-v" })
-    { Description = "Write HTTP request/response details to stderr.", Recursive = true };
-
-var configOpt = new Option<string?>("--config")
-    { Description = $"Path to config file (default: {ConfigStore.DefaultConfigPath}).", Recursive = true };
+var globalOptions = sp.GetRequiredService<GlobalOptions>();
+var executor = sp.GetRequiredService<CommandExecutor>();
 
 // ── Root command ──────────────────────────────────────────────────────────────
 var root = new RootCommand(
@@ -55,24 +45,22 @@ var root = new RootCommand(
     "  umbraco content list | jq '.data[].name'\n\n" +
     "All commands support --output json (default when stdout is piped).\n" +
     "Use UMBRACO_HOST, UMBRACO_CLIENT_ID, UMBRACO_CLIENT_SECRET for CI/CD.");
-root.Add(hostOpt);
-root.Add(tokenOpt);
-root.Add(outputOpt);
-root.Add(verboseOpt);
-root.Add(configOpt);
+
+// Global options are recursive — available on every command.
+globalOptions.AddTo(root);
 
 // ── Sub-commands ──────────────────────────────────────────────────────────────
-root.Add(AuthCommand.Build(hostOpt, tokenOpt, outputOpt, configStore, authService, factory));
-root.Add(ContentCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-root.Add(MediaCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-root.Add(ContentTypesCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-root.Add(DataTypesCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-root.Add(LanguagesCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-root.Add(TemplatesCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-root.Add(MembersCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-root.Add(UsersCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-root.Add(DictionaryCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-root.Add(WebhooksCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
+root.Add(AuthCommand.Build(globalOptions, configStore, authService, executor));
+root.Add(ContentCommand.Build(executor));
+root.Add(MediaCommand.Build(executor));
+root.Add(ContentTypesCommand.Build(executor));
+root.Add(DataTypesCommand.Build(executor));
+root.Add(LanguagesCommand.Build(executor));
+root.Add(TemplatesCommand.Build(executor));
+root.Add(MembersCommand.Build(executor));
+root.Add(UsersCommand.Build(executor));
+root.Add(DictionaryCommand.Build(executor));
+root.Add(WebhooksCommand.Build(executor));
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 return await root.Parse(args).InvokeAsync();

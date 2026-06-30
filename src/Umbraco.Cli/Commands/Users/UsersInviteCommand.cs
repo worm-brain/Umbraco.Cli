@@ -1,28 +1,27 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Auth;
 
 namespace Umbraco.Cli.Commands.Users;
 
 public static class UsersInviteCommand
 {
-    public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
+    public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command("invite", "Send an email invitation to a new back-office user.\n\nExamples:\n  umbraco users invite --email editor@example.com --name \"Jane Smith\"\n  umbraco users invite --email admin@example.com --name \"Bob\" --message \"Welcome to the team!\"");
         var emailOpt = new Option<string>("--email") { Required = true };
         var nameOpt = new Option<string>("--name") { Required = true };
         var msgOpt = new Option<string?>("--message");
         cmd.Add(emailOpt); cmd.Add(nameOpt); cmd.Add(msgOpt);
-        cmd.SetAction(async (parseResult, ct) =>
+        cmd.SetAction((parseResult, ct) =>
         {
-            CommandContext ctx;
-            try { ctx = await factory.CreateAsync(parseResult.GetValue(hostOpt), parseResult.GetValue(tokenOpt), LoginCommand.ParseOutputFormat(parseResult.GetValue(outputOpt)), "users.invite", ct); }
-            catch (OperationCanceledException) { return 2; }
-            var result = await ctx.Client.InviteUserAsync(new InviteUserRequest { Email = parseResult.GetValue(emailOpt)!, Name = parseResult.GetValue(nameOpt)!, Message = parseResult.GetValue(msgOpt) }, ct);
-            if (!result.IsSuccess) { ctx.Output.WriteError(result.StatusCode, result.ErrorMessage!); return 1; }
-            ctx.Output.WriteMessage($"Invitation sent to {parseResult.GetValue(emailOpt)}.");
-            return 0;
+            var email = parseResult.GetValue(emailOpt)!;
+            return executor.RunMessageAsync(
+                parseResult, "users.invite",
+                (client, c) => client.InviteUserAsync(new InviteUserRequest { Email = email, Name = parseResult.GetValue(nameOpt)!, Message = parseResult.GetValue(msgOpt) }, c),
+                $"Invitation sent to {email}.",
+                ct);
         });
+
         return cmd;
     }
 }

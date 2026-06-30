@@ -1,24 +1,18 @@
 using System.CommandLine;
-using Umbraco.Cli.Commands.Auth;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
 public static class DataTypesGetCommand
 {
-    public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
+    public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command("get", "Get a data type (property editor) by UUID.\n\nExample:\n  umbraco data-types get 3f7a8b2e-...");
         var idArg = new Argument<Guid>("id"); cmd.Add(idArg);
-        cmd.SetAction(async (parseResult, ct) =>
-        {
-            CommandContext ctx;
-            try { ctx = await factory.CreateAsync(parseResult.GetValue(hostOpt), parseResult.GetValue(tokenOpt), LoginCommand.ParseOutputFormat(parseResult.GetValue(outputOpt)), "data-types.get", ct); }
-            catch (OperationCanceledException) { return 2; }
-            var result = await ctx.Client.GetDataTypeByIdAsync(parseResult.GetValue(idArg), ct);
-            if (!result.IsSuccess) { ctx.Output.WriteError(result.StatusCode, result.ErrorMessage!); return 1; }
-            ctx.Output.WriteSuccess(result.Data, ctx.CommandName, ctx.Stopwatch.ElapsedMilliseconds);
-            return 0;
-        });
+        cmd.SetAction((parseResult, ct) => executor.RunObjectAsync(
+            parseResult, "data-types.get",
+            (client, c) => client.GetDataTypeByIdAsync(parseResult.GetValue(idArg), c),
+            ct));
+
         return cmd;
     }
 }

@@ -1,11 +1,10 @@
-using Umbraco.Cli.Commands.Auth;
 using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Tests;
 
 public class OutputFormatTests
 {
-    // ── ParseOutputFormat ────────────────────────────────────────────────────
+    // ── OutputFormatParser ────────────────────────────────────────────────────
 
     [Theory]
     [InlineData("json", OutputFormat.Json)]
@@ -13,9 +12,9 @@ public class OutputFormatTests
     [InlineData("Json", OutputFormat.Json)]
     [InlineData("human", OutputFormat.Human)]
     [InlineData("HUMAN", OutputFormat.Human)]
-    public void ParseOutputFormat_KnownValues_ReturnCorrectFormat(string input, OutputFormat expected)
+    public void Parse_KnownValues_ReturnCorrectFormat(string input, OutputFormat expected)
     {
-        var result = LoginCommand.ParseOutputFormat(input);
+        var result = OutputFormatParser.Parse(input);
         Assert.Equal(expected, result);
     }
 
@@ -24,9 +23,9 @@ public class OutputFormatTests
     [InlineData("")]
     [InlineData("table")]
     [InlineData("xml")]
-    public void ParseOutputFormat_UnknownOrNull_ReturnsNull(string? input)
+    public void Parse_UnknownOrNull_ReturnsNull(string? input)
     {
-        var result = LoginCommand.ParseOutputFormat(input);
+        var result = OutputFormatParser.Parse(input);
         Assert.Null(result);
     }
 

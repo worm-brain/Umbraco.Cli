@@ -4,13 +4,13 @@ namespace Umbraco.Cli.Commands.ContentTypes;
 
 public static class ContentTypesCommand
 {
-    public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
+    public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command("content-types", "List, inspect, and manage Umbraco document types (content types).\n\nExamples:\n  umbraco content-types list\n  umbraco content-types get textPage\n  umbraco content-types create --name \"Blog Post\" --alias blogPost");
-        cmd.Add(ContentTypesListCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        cmd.Add(ContentTypesGetCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        cmd.Add(ContentTypesCreateCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
-        cmd.Add(ContentTypesDeleteCommand.Build(hostOpt, tokenOpt, outputOpt, factory));
+        cmd.Add(ContentTypesListCommand.Build(executor));
+        cmd.Add(ContentTypesGetCommand.Build(executor));
+        cmd.Add(ContentTypesCreateCommand.Build(executor));
+        cmd.Add(ContentTypesDeleteCommand.Build(executor));
         return cmd;
     }
 }

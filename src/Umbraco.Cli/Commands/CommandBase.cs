@@ -1,3 +1,4 @@
+using System.CommandLine;
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using Umbraco.Cli.Client;
@@ -19,24 +20,37 @@ public sealed class CommandContextFactory
     private readonly ConfigStore _configStore;
     private readonly UmbracoAuthService _authService;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly GlobalOptions _globalOptions;
+    private readonly IUmbracoManagementClientFactory _clientFactory;
 
     public CommandContextFactory(
         ConfigStore configStore,
         UmbracoAuthService authService,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        GlobalOptions globalOptions,
+        IUmbracoManagementClientFactory clientFactory)
     {
         _configStore = configStore;
         _authService = authService;
         _httpClientFactory = httpClientFactory;
+        _globalOptions = globalOptions;
+        _clientFactory = clientFactory;
     }
 
+    /// <summary>
+    /// Builds the context for a command from the parsed global options. Throws
+    /// <see cref="CommandAbortedException"/> (after writing the error) when no host is
+    /// configured or the caller is not authenticated.
+    /// </summary>
     public async Task<CommandContext> CreateAsync(
-        string? hostOverride,
-        string? tokenOverride,
-        OutputFormat? outputFormat,
+        ParseResult parseResult,
         string commandName,
         CancellationToken ct = default)
     {
+        var hostOverride = parseResult.GetValue(_globalOptions.Host);
+        var tokenOverride = parseResult.GetValue(_globalOptions.Token);
+        var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(_globalOptions.Output));
+
         var output = OutputWriterFactory.Create(outputFormat);
         var config = _configStore.Load();
 
@@ -44,7 +58,7 @@ public sealed class CommandContextFactory
         if (string.IsNullOrEmpty(host))
         {
             output.WriteError(2, "No Umbraco host configured. Run 'umbraco auth login' or set UMBRACO_HOST.");
-            throw new OperationCanceledException();
+            throw new CommandAbortedException();
         }
 
         string bearerToken;
@@ -57,9 +71,17 @@ public sealed class CommandContextFactory
             if (!config.IsComplete)
             {
                 output.WriteError(2, "Not authenticated. Run 'umbraco auth login' or set UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET.");
-                throw new OperationCanceledException();
+                throw new CommandAbortedException();
             }
-            bearerToken = await _authService.GetTokenAsync(host, config.ClientId!, config.ClientSecret!, ct);
+            try
+            {
+                bearerToken = await _authService.GetTokenAsync(host, config.ClientId!, config.ClientSecret!, ct);
+            }
+            catch (UmbracoAuthException ex)
+            {
+                output.WriteError(2, $"Authentication failed: {ex.Message}");
+                throw new CommandAbortedException();
+            }
         }
 
         var http = _httpClientFactory.CreateClient("umbraco");
@@ -70,7 +92,7 @@ public sealed class CommandContextFactory
         return new CommandContext
         {
             Output = output,
-            Client = new UmbracoManagementClient(http),
+            Client = _clientFactory.Create(http),
             CommandName = commandName,
         };
     }

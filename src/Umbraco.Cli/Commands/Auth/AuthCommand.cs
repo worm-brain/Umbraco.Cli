@@ -7,17 +7,15 @@ namespace Umbraco.Cli.Commands.Auth;
 public static class AuthCommand
 {
     public static Command Build(
-        Option<string?> hostOption,
-        Option<string?> tokenOption,
-        Option<string?> outputOption,
+        GlobalOptions global,
         ConfigStore configStore,
         UmbracoAuthService authService,
-        CommandContextFactory factory)
+        CommandExecutor executor)
     {
         var cmd = new Command("auth", "Manage authentication with your Umbraco instance.\n\nExamples:\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth whoami\n  umbraco auth logout");
-        cmd.Add(LoginCommand.Build(hostOption, outputOption, configStore, authService));
-        cmd.Add(LogoutCommand.Build(outputOption, configStore));
-        cmd.Add(WhoAmICommand.Build(hostOption, tokenOption, outputOption, factory));
+        cmd.Add(LoginCommand.Build(global.Host, global.Output, configStore, authService));
+        cmd.Add(LogoutCommand.Build(global.Output, configStore));
+        cmd.Add(WhoAmICommand.Build(executor));
         return cmd;
     }
 }

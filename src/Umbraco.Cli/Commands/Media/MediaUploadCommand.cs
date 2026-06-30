@@ -1,11 +1,10 @@
 using System.CommandLine;
-using Umbraco.Cli.Commands.Auth;
 
 namespace Umbraco.Cli.Commands.Media;
 
 public static class MediaUploadCommand
 {
-    public static Command Build(Option<string?> hostOpt, Option<string?> tokenOpt, Option<string?> outputOpt, CommandContextFactory factory)
+    public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command("upload", "Upload a file as a media item.");
         var fileArg = new Argument<FileInfo>("file") { Description = "Local file to upload." };
@@ -13,22 +12,18 @@ public static class MediaUploadCommand
         var nameOpt = new Option<string?>("--name") { Description = "Display name for the media item. Defaults to the filename." };
         cmd.Add(fileArg); cmd.Add(parentOpt); cmd.Add(nameOpt);
 
-        cmd.SetAction(async (parseResult, ct) =>
-        {
-            CommandContext ctx;
-            try { ctx = await factory.CreateAsync(parseResult.GetValue(hostOpt), parseResult.GetValue(tokenOpt), LoginCommand.ParseOutputFormat(parseResult.GetValue(outputOpt)), "media.upload", ct); }
-            catch (OperationCanceledException) { return 2; }
+        cmd.SetAction((parseResult, ct) => executor.RunObjectAsync(
+            parseResult, "media.upload",
+            async (client, c) =>
+            {
+                var file = parseResult.GetValue(fileArg)!;
+                var name = parseResult.GetValue(nameOpt) ?? file.Name;
+                var mimeType = MimeTypeFor(file.Extension);
 
-            var file = parseResult.GetValue(fileArg)!;
-            var name = parseResult.GetValue(nameOpt) ?? file.Name;
-            var mimeType = MimeTypeFor(file.Extension);
-
-            await using var stream = file.OpenRead();
-            var result = await ctx.Client.UploadMediaAsync(parseResult.GetValue(parentOpt), name, stream, file.Name, mimeType, ct);
-            if (!result.IsSuccess) { ctx.Output.WriteError(result.StatusCode, result.ErrorMessage!); return 1; }
-            ctx.Output.WriteSuccess(result.Data, ctx.CommandName, ctx.Stopwatch.ElapsedMilliseconds);
-            return 0;
-        });
+                await using var stream = file.OpenRead();
+                return await client.UploadMediaAsync(parseResult.GetValue(parentOpt), name, stream, file.Name, mimeType, c);
+            },
+            ct));
 
         return cmd;
     }
