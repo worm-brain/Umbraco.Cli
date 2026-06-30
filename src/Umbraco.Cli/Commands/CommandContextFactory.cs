@@ -75,7 +75,8 @@ public sealed class CommandContextFactory
             }
         }
 
-        var http = _httpClientFactory.CreateClient("umbraco");
+        var verbose = parseResult.GetValue(_globalOptions.Verbose);
+        var http = _httpClientFactory.CreateClient(verbose ? "umbraco-verbose" : "umbraco");
         http.BaseAddress = new Uri(host.TrimEnd('/') + "/");
         http.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", bearerToken);

@@ -14,10 +14,14 @@ using Umbraco.Cli.Commands.Templates;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
 using Umbraco.Cli.Infrastructure.Config;
+using Umbraco.Cli.Infrastructure.Http;
 
 // ── DI ────────────────────────────────────────────────────────────────────────
 var services = new ServiceCollection();
 services.AddHttpClient();
+// A second named client that logs request/response to stderr; selected by --verbose.
+services.AddTransient<VerboseHttpHandler>();
+services.AddHttpClient("umbraco-verbose").AddHttpMessageHandler<VerboseHttpHandler>();
 services.AddSingleton<ConfigStore>();
 services.AddSingleton<UmbracoAuthService>();
 services.AddSingleton<GlobalOptions>();
