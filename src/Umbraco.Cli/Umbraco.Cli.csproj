@@ -8,7 +8,12 @@
     <!-- NuGet Global Tool -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>umbraco</ToolCommandName>
-    <PackageId>Umbraco.Cli</PackageId>
+<!-- NuGet package ID. The `Umbraco.*` prefix is a reserved namespace owned by
+         Umbraco A/S, so third-party tools cannot publish under it. HQ opened up the
+         `Umbraco.Community.*` sub-prefix as a shared namespace for community packages,
+         which is the sanctioned convention we follow here. The CLI command itself
+         (ToolCommandName) stays `umbraco`, and the repo / assembly names stay Umbraco.Cli. -->
+    <PackageId>Umbraco.Community.Cli</PackageId>
 <!-- Base version used for local `dotnet pack`. The release workflow overrides
          this with the full version (incl. prerelease suffix) taken from the git tag,
          e.g. `-p:Version=0.1.0-alpha.1`, so tag and package version never drift. -->

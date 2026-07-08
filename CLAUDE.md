@@ -18,7 +18,7 @@ dotnet test                                    # run all tests
 dotnet test --filter "FullyQualifiedName~CommandExecutorTests"   # one test class
 dotnet test --filter "Name=RunObject_ApiFailure_WritesErrorAndReturnsOne"  # one test
 dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj -o ./nupkg        # build the tool package
-dotnet tool install --global --add-source ./nupkg Umbraco.Cli    # install locally for manual testing
+dotnet tool install --global --add-source ./nupkg Umbraco.Community.Cli --prerelease  # install locally for manual testing (NuGet package id; command is `umbraco`)
 dotnet format                                  # or CSharpier — formatting standard for this repo is CSharpier
 ```
 
