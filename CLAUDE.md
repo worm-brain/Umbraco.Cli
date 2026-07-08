@@ -24,9 +24,9 @@ dotnet format                                  # or CSharpier — formatting sta
 
 There is no linter beyond the compiler + analyzers; formatting is CSharpier.
 
-### Version gotcha
+### Keep the CI SDK and target framework in sync
 
-`*.csproj` target `net9.0` and the README requires the .NET 9 SDK, but `.github/workflows/ci.yml` still pins `setup-dotnet` to `8.0.x`. If you touch CI or the target framework, reconcile these — CI will fail to build net9.0 on an 8.0 SDK. Tracked as [issue #35](https://github.com/worm-brain/Umbraco.Cli/issues/35).
+`*.csproj` target `net9.0` and both CI workflows (`ci.yml`, `publish.yml`) pin `setup-dotnet` to `9.0.x`. If you bump the target framework, bump the `dotnet-version` in both workflows to match — an older SDK cannot build a newer target and CI will fail. (This was the subject of the now-fixed [issue #35](https://github.com/worm-brain/Umbraco.Cli/issues/35).)
 
 ## Architecture
 
