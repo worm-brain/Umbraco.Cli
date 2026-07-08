@@ -293,14 +293,20 @@ The client project is isolated so it can be regenerated when the Umbraco API cha
 
 ## Roadmap
 
-See the [GitHub Project board](https://github.com/worm-brain/Umbraco.Cli/projects) for current status.
-
 - [x] Project scaffold & planning
 - [x] Phase 1: Auth + infrastructure (OAuth2, config store, DI, output writers)
 - [x] Phase 2: Content, media, document types
 - [x] Phase 3: Languages, templates, members, users, dictionary, webhooks
 - [x] Phase 4: Comprehensive help text, NuGet metadata
 - [ ] Phase 5: GitHub Actions CI, NuGet.org publish
+
+---
+
+## Issue tracking & contributing
+
+The repository lives at **https://github.com/worm-brain/Umbraco.Cli**.
+
+**All bugs, to-dos, feature requests, and other tasks are tracked as [GitHub issues](https://github.com/worm-brain/Umbraco.Cli/issues).** There is no separate backlog or TODO file — if it needs doing, it should exist as an issue. When you find a bug or think of an improvement, open an issue (or file it with the [`gh`](https://cli.github.com/) CLI: `gh issue create`). Pull requests should reference the issue they close.
 
 ---
 
