@@ -1,6 +1,8 @@
 name: Release
 
-# Publishes the `Umbraco.Cli` global tool to NuGet.org.
+# Publishes the `Umbraco.Community.Cli` global tool package to NuGet.org.
+# (The `Umbraco.*` prefix is reserved by Umbraco A/S; community packages use
+# the shared `Umbraco.Community.*` namespace. The CLI command is `umbraco`.)
 #
 # Triggered by pushing a version tag of the form `vMAJOR.MINOR.PATCH`
 # (e.g. `v1.0.0`). The tag drives the package version, so the git tag and
@@ -75,14 +77,18 @@ jobs:
         with:
           user: ${{ secrets.NUGET_USER }}
 
-      # `--skip-duplicate` makes the push idempotent: re-running the workflow
-      # for an already-published version is a no-op instead of a hard failure.
+      # NOTE: deliberately NO `--skip-duplicate` here. That flag treats a 409
+      # "already exists" as success, which previously masked a real rejection
+      # (the reserved `Umbraco.*` prefix returned a conflict and the run still
+      # went green while nothing published). We want the push to FAIL LOUDLY on
+      # any conflict/rejection. Each release uses a unique tag-derived version,
+      # so a legitimate duplicate should never occur; if it does, that is a
+      # signal worth failing on rather than hiding.
       - name: Push to NuGet.org
         run: >
           dotnet nuget push "./nupkg/*.nupkg"
           --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
-          --skip-duplicate
 
       - name: Upload NuGet package artifact
         uses: actions/upload-artifact@v4

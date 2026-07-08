@@ -2,7 +2,7 @@
 
 A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distributed as a NuGet global tool. Drive your Umbraco 14+ instance from the terminal or any AI agent that can call a subprocess.
 
-[![NuGet](https://img.shields.io/nuget/v/Umbraco.Cli.svg)](https://www.nuget.org/packages/Umbraco.Cli)
+[![NuGet](https://img.shields.io/nuget/v/Umbraco.Community.Cli.svg)](https://www.nuget.org/packages/Umbraco.Community.Cli)
 [![CI](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml/badge.svg)](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -27,15 +27,17 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 ## Installation
 
+The package is published as [`Umbraco.Community.Cli`](https://www.nuget.org/packages/Umbraco.Community.Cli) on NuGet.org (the CLI command is `umbraco`). While the tool is in alpha, pass `--prerelease` so NuGet will resolve the preview versions:
+
 ```bash
-dotnet tool install -g Umbraco.Cli
+dotnet tool install -g Umbraco.Community.Cli --prerelease
 ```
 
 Or as a local tool pinned to a project:
 
 ```bash
 dotnet new tool-manifest   # once per repo
-dotnet tool install Umbraco.Cli
+dotnet tool install Umbraco.Community.Cli --prerelease
 ```
 
 ---
@@ -274,7 +276,7 @@ dotnet test
 
 ```bash
 dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj -o ./nupkg
-dotnet tool install --global --add-source ./nupkg Umbraco.Cli
+dotnet tool install --global --add-source ./nupkg Umbraco.Community.Cli --prerelease
 ```
 
 ---
