@@ -1,0 +1,100 @@
+name: Release
+
+# Publishes the `Umbraco.Cli` global tool to NuGet.org.
+#
+# Triggered by pushing a version tag of the form `vMAJOR.MINOR.PATCH`
+# (e.g. `v1.0.0`). The tag drives the package version, so the git tag and
+# the published NuGet version can never drift apart:
+#
+#     git tag v1.0.0 && git push origin v1.0.0
+#
+# Authentication uses NuGet.org Trusted Publishing (OIDC) -- no long-lived
+# API key secret is stored in this repo. At push time the workflow requests a
+# short-lived GitHub OIDC token, exchanges it with NuGet.org via the
+# `NuGet/login` action, and receives a temporary API key valid for ~1 hour.
+#
+# One-time setup on nuget.org (Account -> Trusted Publishing -> add policy):
+#   - Repository Owner: worm-brain
+#   - Repository:       Umbraco.Cli
+#   - Workflow File:    publish.yml   (file name only, no path)
+#   - Environment:      (leave empty -- this workflow uses no GH environment)
+# and add a repo secret `NUGET_USER` = your nuget.org username (profile name,
+# NOT your email). See https://learn.microsoft.com/nuget/nuget-org/trusted-publishing
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"      # stable releases, e.g. v1.0.0
+      - "v[0-9]+.[0-9]+.[0-9]+-*"    # prereleases, e.g. v1.1.0-rc.1
+
+permissions:
+  contents: write   # create-github-release step attaches the .nupkg to a Release
+  id-token: write   # required for Trusted Publishing: mint the GitHub OIDC token
+
+jobs:
+  release:
+    name: Pack & Publish to NuGet
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      # Derive the package version from the tag: strip the leading `v`.
+      # `v1.2.3` -> `1.2.3`, `v1.2.3-rc.1` -> `1.2.3-rc.1`.
+      - name: Resolve version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release -p:Version=${{ steps.version.outputs.version }}
+
+      # Gate the publish on a green test run so we never ship a broken tool.
+      - name: Test
+        run: dotnet test --no-build -c Release
+
+      - name: Pack
+        run: >
+          dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj
+          --no-build -c Release
+          -p:Version=${{ steps.version.outputs.version }}
+          -o ./nupkg
+
+      # Exchange the GitHub OIDC token for a short-lived NuGet API key. Done
+      # immediately before the push because the key expires after ~1 hour.
+      - name: NuGet login (OIDC -> temporary API key)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      # `--skip-duplicate` makes the push idempotent: re-running the workflow
+      # for an already-published version is a no-op instead of a hard failure.
+      - name: Push to NuGet.org
+        run: >
+          dotnet nuget push "./nupkg/*.nupkg"
+          --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: Upload NuGet package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: ./nupkg
+
+      # Create a GitHub Release for the tag, attaching the .nupkg. Marked as a
+      # prerelease automatically when the version contains a `-` suffix.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./nupkg/*.nupkg
+          generate_release_notes: true
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
