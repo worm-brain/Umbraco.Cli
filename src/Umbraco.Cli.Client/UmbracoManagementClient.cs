@@ -878,6 +878,20 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         {
             return UmbracoResponse<T>.Success(await action());
         }
+        catch (Gen.ProblemDetails pd)
+        {
+            // Kiota throws the generated ProblemDetails (which derives from ApiException)
+            // for RFC-9110 error bodies, but its Message is the useless base default
+            // ("Exception of type '...ProblemDetails' was thrown."). Build a readable
+            // message from the real fields so 404s and other errors are legible (#48).
+            var status = pd.ResponseStatusCode != 0 ? pd.ResponseStatusCode : pd.Status ?? 0;
+            var message = !string.IsNullOrWhiteSpace(pd.Detail)
+                ? pd.Detail!
+                : !string.IsNullOrWhiteSpace(pd.Title)
+                    ? pd.Title!
+                    : $"Error {status}";
+            return UmbracoResponse<T>.Failure(status, message);
+        }
         catch (ApiException ex)
         {
             // ResponseStatusCode is 0 when Kiota never got an HTTP response.

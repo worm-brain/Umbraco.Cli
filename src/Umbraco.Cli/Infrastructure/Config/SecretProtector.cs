@@ -21,6 +21,22 @@ internal static class SecretProtector
     private const string DpapiPrefix = "dpapi:";
 
     /// <summary>
+    /// Whether a stored value is already in an encrypted (non-plaintext) form. Used to
+    /// detect legacy plaintext config files that should be migrated (issue #45).
+    /// </summary>
+    /// <param name="stored">The value read from the config file.</param>
+    /// <returns>True if the value carries a recognised encryption prefix.</returns>
+    public static bool IsProtected(string? stored) =>
+        !string.IsNullOrEmpty(stored) && stored.StartsWith(DpapiPrefix, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether protection would actually transform a plaintext value on this platform
+    /// (i.e. encryption is available). False on non-Windows, where <see cref="Protect"/>
+    /// returns the plaintext unchanged and file permissions provide protection instead.
+    /// </summary>
+    public static bool CanEncrypt => OperatingSystem.IsWindows();
+
+    /// <summary>
     /// Encrypts a secret for storage. On Windows returns a <c>dpapi:</c>-prefixed base64
     /// ciphertext; on other platforms returns the plaintext unchanged (file permissions
     /// provide the protection there).

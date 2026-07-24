@@ -81,6 +81,29 @@ public class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_OnWindows_MigratesLegacyPlaintextSecretToEncrypted()
+    {
+        // Regression for #45: loading a pre-encryption config must transparently re-save
+        // it encrypted so existing users are protected without re-running auth login.
+        if (!OperatingSystem.IsWindows())
+            return; // migration only encrypts on Windows
+
+        File.WriteAllText(
+            _tempPath,
+            """{"host":"https://example.com","clientId":"id","clientSecret":"legacy-plain"}"""
+        );
+
+        var loaded = Store.Load();
+
+        // Load still returns the usable plaintext...
+        Assert.Equal("legacy-plain", loaded.ClientSecret);
+        // ...but the file on disk has been upgraded to encrypted form.
+        var raw = File.ReadAllText(_tempPath);
+        Assert.DoesNotContain("legacy-plain", raw);
+        Assert.Contains("dpapi:", raw);
+    }
+
+    [Fact]
     public void Load_WhenFileAbsent_ReturnsEmptyConfig()
     {
         var loaded = Store.Load();
