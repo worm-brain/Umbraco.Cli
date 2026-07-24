@@ -353,6 +353,29 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task KiotaError_ProblemDetails_SurfacesDetailNotRawException()
+    {
+        // Regression for #48: a ProblemDetails error on the generated-client path must
+        // surface its detail/title, not "Exception of type '...ProblemDetails' was thrown."
+        var json = """
+            {
+              "type": "Error",
+              "title": "Not Found",
+              "status": 404,
+              "detail": "The document could not be found"
+            }
+            """;
+        var (client, _) = ClientReturning(json, HttpStatusCode.NotFound);
+
+        var result = await client.GetContentByIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(404, result.StatusCode);
+        Assert.DoesNotContain("Exception of type", result.ErrorMessage);
+        Assert.Contains("could not be found", result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task Error_EmptyBody_FallsBackToReasonPhrase()
     {
         // Regression for #48: a bare 404 (empty body) must not produce a blank message.
