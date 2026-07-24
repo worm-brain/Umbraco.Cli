@@ -278,6 +278,35 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task GetDictionaryItemByKeyAsync_ResolvesHumanKeyToId()
+    {
+        // Regression for #44: a human key must be resolved to the item id (the endpoint is
+        // keyed by GUID) rather than 404ing. The stub returns a list containing the key, so
+        // the by-id GET should target the resolved id.
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning(
+            $$"""{"total":1,"items":[{"id":"{{id}}","name":"Admin"}]}"""
+        );
+
+        var result = await client.GetDictionaryItemByKeyAsync("Admin", CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/dictionary/{id}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetDictionaryItemByKeyAsync_UnknownKey_Returns404()
+    {
+        // Regression for #44: an unmatched key yields a clear 404, not a silent empty item.
+        var (client, _) = ClientReturning("""{"total":0,"items":[]}""");
+
+        var result = await client.GetDictionaryItemByKeyAsync("Nope", CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(404, result.StatusCode);
+    }
+
+    [Fact]
     public void CreateDocumentTypeRequest_IncludesApiRequiredFields()
     {
         // Regression for #47: the payload must carry icon, the varies-by flags, the

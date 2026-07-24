@@ -519,14 +519,54 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             };
         });
 
-    public async Task<UmbracoResponse<TemplateResponse>> GetTemplateByAliasAsync(
-        string alias,
+    /// <summary>
+    /// Gets a single template by alias OR id (issue #44 — there is no <c>GET /template?alias=</c>
+    /// endpoint; Umbraco only exposes <c>GET /template/{id}</c>). A GUID argument is used
+    /// directly; otherwise the alias is resolved to an id via <c>item/template/search</c>
+    /// (matched case-insensitively on the exact alias) before the by-id fetch.
+    /// </summary>
+    /// <param name="aliasOrId">The template alias (e.g. "master") or its id (GUID).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The template mapped to <see cref="TemplateResponse"/>.</returns>
+    public Task<UmbracoResponse<TemplateResponse>> GetTemplateByAliasAsync(
+        string aliasOrId,
         CancellationToken ct = default
     ) =>
-        await GetAsync<TemplateResponse>(
-            $"umbraco/management/api/v1/template?alias={Uri.EscapeDataString(alias)}",
-            ct
-        );
+        GuardedApiAsync(ct, async () =>
+        {
+            Guid id;
+            if (Guid.TryParse(aliasOrId, out var parsed))
+            {
+                id = parsed;
+            }
+            else
+            {
+                var search = await _api.Umbraco.Management.Api.V1.Item.Template.Search.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Query = aliasOrId;
+                        c.QueryParameters.Take = 100;
+                    },
+                    ct
+                );
+                var match = (search?.Items ?? []).FirstOrDefault(t =>
+                    string.Equals(t.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase)
+                );
+                if (match?.Id is not { } matchedId)
+                    throw NotFound($"No template found with alias '{aliasOrId}'.");
+                id = matchedId;
+            }
+
+            var t = await _api.Umbraco.Management.Api.V1.Template[id].GetAsync(cancellationToken: ct);
+            return new TemplateResponse
+            {
+                Id = t?.Id ?? id,
+                Name = t?.Name ?? "",
+                Alias = t?.Alias ?? "",
+                MasterTemplate =
+                    t?.MasterTemplate?.Id is { } mid ? new ContentTypeReference { Id = mid } : null,
+            };
+        });
 
     // ── Members ──────────────────────────────────────────────────────────────
 
@@ -634,14 +674,46 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             ct
         );
 
+    /// <summary>
+    /// Gets a dictionary item by its human key (name) OR id (issue #44 — the endpoint is
+    /// <c>GET /dictionary/{id}</c> keyed by GUID, so a human key 404'd despite the help
+    /// saying "by key"). A GUID argument is fetched directly; otherwise the key is
+    /// resolved to an id by matching the item name in the dictionary list.
+    /// </summary>
+    /// <param name="keyOrId">The dictionary item key (name) or its id (GUID).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The dictionary item, or a 404 failure when no matching key exists.</returns>
     public async Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByKeyAsync(
-        string key,
+        string keyOrId,
         CancellationToken ct = default
-    ) =>
-        await GetAsync<DictionaryItemResponse>(
-            $"umbraco/management/api/v1/dictionary/{Uri.EscapeDataString(key)}",
+    )
+    {
+        if (!Guid.TryParse(keyOrId, out var id))
+        {
+            // Resolve the human key to an id via the list (items expose id + name).
+            var list = await GetDictionaryItemsAsync(0, 1000, ct);
+            if (!list.IsSuccess)
+                return UmbracoResponse<DictionaryItemResponse>.Failure(
+                    list.StatusCode,
+                    list.ErrorMessage ?? "Could not list dictionary items."
+                );
+
+            var match = (list.Data?.Items ?? []).FirstOrDefault(d =>
+                string.Equals(d.Name, keyOrId, StringComparison.OrdinalIgnoreCase)
+            );
+            if (match is null)
+                return UmbracoResponse<DictionaryItemResponse>.Failure(
+                    404,
+                    $"No dictionary item found with key '{keyOrId}'."
+                );
+            id = match.Id;
+        }
+
+        return await GetAsync<DictionaryItemResponse>(
+            $"umbraco/management/api/v1/dictionary/{id}",
             ct
         );
+    }
 
     public async Task<UmbracoResponse<DictionaryItemResponse>> CreateDictionaryItemAsync(
         CreateDictionaryItemRequest request,
@@ -828,6 +900,16 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             return UmbracoResponse<T>.Failure(0, "The request to the Umbraco instance timed out.");
         }
     }
+
+    /// <summary>
+    /// Builds a 404 <see cref="ApiException"/> for client-side resolution failures (e.g. an
+    /// alias/key that matches no resource), so <see cref="GuardedApiAsync{T}"/> maps it to a
+    /// normal 404 failure rather than a thrown exception.
+    /// </summary>
+    /// <param name="message">The not-found message to surface.</param>
+    /// <returns>An <see cref="ApiException"/> with status 404.</returns>
+    private static ApiException NotFound(string message) =>
+        new(message) { ResponseStatusCode = 404 };
 
     /// <summary>Returns the invariant (or first available) variant name from a document tree item.</summary>
     /// <param name="item">The generated document tree item.</param>

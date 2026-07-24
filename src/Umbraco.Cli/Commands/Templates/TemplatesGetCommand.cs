@@ -8,9 +8,12 @@ public static class TemplatesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a template by its alias, including the view file content.\n\nExample:\n  umbraco templates get master\n  umbraco templates get textPage"
+            "Get a template by its alias or id, including the view file content.\n\nExample:\n  umbraco templates get master\n  umbraco templates get 1a2b3c4d-....."
         );
-        var aliasArg = new Argument<string>("alias");
+        var aliasArg = new Argument<string>("alias")
+        {
+            Description = "Template alias (e.g. master) or id (GUID).",
+        };
         cmd.Add(aliasArg);
         cmd.SetAction(
             (parseResult, ct) =>
