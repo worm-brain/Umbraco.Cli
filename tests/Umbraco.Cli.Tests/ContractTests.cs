@@ -36,6 +36,7 @@ public class ContractTests
         "DELETE /umbraco/management/api/v1/document/{id}",
         "PUT /umbraco/management/api/v1/document/{id}/publish",
         "PUT /umbraco/management/api/v1/document/{id}/unpublish",
+        "GET /umbraco/management/api/v1/document-type/{id}",
         "POST /umbraco/management/api/v1/document-type",
         "DELETE /umbraco/management/api/v1/document-type/{id}",
         "POST /umbraco/management/api/v1/media",

@@ -46,3 +46,11 @@ test then guards that the endpoint exists in the (possibly regenerated) spec.
   acceptable: those endpoints change rarely and always in a deliberate edit to the client.
 - Does not verify request/response *shapes* — only endpoint existence. Shape correctness
   is covered by the live integration harness (#51).
+- Matching is verbatim on the path template, so a spec-side *rename* of a path parameter
+  (e.g. `{id}` → `{key}` on an otherwise-identical route) fails the test even though the
+  runtime URL is unchanged. This is a loud false-failure, trivially fixed when it occurs,
+  not a false-pass.
+- The hand-sync burden is a real (not theoretical) risk — the first draft of this test
+  omitted `GET /document-type/{id}`. A follow-up could scan the URL string literals out of
+  `UmbracoManagementClient.cs` at test time and assert *those* against the spec,
+  eliminating the manual list for the hand-written set.
