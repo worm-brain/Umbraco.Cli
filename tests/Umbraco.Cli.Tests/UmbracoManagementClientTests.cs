@@ -243,6 +243,37 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task GetContentByIdAsync_FlattensVariantNameAndDates()
+    {
+        // Regression for #42: single-item GET carries name/dates under variants[], which
+        // must be surfaced instead of an empty name and 0001-01-01 dates.
+        var id = Guid.NewGuid();
+        var json = $$"""
+            {
+              "id": "{{id}}",
+              "documentType": { "id": "22222222-2222-2222-2222-222222222222" },
+              "variants": [
+                {
+                  "culture": null,
+                  "name": "Home",
+                  "state": "Published",
+                  "createDate": "2020-01-02T03:04:05+00:00",
+                  "updateDate": "2021-02-03T04:05:06+00:00"
+                }
+              ]
+            }
+            """;
+        var (client, _) = ClientReturning(json);
+
+        var result = await client.GetContentByIdAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Home", result.Data!.Name);
+        Assert.True(result.Data.IsPublished);
+        Assert.Equal(2020, result.Data.CreateDate.Year);
+    }
+
+    [Fact]
     public async Task Error_EmptyBody_FallsBackToReasonPhrase()
     {
         // Regression for #48: a bare 404 (empty body) must not produce a blank message.

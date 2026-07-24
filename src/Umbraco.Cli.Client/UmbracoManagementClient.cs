@@ -137,10 +137,38 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             };
         });
 
-    public async Task<UmbracoResponse<ContentItemResponse>> GetContentByIdAsync(
+    /// <summary>
+    /// Gets a single document by id (issue #42 — the display name and dates live under
+    /// <c>variants[]</c>, not at the top level, so a naive DTO returned an empty name and
+    /// <c>0001-01-01</c> dates). Reads <c>GET /document/{id}</c> and flattens the invariant
+    /// (or first) variant.
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The document mapped to <see cref="ContentItemResponse"/>.</returns>
+    public Task<UmbracoResponse<ContentItemResponse>> GetContentByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => await GetAsync<ContentItemResponse>($"umbraco/management/api/v1/document/{id}", ct);
+    ) =>
+        GuardedApiAsync(async () =>
+        {
+            var d = await _api.Umbraco.Management.Api.V1.Document[id].GetAsync(cancellationToken: ct);
+            var variant = (d?.Variants ?? []).FirstOrDefault();
+            return new ContentItemResponse
+            {
+                Id = d?.Id ?? id,
+                Name = variant?.Name ?? "",
+                ContentType =
+                    d?.DocumentType?.Id is { } dtId ? new ContentTypeReference { Id = dtId } : null,
+                IsPublished = (d?.Variants ?? []).Any(v =>
+                    v.State
+                        is Gen.DocumentVariantStateModel.Published
+                            or Gen.DocumentVariantStateModel.PublishedPendingChanges
+                ),
+                CreateDate = variant?.CreateDate ?? default,
+                UpdateDate = variant?.UpdateDate ?? default,
+            };
+        });
 
     public async Task<UmbracoResponse<ContentItemResponse>> CreateContentAsync(
         CreateContentRequest request,
@@ -241,10 +269,31 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             };
         });
 
-    public async Task<UmbracoResponse<MediaItemResponse>> GetMediaByIdAsync(
+    /// <summary>
+    /// Gets a single media item by id (issue #42 — name/dates come from <c>variants[]</c>).
+    /// Reads <c>GET /media/{id}</c>.
+    /// </summary>
+    /// <param name="id">The media id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The media item mapped to <see cref="MediaItemResponse"/>.</returns>
+    public Task<UmbracoResponse<MediaItemResponse>> GetMediaByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => await GetAsync<MediaItemResponse>($"umbraco/management/api/v1/media/{id}", ct);
+    ) =>
+        GuardedApiAsync(async () =>
+        {
+            var m = await _api.Umbraco.Management.Api.V1.Media[id].GetAsync(cancellationToken: ct);
+            var variant = (m?.Variants ?? []).FirstOrDefault();
+            return new MediaItemResponse
+            {
+                Id = m?.Id ?? id,
+                Name = variant?.Name ?? "",
+                MediaType =
+                    m?.MediaType?.Id is { } mtId ? new ContentTypeReference { Id = mtId } : null,
+                CreateDate = variant?.CreateDate ?? default,
+                UpdateDate = variant?.UpdateDate ?? default,
+            };
+        });
 
     public async Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(
         Guid parentId,
@@ -515,10 +564,22 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             };
         });
 
-    public async Task<UmbracoResponse<MemberResponse>> GetMemberByIdAsync(
+    /// <summary>
+    /// Gets a single member by id (issue #42 — name/createDate come from <c>variants[]</c>).
+    /// Reads <c>GET /member/{id}</c>.
+    /// </summary>
+    /// <param name="id">The member id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The member mapped to <see cref="MemberResponse"/>.</returns>
+    public Task<UmbracoResponse<MemberResponse>> GetMemberByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => await GetAsync<MemberResponse>($"umbraco/management/api/v1/member/{id}", ct);
+    ) =>
+        GuardedApiAsync(async () =>
+        {
+            var m = await _api.Umbraco.Management.Api.V1.Member[id].GetAsync(cancellationToken: ct);
+            return m is null ? new MemberResponse { Id = id } : MapMember(m);
+        });
 
     public async Task<UmbracoResponse<MemberResponse>> CreateMemberAsync(
         CreateMemberRequest request,
@@ -805,17 +866,21 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     /// <summary>Maps a generated member item onto the command-facing <see cref="MemberResponse"/>.</summary>
     /// <param name="item">The generated member item.</param>
     /// <returns>The mapped member (name flattened from variants).</returns>
-    private static MemberResponse MapMember(Gen.MemberResponseModel item) =>
-        new()
+    private static MemberResponse MapMember(Gen.MemberResponseModel item)
+    {
+        var variant = (item.Variants ?? []).FirstOrDefault();
+        return new MemberResponse
         {
             Id = item.Id ?? Guid.Empty,
             Email = item.Email ?? "",
-            Name = (item.Variants ?? []).FirstOrDefault()?.Name ?? "",
+            Name = variant?.Name ?? "",
             MemberType =
                 item.MemberType?.Id is { } mtId ? new ContentTypeReference { Id = mtId } : null,
             IsApproved = item.IsApproved ?? false,
             IsLockedOut = item.IsLockedOut ?? false,
+            CreateDate = variant?.CreateDate ?? default,
         };
+    }
 
     private static async Task<UmbracoResponse<TResponse>> DeserializeAsync<TResponse>(
         HttpResponseMessage response,
