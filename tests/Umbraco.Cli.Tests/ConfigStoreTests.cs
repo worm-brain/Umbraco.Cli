@@ -43,6 +43,44 @@ public class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void Save_OnWindows_DoesNotPersistSecretAsPlaintext()
+    {
+        // Regression for #45: on Windows the secret must be DPAPI-encrypted at rest, so the
+        // raw file must not contain the cleartext value.
+        if (!OperatingSystem.IsWindows())
+            return; // encryption is Windows-only; other platforms rely on file permissions
+
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://example.com",
+                ClientId = "id",
+                ClientSecret = "super-secret-value",
+            }
+        );
+
+        var raw = File.ReadAllText(_tempPath);
+        Assert.DoesNotContain("super-secret-value", raw);
+        Assert.Contains("dpapi:", raw);
+
+        // ...and it still round-trips back to the original plaintext.
+        Assert.Equal("super-secret-value", Store.Load().ClientSecret);
+    }
+
+    [Fact]
+    public void Load_LegacyPlaintextSecret_StillReads()
+    {
+        // Backward compatibility for #45: a config written before encryption (plain
+        // clientSecret, no dpapi: prefix) must still load.
+        File.WriteAllText(
+            _tempPath,
+            """{"host":"https://example.com","clientId":"id","clientSecret":"legacy-plain"}"""
+        );
+
+        Assert.Equal("legacy-plain", Store.Load().ClientSecret);
+    }
+
+    [Fact]
     public void Load_WhenFileAbsent_ReturnsEmptyConfig()
     {
         var loaded = Store.Load();

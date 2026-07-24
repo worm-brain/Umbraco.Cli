@@ -43,12 +43,17 @@ public sealed class ConfigStore
             var fromFile =
                 JsonSerializer.Deserialize<CliConfig>(json, JsonOptions) ?? new CliConfig();
 
+            // The stored secret is encrypted at rest on Windows (issue #45); decrypt it
+            // back to plaintext for use. Legacy plaintext files are passed through
+            // unchanged by SecretProtector.
+            var fileSecret = SecretProtector.Unprotect(fromFile.ClientSecret);
+
             // Env vars override individual file values.
             return new CliConfig
             {
                 Host = fromEnv.Host ?? fromFile.Host,
                 ClientId = fromEnv.ClientId ?? fromFile.ClientId,
-                ClientSecret = fromEnv.ClientSecret ?? fromFile.ClientSecret,
+                ClientSecret = fromEnv.ClientSecret ?? fileSecret,
             };
         }
         catch
@@ -61,7 +66,38 @@ public sealed class ConfigStore
     {
         var dir = Path.GetDirectoryName(_configPath)!;
         Directory.CreateDirectory(dir);
-        File.WriteAllText(_configPath, JsonSerializer.Serialize(config, JsonOptions));
+
+        // Encrypt the secret at rest (issue #45) without mutating the caller's instance.
+        var toPersist = new CliConfig
+        {
+            Host = config.Host,
+            ClientId = config.ClientId,
+            ClientSecret = SecretProtector.Protect(config.ClientSecret),
+        };
+
+        File.WriteAllText(_configPath, JsonSerializer.Serialize(toPersist, JsonOptions));
+        RestrictPermissions(_configPath);
+    }
+
+    /// <summary>
+    /// Restricts the config file to the owner. On Unix this sets mode 600 (issue #45); on
+    /// Windows the secret is already DPAPI-encrypted per user, so no ACL change is made.
+    /// Best-effort: permission failures are swallowed so login still succeeds.
+    /// </summary>
+    /// <param name="path">The config file path.</param>
+    private static void RestrictPermissions(string path)
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        try
+        {
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Non-fatal: the file is still written, just without tightened permissions.
+        }
     }
 
     public void Delete()
