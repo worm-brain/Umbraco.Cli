@@ -2,12 +2,34 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Kiota.Abstractions;
+using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Http.HttpClientLibrary;
+using Umbraco.Cli.Client.Generated;
+using Gen = Umbraco.Cli.Client.Generated.Models;
 
 namespace Umbraco.Cli.Client;
 
+/// <summary>
+/// Production implementation of <see cref="IUmbracoManagementClient"/>.
+///
+/// Endpoints are driven by the Kiota client generated from the instance's
+/// OpenAPI document (<c>src/Umbraco.Cli.Client/Generated</c>, regenerated via
+/// <c>scripts/regen-client.ps1</c> — see GitHub issue #50). This class is a thin
+/// adapter over that generated client: it keeps the <see cref="UmbracoResponse{T}"/>
+/// envelope, the transport-failure guard, and the command-facing DTOs stable, so
+/// commands never see the generated types or Kiota's exception-based failure model.
+///
+/// Migration is incremental. Read paths (list/whoami/languages) call the generated
+/// request builders (via <see cref="GuardedApiAsync{T}"/>); write paths still use the
+/// hand-written <see cref="HttpClient"/> helpers below until they are migrated too.
+/// </summary>
 public sealed class UmbracoManagementClient : IUmbracoManagementClient
 {
     private readonly HttpClient _http;
+
+    /// <summary>The Kiota-generated Management API client, backed by <see cref="_http"/>.</summary>
+    private readonly UmbracoApiClient _api;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -15,35 +37,105 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    /// <summary>
+    /// Creates the client over an already-configured <see cref="HttpClient"/> (base
+    /// address + bearer header are applied upstream by the CLI's context factory).
+    /// The Kiota request adapter reuses that same <see cref="HttpClient"/> and uses an
+    /// anonymous auth provider, so the caller-supplied Authorization header is what
+    /// authenticates every generated call — no auth wiring is duplicated here.
+    /// </summary>
+    /// <param name="http">The configured HTTP client (base address, auth header, timeout).</param>
     public UmbracoManagementClient(HttpClient http)
     {
         _http = http;
+
+        // Kiota resolves "{+baseurl}" against the adapter's BaseUrl. The HttpClient's
+        // base address is the host root with a trailing slash (e.g.
+        // "https://host:45000/"); Kiota expects it without the trailing slash because
+        // its URL templates already start with "/umbraco/...".
+        var adapter = new HttpClientRequestAdapter(
+            new AnonymousAuthenticationProvider(),
+            httpClient: http
+        );
+        if (http.BaseAddress is not null)
+            adapter.BaseUrl = http.BaseAddress.ToString().TrimEnd('/');
+
+        _api = new UmbracoApiClient(adapter);
     }
 
     // ── Auth ─────────────────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<CurrentUserResponse>> GetCurrentUserAsync(
+    /// <summary>
+    /// Fetches the authenticated identity via <c>GET user/current</c> (issue #40 — the
+    /// previous <c>security/back-office/user-data</c> endpoint 404s on Umbraco 14+).
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The current user mapped to <see cref="CurrentUserResponse"/>.</returns>
+    public Task<UmbracoResponse<CurrentUserResponse>> GetCurrentUserAsync(
         CancellationToken ct = default
     ) =>
-        await GetAsync<CurrentUserResponse>(
-            "umbraco/management/api/v1/security/back-office/user-data",
-            ct
+        GuardedApiAsync(
+            async () =>
+            {
+                var u = await _api.Umbraco.Management.Api.V1.User.Current.GetAsync(
+                    cancellationToken: ct
+                );
+                return new CurrentUserResponse
+                {
+                    Id = u?.Id ?? Guid.Empty,
+                    Email = u?.Email ?? "",
+                    Name = u?.Name ?? "",
+                    UserName = u?.UserName ?? "",
+                };
+            }
         );
 
     // ── Content ──────────────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> GetContentAsync(
+    /// <summary>
+    /// Lists documents from the content tree (issue #39 — Umbraco 14+ has no flat
+    /// <c>/document</c> collection endpoint). With no <paramref name="parentId"/> it reads
+    /// <c>tree/document/root</c>; with one it reads <c>tree/document/children</c>. Tree
+    /// items carry the display name under <c>variants[]</c>, which is flattened into the
+    /// command-facing <see cref="ContentItemResponse.Name"/>.
+    /// </summary>
+    /// <param name="parentId">Parent document id to list children of; null for root.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of documents mapped to <see cref="ContentItemResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> GetContentAsync(
         Guid? parentId = null,
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    )
-    {
-        var url = $"umbraco/management/api/v1/document?skip={skip}&take={take}";
-        if (parentId.HasValue)
-            url += $"&parentId={parentId.Value}";
-        return await GetAsync<PagedResponse<ContentItemResponse>>(url, ct);
-    }
+    ) =>
+        GuardedApiAsync(async () =>
+        {
+            var paged = parentId is null
+                ? await _api.Umbraco.Management.Api.V1.Tree.Document.Root.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                )
+                : await _api.Umbraco.Management.Api.V1.Tree.Document.Children.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.ParentId = parentId;
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                );
+            return new PagedResponse<ContentItemResponse>
+            {
+                Total = (int)(paged?.Total ?? 0),
+                Items = (paged?.Items ?? []).Select(MapDocumentTreeItem).ToList(),
+            };
+        });
 
     public async Task<UmbracoResponse<ContentItemResponse>> GetContentByIdAsync(
         Guid id,
@@ -106,18 +198,48 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Media ────────────────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> GetMediaAsync(
+    /// <summary>
+    /// Lists media from the media tree (issue #39 — no flat <c>/media</c> collection on
+    /// Umbraco 14+). Reads <c>tree/media/root</c> or <c>tree/media/children</c>; the
+    /// display name comes from <c>variants[]</c>.
+    /// </summary>
+    /// <param name="parentId">Parent media id to list children of; null for root.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of media mapped to <see cref="MediaItemResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> GetMediaAsync(
         Guid? parentId = null,
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    )
-    {
-        var url = $"umbraco/management/api/v1/media?skip={skip}&take={take}";
-        if (parentId.HasValue)
-            url += $"&parentId={parentId.Value}";
-        return await GetAsync<PagedResponse<MediaItemResponse>>(url, ct);
-    }
+    ) =>
+        GuardedApiAsync(async () =>
+        {
+            var paged = parentId is null
+                ? await _api.Umbraco.Management.Api.V1.Tree.Media.Root.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                )
+                : await _api.Umbraco.Management.Api.V1.Tree.Media.Children.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.ParentId = parentId;
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                );
+            return new PagedResponse<MediaItemResponse>
+            {
+                Total = (int)(paged?.Total ?? 0),
+                Items = (paged?.Items ?? []).Select(MapMediaTreeItem).ToList(),
+            };
+        });
 
     public async Task<UmbracoResponse<MediaItemResponse>> GetMediaByIdAsync(
         Guid id,
@@ -161,15 +283,42 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Document Types ───────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<PagedResponse<DocumentTypeResponse>>> GetDocumentTypesAsync(
+    /// <summary>
+    /// Lists document types from <c>tree/document-type/root</c> (issue #39 — no flat
+    /// <c>/document-type</c> collection). Tree items expose <c>name</c> directly.
+    /// </summary>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of document types mapped to <see cref="DocumentTypeResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<DocumentTypeResponse>>> GetDocumentTypesAsync(
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
     ) =>
-        await GetAsync<PagedResponse<DocumentTypeResponse>>(
-            $"umbraco/management/api/v1/document-type?skip={skip}&take={take}",
-            ct
-        );
+        GuardedApiAsync(async () =>
+        {
+            var paged = await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Root.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+            return new PagedResponse<DocumentTypeResponse>
+            {
+                Total = (int)(paged?.Total ?? 0),
+                Items = (paged?.Items ?? [])
+                    .Select(i => new DocumentTypeResponse
+                    {
+                        Id = i.Id ?? Guid.Empty,
+                        Name = i.Name ?? "",
+                        IsElement = i.IsElement ?? false,
+                    })
+                    .ToList(),
+            };
+        });
 
     public async Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
@@ -193,15 +342,43 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Data Types ───────────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
+    /// <summary>
+    /// Lists data types from <c>tree/data-type/root</c> (issue #39 — no flat
+    /// <c>/data-type</c> collection). The editor alias is not carried on tree items, so
+    /// only id/name/editorUiAlias are populated for the list view.
+    /// </summary>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of data types mapped to <see cref="DataTypeResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
     ) =>
-        await GetAsync<PagedResponse<DataTypeResponse>>(
-            $"umbraco/management/api/v1/data-type?skip={skip}&take={take}",
-            ct
-        );
+        GuardedApiAsync(async () =>
+        {
+            var paged = await _api.Umbraco.Management.Api.V1.Tree.DataType.Root.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+            return new PagedResponse<DataTypeResponse>
+            {
+                Total = (int)(paged?.Total ?? 0),
+                Items = (paged?.Items ?? [])
+                    .Select(i => new DataTypeResponse
+                    {
+                        Id = i.Id ?? Guid.Empty,
+                        Name = i.Name ?? "",
+                        EditorUiAlias = i.EditorUiAlias,
+                    })
+                    .ToList(),
+            };
+        });
 
     public async Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
         Guid id,
@@ -210,9 +387,37 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Languages ────────────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<IEnumerable<LanguageResponse>>> GetLanguagesAsync(
+    /// <summary>
+    /// Lists configured languages (issue #41 — <c>GET /language</c> returns a paged
+    /// <c>{total,items}</c> object, not a bare array). Requests a large page so callers
+    /// keep the "all languages" semantics of the previous signature.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The configured languages mapped to <see cref="LanguageResponse"/>.</returns>
+    public Task<UmbracoResponse<IEnumerable<LanguageResponse>>> GetLanguagesAsync(
         CancellationToken ct = default
-    ) => await GetAsync<IEnumerable<LanguageResponse>>("umbraco/management/api/v1/language", ct);
+    ) =>
+        GuardedApiAsync<IEnumerable<LanguageResponse>>(async () =>
+        {
+            var paged = await _api.Umbraco.Management.Api.V1.Language.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = 0;
+                    c.QueryParameters.Take = 1000;
+                },
+                ct
+            );
+            return (paged?.Items ?? [])
+                .Select(l => new LanguageResponse
+                {
+                    IsoCode = l.IsoCode ?? "",
+                    Name = l.Name ?? "",
+                    IsDefault = l.IsDefault ?? false,
+                    IsMandatory = l.IsMandatory ?? false,
+                    FallbackIsoCode = l.FallbackIsoCode,
+                })
+                .ToList();
+        });
 
     public async Task<UmbracoResponse<LanguageResponse>> CreateLanguageAsync(
         CreateLanguageRequest request,
@@ -231,15 +436,38 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Templates ────────────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<PagedResponse<TemplateResponse>>> GetTemplatesAsync(
+    /// <summary>
+    /// Lists templates from <c>tree/template/root</c> (issue #39 — no flat
+    /// <c>/template</c> collection). Tree items are named entities exposing id + name;
+    /// alias/master are only available from a single-item GET.
+    /// </summary>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of templates mapped to <see cref="TemplateResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<TemplateResponse>>> GetTemplatesAsync(
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
     ) =>
-        await GetAsync<PagedResponse<TemplateResponse>>(
-            $"umbraco/management/api/v1/template?skip={skip}&take={take}",
-            ct
-        );
+        GuardedApiAsync(async () =>
+        {
+            var paged = await _api.Umbraco.Management.Api.V1.Tree.Template.Root.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+            return new PagedResponse<TemplateResponse>
+            {
+                Total = (int)(paged?.Total ?? 0),
+                Items = (paged?.Items ?? [])
+                    .Select(i => new TemplateResponse { Id = i.Id ?? Guid.Empty, Name = i.Name ?? "" })
+                    .ToList(),
+            };
+        });
 
     public async Task<UmbracoResponse<TemplateResponse>> GetTemplateByAliasAsync(
         string alias,
@@ -252,18 +480,40 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Members ──────────────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<PagedResponse<MemberResponse>>> GetMembersAsync(
+    /// <summary>
+    /// Lists members via <c>filter/member</c> (issue #39 — no flat <c>/member</c>
+    /// collection). The <paramref name="group"/> argument is passed through as the free-text
+    /// <c>filter</c> query. Full member items are returned (name via <c>variants[]</c>).
+    /// </summary>
+    /// <param name="group">Free-text filter (member name/email); null for all.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of members mapped to <see cref="MemberResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<MemberResponse>>> GetMembersAsync(
         string? group = null,
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    )
-    {
-        var url = $"umbraco/management/api/v1/member?skip={skip}&take={take}";
-        if (!string.IsNullOrEmpty(group))
-            url += $"&memberGroupName={Uri.EscapeDataString(group)}";
-        return await GetAsync<PagedResponse<MemberResponse>>(url, ct);
-    }
+    ) =>
+        GuardedApiAsync(async () =>
+        {
+            var paged = await _api.Umbraco.Management.Api.V1.Filter.Member.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                    if (!string.IsNullOrEmpty(group))
+                        c.QueryParameters.Filter = group;
+                },
+                ct
+            );
+            return new PagedResponse<MemberResponse>
+            {
+                Total = (int)(paged?.Total ?? 0),
+                Items = (paged?.Items ?? []).Select(MapMember).ToList(),
+            };
+        });
 
     public async Task<UmbracoResponse<MemberResponse>> GetMemberByIdAsync(
         Guid id,
@@ -473,6 +723,99 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             );
         }
     }
+
+    /// <summary>
+    /// Runs a generated-client call and wraps the outcome in a <see cref="UmbracoResponse{T}"/>.
+    /// Kiota signals HTTP errors by throwing <see cref="ApiException"/> (and transport
+    /// errors as <see cref="HttpRequestException"/>); this converts them all into a failed
+    /// response so the command layer keeps its "errors are data" contract (never throws for
+    /// HTTP-level failures). A genuine caller cancellation is left to propagate.
+    /// </summary>
+    /// <typeparam name="T">The mapped payload type.</typeparam>
+    /// <param name="action">The generated-client call, already mapped to <typeparamref name="T"/>.</param>
+    /// <returns>A success response with the payload, or a failure with the status + message.</returns>
+    private static async Task<UmbracoResponse<T>> GuardedApiAsync<T>(Func<Task<T>> action)
+    {
+        try
+        {
+            return UmbracoResponse<T>.Success(await action());
+        }
+        catch (ApiException ex)
+        {
+            // ResponseStatusCode is 0 when Kiota never got an HTTP response.
+            return UmbracoResponse<T>.Failure(
+                ex.ResponseStatusCode,
+                string.IsNullOrWhiteSpace(ex.Message) ? $"Error {ex.ResponseStatusCode}" : ex.Message
+            );
+        }
+        catch (HttpRequestException ex)
+        {
+            return UmbracoResponse<T>.Failure(
+                0,
+                $"Could not reach the Umbraco instance: {ex.Message}"
+            );
+        }
+        catch (TaskCanceledException)
+        {
+            return UmbracoResponse<T>.Failure(0, "The request to the Umbraco instance timed out.");
+        }
+    }
+
+    /// <summary>Returns the invariant (or first available) variant name from a document tree item.</summary>
+    /// <param name="item">The generated document tree item.</param>
+    /// <returns>The display name, or an empty string when no variant is present.</returns>
+    private static string DocumentName(Gen.DocumentTreeItemResponseModel item) =>
+        (item.Variants ?? []).FirstOrDefault()?.Name ?? "";
+
+    /// <summary>Maps a generated document tree item onto the command-facing <see cref="ContentItemResponse"/>.</summary>
+    /// <param name="item">The generated document tree item.</param>
+    /// <returns>The mapped content item (name flattened from variants, published derived from variant state).</returns>
+    private static ContentItemResponse MapDocumentTreeItem(Gen.DocumentTreeItemResponseModel item) =>
+        new()
+        {
+            Id = item.Id ?? Guid.Empty,
+            Name = DocumentName(item),
+            ContentType =
+                item.DocumentType?.Id is { } dtId
+                    ? new ContentTypeReference { Id = dtId }
+                    : null,
+            Parent = item.Parent?.Id is { } pId ? new ContentParentReference { Id = pId } : null,
+            IsPublished = (item.Variants ?? []).Any(v =>
+                v.State
+                    is Gen.DocumentVariantStateModel.Published
+                        or Gen.DocumentVariantStateModel.PublishedPendingChanges
+            ),
+            CreateDate = item.CreateDate ?? default,
+        };
+
+    /// <summary>Maps a generated media tree item onto the command-facing <see cref="MediaItemResponse"/>.</summary>
+    /// <param name="item">The generated media tree item.</param>
+    /// <returns>The mapped media item (name flattened from variants).</returns>
+    private static MediaItemResponse MapMediaTreeItem(Gen.MediaTreeItemResponseModel item) =>
+        new()
+        {
+            Id = item.Id ?? Guid.Empty,
+            Name = (item.Variants ?? []).FirstOrDefault()?.Name ?? "",
+            MediaType =
+                item.MediaType?.Id is { } mtId ? new ContentTypeReference { Id = mtId } : null,
+            Parent = item.Parent?.Id is { } pId ? new ContentParentReference { Id = pId } : null,
+            CreateDate = item.CreateDate ?? default,
+        };
+
+    /// <summary>Maps a generated member item onto the command-facing <see cref="MemberResponse"/>.</summary>
+    /// <param name="item">The generated member item.</param>
+    /// <returns>The mapped member (name flattened from variants).</returns>
+    private static MemberResponse MapMember(Gen.MemberResponseModel item) =>
+        new()
+        {
+            Id = item.Id ?? Guid.Empty,
+            Email = item.Email ?? "",
+            Name = (item.Variants ?? []).FirstOrDefault()?.Name ?? "",
+            MemberType =
+                item.MemberType?.Id is { } mtId ? new ContentTypeReference { Id = mtId } : null,
+            IsApproved = item.IsApproved ?? false,
+            IsLockedOut = item.IsLockedOut ?? false,
+        };
 
     private static async Task<UmbracoResponse<TResponse>> DeserializeAsync<TResponse>(
         HttpResponseMessage response,
