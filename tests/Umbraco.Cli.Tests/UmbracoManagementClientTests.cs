@@ -248,6 +248,21 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public void CreateDocumentTypeRequest_IncludesApiRequiredFields()
+    {
+        // Regression for #47: the payload must carry icon, the varies-by flags, the
+        // cleanup object and the allowed-* collections, or Umbraco 400s the create.
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new CreateDocumentTypeRequest { Name = "Widget", Alias = "widget" }
+        );
+
+        Assert.Contains("\"icon\":\"icon-document\"", json);
+        Assert.Contains("\"variesByCulture\":false", json);
+        Assert.Contains("\"cleanup\":", json);
+        Assert.Contains("\"allowedTemplates\":", json);
+    }
+
+    [Fact]
     public async Task GetContentByIdAsync_FlattensVariantNameAndDates()
     {
         // Regression for #42: single-item GET carries name/dates under variants[], which

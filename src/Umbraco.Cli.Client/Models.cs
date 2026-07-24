@@ -244,13 +244,30 @@ public record DocumentTypeResponse
     public bool AllowedAsRoot { get; init; }
 }
 
+/// <summary>
+/// Create payload for a document type. The Umbraco 17 API requires the full set of
+/// fields listed here (issue #47 — omitting <c>icon</c>, <c>cleanup</c>, the varies-by
+/// flags or the allowed-* collections 400s the request). Collections default to empty
+/// and the flags to false so a minimal create (name + alias) succeeds.
+/// </summary>
 public record CreateDocumentTypeRequest
 {
+    /// <summary>
+    /// Caller-supplied id. Umbraco accepts a client-generated GUID here, which lets the
+    /// CLI return the new id even though creates respond with an empty body (issue #43).
+    /// </summary>
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; } = Guid.NewGuid();
+
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
     [JsonPropertyName("alias")]
     public required string Alias { get; init; }
+
+    /// <summary>Backoffice icon. Required by the API; defaults to a generic document icon (issue #47).</summary>
+    [JsonPropertyName("icon")]
+    public string Icon { get; init; } = "icon-document";
 
     [JsonPropertyName("description")]
     public string? Description { get; init; }
@@ -261,11 +278,51 @@ public record CreateDocumentTypeRequest
     [JsonPropertyName("allowedAsRoot")]
     public bool AllowedAsRoot { get; init; }
 
+    /// <summary>Whether the type varies by culture. Required flag; defaults to false.</summary>
+    [JsonPropertyName("variesByCulture")]
+    public bool VariesByCulture { get; init; }
+
+    /// <summary>Whether the type varies by segment. Required flag; defaults to false.</summary>
+    [JsonPropertyName("variesBySegment")]
+    public bool VariesBySegment { get; init; }
+
+    /// <summary>Version-cleanup policy. Required object; defaults to "no cleanup".</summary>
+    [JsonPropertyName("cleanup")]
+    public DocumentTypeCleanup Cleanup { get; init; } = new();
+
     [JsonPropertyName("containers")]
     public IEnumerable<object> Containers { get; init; } = [];
 
     [JsonPropertyName("properties")]
     public IEnumerable<object> Properties { get; init; } = [];
+
+    /// <summary>Allowed child document types. Required collection; defaults to empty.</summary>
+    [JsonPropertyName("allowedDocumentTypes")]
+    public IEnumerable<object> AllowedDocumentTypes { get; init; } = [];
+
+    /// <summary>Compositions this type inherits from. Required collection; defaults to empty.</summary>
+    [JsonPropertyName("compositions")]
+    public IEnumerable<object> Compositions { get; init; } = [];
+
+    /// <summary>Templates allowed on this type. Required collection; defaults to empty.</summary>
+    [JsonPropertyName("allowedTemplates")]
+    public IEnumerable<ReferenceById> AllowedTemplates { get; init; } = [];
+}
+
+/// <summary>
+/// Document-type version cleanup policy. Defaults to "prevent cleanup" so a minimal
+/// create does not silently opt content into version pruning.
+/// </summary>
+public record DocumentTypeCleanup
+{
+    [JsonPropertyName("preventCleanup")]
+    public bool PreventCleanup { get; init; } = true;
+
+    [JsonPropertyName("keepAllVersionsNewerThanDays")]
+    public int? KeepAllVersionsNewerThanDays { get; init; }
+
+    [JsonPropertyName("keepLatestVersionPerDayForDays")]
+    public int? KeepLatestVersionPerDayForDays { get; init; }
 }
 
 // ── Data Types ───────────────────────────────────────────────────────────────
@@ -309,6 +366,14 @@ public record CreateLanguageRequest
 {
     [JsonPropertyName("isoCode")]
     public required string IsoCode { get; init; }
+
+    /// <summary>
+    /// Human-readable language name. Required by the API (issue #47) — without it the
+    /// create 400s with "The Name field is required.". Defaults are derived from the
+    /// culture by the command when the caller does not supply one.
+    /// </summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
 
     [JsonPropertyName("isDefault")]
     public bool IsDefault { get; init; }
