@@ -535,14 +535,46 @@ public record WebhookResponse
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
 
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
     [JsonPropertyName("url")]
     public string Url { get; init; } = "";
 
+    /// <summary>
+    /// Subscribed events. The API returns these as objects (issue #46 —
+    /// <c>{eventName, eventType, alias}</c>), not bare strings, so deserializing to
+    /// <c>string[]</c> threw. Modelled as <see cref="WebhookEvent"/>.
+    /// </summary>
     [JsonPropertyName("events")]
-    public IEnumerable<string>? Events { get; init; }
+    public IEnumerable<WebhookEvent>? Events { get; init; }
 
     [JsonPropertyName("enabled")]
     public bool Enabled { get; init; }
+
+    /// <summary>Document/media/member type keys this webhook is scoped to (empty = all).</summary>
+    [JsonPropertyName("contentTypeKeys")]
+    public IEnumerable<Guid>? ContentTypeKeys { get; init; }
+
+    /// <summary>Custom HTTP headers sent with the webhook request.</summary>
+    [JsonPropertyName("headers")]
+    public Dictionary<string, string>? Headers { get; init; }
+}
+
+/// <summary>A single event a webhook is subscribed to, as returned by the API (issue #46).</summary>
+public record WebhookEvent
+{
+    [JsonPropertyName("eventName")]
+    public string EventName { get; init; } = "";
+
+    [JsonPropertyName("eventType")]
+    public string? EventType { get; init; }
+
+    [JsonPropertyName("alias")]
+    public string? Alias { get; init; }
 }
 
 public record CreateWebhookRequest

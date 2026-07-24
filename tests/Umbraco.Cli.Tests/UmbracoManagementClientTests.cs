@@ -248,6 +248,36 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task GetWebhooksAsync_ParsesEventsAsObjects()
+    {
+        // Regression for #46: the API returns events as objects, not strings, which used
+        // to throw "cannot convert to System.String" once any webhook existed.
+        var json = """
+            {
+              "total": 1,
+              "items": [
+                {
+                  "id": "33333333-3333-3333-3333-333333333333",
+                  "url": "https://example.com/hook",
+                  "enabled": true,
+                  "events": [
+                    { "eventName": "ContentPublished", "eventType": "Other", "alias": "ContentPublished" }
+                  ]
+                }
+              ]
+            }
+            """;
+        var (client, _) = ClientReturning(json);
+
+        var result = await client.GetWebhooksAsync(0, 20, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var webhook = Assert.Single(result.Data!.Items);
+        var evt = Assert.Single(webhook.Events!);
+        Assert.Equal("ContentPublished", evt.EventName);
+    }
+
+    [Fact]
     public void CreateDocumentTypeRequest_IncludesApiRequiredFields()
     {
         // Regression for #47: the payload must carry icon, the varies-by flags, the
