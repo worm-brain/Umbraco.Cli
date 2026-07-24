@@ -75,6 +75,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
+            ct,
             async () =>
             {
                 var u = await _api.Umbraco.Management.Api.V1.User.Current.GetAsync(
@@ -110,7 +111,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         int take = 20,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(async () =>
+        GuardedApiAsync(ct, async () =>
         {
             var paged = parentId is null
                 ? await _api.Umbraco.Management.Api.V1.Tree.Document.Root.GetAsync(
@@ -150,7 +151,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         Guid id,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(async () =>
+        GuardedApiAsync(ct, async () =>
         {
             var d = await _api.Umbraco.Management.Api.V1.Document[id].GetAsync(cancellationToken: ct);
             var variant = (d?.Variants ?? []).FirstOrDefault();
@@ -242,7 +243,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         int take = 20,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(async () =>
+        GuardedApiAsync(ct, async () =>
         {
             var paged = parentId is null
                 ? await _api.Umbraco.Management.Api.V1.Tree.Media.Root.GetAsync(
@@ -280,7 +281,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         Guid id,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(async () =>
+        GuardedApiAsync(ct, async () =>
         {
             var m = await _api.Umbraco.Management.Api.V1.Media[id].GetAsync(cancellationToken: ct);
             var variant = (m?.Variants ?? []).FirstOrDefault();
@@ -345,7 +346,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         int take = 20,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(async () =>
+        GuardedApiAsync(ct, async () =>
         {
             var paged = await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Root.GetAsync(
                 c =>
@@ -405,7 +406,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         int take = 20,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(async () =>
+        GuardedApiAsync(ct, async () =>
         {
             var paged = await _api.Umbraco.Management.Api.V1.Tree.DataType.Root.GetAsync(
                 c =>
@@ -446,7 +447,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<IEnumerable<LanguageResponse>>> GetLanguagesAsync(
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync<IEnumerable<LanguageResponse>>(async () =>
+        GuardedApiAsync<IEnumerable<LanguageResponse>>(ct, async () =>
         {
             var paged = await _api.Umbraco.Management.Api.V1.Language.GetAsync(
                 c =>
@@ -499,7 +500,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         int take = 20,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(async () =>
+        GuardedApiAsync(ct, async () =>
         {
             var paged = await _api.Umbraco.Management.Api.V1.Tree.Template.Root.GetAsync(
                 c =>
@@ -545,7 +546,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         int take = 20,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(async () =>
+        GuardedApiAsync(ct, async () =>
         {
             var paged = await _api.Umbraco.Management.Api.V1.Filter.Member.GetAsync(
                 c =>
@@ -575,7 +576,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         Guid id,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(async () =>
+        GuardedApiAsync(ct, async () =>
         {
             var m = await _api.Umbraco.Management.Api.V1.Member[id].GetAsync(cancellationToken: ct);
             return m is null ? new MemberResponse { Id = id } : MapMember(m);
@@ -793,9 +794,13 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     /// HTTP-level failures). A genuine caller cancellation is left to propagate.
     /// </summary>
     /// <typeparam name="T">The mapped payload type.</typeparam>
+    /// <param name="ct">The caller's cancellation token; a genuine cancellation is rethrown.</param>
     /// <param name="action">The generated-client call, already mapped to <typeparamref name="T"/>.</param>
     /// <returns>A success response with the payload, or a failure with the status + message.</returns>
-    private static async Task<UmbracoResponse<T>> GuardedApiAsync<T>(Func<Task<T>> action)
+    private static async Task<UmbracoResponse<T>> GuardedApiAsync<T>(
+        CancellationToken ct,
+        Func<Task<T>> action
+    )
     {
         try
         {
@@ -816,7 +821,9 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
                 $"Could not reach the Umbraco instance: {ex.Message}"
             );
         }
-        catch (TaskCanceledException)
+        // A timeout surfaces as a cancellation whose token is NOT the caller's; a genuine
+        // caller cancellation (ct signalled) is rethrown so callers can observe it.
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             return UmbracoResponse<T>.Failure(0, "The request to the Umbraco instance timed out.");
         }

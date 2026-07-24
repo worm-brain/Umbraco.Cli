@@ -235,7 +235,12 @@ public class UmbracoManagementClientTests
             """;
         var (client, _) = ClientReturning(json, HttpStatusCode.BadRequest);
 
-        var result = await client.GetContentByIdAsync(Guid.NewGuid(), CancellationToken.None);
+        // A create uses the hand-written HttpClient path where BuildErrorAsync formats
+        // the ProblemDetails errors map.
+        var result = await client.CreateWebhookAsync(
+            new CreateWebhookRequest { Url = "https://example.com/hook" },
+            CancellationToken.None
+        );
 
         Assert.False(result.IsSuccess);
         Assert.Contains("$.icon", result.ErrorMessage);
