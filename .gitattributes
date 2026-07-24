@@ -1,0 +1,5 @@
+# Kiota-generated Management API client. Committed so CI/contributors do not
+# need a live Umbraco instance to build (see GitHub issue #50). Marked generated
+# so GitHub collapses it in diffs and excludes it from language stats. Regenerate
+# with scripts/regen-client.ps1 rather than editing by hand.
+src/Umbraco.Cli.Client/Generated/** linguist-generated=true

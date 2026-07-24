@@ -25,10 +25,17 @@ public static class WebhooksListCommand
                             parseResult.GetValue(takeOpt),
                             c
                         ),
-                    ["ID", "URL", "Enabled"],
+                    ["ID", "URL", "Events", "Enabled"],
                     data =>
                         data?.Items.Select(i =>
-                            new[] { i.Id.ToString(), i.Url, i.Enabled.ToString() }
+                            new[]
+                            {
+                                i.Id.ToString(),
+                                i.Url,
+                                // Events are objects (issue #46); show their names.
+                                string.Join(", ", (i.Events ?? []).Select(e => e.EventName)),
+                                i.Enabled.ToString(),
+                            }
                         )
                         ?? [],
                     ct

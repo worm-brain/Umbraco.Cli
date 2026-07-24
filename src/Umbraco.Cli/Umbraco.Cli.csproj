@@ -47,5 +47,8 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.9" />
     <PackageReference Include="Spectre.Console" Version="0.57.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.0" />
+    <!-- DPAPI for encrypting the stored client secret at rest on Windows (issue #45).
+         The API is Windows-only at runtime; calls are guarded by OperatingSystem.IsWindows(). -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
   </ItemGroup>
 </Project>
