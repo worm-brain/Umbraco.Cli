@@ -27,16 +27,23 @@ public class UmbracoManagementClientTests
     {
         private readonly HttpStatusCode _status;
         private readonly string _json;
+        private readonly string? _location;
 
         /// <summary>The absolute URI of the most recent request the client made.</summary>
         public Uri? LastRequestUri { get; private set; }
 
         /// <param name="json">The response body to return.</param>
         /// <param name="status">The HTTP status to return (defaults to 200 OK).</param>
-        public StubHandler(string json, HttpStatusCode status = HttpStatusCode.OK)
+        /// <param name="location">Optional Location response header (for create tests).</param>
+        public StubHandler(
+            string json,
+            HttpStatusCode status = HttpStatusCode.OK,
+            string? location = null
+        )
         {
             _json = json;
             _status = status;
+            _location = location;
         }
 
         protected override Task<HttpResponseMessage> SendAsync(
@@ -45,12 +52,13 @@ public class UmbracoManagementClientTests
         )
         {
             LastRequestUri = request.RequestUri;
-            return Task.FromResult(
-                new HttpResponseMessage(_status)
-                {
-                    Content = new StringContent(_json, Encoding.UTF8, "application/json"),
-                }
-            );
+            var message = new HttpResponseMessage(_status)
+            {
+                Content = new StringContent(_json, Encoding.UTF8, "application/json"),
+            };
+            if (_location is not null)
+                message.Headers.Location = new Uri(_location, UriKind.RelativeOrAbsolute);
+            return Task.FromResult(message);
         }
     }
 
@@ -64,10 +72,11 @@ public class UmbracoManagementClientTests
 
     private static (UmbracoManagementClient Client, StubHandler Handler) ClientReturning(
         string json,
-        HttpStatusCode status = HttpStatusCode.OK
+        HttpStatusCode status = HttpStatusCode.OK,
+        string? location = null
     )
     {
-        var handler = new StubHandler(json, status);
+        var handler = new StubHandler(json, status, location);
         var client = new UmbracoManagementClient(
             new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") }
         );
@@ -190,5 +199,58 @@ public class UmbracoManagementClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(404, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateWebhookAsync_201EmptyBody_IsSuccessWithIdFromLocation()
+    {
+        // Regression for #43: Umbraco returns 201 Created with an empty body; the create
+        // must report success and surface the new id parsed from the Location header.
+        var id = Guid.NewGuid();
+        var (client, _) = ClientReturning(
+            "",
+            HttpStatusCode.Created,
+            location: $"/umbraco/management/api/v1/webhook/{id}"
+        );
+
+        var result = await client.CreateWebhookAsync(
+            new CreateWebhookRequest { Url = "https://example.com/hook" },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(id, result.Data!.Id);
+    }
+
+    [Fact]
+    public async Task Error_WithValidationErrors_SurfacesFieldNames()
+    {
+        // Regression for #48: a 400 ProblemDetails must surface the offending field, not
+        // just the generic title.
+        var json = """
+            {
+              "title": "One or more validation errors occurred.",
+              "errors": { "$.icon": ["The Icon field is required."] }
+            }
+            """;
+        var (client, _) = ClientReturning(json, HttpStatusCode.BadRequest);
+
+        var result = await client.GetContentByIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("$.icon", result.ErrorMessage);
+        Assert.Contains("Icon field is required", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Error_EmptyBody_FallsBackToReasonPhrase()
+    {
+        // Regression for #48: a bare 404 (empty body) must not produce a blank message.
+        var (client, _) = ClientReturning("", HttpStatusCode.NotFound);
+
+        var result = await client.GetContentByIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
     }
 }

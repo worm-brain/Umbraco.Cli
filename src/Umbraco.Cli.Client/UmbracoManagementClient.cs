@@ -825,13 +825,51 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         if (!response.IsSuccessStatusCode)
             return await BuildErrorAsync<TResponse>(response, ct);
 
-        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
-            return UmbracoResponse<TResponse>.Success(default!, (int)response.StatusCode);
+        var status = (int)response.StatusCode;
 
-        var data = await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions, ct);
+        // Umbraco returns 201 Created (and 200/202) with an EMPTY body for writes.
+        // Treat any 2xx with no content as success — previously only 204 was handled,
+        // so a successful create surfaced a bogus "unreadable response" error (#43).
+        var body = await response.Content.ReadAsStringAsync(ct);
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            // Surface the new id when the API returns it via the Location header
+            // (e.g. Location: .../webhook/{id}). Every response DTO exposes an "id"
+            // JSON property, so hydrating {"id":"..."} yields a DTO carrying just the
+            // new id — enough for callers/agents to chain follow-up calls (#43).
+            var newId = TryGetIdFromLocation(response);
+            if (newId is not null)
+            {
+                var withId = JsonSerializer.Deserialize<TResponse>(
+                    $$"""{"id":"{{newId}}"}""",
+                    JsonOptions
+                );
+                if (withId is not null)
+                    return UmbracoResponse<TResponse>.Success(withId, status);
+            }
+            return UmbracoResponse<TResponse>.Success(default!, status);
+        }
+
+        var data = JsonSerializer.Deserialize<TResponse>(body, JsonOptions);
         return data is not null
-            ? UmbracoResponse<TResponse>.Success(data, (int)response.StatusCode)
-            : UmbracoResponse<TResponse>.Failure((int)response.StatusCode, "Empty response body");
+            ? UmbracoResponse<TResponse>.Success(data, status)
+            : UmbracoResponse<TResponse>.Failure(status, "Empty response body");
+    }
+
+    /// <summary>
+    /// Extracts the trailing GUID from the <c>Location</c> response header of a create
+    /// (e.g. <c>/umbraco/management/api/v1/webhook/{id}</c>). Returns null when there is
+    /// no Location header or its last segment is not a GUID.
+    /// </summary>
+    /// <param name="response">The HTTP response from a create call.</param>
+    /// <returns>The new resource id as a string, or null.</returns>
+    private static string? TryGetIdFromLocation(HttpResponseMessage response)
+    {
+        var location = response.Headers.Location?.ToString();
+        if (string.IsNullOrEmpty(location))
+            return null;
+        var lastSegment = location.TrimEnd('/').Split('/').LastOrDefault();
+        return Guid.TryParse(lastSegment, out var id) ? id.ToString() : null;
     }
 
     private static async Task<UmbracoResponse<T>> BuildErrorAsync<T>(
@@ -840,19 +878,85 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     )
     {
         var body = await response.Content.ReadAsStringAsync(ct);
-        string message;
+
+        // Empty body (typically a bare 404): fall back to the HTTP reason phrase so the
+        // user sees "Not Found" rather than a blank message (#48).
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            var reason = response.ReasonPhrase;
+            return UmbracoResponse<T>.Failure(
+                (int)response.StatusCode,
+                string.IsNullOrWhiteSpace(reason) ? $"Error {(int)response.StatusCode}" : reason
+            );
+        }
+
+        string message = body;
         try
         {
             var err = JsonSerializer.Deserialize<JsonElement>(body, JsonOptions);
-            message =
-                err.TryGetProperty("title", out var title) ? title.GetString() ?? body
-                : err.TryGetProperty("detail", out var detail) ? detail.GetString() ?? body
-                : body;
+            // Umbraco returns RFC-9110 ProblemDetails: {title, detail, errors}. Prefer the
+            // human title/detail, then append the field-level "errors" so a failed create
+            // tells the user WHICH field failed instead of a generic message (#48).
+            var baseMessage =
+                err.TryGetProperty("detail", out var detail)
+                && detail.ValueKind == JsonValueKind.String
+                    ? detail.GetString()
+                : err.TryGetProperty("title", out var title)
+                && title.ValueKind == JsonValueKind.String
+                    ? title.GetString()
+                : null;
+
+            var fieldErrors = FormatValidationErrors(err);
+
+            message = (baseMessage, fieldErrors) switch
+            {
+                (not null, not null) => $"{baseMessage} ({fieldErrors})",
+                (not null, null) => baseMessage,
+                (null, not null) => fieldErrors,
+                _ => body,
+            };
         }
-        catch
+        catch (JsonException)
         {
+            // Non-JSON error body: surface it verbatim.
             message = body;
         }
         return UmbracoResponse<T>.Failure((int)response.StatusCode, message);
+    }
+
+    /// <summary>
+    /// Flattens a ProblemDetails <c>errors</c> member into a single readable string.
+    /// Handles both the object form (<c>{"field":["msg"]}</c>) and the array-of-objects
+    /// form (<c>[{"field":["msg"]}]</c>) that Umbraco can return (#48).
+    /// </summary>
+    /// <param name="problem">The parsed ProblemDetails root element.</param>
+    /// <returns>A "field: message; ..." string, or null when there are no field errors.</returns>
+    private static string? FormatValidationErrors(JsonElement problem)
+    {
+        if (!problem.TryGetProperty("errors", out var errors))
+            return null;
+
+        var parts = new List<string>();
+
+        // Collects "field: msg1, msg2" from an object whose values are string arrays.
+        void CollectFromObject(JsonElement obj)
+        {
+            foreach (var field in obj.EnumerateObject())
+            {
+                var messages = field.Value.ValueKind == JsonValueKind.Array
+                    ? string.Join(", ", field.Value.EnumerateArray().Select(v => v.GetString()))
+                    : field.Value.ToString();
+                parts.Add($"{field.Name}: {messages}");
+            }
+        }
+
+        if (errors.ValueKind == JsonValueKind.Object)
+            CollectFromObject(errors);
+        else if (errors.ValueKind == JsonValueKind.Array)
+            foreach (var element in errors.EnumerateArray())
+                if (element.ValueKind == JsonValueKind.Object)
+                    CollectFromObject(element);
+
+        return parts.Count > 0 ? string.Join("; ", parts) : null;
     }
 }
