@@ -427,3 +427,13 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# ── Generated Kiota client ──────────────────────────────────────────────────
+# The Management API client under src/Umbraco.Cli.Client/Generated is generated
+# (issue #50) and committed in full so CI/contributors build without a live
+# Umbraco instance. The generic Visual Studio ignores above (publish/, [Ll]og/,
+# [Ll]ogs/, bin/, obj/, ...) collide with generated request-builder folder names
+# and would silently drop them, breaking a fresh checkout. Re-include the whole
+# generated tree; only the Kiota run log is kept out.
+!src/Umbraco.Cli.Client/Generated/**
+src/Umbraco.Cli.Client/Generated/.kiota.log
