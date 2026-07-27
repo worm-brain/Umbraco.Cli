@@ -70,6 +70,23 @@ public class CommandParseTests
         return parsed.Errors.Count > 0;
     }
 
+    // ── Conditional requirement + --schema (#61) ─────────────────────────────
+
+    [Theory]
+    [InlineData("content create")] // missing --content-type/--name and no --json-body
+    [InlineData("content update")] // missing id and --json-body
+    public void WriteCommand_MissingRequiredInput_IsParseError(string args) =>
+        Assert.True(HasErrors(args));
+
+    [Theory]
+    [InlineData("content create --content-type textPage --name About")]
+    [InlineData("content create --json-body body.json")]
+    [InlineData("content create --schema")] // --schema bypasses the requirement
+    [InlineData("content update 3f7a8b2e-1234-5678-abcd-ef0123456789 --json-body u.json")]
+    [InlineData("content update --schema")] // --schema bypasses the requirement
+    public void WriteCommand_ValidOrSchema_IsNotParseError(string args) =>
+        Assert.False(HasErrors(args));
+
     // ── Command tree structure ────────────────────────────────────────────────
 
     [Theory]

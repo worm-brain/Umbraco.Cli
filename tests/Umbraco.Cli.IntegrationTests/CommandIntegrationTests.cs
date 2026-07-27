@@ -185,6 +185,34 @@ public sealed class CommandIntegrationTests
     }
 
     [Fact]
+    public void Schema_ContentCreate_EmitsJsonSchema()
+    {
+        // #61: `--schema` is local (no host/auth) and prints the raw JSON Schema of the body.
+        var result = CliRunner.Run("content", "create", "--schema");
+
+        Assert.True(result.Ok, result.Stderr);
+        using var doc = JsonDocument.Parse(result.Stdout);
+        // It is a bare JSON Schema document, not the CLI envelope.
+        Assert.True(doc.RootElement.TryGetProperty("properties", out var props));
+        Assert.True(props.TryGetProperty("contentType", out _));
+        // Root is a non-nullable object (a null body is rejected by the command).
+        Assert.Equal("object", doc.RootElement.GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public void Schema_ContentUpdate_EmitsJsonSchema()
+    {
+        // update's --schema path is independent of create's, so exercise it too.
+        var result = CliRunner.Run("content", "update", "--schema");
+
+        Assert.True(result.Ok, result.Stderr);
+        using var doc = JsonDocument.Parse(result.Stdout);
+        var props = doc.RootElement.GetProperty("properties");
+        Assert.True(props.TryGetProperty("values", out _));
+        Assert.True(props.TryGetProperty("variants", out _));
+    }
+
+    [Fact]
     public void Commands_EmitsCatalogJson()
     {
         // #60: `commands` is a local introspection command - no instance or auth needed - so

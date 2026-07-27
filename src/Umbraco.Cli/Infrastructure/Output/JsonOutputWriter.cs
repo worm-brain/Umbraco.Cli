@@ -6,6 +6,14 @@ namespace Umbraco.Cli.Infrastructure.Output;
 
 public sealed class JsonOutputWriter : IOutputWriter
 {
+    /// <summary>
+    /// Version of the JSON output envelope (#61). Emitted as <c>meta.schemaVersion</c> so an
+    /// agent can gate on the contract. Bump ONLY on a breaking change to the envelope — a
+    /// renamed/removed field or a changed meaning. Field names are part of the contract and are
+    /// never renamed silently. Additive fields do not bump it.
+    /// </summary>
+    public const string SchemaVersion = "1";
+
     private static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
@@ -24,6 +32,7 @@ public sealed class JsonOutputWriter : IOutputWriter
                 command = commandName,
                 durationMs,
                 timestamp = DateTimeOffset.UtcNow,
+                schemaVersion = SchemaVersion,
             },
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
@@ -36,6 +45,7 @@ public sealed class JsonOutputWriter : IOutputWriter
             status = "error",
             code,
             message,
+            schemaVersion = SchemaVersion,
         };
         Console.Error.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
@@ -55,7 +65,12 @@ public sealed class JsonOutputWriter : IOutputWriter
 
     public void WriteMessage(string message)
     {
-        var envelope = new { status = "success", message };
+        var envelope = new
+        {
+            status = "success",
+            message,
+            meta = new { schemaVersion = SchemaVersion },
+        };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
@@ -86,6 +101,7 @@ public sealed class JsonOutputWriter : IOutputWriter
                 url,
                 body = parsedBody,
             },
+            meta = new { schemaVersion = SchemaVersion },
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
