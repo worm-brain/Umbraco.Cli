@@ -39,7 +39,8 @@ public class CommandExecutorTests
             authService,
             stub,
             global,
-            new FakeClientFactory(client)
+            new FakeClientFactory(client),
+            new Umbraco.Cli.Infrastructure.Http.MutationInterceptState()
         );
         var executor = new CommandExecutor(factory);
 

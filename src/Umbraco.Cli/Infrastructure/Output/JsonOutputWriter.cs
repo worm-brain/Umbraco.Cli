@@ -58,4 +58,35 @@ public sealed class JsonOutputWriter : IOutputWriter
         var envelope = new { status = "success", message };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
+
+    public void WriteDryRun(string method, string url, string? body)
+    {
+        // Embed the body as parsed JSON when it is valid JSON so the preview nests cleanly
+        // for agents; otherwise fall back to the raw string. A dry run is a successful
+        // preview, so it goes to stdout with a distinct "dry-run" status.
+        object? parsedBody = null;
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            try
+            {
+                parsedBody = JsonSerializer.Deserialize<JsonElement>(body!);
+            }
+            catch (JsonException)
+            {
+                parsedBody = body;
+            }
+        }
+
+        var envelope = new
+        {
+            status = "dry-run",
+            request = new
+            {
+                method,
+                url,
+                body = parsedBody,
+            },
+        };
+        Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
+    }
 }

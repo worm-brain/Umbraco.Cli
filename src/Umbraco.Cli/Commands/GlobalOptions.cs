@@ -40,6 +40,15 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    public Option<bool> DryRun { get; } =
+        new("--dry-run")
+        {
+            Description =
+                "Preview the HTTP request a write command would send (method, URL, body) "
+                + "without executing it. No effect on read commands.",
+            Recursive = true,
+        };
+
     public Option<string?> Config { get; } =
         new("--config")
         {
@@ -54,6 +63,7 @@ public sealed class GlobalOptions
         command.Add(Token);
         command.Add(Output);
         command.Add(Verbose);
+        command.Add(DryRun);
         command.Add(Config);
     }
 }

@@ -154,6 +154,36 @@ public sealed class CommandIntegrationTests
     }
 
     [SkippableFact]
+    public void DryRun_Create_PreviewsRequestAndDoesNotMutate()
+    {
+        RequireLive();
+        const string marker = "https://example.com/dry-run-must-not-exist";
+
+        // A create with --dry-run must return a dry-run preview of the POST and change nothing.
+        var dry = CliRunner.Run(
+            "webhooks",
+            "create",
+            "--url",
+            marker,
+            "--events",
+            "ContentPublished",
+            "--dry-run"
+        );
+        Assert.True(dry.Ok, dry.Stderr);
+
+        using var doc = JsonDocument.Parse(dry.Stdout);
+        Assert.Equal("dry-run", doc.RootElement.GetProperty("status").GetString());
+        var request = doc.RootElement.GetProperty("request");
+        Assert.Equal("POST", request.GetProperty("method").GetString());
+        Assert.Contains("webhook", request.GetProperty("url").GetString());
+
+        // Nothing should have been created - the marker URL must not appear in the list.
+        var list = CliRunner.Run("webhooks", "list", "--take", "100");
+        Assert.True(list.Ok, list.Stderr);
+        Assert.DoesNotContain(marker, list.Stdout);
+    }
+
+    [SkippableFact]
     public void Webhook_CreateListDelete_RoundTrips()
     {
         RequireLive();

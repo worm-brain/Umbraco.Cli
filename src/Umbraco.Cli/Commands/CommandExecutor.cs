@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure.Http;
 using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands;
@@ -52,6 +53,14 @@ public sealed class CommandExecutor
             }
 
             render(ctx, result.Data);
+            return 0;
+        }
+        catch (DryRunException dry)
+        {
+            // --dry-run: the mutation-interceptor aborted a write before it was sent. Print
+            // the captured request instead of executing it, and report success (exit 0) —
+            // nothing was changed.
+            ctx.Output.WriteDryRun(dry.Method, dry.Url, dry.Body);
             return 0;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Net.Http.Headers;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure.Config;
+using Umbraco.Cli.Infrastructure.Http;
 using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands;
@@ -13,13 +14,15 @@ public sealed class CommandContextFactory
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly GlobalOptions _globalOptions;
     private readonly IUmbracoManagementClientFactory _clientFactory;
+    private readonly MutationInterceptState _mutationState;
 
     public CommandContextFactory(
         ConfigStore configStore,
         UmbracoAuthService authService,
         IHttpClientFactory httpClientFactory,
         GlobalOptions globalOptions,
-        IUmbracoManagementClientFactory clientFactory
+        IUmbracoManagementClientFactory clientFactory,
+        MutationInterceptState mutationState
     )
     {
         _configStore = configStore;
@@ -27,6 +30,7 @@ public sealed class CommandContextFactory
         _httpClientFactory = httpClientFactory;
         _globalOptions = globalOptions;
         _clientFactory = clientFactory;
+        _mutationState = mutationState;
     }
 
     /// <summary>
@@ -87,6 +91,12 @@ public sealed class CommandContextFactory
                 throw new CommandAbortedException();
             }
         }
+
+        // Activate dry-run preview for this invocation (after auth, so the OAuth token
+        // exchange itself still runs). The interceptor handler on the Management-API client
+        // reads this and aborts the first state-changing request with the captured details.
+        if (parseResult.GetValue(_globalOptions.DryRun))
+            _mutationState.Policy = MutationInterceptPolicy.Preview;
 
         var verbose = parseResult.GetValue(_globalOptions.Verbose);
         var http = _httpClientFactory.CreateClient(verbose ? "umbraco-verbose" : "umbraco");
