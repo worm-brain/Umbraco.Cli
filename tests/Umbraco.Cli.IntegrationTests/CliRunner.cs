@@ -43,7 +43,18 @@ public static class CliRunner
     /// </summary>
     /// <param name="args">CLI arguments, e.g. <c>["content", "list", "--take", "5"]</c>.</param>
     /// <returns>The exit code and captured stdout/stderr.</returns>
-    public static CliResult Run(params string[] args)
+    public static CliResult Run(params string[] args) => RunWithInput(null, args);
+
+    /// <summary>
+    /// Runs the CLI with the given arguments, first writing <paramref name="stdin"/> to the
+    /// child's standard input (for testing <c>--json-body -</c> piping, #63). A null
+    /// <paramref name="stdin"/> means no input is written (stdin is still closed, so the child
+    /// is non-interactive).
+    /// </summary>
+    /// <param name="stdin">Text to pipe to the process's stdin, or null for none.</param>
+    /// <param name="args">CLI arguments.</param>
+    /// <returns>The exit code and captured stdout/stderr.</returns>
+    public static CliResult RunWithInput(string? stdin, params string[] args)
     {
         var psi = new ProcessStartInfo("dotnet")
         {
@@ -54,6 +65,9 @@ public static class CliRunner
             // confirmation gate (#70) always takes the non-interactive path instead of
             // inheriting the test host's stdin and potentially blocking on Console.ReadLine.
             RedirectStandardInput = true,
+            // Pipe stdin as UTF-8 so a non-ASCII --json-body survives (the CLI reads stdin as
+            // UTF-8); without this the harness would encode using the console code page.
+            StandardInputEncoding = System.Text.Encoding.UTF8,
             UseShellExecute = false,
             // "dotnet exec <dll> <args>" runs the framework-dependent CLI assembly.
             ArgumentList = { "exec", CliDllPath.Value },
@@ -65,8 +79,12 @@ public static class CliRunner
             Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start the CLI process.");
 
-        // Close the child's stdin right away — it is never fed input, and closing it makes any
-        // accidental read return end-of-input rather than hang.
+        // Write any piped body, then close stdin. Closing it makes an unread stdin return
+        // end-of-input rather than hang, and keeps the child non-interactive (#70). Note: this
+        // writes the whole body before draining stdout, so a body larger than the OS pipe
+        // buffer combined with early child output could deadlock — fine for test-sized bodies.
+        if (stdin is not null)
+            process.StandardInput.Write(stdin);
         process.StandardInput.Close();
 
         // Read both streams before waiting to avoid a full-pipe deadlock.

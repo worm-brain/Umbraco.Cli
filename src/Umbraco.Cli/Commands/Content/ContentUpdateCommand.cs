@@ -22,10 +22,10 @@ public static class ContentUpdateCommand
             Description = "Content item ID. Required unless --schema is used.",
             Arity = ArgumentArity.ZeroOrOne,
         };
-        var bodyOpt = new Option<FileInfo?>("--json-body")
+        var bodyOpt = new Option<string?>("--json-body")
         {
             Description =
-                "Path to a JSON file containing the update request body. "
+                "Path to a JSON file (or - for stdin) containing the update request body. "
                 + "Required unless --schema is used.",
         };
         var schemaOpt = new Option<bool>("--schema")
@@ -41,7 +41,7 @@ public static class ContentUpdateCommand
         {
             if (result.GetValue(schemaOpt))
                 return;
-            if (result.GetValue(idArg) is null || result.GetValue(bodyOpt) is null)
+            if (result.GetValue(idArg) is null || string.IsNullOrEmpty(result.GetValue(bodyOpt)))
                 result.AddError(
                     "Supply the content id and --json-body. "
                         + "Run with --schema to see the JSON body shape."
@@ -65,9 +65,9 @@ public static class ContentUpdateCommand
                     {
                         // The validator guarantees both are present here.
                         var id = parseResult.GetValue(idArg)!.Value;
-                        var bodyFile = parseResult.GetValue(bodyOpt)!;
+                        var bodySource = parseResult.GetValue(bodyOpt)!;
 
-                        var json = await File.ReadAllTextAsync(bodyFile.FullName, c);
+                        var json = await JsonBodyInput.ReadAsync(bodySource, c);
                         var request =
                             JsonSerializer.Deserialize<UpdateContentRequest>(json)
                             ?? throw new InvalidOperationException("Invalid JSON body.");

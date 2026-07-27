@@ -1,11 +1,21 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Umbraco.Cli.Infrastructure.Output;
 
 public sealed class JsonOutputWriter : IOutputWriter
 {
+    // Optional field projection (#63): when set, only these fields are kept on the data object
+    // (or each array item), in this order. Matched case-insensitively. Null = no projection.
+    private readonly string[]? _fields;
+
+    /// <summary>Creates the writer, optionally projecting output data to a set of fields (#63).</summary>
+    /// <param name="fields">Field names to keep (in order), or null for no projection.</param>
+    public JsonOutputWriter(string[]? fields = null) =>
+        _fields = fields is { Length: > 0 } ? fields : null;
+
     /// <summary>
     /// Version of the JSON output envelope (#61). Emitted as <c>meta.schemaVersion</c> so an
     /// agent can gate on the contract. Bump ONLY on a breaking change to the envelope — a
@@ -23,10 +33,16 @@ public sealed class JsonOutputWriter : IOutputWriter
 
     public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null)
     {
+        // Without --fields, serialize the value directly (no extra DOM copy). With --fields,
+        // serialize to a node first so the projection (#63) can trim it before it is emitted.
+        object? payload = _fields is null
+            ? data
+            : Project(JsonSerializer.SerializeToNode(data, Options), _fields);
+
         var envelope = new
         {
             status = "success",
-            data,
+            data = payload,
             meta = new
             {
                 command = commandName,
@@ -37,6 +53,51 @@ public sealed class JsonOutputWriter : IOutputWriter
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
+
+    /// <summary>
+    /// Projects a data node to the requested <paramref name="fields"/> (#63): an array projects
+    /// each element; an object keeps only the named fields, in the order requested, matched
+    /// case-insensitively (so <c>--fields id,name</c> matches both <c>id</c> and a table's
+    /// <c>ID</c> header). Non-object nodes are returned unchanged.
+    /// </summary>
+    /// <param name="node">The serialized data node.</param>
+    /// <param name="fields">The field names to keep, in order.</param>
+    /// <returns>The projected node.</returns>
+    private static JsonNode? Project(JsonNode? node, string[] fields)
+    {
+        if (node is JsonArray array)
+        {
+            var result = new JsonArray();
+            foreach (var item in array)
+                result.Add(ProjectObject(item, fields));
+            return result;
+        }
+        return ProjectObject(node, fields);
+    }
+
+    private static JsonNode? ProjectObject(JsonNode? node, string[] fields)
+    {
+        if (node is not JsonObject obj)
+            return node?.DeepClone();
+
+        var result = new JsonObject();
+        foreach (var field in fields)
+        {
+            // Prefer an exact key match; otherwise match ignoring case and spaces so
+            // `--fields contentType` also selects a table's "Content Type" header. The object's
+            // actual key casing is preserved, in the requested order.
+            var match = obj.FirstOrDefault(kv => kv.Key == field) is { Key: not null } exact
+                ? exact
+                : obj.FirstOrDefault(kv => NormalizeKey(kv.Key) == NormalizeKey(field));
+            if (match.Key is not null && !result.ContainsKey(match.Key))
+                result[match.Key] = match.Value?.DeepClone();
+        }
+        return result;
+    }
+
+    /// <summary>Lower-cases and strips whitespace so "Content Type" and "contentType" match.</summary>
+    private static string NormalizeKey(string key) =>
+        new string(key.Where(c => !char.IsWhiteSpace(c)).ToArray()).ToLowerInvariant();
 
     public void WriteError(int code, string message)
     {
