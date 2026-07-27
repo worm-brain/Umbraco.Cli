@@ -52,7 +52,10 @@ public sealed class CommandContextFactory
         // JSON writer, which trims each result to those fields.
         var fields = ParseFields(parseResult.GetValue(_globalOptions.Fields));
         var output = OutputWriterFactory.Create(outputFormat, fields);
-        var config = ResolveConfigStore(parseResult).Load();
+        // Resolve the selected profile (#64): --profile flag, else the store falls back to
+        // UMBRACO_PROFILE / the configured default.
+        var config = ResolveConfigStore(parseResult)
+            .Load(parseResult.GetValue(_globalOptions.Profile));
 
         // Command allow-list (#69): when configured, only the listed noun groups / commands may
         // run. Checked before auth so a disallowed command fails fast. The `auth` group is

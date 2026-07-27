@@ -12,6 +12,7 @@ public static class LoginCommand
         Option<string?> hostOption,
         Option<string?> outputOption,
         Option<string?> configOption,
+        Option<string?> profileOption,
         ConfigStore configStore,
         UmbracoAuthService authService
     )
@@ -87,20 +88,21 @@ public static class LoginCommand
                 }
 
                 var store = ConfigStore.Resolve(parseResult.GetValue(configOption), configStore);
-                // Preserve any existing command allow-list (#69) so logging in doesn't strip
-                // the guardrail from the config file.
-                var existing = store.Load();
+                var profile = parseResult.GetValue(profileOption);
+                // Save saves to the named profile (or the current default) and preserves that
+                // profile's existing allow-list (#69), so no manual merge is needed here.
                 store.Save(
                     new CliConfig
                     {
                         Host = host,
                         ClientId = clientId,
                         ClientSecret = clientSecret,
-                        AllowedCommands = existing.AllowedCommands,
-                    }
+                    },
+                    profile
                 );
 
-                writer.WriteMessage($"Logged in to {host}");
+                var where = string.IsNullOrWhiteSpace(profile) ? "" : $" (profile '{profile}')";
+                writer.WriteMessage($"Logged in to {host}{where}");
                 return 0;
             }
         );

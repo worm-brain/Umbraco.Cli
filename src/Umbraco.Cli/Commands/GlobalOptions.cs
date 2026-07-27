@@ -83,6 +83,15 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    public Option<string?> Profile { get; } =
+        new("--profile", new[] { "-p" })
+        {
+            Description =
+                "Named credential profile to use (see 'auth profiles'). "
+                + "Also settable with UMBRACO_PROFILE. Defaults to the configured default profile.",
+            Recursive = true,
+        };
+
     /// <summary>Adds every global option to the supplied (root) command.</summary>
     public void AddTo(Command command)
     {
@@ -95,5 +104,6 @@ public sealed class GlobalOptions
         command.Add(ReadOnly);
         command.Add(Fields);
         command.Add(Config);
+        command.Add(Profile);
     }
 }

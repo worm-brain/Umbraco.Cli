@@ -259,6 +259,38 @@ public sealed class CommandIntegrationTests
         Assert.Equal(name, echoedName);
     }
 
+    [SkippableFact]
+    public void AuthProfiles_ListsProfilesWithDefault()
+    {
+        RequireLive();
+        // #64: profiles are listed with the default marked. The live config resolves to at
+        // least one profile (a legacy flat config migrates to 'default').
+        var result = CliRunner.Run("auth", "profiles");
+        Assert.True(result.Ok, result.Stderr);
+
+        var rows = result.Data().EnumerateArray().ToList();
+        Assert.NotEmpty(rows);
+        Assert.Contains(rows, r => r.GetProperty("Default").GetString() == "*");
+    }
+
+    [SkippableFact]
+    public void Profile_SelectsCredentials()
+    {
+        RequireLive();
+        // Discover the default profile name, then prove --profile <name> authenticates with it.
+        var profiles = CliRunner.Run("auth", "profiles");
+        Assert.True(profiles.Ok, profiles.Stderr);
+        var defaultName = profiles
+            .Data()
+            .EnumerateArray()
+            .First(r => r.GetProperty("Default").GetString() == "*")
+            .GetProperty("Profile")
+            .GetString()!;
+
+        var whoami = CliRunner.Run("auth", "whoami", "--profile", defaultName);
+        Assert.True(whoami.Ok, whoami.Stderr);
+    }
+
     [Fact]
     public void Commands_EmitsCatalogJson()
     {
