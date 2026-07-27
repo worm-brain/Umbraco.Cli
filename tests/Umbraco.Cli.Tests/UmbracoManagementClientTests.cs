@@ -428,6 +428,68 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public void FormatProblemDetailsErrors_FlattensArrayOfObjectsForm()
+    {
+        // #48 parity: Umbraco can also return the errors map as an array of objects
+        // ([{"field":["msg"]}]), which the hand-written FormatValidationErrors handles - the
+        // Kiota path must too, or the field detail is lost on that shape.
+        var pd = new Umbraco.Cli.Client.Generated.Models.ProblemDetails { Status = 400 };
+        pd.AdditionalData["errors"] = new Microsoft.Kiota.Abstractions.Serialization.UntypedArray(
+            new List<Microsoft.Kiota.Abstractions.Serialization.UntypedNode>
+            {
+                new Microsoft.Kiota.Abstractions.Serialization.UntypedObject(
+                    new Dictionary<string, Microsoft.Kiota.Abstractions.Serialization.UntypedNode>
+                    {
+                        ["url"] = new Microsoft.Kiota.Abstractions.Serialization.UntypedArray(
+                            new List<Microsoft.Kiota.Abstractions.Serialization.UntypedNode>
+                            {
+                                new Microsoft.Kiota.Abstractions.Serialization.UntypedString(
+                                    "The Url field is required."
+                                ),
+                            }
+                        ),
+                    }
+                ),
+            }
+        );
+
+        var formatted = UmbracoManagementClient.FormatProblemDetailsErrors(pd);
+
+        Assert.NotNull(formatted);
+        Assert.Contains("url", formatted);
+        Assert.Contains("Url field is required", formatted);
+    }
+
+    [Fact]
+    public async Task CreateMemberAsync_201EmptyBody_IsSuccessWithIdFromLocation()
+    {
+        // #43 guard for the creates still on the hand-written path (content/member): a 201
+        // with an empty body must succeed and surface the new id parsed from the Location
+        // header. (Migrated creates supply a client GUID instead; this keeps the Location
+        // path covered until #79 finishes the migration - the migrated webhook create used to
+        // be this test's subject.)
+        var id = Guid.NewGuid();
+        var (client, _) = ClientReturning(
+            "",
+            HttpStatusCode.Created,
+            location: $"/umbraco/management/api/v1/member/{id}"
+        );
+
+        var result = await client.CreateMemberAsync(
+            new CreateMemberRequest
+            {
+                Email = "m@example.com",
+                Name = "M",
+                MemberType = new ContentTypeReference { Alias = "member" },
+            },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(id, result.Data!.Id);
+    }
+
+    [Fact]
     public void FormatProblemDetailsErrors_NoErrorsMap_ReturnsNull()
     {
         // With no "errors" entry, there is nothing to append and the base detail/title

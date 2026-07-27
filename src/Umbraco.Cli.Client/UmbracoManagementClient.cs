@@ -22,9 +22,15 @@ namespace Umbraco.Cli.Client;
 /// envelope, the transport-failure guard, and the command-facing DTOs stable, so
 /// commands never see the generated types or Kiota's exception-based failure model.
 ///
-/// Migration is incremental. Read paths (list/whoami/languages) call the generated
-/// request builders (via <see cref="GuardedApiAsync{T}"/>); write paths still use the
-/// hand-written <see cref="HttpClient"/> helpers below until they are migrated too.
+/// Migration is incremental (#50). Most calls now go through the generated request
+/// builders via <see cref="GuardedApiAsync{T}"/>: all reads that had a clean generated
+/// equivalent, every delete, the language/dictionary/webhook creates, and user invite.
+/// Still on the hand-written <see cref="HttpClient"/> helpers below (tracked by #79, which
+/// removes <see cref="_http"/> entirely): the content write path (create/update/publish/
+/// unpublish) and media upload — they need document-type alias→id resolution, a
+/// JSON→UntypedNode value converter, and the two-step temporary-file upload flow — plus the
+/// handful of overlooked reads (document-type/data-type/user/dictionary/webhook) that are
+/// mopped up there since <see cref="_http"/> lives on for the content/media writes anyway.
 /// </summary>
 public sealed class UmbracoManagementClient : IUmbracoManagementClient
 {
@@ -974,7 +980,9 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
                         .Events.Select(e => new WebhookEvent { EventName = e })
                         .ToList(),
                     ContentTypeKeys = request.ContentTypeKeys.ToList(),
-                    Headers = request.Headers.Count > 0 ? request.Headers : null,
+                    // Echo the headers dictionary as-is (empty when none) to match the shape
+                    // the webhook read path produces from the API's `headers` object.
+                    Headers = request.Headers,
                 };
             }
         );
@@ -1403,11 +1411,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>A "field: message; ..." string, or null when there are no field errors.</returns>
     internal static string? FormatProblemDetailsErrors(Gen.ProblemDetails pd)
     {
-        if (
-            pd.AdditionalData is null
-            || !pd.AdditionalData.TryGetValue("errors", out var raw)
-            || raw is not UntypedObject errorsObj
-        )
+        if (pd.AdditionalData is null || !pd.AdditionalData.TryGetValue("errors", out var raw))
             return null;
 
         // Collapses a single UntypedNode (string/bool/number) to its text form; anything
@@ -1425,19 +1429,34 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             };
 
         var parts = new List<string>();
-        foreach (var field in errorsObj.GetValue())
+
+        // Flattens one {"field": ["msg", ...]} object into "field: msg1, msg2" entries.
+        void CollectFromObject(UntypedObject obj)
         {
-            // Each field value is normally an array of message strings, but tolerate a bare
-            // scalar too.
-            var messages = field.Value is UntypedArray arr
-                ? string.Join(
-                    ", ",
-                    arr.GetValue().Select(NodeToString).Where(s => !string.IsNullOrEmpty(s))
-                )
-                : NodeToString(field.Value);
-            if (!string.IsNullOrEmpty(messages))
-                parts.Add($"{field.Key}: {messages}");
+            foreach (var field in obj.GetValue())
+            {
+                // Each field value is normally an array of message strings, but tolerate a
+                // bare scalar too.
+                var messages = field.Value is UntypedArray arr
+                    ? string.Join(
+                        ", ",
+                        arr.GetValue().Select(NodeToString).Where(s => !string.IsNullOrEmpty(s))
+                    )
+                    : NodeToString(field.Value);
+                if (!string.IsNullOrEmpty(messages))
+                    parts.Add($"{field.Key}: {messages}");
+            }
         }
+
+        // Umbraco returns the errors map either as an object ({"field":["msg"]}) or, less
+        // commonly, as an array of such objects ([{"field":["msg"]}]) — handle both, matching
+        // the hand-written FormatValidationErrors on the HttpClient path (#48).
+        if (raw is UntypedObject errorsObj)
+            CollectFromObject(errorsObj);
+        else if (raw is UntypedArray errorsArr)
+            foreach (var element in errorsArr.GetValue())
+                if (element is UntypedObject elementObj)
+                    CollectFromObject(elementObj);
 
         return parts.Count > 0 ? string.Join("; ", parts) : null;
     }

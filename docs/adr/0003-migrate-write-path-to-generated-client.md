@@ -46,11 +46,18 @@ correctness work beyond a mechanical port, so #50 is split:
   - **Creates** → Kiota (pre-gen GUID + GET-hydrate, fixes #74 for these):
     language, member, dictionary, webhook.
   - **User invite** → Kiota (void POST, no hydrate).
-  - **Reads** (overlooked in alpha.2) → Kiota: document-type by-id, data-type
-    by-id, user list + by-id, dictionary list + by-key, webhook list.
   - **Error parity:** extend `GuardedApiAsync` to flatten ProblemDetails
     field-level errors (#48).
-  - Delete the now-unused `GetAsync` and `DeleteAsync` helpers.
+  - Delete the now-unused `DeleteAsync` helper.
+
+  **Reads deferred (revised again 2026-07-27):** the overlooked reads
+  (document-type/data-type by-id, user list + by-id, dictionary list + by-key,
+  webhook list) and **member create** (which shares content's alias→id +
+  variants + `UntypedNode` complexity) also move to #79. Rationale: `_http`
+  cannot be removed in #50 anyway (content writes + media upload stay), so
+  migrating the reads here would only delete the small `GetAsync` helper while
+  risking a double-rewrite of the read tests — cleaner to mop them up in #79
+  when `_http` is deleted for real.
 
 - **Follow-up issue:** the content **write** path (create/update/publish/
   unpublish) and **media upload**. These need document-type **alias -> id**
@@ -120,6 +127,11 @@ exercised by a live round-trip.
 - Every create costs one extra GET round-trip (the #74 hydration). Acceptable
   for a CLI/agent tool where a correct, complete payload matters more than one
   call; the create still succeeds if the GET fails.
+- Because the migrated creates echo the accepted request rather than re-reading
+  the server, the returned payload reflects what was sent, not any server-side
+  normalisation or defaulting (e.g. ISO-code casing, server-assigned webhook
+  defaults). This is an accepted trade for avoiding an extra round-trip; the id
+  is authoritative (the live round-trips confirm the server honours it).
 - Cross-version (15/16) verification remains out of scope — we only have a 17.3.5
   instance; tracked separately (same infra gap as #77).
 - Once merged, #50 closes and #74 is verified fixed by the content/media/etc
