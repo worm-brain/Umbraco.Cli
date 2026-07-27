@@ -6,10 +6,12 @@ public static class OutputWriterFactory
     /// Returns a JSON writer when stdout is redirected (piped / AI agent),
     /// or when the user explicitly requested JSON. Falls back to human.
     /// </summary>
-    public static IOutputWriter Create(OutputFormat? requested = null)
+    /// <param name="requested">The explicitly requested format, or null to auto-detect.</param>
+    /// <param name="fields">Optional field projection for JSON output (#63); ignored for human.</param>
+    public static IOutputWriter Create(OutputFormat? requested = null, string[]? fields = null)
     {
         var format =
             requested ?? (Console.IsOutputRedirected ? OutputFormat.Json : OutputFormat.Human);
-        return format == OutputFormat.Json ? new JsonOutputWriter() : new HumanOutputWriter();
+        return format == OutputFormat.Json ? new JsonOutputWriter(fields) : new HumanOutputWriter();
     }
 }

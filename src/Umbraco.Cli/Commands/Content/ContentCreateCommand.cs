@@ -33,10 +33,11 @@ public static class ContentCreateCommand
         {
             Description = "Parent content item UUID. Omit to create at the root.",
         };
-        var bodyOpt = new Option<FileInfo?>("--json-body")
+        var bodyOpt = new Option<string?>("--json-body")
         {
             Description =
-                "Path to a JSON file containing the full create request body (overrides other flags).",
+                "Path to a JSON file (or - for stdin) containing the full create request body "
+                + "(overrides other flags).",
         };
         var schemaOpt = new Option<bool>("--schema")
         {
@@ -54,7 +55,7 @@ public static class ContentCreateCommand
         // parse error keeps usage help and a fast, local, argument-level failure.
         cmd.Validators.Add(result =>
         {
-            if (result.GetValue(schemaOpt) || result.GetValue(bodyOpt) is not null)
+            if (result.GetValue(schemaOpt) || !string.IsNullOrEmpty(result.GetValue(bodyOpt)))
                 return;
             if (
                 string.IsNullOrEmpty(result.GetValue(typeOpt))
@@ -83,10 +84,10 @@ public static class ContentCreateCommand
                     async (client, c) =>
                     {
                         CreateContentRequest request;
-                        var bodyFile = parseResult.GetValue(bodyOpt);
-                        if (bodyFile is not null)
+                        var bodySource = parseResult.GetValue(bodyOpt);
+                        if (!string.IsNullOrEmpty(bodySource))
                         {
-                            var json = await File.ReadAllTextAsync(bodyFile.FullName, c);
+                            var json = await JsonBodyInput.ReadAsync(bodySource, c);
                             request =
                                 JsonSerializer.Deserialize<CreateContentRequest>(json)
                                 ?? throw new InvalidOperationException("Invalid JSON body.");

@@ -48,7 +48,10 @@ public sealed class CommandContextFactory
         var tokenOverride = parseResult.GetValue(_globalOptions.Token);
         var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(_globalOptions.Output));
 
-        var output = OutputWriterFactory.Create(outputFormat);
+        // --fields projection (#63): split the comma-separated list once and hand it to the
+        // JSON writer, which trims each result to those fields.
+        var fields = ParseFields(parseResult.GetValue(_globalOptions.Fields));
+        var output = OutputWriterFactory.Create(outputFormat, fields);
         var config = ResolveConfigStore(parseResult).Load();
 
         // Command allow-list (#69): when configured, only the listed noun groups / commands may
@@ -140,6 +143,24 @@ public sealed class CommandContextFactory
     /// </summary>
     private ConfigStore ResolveConfigStore(ParseResult parseResult) =>
         ConfigStore.Resolve(parseResult.GetValue(_globalOptions.Config), _configStore);
+
+    /// <summary>
+    /// Splits the <c>--fields</c> value into a trimmed, non-empty field list (#63), or null when
+    /// nothing usable was supplied.
+    /// </summary>
+    /// <param name="raw">The raw comma-separated option value.</param>
+    /// <returns>The field names, or null for no projection.</returns>
+    private static string[]? ParseFields(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+        var fields = raw.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            )
+            .ToArray();
+        return fields.Length > 0 ? fields : null;
+    }
 
     /// <summary>
     /// Whether read-only mode is active for this invocation: the <c>--readonly</c> flag or a

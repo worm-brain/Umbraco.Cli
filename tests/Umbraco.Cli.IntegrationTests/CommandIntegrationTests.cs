@@ -212,6 +212,46 @@ public sealed class CommandIntegrationTests
         Assert.True(props.TryGetProperty("variants", out _));
     }
 
+    [SkippableFact]
+    public void Fields_ProjectsListOutput()
+    {
+        RequireLive();
+        // #63: --fields trims each result to the listed fields (case-insensitive vs the "ID"
+        // header). Requesting a single field means each item has exactly one property.
+        var result = CliRunner.Run("content", "list", "--take", "5", "--fields", "id");
+        Assert.True(result.Ok, result.Stderr);
+
+        var data = result.Data();
+        Skip.If(data.GetArrayLength() == 0, "No content to project.");
+        foreach (var item in data.EnumerateArray())
+            Assert.Equal(1, item.EnumerateObject().Count());
+    }
+
+    [SkippableFact]
+    public void StdinBody_ContentCreate_ReadsPipedBody()
+    {
+        RequireLive();
+        // #63: `--json-body -` reads the body from stdin. Use --dry-run so nothing is created;
+        // the dry-run preview proves the piped body was parsed and would be sent.
+        const string body = """{"contentType":{"alias":"textPage"}}""";
+        var result = CliRunner.RunWithInput(
+            body,
+            "content",
+            "create",
+            "--json-body",
+            "-",
+            "--dry-run"
+        );
+
+        Assert.True(result.Ok, result.Stderr);
+        using var doc = JsonDocument.Parse(result.Stdout);
+        Assert.Equal("dry-run", doc.RootElement.GetProperty("status").GetString());
+        Assert.Equal(
+            "POST",
+            doc.RootElement.GetProperty("request").GetProperty("method").GetString()
+        );
+    }
+
     [Fact]
     public void Commands_EmitsCatalogJson()
     {

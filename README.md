@@ -112,7 +112,21 @@ Global options available on every command:
 | `--dry-run` | Preview the HTTP request a write command would send (method, URL, body) without executing it; no effect on read commands |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands (delete). Required to run a destructive command non-interactively (piped/scripted/agent) |
 | `--readonly` | Block all write operations (create/update/delete/publish) for this session; reads still work. Also `UMBRACO_READONLY=1` |
+| `--fields <a,b>` | Trim JSON output to these top-level fields, in order (e.g. `id,name`), to keep agent context small |
 | `--config <path>` | Path to config file |
+
+`--fields` keeps only the listed fields on each JSON result (object or array item), in the order given, matched case-insensitively:
+
+```bash
+umbraco content list --fields id,name
+```
+
+Commands that take a `--json-body` also accept `-` to read the body from **stdin**, for clean piping:
+
+```bash
+cat body.json | umbraco content create --json-body -
+echo '{ "values": [] }' | umbraco content update <id> --json-body -
+```
 
 ### Agent guardrails
 

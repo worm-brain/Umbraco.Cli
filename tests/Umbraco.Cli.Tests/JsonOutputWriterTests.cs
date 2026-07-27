@@ -106,6 +106,61 @@ public class JsonOutputWriterTests
         Assert.Empty(stderr);
     }
 
+    // ── Field projection (#63) ─────────────────────────────────────────────────
+
+    [Fact]
+    public void WriteSuccess_WithFields_KeepsOnlyListedFieldsInOrder()
+    {
+        var writer = new JsonOutputWriter(["name", "id"]);
+        var (stdout, _) = Capture(() =>
+            writer.WriteSuccess(
+                new
+                {
+                    id = "1",
+                    name = "A",
+                    extra = "x",
+                }
+            )
+        );
+        var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
+        Assert.Equal(new[] { "name", "id" }, data.EnumerateObject().Select(p => p.Name).ToArray());
+    }
+
+    [Fact]
+    public void WriteSuccess_WithFields_ProjectsEachArrayItem()
+    {
+        var writer = new JsonOutputWriter(["id"]);
+        var (stdout, _) = Capture(() =>
+            writer.WriteSuccess(
+                new[] { new { id = "1", name = "A" }, new { id = "2", name = "B" } }
+            )
+        );
+        var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
+        foreach (var item in data.EnumerateArray())
+        {
+            Assert.True(item.TryGetProperty("id", out _));
+            Assert.False(item.TryGetProperty("name", out _));
+        }
+    }
+
+    [Fact]
+    public void WriteSuccess_WithFields_MatchesCaseInsensitively()
+    {
+        var writer = new JsonOutputWriter(["ID"]); // requested in a different case
+        var (stdout, _) = Capture(() => writer.WriteSuccess(new { id = "1", name = "A" }));
+        var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
+        Assert.True(data.TryGetProperty("id", out _));
+        Assert.False(data.TryGetProperty("name", out _));
+    }
+
+    [Fact]
+    public void WriteSuccess_NoFields_KeepsAllData()
+    {
+        var (stdout, _) = Capture(() => _writer.WriteSuccess(new { id = "1", name = "A" }));
+        var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
+        Assert.Equal(2, data.EnumerateObject().Count());
+    }
+
     // ── WriteError ───────────────────────────────────────────────────────────
 
     [Fact]
