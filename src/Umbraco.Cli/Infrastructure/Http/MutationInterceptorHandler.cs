@@ -100,10 +100,8 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
         if (_state.Policy == MutationInterceptPolicy.Execute || !IsMutating(request.Method))
             return await base.SendAsync(request, cancellationToken);
 
-        // Preview: capture the exact request and abort before it is sent.
-        string? body = null;
-        if (request.Content is not null)
-            body = await request.Content.ReadAsStringAsync(cancellationToken);
+        // Preview: capture the request and abort before it is sent.
+        var body = await CaptureBodyAsync(request.Content, cancellationToken);
 
         throw new DryRunException(
             request.Method.Method,
@@ -113,15 +111,41 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
     }
 
     /// <summary>
-    /// Whether an HTTP method changes server state. POST/PUT/PATCH/DELETE are treated as
-    /// mutating; GET/HEAD/OPTIONS are safe. Shared so the later read-only (#69) and
-    /// confirmation (#70) policies classify requests identically.
+    /// Renders the request body for the preview. Only textual bodies (JSON/text/form) are
+    /// read in full; binary/multipart bodies (e.g. a media file upload) are summarised as a
+    /// placeholder rather than decoded into a string — decoding a multi-GB file would risk
+    /// OutOfMemory and dump binary noise into the output.
+    /// </summary>
+    /// <param name="content">The request content, or null.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The textual body, a placeholder for binary content, or null when there is no body.</returns>
+    private static async Task<string?> CaptureBodyAsync(HttpContent? content, CancellationToken ct)
+    {
+        if (content is null)
+            return null;
+
+        var mediaType = content.Headers.ContentType?.MediaType ?? "";
+        var isTextual =
+            mediaType.Contains("json", StringComparison.OrdinalIgnoreCase)
+            || mediaType.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase);
+
+        if (isTextual)
+            return await content.ReadAsStringAsync(ct);
+
+        var length = content.Headers.ContentLength;
+        var size = length is { } l ? $"; {l:N0} bytes" : "";
+        return $"<{(string.IsNullOrEmpty(mediaType) ? "binary" : mediaType)}{size}>";
+    }
+
+    /// <summary>
+    /// Whether an HTTP method changes server state. Fail-safe: anything that is not a known
+    /// safe read (GET/HEAD/OPTIONS) is treated as mutating, so an unexpected verb is caught
+    /// rather than let through. Shared so the later read-only (#69) and confirmation (#70)
+    /// policies classify requests identically.
     /// </summary>
     /// <param name="method">The request method.</param>
     /// <returns>True for a state-changing method.</returns>
     public static bool IsMutating(HttpMethod method) =>
-        method == HttpMethod.Post
-        || method == HttpMethod.Put
-        || method == HttpMethod.Patch
-        || method == HttpMethod.Delete;
+        method != HttpMethod.Get && method != HttpMethod.Head && method != HttpMethod.Options;
 }

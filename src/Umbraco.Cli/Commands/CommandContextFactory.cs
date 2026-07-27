@@ -92,11 +92,13 @@ public sealed class CommandContextFactory
             }
         }
 
-        // Activate dry-run preview for this invocation (after auth, so the OAuth token
-        // exchange itself still runs). The interceptor handler on the Management-API client
-        // reads this and aborts the first state-changing request with the captured details.
-        if (parseResult.GetValue(_globalOptions.DryRun))
-            _mutationState.Policy = MutationInterceptPolicy.Preview;
+        // Set the interception policy for this invocation (after auth, so the OAuth token
+        // exchange itself still runs). Set explicitly both ways — not just on --dry-run — so a
+        // reused/hosted state (this is the shared seam for #69/#70) can never carry a stale
+        // Preview that would silently turn every write into a no-op.
+        _mutationState.Policy = parseResult.GetValue(_globalOptions.DryRun)
+            ? MutationInterceptPolicy.Preview
+            : MutationInterceptPolicy.Execute;
 
         var verbose = parseResult.GetValue(_globalOptions.Verbose);
         var http = _httpClientFactory.CreateClient(verbose ? "umbraco-verbose" : "umbraco");

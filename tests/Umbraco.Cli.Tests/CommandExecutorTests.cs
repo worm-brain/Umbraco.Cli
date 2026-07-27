@@ -172,6 +172,38 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task RunObject_CallThrowsDryRun_WritesPreviewToStdoutAndReturnsZero()
+    {
+        // #62: a DryRunException from the interceptor must be rendered as a dry-run preview on
+        // stdout (not treated as an error by the backstop) and exit 0 - nothing was mutated.
+        var (executor, parse) = Build(new FakeUmbracoManagementClient());
+
+        var (stdout, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync<ContentItemResponse>(
+                parse,
+                "content.create",
+                (c, ct) =>
+                    throw new Umbraco.Cli.Infrastructure.Http.DryRunException(
+                        "POST",
+                        "https://example.com/umbraco/management/api/v1/document",
+                        """{"name":"x"}"""
+                    ),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(0, exit);
+        Assert.Empty(stderr);
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.Equal("dry-run", doc.RootElement.GetProperty("status").GetString());
+        var request = doc.RootElement.GetProperty("request");
+        Assert.Equal("POST", request.GetProperty("method").GetString());
+        Assert.Contains("document", request.GetProperty("url").GetString());
+        // A valid-JSON body is embedded as nested JSON, not a string.
+        Assert.Equal("x", request.GetProperty("body").GetProperty("name").GetString());
+    }
+
+    [Fact]
     public async Task RunObject_NoHostOrCredentials_AbortsWithTwo()
     {
         // No --host and an empty config → CreateAsync aborts before any client call.
