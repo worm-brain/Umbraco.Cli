@@ -39,10 +39,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 9.0.x
 
@@ -91,7 +91,7 @@ jobs:
           --source https://api.nuget.org/v3/index.json
 
       - name: Upload NuGet package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nupkg
           path: ./nupkg
@@ -99,7 +99,7 @@ jobs:
       # Create a GitHub Release for the tag, attaching the .nupkg. Marked as a
       # prerelease automatically when the version contains a `-` suffix.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ./nupkg/*.nupkg
           generate_release_notes: true
