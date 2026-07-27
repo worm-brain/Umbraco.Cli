@@ -71,7 +71,8 @@ public class ContractTests
 
     /// <summary>xUnit member-data source: one row per contract endpoint.</summary>
     /// <returns>Each endpoint wrapped as a single theory argument.</returns>
-    public static IEnumerable<object[]> Endpoints() => ClientEndpoints.Select(e => new object[] { e });
+    public static IEnumerable<object[]> Endpoints() =>
+        ClientEndpoints.Select(e => new object[] { e });
 
     [Theory]
     [MemberData(nameof(Endpoints))]
