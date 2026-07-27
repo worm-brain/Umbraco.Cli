@@ -13,17 +13,20 @@ public static class ContentUpdateCommand
             "update",
             "Update an existing content item by replacing its values with those from a JSON body file.\n\nExample:\n  umbraco content update 3f7a8b2e-... --json-body ./update.json"
         );
-        // id and --json-body are only optional at the PARSE level so that `--schema` can
-        // describe the body without them; both are required for an actual update and validated
-        // in the action.
-        var idArg = new Argument<Guid>("id")
+        // id and --json-body are optional at the PARSE level only so that `--schema` can
+        // describe the body without them. A nullable id makes "omitted" (null) unambiguous
+        // versus an explicit all-zero GUID. Both are required for an actual update, enforced by
+        // the parse-level validator below (a proper, local parse error).
+        var idArg = new Argument<Guid?>("id")
         {
-            Description = "Content item ID.",
+            Description = "Content item ID. Required unless --schema is used.",
             Arity = ArgumentArity.ZeroOrOne,
         };
         var bodyOpt = new Option<FileInfo?>("--json-body")
         {
-            Description = "Path to a JSON file containing the update request body.",
+            Description =
+                "Path to a JSON file containing the update request body. "
+                + "Required unless --schema is used.",
         };
         var schemaOpt = new Option<bool>("--schema")
         {
@@ -33,6 +36,17 @@ public static class ContentUpdateCommand
         cmd.Add(idArg);
         cmd.Add(bodyOpt);
         cmd.Add(schemaOpt);
+
+        cmd.Validators.Add(result =>
+        {
+            if (result.GetValue(schemaOpt))
+                return;
+            if (result.GetValue(idArg) is null || result.GetValue(bodyOpt) is null)
+                result.AddError(
+                    "Supply the content id and --json-body. "
+                        + "Run with --schema to see the JSON body shape."
+                );
+        });
 
         cmd.SetAction(
             (parseResult, ct) =>
@@ -49,13 +63,9 @@ public static class ContentUpdateCommand
                     "content.update",
                     async (client, c) =>
                     {
-                        var id = parseResult.GetValue(idArg);
-                        var bodyFile = parseResult.GetValue(bodyOpt);
-                        if (id == Guid.Empty || bodyFile is null)
-                            throw new InvalidOperationException(
-                                "Supply the content id and --json-body. Run with --schema to "
-                                    + "see the JSON body shape."
-                            );
+                        // The validator guarantees both are present here.
+                        var id = parseResult.GetValue(idArg)!.Value;
+                        var bodyFile = parseResult.GetValue(bodyOpt)!;
 
                         var json = await File.ReadAllTextAsync(bodyFile.FullName, c);
                         var request =

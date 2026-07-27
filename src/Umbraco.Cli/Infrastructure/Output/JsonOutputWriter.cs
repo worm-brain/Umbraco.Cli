@@ -45,6 +45,7 @@ public sealed class JsonOutputWriter : IOutputWriter
             status = "error",
             code,
             message,
+            schemaVersion = SchemaVersion,
         };
         Console.Error.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
@@ -64,7 +65,12 @@ public sealed class JsonOutputWriter : IOutputWriter
 
     public void WriteMessage(string message)
     {
-        var envelope = new { status = "success", message };
+        var envelope = new
+        {
+            status = "success",
+            message,
+            meta = new { schemaVersion = SchemaVersion },
+        };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
@@ -95,6 +101,7 @@ public sealed class JsonOutputWriter : IOutputWriter
                 url,
                 body = parsedBody,
             },
+            meta = new { schemaVersion = SchemaVersion },
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }

@@ -45,7 +45,17 @@ public class JsonOutputWriterTests
         var (stdout, _) = Capture(() => _writer.WriteSuccess(new { id = 1 }));
         var doc = JsonDocument.Parse(stdout);
         var version = doc.RootElement.GetProperty("meta").GetProperty("schemaVersion").GetString();
-        Assert.Equal(JsonOutputWriter.SchemaVersion, version);
+        // Assert the literal so a deliberate contract bump is a deliberate test change.
+        Assert.Equal("1", version);
+    }
+
+    [Fact]
+    public void WriteMessage_CarriesSchemaVersion()
+    {
+        // #61: message-shaped success envelopes (delete/publish) are versioned too.
+        var (stdout, _) = Capture(() => _writer.WriteMessage("Done."));
+        var meta = JsonDocument.Parse(stdout).RootElement.GetProperty("meta");
+        Assert.Equal("1", meta.GetProperty("schemaVersion").GetString());
     }
 
     [Fact]

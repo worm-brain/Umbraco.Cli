@@ -195,6 +195,21 @@ public sealed class CommandIntegrationTests
         // It is a bare JSON Schema document, not the CLI envelope.
         Assert.True(doc.RootElement.TryGetProperty("properties", out var props));
         Assert.True(props.TryGetProperty("contentType", out _));
+        // Root is a non-nullable object (a null body is rejected by the command).
+        Assert.Equal("object", doc.RootElement.GetProperty("type").GetString());
+    }
+
+    [Fact]
+    public void Schema_ContentUpdate_EmitsJsonSchema()
+    {
+        // update's --schema path is independent of create's, so exercise it too.
+        var result = CliRunner.Run("content", "update", "--schema");
+
+        Assert.True(result.Ok, result.Stderr);
+        using var doc = JsonDocument.Parse(result.Stdout);
+        var props = doc.RootElement.GetProperty("properties");
+        Assert.True(props.TryGetProperty("values", out _));
+        Assert.True(props.TryGetProperty("variants", out _));
     }
 
     [Fact]

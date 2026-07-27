@@ -17,13 +17,23 @@ public static class JsonBodySchema
     // schema is exported with the same options to keep the field names identical.
     private static readonly JsonSerializerOptions BodyOptions = JsonSerializerOptions.Default;
 
+    // Treat the root as non-nullable: the command rejects a literal `null` body, so the schema
+    // must not advertise `"type": ["object", "null"]` (that would let a `null` body pass a
+    // validator yet fail the command).
+    private static readonly JsonSchemaExporterOptions ExporterOptions = new()
+    {
+        TreatNullObliviousAsNonNullable = true,
+    };
+
+    private static readonly JsonSerializerOptions IndentedOptions = new() { WriteIndented = true };
+
     /// <summary>
     /// Builds the JSON Schema node for <typeparamref name="TBody"/>.
     /// </summary>
     /// <typeparam name="TBody">The <c>--json-body</c> request type.</typeparam>
     /// <returns>The schema as a <see cref="JsonNode"/>.</returns>
     public static JsonNode For<TBody>() =>
-        JsonSchemaExporter.GetJsonSchemaAsNode(BodyOptions, typeof(TBody));
+        JsonSchemaExporter.GetJsonSchemaAsNode(BodyOptions, typeof(TBody), ExporterOptions);
 
     /// <summary>
     /// Prints the JSON Schema for <typeparamref name="TBody"/> to stdout as an indented JSON
@@ -31,9 +41,6 @@ public static class JsonBodySchema
     /// an agent can feed straight to a validator).
     /// </summary>
     /// <typeparam name="TBody">The <c>--json-body</c> request type.</typeparam>
-    public static void Print<TBody>()
-    {
-        var schema = For<TBody>();
-        Console.WriteLine(schema.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-    }
+    public static void Print<TBody>() =>
+        Console.WriteLine(For<TBody>().ToJsonString(IndentedOptions));
 }

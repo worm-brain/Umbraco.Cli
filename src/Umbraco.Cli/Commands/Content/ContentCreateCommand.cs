@@ -14,16 +14,20 @@ public static class ContentCreateCommand
             "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --content-type textPage --name \"About\"\n  umbraco content create --content-type textPage --name \"Child\" --parent <id>\n  umbraco content create --content-type blogPost --name \"Post\" --json-body ./body.json"
         );
         // Not marked Required at parse level: a create can be driven by --content-type + --name
-        // OR by --json-body OR short-circuited by --schema, so the requirement is conditional
-        // and validated in the action below (this also makes the #60 catalog's "required"
-        // honest — these flags are genuinely optional when --json-body is used).
+        // OR by --json-body OR short-circuited by --schema. The conditional requirement is
+        // enforced by a parse-level validator below, so a missing input is a proper parse error
+        // (with usage help, before any host/auth work) rather than a late runtime failure.
         var typeOpt = new Option<string>("--content-type")
         {
-            Description = "Alias of the document type to create (e.g. textPage, blogPost).",
+            Description =
+                "Alias of the document type to create (e.g. textPage, blogPost). "
+                + "Required unless --json-body or --schema is used.",
         };
         var nameOpt = new Option<string>("--name")
         {
-            Description = "Display name for the new content item.",
+            Description =
+                "Display name for the new content item. "
+                + "Required unless --json-body or --schema is used.",
         };
         var parentOpt = new Option<Guid?>("--parent")
         {
@@ -44,6 +48,23 @@ public static class ContentCreateCommand
         cmd.Add(parentOpt);
         cmd.Add(bodyOpt);
         cmd.Add(schemaOpt);
+
+        // Parse-level conditional requirement: unless --schema (describe-and-exit) or a
+        // --json-body is given, both --content-type and --name are required. Emitting this as a
+        // parse error keeps usage help and a fast, local, argument-level failure.
+        cmd.Validators.Add(result =>
+        {
+            if (result.GetValue(schemaOpt) || result.GetValue(bodyOpt) is not null)
+                return;
+            if (
+                string.IsNullOrEmpty(result.GetValue(typeOpt))
+                || string.IsNullOrEmpty(result.GetValue(nameOpt))
+            )
+                result.AddError(
+                    "Supply --content-type and --name, or --json-body. "
+                        + "Run with --schema to see the JSON body shape."
+                );
+        });
 
         cmd.SetAction(
             (parseResult, ct) =>
@@ -72,16 +93,9 @@ public static class ContentCreateCommand
                         }
                         else
                         {
-                            var alias = parseResult.GetValue(typeOpt);
-                            var name = parseResult.GetValue(nameOpt);
-                            // Conditional requirement (see the option definitions): without a
-                            // --json-body, both --content-type and --name are needed.
-                            if (string.IsNullOrEmpty(alias) || string.IsNullOrEmpty(name))
-                                throw new InvalidOperationException(
-                                    "Supply --content-type and --name, or --json-body. "
-                                        + "Run with --schema to see the JSON body shape."
-                                );
-
+                            // The validator above guarantees both are present in this branch.
+                            var alias = parseResult.GetValue(typeOpt)!;
+                            var name = parseResult.GetValue(nameOpt)!;
                             var parentId = parseResult.GetValue(parentOpt);
                             request = new CreateContentRequest
                             {

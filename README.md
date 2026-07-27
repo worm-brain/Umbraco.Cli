@@ -269,14 +269,14 @@ The success envelope is versioned via `meta.schemaVersion` (currently `"1"`). Th
 
 ### `--schema` (request body shape)
 
-Commands that accept a `--json-body` expose `--schema`, which prints the JSON Schema of that body and exits — no host or authentication needed. Feed it straight to a validator or an agent:
+Commands that accept a `--json-body` expose `--schema`, which prints the JSON Schema of that body and exits — no host or authentication needed. The output is a **bare JSON Schema document** (not the CLI envelope), regardless of `--output`, so you can feed it straight to a validator or an agent. `--schema` is a local describe-and-exit and is not subject to the allow-list or `--readonly`.
 
 ```bash
 umbraco content create --schema
 umbraco content update --schema
 ```
 
-Exit codes: `0` success · `1` API error · `2` aborted before running (no host / not authenticated, a command blocked by the allow-list, a destructive command refused/declined without `--yes`, or a write blocked by `--readonly`) · `3` argument error · `130` cancelled (Ctrl-C)
+Exit codes: `0` success · `1` API error, or an invalid invocation (parse/validation error) · `2` aborted before running (no host / not authenticated, a command blocked by the allow-list, a destructive command refused/declined without `--yes`, or a write blocked by `--readonly`) · `130` cancelled (Ctrl-C)
 
 ---
 
