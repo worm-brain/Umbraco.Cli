@@ -58,6 +58,15 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    public Option<bool> ReadOnly { get; } =
+        new("--readonly")
+        {
+            Description =
+                "Block all write operations (create/update/delete/publish) for this session. "
+                + "Can also be set with UMBRACO_READONLY=1.",
+            Recursive = true,
+        };
+
     public Option<string?> Config { get; } =
         new("--config")
         {
@@ -74,6 +83,7 @@ public sealed class GlobalOptions
         command.Add(Verbose);
         command.Add(DryRun);
         command.Add(Yes);
+        command.Add(ReadOnly);
         command.Add(Config);
     }
 }

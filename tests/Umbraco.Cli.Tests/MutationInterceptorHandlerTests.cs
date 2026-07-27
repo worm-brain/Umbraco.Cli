@@ -65,6 +65,32 @@ public class MutationInterceptorHandlerTests
     }
 
     [Fact]
+    public async Task Block_MutatingRequest_ThrowsReadOnlyAndDoesNotSend()
+    {
+        // #69: under Block (--readonly) a write is refused before it reaches the wire.
+        var (client, inner) = Build(MutationInterceptPolicy.Block);
+
+        var ex = await Assert.ThrowsAsync<ReadOnlyModeException>(() =>
+            client.PostAsync("umbraco/management/api/v1/webhook", new StringContent("{}"))
+        );
+
+        Assert.Equal("POST", ex.Method);
+        Assert.EndsWith("/umbraco/management/api/v1/webhook", ex.Url);
+        Assert.False(inner.WasCalled);
+    }
+
+    [Fact]
+    public async Task Block_ReadRequest_PassesThrough()
+    {
+        // Read-only still allows reads.
+        var (client, inner) = Build(MutationInterceptPolicy.Block);
+
+        await client.GetAsync("umbraco/management/api/v1/language");
+
+        Assert.True(inner.WasCalled);
+    }
+
+    [Fact]
     public async Task Execute_MutatingRequest_PassesThrough()
     {
         // Default policy: writes are sent as normal (no dry-run).

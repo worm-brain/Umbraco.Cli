@@ -111,7 +111,20 @@ Global options available on every command:
 | `--verbose` | Log HTTP requests/responses to stderr |
 | `--dry-run` | Preview the HTTP request a write command would send (method, URL, body) without executing it; no effect on read commands |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands (delete). Required to run a destructive command non-interactively (piped/scripted/agent) |
+| `--readonly` | Block all write operations (create/update/delete/publish) for this session; reads still work. Also `UMBRACO_READONLY=1` |
 | `--config <path>` | Path to config file |
+
+### Agent guardrails
+
+For agent/automation use, two guardrails restrict what a session can do (inspired by the official Umbraco MCP):
+
+- **Read-only mode** — `--readonly` (or `UMBRACO_READONLY=1`) refuses every write with a clear error and a non-zero exit; read commands are unaffected.
+- **Command allow-list** — `UMBRACO_ALLOWED_COMMANDS` (or the config `allowedCommands` field) restricts which commands may run. Entries are noun groups (`content`, `media`) and/or specific commands (`content.list`); a command runs only if its group or full name is listed. Unset means no restriction. The `auth` group is always allowed. A blocked command aborts before running with exit `2`.
+
+```bash
+# An agent that may only read content and media, and never write:
+UMBRACO_READONLY=1 UMBRACO_ALLOWED_COMMANDS=content,media umbraco content list
+```
 
 Destructive commands (`delete`) prompt for confirmation. When run non-interactively (no TTY — piped, scripted, or agent-driven) they refuse to proceed unless `--yes` is given, so a delete can never happen silently.
 

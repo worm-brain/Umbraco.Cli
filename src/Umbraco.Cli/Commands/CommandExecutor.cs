@@ -107,6 +107,17 @@ public sealed class CommandExecutor
             ctx.Output.WriteDryRun(dry.Method, dry.Url, dry.Body);
             return 0;
         }
+        catch (ReadOnlyModeException ro)
+        {
+            // --readonly: the mutation-interceptor refused a write. Report a clear error and a
+            // non-zero exit; nothing was changed.
+            ctx.Output.WriteError(
+                2,
+                $"Read-only mode is active ({ro.Method} {ro.Url} was blocked). This command "
+                    + "performs a write, which is not allowed under --readonly / UMBRACO_READONLY."
+            );
+            return 2;
+        }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             return 130; // 128 + SIGINT — distinct from a config abort (2)

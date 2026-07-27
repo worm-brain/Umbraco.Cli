@@ -32,7 +32,13 @@ public sealed class ConfigStore
         // Environment variables take precedence over the config file.
         var fromEnv = LoadFromEnvironment();
         if (fromEnv.IsComplete)
+        {
+            // Auth is fully from env, so we would normally skip the file — but the command
+            // allow-list (#69) may still live there. Pull it in so a file-only allow-list is
+            // never silently dropped (that would fail OPEN on a guardrail).
+            fromEnv.AllowedCommands ??= ReadAllowedCommandsFromFile();
             return fromEnv;
+        }
 
         if (!File.Exists(_configPath))
             return fromEnv;
@@ -67,6 +73,7 @@ public sealed class ConfigStore
                 Host = fromEnv.Host ?? fromFile.Host,
                 ClientId = fromEnv.ClientId ?? fromFile.ClientId,
                 ClientSecret = fromEnv.ClientSecret ?? fileSecret,
+                AllowedCommands = fromEnv.AllowedCommands ?? fromFile.AllowedCommands,
             };
         }
         catch
@@ -144,5 +151,27 @@ public sealed class ConfigStore
             Host = Environment.GetEnvironmentVariable("UMBRACO_HOST"),
             ClientId = Environment.GetEnvironmentVariable("UMBRACO_CLIENT_ID"),
             ClientSecret = Environment.GetEnvironmentVariable("UMBRACO_CLIENT_SECRET"),
+            AllowedCommands = Environment.GetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS"),
         };
+
+    /// <summary>
+    /// Reads only the <c>allowedCommands</c> field from the config file, ignoring auth.
+    /// Best-effort: returns null when the file is missing or unreadable. Used so a file-only
+    /// allow-list is honoured even when authentication comes entirely from the environment.
+    /// </summary>
+    /// <returns>The file's allow-list string, or null.</returns>
+    private string? ReadAllowedCommandsFromFile()
+    {
+        if (!File.Exists(_configPath))
+            return null;
+        try
+        {
+            var json = File.ReadAllText(_configPath);
+            return JsonSerializer.Deserialize<CliConfig>(json, JsonOptions)?.AllowedCommands;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

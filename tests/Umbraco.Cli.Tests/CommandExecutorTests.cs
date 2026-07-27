@@ -40,13 +40,20 @@ public class CommandExecutorTests
     private static (CommandExecutor executor, ParseResult parse) Build(
         IUmbracoManagementClient client,
         string args = "--host https://example.com --token tok --output json",
-        Umbraco.Cli.Infrastructure.IConfirmationPrompt? confirmation = null
+        Umbraco.Cli.Infrastructure.IConfirmationPrompt? confirmation = null,
+        string? allowedCommands = null
     )
     {
         var stub = new StubHttpClientFactory();
-        var configStore = new ConfigStore(
-            Path.Combine(Path.GetTempPath(), $"umbraco-exec-test-{Guid.NewGuid()}.json")
+        var configPath = Path.Combine(
+            Path.GetTempPath(),
+            $"umbraco-exec-test-{Guid.NewGuid()}.json"
         );
+        // Write a config carrying only the allow-list (#69) when a test supplies one; auth is
+        // provided via --host/--token overrides, so no credentials are needed in the file.
+        if (allowedCommands is not null)
+            File.WriteAllText(configPath, $$"""{"allowedCommands":"{{allowedCommands}}"}""");
+        var configStore = new ConfigStore(configPath);
         var authService = new UmbracoAuthService(stub);
         var global = new GlobalOptions();
         var factory = new CommandContextFactory(
@@ -405,6 +412,118 @@ public class CommandExecutorTests
         Assert.Equal(0, exit);
         Assert.True(called); // gate skipped under --dry-run
         Assert.False(prompt.WasPrompted);
+    }
+
+    [Fact]
+    public async Task RunObject_CallThrowsReadOnly_WritesErrorAndReturnsTwo()
+    {
+        // #69: a ReadOnlyModeException from the interceptor becomes a clear read-only error
+        // (exit 2), not a raw backstop error.
+        var (executor, parse) = Build(new FakeUmbracoManagementClient());
+
+        var (stdout, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync<ContentItemResponse>(
+                parse,
+                "content.create",
+                (c, ct) =>
+                    throw new Umbraco.Cli.Infrastructure.Http.ReadOnlyModeException(
+                        "POST",
+                        "https://example.com/umbraco/management/api/v1/document"
+                    ),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.Empty(stdout);
+        using var doc = JsonDocument.Parse(stderr);
+        Assert.Equal("error", doc.RootElement.GetProperty("status").GetString());
+        Assert.Contains("Read-only", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task AllowList_DisallowedCommand_AbortsWithTwo()
+    {
+        // #69: a command outside the allow-list is refused before running (exit 2).
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            allowedCommands: "content,media"
+        );
+
+        var (stdout, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "webhooks.list",
+                (c, ct) =>
+                {
+                    called = true;
+                    return c.GetWebhooksAsync(0, 20, ct);
+                },
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.False(called); // aborted before the client call
+        Assert.Contains(
+            "allow-list",
+            JsonDocument.Parse(stderr).RootElement.GetProperty("message").GetString()
+        );
+    }
+
+    [Fact]
+    public async Task AllowList_AllowedGroup_Runs()
+    {
+        // A command whose group is in the allow-list runs normally.
+        var client = new FakeUmbracoManagementClient
+        {
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(
+                new ContentItemResponse()
+            ),
+        };
+        var (executor, parse) = Build(client, allowedCommands: "content,media");
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
+    public async Task AllowList_AuthAlwaysAllowed()
+    {
+        // The auth group is exempt from the allow-list, so an auth command runs even when the
+        // allow-list would otherwise exclude it.
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            allowedCommands: "content"
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "auth.whoami",
+                (c, ct) =>
+                {
+                    called = true;
+                    return Task.FromResult(
+                        UmbracoResponse<CurrentUserResponse>.Success(new CurrentUserResponse())
+                    );
+                },
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(0, exit);
+        Assert.True(called); // not aborted by the allow-list
     }
 
     [Fact]
