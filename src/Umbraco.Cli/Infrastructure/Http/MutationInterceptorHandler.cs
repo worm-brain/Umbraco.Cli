@@ -7,10 +7,9 @@ namespace Umbraco.Cli.Infrastructure.Http;
 /// <item><see cref="Execute"/> — normal behaviour: send the request (the default).</item>
 /// <item><see cref="Preview"/> — <c>--dry-run</c> (#62): capture the request and abort
 /// before it is sent, so nothing is mutated.</item>
+/// <item><see cref="Block"/> — <c>--readonly</c> (#69): refuse the request with an error,
+/// so a read-only session can never write.</item>
 /// </list>
-/// Further policies (a read-only <c>Block</c> for #69 and an interactive <c>Confirm</c> for
-/// #70) will extend this enum when those features land; the handler is structured so they
-/// slot in as new switch arms.
 /// </summary>
 public enum MutationInterceptPolicy
 {
@@ -19,6 +18,9 @@ public enum MutationInterceptPolicy
 
     /// <summary>Capture the request and abort before sending (<c>--dry-run</c>).</summary>
     Preview,
+
+    /// <summary>Refuse state-changing requests with an error (<c>--readonly</c>).</summary>
+    Block,
 }
 
 /// <summary>
@@ -65,6 +67,30 @@ public sealed class DryRunException : Exception
 }
 
 /// <summary>
+/// Thrown by <see cref="MutationInterceptorHandler"/> under <see cref="MutationInterceptPolicy.Block"/>
+/// (<c>--readonly</c>) to refuse a state-changing request. Caught by <c>CommandExecutor</c>,
+/// which reports a read-only error and a non-zero exit — the request never reaches the server.
+/// </summary>
+public sealed class ReadOnlyModeException : Exception
+{
+    /// <summary>The HTTP method that was refused (e.g. <c>POST</c>).</summary>
+    public string Method { get; }
+
+    /// <summary>The request URL that was refused.</summary>
+    public string Url { get; }
+
+    /// <summary>Creates the exception carrying the refused request.</summary>
+    /// <param name="method">The HTTP method.</param>
+    /// <param name="url">The request URL.</param>
+    public ReadOnlyModeException(string method, string url)
+        : base($"Read-only mode: refusing {method} {url}")
+    {
+        Method = method;
+        Url = url;
+    }
+}
+
+/// <summary>
 /// Intercepts state-changing HTTP requests according to the active
 /// <see cref="MutationInterceptPolicy"/>. Under <see cref="MutationInterceptPolicy.Preview"/>
 /// (<c>--dry-run</c>) a POST/PUT/PATCH/DELETE is captured and aborted via
@@ -92,6 +118,7 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The inner handler's response for pass-through requests.</returns>
     /// <exception cref="DryRunException">Under <see cref="MutationInterceptPolicy.Preview"/> for a mutating request.</exception>
+    /// <exception cref="ReadOnlyModeException">Under <see cref="MutationInterceptPolicy.Block"/> for a mutating request.</exception>
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken
@@ -99,6 +126,13 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
     {
         if (_state.Policy == MutationInterceptPolicy.Execute || !IsMutating(request.Method))
             return await base.SendAsync(request, cancellationToken);
+
+        // Block (--readonly): refuse the write outright.
+        if (_state.Policy == MutationInterceptPolicy.Block)
+            throw new ReadOnlyModeException(
+                request.Method.Method,
+                request.RequestUri?.ToString() ?? ""
+            );
 
         // Preview: capture the request and abort before it is sent.
         var body = await CaptureBodyAsync(request.Content, cancellationToken);

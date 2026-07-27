@@ -185,6 +185,53 @@ public sealed class CommandIntegrationTests
     }
 
     [SkippableFact]
+    public void ReadOnly_BlocksWriteButAllowsRead()
+    {
+        RequireLive();
+
+        // A read still works under --readonly.
+        var list = CliRunner.Run("content", "list", "--take", "1", "--readonly");
+        Assert.True(list.Ok, list.Stderr);
+
+        // A write is refused (exit 2) and nothing is created.
+        const string marker = "https://example.com/readonly-should-not-create";
+        var create = CliRunner.Run(
+            "webhooks",
+            "create",
+            "--url",
+            marker,
+            "--events",
+            "ContentPublished",
+            "--readonly"
+        );
+        Assert.Equal(2, create.ExitCode);
+        var hooks = CliRunner.Run("webhooks", "list", "--take", "100");
+        Assert.DoesNotContain(marker, hooks.Stdout);
+    }
+
+    [SkippableFact]
+    public void AllowList_RestrictsCommandSurface()
+    {
+        RequireLive();
+        // The child CLI inherits this process's environment; the Live collection runs
+        // sequentially, so setting/clearing it around this one test is safe.
+        Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", "content");
+        try
+        {
+            // In-list group runs.
+            Assert.True(CliRunner.Run("content", "list", "--take", "1").Ok);
+            // Out-of-list command is refused before running (exit 2).
+            Assert.Equal(2, CliRunner.Run("webhooks", "list", "--take", "1").ExitCode);
+            // auth stays allowed regardless of the allow-list.
+            Assert.True(CliRunner.Run("auth", "whoami").Ok);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", null);
+        }
+    }
+
+    [SkippableFact]
     public void DestructiveDelete_WithoutYes_RefusedNonInteractively()
     {
         RequireLive();
