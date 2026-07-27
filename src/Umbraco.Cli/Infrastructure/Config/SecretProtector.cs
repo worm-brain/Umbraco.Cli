@@ -48,6 +48,10 @@ internal static class SecretProtector
         if (string.IsNullOrEmpty(plaintext))
             return plaintext;
 
+        // Guard against double-encryption: an already-protected value is returned as-is.
+        if (IsProtected(plaintext))
+            return plaintext;
+
         if (OperatingSystem.IsWindows())
             return DpapiPrefix + Convert.ToBase64String(ProtectWindows(plaintext));
 

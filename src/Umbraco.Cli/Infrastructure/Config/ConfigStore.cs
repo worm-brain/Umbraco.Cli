@@ -48,8 +48,8 @@ public sealed class ConfigStore
         var file = ReadFile();
 
         var effectiveName =
-            profileName
-            ?? Environment.GetEnvironmentVariable("UMBRACO_PROFILE")
+            Blank(profileName)
+            ?? Blank(Environment.GetEnvironmentVariable("UMBRACO_PROFILE"))
             ?? file?.EffectiveDefault
             ?? "default";
 
@@ -58,7 +58,17 @@ public sealed class ConfigStore
                 ? p
                 : new CliConfig();
 
-        var fileSecret = SecretProtector.Unprotect(profile.ClientSecret);
+        // Never let an undecryptable secret (a config copied from another machine/user, or a
+        // truncated blob) crash the whole CLI — treat it as a missing secret.
+        string? fileSecret;
+        try
+        {
+            fileSecret = SecretProtector.Unprotect(profile.ClientSecret);
+        }
+        catch
+        {
+            fileSecret = null;
+        }
 
         // One-time upgrade of a legacy plaintext secret (issue #45), best-effort.
         if (
@@ -90,6 +100,14 @@ public sealed class ConfigStore
     /// <param name="profileName">The profile to write to; null means the current default.</param>
     public void Save(CliConfig config, string? profileName = null)
     {
+        // Never overwrite a config file we couldn't parse — that would silently wipe every
+        // other profile's credentials. Fail loudly instead.
+        if (FileExistsButUnreadable())
+            throw new InvalidOperationException(
+                $"The config file at '{_configPath}' exists but could not be read; refusing to "
+                    + "overwrite it. Fix or remove it, then retry."
+            );
+
         var file = ReadFile() ?? new ConfigFile();
         var name = string.IsNullOrWhiteSpace(profileName) ? file.EffectiveDefault : profileName;
 
@@ -147,8 +165,22 @@ public sealed class ConfigStore
     {
         var file = ReadFile();
         if (file is null)
+        {
+            // A corrupt/unreadable file with no specific profile requested: remove it wholesale
+            // so credentials never linger on a failed logout (matches the old logout semantics).
+            if (string.IsNullOrWhiteSpace(profileName) && File.Exists(_configPath))
+            {
+                Delete();
+                return true;
+            }
             return false;
+        }
 
+        var wasDefault = string.Equals(
+            string.IsNullOrWhiteSpace(profileName) ? file.EffectiveDefault : profileName,
+            file.EffectiveDefault,
+            StringComparison.OrdinalIgnoreCase
+        );
         var name = string.IsNullOrWhiteSpace(profileName) ? file.EffectiveDefault : profileName;
         if (!file.Profiles.Remove(name))
             return false;
@@ -160,7 +192,7 @@ public sealed class ConfigStore
         }
 
         // If we removed the default, pick another remaining profile as the new default.
-        if (string.Equals(file.DefaultProfile, name, StringComparison.OrdinalIgnoreCase))
+        if (wasDefault)
             file.DefaultProfile = file.Profiles.Keys.First();
 
         WriteFile(file);
@@ -190,12 +222,30 @@ public sealed class ConfigStore
             using var doc = JsonDocument.Parse(json);
             // A profile-shaped file has a "profiles" object; anything else is the legacy flat
             // shape and is migrated into a single default profile.
+            ConfigFile file;
             if (doc.RootElement.TryGetProperty("profiles", out _))
-                return JsonSerializer.Deserialize<ConfigFile>(json, JsonOptions)
-                    ?? new ConfigFile();
+            {
+                file =
+                    JsonSerializer.Deserialize<ConfigFile>(json, JsonOptions) ?? new ConfigFile();
+            }
+            else
+            {
+                var flat =
+                    JsonSerializer.Deserialize<CliConfig>(json, JsonOptions) ?? new CliConfig();
+                file = new ConfigFile
+                {
+                    DefaultProfile = "default",
+                    Profiles = { ["default"] = flat },
+                };
+            }
 
-            var flat = JsonSerializer.Deserialize<CliConfig>(json, JsonOptions) ?? new CliConfig();
-            return new ConfigFile { DefaultProfile = "default", Profiles = { ["default"] = flat } };
+            // System.Text.Json replaces the field initializer with a case-SENSITIVE dictionary
+            // on deserialize, so re-wrap to keep profile names case-insensitive throughout.
+            file.Profiles = new Dictionary<string, CliConfig>(
+                file.Profiles,
+                StringComparer.OrdinalIgnoreCase
+            );
+            return file;
         }
         catch
         {
@@ -203,11 +253,24 @@ public sealed class ConfigStore
         }
     }
 
+    /// <summary>Whether the config file exists on disk but cannot be parsed.</summary>
+    private bool FileExistsButUnreadable() => File.Exists(_configPath) && ReadFile() is null;
+
     private void WriteFile(ConfigFile file)
     {
         var dir = Path.GetDirectoryName(_configPath)!;
         Directory.CreateDirectory(dir);
-        File.WriteAllText(_configPath, JsonSerializer.Serialize(file, JsonOptions));
+
+        // Write atomically: serialize to a temp file next to the target, then replace/move it in
+        // one step. A crash or a concurrent invocation can no longer truncate the file and lose
+        // every profile's credentials mid-write.
+        var tempPath = _configPath + ".tmp";
+        File.WriteAllText(tempPath, JsonSerializer.Serialize(file, JsonOptions));
+        RestrictPermissions(tempPath);
+        if (File.Exists(_configPath))
+            File.Replace(tempPath, _configPath, destinationBackupFileName: null);
+        else
+            File.Move(tempPath, _configPath);
         RestrictPermissions(_configPath);
     }
 
@@ -251,9 +314,10 @@ public sealed class ConfigStore
                 );
             WriteFile(file);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch
         {
-            // Non-fatal: the file stays as-is (still readable via the legacy path).
+            // Purely opportunistic re-encryption: swallow everything (write failures, an
+            // undecryptable secret from another machine, etc.) so it never breaks a command.
         }
     }
 
@@ -265,4 +329,15 @@ public sealed class ConfigStore
             ClientSecret = Environment.GetEnvironmentVariable("UMBRACO_CLIENT_SECRET"),
             AllowedCommands = Environment.GetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS"),
         };
+
+    /// <summary>Whether a config file exists and defines the given profile.</summary>
+    /// <param name="name">The profile name.</param>
+    /// <returns>True if the profile exists.</returns>
+    public bool HasProfile(string name) => ReadFile()?.Profiles.ContainsKey(name) ?? false;
+
+    /// <summary>Whether a readable config file defines any profiles.</summary>
+    public bool HasAnyProfiles => ReadFile()?.Profiles.Count > 0;
+
+    /// <summary>Returns null for a null/whitespace string, else the string itself.</summary>
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }

@@ -52,10 +52,32 @@ public sealed class CommandContextFactory
         // JSON writer, which trims each result to those fields.
         var fields = ParseFields(parseResult.GetValue(_globalOptions.Fields));
         var output = OutputWriterFactory.Create(outputFormat, fields);
-        // Resolve the selected profile (#64): --profile flag, else the store falls back to
-        // UMBRACO_PROFILE / the configured default.
-        var config = ResolveConfigStore(parseResult)
-            .Load(parseResult.GetValue(_globalOptions.Profile));
+
+        var store = ResolveConfigStore(parseResult);
+
+        // Fail fast on an unknown profile (#64): if a profile was explicitly requested (via
+        // --profile or UMBRACO_PROFILE) and the config defines profiles but not that one, abort
+        // with a clear error rather than silently resolving to empty credentials — which would
+        // also drop a file-based allow-list (#69) when env credentials are present.
+        var requestedProfile =
+            parseResult.GetValue(_globalOptions.Profile)
+            ?? Environment.GetEnvironmentVariable("UMBRACO_PROFILE");
+        if (
+            !string.IsNullOrWhiteSpace(requestedProfile)
+            && store.HasAnyProfiles
+            && !store.HasProfile(requestedProfile)
+        )
+        {
+            output.WriteError(
+                2,
+                $"No profile named '{requestedProfile}'. See 'umbraco auth profiles'."
+            );
+            throw new CommandAbortedException();
+        }
+
+        // Resolve the selected profile (#64): --profile flag, else UMBRACO_PROFILE / the
+        // configured default.
+        var config = store.Load(parseResult.GetValue(_globalOptions.Profile));
 
         // Command allow-list (#69): when configured, only the listed noun groups / commands may
         // run. Checked before auth so a disallowed command fails fast. The `auth` group is

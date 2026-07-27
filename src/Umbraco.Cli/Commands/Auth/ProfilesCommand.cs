@@ -37,7 +37,15 @@ public static class ProfilesCommand
 
                 writer.WriteTable(
                     ["Profile", "Default"],
-                    names.Select(name => new[] { name, name == defaultProfile ? "*" : "" })
+                    names.Select(name =>
+                        new[]
+                        {
+                            name,
+                            string.Equals(name, defaultProfile, StringComparison.OrdinalIgnoreCase)
+                                ? "*"
+                                : "",
+                        }
+                    )
                 );
                 return Task.CompletedTask;
             }

@@ -164,6 +164,72 @@ public class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void Profiles_AreCaseInsensitiveAcrossReload()
+    {
+        // Regression for the JSON round-trip dropping the case-insensitive comparer.
+        Store.Save(Creds("https://prod"), "prod");
+
+        Assert.Equal("https://prod", Store.Load("Prod").Host);
+        Assert.True(Store.SetDefaultProfile("PROD"));
+        // Saving under a differently-cased name overwrites, not duplicates.
+        Store.Save(Creds("https://prod2"), "Prod");
+        Assert.Single(Store.ListProfiles().Names);
+    }
+
+    [Fact]
+    public void Load_UndecryptableSecret_DoesNotThrow()
+    {
+        // A dpapi: blob copied from another machine/user can't be decrypted; Load must degrade
+        // (treat the secret as missing) rather than crash every command.
+        File.WriteAllText(
+            _tempPath,
+            """{"profiles":{"default":{"host":"https://h","clientId":"id","clientSecret":"dpapi:AAAAnotvalid"}}}"""
+        );
+
+        var loaded = Store.Load();
+        Assert.Equal("https://h", loaded.Host);
+        Assert.True(string.IsNullOrEmpty(loaded.ClientSecret));
+    }
+
+    [Fact]
+    public void Save_PreservesExistingProfileAllowList()
+    {
+        // #69 guard: re-saving credentials (login) must not strip a profile's allow-list.
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://h",
+                ClientId = "id",
+                ClientSecret = "secret",
+                AllowedCommands = "content,media",
+            },
+            "prod"
+        );
+        Store.Save(Creds("https://h2"), "prod"); // re-login, no allow-list supplied
+
+        Assert.Equal("content,media", Store.Load("prod").AllowedCommands);
+    }
+
+    [Fact]
+    public void Save_DoesNotStealExplicitDefault()
+    {
+        Store.Save(Creds("https://default"));
+        Store.Save(Creds("https://prod"), "prod");
+        Store.SetDefaultProfile("prod");
+
+        // Saving another profile must not change the explicitly-chosen default.
+        Store.Save(Creds("https://stage"), "stage");
+        Assert.Equal("prod", Store.ListProfiles().Default);
+    }
+
+    [Fact]
+    public void Save_OverUnreadableFile_Throws()
+    {
+        File.WriteAllText(_tempPath, "{ this is not valid json");
+        Assert.Throws<InvalidOperationException>(() => Store.Save(Creds("https://h")));
+    }
+
+    [Fact]
     public void Load_FileAllowList_HonouredWhenAuthFullyFromEnv()
     {
         // A file-only allow-list must survive even when auth comes entirely from env (the
