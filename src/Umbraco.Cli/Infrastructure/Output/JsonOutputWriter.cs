@@ -33,16 +33,16 @@ public sealed class JsonOutputWriter : IOutputWriter
 
     public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null)
     {
-        // Serialize to a node first so --fields projection (#63) can trim the data before it is
-        // emitted; without projection this is equivalent to serializing the value directly.
-        var dataNode = JsonSerializer.SerializeToNode(data, Options);
-        if (_fields is not null)
-            dataNode = Project(dataNode, _fields);
+        // Without --fields, serialize the value directly (no extra DOM copy). With --fields,
+        // serialize to a node first so the projection (#63) can trim it before it is emitted.
+        object? payload = _fields is null
+            ? data
+            : Project(JsonSerializer.SerializeToNode(data, Options), _fields);
 
         var envelope = new
         {
             status = "success",
-            data = dataNode,
+            data = payload,
             meta = new
             {
                 command = commandName,
@@ -83,15 +83,21 @@ public sealed class JsonOutputWriter : IOutputWriter
         var result = new JsonObject();
         foreach (var field in fields)
         {
-            // Preserve the object's actual key casing but honour the requested order.
-            var match = obj.FirstOrDefault(kv =>
-                string.Equals(kv.Key, field, StringComparison.OrdinalIgnoreCase)
-            );
+            // Prefer an exact key match; otherwise match ignoring case and spaces so
+            // `--fields contentType` also selects a table's "Content Type" header. The object's
+            // actual key casing is preserved, in the requested order.
+            var match = obj.FirstOrDefault(kv => kv.Key == field) is { Key: not null } exact
+                ? exact
+                : obj.FirstOrDefault(kv => NormalizeKey(kv.Key) == NormalizeKey(field));
             if (match.Key is not null && !result.ContainsKey(match.Key))
                 result[match.Key] = match.Value?.DeepClone();
         }
         return result;
     }
+
+    /// <summary>Lower-cases and strips whitespace so "Content Type" and "contentType" match.</summary>
+    private static string NormalizeKey(string key) =>
+        new string(key.Where(c => !char.IsWhiteSpace(c)).ToArray()).ToLowerInvariant();
 
     public void WriteError(int code, string message)
     {

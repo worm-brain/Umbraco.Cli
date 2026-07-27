@@ -65,6 +65,9 @@ public static class CliRunner
             // confirmation gate (#70) always takes the non-interactive path instead of
             // inheriting the test host's stdin and potentially blocking on Console.ReadLine.
             RedirectStandardInput = true,
+            // Pipe stdin as UTF-8 so a non-ASCII --json-body survives (the CLI reads stdin as
+            // UTF-8); without this the harness would encode using the console code page.
+            StandardInputEncoding = System.Text.Encoding.UTF8,
             UseShellExecute = false,
             // "dotnet exec <dll> <args>" runs the framework-dependent CLI assembly.
             ArgumentList = { "exec", CliDllPath.Value },
@@ -77,7 +80,9 @@ public static class CliRunner
             ?? throw new InvalidOperationException("Failed to start the CLI process.");
 
         // Write any piped body, then close stdin. Closing it makes an unread stdin return
-        // end-of-input rather than hang, and keeps the child non-interactive (#70).
+        // end-of-input rather than hang, and keeps the child non-interactive (#70). Note: this
+        // writes the whole body before draining stdout, so a body larger than the OS pipe
+        // buffer combined with early child output could deadlock — fine for test-sized bodies.
         if (stdin is not null)
             process.StandardInput.Write(stdin);
         process.StandardInput.Close();

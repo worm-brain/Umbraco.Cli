@@ -232,8 +232,10 @@ public sealed class CommandIntegrationTests
     {
         RequireLive();
         // #63: `--json-body -` reads the body from stdin. Use --dry-run so nothing is created;
-        // the dry-run preview proves the piped body was parsed and would be sent.
-        const string body = """{"contentType":{"alias":"textPage"}}""";
+        // the dry-run preview proves the piped body was parsed and would be sent. Includes a
+        // non-ASCII name to guard the UTF-8 stdin decoding (H1).
+        const string name = "Søg 日本";
+        var body = $$"""{"contentType":{"alias":"textPage"},"variants":[{"name":"{{name}}"}]}""";
         var result = CliRunner.RunWithInput(
             body,
             "content",
@@ -245,11 +247,16 @@ public sealed class CommandIntegrationTests
 
         Assert.True(result.Ok, result.Stderr);
         using var doc = JsonDocument.Parse(result.Stdout);
+        var request = doc.RootElement.GetProperty("request");
         Assert.Equal("dry-run", doc.RootElement.GetProperty("status").GetString());
-        Assert.Equal(
-            "POST",
-            doc.RootElement.GetProperty("request").GetProperty("method").GetString()
-        );
+        Assert.Equal("POST", request.GetProperty("method").GetString());
+        // The non-ASCII name must survive the pipe intact (UTF-8, no mojibake).
+        var echoedName = request
+            .GetProperty("body")
+            .GetProperty("variants")[0]
+            .GetProperty("name")
+            .GetString();
+        Assert.Equal(name, echoedName);
     }
 
     [Fact]

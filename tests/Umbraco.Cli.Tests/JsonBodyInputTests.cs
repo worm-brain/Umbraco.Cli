@@ -26,19 +26,8 @@ public class JsonBodyInputTests
         }
     }
 
-    [Fact]
-    public async Task ReadAsync_Dash_ReadsStdin()
-    {
-        var original = Console.In;
-        Console.SetIn(new StringReader("""{"piped":true}"""));
-        try
-        {
-            var body = await JsonBodyInput.ReadAsync("-", CancellationToken.None);
-            Assert.Equal("""{"piped":true}""", body);
-        }
-        finally
-        {
-            Console.SetIn(original);
-        }
-    }
+    // The `-` (stdin) branch reads the raw standard-input stream as UTF-8 (not Console.In, which
+    // Console.SetIn cannot redirect at the stream level), so it is covered end-to-end by the
+    // integration harness (StdinBody_ContentCreate_ReadsPipedBody) with real piped bytes,
+    // including a non-ASCII character to guard the UTF-8 decoding.
 }

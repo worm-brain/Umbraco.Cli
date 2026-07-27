@@ -161,6 +161,45 @@ public class JsonOutputWriterTests
         Assert.Equal(2, data.EnumerateObject().Count());
     }
 
+    [Fact]
+    public void WriteSuccess_WithFields_UnknownField_IsAbsentNotError()
+    {
+        var writer = new JsonOutputWriter(["id", "nope"]);
+        var (stdout, _) = Capture(() => writer.WriteSuccess(new { id = "1", name = "A" }));
+        var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
+        Assert.True(data.TryGetProperty("id", out _));
+        Assert.False(data.TryGetProperty("nope", out _));
+        Assert.Equal(1, data.EnumerateObject().Count());
+    }
+
+    [Fact]
+    public void WriteSuccess_WithFields_ScalarData_PassesThrough()
+    {
+        // Projection only makes sense for objects; a scalar payload is emitted unchanged.
+        var writer = new JsonOutputWriter(["id"]);
+        var (stdout, _) = Capture(() => writer.WriteSuccess(42));
+        var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
+        Assert.Equal(42, data.GetInt32());
+    }
+
+    [Fact]
+    public void WriteSuccess_WithFields_MatchesIgnoringSpaces()
+    {
+        // A table's "Content Type" header is selectable via --fields contentType.
+        var writer = new JsonOutputWriter(["contentType"]);
+        var (stdout, _) = Capture(() =>
+            writer.WriteTable(
+                ["Content Type", "Name"],
+                [
+                    ["textPage", "About"],
+                ]
+            )
+        );
+        var item = JsonDocument.Parse(stdout).RootElement.GetProperty("data")[0];
+        Assert.Equal("textPage", item.GetProperty("Content Type").GetString());
+        Assert.False(item.TryGetProperty("Name", out _));
+    }
+
     // ── WriteError ───────────────────────────────────────────────────────────
 
     [Fact]
