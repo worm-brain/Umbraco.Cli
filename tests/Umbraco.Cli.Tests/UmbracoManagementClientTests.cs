@@ -179,7 +179,10 @@ public class UmbracoManagementClientTests
         var result = await client.GetLanguagesAsync(CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.EndsWith("/umbraco/management/api/v1/language", handler.LastRequestUri!.AbsolutePath);
+        Assert.EndsWith(
+            "/umbraco/management/api/v1/language",
+            handler.LastRequestUri!.AbsolutePath
+        );
         var lang = Assert.Single(result.Data!);
         Assert.Equal("en-US", lang.IsoCode);
         Assert.True(lang.IsDefault);
@@ -190,10 +193,7 @@ public class UmbracoManagementClientTests
     {
         // A non-2xx from a generated call is surfaced as a failed response (status + no
         // throw), preserving the "errors are data" contract through the Kiota guard.
-        var (client, _) = ClientReturning(
-            """{"title":"Not Found"}""",
-            HttpStatusCode.NotFound
-        );
+        var (client, _) = ClientReturning("""{"title":"Not Found"}""", HttpStatusCode.NotFound);
 
         var result = await client.GetContentAsync(ct: CancellationToken.None);
 
@@ -202,31 +202,37 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task CreateWebhookAsync_201EmptyBody_IsSuccessWithIdFromLocation()
+    public async Task CreateWebhookAsync_201EmptyBody_EchoesRequestWithGeneratedId()
     {
-        // Regression for #43: Umbraco returns 201 Created with an empty body; the create
-        // must report success and surface the new id parsed from the Location header.
-        var id = Guid.NewGuid();
-        var (client, _) = ClientReturning(
-            "",
-            HttpStatusCode.Created,
-            location: $"/umbraco/management/api/v1/webhook/{id}"
-        );
+        // Umbraco returns 201 Created with an empty body. On the generated-client path the
+        // client supplies the id up front (Umbraco 14+ accepts a client GUID) and echoes the
+        // accepted request, so the create reports success with a non-empty id and the request
+        // fields populated instead of a blank payload (guards #74).
+        var (client, _) = ClientReturning("", HttpStatusCode.Created);
 
         var result = await client.CreateWebhookAsync(
-            new CreateWebhookRequest { Url = "https://example.com/hook" },
+            new CreateWebhookRequest
+            {
+                Url = "https://example.com/hook",
+                Events = ["ContentPublished"],
+            },
             CancellationToken.None
         );
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(id, result.Data!.Id);
+        Assert.NotEqual(Guid.Empty, result.Data!.Id);
+        Assert.Equal("https://example.com/hook", result.Data.Url);
+        var evt = Assert.Single(result.Data.Events!);
+        Assert.Equal("ContentPublished", evt.EventName);
     }
 
     [Fact]
     public async Task Error_WithValidationErrors_SurfacesFieldNames()
     {
-        // Regression for #48: a 400 ProblemDetails must surface the offending field, not
-        // just the generic title.
+        // Regression for #48: a 400 ProblemDetails must surface the offending field, not just
+        // the generic title. The webhook create is on the generated-client path, so this also
+        // proves FormatProblemDetailsErrors flattens the AdditionalData "errors" map at parity
+        // with the hand-written BuildErrorAsync.
         var json = """
             {
               "title": "One or more validation errors occurred.",
@@ -235,8 +241,6 @@ public class UmbracoManagementClientTests
             """;
         var (client, _) = ClientReturning(json, HttpStatusCode.BadRequest);
 
-        // A create uses the hand-written HttpClient path where BuildErrorAsync formats
-        // the ProblemDetails errors map.
         var result = await client.CreateWebhookAsync(
             new CreateWebhookRequest { Url = "https://example.com/hook" },
             CancellationToken.None

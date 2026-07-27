@@ -535,14 +535,44 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    public async Task<UmbracoResponse<LanguageResponse>> CreateLanguageAsync(
+    /// <summary>
+    /// Creates a language via <c>POST language</c> (generated client). The endpoint is keyed
+    /// by ISO code (no server-assigned id) and returns <c>201</c> with an empty body, so the
+    /// accepted request is echoed back as the created language (fixes the empty-payload class
+    /// of #74 for this resource).
+    /// </summary>
+    /// <param name="request">The language to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created language, or a mapped failure.</returns>
+    public Task<UmbracoResponse<LanguageResponse>> CreateLanguageAsync(
         CreateLanguageRequest request,
         CancellationToken ct = default
     ) =>
-        await PostAsync<CreateLanguageRequest, LanguageResponse>(
-            "umbraco/management/api/v1/language",
-            request,
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.CreateLanguageRequestModel
+                {
+                    IsoCode = request.IsoCode,
+                    Name = request.Name,
+                    IsDefault = request.IsDefault,
+                    IsMandatory = request.IsMandatory,
+                    FallbackIsoCode = request.FallbackIsoCode,
+                };
+                await _api.Umbraco.Management.Api.V1.Language.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return new LanguageResponse
+                {
+                    IsoCode = request.IsoCode,
+                    Name = request.Name,
+                    IsDefault = request.IsDefault,
+                    IsMandatory = request.IsMandatory,
+                    FallbackIsoCode = request.FallbackIsoCode,
+                };
+            }
         );
 
     /// <summary>Deletes a language via <c>DELETE language/{isoCode}</c> (generated client).</summary>
@@ -828,14 +858,47 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
-    public async Task<UmbracoResponse<DictionaryItemResponse>> CreateDictionaryItemAsync(
+    /// <summary>
+    /// Creates a dictionary item via <c>POST dictionary</c> (generated client). The id is
+    /// client-generated (Umbraco 14+ accepts a supplied GUID) so the created item can be
+    /// echoed back fully populated without a follow-up read; the <c>201</c> response has an
+    /// empty body.
+    /// </summary>
+    /// <param name="request">The dictionary item to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created dictionary item (with the generated id), or a mapped failure.</returns>
+    public Task<UmbracoResponse<DictionaryItemResponse>> CreateDictionaryItemAsync(
         CreateDictionaryItemRequest request,
         CancellationToken ct = default
     ) =>
-        await PostAsync<CreateDictionaryItemRequest, DictionaryItemResponse>(
-            "umbraco/management/api/v1/dictionary",
-            request,
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var id = Guid.NewGuid();
+                var body = new Gen.CreateDictionaryItemRequestModel
+                {
+                    Id = id,
+                    Name = request.Name,
+                    Translations = request
+                        .Translations.Select(t => new Gen.DictionaryItemTranslationModel
+                        {
+                            IsoCode = t.IsoCode,
+                            Translation = t.Translation,
+                        })
+                        .ToList(),
+                };
+                await _api.Umbraco.Management.Api.V1.Dictionary.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return new DictionaryItemResponse
+                {
+                    Id = id,
+                    Name = request.Name,
+                    Translations = request.Translations.ToList(),
+                };
+            }
         );
 
     // ── Webhooks ──────────────────────────────────────────────────────────────
@@ -850,15 +913,67 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             ct
         );
 
-    public async Task<UmbracoResponse<WebhookResponse>> CreateWebhookAsync(
+    /// <summary>
+    /// Creates a webhook via <c>POST webhook</c> (generated client). The id is
+    /// client-generated (Umbraco 14+ accepts a supplied GUID), so the created webhook is
+    /// echoed back with its id and the accepted request fields without a follow-up read
+    /// (the <c>201</c> response body is empty). The request's event names (strings) are
+    /// echoed as <see cref="WebhookEvent"/> objects to match the read shape (#46).
+    /// </summary>
+    /// <param name="request">The webhook to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created webhook (with the generated id), or a mapped failure.</returns>
+    public Task<UmbracoResponse<WebhookResponse>> CreateWebhookAsync(
         CreateWebhookRequest request,
         CancellationToken ct = default
     ) =>
-        await PostAsync<CreateWebhookRequest, WebhookResponse>(
-            "umbraco/management/api/v1/webhook",
-            request,
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var id = Guid.NewGuid();
+                var body = new Gen.CreateWebhookRequestModel
+                {
+                    Id = id,
+                    Url = request.Url,
+                    Events = request.Events.ToList(),
+                    Enabled = request.Enabled,
+                    ContentTypeKeys = request.ContentTypeKeys.Select(k => (Guid?)k).ToList(),
+                    Headers = MapWebhookHeaders(request.Headers),
+                };
+                await _api.Umbraco.Management.Api.V1.Webhook.PostAsync(body, cancellationToken: ct);
+                return new WebhookResponse
+                {
+                    Id = id,
+                    Url = request.Url,
+                    Enabled = request.Enabled,
+                    Events = request
+                        .Events.Select(e => new WebhookEvent { EventName = e })
+                        .ToList(),
+                    ContentTypeKeys = request.ContentTypeKeys.ToList(),
+                    Headers = request.Headers.Count > 0 ? request.Headers : null,
+                };
+            }
         );
+
+    /// <summary>
+    /// Maps command-facing webhook headers onto the generated open "headers" object, whose
+    /// key/value pairs live in its <c>AdditionalData</c> bag. Returns null when there are no
+    /// headers so the serialized body omits the member entirely.
+    /// </summary>
+    /// <param name="headers">The header key/value pairs from the create request.</param>
+    /// <returns>The generated headers object, or null when empty.</returns>
+    private static Gen.CreateWebhookRequestModel_headers? MapWebhookHeaders(
+        Dictionary<string, string> headers
+    )
+    {
+        if (headers is null || headers.Count == 0)
+            return null;
+        var mapped = new Gen.CreateWebhookRequestModel_headers();
+        foreach (var (key, value) in headers)
+            mapped.AdditionalData[key] = value;
+        return mapped;
+    }
 
     /// <summary>Deletes a webhook via <c>DELETE webhook/{id}</c> (generated client).</summary>
     /// <param name="id">The webhook id.</param>

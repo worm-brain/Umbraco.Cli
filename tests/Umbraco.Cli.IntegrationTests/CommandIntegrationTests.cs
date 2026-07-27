@@ -98,6 +98,48 @@ public sealed class CommandIntegrationTests
     }
 
     [SkippableFact]
+    public void Language_CreateDelete_RoundTrips()
+    {
+        RequireLive();
+
+        // Pick a valid BCP-47 culture that is NOT already configured, so this is a genuine
+        // new-language create rather than an "already exists" 400. The instance ships with a
+        // few languages, so probe the list and take the first spare candidate.
+        var existing = CliRunner.Run("languages", "list");
+        Assert.True(existing.Ok, existing.Stderr);
+        var iso = new[] { "fr-CA", "es-MX", "de-AT", "pt-BR", "en-AU", "nl-BE" }.FirstOrDefault(c =>
+            !existing.Stdout.Contains($"\"{c}\"")
+        );
+        Skip.If(iso is null, "No spare test culture available on this instance.");
+
+        // Create (now on the generated client). The create echoes the accepted request, so
+        // isoCode/name come back populated rather than blank (guards #74 for this resource).
+        var create = CliRunner.Run(
+            "languages",
+            "create",
+            "--culture",
+            iso,
+            "--name",
+            $"Integration test {iso}"
+        );
+        Assert.True(create.Ok, create.Stderr);
+        try
+        {
+            // The create response is the raw LanguageResponse: { isoCode, name, ... }.
+            Assert.Equal(iso, create.Data().GetProperty("isoCode").GetString());
+            Assert.False(string.IsNullOrWhiteSpace(create.Data().GetProperty("name").GetString()));
+        }
+        finally
+        {
+            // Delete (self-clean) - always runs once the create succeeded, even if an
+            // assertion above fails, so a failing run never leaks a language. A successful
+            // delete also proves the create really persisted (deleting a missing iso fails).
+            var delete = CliRunner.Run("languages", "delete", iso);
+            Assert.True(delete.Ok, delete.Stderr);
+        }
+    }
+
+    [SkippableFact]
     public void DictionaryList_ReturnsItems()
     {
         RequireLive();

@@ -70,16 +70,24 @@ public static class CliRunner
 
     /// <summary>
     /// Locates the built <c>Umbraco.Cli.dll</c> by walking up from the test output directory
-    /// to the repo root and preferring a Release build, then Debug.
+    /// to the repo root. The build configuration THIS test assembly was compiled in is tried
+    /// first, so <c>dotnet test</c> (Debug) exercises the freshly-built Debug CLI rather than a
+    /// possibly-stale Release build (and vice-versa) — otherwise a leftover Release binary
+    /// silently shadows the code under test.
     /// </summary>
     /// <returns>The absolute path to the CLI assembly.</returns>
     /// <exception cref="FileNotFoundException">If no built CLI assembly is found.</exception>
     private static string LocateCliDll()
     {
+#if DEBUG
+        var configs = new[] { "Debug", "Release" };
+#else
+        var configs = new[] { "Release", "Debug" };
+#endif
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            foreach (var config in new[] { "Release", "Debug" })
+            foreach (var config in configs)
             {
                 var candidate = Path.Combine(
                     dir.FullName,
