@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Help;
 
 namespace Umbraco.Cli.Infrastructure;
 
@@ -58,7 +59,12 @@ public static class CommandCatalog
     /// <returns>The catalog node for the command tree.</returns>
     public static CommandCatalogNode Describe(Command command) =>
         new(
-            command.Name,
+            // The root command's name is derived from the executable path (e.g. "Umbraco.Cli"
+            // under `dotnet exec`), which is environment-dependent — pin it to the shipped
+            // command name so agents can key on a stable root.
+            command is RootCommand
+                ? "umbraco"
+                : command.Name,
             NullIfEmpty(command.Description),
             command.Arguments.Select(DescribeArgument).ToList(),
             command.Options.Where(o => !IsHelpOrVersion(o)).Select(DescribeOption).ToList(),
@@ -70,8 +76,11 @@ public static class CommandCatalog
             argument.Name,
             NullIfEmpty(argument.Description),
             FriendlyType(argument.ValueType),
-            // Arity's lower bound > 0 means at least one value is required.
+            // Required means the parser will reject its absence: the arity demands a value AND
+            // there is no default to fall back on (an argument with a default parses fine when
+            // omitted, so it is not required).
             argument.Arity.MinimumNumberOfValues > 0
+                && !argument.HasDefaultValue
         );
 
     private static CommandCatalogOption DescribeOption(Option option) =>
@@ -83,8 +92,12 @@ public static class CommandCatalog
             option.Required
         );
 
-    /// <summary>Auto-generated help/version options are noise in the catalog — filter them out.</summary>
-    private static bool IsHelpOrVersion(Option option) => option.Name is "--help" or "--version";
+    /// <summary>
+    /// Auto-generated help/version options are noise in the catalog — filter them out. Matched
+    /// by type (not name) so a user-defined <c>--version</c> option on a command would not be
+    /// wrongly dropped.
+    /// </summary>
+    private static bool IsHelpOrVersion(Option option) => option is HelpOption or VersionOption;
 
     /// <summary>
     /// Maps a CLR type to a short, agent-friendly type name. A boolean is rendered as
@@ -110,8 +123,6 @@ public static class CommandCatalog
             return "int";
         if (t == typeof(long))
             return "long";
-        if (t == typeof(bool))
-            return "bool";
         if (t == typeof(System.IO.FileInfo))
             return "file";
         if (t == typeof(System.IO.DirectoryInfo))

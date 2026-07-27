@@ -138,11 +138,13 @@ On a write command, `--dry-run` prints the request that would be sent instead of
 
 ### `commands` (discover the surface)
 
-`umbraco commands` emits the entire command tree as JSON — every command, its arguments, options, value types, required/optional flags, and one-line help — so an agent or script can discover the whole CLI in a single call instead of scraping `--help`. It is a local command: no host or authentication required.
+`umbraco commands` emits the entire command tree as JSON — every command, its arguments, options, value types, required/optional flags, and one-line help — so an agent or script can discover the whole CLI in a single call instead of scraping `--help`. It is a local command: no host or authentication required. `--output human` prints an indented outline instead.
 
 ```bash
 umbraco commands | jq '.data.commands[].name'
 ```
+
+When diffing the catalog across versions, compare `.data` — the envelope's `meta.timestamp` changes on every call.
 
 ### `auth`
 
