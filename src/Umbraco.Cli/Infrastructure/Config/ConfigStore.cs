@@ -2,6 +2,13 @@ using System.Text.Json;
 
 namespace Umbraco.Cli.Infrastructure.Config;
 
+/// <summary>
+/// Reads and writes the CLI config, which holds one or more named credential profiles (#64).
+/// A single command resolves to one profile (chosen by <c>--profile</c> / <c>UMBRACO_PROFILE</c>
+/// / the file's default), with <c>UMBRACO_*</c> environment variables overriding that profile's
+/// fields. Secrets are encrypted at rest (#45) and a legacy flat config is migrated into a
+/// <c>default</c> profile on load.
+/// </summary>
 public sealed class ConfigStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
@@ -27,79 +34,243 @@ public sealed class ConfigStore
     public static ConfigStore Resolve(string? path, ConfigStore fallback) =>
         string.IsNullOrEmpty(path) ? fallback : new ConfigStore(path);
 
-    public CliConfig Load()
+    /// <summary>
+    /// Resolves the effective credentials for a command: the selected profile's values with the
+    /// <c>UMBRACO_*</c> environment variables overriding each field. The profile is chosen by
+    /// <paramref name="profileName"/>, then <c>UMBRACO_PROFILE</c>, then the file's default,
+    /// then <c>default</c>.
+    /// </summary>
+    /// <param name="profileName">An explicitly requested profile (from <c>--profile</c>), or null.</param>
+    /// <returns>The resolved credentials.</returns>
+    public CliConfig Load(string? profileName = null)
     {
-        // Environment variables take precedence over the config file.
         var fromEnv = LoadFromEnvironment();
-        if (fromEnv.IsComplete)
-        {
-            // Auth is fully from env, so we would normally skip the file — but the command
-            // allow-list (#69) may still live there. Pull it in so a file-only allow-list is
-            // never silently dropped (that would fail OPEN on a guardrail).
-            fromEnv.AllowedCommands ??= ReadAllowedCommandsFromFile();
-            return fromEnv;
-        }
+        var file = ReadFile();
 
-        if (!File.Exists(_configPath))
-            return fromEnv;
+        var effectiveName =
+            Blank(profileName)
+            ?? Blank(Environment.GetEnvironmentVariable("UMBRACO_PROFILE"))
+            ?? file?.EffectiveDefault
+            ?? "default";
 
+        var profile =
+            file is not null && file.Profiles.TryGetValue(effectiveName, out var p)
+                ? p
+                : new CliConfig();
+
+        // Never let an undecryptable secret (a config copied from another machine/user, or a
+        // truncated blob) crash the whole CLI — treat it as a missing secret.
+        string? fileSecret;
         try
         {
-            var json = File.ReadAllText(_configPath);
-            var fromFile =
-                JsonSerializer.Deserialize<CliConfig>(json, JsonOptions) ?? new CliConfig();
-
-            // The stored secret is encrypted at rest on Windows (issue #45); decrypt it
-            // back to plaintext for use. Legacy plaintext files are passed through
-            // unchanged by SecretProtector.
-            var fileSecret = SecretProtector.Unprotect(fromFile.ClientSecret);
-
-            // One-time upgrade: a config written before encryption was added (plaintext
-            // secret, no dpapi: prefix) is transparently re-saved encrypted so existing
-            // users are protected without re-running `auth login` (issue #45). Best-effort
-            // and only where encryption is actually available.
-            if (
-                SecretProtector.CanEncrypt
-                && !string.IsNullOrEmpty(fromFile.ClientSecret)
-                && !SecretProtector.IsProtected(fromFile.ClientSecret)
-            )
-            {
-                TryMigrateToEncrypted(fromFile);
-            }
-
-            // Env vars override individual file values.
-            return new CliConfig
-            {
-                Host = fromEnv.Host ?? fromFile.Host,
-                ClientId = fromEnv.ClientId ?? fromFile.ClientId,
-                ClientSecret = fromEnv.ClientSecret ?? fileSecret,
-                AllowedCommands = fromEnv.AllowedCommands ?? fromFile.AllowedCommands,
-            };
+            fileSecret = SecretProtector.Unprotect(profile.ClientSecret);
         }
         catch
         {
-            return fromEnv;
+            fileSecret = null;
         }
+
+        // One-time upgrade of a legacy plaintext secret (issue #45), best-effort.
+        if (
+            SecretProtector.CanEncrypt
+            && !string.IsNullOrEmpty(profile.ClientSecret)
+            && !SecretProtector.IsProtected(profile.ClientSecret)
+        )
+        {
+            TryMigrateToEncrypted();
+        }
+
+        // Env vars override the selected profile's individual fields (so pure-env / CI still
+        // works and env can override one field of a profile).
+        return new CliConfig
+        {
+            Host = fromEnv.Host ?? profile.Host,
+            ClientId = fromEnv.ClientId ?? profile.ClientId,
+            ClientSecret = fromEnv.ClientSecret ?? fileSecret,
+            AllowedCommands = fromEnv.AllowedCommands ?? profile.AllowedCommands,
+        };
     }
 
-    public void Save(CliConfig config)
+    /// <summary>
+    /// Saves credentials to a named profile, creating the config/profile as needed. The secret
+    /// is encrypted at rest; an existing profile's allow-list (#69) is preserved when the saved
+    /// config does not carry one. The first profile saved becomes the default.
+    /// </summary>
+    /// <param name="config">The credentials to store (plaintext secret).</param>
+    /// <param name="profileName">The profile to write to; null means the current default.</param>
+    public void Save(CliConfig config, string? profileName = null)
     {
-        var dir = Path.GetDirectoryName(_configPath)!;
-        Directory.CreateDirectory(dir);
+        // Never overwrite a config file we couldn't parse — that would silently wipe every
+        // other profile's credentials. Fail loudly instead.
+        if (FileExistsButUnreadable())
+            throw new InvalidOperationException(
+                $"The config file at '{_configPath}' exists but could not be read; refusing to "
+                    + "overwrite it. Fix or remove it, then retry."
+            );
 
-        // Encrypt the secret at rest (issue #45) without mutating the caller's instance.
-        // Preserve every field, including the command allow-list (#69) — otherwise `auth login`
-        // (or the legacy-secret re-save on a plain Load) would silently strip the guardrail
-        // from disk.
-        var toPersist = new CliConfig
+        var file = ReadFile() ?? new ConfigFile();
+        var name = string.IsNullOrWhiteSpace(profileName) ? file.EffectiveDefault : profileName;
+
+        file.Profiles.TryGetValue(name, out var existing);
+        file.Profiles[name] = new CliConfig
         {
             Host = config.Host,
             ClientId = config.ClientId,
             ClientSecret = SecretProtector.Protect(config.ClientSecret),
-            AllowedCommands = config.AllowedCommands,
+            // Preserve an existing profile's allow-list unless the caller sets one, so login
+            // doesn't strip the guardrail.
+            AllowedCommands = config.AllowedCommands ?? existing?.AllowedCommands,
         };
 
-        File.WriteAllText(_configPath, JsonSerializer.Serialize(toPersist, JsonOptions));
+        // The first profile written becomes the default.
+        file.DefaultProfile ??= name;
+
+        WriteFile(file);
+    }
+
+    /// <summary>Lists the profile names and which one is the default.</summary>
+    /// <returns>The profile names and the default profile name.</returns>
+    public (IReadOnlyList<string> Names, string Default) ListProfiles()
+    {
+        var file = ReadFile();
+        if (file is null)
+            return (Array.Empty<string>(), "default");
+        return (
+            file.Profiles.Keys.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList(),
+            file.EffectiveDefault
+        );
+    }
+
+    /// <summary>Sets the default profile. Returns false when no such profile exists.</summary>
+    /// <param name="name">The profile to make default.</param>
+    /// <returns>True if switched; false if the profile does not exist.</returns>
+    public bool SetDefaultProfile(string name)
+    {
+        var file = ReadFile();
+        if (file is null || !file.Profiles.ContainsKey(name))
+            return false;
+        file.DefaultProfile = name;
+        WriteFile(file);
+        return true;
+    }
+
+    /// <summary>
+    /// Removes a profile (or the default profile when <paramref name="profileName"/> is null).
+    /// If the removed profile was the default, another remaining profile becomes the default.
+    /// Deletes the whole file once no profiles remain. Returns false when the profile is absent.
+    /// </summary>
+    /// <param name="profileName">The profile to remove, or null for the default.</param>
+    /// <returns>True if a profile was removed.</returns>
+    public bool DeleteProfile(string? profileName = null)
+    {
+        var file = ReadFile();
+        if (file is null)
+        {
+            // A corrupt/unreadable file with no specific profile requested: remove it wholesale
+            // so credentials never linger on a failed logout (matches the old logout semantics).
+            if (string.IsNullOrWhiteSpace(profileName) && File.Exists(_configPath))
+            {
+                Delete();
+                return true;
+            }
+            return false;
+        }
+
+        var wasDefault = string.Equals(
+            string.IsNullOrWhiteSpace(profileName) ? file.EffectiveDefault : profileName,
+            file.EffectiveDefault,
+            StringComparison.OrdinalIgnoreCase
+        );
+        var name = string.IsNullOrWhiteSpace(profileName) ? file.EffectiveDefault : profileName;
+        if (!file.Profiles.Remove(name))
+            return false;
+
+        if (file.Profiles.Count == 0)
+        {
+            Delete();
+            return true;
+        }
+
+        // If we removed the default, pick another remaining profile as the new default.
+        if (wasDefault)
+            file.DefaultProfile = file.Profiles.Keys.First();
+
+        WriteFile(file);
+        return true;
+    }
+
+    /// <summary>Deletes the entire config file.</summary>
+    public void Delete()
+    {
+        if (File.Exists(_configPath))
+            File.Delete(_configPath);
+    }
+
+    /// <summary>
+    /// Reads the config file into the profile model, migrating a legacy flat config (host/
+    /// clientId/clientSecret at the root) into a single <c>default</c> profile. Returns null when
+    /// there is no file or it cannot be read.
+    /// </summary>
+    /// <returns>The parsed config, or null.</returns>
+    private ConfigFile? ReadFile()
+    {
+        if (!File.Exists(_configPath))
+            return null;
+        try
+        {
+            var json = File.ReadAllText(_configPath);
+            using var doc = JsonDocument.Parse(json);
+            // A profile-shaped file has a "profiles" object; anything else is the legacy flat
+            // shape and is migrated into a single default profile.
+            ConfigFile file;
+            if (doc.RootElement.TryGetProperty("profiles", out _))
+            {
+                file =
+                    JsonSerializer.Deserialize<ConfigFile>(json, JsonOptions) ?? new ConfigFile();
+            }
+            else
+            {
+                var flat =
+                    JsonSerializer.Deserialize<CliConfig>(json, JsonOptions) ?? new CliConfig();
+                file = new ConfigFile
+                {
+                    DefaultProfile = "default",
+                    Profiles = { ["default"] = flat },
+                };
+            }
+
+            // System.Text.Json replaces the field initializer with a case-SENSITIVE dictionary
+            // on deserialize, so re-wrap to keep profile names case-insensitive throughout.
+            file.Profiles = new Dictionary<string, CliConfig>(
+                file.Profiles,
+                StringComparer.OrdinalIgnoreCase
+            );
+            return file;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Whether the config file exists on disk but cannot be parsed.</summary>
+    private bool FileExistsButUnreadable() => File.Exists(_configPath) && ReadFile() is null;
+
+    private void WriteFile(ConfigFile file)
+    {
+        var dir = Path.GetDirectoryName(_configPath)!;
+        Directory.CreateDirectory(dir);
+
+        // Write atomically: serialize to a temp file next to the target, then replace/move it in
+        // one step. A crash or a concurrent invocation can no longer truncate the file and lose
+        // every profile's credentials mid-write.
+        var tempPath = _configPath + ".tmp";
+        File.WriteAllText(tempPath, JsonSerializer.Serialize(file, JsonOptions));
+        RestrictPermissions(tempPath);
+        if (File.Exists(_configPath))
+            File.Replace(tempPath, _configPath, destinationBackupFileName: null);
+        else
+            File.Move(tempPath, _configPath);
         RestrictPermissions(_configPath);
     }
 
@@ -124,28 +295,29 @@ public sealed class ConfigStore
         }
     }
 
-    public void Delete()
-    {
-        if (File.Exists(_configPath))
-            File.Delete(_configPath);
-    }
-
     /// <summary>
-    /// Re-saves a config whose secret is stored in legacy plaintext, encrypting it in the
-    /// process (issue #45). Best-effort: the value read from <paramref name="fromFile"/> is
-    /// still plaintext at this point, so a normal <see cref="Save"/> re-encrypts it. Any
-    /// write failure is swallowed so a read-only config directory never breaks a command.
+    /// Re-writes the config so any legacy plaintext secrets are encrypted (issue #45).
+    /// Best-effort: <see cref="ReadFile"/> returns the stored (plaintext) secrets and
+    /// <see cref="WriteFile"/> re-encrypts them via <see cref="Save"/>-style protection is not
+    /// used here; instead we re-protect each profile secret. Any write failure is swallowed.
     /// </summary>
-    /// <param name="fromFile">The config just read from disk, with a plaintext secret.</param>
-    private void TryMigrateToEncrypted(CliConfig fromFile)
+    private void TryMigrateToEncrypted()
     {
         try
         {
-            Save(fromFile);
+            var file = ReadFile();
+            if (file is null)
+                return;
+            foreach (var profile in file.Profiles.Values)
+                profile.ClientSecret = SecretProtector.Protect(
+                    SecretProtector.Unprotect(profile.ClientSecret)
+                );
+            WriteFile(file);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch
         {
-            // Non-fatal: the file stays as-is (still readable via the legacy path).
+            // Purely opportunistic re-encryption: swallow everything (write failures, an
+            // undecryptable secret from another machine, etc.) so it never breaks a command.
         }
     }
 
@@ -158,24 +330,14 @@ public sealed class ConfigStore
             AllowedCommands = Environment.GetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS"),
         };
 
-    /// <summary>
-    /// Reads only the <c>allowedCommands</c> field from the config file, ignoring auth.
-    /// Best-effort: returns null when the file is missing or unreadable. Used so a file-only
-    /// allow-list is honoured even when authentication comes entirely from the environment.
-    /// </summary>
-    /// <returns>The file's allow-list string, or null.</returns>
-    private string? ReadAllowedCommandsFromFile()
-    {
-        if (!File.Exists(_configPath))
-            return null;
-        try
-        {
-            var json = File.ReadAllText(_configPath);
-            return JsonSerializer.Deserialize<CliConfig>(json, JsonOptions)?.AllowedCommands;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    /// <summary>Whether a config file exists and defines the given profile.</summary>
+    /// <param name="name">The profile name.</param>
+    /// <returns>True if the profile exists.</returns>
+    public bool HasProfile(string name) => ReadFile()?.Profiles.ContainsKey(name) ?? false;
+
+    /// <summary>Whether a readable config file defines any profiles.</summary>
+    public bool HasAnyProfiles => ReadFile()?.Profiles.Count > 0;
+
+    /// <summary>Returns null for a null/whitespace string, else the string itself.</summary>
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }

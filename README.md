@@ -113,7 +113,27 @@ Global options available on every command:
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands (delete). Required to run a destructive command non-interactively (piped/scripted/agent) |
 | `--readonly` | Block all write operations (create/update/delete/publish) for this session; reads still work. Also `UMBRACO_READONLY=1` |
 | `--fields <a,b>` | Trim JSON output to these top-level fields, in order (e.g. `id,name`), to keep agent context small |
+| `--profile <name>`, `-p` | Named credential profile to use (see `auth profiles`); also `UMBRACO_PROFILE`. Defaults to the configured default profile |
 | `--config <path>` | Path to config file |
+
+### Profiles (multiple environments)
+
+Log in to several instances and switch between them without re-authenticating (#64):
+
+```bash
+umbraco auth login --profile prod   --host https://prod.example.com   --client-id <id> --client-secret <secret>
+umbraco auth login --profile stage  --host https://stage.example.com  --client-id <id> --client-secret <secret>
+
+umbraco auth profiles              # list profiles, * marks the default
+umbraco auth use prod              # make 'prod' the default
+umbraco content list --profile stage   # use a profile for one command
+UMBRACO_PROFILE=stage umbraco content list   # or via env
+umbraco auth logout --profile stage    # remove one profile
+```
+
+Profiles are stored in the same (owner-only, secret-encrypted) config file. The `UMBRACO_HOST`/`UMBRACO_CLIENT_ID`/`UMBRACO_CLIENT_SECRET` env vars override the selected profile's fields, so CI can still run with pure environment credentials. A pre-profiles (flat) config is migrated automatically to a `default` profile.
+
+> Note: the command allow-list (`allowedCommands`) is stored **per profile**, so it applies only to the profile it was set on — switching profiles uses that profile's allow-list. For a hard sandbox, set `UMBRACO_ALLOWED_COMMANDS` in the environment (it applies regardless of profile).
 
 `--fields` keeps only the listed fields on each JSON result (object or array item), in the order given, matched case-insensitively:
 

@@ -21,6 +21,7 @@ public class ConfigStoreTests : IDisposable
         Environment.SetEnvironmentVariable("UMBRACO_CLIENT_ID", null);
         Environment.SetEnvironmentVariable("UMBRACO_CLIENT_SECRET", null);
         Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", null);
+        Environment.SetEnvironmentVariable("UMBRACO_PROFILE", null);
     }
 
     [Fact]
@@ -57,6 +58,175 @@ public class ConfigStoreTests : IDisposable
         Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", "content,media");
 
         Assert.Equal("content,media", Store.Load().AllowedCommands);
+    }
+
+    // ── Named profiles (#64) ────────────────────────────────────────────────
+
+    private static CliConfig Creds(string host) =>
+        new()
+        {
+            Host = host,
+            ClientId = "id",
+            ClientSecret = "secret",
+        };
+
+    [Fact]
+    public void Save_NamedProfiles_LoadEachByName()
+    {
+        Store.Save(Creds("https://default"));
+        Store.Save(Creds("https://prod"), "prod");
+
+        Assert.Equal("https://default", Store.Load().Host); // default profile
+        Assert.Equal("https://prod", Store.Load("prod").Host);
+        Assert.Equal("https://default", Store.Load("default").Host);
+    }
+
+    [Fact]
+    public void FirstProfileSaved_BecomesDefault()
+    {
+        Store.Save(Creds("https://first"), "prod");
+
+        Assert.Equal("https://first", Store.Load().Host); // default resolves to the only profile
+        var (names, def) = Store.ListProfiles();
+        Assert.Equal("prod", def);
+        Assert.Contains("prod", names);
+    }
+
+    [Fact]
+    public void SetDefaultProfile_SwitchesWhichLoadReturns()
+    {
+        Store.Save(Creds("https://default"));
+        Store.Save(Creds("https://prod"), "prod");
+
+        Assert.True(Store.SetDefaultProfile("prod"));
+        Assert.Equal("https://prod", Store.Load().Host);
+        Assert.Equal("prod", Store.ListProfiles().Default);
+    }
+
+    [Fact]
+    public void SetDefaultProfile_UnknownProfile_ReturnsFalse() =>
+        Assert.False(Store.SetDefaultProfile("nope"));
+
+    [Fact]
+    public void DeleteProfile_RemovesOneAndReassignsDefault()
+    {
+        Store.Save(Creds("https://default"));
+        Store.Save(Creds("https://prod"), "prod");
+        Store.SetDefaultProfile("prod");
+
+        Assert.True(Store.DeleteProfile("prod"));
+        var (names, def) = Store.ListProfiles();
+        Assert.DoesNotContain("prod", names);
+        Assert.Equal("default", def); // reassigned to the remaining profile
+    }
+
+    [Fact]
+    public void DeleteProfile_LastProfile_RemovesFile()
+    {
+        Store.Save(Creds("https://only"));
+        Assert.True(Store.DeleteProfile());
+        Assert.False(File.Exists(_tempPath));
+    }
+
+    [Fact]
+    public void Load_EnvOverridesSelectedProfileField()
+    {
+        Store.Save(Creds("https://prod"), "prod");
+        Environment.SetEnvironmentVariable("UMBRACO_HOST", "https://env-override");
+
+        // Env overrides the selected profile's host, but the profile supplies id/secret.
+        var loaded = Store.Load("prod");
+        Assert.Equal("https://env-override", loaded.Host);
+        Assert.Equal("id", loaded.ClientId);
+    }
+
+    [Fact]
+    public void Load_UmbracoProfileEnv_SelectsProfile()
+    {
+        Store.Save(Creds("https://default"));
+        Store.Save(Creds("https://staging"), "staging");
+        Environment.SetEnvironmentVariable("UMBRACO_PROFILE", "staging");
+
+        Assert.Equal("https://staging", Store.Load().Host);
+    }
+
+    [Fact]
+    public void LegacyFlatConfig_LoadsAsDefaultProfile()
+    {
+        // A pre-profiles flat file must still resolve (migrated to a 'default' profile).
+        File.WriteAllText(
+            _tempPath,
+            """{"host":"https://legacy","clientId":"id","clientSecret":"secret"}"""
+        );
+
+        Assert.Equal("https://legacy", Store.Load().Host);
+        Assert.Contains("default", Store.ListProfiles().Names);
+    }
+
+    [Fact]
+    public void Profiles_AreCaseInsensitiveAcrossReload()
+    {
+        // Regression for the JSON round-trip dropping the case-insensitive comparer.
+        Store.Save(Creds("https://prod"), "prod");
+
+        Assert.Equal("https://prod", Store.Load("Prod").Host);
+        Assert.True(Store.SetDefaultProfile("PROD"));
+        // Saving under a differently-cased name overwrites, not duplicates.
+        Store.Save(Creds("https://prod2"), "Prod");
+        Assert.Single(Store.ListProfiles().Names);
+    }
+
+    [Fact]
+    public void Load_UndecryptableSecret_DoesNotThrow()
+    {
+        // A dpapi: blob copied from another machine/user can't be decrypted; Load must degrade
+        // (treat the secret as missing) rather than crash every command.
+        File.WriteAllText(
+            _tempPath,
+            """{"profiles":{"default":{"host":"https://h","clientId":"id","clientSecret":"dpapi:AAAAnotvalid"}}}"""
+        );
+
+        var loaded = Store.Load();
+        Assert.Equal("https://h", loaded.Host);
+        Assert.True(string.IsNullOrEmpty(loaded.ClientSecret));
+    }
+
+    [Fact]
+    public void Save_PreservesExistingProfileAllowList()
+    {
+        // #69 guard: re-saving credentials (login) must not strip a profile's allow-list.
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://h",
+                ClientId = "id",
+                ClientSecret = "secret",
+                AllowedCommands = "content,media",
+            },
+            "prod"
+        );
+        Store.Save(Creds("https://h2"), "prod"); // re-login, no allow-list supplied
+
+        Assert.Equal("content,media", Store.Load("prod").AllowedCommands);
+    }
+
+    [Fact]
+    public void Save_DoesNotStealExplicitDefault()
+    {
+        Store.Save(Creds("https://default"));
+        Store.Save(Creds("https://prod"), "prod");
+        Store.SetDefaultProfile("prod");
+
+        // Saving another profile must not change the explicitly-chosen default.
+        Store.Save(Creds("https://stage"), "stage");
+        Assert.Equal("prod", Store.ListProfiles().Default);
+    }
+
+    [Fact]
+    public void Save_OverUnreadableFile_Throws()
+    {
+        File.WriteAllText(_tempPath, "{ this is not valid json");
+        Assert.Throws<InvalidOperationException>(() => Store.Save(Creds("https://h")));
     }
 
     [Fact]
