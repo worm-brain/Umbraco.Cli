@@ -130,6 +130,7 @@ public sealed class CommandContextFactory
             CommandName = commandName,
             AssumeYes = parseResult.GetValue(_globalOptions.Yes),
             DryRun = parseResult.GetValue(_globalOptions.DryRun),
+            ReadOnly = IsReadOnly(parseResult),
         };
     }
 
@@ -153,13 +154,18 @@ public sealed class CommandContextFactory
     /// <summary>Whether an environment-variable value should be read as "on" (1/true/yes).</summary>
     /// <param name="value">The raw environment value.</param>
     /// <returns>True for a truthy value.</returns>
-    private static bool IsTruthy(string? value) =>
-        !string.IsNullOrEmpty(value)
-        && (
-            value == "1"
-            || value.Equals("true", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("yes", StringComparison.OrdinalIgnoreCase)
-        );
+    private static bool IsTruthy(string? value)
+    {
+        // Trim so a stray trailing space (easy to introduce in a Windows `set VAR=1 `) does not
+        // silently disable the guardrail.
+        var v = value?.Trim();
+        return !string.IsNullOrEmpty(v)
+            && (
+                v == "1"
+                || v.Equals("true", StringComparison.OrdinalIgnoreCase)
+                || v.Equals("yes", StringComparison.OrdinalIgnoreCase)
+            );
+    }
 
     /// <summary>
     /// Whether <paramref name="commandName"/> is permitted by the allow-list (#69). An empty

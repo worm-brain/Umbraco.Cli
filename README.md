@@ -126,6 +126,8 @@ For agent/automation use, two guardrails restrict what a session can do (inspire
 UMBRACO_READONLY=1 UMBRACO_ALLOWED_COMMANDS=content,media umbraco content list
 ```
 
+> **Enforcement note:** the **environment-variable** forms (`UMBRACO_READONLY`, `UMBRACO_ALLOWED_COMMANDS`) are the enforcement boundary — set them in the parent process that supervises the agent, where the agent cannot change them. The config-file `allowedCommands` form is a convenience/default: a process that controls its own arguments could point `--config` elsewhere or run `auth logout`, so treat the file form as advisory, not a hard sandbox.
+
 Destructive commands (`delete`) prompt for confirmation. When run non-interactively (no TTY — piped, scripted, or agent-driven) they refuse to proceed unless `--yes` is given, so a delete can never happen silently.
 
 On a write command, `--dry-run` prints the request that would be sent instead of sending it and exits `0` without changing anything. In JSON mode the envelope uses a distinct `"dry-run"` status (alongside `"success"` and `"error"`):

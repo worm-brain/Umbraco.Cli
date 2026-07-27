@@ -28,5 +28,12 @@ public sealed class CommandContext
     /// </summary>
     public bool DryRun { get; init; }
 
+    /// <summary>
+    /// Whether read-only mode is active. A write will be refused at the HTTP layer, so the
+    /// destructive-op confirmation gate is skipped — there is no point prompting to confirm a
+    /// delete that read-only mode will then reject.
+    /// </summary>
+    public bool ReadOnly { get; init; }
+
     public Stopwatch Stopwatch { get; } = Stopwatch.StartNew();
 }

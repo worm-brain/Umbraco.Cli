@@ -24,9 +24,11 @@ public sealed class CommandExecutor
     }
 
     /// <summary>
-    /// Exit codes: <c>0</c> success · <c>1</c> API failure · <c>2</c> aborted before
-    /// running (no host / not authenticated, or a destructive command refused/declined
-    /// without <c>--yes</c>) · <c>130</c> cancelled (Ctrl-C).
+    /// Exit codes: <c>0</c> success · <c>1</c> API failure · <c>2</c> aborted (no host / not
+    /// authenticated · a command blocked by the allow-list · a destructive command
+    /// refused/declined without <c>--yes</c> · a write blocked by <c>--readonly</c>) ·
+    /// <c>130</c> cancelled (Ctrl-C). Note a <c>--readonly</c> block can fire after prerequisite
+    /// reads (e.g. alias→id resolution) have already run.
     /// </summary>
     public async Task<int> RunAsync<T>(
         ParseResult parseResult,
@@ -54,9 +56,10 @@ public sealed class CommandExecutor
         // Destructive-op gate (#70): a command that supplies a confirmation prompt must be
         // confirmed before it runs, unless --yes was given. Non-interactively (piped/scripted/
         // agent) we never prompt — we abort and require --yes, so a destructive op can never
-        // happen silently. Skipped under --dry-run: the mutation is never sent (it is aborted
-        // and previewed at the HTTP layer), so there is nothing to confirm.
-        if (confirmationPrompt is not null && !ctx.AssumeYes && !ctx.DryRun)
+        // happen silently. Skipped under --dry-run (the mutation is previewed, not sent) and
+        // under --readonly (the write will be refused at the HTTP layer), so we never prompt to
+        // confirm an operation that isn't going to execute anyway.
+        if (confirmationPrompt is not null && !ctx.AssumeYes && !ctx.DryRun && !ctx.ReadOnly)
         {
             if (!_confirmation.IsInteractive)
             {

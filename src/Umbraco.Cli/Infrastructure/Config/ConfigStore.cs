@@ -88,11 +88,15 @@ public sealed class ConfigStore
         Directory.CreateDirectory(dir);
 
         // Encrypt the secret at rest (issue #45) without mutating the caller's instance.
+        // Preserve every field, including the command allow-list (#69) — otherwise `auth login`
+        // (or the legacy-secret re-save on a plain Load) would silently strip the guardrail
+        // from disk.
         var toPersist = new CliConfig
         {
             Host = config.Host,
             ClientId = config.ClientId,
             ClientSecret = SecretProtector.Protect(config.ClientSecret),
+            AllowedCommands = config.AllowedCommands,
         };
 
         File.WriteAllText(_configPath, JsonSerializer.Serialize(toPersist, JsonOptions));

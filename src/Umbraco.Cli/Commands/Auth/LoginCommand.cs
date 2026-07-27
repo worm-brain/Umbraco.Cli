@@ -87,12 +87,16 @@ public static class LoginCommand
                 }
 
                 var store = ConfigStore.Resolve(parseResult.GetValue(configOption), configStore);
+                // Preserve any existing command allow-list (#69) so logging in doesn't strip
+                // the guardrail from the config file.
+                var existing = store.Load();
                 store.Save(
                     new CliConfig
                     {
                         Host = host,
                         ClientId = clientId,
                         ClientSecret = clientSecret,
+                        AllowedCommands = existing.AllowedCommands,
                     }
                 );
 

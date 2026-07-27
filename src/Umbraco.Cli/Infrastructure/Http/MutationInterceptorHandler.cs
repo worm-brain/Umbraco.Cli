@@ -118,6 +118,7 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The inner handler's response for pass-through requests.</returns>
     /// <exception cref="DryRunException">Under <see cref="MutationInterceptPolicy.Preview"/> for a mutating request.</exception>
+    /// <exception cref="ReadOnlyModeException">Under <see cref="MutationInterceptPolicy.Block"/> for a mutating request.</exception>
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken

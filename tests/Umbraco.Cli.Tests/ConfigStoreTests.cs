@@ -20,6 +20,67 @@ public class ConfigStoreTests : IDisposable
         Environment.SetEnvironmentVariable("UMBRACO_HOST", null);
         Environment.SetEnvironmentVariable("UMBRACO_CLIENT_ID", null);
         Environment.SetEnvironmentVariable("UMBRACO_CLIENT_SECRET", null);
+        Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", null);
+    }
+
+    [Fact]
+    public void SaveThenLoad_PreservesAllowedCommands()
+    {
+        // #69 guard: Save must round-trip the allow-list, or login / the legacy-secret re-save
+        // would silently strip the guardrail from disk.
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://example.umbraco.io",
+                ClientId = "id",
+                ClientSecret = "secret",
+                AllowedCommands = "content,media.list",
+            }
+        );
+
+        Assert.Equal("content,media.list", Store.Load().AllowedCommands);
+    }
+
+    [Fact]
+    public void Load_AllowedCommandsFromEnv_TakesPrecedence()
+    {
+        // Env overrides the file value (#69).
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://h",
+                ClientId = "id",
+                ClientSecret = "secret",
+                AllowedCommands = "file-value",
+            }
+        );
+        Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", "content,media");
+
+        Assert.Equal("content,media", Store.Load().AllowedCommands);
+    }
+
+    [Fact]
+    public void Load_FileAllowList_HonouredWhenAuthFullyFromEnv()
+    {
+        // A file-only allow-list must survive even when auth comes entirely from env (the
+        // env-complete short-circuit must still read it) - otherwise the guardrail fails open.
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://file-host",
+                ClientId = "file-id",
+                ClientSecret = "file-secret",
+                AllowedCommands = "content",
+            }
+        );
+        Environment.SetEnvironmentVariable("UMBRACO_HOST", "https://env-host");
+        Environment.SetEnvironmentVariable("UMBRACO_CLIENT_ID", "env-id");
+        Environment.SetEnvironmentVariable("UMBRACO_CLIENT_SECRET", "env-secret");
+
+        var loaded = Store.Load();
+
+        Assert.Equal("https://env-host", loaded.Host); // env auth won
+        Assert.Equal("content", loaded.AllowedCommands); // but the file allow-list survived
     }
 
     // ── Save / Load roundtrip ─────────────────────────────────────────────────

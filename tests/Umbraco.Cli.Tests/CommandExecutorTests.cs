@@ -9,6 +9,14 @@ namespace Umbraco.Cli.Tests;
 [Collection("ConsoleCapture")]
 public class CommandExecutorTests
 {
+    public CommandExecutorTests()
+    {
+        // The allow-list / read-only guardrails read process env; clear them so a developer
+        // machine that happens to have them set does not perturb these tests (#69).
+        Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", null);
+        Environment.SetEnvironmentVariable("UMBRACO_READONLY", null);
+    }
+
     private sealed class StubHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new();
@@ -41,7 +49,8 @@ public class CommandExecutorTests
         IUmbracoManagementClient client,
         string args = "--host https://example.com --token tok --output json",
         Umbraco.Cli.Infrastructure.IConfirmationPrompt? confirmation = null,
-        string? allowedCommands = null
+        string? allowedCommands = null,
+        Umbraco.Cli.Infrastructure.Http.MutationInterceptState? mutationState = null
     )
     {
         var stub = new StubHttpClientFactory();
@@ -62,7 +71,7 @@ public class CommandExecutorTests
             stub,
             global,
             new FakeClientFactory(client),
-            new Umbraco.Cli.Infrastructure.Http.MutationInterceptState()
+            mutationState ?? new Umbraco.Cli.Infrastructure.Http.MutationInterceptState()
         );
         var executor = new CommandExecutor(
             factory,
@@ -524,6 +533,100 @@ public class CommandExecutorTests
 
         Assert.Equal(0, exit);
         Assert.True(called); // not aborted by the allow-list
+    }
+
+    [Fact]
+    public async Task ReadOnlyFlag_SetsBlockPolicy()
+    {
+        // Wiring: --readonly flips the shared interceptor policy to Block for the invocation.
+        var state = new Umbraco.Cli.Infrastructure.Http.MutationInterceptState();
+        var client = new FakeUmbracoManagementClient
+        {
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(
+                new ContentItemResponse()
+            ),
+        };
+        var (executor, parse) = Build(
+            client,
+            args: "--host https://example.com --token tok --output json --readonly",
+            mutationState: state
+        );
+
+        await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(Umbraco.Cli.Infrastructure.Http.MutationInterceptPolicy.Block, state.Policy);
+    }
+
+    [Fact]
+    public async Task DryRun_BeatsReadOnly_InPolicy()
+    {
+        // Precedence: --dry-run (Preview) wins over --readonly (Block).
+        var state = new Umbraco.Cli.Infrastructure.Http.MutationInterceptState();
+        var client = new FakeUmbracoManagementClient
+        {
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(
+                new ContentItemResponse()
+            ),
+        };
+        var (executor, parse) = Build(
+            client,
+            args: "--host https://example.com --token tok --output json --dry-run --readonly",
+            mutationState: state
+        );
+
+        await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(Umbraco.Cli.Infrastructure.Http.MutationInterceptPolicy.Preview, state.Policy);
+    }
+
+    [Fact]
+    public async Task ReadOnlyEnvVar_SetsBlockPolicy()
+    {
+        // UMBRACO_READONLY (truthy) is honoured like the flag.
+        Environment.SetEnvironmentVariable("UMBRACO_READONLY", "1");
+        try
+        {
+            var state = new Umbraco.Cli.Infrastructure.Http.MutationInterceptState();
+            var client = new FakeUmbracoManagementClient
+            {
+                ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(
+                    new ContentItemResponse()
+                ),
+            };
+            var (executor, parse) = Build(client, mutationState: state);
+
+            await Capture(() =>
+                executor.RunObjectAsync(
+                    parse,
+                    "content.get",
+                    (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                    CancellationToken.None
+                )
+            );
+
+            Assert.Equal(
+                Umbraco.Cli.Infrastructure.Http.MutationInterceptPolicy.Block,
+                state.Policy
+            );
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("UMBRACO_READONLY", null);
+        }
     }
 
     [Fact]
