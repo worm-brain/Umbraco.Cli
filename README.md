@@ -110,7 +110,10 @@ Global options available on every command:
 | `--output json\|human` | Output format (default: `json` when piped, `human` in terminal) |
 | `--verbose` | Log HTTP requests/responses to stderr |
 | `--dry-run` | Preview the HTTP request a write command would send (method, URL, body) without executing it; no effect on read commands |
+| `--yes`, `-y` | Skip the confirmation prompt on destructive commands (delete). Required to run a destructive command non-interactively (piped/scripted/agent) |
 | `--config <path>` | Path to config file |
+
+Destructive commands (`delete`) prompt for confirmation. When run non-interactively (no TTY — piped, scripted, or agent-driven) they refuse to proceed unless `--yes` is given, so a delete can never happen silently.
 
 On a write command, `--dry-run` prints the request that would be sent instead of sending it and exits `0` without changing anything. In JSON mode the envelope uses a distinct `"dry-run"` status (alongside `"success"` and `"error"`):
 
@@ -234,7 +237,7 @@ Errors are written to **stderr**:
 { "status": "error", "code": 404, "message": "Content item not found" }
 ```
 
-Exit codes: `0` success · `1` API error · `2` auth error · `3` argument error
+Exit codes: `0` success · `1` API error · `2` aborted before running (no host / not authenticated, or a destructive command refused/declined without `--yes`) · `3` argument error · `130` cancelled (Ctrl-C)
 
 ---
 

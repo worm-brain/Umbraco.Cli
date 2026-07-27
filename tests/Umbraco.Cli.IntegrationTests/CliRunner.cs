@@ -49,6 +49,11 @@ public static class CliRunner
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            // Redirect (and immediately close) stdin so the child is deterministically
+            // non-interactive: Console.IsInputRedirected is true, so the destructive-op
+            // confirmation gate (#70) always takes the non-interactive path instead of
+            // inheriting the test host's stdin and potentially blocking on Console.ReadLine.
+            RedirectStandardInput = true,
             UseShellExecute = false,
             // "dotnet exec <dll> <args>" runs the framework-dependent CLI assembly.
             ArgumentList = { "exec", CliDllPath.Value },
@@ -59,6 +64,10 @@ public static class CliRunner
         using var process =
             Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start the CLI process.");
+
+        // Close the child's stdin right away — it is never fed input, and closing it makes any
+        // accidental read return end-of-input rather than hang.
+        process.StandardInput.Close();
 
         // Read both streams before waiting to avoid a full-pipe deadlock.
         var stdout = process.StandardOutput.ReadToEnd();

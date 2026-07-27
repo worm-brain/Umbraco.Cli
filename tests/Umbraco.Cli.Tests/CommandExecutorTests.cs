@@ -366,6 +366,45 @@ public class CommandExecutorTests
         var message = doc.RootElement.GetProperty("message").GetString();
         Assert.Contains("not permitted", message);
         Assert.Contains("permissions", message);
+        // The original API detail is preserved in parentheses.
+        Assert.Contains("(Forbidden)", message);
+        // The raw status code is still carried on the envelope.
+        Assert.Equal(403, doc.RootElement.GetProperty("code").GetInt32());
+    }
+
+    [Fact]
+    public async Task Destructive_WithDryRun_SkipsGateWithoutYesOrPrompt()
+    {
+        // #70 x #62: --dry-run never sends the mutation, so the confirmation gate must be
+        // skipped even non-interactively and without --yes (otherwise previewing a delete
+        // would force --yes, teaching agents the always-pass-yes habit). Here the fake client
+        // has no HTTP interceptor, so the call simply proceeds - proving the gate did not abort.
+        var called = false;
+        var prompt = new FakeConfirmationPrompt { IsInteractive = false };
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            args: "--host https://example.com --token tok --output json --dry-run",
+            confirmation: prompt
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunMessageAsync(
+                parse,
+                "content.delete",
+                (c, ct) =>
+                {
+                    called = true;
+                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                },
+                "Deleted.",
+                CancellationToken.None,
+                confirmationPrompt: "Delete X?"
+            )
+        );
+
+        Assert.Equal(0, exit);
+        Assert.True(called); // gate skipped under --dry-run
+        Assert.False(prompt.WasPrompted);
     }
 
     [Fact]

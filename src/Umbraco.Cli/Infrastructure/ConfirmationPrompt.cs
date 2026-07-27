@@ -33,7 +33,12 @@ public interface IConfirmationPrompt
 public sealed class ConsoleConfirmationPrompt : IConfirmationPrompt
 {
     /// <inheritdoc />
-    public bool IsInteractive => !Console.IsInputRedirected;
+    /// <remarks>
+    /// Requires both a real stdin (to read the answer) and a non-redirected stderr (where the
+    /// prompt is shown). If stderr is redirected the prompt would land in a file with nothing
+    /// on screen, so we fail closed into the <c>--yes</c>-required path rather than block.
+    /// </remarks>
+    public bool IsInteractive => !Console.IsInputRedirected && !Console.IsErrorRedirected;
 
     /// <inheritdoc />
     public bool Confirm(string message)
