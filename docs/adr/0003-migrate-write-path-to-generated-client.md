@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-27
-- Issue: #50 (epic), folds in #74
+- Issue: #50 (epic), folds in #74, splits out #79 (content writes + media upload)
 - Supersedes the "transitional hybrid" state described in ADR/notes for the alpha.2 generation work.
 
 ## Context
@@ -33,12 +33,33 @@ The hand-written path carries behaviour the generated path must preserve:
 
 ## Decision
 
-Migrate **all** remaining hand-written calls (writes *and* the overlooked reads)
-to the generated Kiota client, then delete `_http` and the hand-written helper
-stack entirely (`GetAsync`/`PostAsync`/`PutAsync`/`DeleteAsync`/`SendAsync`/
-`DeserializeAsync`/`BuildErrorAsync`/`TryGetIdFromLocation`/
-`FormatValidationErrors`/`GuardedAsync`). The client becomes purely generated +
-a thin mapping layer, which is the actual end-state #50 intends.
+The intended end-state is: migrate **all** remaining hand-written calls to the
+generated client and delete `_http` + the hand-written helper stack entirely.
+
+### Scope split (revised 2026-07-27)
+
+Concretely scoping the migration surfaced that two resources drag in real
+correctness work beyond a mechanical port, so #50 is split:
+
+- **This ticket (#50):** migrate the mechanically-clean surface —
+  - **Deletes** → Kiota: content, media, document-type, language, member, webhook.
+  - **Creates** → Kiota (pre-gen GUID + GET-hydrate, fixes #74 for these):
+    language, member, dictionary, webhook.
+  - **User invite** → Kiota (void POST, no hydrate).
+  - **Reads** (overlooked in alpha.2) → Kiota: document-type by-id, data-type
+    by-id, user list + by-id, dictionary list + by-key, webhook list.
+  - **Error parity:** extend `GuardedApiAsync` to flatten ProblemDetails
+    field-level errors (#48).
+  - Delete the now-unused `GetAsync` and `DeleteAsync` helpers.
+
+- **Follow-up issue:** the content **write** path (create/update/publish/
+  unpublish) and **media upload**. These need document-type **alias -> id**
+  resolution, a **JSON -> `UntypedNode`** converter for property-editor values,
+  and the two-step **temporary-file** upload flow — and the current
+  content-create-by-alias path looks broken (sends `documentType.id` =
+  `Guid.Empty`) and is untested. `_http` and the `PostAsync`/`PutAsync`/
+  `SendAsync`/`DeserializeAsync`/`BuildErrorAsync` helpers stay until then, used
+  only by those deferred calls.
 
 ### Key design points
 
