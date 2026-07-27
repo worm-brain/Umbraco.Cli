@@ -19,7 +19,8 @@ public static class ContentTypesDeleteCommand
                     "content-types.delete",
                     (client, c) => client.DeleteDocumentTypeAsync(parseResult.GetValue(idArg), c),
                     "Document type deleted.",
-                    ct
+                    ct,
+                    confirmationPrompt: $"Permanently delete document type {parseResult.GetValue(idArg)}? This cannot be undone."
                 )
         );
 

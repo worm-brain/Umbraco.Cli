@@ -19,7 +19,8 @@ public static class WebhooksDeleteCommand
                     "webhooks.delete",
                     (client, c) => client.DeleteWebhookAsync(parseResult.GetValue(idArg), c),
                     "Webhook deleted.",
-                    ct
+                    ct,
+                    confirmationPrompt: $"Delete webhook {parseResult.GetValue(idArg)}?"
                 )
         );
 

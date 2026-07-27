@@ -13,6 +13,7 @@ using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.Templates;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Http;
 
@@ -59,7 +60,11 @@ services.AddSingleton(sp => new CommandContextFactory(
     sp.GetRequiredService<IUmbracoManagementClientFactory>(),
     sp.GetRequiredService<MutationInterceptState>()
 ));
-services.AddSingleton(sp => new CommandExecutor(sp.GetRequiredService<CommandContextFactory>()));
+services.AddSingleton<IConfirmationPrompt, ConsoleConfirmationPrompt>();
+services.AddSingleton(sp => new CommandExecutor(
+    sp.GetRequiredService<CommandContextFactory>(),
+    sp.GetRequiredService<IConfirmationPrompt>()
+));
 
 var sp = services.BuildServiceProvider();
 var configStore = sp.GetRequiredService<ConfigStore>();

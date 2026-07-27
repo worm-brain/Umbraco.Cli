@@ -14,5 +14,19 @@ public sealed class CommandContext
     public required IOutputWriter Output { get; init; }
     public required IUmbracoManagementClient Client { get; init; }
     public required string CommandName { get; init; }
+
+    /// <summary>
+    /// Whether <c>--yes</c> was supplied, bypassing the confirmation prompt on destructive
+    /// commands. Also implicitly required to run a destructive command non-interactively.
+    /// </summary>
+    public bool AssumeYes { get; init; }
+
+    /// <summary>
+    /// Whether <c>--dry-run</c> is active. A dry run never sends the mutation (it is aborted
+    /// at the HTTP layer and previewed), so the destructive-op confirmation gate is skipped —
+    /// previewing a delete is harmless and must not force <c>--yes</c>.
+    /// </summary>
+    public bool DryRun { get; init; }
+
     public Stopwatch Stopwatch { get; } = Stopwatch.StartNew();
 }

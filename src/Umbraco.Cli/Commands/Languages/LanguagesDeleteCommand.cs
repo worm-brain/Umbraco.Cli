@@ -22,7 +22,8 @@ public static class LanguagesDeleteCommand
                     "languages.delete",
                     (client, c) => client.DeleteLanguageAsync(parseResult.GetValue(isoArg)!, c),
                     "Language removed.",
-                    ct
+                    ct,
+                    confirmationPrompt: $"Delete language '{parseResult.GetValue(isoArg)}'? This cannot be undone."
                 )
         );
 

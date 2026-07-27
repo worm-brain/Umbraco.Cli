@@ -23,9 +23,24 @@ public class CommandExecutorTests
         public IUmbracoManagementClient Create(HttpClient http) => _client;
     }
 
+    /// <summary>Test double for the destructive-op confirmation (#70): canned interactivity + answer.</summary>
+    private sealed class FakeConfirmationPrompt : Umbraco.Cli.Infrastructure.IConfirmationPrompt
+    {
+        public bool IsInteractive { get; init; }
+        public bool Answer { get; init; }
+        public bool WasPrompted { get; private set; }
+
+        public bool Confirm(string message)
+        {
+            WasPrompted = true;
+            return Answer;
+        }
+    }
+
     private static (CommandExecutor executor, ParseResult parse) Build(
         IUmbracoManagementClient client,
-        string args = "--host https://example.com --token tok --output json"
+        string args = "--host https://example.com --token tok --output json",
+        Umbraco.Cli.Infrastructure.IConfirmationPrompt? confirmation = null
     )
     {
         var stub = new StubHttpClientFactory();
@@ -42,7 +57,10 @@ public class CommandExecutorTests
             new FakeClientFactory(client),
             new Umbraco.Cli.Infrastructure.Http.MutationInterceptState()
         );
-        var executor = new CommandExecutor(factory);
+        var executor = new CommandExecutor(
+            factory,
+            confirmation ?? new FakeConfirmationPrompt { IsInteractive = false }
+        );
 
         var root = new RootCommand();
         global.AddTo(root);
@@ -201,6 +219,192 @@ public class CommandExecutorTests
         Assert.Contains("document", request.GetProperty("url").GetString());
         // A valid-JSON body is embedded as nested JSON, not a string.
         Assert.Equal("x", request.GetProperty("body").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task Destructive_NonInteractiveWithoutYes_AbortsAndDoesNotCall()
+    {
+        // #70: a destructive command run non-interactively (no TTY) without --yes must abort
+        // (exit 2) and never invoke the client - a delete can't happen silently in a script.
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            confirmation: new FakeConfirmationPrompt { IsInteractive = false }
+        );
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunMessageAsync(
+                parse,
+                "content.delete",
+                (c, ct) =>
+                {
+                    called = true;
+                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                },
+                "Deleted.",
+                CancellationToken.None,
+                confirmationPrompt: "Delete X?"
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.False(called);
+        Assert.Contains("--yes", stderr);
+    }
+
+    [Fact]
+    public async Task Destructive_WithYes_RunsWithoutPrompting()
+    {
+        // --yes bypasses the gate entirely, even non-interactively.
+        var called = false;
+        var prompt = new FakeConfirmationPrompt { IsInteractive = true, Answer = false };
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            args: "--host https://example.com --token tok --output json --yes",
+            confirmation: prompt
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunMessageAsync(
+                parse,
+                "content.delete",
+                (c, ct) =>
+                {
+                    called = true;
+                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                },
+                "Deleted.",
+                CancellationToken.None,
+                confirmationPrompt: "Delete X?"
+            )
+        );
+
+        Assert.Equal(0, exit);
+        Assert.True(called);
+        Assert.False(prompt.WasPrompted); // --yes skips the prompt
+    }
+
+    [Fact]
+    public async Task Destructive_InteractiveDecline_AbortsAndDoesNotCall()
+    {
+        // Interactive, user answers "no" → abort, no client call.
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            confirmation: new FakeConfirmationPrompt { IsInteractive = true, Answer = false }
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunMessageAsync(
+                parse,
+                "content.delete",
+                (c, ct) =>
+                {
+                    called = true;
+                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                },
+                "Deleted.",
+                CancellationToken.None,
+                confirmationPrompt: "Delete X?"
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.False(called);
+    }
+
+    [Fact]
+    public async Task Destructive_InteractiveConfirm_Runs()
+    {
+        // Interactive, user answers "yes" → the delete proceeds.
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            confirmation: new FakeConfirmationPrompt { IsInteractive = true, Answer = true }
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunMessageAsync(
+                parse,
+                "content.delete",
+                (c, ct) =>
+                {
+                    called = true;
+                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                },
+                "Deleted.",
+                CancellationToken.None,
+                confirmationPrompt: "Delete X?"
+            )
+        );
+
+        Assert.Equal(0, exit);
+        Assert.True(called);
+    }
+
+    [Fact]
+    public async Task Forbidden_TranslatesToPermissionMessage()
+    {
+        // #70: a raw 403 must become an actionable permission message.
+        var client = new FakeUmbracoManagementClient
+        {
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Failure(403, "Forbidden"),
+        };
+        var (executor, parse) = Build(client);
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(1, exit);
+        using var doc = JsonDocument.Parse(stderr);
+        var message = doc.RootElement.GetProperty("message").GetString();
+        Assert.Contains("not permitted", message);
+        Assert.Contains("permissions", message);
+        // The original API detail is preserved in parentheses.
+        Assert.Contains("(Forbidden)", message);
+        // The raw status code is still carried on the envelope.
+        Assert.Equal(403, doc.RootElement.GetProperty("code").GetInt32());
+    }
+
+    [Fact]
+    public async Task Destructive_WithDryRun_SkipsGateWithoutYesOrPrompt()
+    {
+        // #70 x #62: --dry-run never sends the mutation, so the confirmation gate must be
+        // skipped even non-interactively and without --yes (otherwise previewing a delete
+        // would force --yes, teaching agents the always-pass-yes habit). Here the fake client
+        // has no HTTP interceptor, so the call simply proceeds - proving the gate did not abort.
+        var called = false;
+        var prompt = new FakeConfirmationPrompt { IsInteractive = false };
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            args: "--host https://example.com --token tok --output json --dry-run",
+            confirmation: prompt
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunMessageAsync(
+                parse,
+                "content.delete",
+                (c, ct) =>
+                {
+                    called = true;
+                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                },
+                "Deleted.",
+                CancellationToken.None,
+                confirmationPrompt: "Delete X?"
+            )
+        );
+
+        Assert.Equal(0, exit);
+        Assert.True(called); // gate skipped under --dry-run
+        Assert.False(prompt.WasPrompted);
     }
 
     [Fact]

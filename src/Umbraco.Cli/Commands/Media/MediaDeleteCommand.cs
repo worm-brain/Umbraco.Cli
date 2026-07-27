@@ -20,7 +20,8 @@ public static class MediaDeleteCommand
                     "media.delete",
                     (client, c) => client.DeleteMediaAsync(parseResult.GetValue(idArg), c),
                     "Media item deleted.",
-                    ct
+                    ct,
+                    confirmationPrompt: $"Permanently delete media item {parseResult.GetValue(idArg)}? This cannot be undone."
                 )
         );
 

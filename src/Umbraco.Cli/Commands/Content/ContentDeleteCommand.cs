@@ -20,7 +20,8 @@ public static class ContentDeleteCommand
                     "content.delete",
                     (client, c) => client.DeleteContentAsync(parseResult.GetValue(idArg), c),
                     "Content item deleted.",
-                    ct
+                    ct,
+                    confirmationPrompt: $"Permanently delete content item {parseResult.GetValue(idArg)}? This cannot be undone."
                 )
         );
 

@@ -113,6 +113,8 @@ public sealed class CommandContextFactory
             Output = output,
             Client = _clientFactory.Create(http),
             CommandName = commandName,
+            AssumeYes = parseResult.GetValue(_globalOptions.Yes),
+            DryRun = parseResult.GetValue(_globalOptions.DryRun),
         };
     }
 

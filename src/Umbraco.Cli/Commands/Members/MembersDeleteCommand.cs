@@ -19,7 +19,8 @@ public static class MembersDeleteCommand
                     "members.delete",
                     (client, c) => client.DeleteMemberAsync(parseResult.GetValue(idArg), c),
                     "Member deleted.",
-                    ct
+                    ct,
+                    confirmationPrompt: $"Permanently delete member {parseResult.GetValue(idArg)}? This cannot be undone."
                 )
         );
 
