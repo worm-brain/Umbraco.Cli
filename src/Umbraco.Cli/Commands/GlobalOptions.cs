@@ -49,6 +49,15 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    public Option<bool> Yes { get; } =
+        new("--yes", new[] { "-y" })
+        {
+            Description =
+                "Skip the confirmation prompt on destructive commands (delete). Required to "
+                + "run a destructive command non-interactively (piped/scripted/agent).",
+            Recursive = true,
+        };
+
     public Option<string?> Config { get; } =
         new("--config")
         {
@@ -64,6 +73,7 @@ public sealed class GlobalOptions
         command.Add(Output);
         command.Add(Verbose);
         command.Add(DryRun);
+        command.Add(Yes);
         command.Add(Config);
     }
 }

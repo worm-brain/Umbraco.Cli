@@ -134,7 +134,8 @@ public sealed class CommandIntegrationTests
             // Delete (self-clean) - always runs once the create succeeded, even if an
             // assertion above fails, so a failing run never leaks a language. A successful
             // delete also proves the create really persisted (deleting a missing iso fails).
-            var delete = CliRunner.Run("languages", "delete", iso);
+            // --yes: delete is destructive and the harness runs non-interactively (#70).
+            var delete = CliRunner.Run("languages", "delete", iso, "--yes");
             Assert.True(delete.Ok, delete.Stderr);
         }
     }
@@ -184,6 +185,38 @@ public sealed class CommandIntegrationTests
     }
 
     [SkippableFact]
+    public void DestructiveDelete_WithoutYes_RefusedNonInteractively()
+    {
+        RequireLive();
+        // Create a webhook to attempt deleting.
+        var create = CliRunner.Run(
+            "webhooks",
+            "create",
+            "--url",
+            "https://example.com/confirm-gate-test",
+            "--events",
+            "ContentPublished"
+        );
+        Assert.True(create.Ok, create.Stderr);
+        var id = create.Data().GetProperty("id").GetString()!;
+
+        try
+        {
+            // Delete without --yes: the harness runs non-interactively, so the destructive-op
+            // gate (#70) must refuse (exit 2) and the webhook must still exist.
+            var refused = CliRunner.Run("webhooks", "delete", id);
+            Assert.Equal(2, refused.ExitCode);
+            var list = CliRunner.Run("webhooks", "list", "--take", "100");
+            Assert.Contains(id, list.Stdout);
+        }
+        finally
+        {
+            // Clean up with --yes (the sanctioned bypass).
+            CliRunner.Run("webhooks", "delete", id, "--yes");
+        }
+    }
+
+    [SkippableFact]
     public void Webhook_CreateListDelete_RoundTrips()
     {
         RequireLive();
@@ -214,7 +247,8 @@ public sealed class CommandIntegrationTests
         finally
         {
             // Delete (self-clean) - runs even if the assertions above fail.
-            var delete = CliRunner.Run("webhooks", "delete", id!);
+            // --yes: delete is destructive and the harness runs non-interactively (#70).
+            var delete = CliRunner.Run("webhooks", "delete", id!, "--yes");
             Assert.True(delete.Ok, delete.Stderr);
         }
     }

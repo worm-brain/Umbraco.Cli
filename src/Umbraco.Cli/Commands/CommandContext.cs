@@ -14,5 +14,12 @@ public sealed class CommandContext
     public required IOutputWriter Output { get; init; }
     public required IUmbracoManagementClient Client { get; init; }
     public required string CommandName { get; init; }
+
+    /// <summary>
+    /// Whether <c>--yes</c> was supplied, bypassing the confirmation prompt on destructive
+    /// commands. Also implicitly required to run a destructive command non-interactively.
+    /// </summary>
+    public bool AssumeYes { get; init; }
+
     public Stopwatch Stopwatch { get; } = Stopwatch.StartNew();
 }

@@ -41,7 +41,10 @@ public class CommandParseTests
             new UmbracoManagementClientFactory(),
             new Umbraco.Cli.Infrastructure.Http.MutationInterceptState()
         );
-        var executor = new CommandExecutor(factory);
+        var executor = new CommandExecutor(
+            factory,
+            new Umbraco.Cli.Infrastructure.ConsoleConfirmationPrompt()
+        );
 
         var root = new RootCommand("Umbraco CLI");
         globalOptions.AddTo(root);
