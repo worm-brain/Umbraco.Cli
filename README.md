@@ -109,7 +109,14 @@ Global options available on every command:
 | `--token <bearer>` | Raw bearer token (overrides stored credentials) |
 | `--output json\|human` | Output format (default: `json` when piped, `human` in terminal) |
 | `--verbose` | Log HTTP requests/responses to stderr |
+| `--dry-run` | Preview the HTTP request a write command would send (method, URL, body) without executing it; no effect on read commands |
 | `--config <path>` | Path to config file |
+
+On a write command, `--dry-run` prints the request that would be sent instead of sending it and exits `0` without changing anything. In JSON mode the envelope uses a distinct `"dry-run"` status (alongside `"success"` and `"error"`):
+
+```jsonc
+{ "status": "dry-run", "request": { "method": "POST", "url": ".../umbraco/management/api/v1/webhook", "body": { /* ... */ } } }
+```
 
 ### `auth`
 

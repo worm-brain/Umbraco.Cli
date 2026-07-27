@@ -62,7 +62,10 @@ internal static class SecretProtector
     /// <returns>The plaintext secret.</returns>
     public static string? Unprotect(string? stored)
     {
-        if (string.IsNullOrEmpty(stored) || !stored.StartsWith(DpapiPrefix, StringComparison.Ordinal))
+        if (
+            string.IsNullOrEmpty(stored)
+            || !stored.StartsWith(DpapiPrefix, StringComparison.Ordinal)
+        )
             return stored; // legacy plaintext or empty
 
         if (!OperatingSystem.IsWindows())

@@ -33,9 +33,20 @@ catch (IOException)
 var services = new ServiceCollection();
 services.AddHttpClient();
 
+// Mutation interceptor: powers --dry-run (and, later, #69/#70). Registered as the innermost
+// handler on both Management-API clients so it sees the fully-built request; gated by the
+// per-invocation MutationInterceptState so it is a no-op unless --dry-run is set. Not added
+// to the auth (default) client, so the OAuth token exchange is never intercepted.
+services.AddSingleton<MutationInterceptState>();
+services.AddTransient<MutationInterceptorHandler>();
+services.AddHttpClient("umbraco").AddHttpMessageHandler<MutationInterceptorHandler>();
+
 // A second named client that logs request/response to stderr; selected by --verbose.
 services.AddTransient<VerboseHttpHandler>();
-services.AddHttpClient("umbraco-verbose").AddHttpMessageHandler<VerboseHttpHandler>();
+services
+    .AddHttpClient("umbraco-verbose")
+    .AddHttpMessageHandler<VerboseHttpHandler>()
+    .AddHttpMessageHandler<MutationInterceptorHandler>();
 services.AddSingleton<ConfigStore>();
 services.AddSingleton<UmbracoAuthService>();
 services.AddSingleton<GlobalOptions>();
@@ -45,7 +56,8 @@ services.AddSingleton(sp => new CommandContextFactory(
     sp.GetRequiredService<UmbracoAuthService>(),
     sp.GetRequiredService<IHttpClientFactory>(),
     sp.GetRequiredService<GlobalOptions>(),
-    sp.GetRequiredService<IUmbracoManagementClientFactory>()
+    sp.GetRequiredService<IUmbracoManagementClientFactory>(),
+    sp.GetRequiredService<MutationInterceptState>()
 ));
 services.AddSingleton(sp => new CommandExecutor(sp.GetRequiredService<CommandContextFactory>()));
 

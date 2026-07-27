@@ -31,4 +31,17 @@ public sealed class HumanOutputWriter : IOutputWriter
     {
         AnsiConsole.MarkupLine($"[green]✓[/] {Markup.Escape(message)}");
     }
+
+    public void WriteDryRun(string method, string url, string? body)
+    {
+        AnsiConsole.MarkupLine(
+            "[yellow]● DRY RUN[/] — the following request would be sent (nothing was executed):"
+        );
+        AnsiConsole.MarkupLine($"  [bold]{Markup.Escape(method)}[/] {Markup.Escape(url)}");
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.WriteLine(body!);
+        }
+    }
 }

@@ -38,7 +38,8 @@ public class CommandParseTests
             authService,
             stub,
             globalOptions,
-            new UmbracoManagementClientFactory()
+            new UmbracoManagementClientFactory(),
+            new Umbraco.Cli.Infrastructure.Http.MutationInterceptState()
         );
         var executor = new CommandExecutor(factory);
 
