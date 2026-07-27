@@ -184,6 +184,32 @@ public sealed class CommandIntegrationTests
         Assert.DoesNotContain(marker, list.Stdout);
     }
 
+    [Fact]
+    public void Commands_EmitsCatalogJson()
+    {
+        // #60: `commands` is a local introspection command - no instance or auth needed - so
+        // this runs unconditionally and also verifies the end-to-end wiring (root captured).
+        var result = CliRunner.Run("commands");
+
+        Assert.True(result.Ok, result.Stderr);
+        var catalog = result.Data();
+        Assert.Equal(JsonValueKind.Object, catalog.ValueKind);
+        var topLevel = catalog
+            .GetProperty("commands")
+            .EnumerateArray()
+            .Select(c => c.GetProperty("name").GetString())
+            .ToList();
+        Assert.Contains("content", topLevel);
+        Assert.Contains("commands", topLevel); // the catalog includes itself
+        // Global options are described once, on the root.
+        var rootOptions = catalog
+            .GetProperty("options")
+            .EnumerateArray()
+            .Select(o => o.GetProperty("name").GetString())
+            .ToList();
+        Assert.Contains("--output", rootOptions);
+    }
+
     [SkippableFact]
     public void ReadOnly_BlocksWriteButAllowsRead()
     {
