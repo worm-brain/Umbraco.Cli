@@ -1,9 +1,11 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Abstractions.Serialization;
 using Microsoft.Kiota.Http.HttpClientLibrary;
 using Umbraco.Cli.Client.Generated;
 using Gen = Umbraco.Cli.Client.Generated.Models;
@@ -885,11 +887,17 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             // ("Exception of type '...ProblemDetails' was thrown."). Build a readable
             // message from the real fields so 404s and other errors are legible (#48).
             var status = pd.ResponseStatusCode != 0 ? pd.ResponseStatusCode : pd.Status ?? 0;
-            var message = !string.IsNullOrWhiteSpace(pd.Detail)
+            var baseMessage = !string.IsNullOrWhiteSpace(pd.Detail)
                 ? pd.Detail!
                 : !string.IsNullOrWhiteSpace(pd.Title)
                     ? pd.Title!
                     : $"Error {status}";
+            // Append the field-level "errors" map (e.g. "isoCode: Required") so a rejected
+            // write tells the user WHICH field failed, matching the hand-written path's
+            // BuildErrorAsync/FormatValidationErrors behaviour (#48). On the Kiota path the
+            // map has no typed property; it lands in AdditionalData as an UntypedNode.
+            var fieldErrors = FormatProblemDetailsErrors(pd);
+            var message = fieldErrors is null ? baseMessage : $"{baseMessage} ({fieldErrors})";
             return UmbracoResponse<T>.Failure(status, message);
         }
         catch (ApiException ex)
@@ -1124,6 +1132,59 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             foreach (var element in errors.EnumerateArray())
                 if (element.ValueKind == JsonValueKind.Object)
                     CollectFromObject(element);
+
+        return parts.Count > 0 ? string.Join("; ", parts) : null;
+    }
+
+    /// <summary>
+    /// Flattens the RFC-9110 field-level <c>errors</c> map from a generated
+    /// <see cref="Gen.ProblemDetails"/> into a readable "field: msg; ..." string, so a
+    /// write rejected on the Kiota path keeps the "which field failed" detail the
+    /// hand-written path surfaces via <see cref="FormatValidationErrors(JsonElement)"/>
+    /// (#48). The generated ProblemDetails has no typed <c>errors</c> property, so the map
+    /// arrives under <see cref="Gen.ProblemDetails.AdditionalData"/> as a Kiota
+    /// <see cref="UntypedNode"/> tree (an object of field -> array-of-message-strings).
+    /// </summary>
+    /// <param name="pd">The generated ProblemDetails thrown by a failed Kiota write.</param>
+    /// <returns>A "field: message; ..." string, or null when there are no field errors.</returns>
+    internal static string? FormatProblemDetailsErrors(Gen.ProblemDetails pd)
+    {
+        if (
+            pd.AdditionalData is null
+            || !pd.AdditionalData.TryGetValue("errors", out var raw)
+            || raw is not UntypedObject errorsObj
+        )
+            return null;
+
+        // Collapses a single UntypedNode (string/bool/number) to its text form; anything
+        // else (nested object) is ignored, matching the string-array shape Umbraco returns.
+        static string NodeToString(UntypedNode node) =>
+            node switch
+            {
+                UntypedString s => s.GetValue() ?? "",
+                UntypedBoolean b => b.GetValue().ToString(),
+                UntypedInteger i => i.GetValue().ToString(),
+                UntypedLong l => l.GetValue().ToString(),
+                UntypedDouble d => d.GetValue().ToString(CultureInfo.InvariantCulture),
+                UntypedDecimal m => m.GetValue().ToString(CultureInfo.InvariantCulture),
+                _ => "",
+            };
+
+        var parts = new List<string>();
+        foreach (var field in errorsObj.GetValue())
+        {
+            // Each field value is normally an array of message strings, but tolerate a bare
+            // scalar too.
+            var messages =
+                field.Value is UntypedArray arr
+                    ? string.Join(
+                        ", ",
+                        arr.GetValue().Select(NodeToString).Where(s => !string.IsNullOrEmpty(s))
+                    )
+                    : NodeToString(field.Value);
+            if (!string.IsNullOrEmpty(messages))
+                parts.Add($"{field.Key}: {messages}");
+        }
 
         return parts.Count > 0 ? string.Join("; ", parts) : null;
     }

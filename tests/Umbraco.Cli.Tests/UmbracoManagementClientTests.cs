@@ -376,6 +376,49 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public void FormatProblemDetailsErrors_FlattensFieldErrorsFromAdditionalData()
+    {
+        // #48 parity on the Kiota path: the generated ProblemDetails has no typed "errors"
+        // property, so the field-level map arrives as an UntypedNode under AdditionalData.
+        // FormatProblemDetailsErrors must flatten it to "field: message" like the
+        // hand-written FormatValidationErrors does.
+        var pd = new Umbraco.Cli.Client.Generated.Models.ProblemDetails
+        {
+            Title = "One or more validation errors occurred.",
+            Status = 400,
+        };
+        pd.AdditionalData["errors"] = new Microsoft.Kiota.Abstractions.Serialization.UntypedObject(
+            new Dictionary<string, Microsoft.Kiota.Abstractions.Serialization.UntypedNode>
+            {
+                ["isoCode"] = new Microsoft.Kiota.Abstractions.Serialization.UntypedArray(
+                    new List<Microsoft.Kiota.Abstractions.Serialization.UntypedNode>
+                    {
+                        new Microsoft.Kiota.Abstractions.Serialization.UntypedString(
+                            "The IsoCode field is required."
+                        ),
+                    }
+                ),
+            }
+        );
+
+        var formatted = UmbracoManagementClient.FormatProblemDetailsErrors(pd);
+
+        Assert.NotNull(formatted);
+        Assert.Contains("isoCode", formatted);
+        Assert.Contains("IsoCode field is required", formatted);
+    }
+
+    [Fact]
+    public void FormatProblemDetailsErrors_NoErrorsMap_ReturnsNull()
+    {
+        // With no "errors" entry, there is nothing to append and the base detail/title
+        // message stands alone.
+        var pd = new Umbraco.Cli.Client.Generated.Models.ProblemDetails { Title = "Nope" };
+
+        Assert.Null(UmbracoManagementClient.FormatProblemDetailsErrors(pd));
+    }
+
+    [Fact]
     public async Task Error_EmptyBody_FallsBackToReasonPhrase()
     {
         // Regression for #48: a bare 404 (empty body) must not produce a blank message.
