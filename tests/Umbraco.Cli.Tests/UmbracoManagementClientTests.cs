@@ -380,6 +380,21 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task InviteUserAsync_201EmptyBody_IsSuccess()
+    {
+        // Invite is a void POST on the generated client: Umbraco sends the email and returns
+        // 201 with no body, which must map to an empty success (not a deserialization error).
+        var (client, _) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.InviteUserAsync(
+            new InviteUserRequest { Email = "new.user@example.com", Name = "New User" },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
     public void FormatProblemDetailsErrors_FlattensFieldErrorsFromAdditionalData()
     {
         // #48 parity on the Kiota path: the generated ProblemDetails has no typed "errors"

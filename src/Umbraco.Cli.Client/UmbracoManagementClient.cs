@@ -797,14 +797,37 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => await GetAsync<UserResponse>($"umbraco/management/api/v1/user/{id}", ct);
 
-    public async Task<UmbracoResponse<Empty>> InviteUserAsync(
+    /// <summary>
+    /// Invites a user via <c>POST user/invite</c> (generated client). The endpoint sends the
+    /// invitation email and returns no body, so an empty success response is returned.
+    /// </summary>
+    /// <param name="request">The invite details (email, name, user groups).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> InviteUserAsync(
         InviteUserRequest request,
         CancellationToken ct = default
     ) =>
-        await PostAsync<InviteUserRequest, Empty>(
-            "umbraco/management/api/v1/user/invite",
-            request,
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.InviteUserRequestModel
+                {
+                    Email = request.Email,
+                    Name = request.Name,
+                    UserName = request.UserName,
+                    Message = request.Message,
+                    UserGroupIds = request
+                        .UserGroupIds.Select(g => new Gen.ReferenceByIdModel { Id = g.Id })
+                        .ToList(),
+                };
+                await _api.Umbraco.Management.Api.V1.User.Invite.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return Empty.Value;
+            }
         );
 
     // ── Dictionary ───────────────────────────────────────────────────────────
