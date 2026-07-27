@@ -251,7 +251,8 @@ When stdout is not a TTY (piped or redirected), JSON is the default output forma
   "data": { },
   "meta": {
     "command": "content.list",
-    "durationMs": 142
+    "durationMs": 142,
+    "schemaVersion": "1"
   }
 }
 ```
@@ -262,7 +263,20 @@ Errors are written to **stderr**:
 { "status": "error", "code": 404, "message": "Content item not found" }
 ```
 
-Exit codes: `0` success · `1` API error · `2` aborted before running (no host / not authenticated, or a destructive command refused/declined without `--yes`) · `3` argument error · `130` cancelled (Ctrl-C)
+### Envelope contract (`meta.schemaVersion`)
+
+The success envelope is versioned via `meta.schemaVersion` (currently `"1"`). The field names above (`status`, `data`, `meta`, `command`, `durationMs`, `schemaVersion`, and the error envelope's `code`/`message`) are part of the contract: they are **never renamed silently**. `schemaVersion` is bumped only on a **breaking** change — a renamed/removed field or a changed meaning. New fields may be added without a bump, so consumers should ignore unknown fields. Agents can gate on `meta.schemaVersion` and diff `.data` between runs (`meta.timestamp` changes every call).
+
+### `--schema` (request body shape)
+
+Commands that accept a `--json-body` expose `--schema`, which prints the JSON Schema of that body and exits — no host or authentication needed. Feed it straight to a validator or an agent:
+
+```bash
+umbraco content create --schema
+umbraco content update --schema
+```
+
+Exit codes: `0` success · `1` API error · `2` aborted before running (no host / not authenticated, a command blocked by the allow-list, a destructive command refused/declined without `--yes`, or a write blocked by `--readonly`) · `3` argument error · `130` cancelled (Ctrl-C)
 
 ---
 

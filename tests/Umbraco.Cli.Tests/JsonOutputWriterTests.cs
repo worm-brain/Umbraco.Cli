@@ -39,6 +39,16 @@ public class JsonOutputWriterTests
     }
 
     [Fact]
+    public void WriteSuccess_MetaCarriesSchemaVersion()
+    {
+        // #61: the envelope is versioned so agents can gate on the contract.
+        var (stdout, _) = Capture(() => _writer.WriteSuccess(new { id = 1 }));
+        var doc = JsonDocument.Parse(stdout);
+        var version = doc.RootElement.GetProperty("meta").GetProperty("schemaVersion").GetString();
+        Assert.Equal(JsonOutputWriter.SchemaVersion, version);
+    }
+
+    [Fact]
     public void WriteSuccess_DataIsPresent()
     {
         var (stdout, _) = Capture(() => _writer.WriteSuccess(new { name = "test" }));
