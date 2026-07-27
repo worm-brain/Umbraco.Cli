@@ -99,5 +99,9 @@ root.Add(UsersCommand.Build(executor));
 root.Add(DictionaryCommand.Build(executor));
 root.Add(WebhooksCommand.Build(executor));
 
+// Machine-readable command catalog for agents (#60). Added last and given the root so it can
+// describe the fully-assembled tree (including itself).
+root.Add(CommandsCommand.Build(root));
+
 // ── Run ───────────────────────────────────────────────────────────────────────
 return await root.Parse(args).InvokeAsync();
