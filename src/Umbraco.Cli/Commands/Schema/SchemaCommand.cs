@@ -24,7 +24,8 @@ public static class SchemaCommand
                 + "  umbraco schema apply schema.json --prune --yes"
         );
         cmd.Add(SchemaExportCommand.Build(executor));
-        // diff + apply are wired in their respective slices (ADR 0004 approach §3-§5).
+        cmd.Add(SchemaDiffCommand.Build(executor));
+        // apply is wired in its slice (ADR 0004 approach §5).
         return cmd;
     }
 }
