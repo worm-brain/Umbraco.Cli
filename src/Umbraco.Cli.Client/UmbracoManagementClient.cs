@@ -1731,14 +1731,104 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    public async Task<UmbracoResponse<MemberResponse>> CreateMemberAsync(
+    /// <summary>
+    /// Resolves a member-type reference - an alias or a GUID id - to its id, mirroring
+    /// <see cref="ResolveDocumentTypeIdAsync"/>: a GUID is used directly, otherwise the alias is
+    /// resolved via the member-type item search and each candidate's full member type is fetched
+    /// to compare its alias (the search item model carries no alias). See ADR 0004.
+    /// </summary>
+    /// <param name="aliasOrId">The member-type alias or id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The resolved member-type id.</returns>
+    /// <exception cref="ApiException">No member type matches the alias (mapped to a 404).</exception>
+    private async Task<Guid> ResolveMemberTypeIdAsync(string aliasOrId, CancellationToken ct)
+    {
+        if (Guid.TryParse(aliasOrId, out var parsed))
+            return parsed;
+
+        var search = await _api.Umbraco.Management.Api.V1.Item.MemberType.Search.GetAsync(
+            c =>
+            {
+                c.QueryParameters.Query = aliasOrId;
+                c.QueryParameters.Take = 100;
+            },
+            ct
+        );
+        foreach (var item in search?.Items ?? [])
+        {
+            if (item.Id is not { } candidateId)
+                continue;
+            var mt = await _api
+                .Umbraco.Management.Api.V1.MemberType[candidateId]
+                .GetAsync(cancellationToken: ct);
+            if (string.Equals(mt?.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase))
+                return candidateId;
+        }
+
+        throw NotFound($"No member type found with alias '{aliasOrId}'.");
+    }
+
+    /// <summary>
+    /// Creates a member via <c>POST member</c> (generated client, #79). Like content create, the
+    /// member type is passed by alias and resolved to an id first; the display name goes in a
+    /// variant and property values map to <see cref="UntypedNode"/>. The id is client-supplied
+    /// (defaulting to a fresh GUID) so it is known despite the empty create response, which is
+    /// echoed back with the accepted fields (consistent with the other migrated creates).
+    /// </summary>
+    /// <remarks>
+    /// Umbraco requires a username, but the CLI collects only an email, so the email doubles as
+    /// the username. If a distinct username is ever needed it becomes a new option; the live
+    /// round-trip confirms this default is accepted.
+    /// </remarks>
+    /// <param name="request">The member to create (member type by alias, email, name, values).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created member (id + echoed fields), or a mapped failure.</returns>
+    public Task<UmbracoResponse<MemberResponse>> CreateMemberAsync(
         CreateMemberRequest request,
         CancellationToken ct = default
     ) =>
-        await PostAsync<CreateMemberRequest, MemberResponse>(
-            "umbraco/management/api/v1/member",
-            request,
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var reference =
+                    request.MemberType.Id != Guid.Empty
+                        ? request.MemberType.Id.ToString()
+                        : request.MemberType.Alias;
+                var memberTypeId = await ResolveMemberTypeIdAsync(reference, ct);
+
+                var id = request.Id ?? Guid.NewGuid();
+                var body = new Gen.CreateMemberRequestModel
+                {
+                    Id = id,
+                    Email = request.Email,
+                    // The CLI collects only an email; Umbraco requires a username, so reuse it.
+                    Username = request.Email,
+                    Password = request.Password,
+                    IsApproved = request.IsApproved,
+                    MemberType = new Gen.ReferenceByIdModel { Id = memberTypeId },
+                    Variants = [new Gen.MemberVariantRequestModel { Name = request.Name }],
+                    Values = request
+                        .Values.Select(cv => new Gen.MemberValueModel
+                        {
+                            Alias = cv.Alias,
+                            Culture = cv.Culture,
+                            Segment = cv.Segment,
+                            Value = UntypedNodeFactory.FromValue(cv.Value),
+                        })
+                        .ToList(),
+                };
+                await _api.Umbraco.Management.Api.V1.Member.PostAsync(body, cancellationToken: ct);
+
+                return new MemberResponse
+                {
+                    Id = id,
+                    Email = request.Email,
+                    Name = request.Name,
+                    MemberType = new ContentTypeReference { Id = memberTypeId },
+                    IsApproved = request.IsApproved,
+                };
+            }
         );
 
     /// <summary>
