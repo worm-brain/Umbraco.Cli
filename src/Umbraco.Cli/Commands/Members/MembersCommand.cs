@@ -13,6 +13,7 @@ public static class MembersCommand
         cmd.Add(MembersListCommand.Build(executor));
         cmd.Add(MembersGetCommand.Build(executor));
         cmd.Add(MembersCreateCommand.Build(executor));
+        cmd.Add(MembersUpdateCommand.Build(executor));
         cmd.Add(MembersDeleteCommand.Build(executor));
         return cmd;
     }

@@ -12,6 +12,7 @@ public static class LanguagesCommand
         );
         cmd.Add(LanguagesListCommand.Build(executor));
         cmd.Add(LanguagesCreateCommand.Build(executor));
+        cmd.Add(LanguagesUpdateCommand.Build(executor));
         cmd.Add(LanguagesDeleteCommand.Build(executor));
         return cmd;
     }

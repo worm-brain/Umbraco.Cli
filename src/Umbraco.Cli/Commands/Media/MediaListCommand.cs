@@ -32,11 +32,11 @@ public static class MediaListCommand
                             parseResult.GetValue(takeOpt),
                             c
                         ),
-                    ["ID", "Name", "Media Type"],
-                    data =>
-                        (data?.Items ?? []).Select(i =>
-                            new[] { i.Id.ToString(), i.Name, i.MediaType?.Alias ?? "" }
-                        ),
+                    // Media Type is intentionally omitted: the media-tree list items carry only
+                    // the type id (no alias), so the column was always blank (#75). Use
+                    // 'media get <id>' for the full media type.
+                    ["ID", "Name"],
+                    data => (data?.Items ?? []).Select(i => new[] { i.Id.ToString(), i.Name }),
                     ct
                 )
         );

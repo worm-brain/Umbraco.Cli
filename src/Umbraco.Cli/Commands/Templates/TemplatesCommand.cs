@@ -8,10 +8,13 @@ public static class TemplatesCommand
     {
         var cmd = new Command(
             "templates",
-            "List and inspect Razor view templates defined in the Umbraco instance.\n\nExample:\n  umbraco templates list"
+            "List, inspect, and manage Razor view templates defined in the Umbraco instance.\n\nExamples:\n  umbraco templates list\n  umbraco templates create --name Home --alias home"
         );
         cmd.Add(TemplatesListCommand.Build(executor));
         cmd.Add(TemplatesGetCommand.Build(executor));
+        cmd.Add(TemplatesCreateCommand.Build(executor));
+        cmd.Add(TemplatesUpdateCommand.Build(executor));
+        cmd.Add(TemplatesDeleteCommand.Build(executor));
         return cmd;
     }
 }

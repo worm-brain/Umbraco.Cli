@@ -629,6 +629,215 @@ public class CommandExecutorTests
         }
     }
 
+    // ── Bulk operations (#85) ───────────────────────────────────────────────
+
+    [Fact]
+    public async Task RunBulk_AllSucceed_ReturnsZeroWithPerItemResults()
+    {
+        // #85: a non-destructive bulk publish over two ids runs each and returns a results array.
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var client = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+        var (executor, parse) = Build(client);
+
+        var (stdout, _, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                "content.bulk.publish",
+                () => [id1.ToString(), id2.ToString()],
+                (c, id, ct) => c.PublishContentAsync(id, null, ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(0, exit);
+        Assert.Equal([id1, id2], client.CalledIds);
+        var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
+        Assert.Equal(2, data.GetArrayLength());
+        Assert.All(
+            data.EnumerateArray(),
+            item => Assert.Equal("success", item.GetProperty("status").GetString())
+        );
+    }
+
+    [Fact]
+    public async Task RunBulk_MixedOutcomes_ReturnsOneAndReportsEachItem()
+    {
+        // #85: a per-item failure and a malformed id are captured (not fatal); the batch still
+        // runs every valid id and the exit code is 1 because something failed.
+        var ok = Guid.NewGuid();
+        var bad = Guid.NewGuid();
+        var client = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = id =>
+                id == bad
+                    ? UmbracoResponse<Empty>.Failure(404, "Not found")
+                    : UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+        var (executor, parse) = Build(client);
+
+        var (stdout, _, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                "content.bulk.publish",
+                () => [ok.ToString(), bad.ToString(), "not-a-guid"],
+                (c, id, ct) => c.PublishContentAsync(id, null, ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(1, exit);
+        var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
+        Assert.Equal(3, data.GetArrayLength());
+        Assert.Equal("success", data[0].GetProperty("status").GetString());
+        Assert.Equal("error", data[1].GetProperty("status").GetString());
+        Assert.Equal("error", data[2].GetProperty("status").GetString()); // malformed id
+        Assert.Equal("not-a-guid", data[2].GetProperty("id").GetString());
+    }
+
+    [Fact]
+    public async Task RunBulk_DestructiveNonInteractiveWithoutYes_AbortsAndDoesNotCall()
+    {
+        // #85 x #70: a bulk delete non-interactively without --yes aborts (exit 2) before any
+        // call — a destructive batch can't run silently.
+        var client = new FakeUmbracoManagementClient
+        {
+            DeleteContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+        var (executor, parse) = Build(
+            client,
+            confirmation: new FakeConfirmationPrompt { IsInteractive = false }
+        );
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                "content.bulk.delete",
+                () => [Guid.NewGuid().ToString()],
+                (c, id, ct) => c.DeleteContentAsync(id, ct),
+                CancellationToken.None,
+                confirmationPrompt: "Delete all?"
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.Empty(client.CalledIds);
+        Assert.Contains("--yes", stderr);
+    }
+
+    [Fact]
+    public async Task RunBulk_DestructiveWithYes_RunsWholeBatchWithoutPerItemPrompt()
+    {
+        // --yes authorises the whole batch once; the prompt is never shown per item.
+        var prompt = new FakeConfirmationPrompt { IsInteractive = true, Answer = false };
+        var client = new FakeUmbracoManagementClient
+        {
+            DeleteContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+        var (executor, parse) = Build(
+            client,
+            args: "--host https://example.com --token tok --output json --yes",
+            confirmation: prompt
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                "content.bulk.delete",
+                () => [Guid.NewGuid().ToString(), Guid.NewGuid().ToString()],
+                (c, id, ct) => c.DeleteContentAsync(id, ct),
+                CancellationToken.None,
+                confirmationPrompt: "Delete all?"
+            )
+        );
+
+        Assert.Equal(0, exit);
+        Assert.Equal(2, client.CalledIds.Count);
+        Assert.False(prompt.WasPrompted); // --yes skips the gate
+    }
+
+    [Fact]
+    public async Task RunBulk_ReadOnly_ReturnsTwoWithoutRunning()
+    {
+        // #85 review fix: a bulk write under --readonly is blocked before running (exit 2), like
+        // the single-op path — not run-then-report-all-failed (exit 1).
+        var state = new Umbraco.Cli.Infrastructure.Http.MutationInterceptState();
+        var client = new FakeUmbracoManagementClient
+        {
+            DeleteContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+        var (executor, parse) = Build(
+            client,
+            args: "--host https://example.com --token tok --output json --readonly --yes",
+            mutationState: state
+        );
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                "content.bulk.delete",
+                () => [Guid.NewGuid().ToString()],
+                (c, id, ct) => c.DeleteContentAsync(id, ct),
+                CancellationToken.None,
+                confirmationPrompt: "Delete all?"
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.Empty(client.CalledIds);
+        Assert.Contains("Read-only", stderr);
+    }
+
+    [Fact]
+    public async Task RunBulk_Unpublish_RunsEachId()
+    {
+        // #85: the unpublish bulk path runs each id (covers the third bulk verb).
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var client = new FakeUmbracoManagementClient
+        {
+            UnpublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+        var (executor, parse) = Build(client);
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                "content.bulk.unpublish",
+                () => [id1.ToString(), id2.ToString()],
+                (c, id, ct) => c.UnpublishContentAsync(id, null, ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(0, exit);
+        Assert.Equal([id1, id2], client.CalledIds);
+    }
+
+    [Fact]
+    public async Task RunBulk_NoIds_ReturnsTwo()
+    {
+        // An empty id set is a usage error, not a silent no-op.
+        var (executor, parse) = Build(new FakeUmbracoManagementClient());
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                "content.bulk.delete",
+                () => [],
+                (c, id, ct) => c.DeleteContentAsync(id, ct),
+                CancellationToken.None,
+                confirmationPrompt: "Delete all?"
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.Contains("No ids", stderr);
+    }
+
     [Fact]
     public async Task RunObject_NoHostOrCredentials_AbortsWithTwo()
     {

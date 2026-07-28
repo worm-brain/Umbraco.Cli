@@ -30,12 +30,17 @@ public static class ContentTypesCreateCommand
         };
         var isElementOpt = new Option<bool>("--is-element") { DefaultValueFactory = _ => false };
         var allowRootOpt = new Option<bool>("--allow-at-root") { DefaultValueFactory = _ => false };
+        var idOpt = new Option<Guid?>("--id")
+        {
+            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+        };
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);
         cmd.Add(descOpt);
         cmd.Add(iconOpt);
         cmd.Add(isElementOpt);
         cmd.Add(allowRootOpt);
+        cmd.Add(idOpt);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
@@ -45,6 +50,7 @@ public static class ContentTypesCreateCommand
                         client.CreateDocumentTypeAsync(
                             new CreateDocumentTypeRequest
                             {
+                                Id = parseResult.GetValue(idOpt) ?? Guid.NewGuid(),
                                 Name = parseResult.GetValue(nameOpt)!,
                                 Alias = parseResult.GetValue(aliasOpt)!,
                                 Description = parseResult.GetValue(descOpt),

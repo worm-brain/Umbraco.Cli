@@ -9,7 +9,9 @@ using Umbraco.Cli.Commands.DataTypes;
 using Umbraco.Cli.Commands.Dictionary;
 using Umbraco.Cli.Commands.Languages;
 using Umbraco.Cli.Commands.Media;
+using Umbraco.Cli.Commands.MediaTypes;
 using Umbraco.Cli.Commands.Members;
+using Umbraco.Cli.Commands.MemberTypes;
 using Umbraco.Cli.Commands.Templates;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
@@ -87,14 +89,25 @@ var root = new RootCommand(
 globalOptions.AddTo(root);
 
 // ── Sub-commands ──────────────────────────────────────────────────────────────
-root.Add(AuthCommand.Build(globalOptions, configStore, authService, executor));
+root.Add(
+    AuthCommand.Build(
+        globalOptions,
+        configStore,
+        authService,
+        executor,
+        sp.GetRequiredService<IHttpClientFactory>(),
+        sp.GetRequiredService<IUmbracoManagementClientFactory>()
+    )
+);
 root.Add(ContentCommand.Build(executor));
 root.Add(MediaCommand.Build(executor));
+root.Add(MediaTypesCommand.Build(executor));
 root.Add(ContentTypesCommand.Build(executor));
 root.Add(DataTypesCommand.Build(executor));
 root.Add(LanguagesCommand.Build(executor));
 root.Add(TemplatesCommand.Build(executor));
 root.Add(MembersCommand.Build(executor));
+root.Add(MemberTypesCommand.Build(executor));
 root.Add(UsersCommand.Build(executor));
 root.Add(DictionaryCommand.Build(executor));
 root.Add(WebhooksCommand.Build(executor));

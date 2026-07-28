@@ -19,8 +19,13 @@ public static class DictionaryCreateCommand
                 "Translation pairs in lang=value format. Repeat for multiple languages: --values en=Home --values da=Hjem",
             AllowMultipleArgumentsPerToken = true,
         };
+        var idOpt = new Option<Guid?>("--id")
+        {
+            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+        };
         cmd.Add(keyOpt);
         cmd.Add(valuesOpt);
+        cmd.Add(idOpt);
         cmd.SetAction(
             (parseResult, ct) =>
             {
@@ -36,6 +41,7 @@ public static class DictionaryCreateCommand
                         client.CreateDictionaryItemAsync(
                             new CreateDictionaryItemRequest
                             {
+                                Id = parseResult.GetValue(idOpt),
                                 Name = parseResult.GetValue(keyOpt)!,
                                 Translations = translations,
                             },

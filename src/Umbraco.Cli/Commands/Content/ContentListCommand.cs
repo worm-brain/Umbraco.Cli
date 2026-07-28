@@ -41,16 +41,13 @@ public static class ContentListCommand
                             parseResult.GetValue(takeOpt),
                             c
                         ),
-                    ["ID", "Name", "Content Type", "Published"],
+                    // Content Type is intentionally omitted: the document-tree list items carry
+                    // only the type id (no alias), so the column was always blank (#75). Use
+                    // 'content get <id>' for the full content type.
+                    ["ID", "Name", "Published"],
                     data =>
                         (data?.Items ?? []).Select(i =>
-                            new[]
-                            {
-                                i.Id.ToString(),
-                                i.Name,
-                                i.ContentType?.Alias ?? "",
-                                i.IsPublished.ToString(),
-                            }
+                            new[] { i.Id.ToString(), i.Name, i.IsPublished.ToString() }
                         ),
                     ct
                 )

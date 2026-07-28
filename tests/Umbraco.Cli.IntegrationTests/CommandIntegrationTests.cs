@@ -43,7 +43,7 @@ public sealed class CommandIntegrationTests
         var list = CliRunner.Run("content", "list", "--take", "1");
         Skip.If(list.Data().GetArrayLength() == 0, "No content in the instance to get.");
 
-        var id = list.Data()[0].GetProperty("ID").GetString()!;
+        var id = list.Data()[0].GetProperty("id").GetString()!;
         var get = CliRunner.Run("content", "get", id);
 
         Assert.True(get.Ok, get.Stderr);
@@ -260,6 +260,21 @@ public sealed class CommandIntegrationTests
     }
 
     [SkippableFact]
+    public void AuthDoctor_AllChecksPassAgainstLiveInstance()
+    {
+        RequireLive();
+        // #66: against a reachable instance with valid credentials, every diagnostic check
+        // passes and the command exits 0. The results array carries one object per check.
+        var result = CliRunner.Run("auth", "doctor");
+        Assert.True(result.Ok, result.Stderr);
+
+        var checks = result.Data().EnumerateArray().ToList();
+        Assert.Contains(checks, c => c.GetProperty("check").GetString() == "Host configured");
+        // No check should be in a hard-failed state on a healthy instance.
+        Assert.DoesNotContain(checks, c => c.GetProperty("status").GetString() == "fail");
+    }
+
+    [SkippableFact]
     public void AuthProfiles_ListsProfilesWithDefault()
     {
         RequireLive();
@@ -270,7 +285,7 @@ public sealed class CommandIntegrationTests
 
         var rows = result.Data().EnumerateArray().ToList();
         Assert.NotEmpty(rows);
-        Assert.Contains(rows, r => r.GetProperty("Default").GetString() == "*");
+        Assert.Contains(rows, r => r.GetProperty("default").GetString() == "*");
     }
 
     [SkippableFact]
@@ -283,8 +298,8 @@ public sealed class CommandIntegrationTests
         var defaultName = profiles
             .Data()
             .EnumerateArray()
-            .First(r => r.GetProperty("Default").GetString() == "*")
-            .GetProperty("Profile")
+            .First(r => r.GetProperty("default").GetString() == "*")
+            .GetProperty("profile")
             .GetString()!;
 
         var whoami = CliRunner.Run("auth", "whoami", "--profile", defaultName);
@@ -421,7 +436,7 @@ public sealed class CommandIntegrationTests
             Assert.True(list.Ok, list.Stderr);
             var found = list.Data()
                 .EnumerateArray()
-                .Any(w => w.GetProperty("ID").GetString() == id);
+                .Any(w => w.GetProperty("id").GetString() == id);
             Assert.True(found, "Created webhook was not present in the list.");
         }
         finally

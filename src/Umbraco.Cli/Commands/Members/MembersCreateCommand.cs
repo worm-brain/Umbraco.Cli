@@ -18,9 +18,14 @@ public static class MembersCreateCommand
             Description = "Alias of the member type (e.g. Member).",
             Required = true,
         };
+        var idOpt = new Option<Guid?>("--id")
+        {
+            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+        };
         cmd.Add(emailOpt);
         cmd.Add(nameOpt);
         cmd.Add(typeOpt);
+        cmd.Add(idOpt);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
@@ -30,6 +35,7 @@ public static class MembersCreateCommand
                         client.CreateMemberAsync(
                             new CreateMemberRequest
                             {
+                                Id = parseResult.GetValue(idOpt),
                                 Email = parseResult.GetValue(emailOpt)!,
                                 Name = parseResult.GetValue(nameOpt)!,
                                 MemberType = new ContentTypeReference

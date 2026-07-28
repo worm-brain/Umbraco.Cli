@@ -16,8 +16,23 @@ public static class WebhooksCreateCommand
             Required = true,
             AllowMultipleArgumentsPerToken = true,
         };
+        var idOpt = new Option<Guid?>("--id")
+        {
+            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+        };
+        var nameOpt = new Option<string?>("--name")
+        {
+            Description = "Optional human-readable name for the webhook.",
+        };
+        var descOpt = new Option<string?>("--description")
+        {
+            Description = "Optional description for the webhook.",
+        };
         cmd.Add(urlOpt);
         cmd.Add(eventsOpt);
+        cmd.Add(idOpt);
+        cmd.Add(nameOpt);
+        cmd.Add(descOpt);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
@@ -27,6 +42,9 @@ public static class WebhooksCreateCommand
                         client.CreateWebhookAsync(
                             new CreateWebhookRequest
                             {
+                                Id = parseResult.GetValue(idOpt),
+                                Name = parseResult.GetValue(nameOpt),
+                                Description = parseResult.GetValue(descOpt),
                                 Url = parseResult.GetValue(urlOpt)!,
                                 Events = parseResult.GetValue(eventsOpt) ?? [],
                             },

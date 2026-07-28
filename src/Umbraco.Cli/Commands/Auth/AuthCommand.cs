@@ -10,7 +10,9 @@ public static class AuthCommand
         GlobalOptions global,
         ConfigStore configStore,
         UmbracoAuthService authService,
-        CommandExecutor executor
+        CommandExecutor executor,
+        IHttpClientFactory httpClientFactory,
+        IUmbracoManagementClientFactory clientFactory
     )
     {
         var cmd = new Command(
@@ -31,6 +33,15 @@ public static class AuthCommand
         cmd.Add(ProfilesCommand.Build(global.Output, global.Config, configStore));
         cmd.Add(UseProfileCommand.Build(global.Output, global.Config, configStore));
         cmd.Add(WhoAmICommand.Build(executor));
+        cmd.Add(
+            AuthDoctorCommand.Build(
+                global,
+                configStore,
+                authService,
+                httpClientFactory,
+                clientFactory
+            )
+        );
         return cmd;
     }
 }

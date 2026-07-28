@@ -46,7 +46,7 @@ public class JsonOutputWriterTests
         var doc = JsonDocument.Parse(stdout);
         var version = doc.RootElement.GetProperty("meta").GetProperty("schemaVersion").GetString();
         // Assert the literal so a deliberate contract bump is a deliberate test change.
-        Assert.Equal("1", version);
+        Assert.Equal("2", version);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class JsonOutputWriterTests
         // #61: message-shaped success envelopes (delete/publish) are versioned too.
         var (stdout, _) = Capture(() => _writer.WriteMessage("Done."));
         var meta = JsonDocument.Parse(stdout).RootElement.GetProperty("meta");
-        Assert.Equal("1", meta.GetProperty("schemaVersion").GetString());
+        Assert.Equal("2", meta.GetProperty("schemaVersion").GetString());
     }
 
     [Fact]
@@ -185,7 +185,8 @@ public class JsonOutputWriterTests
     [Fact]
     public void WriteSuccess_WithFields_MatchesIgnoringSpaces()
     {
-        // A table's "Content Type" header is selectable via --fields contentType.
+        // A table's "Content Type" header is emitted as the camelCase key "contentType" (#87)
+        // and is selectable via --fields contentType.
         var writer = new JsonOutputWriter(["contentType"]);
         var (stdout, _) = Capture(() =>
             writer.WriteTable(
@@ -196,8 +197,8 @@ public class JsonOutputWriterTests
             )
         );
         var item = JsonDocument.Parse(stdout).RootElement.GetProperty("data")[0];
-        Assert.Equal("textPage", item.GetProperty("Content Type").GetString());
-        Assert.False(item.TryGetProperty("Name", out _));
+        Assert.Equal("textPage", item.GetProperty("contentType").GetString());
+        Assert.False(item.TryGetProperty("name", out _));
     }
 
     // ── WriteError ───────────────────────────────────────────────────────────
@@ -230,8 +231,9 @@ public class JsonOutputWriterTests
     // ── WriteTable ───────────────────────────────────────────────────────────
 
     [Fact]
-    public void WriteTable_ProducesArrayOfObjectsKeyedByHeader()
+    public void WriteTable_ProducesArrayOfObjectsKeyedByCamelCaseHeader()
     {
+        // #87: keys are camelCased header names ("ID" -> "id") so list output agrees with get.
         var headers = new[] { "ID", "Name" };
         var rows = new[] { new[] { "1", "Alice" }, new[] { "2", "Bob" } };
 
@@ -241,8 +243,44 @@ public class JsonOutputWriterTests
 
         Assert.Equal(JsonValueKind.Array, data.ValueKind);
         Assert.Equal(2, data.GetArrayLength());
-        Assert.Equal("Alice", data[0].GetProperty("Name").GetString());
-        Assert.Equal("2", data[1].GetProperty("ID").GetString());
+        Assert.Equal("Alice", data[0].GetProperty("name").GetString());
+        Assert.Equal("2", data[1].GetProperty("id").GetString());
+        // The human header text is no longer used as a key.
+        Assert.False(data[0].TryGetProperty("ID", out _));
+    }
+
+    [Fact]
+    public void WriteTable_CollidingHeaderKeys_ThrowsRatherThanDroppingColumn()
+    {
+        // #87 review fix: two headers whose camelCase keys collide would silently overwrite a
+        // column; the writer must fail loudly instead.
+        Assert.Throws<InvalidOperationException>(() =>
+            Capture(() =>
+                _writer.WriteTable(
+                    ["ID", "Id"],
+                    [
+                        ["1", "2"],
+                    ]
+                )
+            )
+        );
+    }
+
+    [Fact]
+    public void WriteTable_MultiWordHeader_BecomesCamelCaseKey()
+    {
+        // #87: "Content Type" -> "contentType", "Version ID" -> "versionId".
+        var (stdout, _) = Capture(() =>
+            _writer.WriteTable(
+                ["Content Type", "Version ID"],
+                [
+                    ["textPage", "7"],
+                ]
+            )
+        );
+        var item = JsonDocument.Parse(stdout).RootElement.GetProperty("data")[0];
+        Assert.Equal("textPage", item.GetProperty("contentType").GetString());
+        Assert.Equal("7", item.GetProperty("versionId").GetString());
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Commands.Auth;
+using Umbraco.Cli.Commands.Content.Bulk;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -18,6 +19,15 @@ public static class ContentCommand
         cmd.Add(ContentDeleteCommand.Build(executor));
         cmd.Add(ContentPublishCommand.Build(executor));
         cmd.Add(ContentUnpublishCommand.Build(executor));
+        cmd.Add(ContentVersionsCommand.Build(executor));
+        cmd.Add(ContentRollbackCommand.Build(executor));
+        cmd.Add(ContentTrashCommand.Build(executor));
+        cmd.Add(ContentRestoreCommand.Build(executor));
+        cmd.Add(ContentEmptyRecycleBinCommand.Build(executor));
+        cmd.Add(ContentMoveCommand.Build(executor));
+        cmd.Add(ContentCopyCommand.Build(executor));
+        cmd.Add(ContentPublishDescendantsCommand.Build(executor));
+        cmd.Add(ContentBulkCommand.Build(executor));
         return cmd;
     }
 }

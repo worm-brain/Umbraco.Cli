@@ -2,8 +2,16 @@ using System.CommandLine;
 
 namespace Umbraco.Cli.Commands.Content;
 
+/// <summary>Wires the <c>content unpublish</c> command.</summary>
 public static class ContentUnpublishCommand
 {
+    /// <summary>
+    /// Builds the <c>content unpublish</c> command. Unpublishing takes live content offline, a
+    /// high production-impact action, so it is gated by a confirmation prompt (requires
+    /// <c>--yes</c> non-interactively) even though it is reversible by re-publishing (issue #82).
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
@@ -33,7 +41,8 @@ public static class ContentUnpublishCommand
                             c
                         ),
                     "Content item unpublished.",
-                    ct
+                    ct,
+                    confirmationPrompt: $"Unpublish content {parseResult.GetValue(idArg)}, taking it offline? Re-publish to restore."
                 );
             }
         );

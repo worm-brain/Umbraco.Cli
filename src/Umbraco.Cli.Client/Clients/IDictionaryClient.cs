@@ -18,4 +18,10 @@ public interface IDictionaryClient
         CreateDictionaryItemRequest request,
         CancellationToken ct = default
     );
+
+    /// <summary>Deletes a dictionary item by id (issue #59).</summary>
+    /// <param name="id">The dictionary item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> DeleteDictionaryItemAsync(Guid id, CancellationToken ct = default);
 }

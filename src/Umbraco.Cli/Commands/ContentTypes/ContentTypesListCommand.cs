@@ -25,10 +25,13 @@ public static class ContentTypesListCommand
                             parseResult.GetValue(takeOpt),
                             c
                         ),
-                    ["ID", "Name", "Alias", "IsElement"],
+                    // Alias is intentionally omitted: the document-type tree list items don't
+                    // carry an alias, so the column was always blank (#75). Use
+                    // 'content-types get <id|alias>' for the full alias.
+                    ["ID", "Name", "IsElement"],
                     data =>
                         data?.Items.Select(i =>
-                            new[] { i.Id.ToString(), i.Name, i.Alias, i.IsElement.ToString() }
+                            new[] { i.Id.ToString(), i.Name, i.IsElement.ToString() }
                         )
                         ?? [],
                     ct

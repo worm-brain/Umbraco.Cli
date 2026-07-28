@@ -55,6 +55,16 @@ public sealed class CommandContextFactory
 
         var store = ResolveConfigStore(parseResult);
 
+        // Warn when the config file exists but can't be parsed (#83 M1): reads fail open (no
+        // profile and, crucially, no file-based allow-list), so surface it on stderr rather than
+        // silently dropping a guardrail. Non-fatal — the command still runs on env/flag values.
+        if (store.FileExistsButUnreadable())
+            Console.Error.WriteLine(
+                "warning: the Umbraco config file exists but could not be read; it is being "
+                    + "ignored (using --host/--token/UMBRACO_* values instead). Any credentials "
+                    + "or command allow-list stored in it will not apply."
+            );
+
         // Fail fast on an unknown profile (#64): if a profile was explicitly requested (via
         // --profile or UMBRACO_PROFILE) and the config defines profiles but not that one, abort
         // with a clear error rather than silently resolving to empty credentials — which would

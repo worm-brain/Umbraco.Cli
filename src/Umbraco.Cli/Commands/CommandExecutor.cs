@@ -7,6 +7,16 @@ using Umbraco.Cli.Infrastructure.Output;
 namespace Umbraco.Cli.Commands;
 
 /// <summary>
+/// One item's outcome in a bulk operation (#85): the id as supplied, a status
+/// (<c>success</c> / <c>error</c> / <c>dry-run</c>), and an error message when it failed.
+/// Serialized into the results array so a script can see exactly what happened to each id.
+/// </summary>
+/// <param name="Id">The id as it appeared in the input (so a malformed line is echoed back).</param>
+/// <param name="Status">The per-item outcome: <c>success</c>, <c>error</c>, or <c>dry-run</c>.</param>
+/// <param name="Error">The failure message when <see cref="Status"/> is <c>error</c>; otherwise null.</param>
+public sealed record BulkItemResult(string Id, string Status, string? Error);
+
+/// <summary>
 /// Runs the pipeline shared by every API-backed command: build the context (auth,
 /// host, output), invoke a single client call, map a failed <see cref="UmbracoResponse{T}"/>
 /// to an error + exit code, and render the result on success. Each command supplies
@@ -132,6 +142,158 @@ public sealed class CommandExecutor
             ctx.Output.WriteError(1, ex.Message);
             return 1;
         }
+    }
+
+    /// <summary>
+    /// Runs a single operation over many ids (#85), collecting a per-item result so a script can
+    /// pipe ids in and see exactly what happened to each. Shares the run pipeline with
+    /// <see cref="RunAsync{T}"/> — context build, allow-list/readonly/dry-run policy — but
+    /// applies the destructive-op confirmation gate <em>once</em> for the whole batch (a bulk
+    /// delete must not prompt per item, and non-interactively still requires <c>--yes</c>, #70).
+    /// Per-item failures are captured, not fatal; the batch runs to completion. Exit code is
+    /// <c>0</c> when every item succeeded, <c>1</c> when any item failed.
+    /// </summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name (e.g. <c>content.bulk.delete</c>).</param>
+    /// <param name="readIds">
+    /// Reads the raw id lines from stdin/file. Invoked after the context is built so an IO error
+    /// (e.g. a missing file) is reported through the resolved output writer.
+    /// </param>
+    /// <param name="callPerId">The client call to run for each parsed id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <param name="confirmationPrompt">A batch confirmation prompt for a destructive bulk op, or null.</param>
+    /// <returns>The process exit code.</returns>
+    public async Task<int> RunBulkAsync(
+        ParseResult parseResult,
+        string commandName,
+        Func<IReadOnlyList<string>> readIds,
+        Func<
+            IUmbracoManagementClient,
+            Guid,
+            CancellationToken,
+            Task<UmbracoResponse<Empty>>
+        > callPerId,
+        CancellationToken ct,
+        string? confirmationPrompt = null
+    )
+    {
+        CommandContext ctx;
+        try
+        {
+            ctx = await _factory.CreateAsync(parseResult, commandName, ct);
+        }
+        catch (CommandAbortedException)
+        {
+            return 2;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return 130;
+        }
+
+        // Read-only mode refuses writes, so a bulk write is blocked before it runs — mirror the
+        // single-op contract (exit 2 with a clear error) rather than running the loop and
+        // reporting every item as a failure (which would read as an API error, exit 1). Bulk
+        // operations are all writes, so this applies to the whole group.
+        if (ctx.ReadOnly)
+        {
+            ctx.Output.WriteError(
+                2,
+                "Read-only mode is active (--readonly / UMBRACO_READONLY). This bulk command "
+                    + "performs writes, which are not allowed."
+            );
+            return 2;
+        }
+
+        // Read the ids now that the output writer exists, so a missing/unreadable file becomes a
+        // clean error rather than an unhandled exception.
+        IReadOnlyList<string> rawIds;
+        try
+        {
+            rawIds = readIds();
+        }
+        catch (Exception ex)
+        {
+            ctx.Output.WriteError(2, $"Could not read ids: {ex.Message}");
+            return 2;
+        }
+
+        // Nothing to do — surface an empty result rather than silently exiting.
+        if (rawIds.Count == 0)
+        {
+            ctx.Output.WriteError(2, "No ids supplied. Provide ids via --file <path> or stdin.");
+            return 2;
+        }
+
+        // Destructive-op gate (#70), applied ONCE for the whole batch. Skipped under --dry-run
+        // (previewed, not sent) and --readonly (refused at the HTTP layer) exactly as the
+        // single-op path does.
+        if (confirmationPrompt is not null && !ctx.AssumeYes && !ctx.DryRun && !ctx.ReadOnly)
+        {
+            if (!_confirmation.IsInteractive)
+            {
+                ctx.Output.WriteError(
+                    2,
+                    $"{confirmationPrompt} Refusing to run a destructive bulk operation without "
+                        + "confirmation. Re-run with --yes to proceed (required in non-interactive mode)."
+                );
+                return 2;
+            }
+            if (!_confirmation.Confirm(confirmationPrompt))
+            {
+                ctx.Output.WriteError(2, "Operation cancelled.");
+                return 2;
+            }
+        }
+
+        var results = new List<BulkItemResult>(rawIds.Count);
+        var anyFailed = false;
+        foreach (var raw in rawIds)
+        {
+            if (!Guid.TryParse(raw, out var id))
+            {
+                results.Add(new BulkItemResult(raw, "error", "Not a valid GUID."));
+                anyFailed = true;
+                continue;
+            }
+
+            try
+            {
+                var result = await callPerId(ctx.Client, id, ct);
+                if (result.IsSuccess)
+                {
+                    results.Add(new BulkItemResult(raw, "success", null));
+                }
+                else
+                {
+                    results.Add(new BulkItemResult(raw, "error", result.ErrorMessage));
+                    anyFailed = true;
+                }
+            }
+            catch (DryRunException)
+            {
+                // Under --dry-run each write is aborted before it is sent; record the preview
+                // intent per id rather than printing N request envelopes.
+                results.Add(new BulkItemResult(raw, "dry-run", null));
+            }
+            catch (ReadOnlyModeException)
+            {
+                results.Add(new BulkItemResult(raw, "error", "Blocked by --readonly."));
+                anyFailed = true;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return 130; // Ctrl-C mid-batch
+            }
+            catch (Exception ex)
+            {
+                results.Add(new BulkItemResult(raw, "error", ex.Message));
+                anyFailed = true;
+            }
+        }
+
+        ctx.Output.WriteSuccess(results, ctx.CommandName, ctx.Stopwatch.ElapsedMilliseconds);
+        return anyFailed ? 1 : 0;
     }
 
     /// <summary>Renders the result object via <see cref="IOutputWriter.WriteSuccess"/>.</summary>

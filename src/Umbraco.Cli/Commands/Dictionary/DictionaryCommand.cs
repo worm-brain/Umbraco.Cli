@@ -13,6 +13,7 @@ public static class DictionaryCommand
         cmd.Add(DictionaryListCommand.Build(executor));
         cmd.Add(DictionaryGetCommand.Build(executor));
         cmd.Add(DictionaryCreateCommand.Build(executor));
+        cmd.Add(DictionaryDeleteCommand.Build(executor));
         return cmd;
     }
 }

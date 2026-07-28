@@ -19,11 +19,13 @@ public interface IUmbracoManagementClient
     : IAuthClient,
         IContentClient,
         IMediaClient,
+        IMediaTypeClient,
         IDocumentTypeClient,
         IDataTypeClient,
         ILanguageClient,
         ITemplateClient,
         IMemberClient,
+        IMemberTypeClient,
         IUserClient,
         IDictionaryClient,
         IWebhookClient;

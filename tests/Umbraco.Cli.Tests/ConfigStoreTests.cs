@@ -108,6 +108,74 @@ public class ConfigStoreTests : IDisposable
         Assert.False(Store.SetDefaultProfile("nope"));
 
     [Fact]
+    public void Logout_ProfileWithAllowList_PreservesAllowListAndClearsCredentials()
+    {
+        // #83 H2: logout must not silently drop a file-based allow-list. The profile is kept as a
+        // credential-less stub so the guardrail survives (logout bypasses the allow-list gate).
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://h",
+                ClientId = "id",
+                ClientSecret = "secret",
+                AllowedCommands = "content,media",
+            }
+        );
+
+        var outcome = Store.Logout();
+
+        Assert.Equal(ConfigStore.LogoutOutcome.CredentialsClearedAllowListKept, outcome);
+        var after = Store.Load();
+        Assert.Equal("content,media", after.AllowedCommands); // guardrail preserved
+        Assert.Null(after.Host); // credentials cleared
+        Assert.Null(after.ClientId);
+    }
+
+    [Fact]
+    public void Logout_ProfileWithoutAllowList_RemovesProfile()
+    {
+        // With no allow-list to preserve, logout removes the profile entirely (old semantics).
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://h",
+                ClientId = "id",
+                ClientSecret = "secret",
+            }
+        );
+
+        var outcome = Store.Logout();
+
+        Assert.Equal(ConfigStore.LogoutOutcome.Removed, outcome);
+        Assert.False(Store.HasAnyProfiles);
+    }
+
+    [Fact]
+    public void FileExistsButUnreadable_CorruptFile_IsTrue()
+    {
+        // #83 M1: a present-but-unparseable config is detectable so the caller can warn rather
+        // than fail open silently.
+        File.WriteAllText(_tempPath, "{ this is not valid json ");
+
+        Assert.True(Store.FileExistsButUnreadable());
+    }
+
+    [Fact]
+    public void FileExistsButUnreadable_ValidFile_IsFalse()
+    {
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://h",
+                ClientId = "id",
+                ClientSecret = "s",
+            }
+        );
+
+        Assert.False(Store.FileExistsButUnreadable());
+    }
+
+    [Fact]
     public void DeleteProfile_RemovesOneAndReassignsDefault()
     {
         Store.Save(Creds("https://default"));

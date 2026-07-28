@@ -195,6 +195,28 @@ public record PublishSchedule
     public string? Culture { get; init; }
 }
 
+/// <summary>
+/// A single version of a document (issue #58). Returned when listing a document's version
+/// history; a version's <see cref="Id"/> is what <c>content rollback</c> targets.
+/// </summary>
+public record DocumentVersionResponse
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("versionDate")]
+    public DateTimeOffset VersionDate { get; init; }
+
+    [JsonPropertyName("isCurrentDraftVersion")]
+    public bool IsCurrentDraftVersion { get; init; }
+
+    [JsonPropertyName("isCurrentPublishedVersion")]
+    public bool IsCurrentPublishedVersion { get; init; }
+
+    [JsonPropertyName("preventCleanup")]
+    public bool PreventCleanup { get; init; }
+}
+
 // ── Media ────────────────────────────────────────────────────────────────────
 
 public record MediaItemResponse
@@ -325,6 +347,132 @@ public record DocumentTypeCleanup
     public int? KeepLatestVersionPerDayForDays { get; init; }
 }
 
+/// <summary>
+/// Create payload for a media item (issue #57). Umbraco 14+ creates media as JSON that
+/// references a previously-staged upload by <c>temporaryFileId</c> (see the two-step upload
+/// flow in <c>UploadMediaAsync</c>), rather than posting the file bytes to <c>/media</c>
+/// directly. The id is client-generated so the new item's id can be surfaced from the empty
+/// 201 body (issue #43/#74).
+/// </summary>
+public record CreateMediaRequest
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; } = Guid.NewGuid();
+
+    [JsonPropertyName("mediaType")]
+    public required ReferenceById MediaType { get; init; }
+
+    [JsonPropertyName("parent")]
+    public ReferenceById? Parent { get; init; }
+
+    [JsonPropertyName("variants")]
+    public IEnumerable<MediaVariant> Variants { get; init; } = [];
+
+    [JsonPropertyName("values")]
+    public IEnumerable<MediaValue> Values { get; init; } = [];
+}
+
+/// <summary>A media variant (name per culture/segment). Media are invariant by default (null culture).</summary>
+public record MediaVariant
+{
+    [JsonPropertyName("culture")]
+    public string? Culture { get; init; }
+
+    [JsonPropertyName("segment")]
+    public string? Segment { get; init; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+}
+
+/// <summary>A single media property value (e.g. <c>umbracoFile</c> pointing at a staged temporary file).</summary>
+public record MediaValue
+{
+    [JsonPropertyName("alias")]
+    public string Alias { get; init; } = "";
+
+    [JsonPropertyName("value")]
+    public object? Value { get; init; }
+
+    [JsonPropertyName("culture")]
+    public string? Culture { get; init; }
+
+    [JsonPropertyName("segment")]
+    public string? Segment { get; init; }
+}
+
+/// <summary>A minimal id+name entity, used to resolve a media type by name from the item search endpoint.</summary>
+public record NamedEntity
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+}
+
+// ── Media Types ──────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Command-facing view of a media type. Populated fully from a single-item GET; the
+/// list view (backed by the media-type tree) only carries id/name/icon, since tree
+/// items do not expose alias/description (mirrors the document-type shape).
+/// </summary>
+public record MediaTypeResponse
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    [JsonPropertyName("alias")]
+    public string Alias { get; init; } = "";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("icon")]
+    public string? Icon { get; init; }
+
+    [JsonPropertyName("isElement")]
+    public bool IsElement { get; init; }
+
+    [JsonPropertyName("allowedAsRoot")]
+    public bool AllowedAsRoot { get; init; }
+}
+
+/// <summary>
+/// Create payload for a media type. Like the document-type create (issue #47), the
+/// Umbraco 17 API requires a full field set; the client fills the defaults (icon, the
+/// varies-by flags, the allowed-* / composition / container / property collections) so a
+/// minimal create needs only a name and alias.
+/// </summary>
+public record CreateMediaTypeRequest
+{
+    /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
+    public Guid? Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("alias")]
+    public required string Alias { get; init; }
+
+    /// <summary>Backoffice icon. Required by the API; defaults to a generic image icon.</summary>
+    [JsonPropertyName("icon")]
+    public string Icon { get; init; } = "icon-picture";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("isElement")]
+    public bool IsElement { get; init; }
+
+    [JsonPropertyName("allowedAsRoot")]
+    public bool AllowedAsRoot { get; init; }
+}
+
 // ── Data Types ───────────────────────────────────────────────────────────────
 
 public record DataTypeResponse
@@ -339,6 +487,44 @@ public record DataTypeResponse
     public string EditorAlias { get; init; } = "";
 
     [JsonPropertyName("editorUiAlias")]
+    public string? EditorUiAlias { get; init; }
+}
+
+/// <summary>
+/// Create payload for a data type (issue #59). A data type wraps a property editor:
+/// <c>editorAlias</c> is the backend editor (e.g. <c>Umbraco.TextBox</c>) and
+/// <c>editorUiAlias</c> the backoffice UI (e.g. <c>Umb.PropertyEditorUi.TextBox</c>).
+/// Editor configuration values default to empty.
+/// </summary>
+public record CreateDataTypeRequest
+{
+    /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
+    public Guid? Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("editorAlias")]
+    public required string EditorAlias { get; init; }
+
+    [JsonPropertyName("editorUiAlias")]
+    public required string EditorUiAlias { get; init; }
+}
+
+/// <summary>
+/// Update payload for a data type (issue #59). The underlying PUT is a full replace, so null
+/// fields are preserved by reading the current data type and merging; its editor configuration
+/// <c>values</c> are always preserved (never exposed here, so an update cannot wipe them).
+/// </summary>
+public record UpdateDataTypeRequest
+{
+    /// <summary>New name, or null to keep the current one.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>New backend editor alias, or null to keep the current one.</summary>
+    public string? EditorAlias { get; init; }
+
+    /// <summary>New backoffice editor UI alias, or null to keep the current one.</summary>
     public string? EditorUiAlias { get; init; }
 }
 
@@ -385,6 +571,27 @@ public record CreateLanguageRequest
     public string? FallbackIsoCode { get; init; }
 }
 
+/// <summary>
+/// Update payload for a language (issue #59). The language is keyed by ISO code in the URL.
+/// The underlying PUT is a full replace, so each null field is preserved by reading the
+/// current language and merging (avoids silently clearing the default/mandatory flags or the
+/// fallback culture when only the name is being changed).
+/// </summary>
+public record UpdateLanguageRequest
+{
+    /// <summary>New name, or null to keep the current one.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>New default state, or null to keep the current one.</summary>
+    public bool? IsDefault { get; init; }
+
+    /// <summary>New mandatory state, or null to keep the current one.</summary>
+    public bool? IsMandatory { get; init; }
+
+    /// <summary>New fallback ISO code, or null to keep the current one.</summary>
+    public string? FallbackIsoCode { get; init; }
+}
+
 // ── Templates ────────────────────────────────────────────────────────────────
 
 public record TemplateResponse
@@ -400,6 +607,39 @@ public record TemplateResponse
 
     [JsonPropertyName("masterTemplate")]
     public ContentTypeReference? MasterTemplate { get; init; }
+}
+
+/// <summary>Create payload for a template (issue #59). Content is the Razor view body.</summary>
+public record CreateTemplateRequest
+{
+    /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
+    public Guid? Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("alias")]
+    public required string Alias { get; init; }
+
+    [JsonPropertyName("content")]
+    public string Content { get; init; } = "";
+}
+
+/// <summary>
+/// Update payload for a template (issue #59). The underlying PUT is a full replace, so each
+/// null field is preserved by reading the current template and merging (avoids silently
+/// blanking the Razor <c>content</c> when only the name is being changed).
+/// </summary>
+public record UpdateTemplateRequest
+{
+    /// <summary>New name, or null to keep the current one.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>New alias, or null to keep the current one.</summary>
+    public string? Alias { get; init; }
+
+    /// <summary>New Razor content, or null to keep the current one.</summary>
+    public string? Content { get; init; }
 }
 
 // ── Members ──────────────────────────────────────────────────────────────────
@@ -430,6 +670,13 @@ public record MemberResponse
 
 public record CreateMemberRequest
 {
+    /// <summary>
+    /// Caller-supplied id for an idempotent create (#86). Serialized so Umbraco uses it; a GUID
+    /// is generated by the command when null. Omitted from the payload when null.
+    /// </summary>
+    [JsonPropertyName("id")]
+    public Guid? Id { get; init; }
+
     [JsonPropertyName("email")]
     public required string Email { get; init; }
 
@@ -447,6 +694,72 @@ public record CreateMemberRequest
 
     [JsonPropertyName("values")]
     public IEnumerable<ContentValue> Values { get; init; } = [];
+}
+
+/// <summary>
+/// Partial-update payload for a member (issue #59). Only the set fields are changed; the
+/// client reads the current member and merges these over it before the PUT (which is a full
+/// replace) so unspecified fields — groups, property values, password — are preserved.
+/// </summary>
+public record UpdateMemberRequest
+{
+    /// <summary>New email, or null to keep the current one.</summary>
+    public string? Email { get; init; }
+
+    /// <summary>New display name, or null to keep the current one.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>New approved state, or null to keep the current one.</summary>
+    public bool? IsApproved { get; init; }
+}
+
+// ── Member Types ─────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Command-facing view of a member type (issue #56). Populated fully from a single-item
+/// GET; the list view (backed by the member-type tree) only carries id/name/icon.
+/// </summary>
+public record MemberTypeResponse
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    [JsonPropertyName("alias")]
+    public string Alias { get; init; } = "";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("icon")]
+    public string? Icon { get; init; }
+}
+
+/// <summary>
+/// Create payload for a member type (issue #56). As with document/media types (issue #47),
+/// the API requires a full field set; the client fills the defaults (icon, the varies-by
+/// flags, the composition/container/property collections) so a minimal create needs only a
+/// name and alias.
+/// </summary>
+public record CreateMemberTypeRequest
+{
+    /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
+    public Guid? Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("alias")]
+    public required string Alias { get; init; }
+
+    /// <summary>Backoffice icon. Required by the API; defaults to a generic member icon.</summary>
+    [JsonPropertyName("icon")]
+    public string Icon { get; init; } = "icon-user";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
 }
 
 // ── Users ─────────────────────────────────────────────────────────────────────
@@ -521,6 +834,9 @@ public record DictionaryTranslation
 
 public record CreateDictionaryItemRequest
 {
+    /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
+    public Guid? Id { get; init; }
+
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
@@ -579,6 +895,17 @@ public record WebhookEvent
 
 public record CreateWebhookRequest
 {
+    /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
+    public Guid? Id { get; init; }
+
+    /// <summary>Optional human-readable name for the webhook (#80).</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    /// <summary>Optional description for the webhook (#80).</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
     [JsonPropertyName("url")]
     public required string Url { get; init; }
 

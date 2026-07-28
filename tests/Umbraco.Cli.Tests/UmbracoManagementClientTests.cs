@@ -32,6 +32,13 @@ public class UmbracoManagementClientTests
         /// <summary>The absolute URI of the most recent request the client made.</summary>
         public Uri? LastRequestUri { get; private set; }
 
+        /// <summary>Every request URI the client made, in order (for multi-step flows like upload).</summary>
+        public List<Uri> Requests { get; } = [];
+
+        /// <summary>Each request's body text, in order (null for bodiless requests). Lets tests
+        /// assert what a read-merge PUT actually sends.</summary>
+        public List<string?> RequestBodies { get; } = [];
+
         /// <param name="json">The response body to return.</param>
         /// <param name="status">The HTTP status to return (defaults to 200 OK).</param>
         /// <param name="location">Optional Location response header (for create tests).</param>
@@ -52,6 +59,15 @@ public class UmbracoManagementClientTests
         )
         {
             LastRequestUri = request.RequestUri;
+            if (request.RequestUri is not null)
+                Requests.Add(request.RequestUri);
+            // Capture the request body so read-merge tests can assert what a PUT actually sends.
+            // Multipart (upload) bodies are captured too; tests only inspect JSON ones.
+            RequestBodies.Add(
+                request.Content is null
+                    ? null
+                    : request.Content.ReadAsStringAsync(ct).GetAwaiter().GetResult()
+            );
             var message = new HttpResponseMessage(_status)
             {
                 Content = new StringContent(_json, Encoding.UTF8, "application/json"),
@@ -159,6 +175,710 @@ public class UmbracoManagementClientTests
         Assert.Equal(id, item.Id);
         Assert.Equal("Home", item.Name);
         Assert.True(item.IsPublished);
+    }
+
+    [Fact]
+    public async Task GetMediaTypesAsync_CallsTreeRootEndpoint()
+    {
+        // #55: media types list from the media-type tree root, mirroring document types
+        // (there is no flat /media-type collection endpoint).
+        var (client, handler) = ClientReturning("""{"total":0,"items":[]}""");
+
+        var result = await client.GetMediaTypesAsync(ct: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains("tree/media-type/root", handler.LastRequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task CreateWebhookAsync_WithNameAndDescription_EchoesAndSendsThem()
+    {
+        // #80: name/description are sent in the request body and echoed on the response (the
+        // 201 has an empty body, so the echo is what the command reports).
+        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.CreateWebhookAsync(
+            new CreateWebhookRequest
+            {
+                Url = "https://example.com/hook",
+                Events = ["ContentPublished"],
+                Name = "My Hook",
+                Description = "Fires on publish",
+            },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("My Hook", result.Data!.Name);
+        Assert.Equal("Fires on publish", result.Data.Description);
+        Assert.Contains("My Hook", handler.RequestBodies[0]!); // sent, not just echoed
+    }
+
+    [Fact]
+    public async Task CreateWebhookAsync_WithSuppliedId_UsesThatId()
+    {
+        // #86: a caller-supplied id enables idempotent creates — it must be used verbatim
+        // (and appear in the request body) rather than a fresh GUID being generated.
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.CreateWebhookAsync(
+            new CreateWebhookRequest
+            {
+                Id = id,
+                Url = "https://example.com/hook",
+                Events = ["ContentPublished"],
+            },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(id, result.Data!.Id);
+        Assert.Contains(id.ToString(), handler.RequestBodies[0]!);
+    }
+
+    [Fact]
+    public async Task CreateMediaTypeAsync_WithSuppliedId_UsesThatId()
+    {
+        // #86: media-type create honours a caller-supplied id.
+        var id = Guid.NewGuid();
+        var (client, _) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.CreateMediaTypeAsync(
+            new CreateMediaTypeRequest
+            {
+                Id = id,
+                Name = "Custom Image",
+                Alias = "customImage",
+            },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(id, result.Data!.Id);
+    }
+
+    [Fact]
+    public async Task CreateMediaTypeAsync_201EmptyBody_EchoesRequestWithGeneratedId()
+    {
+        // #55: like the other migrated creates, the client supplies the id up front and echoes
+        // the accepted request, so a 201 with an empty body reports success with a non-empty id
+        // and the alias populated (guards #74).
+        var (client, _) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.CreateMediaTypeAsync(
+            new CreateMediaTypeRequest { Name = "Custom Image", Alias = "customImage" },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.NotEqual(Guid.Empty, result.Data!.Id);
+        Assert.Equal("customImage", result.Data.Alias);
+    }
+
+    // ── Content / media workflow (#67) ─────────────────────────────────────────
+
+    [Fact]
+    public async Task TrashContentAsync_CallsMoveToRecycleBinEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.TrashContentAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains($"document/{id}/move-to-recycle-bin", handler.LastRequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task RestoreContentAsync_CallsRecycleBinRestoreEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.RestoreContentAsync(id, ct: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains($"recycle-bin/document/{id}/restore", handler.LastRequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task EmptyContentRecycleBinAsync_CallsDeleteRecycleBinEndpoint()
+    {
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.EmptyContentRecycleBinAsync(CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith(
+            "/umbraco/management/api/v1/recycle-bin/document",
+            handler.LastRequestUri!.AbsolutePath
+        );
+    }
+
+    [Fact]
+    public async Task MoveContentAsync_CallsMoveEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.MoveContentAsync(id, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/document/{id}/move", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task CopyContentAsync_CallsCopyEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.CopyContentAsync(id, ct: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/document/{id}/copy", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task PublishContentWithDescendantsAsync_CallsPublishWithDescendantsEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.PublishContentWithDescendantsAsync(
+            id,
+            ct: CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(
+            $"document/{id}/publish-with-descendants",
+            handler.LastRequestUri!.AbsoluteUri
+        );
+    }
+
+    [Fact]
+    public async Task TrashMediaAsync_CallsMoveToRecycleBinEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.TrashMediaAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains($"media/{id}/move-to-recycle-bin", handler.LastRequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task RestoreMediaAsync_CallsRecycleBinRestoreEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.RestoreMediaAsync(id, ct: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains($"recycle-bin/media/{id}/restore", handler.LastRequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task EmptyMediaRecycleBinAsync_CallsDeleteRecycleBinEndpoint()
+    {
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.EmptyMediaRecycleBinAsync(CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith(
+            "/umbraco/management/api/v1/recycle-bin/media",
+            handler.LastRequestUri!.AbsolutePath
+        );
+    }
+
+    [Fact]
+    public async Task MoveMediaAsync_CallsMoveEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.MoveMediaAsync(id, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/media/{id}/move", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetDocumentVersionsAsync_CallsDocumentVersionEndpointWithDocumentId()
+    {
+        // #58: version history is read from GET /document-version filtered by documentId.
+        var docId = Guid.NewGuid();
+        var (client, handler) = ClientReturning("""{"total":0,"items":[]}""");
+
+        var result = await client.GetDocumentVersionsAsync(docId, ct: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains("document-version", handler.LastRequestUri!.AbsoluteUri);
+        Assert.Contains(docId.ToString(), handler.LastRequestUri!.Query);
+    }
+
+    [Fact]
+    public async Task GetDocumentVersionsAsync_MapsVersionFields()
+    {
+        // #58: the current-draft flag and version date must be surfaced onto the mapped item.
+        var versionId = Guid.NewGuid();
+        var json = $$"""
+            {
+              "total": 1,
+              "items": [
+                {
+                  "id": "{{versionId}}",
+                  "versionDate": "2024-05-06T07:08:09+00:00",
+                  "isCurrentDraftVersion": true,
+                  "isCurrentPublishedVersion": false,
+                  "preventCleanup": false
+                }
+              ]
+            }
+            """;
+        var (client, _) = ClientReturning(json);
+
+        var result = await client.GetDocumentVersionsAsync(
+            Guid.NewGuid(),
+            ct: CancellationToken.None
+        );
+
+        var version = Assert.Single(result.Data!.Items);
+        Assert.Equal(versionId, version.Id);
+        Assert.True(version.IsCurrentDraftVersion);
+        Assert.Equal(2024, version.VersionDate.Year);
+    }
+
+    [Fact]
+    public async Task RollbackDocumentVersionAsync_PostsToRollbackEndpoint()
+    {
+        // #58: rollback targets POST /document-version/{versionId}/rollback.
+        var versionId = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.RollbackDocumentVersionAsync(
+            versionId,
+            ct: CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(
+            $"document-version/{versionId}/rollback",
+            handler.LastRequestUri!.AbsoluteUri
+        );
+    }
+
+    [Fact]
+    public async Task UploadMediaAsync_StagesToTemporaryFileThenCreatesMedia()
+    {
+        // #57: the upload must stage the bytes to temporary-file first, then create the media
+        // item (a media type id is passed, so no resolution request is made). The stub returns
+        // 201/empty for both; the client echoes the client-generated media id.
+        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+        using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+
+        var result = await client.UploadMediaAsync(
+            parentId: Guid.Empty,
+            name: "Logo",
+            fileStream: stream,
+            fileName: "logo.png",
+            contentType: "image/png",
+            mediaType: Guid.NewGuid().ToString(),
+            ct: CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.NotEqual(Guid.Empty, result.Data!.Id);
+        Assert.Equal("Logo", result.Data.Name);
+        // Two requests, in order: stage the file, then create the media item.
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Contains("temporary-file", handler.Requests[0].AbsoluteUri);
+        Assert.EndsWith("/umbraco/management/api/v1/media", handler.Requests[1].AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UploadMediaAsync_ResolvesMediaTypeByName()
+    {
+        // #57: a non-GUID --media-type is resolved via the media-type item search endpoint,
+        // matching on name. The first request must be that search.
+        var mediaTypeId = Guid.NewGuid();
+        var (client, handler) = ClientReturning(
+            $$"""{"total":1,"items":[{"id":"{{mediaTypeId}}","name":"Image"}]}"""
+        );
+        using var stream = new MemoryStream(new byte[] { 1 });
+
+        var result = await client.UploadMediaAsync(
+            Guid.Empty,
+            "Photo",
+            stream,
+            "photo.jpg",
+            "image/jpeg",
+            "Image",
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains("item/media-type/search", handler.Requests[0].AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task UploadMediaAsync_UnknownMediaTypeName_Returns404()
+    {
+        // A media type name that matches nothing yields a clear 404 rather than staging a file
+        // that can never be attached.
+        var (client, _) = ClientReturning("""{"total":0,"items":[]}""");
+        using var stream = new MemoryStream(new byte[] { 1 });
+
+        var result = await client.UploadMediaAsync(
+            Guid.Empty,
+            "X",
+            stream,
+            "x.bin",
+            "application/octet-stream",
+            "NoSuchType",
+            CancellationToken.None
+        );
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(404, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMemberTypesAsync_CallsTreeRootEndpoint()
+    {
+        // #56: member types list from the member-type tree root (no flat /member-type collection).
+        var (client, handler) = ClientReturning("""{"total":0,"items":[]}""");
+
+        var result = await client.GetMemberTypesAsync(ct: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains("tree/member-type/root", handler.LastRequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task CreateMemberTypeAsync_201EmptyBody_EchoesRequestWithGeneratedId()
+    {
+        // #56: the client supplies the id up front and echoes the accepted request, so a 201
+        // with an empty body reports success with a non-empty id and the alias populated.
+        var (client, _) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.CreateMemberTypeAsync(
+            new CreateMemberTypeRequest { Name = "Author", Alias = "author" },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.NotEqual(Guid.Empty, result.Data!.Id);
+        Assert.Equal("author", result.Data.Alias);
+    }
+
+    [Fact]
+    public async Task CreateTemplateAsync_201EmptyBody_EchoesRequestWithGeneratedId()
+    {
+        // #59: template create supplies a client id and echoes the request on the empty 201.
+        var (client, _) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.CreateTemplateAsync(
+            new CreateTemplateRequest { Name = "Home", Alias = "home" },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.NotEqual(Guid.Empty, result.Data!.Id);
+        Assert.Equal("home", result.Data.Alias);
+    }
+
+    [Fact]
+    public async Task CreateDataTypeAsync_201EmptyBody_EchoesRequestWithGeneratedId()
+    {
+        // #59: data-type create supplies a client id and echoes the request on the empty 201.
+        var (client, _) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.CreateDataTypeAsync(
+            new CreateDataTypeRequest
+            {
+                Name = "My Text",
+                EditorAlias = "Umbraco.TextBox",
+                EditorUiAlias = "Umb.PropertyEditorUi.TextBox",
+            },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.NotEqual(Guid.Empty, result.Data!.Id);
+        Assert.Equal("Umbraco.TextBox", result.Data.EditorAlias);
+    }
+
+    [Fact]
+    public async Task DeleteDictionaryItemAsync_CallsDeleteEndpoint()
+    {
+        // #59: dictionary delete targets DELETE /dictionary/{id}.
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.DeleteDictionaryItemAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/dictionary/{id}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UpdateLanguageAsync_ReadMergesAndPreservesUnsuppliedFields()
+    {
+        // #59 + review fix: language update is read-merge. Changing only the name must PRESERVE
+        // the current isDefault/isMandatory/fallback rather than clearing them. The stub returns
+        // the current language for the GET; the PUT body is asserted to carry the preserved flags.
+        var json = """
+            {
+              "isoCode": "en-US",
+              "name": "English",
+              "isDefault": true,
+              "isMandatory": true,
+              "fallbackIsoCode": "en"
+            }
+            """;
+        var (client, handler) = ClientReturning(json);
+
+        var result = await client.UpdateLanguageAsync(
+            "en-US",
+            new UpdateLanguageRequest { Name = "English (US)" }, // only the name changes
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("English (US)", result.Data!.Name);
+        Assert.True(result.Data.IsMandatory); // preserved
+        Assert.True(result.Data.IsDefault); // preserved
+        // Two requests: read then write; the PUT body carries the preserved flags + new name.
+        Assert.Equal(2, handler.Requests.Count);
+        var putBody = handler.RequestBodies[1]!;
+        Assert.Contains("English (US)", putBody);
+        Assert.Contains("\"isMandatory\":true", putBody);
+        Assert.Contains("\"isDefault\":true", putBody);
+    }
+
+    [Fact]
+    public async Task UpdateTemplateAsync_ReadMergesAndPreservesContentWhenNotSupplied()
+    {
+        // Review fix: updating a template's name must NOT blank its Razor content. The client
+        // reads the current template and preserves content when the request's content is null.
+        var id = Guid.NewGuid();
+        var json = $$"""
+            {
+              "id": "{{id}}",
+              "name": "Old Name",
+              "alias": "oldAlias",
+              "content": "@* the razor body *@"
+            }
+            """;
+        var (client, handler) = ClientReturning(json);
+
+        var result = await client.UpdateTemplateAsync(
+            id,
+            new UpdateTemplateRequest { Name = "New Name" }, // content omitted
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, handler.Requests.Count); // GET then PUT
+        var putBody = handler.RequestBodies[1]!;
+        Assert.Contains("New Name", putBody);
+        Assert.Contains("the razor body", putBody); // content preserved, not blanked
+        Assert.Contains("oldAlias", putBody); // alias preserved
+    }
+
+    [Fact]
+    public async Task UpdateDataTypeAsync_ReadMergesAndPreservesEditorValues()
+    {
+        // Review fix: updating a data type's name must NOT wipe its editor configuration values.
+        var id = Guid.NewGuid();
+        var json = $$"""
+            {
+              "id": "{{id}}",
+              "name": "Old",
+              "editorAlias": "Umbraco.TextBox",
+              "editorUiAlias": "Umb.PropertyEditorUi.TextBox",
+              "values": [ { "alias": "maxChars", "value": 200 } ]
+            }
+            """;
+        var (client, handler) = ClientReturning(json);
+
+        var result = await client.UpdateDataTypeAsync(
+            id,
+            new UpdateDataTypeRequest { Name = "New" }, // editor + values omitted
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, handler.Requests.Count); // GET then PUT
+        var putBody = handler.RequestBodies[1]!;
+        Assert.Contains("New", putBody);
+        Assert.Contains("maxChars", putBody); // editor config value preserved
+        Assert.Contains("Umbraco.TextBox", putBody); // editor alias preserved
+    }
+
+    [Fact]
+    public async Task UpdateTemplateAsync_MissingTemplate_Returns404()
+    {
+        // The read step surfaces a clean 404 when the template does not exist.
+        var (client, _) = ClientReturning("", HttpStatusCode.NotFound);
+
+        var result = await client.UpdateTemplateAsync(
+            Guid.NewGuid(),
+            new UpdateTemplateRequest { Name = "X" },
+            CancellationToken.None
+        );
+
+        Assert.False(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task DeleteTemplateAsync_CallsDeleteEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.DeleteTemplateAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/template/{id}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task DeleteDataTypeAsync_CallsDeleteEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.DeleteDataTypeAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/data-type/{id}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetMediaTypeByIdAsync_CallsByIdEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning(
+            $$"""{"id":"{{id}}","name":"Image","alias":"image"}"""
+        );
+
+        var result = await client.GetMediaTypeByIdAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("image", result.Data!.Alias);
+        Assert.EndsWith($"/media-type/{id}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task DeleteMediaTypeAsync_CallsDeleteEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.DeleteMediaTypeAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/media-type/{id}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetMemberTypeByIdAsync_CallsByIdEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning(
+            $$"""{"id":"{{id}}","name":"Author","alias":"author"}"""
+        );
+
+        var result = await client.GetMemberTypeByIdAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("author", result.Data!.Alias);
+        Assert.EndsWith($"/member-type/{id}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task DeleteMemberTypeAsync_CallsDeleteEndpoint()
+    {
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.DeleteMemberTypeAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/member-type/{id}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UploadMediaAsync_WithLocationHeader_StillEchoesName()
+    {
+        // Review fix: when the media create returns a Location header, created.Data is hydrated
+        // with a non-empty id — the client must still echo the intended name (not blank it) and
+        // surface the server-returned id.
+        var serverId = Guid.NewGuid();
+        var handler = new StubHandler(
+            "",
+            HttpStatusCode.Created,
+            location: $"/umbraco/management/api/v1/media/{serverId}"
+        );
+        var client = new UmbracoManagementClient(
+            new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") }
+        );
+        using var stream = new MemoryStream(new byte[] { 1 });
+
+        var result = await client.UploadMediaAsync(
+            null,
+            "Logo",
+            stream,
+            "logo.png",
+            "image/png",
+            Guid.NewGuid().ToString(),
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Logo", result.Data!.Name); // not blanked
+        Assert.Equal(serverId, result.Data.Id); // server id preferred
+    }
+
+    [Fact]
+    public async Task UpdateMemberAsync_ReadsThenMergesChangesOverCurrentMember()
+    {
+        // #59: member update is read-modify-write — it must GET the member first, then PUT. The
+        // supplied name overrides the variant name while the email (not supplied) is preserved.
+        var id = Guid.NewGuid();
+        var json = $$"""
+            {
+              "id": "{{id}}",
+              "email": "old@example.com",
+              "username": "olduser",
+              "isApproved": true,
+              "variants": [ { "culture": null, "name": "Old Name" } ],
+              "groups": [],
+              "values": []
+            }
+            """;
+        var (client, handler) = ClientReturning(json);
+
+        var result = await client.UpdateMemberAsync(
+            id,
+            new UpdateMemberRequest { Name = "New Name" },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("New Name", result.Data!.Name);
+        Assert.Equal("old@example.com", result.Data.Email); // preserved (not supplied)
+        // Two requests: read the member, then write it back.
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.EndsWith($"/member/{id}", handler.Requests[0].AbsolutePath);
+        Assert.EndsWith($"/member/{id}", handler.Requests[1].AbsolutePath);
     }
 
     [Fact]
