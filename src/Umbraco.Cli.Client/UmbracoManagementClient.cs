@@ -1156,10 +1156,36 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    public async Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
+    /// <summary>
+    /// Gets a single document type by id via <c>GET document-type/{id}</c> (generated client,
+    /// #79). Unlike the tree/list view, the by-id response carries the alias, description and
+    /// root-allowed flag.
+    /// </summary>
+    /// <param name="id">The document type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The document type mapped to <see cref="DocumentTypeResponse"/>.</returns>
+    public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => await GetAsync<DocumentTypeResponse>($"umbraco/management/api/v1/document-type/{id}", ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var dt = await _api
+                    .Umbraco.Management.Api.V1.DocumentType[id]
+                    .GetAsync(cancellationToken: ct);
+                return new DocumentTypeResponse
+                {
+                    Id = dt?.Id ?? id,
+                    Name = dt?.Name ?? "",
+                    Alias = dt?.Alias ?? "",
+                    Description = dt?.Description,
+                    IsElement = dt?.IsElement ?? false,
+                    AllowedAsRoot = dt?.AllowedAsRoot ?? false,
+                };
+            }
+        );
 
     public async Task<UmbracoResponse<DocumentTypeResponse>> CreateDocumentTypeAsync(
         CreateDocumentTypeRequest request,
@@ -1233,10 +1259,33 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    public async Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
+    /// <summary>
+    /// Gets a single data type by id via <c>GET data-type/{id}</c> (generated client, #79). The
+    /// by-id response carries the editor aliases the tree/list view omits.
+    /// </summary>
+    /// <param name="id">The data type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The data type mapped to <see cref="DataTypeResponse"/>.</returns>
+    public Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => await GetAsync<DataTypeResponse>($"umbraco/management/api/v1/data-type/{id}", ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var dt = await _api
+                    .Umbraco.Management.Api.V1.DataType[id]
+                    .GetAsync(cancellationToken: ct);
+                return new DataTypeResponse
+                {
+                    Id = dt?.Id ?? id,
+                    Name = dt?.Name ?? "",
+                    EditorAlias = dt?.EditorAlias ?? "",
+                    EditorUiAlias = dt?.EditorUiAlias,
+                };
+            }
+        );
 
     /// <summary>
     /// Creates a data type via <c>POST data-type</c> (generated client, issue #59). The id is
@@ -2057,20 +2106,68 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Users ─────────────────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<PagedResponse<UserResponse>>> GetUsersAsync(
+    /// <summary>Maps a generated user model onto the command-facing <see cref="UserResponse"/>.</summary>
+    /// <param name="user">The generated user model.</param>
+    /// <returns>The mapped user (state enum flattened to its name).</returns>
+    private static UserResponse MapUser(Gen.UserResponseModel user) =>
+        new()
+        {
+            Id = user.Id ?? Guid.Empty,
+            Email = user.Email ?? "",
+            Name = user.Name ?? "",
+            UserName = user.UserName ?? "",
+            State = user.State?.ToString() ?? "",
+            CreateDate = user.CreateDate ?? default,
+        };
+
+    /// <summary>Lists users via <c>GET user?skip=&amp;take=</c> (generated client, #79).</summary>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of users mapped to <see cref="UserResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<UserResponse>>> GetUsersAsync(
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
     ) =>
-        await GetAsync<PagedResponse<UserResponse>>(
-            $"umbraco/management/api/v1/user?skip={skip}&take={take}",
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var paged = await _api.Umbraco.Management.Api.V1.User.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                );
+                return new PagedResponse<UserResponse>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = (paged?.Items ?? []).Select(MapUser).ToList(),
+                };
+            }
         );
 
-    public async Task<UmbracoResponse<UserResponse>> GetUserByIdAsync(
+    /// <summary>Gets a single user by id via <c>GET user/{id}</c> (generated client, #79).</summary>
+    /// <param name="id">The user id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The user mapped to <see cref="UserResponse"/>.</returns>
+    public Task<UmbracoResponse<UserResponse>> GetUserByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => await GetAsync<UserResponse>($"umbraco/management/api/v1/user/{id}", ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var user = await _api
+                    .Umbraco.Management.Api.V1.User[id]
+                    .GetAsync(cancellationToken: ct);
+                return user is null ? new UserResponse { Id = id } : MapUser(user);
+            }
+        );
 
     /// <summary>
     /// Invites a user via <c>POST user/invite</c> (generated client). The endpoint sends the
@@ -2107,12 +2204,62 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Dictionary ───────────────────────────────────────────────────────────
 
-    public async Task<
-        UmbracoResponse<PagedResponse<DictionaryItemResponse>>
-    > GetDictionaryItemsAsync(int skip = 0, int take = 20, CancellationToken ct = default) =>
-        await GetAsync<PagedResponse<DictionaryItemResponse>>(
-            $"umbraco/management/api/v1/dictionary?skip={skip}&take={take}",
-            ct
+    /// <summary>Maps a generated dictionary item (from the by-id read) onto the command-facing
+    /// <see cref="DictionaryItemResponse"/>, including its translations.</summary>
+    /// <param name="item">The generated dictionary item model.</param>
+    /// <returns>The mapped dictionary item with translations.</returns>
+    private static DictionaryItemResponse MapDictionaryItem(Gen.DictionaryItemResponseModel item) =>
+        new()
+        {
+            Id = item.Id ?? Guid.Empty,
+            Name = item.Name ?? "",
+            Translations = (item.Translations ?? [])
+                .Select(t => new DictionaryTranslation
+                {
+                    IsoCode = t.IsoCode ?? "",
+                    Translation = t.Translation ?? "",
+                })
+                .ToList(),
+        };
+
+    /// <summary>
+    /// Lists dictionary items via <c>GET dictionary?skip=&amp;take=</c> (generated client, #79).
+    /// The list (overview) response carries only names and iso codes, not translation text, so
+    /// list items have no translations - a per-item by-id read is needed for those.
+    /// </summary>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of dictionary items (id + name) mapped to <see cref="DictionaryItemResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<DictionaryItemResponse>>> GetDictionaryItemsAsync(
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var paged = await _api.Umbraco.Management.Api.V1.Dictionary.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                );
+                return new PagedResponse<DictionaryItemResponse>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = (paged?.Items ?? [])
+                        .Select(i => new DictionaryItemResponse
+                        {
+                            Id = i.Id ?? Guid.Empty,
+                            Name = i.Name ?? "",
+                        })
+                        .ToList(),
+                };
+            }
         );
 
     /// <summary>
@@ -2150,9 +2297,17 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             id = match.Id;
         }
 
-        return await GetAsync<DictionaryItemResponse>(
-            $"umbraco/management/api/v1/dictionary/{id}",
-            ct
+        return await GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var item = await _api
+                    .Umbraco.Management.Api.V1.Dictionary[id]
+                    .GetAsync(cancellationToken: ct);
+                return item is null
+                    ? new DictionaryItemResponse { Id = id }
+                    : MapDictionaryItem(item);
+            }
         );
     }
 
@@ -2220,14 +2375,74 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Webhooks ──────────────────────────────────────────────────────────────
 
-    public async Task<UmbracoResponse<PagedResponse<WebhookResponse>>> GetWebhooksAsync(
+    /// <summary>
+    /// Maps a generated webhook model onto the command-facing <see cref="WebhookResponse"/>.
+    /// Events are objects, not strings (#46). Custom headers land in the generated model's
+    /// additional-data bag; they are flattened to a string map best-effort.
+    /// </summary>
+    /// <param name="webhook">The generated webhook model.</param>
+    /// <returns>The mapped webhook.</returns>
+    private static WebhookResponse MapWebhook(Gen.WebhookResponseModel webhook) =>
+        new()
+        {
+            Id = webhook.Id ?? Guid.Empty,
+            Name = webhook.Name,
+            Description = webhook.Description,
+            Url = webhook.Url ?? "",
+            Enabled = webhook.Enabled ?? false,
+            ContentTypeKeys = (webhook.ContentTypeKeys ?? [])
+                .Where(k => k is not null)
+                .Select(k => k!.Value)
+                .ToList(),
+            Events = (webhook.Events ?? [])
+                .Select(e => new WebhookEvent
+                {
+                    EventName = e.EventName ?? "",
+                    EventType = e.EventType,
+                    Alias = e.Alias,
+                })
+                .ToList(),
+            Headers = webhook.Headers?.AdditionalData is { Count: > 0 } headers
+                ? headers.ToDictionary(
+                    kv => kv.Key,
+                    kv =>
+                        kv.Value switch
+                        {
+                            UntypedString s => s.GetValue() ?? "",
+                            _ => kv.Value?.ToString() ?? "",
+                        }
+                )
+                : null,
+        };
+
+    /// <summary>Lists webhooks via <c>GET webhook?skip=&amp;take=</c> (generated client, #79).</summary>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of webhooks mapped to <see cref="WebhookResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<WebhookResponse>>> GetWebhooksAsync(
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
     ) =>
-        await GetAsync<PagedResponse<WebhookResponse>>(
-            $"umbraco/management/api/v1/webhook?skip={skip}&take={take}",
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var paged = await _api.Umbraco.Management.Api.V1.Webhook.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                );
+                return new PagedResponse<WebhookResponse>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = (paged?.Items ?? []).Select(MapWebhook).ToList(),
+                };
+            }
         );
 
     /// <summary>
