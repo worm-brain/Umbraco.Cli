@@ -43,28 +43,62 @@ public sealed class UmbracoAuthService
                 ["client_secret"] = clientSecret,
             };
 
-            using var response = await http.PostAsync(
-                tokenUrl,
-                new FormUrlEncodedContent(form),
-                ct
-            );
-
-            if (!response.IsSuccessStatusCode)
+            // Convert transport-level failures (host unreachable, timeout, unreadable body)
+            // into UmbracoAuthException so the command layer reports a clean error and a
+            // non-zero exit rather than crashing with a raw stack trace (issue #81). This
+            // mirrors the "errors are data" contract the rest of the client already follows. A
+            // genuine caller cancellation (ct signalled) is left to propagate.
+            try
             {
-                var body = await response.Content.ReadAsStringAsync(ct);
+                using var response = await http.PostAsync(
+                    tokenUrl,
+                    new FormUrlEncodedContent(form),
+                    ct
+                );
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadAsStringAsync(ct);
+                    throw new UmbracoAuthException(
+                        (int)response.StatusCode,
+                        $"Token request failed ({(int)response.StatusCode}): {body}"
+                    );
+                }
+
+                var token =
+                    await response.Content.ReadFromJsonAsync<TokenResponse>(ct)
+                    ?? throw new UmbracoAuthException(0, "Empty token response");
+
+                _cachedToken = token.AccessToken;
+                _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(token.ExpiresIn);
+                return _cachedToken;
+            }
+            catch (HttpRequestException ex)
+            {
                 throw new UmbracoAuthException(
-                    (int)response.StatusCode,
-                    $"Token request failed ({(int)response.StatusCode}): {body}"
+                    0,
+                    $"Could not reach the Umbraco instance at {host} to authenticate: {ex.Message}"
                 );
             }
-
-            var token =
-                await response.Content.ReadFromJsonAsync<TokenResponse>(ct)
-                ?? throw new UmbracoAuthException(0, "Empty token response");
-
-            _cachedToken = token.AccessToken;
-            _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(token.ExpiresIn);
-            return _cachedToken;
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                // A timeout surfaces as a cancellation whose token is NOT the caller's.
+                throw new UmbracoAuthException(
+                    0,
+                    "The authentication request to the Umbraco instance timed out."
+                );
+            }
+            catch (Exception ex)
+                when (ex is System.Text.Json.JsonException or NotSupportedException)
+            {
+                // JsonException: malformed body. NotSupportedException: an unexpected content
+                // type (e.g. a token endpoint returning text/html on error) that ReadFromJsonAsync
+                // cannot deserialize — both must surface as a clean auth error, not a raw crash.
+                throw new UmbracoAuthException(
+                    0,
+                    $"The Umbraco instance returned an unreadable token response: {ex.Message}"
+                );
+            }
         }
         finally
         {

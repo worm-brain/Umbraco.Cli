@@ -110,7 +110,7 @@ Global options available on every command:
 | `--output json\|human` | Output format (default: `json` when piped, `human` in terminal) |
 | `--verbose` | Log HTTP requests/responses to stderr |
 | `--dry-run` | Preview the HTTP request a write command would send (method, URL, body) without executing it; no effect on read commands |
-| `--yes`, `-y` | Skip the confirmation prompt on destructive commands (delete). Required to run a destructive command non-interactively (piped/scripted/agent) |
+| `--yes`, `-y` | Skip the confirmation prompt on destructive/high-impact commands (delete, empty-recycle-bin, unpublish). Required to run one non-interactively (piped/scripted/agent) |
 | `--readonly` | Block all write operations (create/update/delete/publish) for this session; reads still work. Also `UMBRACO_READONLY=1` |
 | `--fields <a,b>` | Trim JSON output to these top-level fields, in order (e.g. `id,name`), to keep agent context small |
 | `--profile <name>`, `-p` | Named credential profile to use (see `auth profiles`); also `UMBRACO_PROFILE`. Defaults to the configured default profile |
@@ -153,16 +153,17 @@ echo '{ "values": [] }' | umbraco content update <id> --json-body -
 For agent/automation use, two guardrails restrict what a session can do (inspired by the official Umbraco MCP):
 
 - **Read-only mode** — `--readonly` (or `UMBRACO_READONLY=1`) refuses every write with a clear error and a non-zero exit; read commands are unaffected.
-- **Command allow-list** — `UMBRACO_ALLOWED_COMMANDS` (or the config `allowedCommands` field) restricts which commands may run. Entries are noun groups (`content`, `media`) and/or specific commands (`content.list`); a command runs only if its group or full name is listed. Unset means no restriction. The `auth` group is always allowed. A blocked command aborts before running with exit `2`.
+- **Command allow-list** — `UMBRACO_ALLOWED_COMMANDS` (or the config `allowedCommands` field) restricts which commands may run. Entries are noun groups (`content`, `media`) and/or specific commands (`content.list`); a command runs only if its group or full name is listed. The `auth` group is always allowed. A blocked command aborts before running with exit `2`.
+  - **Empty vs deny-all:** an unset or empty value (`UMBRACO_ALLOWED_COMMANDS=""`) means *no restriction*; a value with only separators (e.g. `","`) means *deny everything except `auth`*. Set an explicit list to restrict.
 
 ```bash
 # An agent that may only read content and media, and never write:
 UMBRACO_READONLY=1 UMBRACO_ALLOWED_COMMANDS=content,media umbraco content list
 ```
 
-> **Enforcement note:** the **environment-variable** forms (`UMBRACO_READONLY`, `UMBRACO_ALLOWED_COMMANDS`) are the enforcement boundary — set them in the parent process that supervises the agent, where the agent cannot change them. The config-file `allowedCommands` form is a convenience/default: a process that controls its own arguments could point `--config` elsewhere or run `auth logout`, so treat the file form as advisory, not a hard sandbox.
+> **Enforcement note:** the **environment-variable** forms (`UMBRACO_READONLY`, `UMBRACO_ALLOWED_COMMANDS`) are the enforcement boundary — set them in the parent process that supervises the agent, where the agent cannot change them. The config-file `allowedCommands` form is a convenience/default and is hardened against the obvious footguns — `auth logout` now clears only credentials and **preserves** a profile's allow-list, and a present-but-unreadable config is reported on stderr rather than silently dropping the guardrail — but a process that controls its own arguments could still point `--config` at a different file, so treat the file form as advisory, not a hard sandbox.
 
-Destructive commands (`delete`) prompt for confirmation. When run non-interactively (no TTY — piped, scripted, or agent-driven) they refuse to proceed unless `--yes` is given, so a delete can never happen silently.
+Destructive and high-impact commands prompt for confirmation: the permanent `delete` commands, `empty-recycle-bin`, and `content unpublish` / `content bulk unpublish` (which take live content offline). When run non-interactively (no TTY — piped, scripted, or agent-driven) they refuse to proceed unless `--yes` is given, so they can never happen silently. The machine-readable catalog (`umbraco commands`) flags each such command with `"destructive": true` so an agent knows which need `--yes` care.
 
 On a write command, `--dry-run` prints the request that would be sent instead of sending it and exits `0` without changing anything. In JSON mode the envelope uses a distinct `"dry-run"` status (alongside `"success"` and `"error"`):
 
@@ -197,7 +198,7 @@ umbraco content create --content-type <alias> --name <name> [--json-body <file>]
 umbraco content update <id> [--json-body <file>]
 umbraco content delete <id>
 umbraco content publish <id> [--cultures <csv>]
-umbraco content unpublish <id> [--cultures <csv>]
+umbraco content unpublish <id> [--cultures <csv>]         # takes offline; needs --yes
 umbraco content versions <id> [--culture <code>]           # version history
 umbraco content rollback <version-id> [--culture <code>]   # restore a version
 umbraco content trash <id>                                 # move to recycle bin (reversible)
@@ -210,7 +211,7 @@ umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublish
 # Bulk ops over many ids (from --file or stdin), with a per-item results array:
 umbraco content bulk delete [--file ids.txt]        # permanent; needs --yes
 umbraco content bulk publish [--file ids.txt] [--cultures <csv>]
-umbraco content bulk unpublish [--file ids.txt] [--cultures <csv>]
+umbraco content bulk unpublish [--file ids.txt] [--cultures <csv>]   # takes offline; needs --yes
 ```
 
 Bulk commands read ids one per line from `--file` or stdin, so you can pipe:

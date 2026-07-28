@@ -199,6 +199,67 @@ public sealed class ConfigStore
         return true;
     }
 
+    /// <summary>The outcome of a <see cref="Logout"/> call, so the caller can report accurately.</summary>
+    public enum LogoutOutcome
+    {
+        /// <summary>No matching profile (or file) was found; nothing changed.</summary>
+        NothingToRemove,
+
+        /// <summary>The profile (and, if it was the last, the file) was removed.</summary>
+        Removed,
+
+        /// <summary>Credentials were cleared but the profile's allow-list was preserved (#83).</summary>
+        CredentialsClearedAllowListKept,
+    }
+
+    /// <summary>
+    /// Logs out of a profile (the default when <paramref name="profileName"/> is null). If the
+    /// profile carries a command allow-list (#69), only its credentials are cleared and the
+    /// allow-list is preserved (#83 H2) — so a restricted caller cannot drop the guardrail by
+    /// logging out (logout bypasses the allow-list gate). Otherwise the profile is removed
+    /// entirely (deleting the file when it was the last profile), matching the old semantics.
+    ///
+    /// When the preserved stub was the default profile it stays the default (deliberately, unlike
+    /// <see cref="DeleteProfile"/> which reassigns): the guardrail lives on that profile, so the
+    /// next command still resolves to it and enforces the allow-list (aborting at auth until a
+    /// re-login, rather than silently falling through to an unrestricted profile).
+    /// </summary>
+    /// <param name="profileName">The profile to log out of, or null for the default.</param>
+    /// <returns>What happened, so the command can report it.</returns>
+    public LogoutOutcome Logout(string? profileName = null)
+    {
+        var file = ReadFile();
+        if (file is null)
+        {
+            // Corrupt/unreadable file with no specific profile: remove it wholesale so
+            // credentials never linger on a failed logout (matches DeleteProfile).
+            if (string.IsNullOrWhiteSpace(profileName) && File.Exists(_configPath))
+            {
+                Delete();
+                return LogoutOutcome.Removed;
+            }
+            return LogoutOutcome.NothingToRemove;
+        }
+
+        var name = string.IsNullOrWhiteSpace(profileName) ? file.EffectiveDefault : profileName;
+        if (!file.Profiles.TryGetValue(name, out var profile))
+            return LogoutOutcome.NothingToRemove;
+
+        if (!string.IsNullOrWhiteSpace(profile.AllowedCommands))
+        {
+            // Keep the allow-list as a credential-less stub so the guardrail survives logout.
+            file.Profiles[name] = new CliConfig { AllowedCommands = profile.AllowedCommands };
+            WriteFile(file);
+            return LogoutOutcome.CredentialsClearedAllowListKept;
+        }
+
+        return DeleteProfile(profileName) ? LogoutOutcome.Removed : LogoutOutcome.NothingToRemove;
+    }
+
+    /// <summary>Whether the config file exists on disk but cannot be parsed (fail-closed signal, #83 M1).</summary>
+    /// <returns>True when a file is present but unreadable.</returns>
+    public bool FileExistsButUnreadable() => File.Exists(_configPath) && ReadFile() is null;
+
     /// <summary>Deletes the entire config file.</summary>
     public void Delete()
     {
@@ -252,9 +313,6 @@ public sealed class ConfigStore
             return null;
         }
     }
-
-    /// <summary>Whether the config file exists on disk but cannot be parsed.</summary>
-    private bool FileExistsButUnreadable() => File.Exists(_configPath) && ReadFile() is null;
 
     private void WriteFile(ConfigFile file)
     {

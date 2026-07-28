@@ -130,11 +130,11 @@ public class CommandCatalogTests
     [Fact]
     public void Describe_DestructiveVerbsAreAlsoMutating()
     {
-        // #84 review fix: every destructive verb must also be mutating (Destructive ⊆ Mutating),
-        // so an agent that gates writes on `mutating` never misses a destructive one. Asserted
-        // via the two known destructive verbs through the public Describe surface.
+        // #84 review fix: every gated ("destructive") verb must also be mutating
+        // (Destructive ⊆ Mutating), so an agent that gates writes on `mutating` never misses a
+        // gated one. Includes `unpublish`, which #82 gates as high-impact-reversible.
         var root = new RootCommand();
-        foreach (var verb in new[] { "delete", "empty-recycle-bin" })
+        foreach (var verb in new[] { "delete", "empty-recycle-bin", "unpublish" })
             root.Add(new Command(verb));
 
         var nodes = CommandCatalog.Describe(root).Commands;
@@ -142,10 +142,23 @@ public class CommandCatalogTests
             nodes,
             n =>
             {
-                Assert.True(n.Destructive, $"{n.Name} should be destructive");
-                Assert.True(n.Mutating, $"{n.Name} destructive verb must also be mutating");
+                Assert.True(n.Destructive, $"{n.Name} should be gated (destructive)");
+                Assert.True(n.Mutating, $"{n.Name} gated verb must also be mutating");
             }
         );
+    }
+
+    [Fact]
+    public void Describe_Publish_IsMutatingButNotGated()
+    {
+        // #82: publishing is additive/low-impact, so it stays mutating-but-not-gated — the
+        // catalog must not tell agents that `publish` needs --yes.
+        var root = new RootCommand();
+        root.Add(new Command("publish"));
+
+        var publish = CommandCatalog.Describe(root).Commands.Single(c => c.Name == "publish");
+        Assert.True(publish.Mutating);
+        Assert.False(publish.Destructive);
     }
 
     [Fact]

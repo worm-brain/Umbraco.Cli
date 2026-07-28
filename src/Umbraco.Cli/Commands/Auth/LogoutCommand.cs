@@ -27,16 +27,24 @@ public static class LogoutCommand
                 var store = ConfigStore.Resolve(parseResult.GetValue(configOption), configStore);
                 var profile = parseResult.GetValue(profileOption);
 
-                // Remove only the selected profile (the default when none is given); other
-                // profiles are kept. Deleting the last profile removes the file.
-                if (store.DeleteProfile(profile))
+                // Log out of the selected profile (the default when none is given); other
+                // profiles are kept. A profile carrying a command allow-list keeps that
+                // guardrail (only its credentials are cleared) so logout cannot silently drop it
+                // (#83); otherwise the profile is removed, and the file when it was the last.
+                var where = string.IsNullOrWhiteSpace(profile) ? "" : $" (profile '{profile}')";
+                switch (store.Logout(profile))
                 {
-                    var where = string.IsNullOrWhiteSpace(profile) ? "" : $" (profile '{profile}')";
-                    writer.WriteMessage($"Logged out. Credentials removed{where}.");
-                }
-                else
-                {
-                    writer.WriteMessage("No stored credentials to remove.");
+                    case ConfigStore.LogoutOutcome.Removed:
+                        writer.WriteMessage($"Logged out. Credentials removed{where}.");
+                        break;
+                    case ConfigStore.LogoutOutcome.CredentialsClearedAllowListKept:
+                        writer.WriteMessage(
+                            $"Logged out. Credentials removed{where}; the command allow-list was preserved."
+                        );
+                        break;
+                    default:
+                        writer.WriteMessage("No stored credentials to remove.");
+                        break;
                 }
                 return Task.CompletedTask;
             }

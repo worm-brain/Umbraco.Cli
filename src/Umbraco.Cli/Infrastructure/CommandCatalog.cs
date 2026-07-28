@@ -18,10 +18,11 @@ namespace Umbraco.Cli.Infrastructure;
 /// as blocked under <c>--readonly</c>. Derived from the command verb (#84).
 /// </param>
 /// <param name="Destructive">
-/// True for a leaf command whose effect is not reversible from the CLI (permanent
-/// <c>delete</c>, <c>empty-recycle-bin</c>) — these require <c>--yes</c> non-interactively (#70).
-/// A subset of <see cref="Mutating"/>. Reversible writes (trash/move/copy/publish) are mutating
-/// but not destructive (#84).
+/// True for a leaf command gated by a confirmation prompt — i.e. one that requires <c>--yes</c>
+/// non-interactively (#70/#82). Covers irreversible commands (permanent <c>delete</c>,
+/// <c>empty-recycle-bin</c>) and high-impact reversible ones (<c>unpublish</c> takes live
+/// content offline). A subset of <see cref="Mutating"/>. Low-impact reversible writes
+/// (trash/move/copy/publish) are mutating but not gated (#84).
 /// </param>
 /// <param name="AcceptsJsonBody">
 /// True when the command takes a full request body via <c>--json-body</c> (and exposes its
@@ -130,15 +131,18 @@ public static class CommandCatalog
     };
 
     /// <summary>
-    /// Leaf verbs whose effect cannot be undone from the CLI (a subset of
-    /// <see cref="MutatingVerbs"/>). These are the commands the executor gates behind a
-    /// confirmation prompt / <c>--yes</c> (#70). Reversible writes (trash/move/copy/publish) are
-    /// deliberately excluded (#84).
+    /// Leaf verbs the executor gates behind a confirmation prompt / <c>--yes</c> (a subset of
+    /// <see cref="MutatingVerbs"/>). Covers irreversible ops (<c>delete</c>,
+    /// <c>empty-recycle-bin</c>) and the high-impact reversible <c>unpublish</c> (#82). Keep this
+    /// in lockstep with the commands that pass a <c>confirmationPrompt</c> so the catalog's
+    /// "needs --yes" signal stays truthful. Low-impact reversible writes (trash/move/copy/publish)
+    /// are excluded (#84).
     /// </summary>
     private static readonly HashSet<string> DestructiveVerbs = new(StringComparer.OrdinalIgnoreCase)
     {
         "delete",
         "empty-recycle-bin",
+        "unpublish",
     };
 
     private static CommandCatalogArgument DescribeArgument(Argument argument) =>
