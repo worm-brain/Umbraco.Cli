@@ -188,25 +188,164 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    public async Task<UmbracoResponse<ContentItemResponse>> CreateContentAsync(
+    /// <summary>
+    /// Resolves a document-type reference - an alias (e.g. <c>textPage</c>) or a GUID id - to
+    /// its id, which is what the generated create model requires. A value that parses as a GUID
+    /// is used directly. Otherwise the alias is resolved via the document-type item search;
+    /// because the search result model carries only name/id (not alias), each candidate's full
+    /// document type is fetched and its alias compared exactly. This mirrors the proven template
+    /// alias resolver (<see cref="GetTemplateByAliasAsync"/>), which relies on the same item
+    /// search indexing aliases - with the one extra by-id fetch the doc-type item model forces.
+    /// See ADR 0004.
+    /// </summary>
+    /// <param name="aliasOrId">The document-type alias or id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The resolved document-type id.</returns>
+    /// <exception cref="ApiException">No document type matches the alias (mapped to a 404).</exception>
+    private async Task<Guid> ResolveDocumentTypeIdAsync(string aliasOrId, CancellationToken ct)
+    {
+        if (Guid.TryParse(aliasOrId, out var parsed))
+            return parsed;
+
+        var search = await _api.Umbraco.Management.Api.V1.Item.DocumentType.Search.GetAsync(
+            c =>
+            {
+                c.QueryParameters.Query = aliasOrId;
+                c.QueryParameters.Take = 100;
+            },
+            ct
+        );
+        foreach (var item in search?.Items ?? [])
+        {
+            if (item.Id is not { } candidateId)
+                continue;
+            // The search item omits Alias, so read the full document type to compare it.
+            var dt = await _api
+                .Umbraco.Management.Api.V1.DocumentType[candidateId]
+                .GetAsync(cancellationToken: ct);
+            if (string.Equals(dt?.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase))
+                return candidateId;
+        }
+
+        throw NotFound($"No document type found with alias '{aliasOrId}'.");
+    }
+
+    /// <summary>
+    /// Creates a content item via <c>POST document</c> (generated client, #79). The document
+    /// type is passed by alias, which is resolved to an id first (the generated model references
+    /// the type by id only). The id is client-generated so the new item's id is known despite
+    /// the empty <c>201</c> body, and the item is re-read afterwards so the returned payload is
+    /// fully hydrated (name/url), closing the content half of #74. A failed hydration read still
+    /// returns success with the id - the create itself succeeded.
+    /// </summary>
+    /// <param name="request">The content to create (document type by alias, variants, values).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created content item, hydrated where possible, or a mapped failure.</returns>
+    public Task<UmbracoResponse<ContentItemResponse>> CreateContentAsync(
         CreateContentRequest request,
         CancellationToken ct = default
     ) =>
-        await PostAsync<CreateContentRequest, ContentItemResponse>(
-            "umbraco/management/api/v1/document",
-            request,
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                // A GUID on the request is used directly; otherwise resolve the alias to an id.
+                var reference =
+                    request.ContentType.Id != Guid.Empty
+                        ? request.ContentType.Id.ToString()
+                        : request.ContentType.Alias;
+                var documentTypeId = await ResolveDocumentTypeIdAsync(reference, ct);
+
+                var id = Guid.NewGuid();
+                var body = new Gen.CreateDocumentRequestModel
+                {
+                    Id = id,
+                    DocumentType = new Gen.ReferenceByIdModel { Id = documentTypeId },
+                    Parent = request.Parent is { } p
+                        ? new Gen.ReferenceByIdModel { Id = p.Id }
+                        : null,
+                    Variants = request
+                        .Variants.Select(v => new Gen.DocumentVariantRequestModel
+                        {
+                            Name = v.Name,
+                            Culture = v.Culture,
+                            Segment = v.Segment,
+                        })
+                        .ToList(),
+                    Values = request
+                        .Values.Select(cv => new Gen.DocumentValueModel
+                        {
+                            Alias = cv.Alias,
+                            Culture = cv.Culture,
+                            Segment = cv.Segment,
+                            Value = UntypedNodeFactory.FromValue(cv.Value),
+                        })
+                        .ToList(),
+                };
+                await _api.Umbraco.Management.Api.V1.Document.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+
+                // Best-effort hydration (#74): re-read so name/url are populated, not just the id.
+                var hydrated = await GetContentByIdAsync(id, ct);
+                if (hydrated.IsSuccess && hydrated.Data is { } data)
+                    return data;
+                return new ContentItemResponse
+                {
+                    Id = id,
+                    Name = request.Variants.FirstOrDefault()?.Name ?? "",
+                };
+            }
         );
 
-    public async Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(
+    /// <summary>
+    /// Updates a content item via <c>PUT document/{id}</c> (generated client, #79). The PUT
+    /// replaces the item's variants and property values, then the item is re-read so the
+    /// returned payload is hydrated (#74). A failed hydration read still returns success.
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="request">The variants and property values to write.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The updated content item, hydrated where possible, or a mapped failure.</returns>
+    public Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(
         Guid id,
         UpdateContentRequest request,
         CancellationToken ct = default
     ) =>
-        await PutAsync<UpdateContentRequest, ContentItemResponse>(
-            $"umbraco/management/api/v1/document/{id}",
-            request,
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.UpdateDocumentRequestModel
+                {
+                    Variants = request
+                        .Variants.Select(v => new Gen.DocumentVariantRequestModel
+                        {
+                            Name = v.Name,
+                            Culture = v.Culture,
+                            Segment = v.Segment,
+                        })
+                        .ToList(),
+                    Values = request
+                        .Values.Select(cv => new Gen.DocumentValueModel
+                        {
+                            Alias = cv.Alias,
+                            Culture = cv.Culture,
+                            Segment = cv.Segment,
+                            Value = UntypedNodeFactory.FromValue(cv.Value),
+                        })
+                        .ToList(),
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Document[id]
+                    .PutAsync(body, cancellationToken: ct);
+
+                var hydrated = await GetContentByIdAsync(id, ct);
+                if (hydrated.IsSuccess && hydrated.Data is { } data)
+                    return data;
+                return new ContentItemResponse { Id = id };
+            }
         );
 
     /// <summary>Deletes a content item via <c>DELETE document/{id}</c> (generated client).</summary>
@@ -228,33 +367,71 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    public async Task<UmbracoResponse<Empty>> PublishContentAsync(
+    /// <summary>
+    /// Publishes a content item via <c>PUT document/{id}/publish</c> (generated client, #79).
+    /// Each culture is sent as a publish schedule with no scheduled time (publish now); the
+    /// default <c>"*"</c> publishes all cultures (Umbraco's wildcard - there is no dedicated
+    /// enum for it).
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">Cultures to publish; null/empty publishes all cultures (<c>"*"</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> PublishContentAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
         CancellationToken ct = default
-    )
-    {
-        var schedules = (cultures ?? ["*"]).Select(c => new PublishSchedule { Culture = c });
-        return await PutAsync<PublishContentRequest, Empty>(
-            $"umbraco/management/api/v1/document/{id}/publish",
-            new PublishContentRequest { PublishSchedules = schedules },
-            ct
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.PublishDocumentRequestModel
+                {
+                    PublishSchedules = (cultures ?? ["*"])
+                        .Select(c => new Gen.CultureAndScheduleRequestModel
+                        {
+                            Culture = c,
+                            // No PublishTime/UnpublishTime = publish immediately.
+                            Schedule = new Gen.ScheduleRequestModel(),
+                        })
+                        .ToList(),
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Document[id]
+                    .Publish.PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
         );
-    }
 
-    public async Task<UmbracoResponse<Empty>> UnpublishContentAsync(
+    /// <summary>
+    /// Unpublishes a content item via <c>PUT document/{id}/unpublish</c> (generated client, #79).
+    /// The unpublish payload is a plain list of cultures (distinct from publish's schedule list);
+    /// the default <c>"*"</c> unpublishes all cultures.
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">Cultures to unpublish; null/empty unpublishes all cultures (<c>"*"</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> UnpublishContentAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
         CancellationToken ct = default
-    )
-    {
-        var schedules = (cultures ?? ["*"]).Select(c => new PublishSchedule { Culture = c });
-        return await PutAsync<PublishContentRequest, Empty>(
-            $"umbraco/management/api/v1/document/{id}/unpublish",
-            new PublishContentRequest { PublishSchedules = schedules },
-            ct
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.UnpublishDocumentRequestModel
+                {
+                    Cultures = (cultures ?? ["*"]).ToList(),
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Document[id]
+                    .Unpublish.PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
         );
-    }
 
     // ── Document Versions ──────────────────────────────────────────────────────
 
