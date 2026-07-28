@@ -1,0 +1,119 @@
+using System.Text.Json;
+using Microsoft.Kiota.Abstractions.Serialization;
+
+namespace Umbraco.Cli.Client;
+
+/// <summary>
+/// Converts arbitrary JSON (a <see cref="JsonElement"/>) into the Kiota
+/// <see cref="UntypedNode"/> tree required by the generated content/media/member request
+/// models (their <c>Value</c> properties are typed as <see cref="UntypedNode"/>, not plain
+/// objects). Property-editor values in Umbraco are arbitrarily shaped JSON - a string, a
+/// number, a boolean, an array, or a nested object (block-list editors store large
+/// structures) - so the conversion is fully recursive.
+/// </summary>
+/// <remarks>
+/// Kiota exposes no public <see cref="JsonElement"/> -&gt; <see cref="UntypedNode"/> factory,
+/// so this is hand-written. Objects, arrays, strings, booleans and null map losslessly.
+/// Numbers are the only ambiguous case: JSON numbers are untyped but an
+/// <see cref="UntypedNode"/> must carry a concrete .NET value, and Kiota re-serializes from
+/// that value onto the wire. We map by narrowest faithful type - <see cref="int"/> then
+/// <see cref="long"/> then <see cref="decimal"/> - so common Umbraco payloads round-trip
+/// without precision loss (<see cref="decimal"/> avoids the rounding a <see cref="double"/>
+/// would introduce for money-like values). See ADR 0004.
+/// </remarks>
+public static class UntypedNodeFactory
+{
+    /// <summary>
+    /// Converts a boxed property value into an <see cref="UntypedNode"/>. Property values
+    /// reach the client either already boxed as a <see cref="JsonElement"/> (when a request
+    /// was deserialized from a <c>--json-body</c>) or as a raw CLR value (when built in
+    /// code); both are handled uniformly.
+    /// </summary>
+    /// <param name="value">The property value: <see langword="null"/>, a
+    /// <see cref="JsonElement"/>, or any JSON-serializable CLR object.</param>
+    /// <returns>The equivalent <see cref="UntypedNode"/> tree. A <see langword="null"/> value
+    /// yields an <see cref="UntypedNull"/>.</returns>
+    public static UntypedNode FromValue(object? value)
+    {
+        return value switch
+        {
+            null => new UntypedNull(),
+            JsonElement element => FromJsonElement(element),
+            // Any other CLR value is normalised through the JSON model first, so the same
+            // recursive mapping applies regardless of how the value was constructed.
+            _ => FromJsonElement(JsonSerializer.SerializeToElement(value)),
+        };
+    }
+
+    /// <summary>
+    /// Recursively converts a <see cref="JsonElement"/> into its <see cref="UntypedNode"/>
+    /// equivalent.
+    /// </summary>
+    /// <param name="element">The JSON element to convert.</param>
+    /// <returns>The equivalent <see cref="UntypedNode"/>: <see cref="UntypedObject"/>,
+    /// <see cref="UntypedArray"/>, <see cref="UntypedString"/>, one of the numeric node
+    /// types, <see cref="UntypedBoolean"/>, or <see cref="UntypedNull"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The element has a
+    /// <see cref="JsonValueKind"/> the converter does not recognise.</exception>
+    public static UntypedNode FromJsonElement(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                // Preserve property order and keys; recurse into each value.
+                var members = new Dictionary<string, UntypedNode>();
+                foreach (var property in element.EnumerateObject())
+                    members[property.Name] = FromJsonElement(property.Value);
+                return new UntypedObject(members);
+
+            case JsonValueKind.Array:
+                // Recurse into each element, preserving order.
+                var items = new List<UntypedNode>();
+                foreach (var item in element.EnumerateArray())
+                    items.Add(FromJsonElement(item));
+                return new UntypedArray(items);
+
+            case JsonValueKind.String:
+                return new UntypedString(element.GetString());
+
+            case JsonValueKind.Number:
+                return FromNumber(element);
+
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                return new UntypedBoolean(element.GetBoolean());
+
+            case JsonValueKind.Null:
+            case JsonValueKind.Undefined:
+                return new UntypedNull();
+
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(element),
+                    element.ValueKind,
+                    "Unsupported JSON value kind."
+                );
+        }
+    }
+
+    /// <summary>
+    /// Maps a JSON number to the narrowest faithful numeric <see cref="UntypedNode"/>:
+    /// an integer fitting <see cref="int"/> becomes an <see cref="UntypedInteger"/>, a larger
+    /// integer an <see cref="UntypedLong"/>, and a non-integer an <see cref="UntypedDecimal"/>
+    /// (falling back to <see cref="UntypedDouble"/> only for values outside
+    /// <see cref="decimal"/>'s range). See ADR 0004 for the rationale.
+    /// </summary>
+    /// <param name="element">A JSON element whose kind is <see cref="JsonValueKind.Number"/>.</param>
+    /// <returns>The narrowest numeric node that preserves the value.</returns>
+    private static UntypedNode FromNumber(JsonElement element)
+    {
+        if (element.TryGetInt32(out var i))
+            return new UntypedInteger(i);
+        if (element.TryGetInt64(out var l))
+            return new UntypedLong(l);
+        if (element.TryGetDecimal(out var m))
+            return new UntypedDecimal(m);
+        // Out of decimal's range (e.g. very large exponents); double is the last resort.
+        return new UntypedDouble(element.GetDouble());
+    }
+}
