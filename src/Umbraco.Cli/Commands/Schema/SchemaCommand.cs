@@ -25,7 +25,7 @@ public static class SchemaCommand
         );
         cmd.Add(SchemaExportCommand.Build(executor));
         cmd.Add(SchemaDiffCommand.Build(executor));
-        // apply is wired in its slice (ADR 0004 approach §5).
+        cmd.Add(SchemaApplyCommand.Build(executor));
         return cmd;
     }
 }

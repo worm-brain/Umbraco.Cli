@@ -128,6 +128,9 @@ public static class CommandCatalog
         "empty-recycle-bin",
         "publish-descendants",
         "invite",
+        // schema apply writes (create/update, and delete under --prune) — #68. schema export
+        // and diff are reads and are deliberately absent.
+        "apply",
     };
 
     /// <summary>
@@ -143,6 +146,9 @@ public static class CommandCatalog
         "delete",
         "empty-recycle-bin",
         "unpublish",
+        // NOTE: `apply` is deliberately NOT here. A plain `schema apply` (create + update) is not
+        // gated, so classifying it as always-needs-`--yes` would be untruthful. Its destructive
+        // form is opt-in via `--prune`, whose gating is documented on that option (#68).
     };
 
     private static CommandCatalogArgument DescribeArgument(Argument argument) =>
