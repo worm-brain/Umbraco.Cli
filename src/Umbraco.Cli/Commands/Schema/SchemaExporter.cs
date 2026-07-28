@@ -17,12 +17,6 @@ namespace Umbraco.Cli.Commands.Schema;
 public static class SchemaExporter
 {
     /// <summary>
-    /// Page size for enumerating each entity tree. Larger than the interactive default (20) to
-    /// keep the number of list round-trips small on real installs.
-    /// </summary>
-    private const int PageSize = 100;
-
-    /// <summary>
     /// Exports the full schema (document types, data types, templates) of the instance behind
     /// <paramref name="client"/> into a snapshot.
     /// </summary>
@@ -35,24 +29,21 @@ public static class SchemaExporter
     )
     {
         var docTypes = await CollectAsync(
-            (skip, take) => client.GetDocumentTypesAsync(skip, take, ct),
-            item => item.Id,
+            () => client.GetDocumentTypeIdsAsync(ct),
             id => client.GetDocumentTypeRawAsync(id, ct)
         );
         if (!docTypes.IsSuccess)
             return Fail(docTypes);
 
         var dataTypes = await CollectAsync(
-            (skip, take) => client.GetDataTypesAsync(skip, take, ct),
-            item => item.Id,
+            () => client.GetDataTypeIdsAsync(ct),
             id => client.GetDataTypeRawAsync(id, ct)
         );
         if (!dataTypes.IsSuccess)
             return Fail(dataTypes);
 
         var templates = await CollectAsync(
-            (skip, take) => client.GetTemplatesAsync(skip, take, ct),
-            item => item.Id,
+            () => client.GetTemplateIdsAsync(ct),
             id => client.GetTemplateRawAsync(id, ct)
         );
         if (!templates.IsSuccess)
@@ -69,41 +60,24 @@ public static class SchemaExporter
     }
 
     /// <summary>
-    /// Enumerates every entity of one kind (paging the list) and reads each one's raw body.
+    /// Enumerates every entity id of one kind (the client walks the tree, skipping folders and
+    /// recursing nested entities) and reads each one's raw body.
     /// </summary>
-    /// <typeparam name="TItem">The list item type (carries the id).</typeparam>
-    /// <param name="listPage">Reads one page of list items for a given skip/take.</param>
-    /// <param name="idOf">Extracts the entity id from a list item.</param>
+    /// <param name="listIds">Enumerates every entity id of the kind.</param>
     /// <param name="getRaw">Reads one entity's verbatim body by id.</param>
     /// <returns>Every entity's raw body, or the first failure.</returns>
-    private static async Task<UmbracoResponse<List<JsonNode>>> CollectAsync<TItem>(
-        Func<int, int, Task<UmbracoResponse<PagedResponse<TItem>>>> listPage,
-        Func<TItem, Guid> idOf,
+    private static async Task<UmbracoResponse<List<JsonNode>>> CollectAsync(
+        Func<Task<UmbracoResponse<IReadOnlyList<Guid>>>> listIds,
         Func<Guid, Task<UmbracoResponse<JsonNode>>> getRaw
     )
     {
-        // 1) Enumerate all ids by paging the tree root until we have every item.
-        var ids = new List<Guid>();
-        var skip = 0;
-        while (true)
-        {
-            var page = await listPage(skip, PageSize);
-            if (!page.IsSuccess)
-                return UmbracoResponse<List<JsonNode>>.Failure(page.StatusCode, page.ErrorMessage!);
+        var ids = await listIds();
+        if (!ids.IsSuccess)
+            return UmbracoResponse<List<JsonNode>>.Failure(ids.StatusCode, ids.ErrorMessage!);
 
-            var items = page.Data?.Items?.ToList() ?? [];
-            ids.AddRange(items.Select(idOf));
-
-            skip += items.Count;
-            // Stop when this page was empty (defensive against a wrong Total) or we've reached
-            // the reported total. Both guard against an infinite loop.
-            if (items.Count == 0 || skip >= (page.Data?.Total ?? ids.Count))
-                break;
-        }
-
-        // 2) Fetch the full body for each id, preserving enumeration order for stable output.
-        var bodies = new List<JsonNode>(ids.Count);
-        foreach (var id in ids)
+        // Fetch the full body for each id, preserving enumeration order for stable output.
+        var bodies = new List<JsonNode>(ids.Data!.Count);
+        foreach (var id in ids.Data!)
         {
             var raw = await getRaw(id);
             if (!raw.IsSuccess)

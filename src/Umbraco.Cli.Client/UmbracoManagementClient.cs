@@ -1894,6 +1894,196 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     // honoured on schema apply exactly as on any other write. The endpoints are the standard
     // by-id/collection routes (not the lossy tree/by-id mappers).
 
+    /// <summary>Page size for walking a schema tree during enumeration.</summary>
+    private const int TreePageSize = 100;
+
+    /// <summary>A tree node normalised across the three kinds' generated tree-item models.</summary>
+    /// <param name="Id">The node id.</param>
+    /// <param name="IsFolder">Whether the node is an organisational folder (skipped from results, still recursed).</param>
+    /// <param name="HasChildren">Whether the node has children to recurse into.</param>
+    private readonly record struct TreeNode(Guid Id, bool IsFolder, bool HasChildren);
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetDocumentTypeIdsAsync(
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync<IReadOnlyList<Guid>>(
+            ct,
+            async () => await WalkTreeAsync(FetchDocumentTypeTree, parent: null, ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetDataTypeIdsAsync(
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync<IReadOnlyList<Guid>>(
+            ct,
+            async () => await WalkTreeAsync(FetchDataTypeTree, parent: null, ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetTemplateIdsAsync(
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync<IReadOnlyList<Guid>>(
+            ct,
+            async () => await WalkTreeAsync(FetchTemplateTree, parent: null, ct)
+        );
+
+    /// <summary>
+    /// Recursively enumerates a schema tree, returning the ids of every non-folder entity.
+    /// Folders are not returned (they are not gettable as the entity) but are descended into;
+    /// entities with children are also descended into (templates nest by inheritance). Each
+    /// level is paged. The recursion depth is bounded by the tree's real nesting, which is
+    /// shallow in practice.
+    /// </summary>
+    /// <param name="fetch">Fetches one page of tree nodes under a parent (null = root).</param>
+    /// <param name="parent">The parent id to list children of, or null for the tree root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every non-folder entity id beneath <paramref name="parent"/>.</returns>
+    private static async Task<List<Guid>> WalkTreeAsync(
+        Func<Guid?, int, int, CancellationToken, Task<(List<TreeNode> Items, int Total)>> fetch,
+        Guid? parent,
+        CancellationToken ct
+    )
+    {
+        var ids = new List<Guid>();
+        var skip = 0;
+        while (true)
+        {
+            var (items, total) = await fetch(parent, skip, TreePageSize, ct);
+            foreach (var node in items)
+            {
+                if (!node.IsFolder)
+                    ids.Add(node.Id);
+                if (node.HasChildren)
+                    ids.AddRange(await WalkTreeAsync(fetch, node.Id, ct));
+            }
+
+            skip += items.Count;
+            // Stop on an empty page (defensive) or once the reported total is covered.
+            if (items.Count == 0 || skip >= total)
+                break;
+        }
+        return ids;
+    }
+
+    /// <summary>Fetches one page of the document-type tree (root when <paramref name="parent"/> is null).</summary>
+    private async Task<(List<TreeNode>, int)> FetchDocumentTypeTree(
+        Guid? parent,
+        int skip,
+        int take,
+        CancellationToken ct
+    )
+    {
+        Gen.PagedDocumentTypeTreeItemResponseModel? paged;
+        if (parent is null)
+            paged = await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Root.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+        else
+            paged = await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Children.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.ParentId = parent;
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+
+        var items = (paged?.Items ?? [])
+            .Select(i => new TreeNode(
+                i.Id ?? Guid.Empty,
+                i.IsFolder ?? false,
+                i.HasChildren ?? false
+            ))
+            .ToList();
+        return (items, (int)(paged?.Total ?? 0));
+    }
+
+    /// <summary>Fetches one page of the data-type tree (root when <paramref name="parent"/> is null).</summary>
+    private async Task<(List<TreeNode>, int)> FetchDataTypeTree(
+        Guid? parent,
+        int skip,
+        int take,
+        CancellationToken ct
+    )
+    {
+        Gen.PagedDataTypeTreeItemResponseModel? paged;
+        if (parent is null)
+            paged = await _api.Umbraco.Management.Api.V1.Tree.DataType.Root.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+        else
+            paged = await _api.Umbraco.Management.Api.V1.Tree.DataType.Children.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.ParentId = parent;
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+
+        var items = (paged?.Items ?? [])
+            .Select(i => new TreeNode(
+                i.Id ?? Guid.Empty,
+                i.IsFolder ?? false,
+                i.HasChildren ?? false
+            ))
+            .ToList();
+        return (items, (int)(paged?.Total ?? 0));
+    }
+
+    /// <summary>
+    /// Fetches one page of the template tree. Templates are never foldered (they nest by
+    /// inheritance), so every node is a real template (<c>IsFolder</c> is always false).
+    /// </summary>
+    private async Task<(List<TreeNode>, int)> FetchTemplateTree(
+        Guid? parent,
+        int skip,
+        int take,
+        CancellationToken ct
+    )
+    {
+        Gen.PagedNamedEntityTreeItemResponseModel? paged;
+        if (parent is null)
+            paged = await _api.Umbraco.Management.Api.V1.Tree.Template.Root.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+        else
+            paged = await _api.Umbraco.Management.Api.V1.Tree.Template.Children.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.ParentId = parent;
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+
+        var items = (paged?.Items ?? [])
+            .Select(i => new TreeNode(i.Id ?? Guid.Empty, IsFolder: false, i.HasChildren ?? false))
+            .ToList();
+        return (items, (int)(paged?.Total ?? 0));
+    }
+
     /// <inheritdoc />
     public Task<UmbracoResponse<JsonNode>> GetDocumentTypeRawAsync(
         Guid id,

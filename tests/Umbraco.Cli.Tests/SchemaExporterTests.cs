@@ -56,9 +56,10 @@ public class SchemaExporterTests
     }
 
     [Fact]
-    public async Task ExportAsync_EnumeratesEveryPage()
+    public async Task ExportAsync_ReadsABodyForEveryEnumeratedId()
     {
-        // 150 entities > one 100-item page: the exporter must keep paging until Total is met.
+        // The client enumerates all ids (tree-walk/paging lives there); the exporter must read a
+        // full body for every one of them. 150 proves it does not stop early.
         var fake = new FakeUmbracoManagementClient();
         for (var i = 0; i < 150; i++)
         {

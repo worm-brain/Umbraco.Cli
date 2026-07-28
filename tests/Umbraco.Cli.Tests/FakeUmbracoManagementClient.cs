@@ -463,6 +463,31 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>When set, a raw create/update returns this failure instead of success (error-path tests).</summary>
     public UmbracoResponse<Empty>? RawWriteFailure { get; set; }
 
+    // Enumeration returns the ids of the configured tree lists (the production client walks the
+    // real tree, skipping folders; the fake's lists already hold only real entities).
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetDocumentTypeIdsAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<IReadOnlyList<Guid>>.Success(
+                DocumentTypeList.Select(d => d.Id).ToList()
+            )
+        );
+
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetDataTypeIdsAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<IReadOnlyList<Guid>>.Success(DataTypeList.Select(d => d.Id).ToList())
+        );
+
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetTemplateIdsAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<IReadOnlyList<Guid>>.Success(TemplateList.Select(t => t.Id).ToList())
+        );
+
     private static Task<UmbracoResponse<JsonNode>> Raw(Dictionary<Guid, JsonNode> store, Guid id) =>
         Task.FromResult(
             store.TryGetValue(id, out var node)

@@ -20,6 +20,34 @@ namespace Umbraco.Cli.Client;
 /// </summary>
 public interface ISchemaClient
 {
+    /// <summary>
+    /// Enumerates the ids of <b>every</b> document type, walking the whole tree (issue #68).
+    /// The tree contains organisational <b>folders</b> as well as document types, and document
+    /// types can be nested inside folders — so this recurses through children and returns only
+    /// real document-type ids (folders are descended into but never returned). This is why the
+    /// typed <see cref="GetDocumentTypesAsync"/> (a single tree-root page, folders included) is
+    /// unsuitable for export.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every document-type id, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<Guid>>> GetDocumentTypeIdsAsync(
+        CancellationToken ct = default
+    );
+
+    /// <summary>Enumerates the ids of every data type, recursing the tree and skipping folders (#68).</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every data-type id, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<Guid>>> GetDataTypeIdsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Enumerates the ids of every template, recursing the tree (#68). Templates nest by
+    /// inheritance (a master template's children are the templates that inherit it), so nested
+    /// items are real templates and are returned, not skipped.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every template id, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<Guid>>> GetTemplateIdsAsync(CancellationToken ct = default);
+
     /// <summary>Reads the verbatim <c>GET /document-type/{id}</c> body.</summary>
     /// <param name="id">The document type id.</param>
     /// <param name="ct">Cancellation token.</param>
