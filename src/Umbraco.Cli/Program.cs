@@ -89,7 +89,16 @@ var root = new RootCommand(
 globalOptions.AddTo(root);
 
 // ── Sub-commands ──────────────────────────────────────────────────────────────
-root.Add(AuthCommand.Build(globalOptions, configStore, authService, executor));
+root.Add(
+    AuthCommand.Build(
+        globalOptions,
+        configStore,
+        authService,
+        executor,
+        sp.GetRequiredService<IHttpClientFactory>(),
+        sp.GetRequiredService<IUmbracoManagementClientFactory>()
+    )
+);
 root.Add(ContentCommand.Build(executor));
 root.Add(MediaCommand.Build(executor));
 root.Add(MediaTypesCommand.Build(executor));

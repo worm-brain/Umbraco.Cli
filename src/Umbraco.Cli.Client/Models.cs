@@ -898,6 +898,14 @@ public record CreateWebhookRequest
     /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
     public Guid? Id { get; init; }
 
+    /// <summary>Optional human-readable name for the webhook (#80).</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    /// <summary>Optional description for the webhook (#80).</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
     [JsonPropertyName("url")]
     public required string Url { get; init; }
 

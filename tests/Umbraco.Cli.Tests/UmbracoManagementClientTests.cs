@@ -191,6 +191,30 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task CreateWebhookAsync_WithNameAndDescription_EchoesAndSendsThem()
+    {
+        // #80: name/description are sent in the request body and echoed on the response (the
+        // 201 has an empty body, so the echo is what the command reports).
+        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+
+        var result = await client.CreateWebhookAsync(
+            new CreateWebhookRequest
+            {
+                Url = "https://example.com/hook",
+                Events = ["ContentPublished"],
+                Name = "My Hook",
+                Description = "Fires on publish",
+            },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("My Hook", result.Data!.Name);
+        Assert.Equal("Fires on publish", result.Data.Description);
+        Assert.Contains("My Hook", handler.RequestBodies[0]!); // sent, not just echoed
+    }
+
+    [Fact]
     public async Task CreateWebhookAsync_WithSuppliedId_UsesThatId()
     {
         // #86: a caller-supplied id enables idempotent creates — it must be used verbatim

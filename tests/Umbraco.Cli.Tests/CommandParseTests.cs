@@ -51,7 +51,16 @@ public class CommandParseTests
         var root = new RootCommand("Umbraco CLI");
         globalOptions.AddTo(root);
 
-        root.Add(AuthCommand.Build(globalOptions, configStore, authService, executor));
+        root.Add(
+            AuthCommand.Build(
+                globalOptions,
+                configStore,
+                authService,
+                executor,
+                stub,
+                new UmbracoManagementClientFactory()
+            )
+        );
         root.Add(ContentCommand.Build(executor));
         root.Add(MediaCommand.Build(executor));
         root.Add(MediaTypesCommand.Build(executor));
@@ -142,7 +151,7 @@ public class CommandParseTests
         new[] { "list", "get", "upload", "delete", "trash", "restore", "empty-recycle-bin", "move" }
     )]
     [InlineData("media-types", new[] { "list", "get", "create", "delete" })]
-    [InlineData("auth", new[] { "login", "logout", "whoami" })]
+    [InlineData("auth", new[] { "login", "logout", "whoami", "doctor" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)
     {
         var root = BuildRoot();
@@ -227,6 +236,9 @@ public class CommandParseTests
     [InlineData(
         "webhooks create --url https://x.com/h --events A --id 3f7a8b2e-1234-5678-abcd-ef0123456789"
     )] // #86 --id
+    [InlineData(
+        "webhooks create --url https://x.com/h --events A --name Hook --description \"on publish\""
+    )] // #80 --name/--description
     [InlineData("dictionary create --key K --id 3f7a8b2e-1234-5678-abcd-ef0123456789")] // #86 --id
     [InlineData("media-types create --name X --alias x --id 3f7a8b2e-1234-5678-abcd-ef0123456789")] // #86 --id
     [InlineData(
@@ -243,6 +255,8 @@ public class CommandParseTests
     [InlineData("auth login --host https://example.com --client-id foo --client-secret bar")]
     [InlineData("auth logout")]
     [InlineData("auth whoami")]
+    [InlineData("auth doctor")]
+    [InlineData("auth doctor --output json")]
     public void ValidArgs_ProduceNoParseErrors(string args)
     {
         Assert.False(HasErrors(args), $"Unexpected parse errors for: {args}");

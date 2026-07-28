@@ -1984,6 +1984,8 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
                 var body = new Gen.CreateWebhookRequestModel
                 {
                     Id = id,
+                    Name = request.Name,
+                    Description = request.Description,
                     Url = request.Url,
                     Events = request.Events.ToList(),
                     Enabled = request.Enabled,
@@ -1994,6 +1996,8 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
                 return new WebhookResponse
                 {
                     Id = id,
+                    Name = request.Name,
+                    Description = request.Description,
                     Url = request.Url,
                     Enabled = request.Enabled,
                     Events = request

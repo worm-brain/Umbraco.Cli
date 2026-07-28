@@ -25,9 +25,14 @@ public static class DataTypesListCommand
                             parseResult.GetValue(takeOpt),
                             c
                         ),
-                    ["ID", "Name", "Editor Alias"],
+                    // The data-type tree list carries the editor UI alias, not the backend
+                    // editor alias (which is always blank in the list, #75). Show the UI alias;
+                    // use 'data-types get <id>' for the full backend editor alias.
+                    ["ID", "Name", "Editor UI Alias"],
                     data =>
-                        data?.Items.Select(i => new[] { i.Id.ToString(), i.Name, i.EditorAlias })
+                        data?.Items.Select(i =>
+                            new[] { i.Id.ToString(), i.Name, i.EditorUiAlias ?? "" }
+                        )
                         ?? [],
                     ct
                 )

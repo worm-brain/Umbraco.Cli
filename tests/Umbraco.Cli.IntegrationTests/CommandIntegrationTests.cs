@@ -260,6 +260,21 @@ public sealed class CommandIntegrationTests
     }
 
     [SkippableFact]
+    public void AuthDoctor_AllChecksPassAgainstLiveInstance()
+    {
+        RequireLive();
+        // #66: against a reachable instance with valid credentials, every diagnostic check
+        // passes and the command exits 0. The results array carries one object per check.
+        var result = CliRunner.Run("auth", "doctor");
+        Assert.True(result.Ok, result.Stderr);
+
+        var checks = result.Data().EnumerateArray().ToList();
+        Assert.Contains(checks, c => c.GetProperty("check").GetString() == "Host configured");
+        // No check should be in a hard-failed state on a healthy instance.
+        Assert.DoesNotContain(checks, c => c.GetProperty("status").GetString() == "fail");
+    }
+
+    [SkippableFact]
     public void AuthProfiles_ListsProfilesWithDefault()
     {
         RequireLive();

@@ -324,7 +324,7 @@ umbraco dictionary delete <id>
 
 ```bash
 umbraco webhooks list
-umbraco webhooks create --url <url> --events <csv>
+umbraco webhooks create --url <url> --events <csv> [--name <name>] [--description <text>]
 umbraco webhooks delete <id>
 ```
 
