@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Tests;
@@ -203,11 +204,44 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    // ── Schema list + delete (configurable for the export/diff/apply tests, #68) ──
+    // The three schema list methods page over these backing lists (one page returns every
+    // configured item); tests populate them to drive SchemaExporter. Left empty by default so
+    // an export over an unconfigured fake sees no entities rather than throwing.
+
+    /// <summary>Document-type tree items the paged list returns (id + name feed enumeration).</summary>
+    public List<DocumentTypeResponse> DocumentTypeList { get; } = [];
+
+    /// <summary>Data-type tree items the paged list returns.</summary>
+    public List<DataTypeResponse> DataTypeList { get; } = [];
+
+    /// <summary>Template tree items the paged list returns.</summary>
+    public List<TemplateResponse> TemplateList { get; } = [];
+
+    /// <summary>Ids passed to any schema <c>Delete*Async</c>, in call order.</summary>
+    public List<Guid> SchemaDeletedIds { get; } = [];
+
+    /// <summary>Returns one page of <paramref name="source"/> honouring skip/take, as a success.</summary>
+    private static Task<UmbracoResponse<PagedResponse<T>>> Page<T>(
+        IReadOnlyList<T> source,
+        int skip,
+        int take
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<T>>.Success(
+                new PagedResponse<T>
+                {
+                    Total = source.Count,
+                    Items = source.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+
     public Task<UmbracoResponse<PagedResponse<DocumentTypeResponse>>> GetDocumentTypesAsync(
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) => Page(DocumentTypeList, skip, take);
 
     public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
@@ -222,13 +256,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<Empty>> DeleteDocumentTypeAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        SchemaDeletedIds.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) => Page(DataTypeList, skip, take);
 
     public Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
         Guid id,
@@ -246,10 +284,11 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<Empty>> DeleteDataTypeAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> DeleteDataTypeAsync(Guid id, CancellationToken ct = default)
+    {
+        SchemaDeletedIds.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<IEnumerable<LanguageResponse>>> GetLanguagesAsync(
         CancellationToken ct = default
@@ -275,7 +314,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) => Page(TemplateList, skip, take);
 
     public Task<UmbracoResponse<TemplateResponse>> GetTemplateByAliasAsync(
         string alias,
@@ -293,10 +332,11 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<Empty>> DeleteTemplateAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    public Task<UmbracoResponse<Empty>> DeleteTemplateAsync(Guid id, CancellationToken ct = default)
+    {
+        SchemaDeletedIds.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<MemberResponse>>> GetMembersAsync(
         string? group = null,
@@ -399,4 +439,88 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         Guid id,
         CancellationToken ct = default
     ) => throw new NotImplementedException();
+
+    // ── Schema raw-JSON access (ISchemaClient, #68) ────────────────────────────
+    // Backing stores let export tests hand out canned bodies (keyed by id) and apply tests
+    // record every write. A recorded write keeps the entity kind, the target id (null for a
+    // create), and the exact body sent, so a test can assert both the plan and the payload.
+
+    /// <summary>Canned raw bodies returned by <see cref="GetDocumentTypeRawAsync"/>, keyed by id.</summary>
+    public Dictionary<Guid, JsonNode> DocumentTypeRaw { get; } = [];
+
+    /// <summary>Canned raw bodies returned by <see cref="GetDataTypeRawAsync"/>, keyed by id.</summary>
+    public Dictionary<Guid, JsonNode> DataTypeRaw { get; } = [];
+
+    /// <summary>Canned raw bodies returned by <see cref="GetTemplateRawAsync"/>, keyed by id.</summary>
+    public Dictionary<Guid, JsonNode> TemplateRaw { get; } = [];
+
+    /// <summary>One recorded raw write: entity kind, target id (null = create), and body sent.</summary>
+    public sealed record RawWrite(string Kind, Guid? Id, JsonNode Body);
+
+    /// <summary>Every raw create/update the applier performed, in call order.</summary>
+    public List<RawWrite> RawWrites { get; } = [];
+
+    /// <summary>When set, a raw create/update returns this failure instead of success (error-path tests).</summary>
+    public UmbracoResponse<Empty>? RawWriteFailure { get; set; }
+
+    private static Task<UmbracoResponse<JsonNode>> Raw(Dictionary<Guid, JsonNode> store, Guid id) =>
+        Task.FromResult(
+            store.TryGetValue(id, out var node)
+                ? UmbracoResponse<JsonNode>.Success(node)
+                : UmbracoResponse<JsonNode>.Failure(404, $"Not found: {id}")
+        );
+
+    private Task<UmbracoResponse<Empty>> RecordWrite(string kind, Guid? id, JsonNode body)
+    {
+        RawWrites.Add(new RawWrite(kind, id, body));
+        return Task.FromResult(RawWriteFailure ?? UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<JsonNode>> GetDocumentTypeRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => Raw(DocumentTypeRaw, id);
+
+    public Task<UmbracoResponse<JsonNode>> GetDataTypeRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => Raw(DataTypeRaw, id);
+
+    public Task<UmbracoResponse<JsonNode>> GetTemplateRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => Raw(TemplateRaw, id);
+
+    public Task<UmbracoResponse<Empty>> CreateDocumentTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("documentType", null, body);
+
+    public Task<UmbracoResponse<Empty>> UpdateDocumentTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("documentType", id, body);
+
+    public Task<UmbracoResponse<Empty>> CreateDataTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("dataType", null, body);
+
+    public Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("dataType", id, body);
+
+    public Task<UmbracoResponse<Empty>> CreateTemplateRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("template", null, body);
+
+    public Task<UmbracoResponse<Empty>> UpdateTemplateRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("template", id, body);
 }

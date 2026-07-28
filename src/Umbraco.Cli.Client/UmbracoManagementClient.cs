@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.Kiota.Abstractions;
 using Microsoft.Kiota.Abstractions.Authentication;
@@ -1882,6 +1883,73 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
                 return Empty.Value;
             }
         );
+
+    // ── Schema (raw-JSON passthrough, #68 / ADR 0004) ──────────────────────────
+    //
+    // Full-fidelity reads/writes for the export/diff/apply pipeline. Unlike the typed
+    // methods above, these carry the verbatim Management-API body as a JsonNode so nothing
+    // is dropped (properties, config values, Razor). Reads reuse the hand-written GetAsync
+    // helper (parsing the body straight into a JsonNode DOM); writes reuse PostAsync/PutAsync
+    // and so flow through the intercepted HttpClient — meaning --dry-run and --readonly are
+    // honoured on schema apply exactly as on any other write. The endpoints are the standard
+    // by-id/collection routes (not the lossy tree/by-id mappers).
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> GetDocumentTypeRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => GetAsync<JsonNode>($"umbraco/management/api/v1/document-type/{id}", ct);
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> GetDataTypeRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => GetAsync<JsonNode>($"umbraco/management/api/v1/data-type/{id}", ct);
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> GetTemplateRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => GetAsync<JsonNode>($"umbraco/management/api/v1/template/{id}", ct);
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> CreateDocumentTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => PostAsync<JsonNode, Empty>("umbraco/management/api/v1/document-type", body, ct);
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> UpdateDocumentTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => PutAsync<JsonNode, Empty>($"umbraco/management/api/v1/document-type/{id}", body, ct);
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> CreateDataTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => PostAsync<JsonNode, Empty>("umbraco/management/api/v1/data-type", body, ct);
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => PutAsync<JsonNode, Empty>($"umbraco/management/api/v1/data-type/{id}", body, ct);
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> CreateTemplateRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => PostAsync<JsonNode, Empty>("umbraco/management/api/v1/template", body, ct);
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> UpdateTemplateRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => PutAsync<JsonNode, Empty>($"umbraco/management/api/v1/template/{id}", body, ct);
 
     // ── Members ──────────────────────────────────────────────────────────────
 
