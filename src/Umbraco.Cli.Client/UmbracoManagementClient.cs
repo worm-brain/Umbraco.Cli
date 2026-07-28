@@ -39,6 +39,13 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     /// <summary>The Kiota-generated Management API client, backed by <see cref="_http"/>.</summary>
     private readonly UmbracoApiClient _api;
 
+    /// <summary>
+    /// The Kiota request adapter backing <see cref="_api"/>. Retained because a
+    /// <see cref="MultipartBody"/> (used for the temporary-file upload) needs an adapter to
+    /// resolve its per-part serializers, and the builder's own adapter is not publicly exposed.
+    /// </summary>
+    private readonly IRequestAdapter _adapter;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -68,6 +75,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         if (http.BaseAddress is not null)
             adapter.BaseUrl = http.BaseAddress.ToString().TrimEnd('/');
 
+        _adapter = adapter;
         _api = new UmbracoApiClient(adapter);
     }
 
@@ -752,22 +760,63 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// Uploads a file as a media item via the Umbraco 14+ two-step flow (issue #57): stage the
-    /// bytes to <c>temporary-file</c>, then create the media item as JSON referencing that
-    /// staged file's id. Staging decouples the (potentially large) byte transfer from the media
-    /// create, so big uploads no longer fail as an oversized single multipart request. Still on
-    /// the hand-written <see cref="_http"/> path (tracked by #79) because it needs multipart
-    /// staging and a media-type name→id resolution the generated client does not wrap cleanly.
+    /// Resolves a media-type reference - a name (e.g. <c>Image</c>) or a GUID id - to its id.
+    /// A value that parses as a GUID is used directly; otherwise it is treated as a media-type
+    /// name and matched (case-insensitively) against the media-type item search. Media types are
+    /// addressed by name here (not alias) because that is the established contract and the search
+    /// item model exposes the name directly (Umbraco's built-in media types are "Image", "File",
+    /// "Folder", ...).
     /// </summary>
-    /// <param name="parentId">Parent media folder id; <see cref="Guid.Empty"/> for the media root.</param>
+    /// <param name="mediaType">The media-type name or id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The resolved media-type id.</returns>
+    /// <exception cref="ApiException">No media type matches the name (mapped to a 404).</exception>
+    private async Task<Guid> ResolveMediaTypeIdAsync(string mediaType, CancellationToken ct)
+    {
+        if (Guid.TryParse(mediaType, out var parsed))
+            return parsed;
+
+        var search = await _api.Umbraco.Management.Api.V1.Item.MediaType.Search.GetAsync(
+            c =>
+            {
+                c.QueryParameters.Query = mediaType;
+                c.QueryParameters.Take = 100;
+            },
+            ct
+        );
+        var match = (search?.Items ?? []).FirstOrDefault(m =>
+            string.Equals(m.Name, mediaType, StringComparison.OrdinalIgnoreCase)
+        );
+        if (match?.Id is not { } id)
+            throw NotFound(
+                $"No media type found with the name '{mediaType}'. Use 'umbraco media-types list' "
+                    + "to find one, or pass a media type id."
+            );
+        return id;
+    }
+
+    /// <summary>
+    /// Uploads a file as a media item via the Umbraco 14+ two-step flow (generated client, #79):
+    /// stage the bytes to <c>temporary-file</c> (multipart), then create the media item as JSON
+    /// referencing that staged file's id in the <c>umbracoFile</c> property value. Staging
+    /// decouples the (potentially large) byte transfer from the media create. The media id is
+    /// client-generated so it is known despite the empty create response.
+    /// </summary>
+    /// <remarks>
+    /// Under <c>--dry-run</c> the mutation interceptor fakes the temporary-file staging without
+    /// forwarding it (so nothing is staged) and previews the media-create POST instead - the
+    /// meaningful operation. This client method is unaware of the dry-run policy; see the
+    /// interceptor and ADR 0004.
+    /// </remarks>
+    /// <param name="parentId">Parent media folder id; null/<see cref="Guid.Empty"/> for the media root.</param>
     /// <param name="name">Display name for the new media item.</param>
     /// <param name="fileStream">The file contents to upload.</param>
     /// <param name="fileName">The original file name (used for the staged file part).</param>
     /// <param name="contentType">The file's MIME type.</param>
-    /// <param name="mediaType">The media type to create the item as: a media type id (GUID) or a media type name (e.g. "Image").</param>
+    /// <param name="mediaType">The media type to create the item as: a media type id (GUID) or name (e.g. "Image").</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created media item (with its id), or a mapped failure.</returns>
-    public async Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(
+    /// <returns>The created media item (id + echoed name), or a mapped failure.</returns>
+    public Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(
         Guid? parentId,
         string name,
         Stream fileStream,
@@ -775,99 +824,51 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         string contentType,
         string mediaType,
         CancellationToken ct = default
-    )
-    {
-        // Step 1: resolve the media type to an id. A GUID is used directly; otherwise the value
-        // is treated as a media type name and resolved via the item search endpoint (Umbraco's
-        // built-in media types are named "Image", "File", "Folder", etc.).
-        Guid mediaTypeId;
-        if (Guid.TryParse(mediaType, out var parsedId))
-        {
-            mediaTypeId = parsedId;
-        }
-        else
-        {
-            var search = await GetAsync<PagedResponse<NamedEntity>>(
-                "umbraco/management/api/v1/item/media-type/search?query="
-                    + Uri.EscapeDataString(mediaType)
-                    + "&take=100",
-                ct
-            );
-            if (!search.IsSuccess)
-                return UmbracoResponse<MediaItemResponse>.Failure(
-                    search.StatusCode,
-                    search.ErrorMessage ?? "Could not resolve the media type."
-                );
-            var match = (search.Data?.Items ?? []).FirstOrDefault(m =>
-                string.Equals(m.Name, mediaType, StringComparison.OrdinalIgnoreCase)
-            );
-            if (match is null)
-                return UmbracoResponse<MediaItemResponse>.Failure(
-                    404,
-                    $"No media type found with the name '{mediaType}'. Use 'umbraco media-types list' "
-                        + "to find one, or pass a media type id."
-                );
-            mediaTypeId = match.Id;
-        }
-
-        // Step 2: stage the file bytes. The temporary-file endpoint takes a multipart form with a
-        // client-generated id ("Id") and the file ("File"); it returns 201 with no body.
-        var temporaryFileId = Guid.NewGuid();
-        using var form = new MultipartFormDataContent
-        {
-            { new StringContent(temporaryFileId.ToString()), "Id" },
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
             {
-                new StreamContent(fileStream)
+                // Step 1: resolve the media type to an id (GUID passthrough, else name search).
+                var mediaTypeId = await ResolveMediaTypeIdAsync(mediaType, ct);
+
+                // Step 2: stage the file bytes to the temporary-file endpoint (multipart form with
+                // a client-generated "Id" part and the "File" part). The Kiota MultipartBody needs
+                // the request adapter to resolve the per-part serializers.
+                var temporaryFileId = Guid.NewGuid();
+                var multipart = new MultipartBody { RequestAdapter = _adapter };
+                multipart.AddOrReplacePart("Id", "text/plain", temporaryFileId.ToString());
+                multipart.AddOrReplacePart("File", contentType, fileStream, fileName);
+                await _api.Umbraco.Management.Api.V1.TemporaryFile.PostAsync(
+                    multipart,
+                    cancellationToken: ct
+                );
+
+                // Step 3: create the media item, pointing umbracoFile at the staged temp file. The
+                // value shape ({ temporaryFileId }) maps to an UntypedNode like any property value.
+                var mediaId = Guid.NewGuid();
+                var body = new Gen.CreateMediaRequestModel
                 {
-                    Headers = { ContentType = MediaTypeHeaderValue.Parse(contentType) },
-                },
-                "File",
-                fileName
-            },
-        };
-        var staged = await SendAsync<Empty>(
-            HttpMethod.Post,
-            "umbraco/management/api/v1/temporary-file",
-            form,
-            ct
-        );
-        if (!staged.IsSuccess)
-            return UmbracoResponse<MediaItemResponse>.Failure(
-                staged.StatusCode,
-                staged.ErrorMessage ?? "Failed to stage the file for upload."
-            );
+                    Id = mediaId,
+                    MediaType = new Gen.ReferenceByIdModel { Id = mediaTypeId },
+                    Parent = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                    Variants = [new Gen.MediaVariantRequestModel { Name = name }],
+                    Values =
+                    [
+                        new Gen.MediaValueModel
+                        {
+                            Alias = "umbracoFile",
+                            Value = UntypedNodeFactory.FromValue(new { temporaryFileId }),
+                        },
+                    ],
+                };
+                await _api.Umbraco.Management.Api.V1.Media.PostAsync(body, cancellationToken: ct);
 
-        // Step 3: create the media item, pointing its umbracoFile property at the staged file.
-        // The id is client-generated so it can be surfaced from the empty 201 body (#43/#74).
-        var mediaId = Guid.NewGuid();
-        var request = new CreateMediaRequest
-        {
-            Id = mediaId,
-            MediaType = new ReferenceById { Id = mediaTypeId },
-            Parent = parentId is { } p ? new ReferenceById { Id = p } : null,
-            Variants = [new MediaVariant { Name = name }],
-            Values = [new MediaValue { Alias = "umbracoFile", Value = new { temporaryFileId } }],
-        };
-        var created = await PostAsync<CreateMediaRequest, MediaItemResponse>(
-            "umbraco/management/api/v1/media",
-            request,
-            ct
+                // The create response is empty; the id is the client-generated one and the name is
+                // echoed so the command reports a populated item rather than a blank one (#74).
+                return new MediaItemResponse { Id = mediaId, Name = name };
+            }
         );
-
-        // The create returns 201 with an empty body (the id may arrive via the Location header,
-        // which hydrates created.Data with just an id). Always echo the intended name so the
-        // command reports the new item's name rather than a blank one (#74); prefer a
-        // server-returned id over the client-generated one when present.
-        if (created.IsSuccess)
-        {
-            var newId = created.Data?.Id is { } cid && cid != Guid.Empty ? cid : mediaId;
-            return UmbracoResponse<MediaItemResponse>.Success(
-                new MediaItemResponse { Id = newId, Name = name },
-                created.StatusCode
-            );
-        }
-        return created;
-    }
 
     /// <summary>Deletes a media item via <c>DELETE media/{id}</c> (generated client).</summary>
     /// <param name="id">The media item id.</param>

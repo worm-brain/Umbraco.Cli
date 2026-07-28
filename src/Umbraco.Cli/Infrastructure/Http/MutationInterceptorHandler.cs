@@ -134,6 +134,18 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
                 request.RequestUri?.ToString() ?? ""
             );
 
+        // Preview (--dry-run): the media upload stages bytes to the temporary-file endpoint
+        // before the media create. That staging is a prerequisite side-effect, not the operation
+        // the user is previewing - and a dry run must stage nothing. So fake a success response
+        // (without forwarding it, so no bytes leave the process) and let the subsequent media
+        // create POST be the mutation that is actually previewed (#62 / ADR 0004).
+        if (IsTemporaryFileStaging(request))
+            return new HttpResponseMessage(System.Net.HttpStatusCode.Created)
+            {
+                Content = new StringContent(""),
+                RequestMessage = request,
+            };
+
         // Preview: capture the request and abort before it is sent.
         var body = await CaptureBodyAsync(request.Content, cancellationToken);
 
@@ -143,6 +155,22 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
             body
         );
     }
+
+    /// <summary>
+    /// Whether a request is the temporary-file staging POST of the two-step media upload. Used to
+    /// let that staging be faked (not forwarded) under <c>--dry-run</c> so the previewed mutation
+    /// is the media create, not the file staging (#62 / ADR 0004).
+    /// </summary>
+    /// <param name="request">The outgoing request.</param>
+    /// <returns>True for a POST to the <c>temporary-file</c> endpoint.</returns>
+    private static bool IsTemporaryFileStaging(HttpRequestMessage request) =>
+        request.Method == HttpMethod.Post
+        && (
+            request.RequestUri?.AbsolutePath.EndsWith(
+                "/temporary-file",
+                StringComparison.OrdinalIgnoreCase
+            ) ?? false
+        );
 
     /// <summary>
     /// Renders the request body for the preview. Only textual bodies (JSON/text/form) are

@@ -816,17 +816,12 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task UploadMediaAsync_WithLocationHeader_StillEchoesName()
+    public async Task UploadMediaAsync_EmptyCreateBody_EchoesClientGeneratedIdAndName()
     {
-        // Review fix: when the media create returns a Location header, created.Data is hydrated
-        // with a non-empty id — the client must still echo the intended name (not blank it) and
-        // surface the server-returned id.
-        var serverId = Guid.NewGuid();
-        var handler = new StubHandler(
-            "",
-            HttpStatusCode.Created,
-            location: $"/umbraco/management/api/v1/media/{serverId}"
-        );
+        // #79: on the generated client the media create is a void POST (empty 201, and Kiota does
+        // not surface the Location header), so the returned id is the client-generated one and the
+        // name is echoed - the returned payload reflects the accepted request, not a re-read.
+        var handler = new StubHandler("", HttpStatusCode.Created);
         var client = new UmbracoManagementClient(
             new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") }
         );
@@ -843,8 +838,8 @@ public class UmbracoManagementClientTests
         );
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Logo", result.Data!.Name); // not blanked
-        Assert.Equal(serverId, result.Data.Id); // server id preferred
+        Assert.Equal("Logo", result.Data!.Name); // echoed, not blanked (#74)
+        Assert.NotEqual(Guid.Empty, result.Data.Id); // client-generated id
     }
 
     [Fact]
