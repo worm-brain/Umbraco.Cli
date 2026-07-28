@@ -110,6 +110,80 @@ public class CommandCatalogTests
     }
 
     [Fact]
+    public void Describe_MarksDestructiveAndMutatingLeafVerbs()
+    {
+        // #84: a leaf `delete` verb is both mutating and destructive; a `create` verb is
+        // mutating but not destructive; the grouping noun is neither.
+        var catalog = CommandCatalog.Describe(BuildSampleTree());
+        var content = catalog.Commands.Single(c => c.Name == "content");
+        var delete = content.Commands.Single(c => c.Name == "delete");
+        var create = content.Commands.Single(c => c.Name == "create");
+
+        Assert.True(delete.Mutating);
+        Assert.True(delete.Destructive);
+        Assert.True(create.Mutating);
+        Assert.False(create.Destructive); // reversible-ish create is not destructive
+        Assert.False(content.Mutating); // the noun groups verbs; it does not run
+        Assert.False(content.Destructive);
+    }
+
+    [Fact]
+    public void Describe_DestructiveVerbsAreAlsoMutating()
+    {
+        // #84 review fix: every destructive verb must also be mutating (Destructive ⊆ Mutating),
+        // so an agent that gates writes on `mutating` never misses a destructive one. Asserted
+        // via the two known destructive verbs through the public Describe surface.
+        var root = new RootCommand();
+        foreach (var verb in new[] { "delete", "empty-recycle-bin" })
+            root.Add(new Command(verb));
+
+        var nodes = CommandCatalog.Describe(root).Commands;
+        Assert.All(
+            nodes,
+            n =>
+            {
+                Assert.True(n.Destructive, $"{n.Name} should be destructive");
+                Assert.True(n.Mutating, $"{n.Name} destructive verb must also be mutating");
+            }
+        );
+    }
+
+    [Fact]
+    public void Describe_OptionWithDefault_HasDefaultTrue()
+    {
+        // #84: an option with a default factory is flagged HasDefault so an agent knows it is
+        // safe to omit.
+        var root = new RootCommand();
+        var noun = new Command("x");
+        noun.Add(new Option<int>("--take") { DefaultValueFactory = _ => 20 });
+        noun.Add(new Option<string>("--name")); // no default
+        root.Add(noun);
+
+        var opts = CommandCatalog.Describe(root).Commands.Single(c => c.Name == "x").Options;
+        Assert.True(opts.Single(o => o.Name == "--take").HasDefault);
+        Assert.False(opts.Single(o => o.Name == "--name").HasDefault);
+    }
+
+    [Fact]
+    public void Describe_AcceptsJsonBody_WhenJsonBodyOptionPresent()
+    {
+        // #84: a command exposing --json-body is flagged, explaining why its field options are
+        // reported required:false (they are alternatives to the body).
+        var root = new RootCommand();
+        var noun = new Command("content");
+        var create = new Command("create");
+        create.Add(new Option<FileInfo?>("--json-body"));
+        noun.Add(create);
+        root.Add(noun);
+
+        var createNode = CommandCatalog
+            .Describe(root)
+            .Commands.Single(c => c.Name == "content")
+            .Commands.Single(c => c.Name == "create");
+        Assert.True(createNode.AcceptsJsonBody);
+    }
+
+    [Fact]
     public void Describe_ArgumentWithDefault_IsNotRequired()
     {
         // An argument that has a default parses fine when omitted, so it is not "required"

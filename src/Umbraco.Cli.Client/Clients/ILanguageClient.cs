@@ -12,6 +12,17 @@ public interface ILanguageClient
         CancellationToken ct = default
     );
 
+    /// <summary>Updates a language by ISO code (issue #59).</summary>
+    /// <param name="isoCode">The ISO code of the language to update.</param>
+    /// <param name="request">The replacement name/flags/fallback.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The updated language, or a mapped failure.</returns>
+    Task<UmbracoResponse<LanguageResponse>> UpdateLanguageAsync(
+        string isoCode,
+        UpdateLanguageRequest request,
+        CancellationToken ct = default
+    );
+
     Task<UmbracoResponse<Empty>> DeleteLanguageAsync(
         string isoCode,
         CancellationToken ct = default

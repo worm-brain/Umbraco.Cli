@@ -256,6 +256,244 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    // ── Document Versions ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Lists a document's version history via <c>GET document-version?documentId=</c>
+    /// (generated client, issue #58).
+    /// </summary>
+    /// <param name="documentId">The document whose versions to list.</param>
+    /// <param name="culture">Culture to filter versions by; null for the invariant/default.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of versions mapped to <see cref="DocumentVersionResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<DocumentVersionResponse>>> GetDocumentVersionsAsync(
+        Guid documentId,
+        string? culture = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var paged = await _api.Umbraco.Management.Api.V1.DocumentVersion.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.DocumentId = documentId;
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                        if (!string.IsNullOrEmpty(culture))
+                            c.QueryParameters.Culture = culture;
+                    },
+                    ct
+                );
+                return new PagedResponse<DocumentVersionResponse>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = (paged?.Items ?? [])
+                        .Select(v => new DocumentVersionResponse
+                        {
+                            Id = v.Id ?? Guid.Empty,
+                            VersionDate = v.VersionDate ?? default,
+                            IsCurrentDraftVersion = v.IsCurrentDraftVersion ?? false,
+                            IsCurrentPublishedVersion = v.IsCurrentPublishedVersion ?? false,
+                            PreventCleanup = v.PreventCleanup ?? false,
+                        })
+                        .ToList(),
+                };
+            }
+        );
+
+    /// <summary>
+    /// Rolls a document back to a previous version via <c>POST document-version/{id}/rollback</c>
+    /// (generated client, issue #58). The endpoint returns no body.
+    /// </summary>
+    /// <param name="versionId">The id of the version to roll back to.</param>
+    /// <param name="culture">Culture to roll back; null for the invariant/default.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> RollbackDocumentVersionAsync(
+        Guid versionId,
+        string? culture = null,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.DocumentVersion[versionId]
+                    .Rollback.PostAsync(
+                        c =>
+                        {
+                            if (!string.IsNullOrEmpty(culture))
+                                c.QueryParameters.Culture = culture;
+                        },
+                        ct
+                    );
+                return Empty.Value;
+            }
+        );
+
+    // ── Content workflow (recycle bin, move/copy, publish descendants) ─────────
+
+    /// <summary>Moves a document to the recycle bin via <c>PUT document/{id}/move-to-recycle-bin</c> (issue #67).</summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> TrashContentAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.Document[id]
+                    .MoveToRecycleBin.PutAsync(cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>
+    /// Restores a document from the recycle bin via <c>PUT recycle-bin/document/{id}/restore</c>
+    /// (issue #67). The target parent is optional; null restores to the content root.
+    /// </summary>
+    /// <param name="id">The trashed document id.</param>
+    /// <param name="parentId">Target parent to restore under; null restores to the root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> RestoreContentAsync(
+        Guid id,
+        Guid? parentId = null,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.MoveMediaRequestModel
+                {
+                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.RecycleBin.Document[id]
+                    .Restore.PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>Empties the content recycle bin via <c>DELETE recycle-bin/document</c> (issue #67). Irreversible.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> EmptyContentRecycleBinAsync(
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api.Umbraco.Management.Api.V1.RecycleBin.Document.DeleteAsync(
+                    cancellationToken: ct
+                );
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>
+    /// Moves a document under a new parent via <c>PUT document/{id}/move</c> (issue #67). A null
+    /// parent moves the document to the content root.
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="parentId">Target parent id; null moves to the content root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> MoveContentAsync(
+        Guid id,
+        Guid? parentId = null,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.MoveDocumentRequestModel
+                {
+                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Document[id]
+                    .Move.PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>Copies a document under a new parent via <c>POST document/{id}/copy</c> (issue #67).</summary>
+    /// <param name="id">The document id to copy.</param>
+    /// <param name="parentId">Target parent id; null copies to the content root.</param>
+    /// <param name="includeDescendants">Whether to copy descendants too.</param>
+    /// <param name="relateToOriginal">Whether to create a relation to the original.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> CopyContentAsync(
+        Guid id,
+        Guid? parentId = null,
+        bool includeDescendants = false,
+        bool relateToOriginal = false,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.CopyDocumentRequestModel
+                {
+                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                    IncludeDescendants = includeDescendants,
+                    RelateToOriginal = relateToOriginal,
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Document[id]
+                    .Copy.PostAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>
+    /// Publishes a document and its descendants via
+    /// <c>PUT document/{id}/publish-with-descendants</c> (issue #67).
+    /// </summary>
+    /// <param name="id">The root document id.</param>
+    /// <param name="cultures">Cultures to publish; null/empty publishes all (<c>*</c>).</param>
+    /// <param name="includeUnpublishedDescendants">Whether to also publish never-published descendants.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> PublishContentWithDescendantsAsync(
+        Guid id,
+        IEnumerable<string>? cultures = null,
+        bool includeUnpublishedDescendants = false,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.PublishDocumentWithDescendantsRequestModel
+                {
+                    Cultures = (cultures ?? ["*"]).ToList(),
+                    IncludeUnpublishedDescendants = includeUnpublishedDescendants,
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Document[id]
+                    .PublishWithDescendants.PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
     // ── Media ────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -336,34 +574,122 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
+    /// <summary>
+    /// Uploads a file as a media item via the Umbraco 14+ two-step flow (issue #57): stage the
+    /// bytes to <c>temporary-file</c>, then create the media item as JSON referencing that
+    /// staged file's id. Staging decouples the (potentially large) byte transfer from the media
+    /// create, so big uploads no longer fail as an oversized single multipart request. Still on
+    /// the hand-written <see cref="_http"/> path (tracked by #79) because it needs multipart
+    /// staging and a media-type name→id resolution the generated client does not wrap cleanly.
+    /// </summary>
+    /// <param name="parentId">Parent media folder id; <see cref="Guid.Empty"/> for the media root.</param>
+    /// <param name="name">Display name for the new media item.</param>
+    /// <param name="fileStream">The file contents to upload.</param>
+    /// <param name="fileName">The original file name (used for the staged file part).</param>
+    /// <param name="contentType">The file's MIME type.</param>
+    /// <param name="mediaType">The media type to create the item as: a media type id (GUID) or a media type name (e.g. "Image").</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created media item (with its id), or a mapped failure.</returns>
     public async Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(
-        Guid parentId,
+        Guid? parentId,
         string name,
         Stream fileStream,
         string fileName,
         string contentType,
+        string mediaType,
         CancellationToken ct = default
     )
     {
-        var form = new MultipartFormDataContent
+        // Step 1: resolve the media type to an id. A GUID is used directly; otherwise the value
+        // is treated as a media type name and resolved via the item search endpoint (Umbraco's
+        // built-in media types are named "Image", "File", "Folder", etc.).
+        Guid mediaTypeId;
+        if (Guid.TryParse(mediaType, out var parsedId))
         {
-            { new StringContent(parentId.ToString()), "parentId" },
-            { new StringContent(name), "name" },
+            mediaTypeId = parsedId;
+        }
+        else
+        {
+            var search = await GetAsync<PagedResponse<NamedEntity>>(
+                "umbraco/management/api/v1/item/media-type/search?query="
+                    + Uri.EscapeDataString(mediaType)
+                    + "&take=100",
+                ct
+            );
+            if (!search.IsSuccess)
+                return UmbracoResponse<MediaItemResponse>.Failure(
+                    search.StatusCode,
+                    search.ErrorMessage ?? "Could not resolve the media type."
+                );
+            var match = (search.Data?.Items ?? []).FirstOrDefault(m =>
+                string.Equals(m.Name, mediaType, StringComparison.OrdinalIgnoreCase)
+            );
+            if (match is null)
+                return UmbracoResponse<MediaItemResponse>.Failure(
+                    404,
+                    $"No media type found with the name '{mediaType}'. Use 'umbraco media-types list' "
+                        + "to find one, or pass a media type id."
+                );
+            mediaTypeId = match.Id;
+        }
+
+        // Step 2: stage the file bytes. The temporary-file endpoint takes a multipart form with a
+        // client-generated id ("Id") and the file ("File"); it returns 201 with no body.
+        var temporaryFileId = Guid.NewGuid();
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent(temporaryFileId.ToString()), "Id" },
             {
                 new StreamContent(fileStream)
                 {
                     Headers = { ContentType = MediaTypeHeaderValue.Parse(contentType) },
                 },
-                "file",
+                "File",
                 fileName
             },
         };
-        return await SendAsync<MediaItemResponse>(
+        var staged = await SendAsync<Empty>(
             HttpMethod.Post,
-            "umbraco/management/api/v1/media",
+            "umbraco/management/api/v1/temporary-file",
             form,
             ct
         );
+        if (!staged.IsSuccess)
+            return UmbracoResponse<MediaItemResponse>.Failure(
+                staged.StatusCode,
+                staged.ErrorMessage ?? "Failed to stage the file for upload."
+            );
+
+        // Step 3: create the media item, pointing its umbracoFile property at the staged file.
+        // The id is client-generated so it can be surfaced from the empty 201 body (#43/#74).
+        var mediaId = Guid.NewGuid();
+        var request = new CreateMediaRequest
+        {
+            Id = mediaId,
+            MediaType = new ReferenceById { Id = mediaTypeId },
+            Parent = parentId is { } p ? new ReferenceById { Id = p } : null,
+            Variants = [new MediaVariant { Name = name }],
+            Values = [new MediaValue { Alias = "umbracoFile", Value = new { temporaryFileId } }],
+        };
+        var created = await PostAsync<CreateMediaRequest, MediaItemResponse>(
+            "umbraco/management/api/v1/media",
+            request,
+            ct
+        );
+
+        // The create returns 201 with an empty body (the id may arrive via the Location header,
+        // which hydrates created.Data with just an id). Always echo the intended name so the
+        // command reports the new item's name rather than a blank one (#74); prefer a
+        // server-returned id over the client-generated one when present.
+        if (created.IsSuccess)
+        {
+            var newId = created.Data?.Id is { } cid && cid != Guid.Empty ? cid : mediaId;
+            return UmbracoResponse<MediaItemResponse>.Success(
+                new MediaItemResponse { Id = newId, Name = name },
+                created.StatusCode
+            );
+        }
+        return created;
     }
 
     /// <summary>Deletes a media item via <c>DELETE media/{id}</c> (generated client).</summary>
@@ -376,6 +702,236 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             async () =>
             {
                 await _api.Umbraco.Management.Api.V1.Media[id].DeleteAsync(cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>Moves a media item to the recycle bin via <c>PUT media/{id}/move-to-recycle-bin</c> (issue #67).</summary>
+    /// <param name="id">The media item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> TrashMediaAsync(Guid id, CancellationToken ct = default) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.Media[id]
+                    .MoveToRecycleBin.PutAsync(cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>
+    /// Restores a media item from the recycle bin via <c>PUT recycle-bin/media/{id}/restore</c>
+    /// (issue #67). A null parent restores to the media root.
+    /// </summary>
+    /// <param name="id">The trashed media item id.</param>
+    /// <param name="parentId">Target parent to restore under; null restores to the root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> RestoreMediaAsync(
+        Guid id,
+        Guid? parentId = null,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.MoveMediaRequestModel
+                {
+                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.RecycleBin.Media[id]
+                    .Restore.PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>Empties the media recycle bin via <c>DELETE recycle-bin/media</c> (issue #67). Irreversible.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> EmptyMediaRecycleBinAsync(CancellationToken ct = default) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api.Umbraco.Management.Api.V1.RecycleBin.Media.DeleteAsync(
+                    cancellationToken: ct
+                );
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>
+    /// Moves a media item under a new parent folder via <c>PUT media/{id}/move</c> (issue #67). A
+    /// null parent moves the item to the media root.
+    /// </summary>
+    /// <param name="id">The media item id.</param>
+    /// <param name="parentId">Target parent folder id; null moves to the media root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> MoveMediaAsync(
+        Guid id,
+        Guid? parentId = null,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.MoveMediaRequestModel
+                {
+                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Media[id]
+                    .Move.PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    // ── Media Types ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Lists media types from <c>tree/media-type/root</c> (issue #55; no flat
+    /// <c>/media-type</c> collection, mirroring document types). Tree items expose only
+    /// id/name/icon — alias and description require a single-item GET.
+    /// </summary>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of media types mapped to <see cref="MediaTypeResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<MediaTypeResponse>>> GetMediaTypesAsync(
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var paged = await _api.Umbraco.Management.Api.V1.Tree.MediaType.Root.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                );
+                return new PagedResponse<MediaTypeResponse>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = (paged?.Items ?? [])
+                        .Select(i => new MediaTypeResponse
+                        {
+                            Id = i.Id ?? Guid.Empty,
+                            Name = i.Name ?? "",
+                            Icon = i.Icon,
+                        })
+                        .ToList(),
+                };
+            }
+        );
+
+    /// <summary>Gets a single media type by id (issue #55). Reads <c>GET /media-type/{id}</c>.</summary>
+    /// <param name="id">The media type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The media type mapped to <see cref="MediaTypeResponse"/>.</returns>
+    public Task<UmbracoResponse<MediaTypeResponse>> GetMediaTypeByIdAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var m = await _api
+                    .Umbraco.Management.Api.V1.MediaType[id]
+                    .GetAsync(cancellationToken: ct);
+                return new MediaTypeResponse
+                {
+                    Id = m?.Id ?? id,
+                    Name = m?.Name ?? "",
+                    Alias = m?.Alias ?? "",
+                    Description = m?.Description,
+                    Icon = m?.Icon,
+                    IsElement = m?.IsElement ?? false,
+                    AllowedAsRoot = m?.AllowedAsRoot ?? false,
+                };
+            }
+        );
+
+    /// <summary>
+    /// Creates a media type via <c>POST media-type</c> (generated client, issue #55). The id is
+    /// client-generated (Umbraco 14+ accepts a supplied GUID), so the created type is echoed
+    /// back with its id and the accepted fields without a follow-up read (the <c>201</c>
+    /// response body is empty — guards the empty-payload class of #74). The API-required
+    /// collections (allowed types, compositions, containers, properties) default to empty and
+    /// the varies-by flags to false so a minimal name+alias create succeeds (issue #47 parity).
+    /// </summary>
+    /// <param name="request">The media type to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created media type (with the generated id), or a mapped failure.</returns>
+    public Task<UmbracoResponse<MediaTypeResponse>> CreateMediaTypeAsync(
+        CreateMediaTypeRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var id = request.Id ?? Guid.NewGuid();
+                var body = new Gen.CreateMediaTypeRequestModel
+                {
+                    Id = id,
+                    Name = request.Name,
+                    Alias = request.Alias,
+                    Description = request.Description,
+                    Icon = request.Icon,
+                    IsElement = request.IsElement,
+                    AllowedAsRoot = request.AllowedAsRoot,
+                    VariesByCulture = false,
+                    VariesBySegment = false,
+                    AllowedMediaTypes = [],
+                    Compositions = [],
+                    Containers = [],
+                    Properties = [],
+                };
+                await _api.Umbraco.Management.Api.V1.MediaType.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return new MediaTypeResponse
+                {
+                    Id = id,
+                    Name = request.Name,
+                    Alias = request.Alias,
+                    Description = request.Description,
+                    Icon = request.Icon,
+                    IsElement = request.IsElement,
+                    AllowedAsRoot = request.AllowedAsRoot,
+                };
+            }
+        );
+
+    /// <summary>Deletes a media type via <c>DELETE media-type/{id}</c> (generated client).</summary>
+    /// <param name="id">The media type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> DeleteMediaTypeAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.MediaType[id]
+                    .DeleteAsync(cancellationToken: ct);
                 return Empty.Value;
             }
         );
@@ -504,6 +1060,102 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => await GetAsync<DataTypeResponse>($"umbraco/management/api/v1/data-type/{id}", ct);
 
+    /// <summary>
+    /// Creates a data type via <c>POST data-type</c> (generated client, issue #59). The id is
+    /// client-generated and echoed back; editor configuration values default to empty.
+    /// </summary>
+    /// <param name="request">The data type to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created data type (with the generated id), or a mapped failure.</returns>
+    public Task<UmbracoResponse<DataTypeResponse>> CreateDataTypeAsync(
+        CreateDataTypeRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var id = request.Id ?? Guid.NewGuid();
+                var body = new Gen.CreateDataTypeRequestModel
+                {
+                    Id = id,
+                    Name = request.Name,
+                    EditorAlias = request.EditorAlias,
+                    EditorUiAlias = request.EditorUiAlias,
+                    Values = [],
+                };
+                await _api.Umbraco.Management.Api.V1.DataType.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return new DataTypeResponse
+                {
+                    Id = id,
+                    Name = request.Name,
+                    EditorAlias = request.EditorAlias,
+                    EditorUiAlias = request.EditorUiAlias,
+                };
+            }
+        );
+
+    /// <summary>
+    /// Updates a data type via <c>PUT data-type/{id}</c> (generated client, issue #59). The PUT
+    /// is a full replace, so the current data type is read first: null fields on
+    /// <paramref name="request"/> are preserved and — critically — the editor configuration
+    /// <c>values</c> are carried over so an update cannot wipe them.
+    /// </summary>
+    /// <param name="id">The data type id.</param>
+    /// <param name="request">The fields to change; null fields are preserved.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
+        Guid id,
+        UpdateDataTypeRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var current =
+                    await _api
+                        .Umbraco.Management.Api.V1.DataType[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No data type found with id '{id}'.");
+                var body = new Gen.UpdateDataTypeRequestModel
+                {
+                    Name = request.Name ?? current.Name ?? "",
+                    EditorAlias = request.EditorAlias ?? current.EditorAlias ?? "",
+                    EditorUiAlias = request.EditorUiAlias ?? current.EditorUiAlias ?? "",
+                    // Preserve the existing editor configuration values (not exposed by the CLI).
+                    Values = current.Values ?? [],
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.DataType[id]
+                    .PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>Deletes a data type via <c>DELETE data-type/{id}</c> (generated client, issue #59).</summary>
+    /// <param name="id">The data type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> DeleteDataTypeAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.DataType[id]
+                    .DeleteAsync(cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
     // ── Languages ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -577,6 +1229,55 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
                     IsDefault = request.IsDefault,
                     IsMandatory = request.IsMandatory,
                     FallbackIsoCode = request.FallbackIsoCode,
+                };
+            }
+        );
+
+    /// <summary>
+    /// Updates a language via <c>PUT language/{isoCode}</c> (generated client, issue #59). The
+    /// 200 response has no body, so the accepted request is echoed back as the updated language.
+    /// </summary>
+    /// <param name="isoCode">The ISO code of the language to update.</param>
+    /// <param name="request">The replacement name/flags/fallback.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The updated language, or a mapped failure.</returns>
+    public Task<UmbracoResponse<LanguageResponse>> UpdateLanguageAsync(
+        string isoCode,
+        UpdateLanguageRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                // Read-merge: the PUT is a full replace, so preserve any field left null on the
+                // request (avoids silently clearing default/mandatory/fallback on a name change).
+                var current =
+                    await _api
+                        .Umbraco.Management.Api.V1.Language[isoCode]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No language found with ISO code '{isoCode}'.");
+                var name = request.Name ?? current.Name ?? "";
+                var isDefault = request.IsDefault ?? current.IsDefault ?? false;
+                var isMandatory = request.IsMandatory ?? current.IsMandatory ?? false;
+                var fallback = request.FallbackIsoCode ?? current.FallbackIsoCode;
+                var body = new Gen.UpdateLanguageRequestModel
+                {
+                    Name = name,
+                    IsDefault = isDefault,
+                    IsMandatory = isMandatory,
+                    FallbackIsoCode = fallback,
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Language[isoCode]
+                    .PutAsync(body, cancellationToken: ct);
+                return new LanguageResponse
+                {
+                    IsoCode = isoCode,
+                    Name = name,
+                    IsDefault = isDefault,
+                    IsMandatory = isMandatory,
+                    FallbackIsoCode = fallback,
                 };
             }
         );
@@ -697,6 +1398,99 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
+    /// <summary>
+    /// Creates a template via <c>POST template</c> (generated client, issue #59). The id is
+    /// client-generated so the created template is echoed back with its id and accepted fields
+    /// (the 201 body is empty).
+    /// </summary>
+    /// <param name="request">The template to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created template (with the generated id), or a mapped failure.</returns>
+    public Task<UmbracoResponse<TemplateResponse>> CreateTemplateAsync(
+        CreateTemplateRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var id = request.Id ?? Guid.NewGuid();
+                var body = new Gen.CreateTemplateRequestModel
+                {
+                    Id = id,
+                    Name = request.Name,
+                    Alias = request.Alias,
+                    Content = request.Content,
+                };
+                await _api.Umbraco.Management.Api.V1.Template.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return new TemplateResponse
+                {
+                    Id = id,
+                    Name = request.Name,
+                    Alias = request.Alias,
+                };
+            }
+        );
+
+    /// <summary>
+    /// Updates a template via <c>PUT template/{id}</c> (generated client, issue #59). The PUT is
+    /// a full replace, so the current template is read first and any null field on
+    /// <paramref name="request"/> is preserved — critically, omitting the content leaves the
+    /// Razor body intact rather than blanking it.
+    /// </summary>
+    /// <param name="id">The template id.</param>
+    /// <param name="request">The fields to change; null fields are preserved.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> UpdateTemplateAsync(
+        Guid id,
+        UpdateTemplateRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var current =
+                    await _api
+                        .Umbraco.Management.Api.V1.Template[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No template found with id '{id}'.");
+                var body = new Gen.UpdateTemplateRequestModel
+                {
+                    Name = request.Name ?? current.Name ?? "",
+                    Alias = request.Alias ?? current.Alias ?? "",
+                    Content = request.Content ?? current.Content ?? "",
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Template[id]
+                    .PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>Deletes a template via <c>DELETE template/{id}</c> (generated client, issue #59).</summary>
+    /// <param name="id">The template id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> DeleteTemplateAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.Template[id]
+                    .DeleteAsync(cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
     // ── Members ──────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -769,6 +1563,76 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             ct
         );
 
+    /// <summary>
+    /// Updates a member via <c>PUT member/{id}</c> (generated client, issue #59). The member
+    /// PUT is a full replace, so this reads the current member first and merges only the
+    /// requested changes over it — groups, property values, lockout/2FA state and password are
+    /// preserved. The 200 response has no body, so the merged member is returned.
+    /// </summary>
+    /// <param name="id">The member id.</param>
+    /// <param name="request">The partial changes to apply (email/name/approved).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The updated member, or a mapped failure.</returns>
+    public Task<UmbracoResponse<MemberResponse>> UpdateMemberAsync(
+        Guid id,
+        UpdateMemberRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var m =
+                    await _api.Umbraco.Management.Api.V1.Member[id].GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No member found with id '{id}'.");
+
+                // Preserve every variant, overriding the name only when a new one was supplied.
+                var variants = (m.Variants ?? [])
+                    .Select(v => new Gen.MemberVariantRequestModel
+                    {
+                        Culture = v.Culture,
+                        Segment = v.Segment,
+                        Name = request.Name ?? v.Name ?? "",
+                    })
+                    .ToList();
+                // A member with no variant yet (edge case) still needs one to carry a new name.
+                if (variants.Count == 0 && request.Name is not null)
+                    variants.Add(new Gen.MemberVariantRequestModel { Name = request.Name });
+
+                var body = new Gen.UpdateMemberRequestModel
+                {
+                    Email = request.Email ?? m.Email ?? "",
+                    Username = m.Username ?? "",
+                    IsApproved = request.IsApproved ?? m.IsApproved ?? false,
+                    IsLockedOut = m.IsLockedOut ?? false,
+                    IsTwoFactorEnabled = m.IsTwoFactorEnabled ?? false,
+                    Groups = (m.Groups ?? []).ToList(),
+                    Values = (m.Values ?? [])
+                        .Select(v => new Gen.MemberValueModel
+                        {
+                            Alias = v.Alias,
+                            Culture = v.Culture,
+                            Segment = v.Segment,
+                            Value = v.Value,
+                        })
+                        .ToList(),
+                    Variants = variants,
+                };
+                await _api
+                    .Umbraco.Management.Api.V1.Member[id]
+                    .PutAsync(body, cancellationToken: ct);
+
+                // Echo the merged member (the PUT returns no body).
+                var mapped = MapMember(m);
+                return mapped with
+                {
+                    Email = request.Email ?? mapped.Email,
+                    Name = request.Name ?? mapped.Name,
+                    IsApproved = request.IsApproved ?? mapped.IsApproved,
+                };
+            }
+        );
+
     /// <summary>Deletes a member via <c>DELETE member/{id}</c> (generated client).</summary>
     /// <param name="id">The member id.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -782,6 +1646,143 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             async () =>
             {
                 await _api.Umbraco.Management.Api.V1.Member[id].DeleteAsync(cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    // ── Member Types ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Lists member types from <c>tree/member-type/root</c> (issue #56; no flat
+    /// <c>/member-type</c> collection). Tree items expose only id/name/icon — alias and
+    /// description require a single-item GET.
+    /// </summary>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of member types mapped to <see cref="MemberTypeResponse"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<MemberTypeResponse>>> GetMemberTypesAsync(
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var paged = await _api.Umbraco.Management.Api.V1.Tree.MemberType.Root.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                );
+                return new PagedResponse<MemberTypeResponse>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = (paged?.Items ?? [])
+                        .Select(i => new MemberTypeResponse
+                        {
+                            Id = i.Id ?? Guid.Empty,
+                            Name = i.Name ?? "",
+                            Icon = i.Icon,
+                        })
+                        .ToList(),
+                };
+            }
+        );
+
+    /// <summary>Gets a single member type by id (issue #56). Reads <c>GET /member-type/{id}</c>.</summary>
+    /// <param name="id">The member type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The member type mapped to <see cref="MemberTypeResponse"/>.</returns>
+    public Task<UmbracoResponse<MemberTypeResponse>> GetMemberTypeByIdAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var m = await _api
+                    .Umbraco.Management.Api.V1.MemberType[id]
+                    .GetAsync(cancellationToken: ct);
+                return new MemberTypeResponse
+                {
+                    Id = m?.Id ?? id,
+                    Name = m?.Name ?? "",
+                    Alias = m?.Alias ?? "",
+                    Description = m?.Description,
+                    Icon = m?.Icon,
+                };
+            }
+        );
+
+    /// <summary>
+    /// Creates a member type via <c>POST member-type</c> (generated client, issue #56). The id
+    /// is client-generated (Umbraco 14+ accepts a supplied GUID), so the created type is echoed
+    /// back with its id and the accepted fields without a follow-up read (the <c>201</c>
+    /// response body is empty). The API-required collections default to empty and the varies-by
+    /// flags to false so a minimal name+alias create succeeds (issue #47 parity).
+    /// </summary>
+    /// <param name="request">The member type to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created member type (with the generated id), or a mapped failure.</returns>
+    public Task<UmbracoResponse<MemberTypeResponse>> CreateMemberTypeAsync(
+        CreateMemberTypeRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var id = request.Id ?? Guid.NewGuid();
+                var body = new Gen.CreateMemberTypeRequestModel
+                {
+                    Id = id,
+                    Name = request.Name,
+                    Alias = request.Alias,
+                    Description = request.Description,
+                    Icon = request.Icon,
+                    IsElement = false,
+                    AllowedAsRoot = false,
+                    VariesByCulture = false,
+                    VariesBySegment = false,
+                    Compositions = [],
+                    Containers = [],
+                    Properties = [],
+                };
+                await _api.Umbraco.Management.Api.V1.MemberType.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return new MemberTypeResponse
+                {
+                    Id = id,
+                    Name = request.Name,
+                    Alias = request.Alias,
+                    Description = request.Description,
+                    Icon = request.Icon,
+                };
+            }
+        );
+
+    /// <summary>Deletes a member type via <c>DELETE member-type/{id}</c> (generated client).</summary>
+    /// <param name="id">The member type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> DeleteMemberTypeAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.MemberType[id]
+                    .DeleteAsync(cancellationToken: ct);
                 return Empty.Value;
             }
         );
@@ -904,7 +1905,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var id = Guid.NewGuid();
+                var id = request.Id ?? Guid.NewGuid();
                 var body = new Gen.CreateDictionaryItemRequestModel
                 {
                     Id = id,
@@ -927,6 +1928,25 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
                     Name = request.Name,
                     Translations = request.Translations.ToList(),
                 };
+            }
+        );
+
+    /// <summary>Deletes a dictionary item via <c>DELETE dictionary/{id}</c> (generated client, issue #59).</summary>
+    /// <param name="id">The dictionary item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> DeleteDictionaryItemAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.Dictionary[id]
+                    .DeleteAsync(cancellationToken: ct);
+                return Empty.Value;
             }
         );
 
@@ -960,7 +1980,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var id = Guid.NewGuid();
+                var id = request.Id ?? Guid.NewGuid();
                 var body = new Gen.CreateWebhookRequestModel
                 {
                     Id = id,

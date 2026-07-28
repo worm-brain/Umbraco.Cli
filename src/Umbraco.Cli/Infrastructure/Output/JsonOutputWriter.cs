@@ -21,8 +21,11 @@ public sealed class JsonOutputWriter : IOutputWriter
     /// agent can gate on the contract. Bump ONLY on a breaking change to the envelope — a
     /// renamed/removed field or a changed meaning. Field names are part of the contract and are
     /// never renamed silently. Additive fields do not bump it.
+    ///
+    /// History: "1" initial; "2" table JSON keys switched from human headers ("Content Type")
+    /// to camelCase ("contentType") so list output agrees with object/get output (#87).
     /// </summary>
-    public const string SchemaVersion = "1";
+    public const string SchemaVersion = "2";
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -113,15 +116,60 @@ public sealed class JsonOutputWriter : IOutputWriter
 
     public void WriteTable(string[] headers, IEnumerable<string[]> rows)
     {
-        // In JSON mode, render the table as an array of objects keyed by header name.
+        // In JSON mode, render the table as an array of objects. Keys are the camelCased header
+        // names ("Content Type" -> "contentType") so list output uses the same field keys as
+        // object/get output, rather than the human header text (#87). Computed once per call.
+        var keys = headers.Select(HeaderToCamelKey).ToArray();
+        // Defensive: two headers whose camelCase keys collide (e.g. "ID" and "Id", or
+        // "Content Type" and "ContentType") would silently overwrite a column. No current
+        // command has such a pair; fail loudly so a future one is caught in tests, not in prod.
+        if (keys.Distinct(StringComparer.Ordinal).Count() != keys.Length)
+            throw new InvalidOperationException(
+                $"Table headers produced duplicate JSON keys ({string.Join(", ", headers)}). "
+                    + "Rename a header so each column's camelCase key is unique."
+            );
         var objects = rows.Select(row =>
         {
             var dict = new Dictionary<string, string>();
-            for (var i = 0; i < headers.Length && i < row.Length; i++)
-                dict[headers[i]] = row[i];
+            for (var i = 0; i < keys.Length && i < row.Length; i++)
+                dict[keys[i]] = row[i];
             return dict;
         });
         WriteSuccess(objects);
+    }
+
+    /// <summary>
+    /// Converts a human table header to a camelCase JSON key so list output agrees with
+    /// object/get output (#87): "ID" -> "id", "Content Type" -> "contentType", "Version ID" ->
+    /// "versionId", "IsElement" -> "isElement". Words split on whitespace; all-caps acronyms are
+    /// title-cased ("ID" -> "Id") before the first word is lower-cased and the rest Pascal-cased.
+    /// </summary>
+    /// <param name="header">The human-readable column header.</param>
+    /// <returns>The camelCase key for that column.</returns>
+    private static string HeaderToCamelKey(string header)
+    {
+        var words = header.Split(
+            (char[]?)null,
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+        );
+        if (words.Length == 0)
+            return header;
+
+        var sb = new System.Text.StringBuilder(header.Length);
+        for (var i = 0; i < words.Length; i++)
+        {
+            var w = words[i];
+            // Collapse an all-caps acronym ("ID") to title case ("Id") so casing is predictable.
+            if (w.All(char.IsUpper))
+                w = char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant();
+            // First word is lower-cased (camel); subsequent words are Pascal-cased.
+            w =
+                i == 0
+                    ? char.ToLowerInvariant(w[0]) + w[1..]
+                    : char.ToUpperInvariant(w[0]) + w[1..];
+            sb.Append(w);
+        }
+        return sb.ToString();
     }
 
     public void WriteMessage(string message)

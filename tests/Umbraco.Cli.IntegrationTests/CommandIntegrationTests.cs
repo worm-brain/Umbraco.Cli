@@ -43,7 +43,7 @@ public sealed class CommandIntegrationTests
         var list = CliRunner.Run("content", "list", "--take", "1");
         Skip.If(list.Data().GetArrayLength() == 0, "No content in the instance to get.");
 
-        var id = list.Data()[0].GetProperty("ID").GetString()!;
+        var id = list.Data()[0].GetProperty("id").GetString()!;
         var get = CliRunner.Run("content", "get", id);
 
         Assert.True(get.Ok, get.Stderr);
@@ -270,7 +270,7 @@ public sealed class CommandIntegrationTests
 
         var rows = result.Data().EnumerateArray().ToList();
         Assert.NotEmpty(rows);
-        Assert.Contains(rows, r => r.GetProperty("Default").GetString() == "*");
+        Assert.Contains(rows, r => r.GetProperty("default").GetString() == "*");
     }
 
     [SkippableFact]
@@ -283,8 +283,8 @@ public sealed class CommandIntegrationTests
         var defaultName = profiles
             .Data()
             .EnumerateArray()
-            .First(r => r.GetProperty("Default").GetString() == "*")
-            .GetProperty("Profile")
+            .First(r => r.GetProperty("default").GetString() == "*")
+            .GetProperty("profile")
             .GetString()!;
 
         var whoami = CliRunner.Run("auth", "whoami", "--profile", defaultName);
@@ -421,7 +421,7 @@ public sealed class CommandIntegrationTests
             Assert.True(list.Ok, list.Stderr);
             var found = list.Data()
                 .EnumerateArray()
-                .Any(w => w.GetProperty("ID").GetString() == id);
+                .Any(w => w.GetProperty("id").GetString() == id);
             Assert.True(found, "Created webhook was not present in the list.");
         }
         finally

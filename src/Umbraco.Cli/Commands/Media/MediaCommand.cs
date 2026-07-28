@@ -14,6 +14,10 @@ public static class MediaCommand
         cmd.Add(MediaGetCommand.Build(executor));
         cmd.Add(MediaUploadCommand.Build(executor));
         cmd.Add(MediaDeleteCommand.Build(executor));
+        cmd.Add(MediaTrashCommand.Build(executor));
+        cmd.Add(MediaRestoreCommand.Build(executor));
+        cmd.Add(MediaEmptyRecycleBinCommand.Build(executor));
+        cmd.Add(MediaMoveCommand.Build(executor));
         return cmd;
     }
 }

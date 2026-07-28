@@ -198,15 +198,51 @@ umbraco content update <id> [--json-body <file>]
 umbraco content delete <id>
 umbraco content publish <id> [--cultures <csv>]
 umbraco content unpublish <id> [--cultures <csv>]
+umbraco content versions <id> [--culture <code>]           # version history
+umbraco content rollback <version-id> [--culture <code>]   # restore a version
+umbraco content trash <id>                                 # move to recycle bin (reversible)
+umbraco content restore <id> [--parent <id>]               # restore from recycle bin
+umbraco content empty-recycle-bin                          # permanent; needs --yes
+umbraco content move <id> [--parent <id>]
+umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]
+umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished]
+
+# Bulk ops over many ids (from --file or stdin), with a per-item results array:
+umbraco content bulk delete [--file ids.txt]        # permanent; needs --yes
+umbraco content bulk publish [--file ids.txt] [--cultures <csv>]
+umbraco content bulk unpublish [--file ids.txt] [--cultures <csv>]
 ```
+
+Bulk commands read ids one per line from `--file` or stdin, so you can pipe:
+
+```bash
+umbraco content list --fields id | jq -r '.[].id' | umbraco content bulk publish
+```
+
+Each id is reported independently in the `data` results array (`{"id", "status", "error"}`); the exit code is `1` if any item failed. A bulk `delete` is gated by a single confirmation (`--yes` required non-interactively) — it never prompts per item.
+
+All create commands accept an optional `--id <guid>` for **idempotent creates** (Umbraco 14+ honours a client-supplied id), so re-running a provisioning script does not create duplicates.
 
 ### `media`
 
 ```bash
 umbraco media list [--parent <id>]
 umbraco media get <id>
-umbraco media upload <file> --parent <id> --name <name>
+umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>]  # staged via temporary-file
 umbraco media delete <id>
+umbraco media trash <id>                                   # move to recycle bin (reversible)
+umbraco media restore <id> [--parent <id>]
+umbraco media empty-recycle-bin                            # permanent; needs --yes
+umbraco media move <id> [--parent <id>]
+```
+
+### `media-types`
+
+```bash
+umbraco media-types list
+umbraco media-types get <id>
+umbraco media-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root]
+umbraco media-types delete <id>
 ```
 
 ### `content-types`
@@ -223,6 +259,9 @@ umbraco content-types delete <id>
 ```bash
 umbraco data-types list
 umbraco data-types get <id|alias>
+umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
+umbraco data-types update <id> --name <name> --editor-alias <alias> --editor-ui-alias <alias>
+umbraco data-types delete <id>
 ```
 
 ### `languages`
@@ -230,6 +269,7 @@ umbraco data-types get <id|alias>
 ```bash
 umbraco languages list
 umbraco languages create --culture <code> [--default]
+umbraco languages update <iso-code> --name <name> [--default] [--mandatory] [--fallback <code>]
 umbraco languages delete <iso-code>
 ```
 
@@ -238,6 +278,9 @@ umbraco languages delete <iso-code>
 ```bash
 umbraco templates list
 umbraco templates get <alias>
+umbraco templates create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
+umbraco templates update <id> --name <name> --alias <alias> [--content <razor> | --content-file <file>]
+umbraco templates delete <id>
 ```
 
 ### `members`
@@ -246,7 +289,17 @@ umbraco templates get <alias>
 umbraco members list [--group <name>]
 umbraco members get <id|email>
 umbraco members create --email <email> --name <name> --type <alias>
+umbraco members update <id> [--email <email>] [--name <name>] [--approved]
 umbraco members delete <id>
+```
+
+### `member-types`
+
+```bash
+umbraco member-types list
+umbraco member-types get <id>
+umbraco member-types create --name <name> --alias <alias> [--icon <alias>]
+umbraco member-types delete <id>
 ```
 
 ### `users`
@@ -263,6 +316,7 @@ umbraco users invite --email <email> --name <name>
 umbraco dictionary list
 umbraco dictionary get <key>
 umbraco dictionary create --key <key> [--values en=Hello --values da=Hej]
+umbraco dictionary delete <id>
 ```
 
 ### `webhooks`
@@ -286,7 +340,7 @@ When stdout is not a TTY (piped or redirected), JSON is the default output forma
   "meta": {
     "command": "content.list",
     "durationMs": 142,
-    "schemaVersion": "1"
+    "schemaVersion": "2"
   }
 }
 ```
@@ -299,7 +353,9 @@ Errors are written to **stderr**:
 
 ### Envelope contract (`meta.schemaVersion`)
 
-The success envelope is versioned via `meta.schemaVersion` (currently `"1"`). The field names above (`status`, `data`, `meta`, `command`, `durationMs`, `schemaVersion`, and the error envelope's `code`/`message`) are part of the contract: they are **never renamed silently**. `schemaVersion` is bumped only on a **breaking** change — a renamed/removed field or a changed meaning. New fields may be added without a bump, so consumers should ignore unknown fields. Agents can gate on `meta.schemaVersion` and diff `.data` between runs (`meta.timestamp` changes every call).
+The success envelope is versioned via `meta.schemaVersion` (currently `"2"`). The field names above (`status`, `data`, `meta`, `command`, `durationMs`, `schemaVersion`, and the error envelope's `code`/`message`) are part of the contract: they are **never renamed silently**. `schemaVersion` is bumped only on a **breaking** change — a renamed/removed field or a changed meaning. New fields may be added without a bump, so consumers should ignore unknown fields. Agents can gate on `meta.schemaVersion` and diff `.data` between runs (`meta.timestamp` changes every call).
+
+**v2** switched list (table) JSON keys from the human header text to camelCase — e.g. a `content-types list` item is now `{"id": ..., "name": ..., "alias": ..., "isElement": ...}` instead of `{"ID": ..., "Content Type": ...}` — so the same field uses the same key whether it comes from a `list` or a `get`.
 
 ### `--schema` (request body shape)
 
