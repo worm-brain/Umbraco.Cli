@@ -61,9 +61,14 @@ internal static class SecretProtector
     /// <summary>
     /// Reverses <see cref="Protect"/>. A <c>dpapi:</c>-prefixed value is decrypted (on
     /// Windows); any other value is treated as legacy plaintext and returned unchanged.
+    /// A <c>dpapi:</c> value that cannot be decrypted here yields null (a missing secret)
+    /// rather than the raw ciphertext.
     /// </summary>
     /// <param name="stored">The value read from the config file.</param>
-    /// <returns>The plaintext secret.</returns>
+    /// <returns>
+    /// The plaintext secret, or null when a <c>dpapi:</c> value cannot be decrypted on this
+    /// platform.
+    /// </returns>
     public static string? Unprotect(string? stored)
     {
         if (
@@ -72,8 +77,17 @@ internal static class SecretProtector
         )
             return stored; // legacy plaintext or empty
 
+        // A dpapi: blob is Windows-only ciphertext. Off Windows it can never be decrypted --
+        // this happens whenever a config file written on Windows is copied to macOS/Linux
+        // (a shared dotfiles repo, a synced home directory). Returning `stored` here would
+        // hand the literal "dpapi:<base64>" string out as the secret, which then gets sent
+        // as the OAuth client secret and fails authentication with a baffling error. Report
+        // it as missing instead, so the caller takes the normal "not authenticated" path.
+        // ConfigStore.Load relies on this: it only catches a *throwing* Unprotect, which is
+        // how the equivalent Windows case (an undecryptable blob from another user/machine)
+        // already degrades.
         if (!OperatingSystem.IsWindows())
-            return stored; // cannot decrypt off Windows; should not occur in practice
+            return null;
 
         var cipher = Convert.FromBase64String(stored[DpapiPrefix.Length..]);
         return UnprotectWindows(cipher);
