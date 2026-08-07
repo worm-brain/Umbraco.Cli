@@ -8,7 +8,7 @@ namespace Umbraco.Cli.Tests;
 /// Tests for the migrated content write path (#79): create/update/publish/unpublish now go
 /// through the generated client, resolving the document-type alias to an id and mapping
 /// property values to <c>UntypedNode</c>. These drive the real <see cref="UmbracoManagementClient"/>
-/// against <see cref="RoutingHandler"/> so the multi-step flows (search -> get-by-id -> post
+/// against <see cref="RoutingHandler"/> so the multi-step flows (tree walk -> get-by-id -> post
 /// -> hydrate) can each return a distinct canned body and the wire requests can be asserted.
 /// </summary>
 public class ContentWriteClientTests
@@ -21,7 +21,7 @@ public class ContentWriteClientTests
 
     /// <summary>
     /// A content create passes the document type by alias; the client must resolve it to an id
-    /// (search then by-id alias match), POST the document with the resolved id, and map property
+    /// (tree walk then by-id alias match), POST the document with the resolved id, and map property
     /// values to their JSON shape on the wire.
     /// </summary>
     [Fact]
@@ -30,9 +30,9 @@ public class ContentWriteClientTests
         var docTypeId = Guid.NewGuid();
         var handler = new RoutingHandler()
             .When(
-                r => r.Method == HttpMethod.Get && Has(r, "item/document-type/search"),
+                r => r.Method == HttpMethod.Get && Has(r, "tree/document-type/root"),
                 HttpStatusCode.OK,
-                $$"""{"total":1,"items":[{"id":"{{docTypeId}}","name":"Text Page"}]}"""
+                $$"""{"total":1,"items":[{"id":"{{docTypeId}}","name":"Text Page","isFolder":false}]}"""
             )
             .When(
                 r => r.Method == HttpMethod.Get && Has(r, $"document-type/{docTypeId}"),
@@ -74,13 +74,128 @@ public class ContentWriteClientTests
     }
 
     /// <summary>
+    /// Regression guard: the alias must be resolved WITHOUT the document-type item search. The
+    /// search indexes only the type's name, so an alias that differs from the name by more than
+    /// case ("Text Page" -> <c>textPage</c>, the Umbraco norm) is unfindable through it. An earlier
+    /// revision of #79 searched and so could not create content for any such type.
+    /// </summary>
+    [Fact]
+    public async Task CreateContentAsync_AliasDiffersFromName_ResolvesWithoutItemSearch()
+    {
+        var docTypeId = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, "tree/document-type/root"),
+                HttpStatusCode.OK,
+                // Name and alias share no substring, so only a by-id alias read can match.
+                $$"""{"total":1,"items":[{"id":"{{docTypeId}}","name":"Vendor Hub Contact","isFolder":false}]}"""
+            )
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, $"document-type/{docTypeId}"),
+                HttpStatusCode.OK,
+                $$"""{"id":"{{docTypeId}}","alias":"vendorHubContact","name":"Vendor Hub Contact"}"""
+            )
+            .When(
+                r => r.Method == HttpMethod.Post && HasPath(r, "/document"),
+                HttpStatusCode.Created,
+                ""
+            )
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, "/document/"),
+                HttpStatusCode.OK,
+                """{"id":"00000000-0000-0000-0000-000000000000","variants":[{"name":"C"}]}"""
+            );
+        var client = Client(handler);
+
+        var result = await client.CreateContentAsync(
+            new CreateContentRequest
+            {
+                ContentType = new ContentTypeReference { Alias = "vendorHubContact" },
+                Variants = [new ContentVariant { Name = "C" }],
+            },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(
+            docTypeId.ToString(),
+            handler.BodyForFirst(r => r.Method == HttpMethod.Post && HasPath(r, "/document"))
+        );
+        Assert.DoesNotContain(
+            handler.Requests,
+            u =>
+                u.AbsoluteUri.Contains(
+                    "item/document-type/search",
+                    StringComparison.OrdinalIgnoreCase
+                )
+        );
+    }
+
+    /// <summary>
+    /// A type nested inside a document-type folder is still resolvable: the tree walk recurses
+    /// into folders, which the non-recursive tree root alone would miss.
+    /// </summary>
+    [Fact]
+    public async Task CreateContentAsync_AliasInsideFolder_ResolvesViaTreeRecursion()
+    {
+        var folderId = Guid.NewGuid();
+        var docTypeId = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, "tree/document-type/root"),
+                HttpStatusCode.OK,
+                // The root level holds only a folder - the type lives one level down.
+                $$"""{"total":1,"items":[{"id":"{{folderId}}","name":"Pages","isFolder":true}]}"""
+            )
+            .When(
+                r =>
+                    r.Method == HttpMethod.Get
+                    && Has(r, "tree/document-type/children")
+                    && Has(r, folderId.ToString()),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{docTypeId}}","name":"Text Page","isFolder":false}]}"""
+            )
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, $"document-type/{docTypeId}"),
+                HttpStatusCode.OK,
+                $$"""{"id":"{{docTypeId}}","alias":"textPage","name":"Text Page"}"""
+            )
+            .When(
+                r => r.Method == HttpMethod.Post && HasPath(r, "/document"),
+                HttpStatusCode.Created,
+                ""
+            )
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, "/document/"),
+                HttpStatusCode.OK,
+                """{"id":"00000000-0000-0000-0000-000000000000","variants":[{"name":"Home"}]}"""
+            );
+        var client = Client(handler);
+
+        var result = await client.CreateContentAsync(
+            new CreateContentRequest
+            {
+                ContentType = new ContentTypeReference { Alias = "textPage" },
+                Variants = [new ContentVariant { Name = "Home" }],
+            },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(
+            docTypeId.ToString(),
+            handler.BodyForFirst(r => r.Method == HttpMethod.Post && HasPath(r, "/document"))
+        );
+    }
+
+    /// <summary>
     /// An alias that resolves to no document type returns a clean 404 and never POSTs a document.
     /// </summary>
     [Fact]
     public async Task CreateContentAsync_UnknownAlias_Returns404AndDoesNotPost()
     {
         var handler = new RoutingHandler().When(
-            r => r.Method == HttpMethod.Get && Has(r, "item/document-type/search"),
+            r => r.Method == HttpMethod.Get && Has(r, "tree/document-type/root"),
             HttpStatusCode.OK,
             """{"total":0,"items":[]}"""
         );

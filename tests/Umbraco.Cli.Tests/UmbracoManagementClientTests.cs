@@ -1178,18 +1178,18 @@ public class UmbracoManagementClientTests
     [Fact]
     public async Task CreateMemberAsync_ResolvesTypeAliasAndEchoesRequest()
     {
-        // #79: member create resolves the member-type alias to an id (search then GET-by-id
-        // alias match), then POSTs with a client-supplied id and echoes the accepted request
-        // (the create response is empty). The POST body carries the resolved member-type id and
-        // the name as a variant.
+        // #79: member create resolves the member-type alias to an id (tree walk then GET-by-id
+        // alias match - the item search indexes names, not aliases), then POSTs with a
+        // client-supplied id and echoes the accepted request (the create response is empty). The
+        // POST body carries the resolved member-type id and the name as a variant.
         var memberTypeId = Guid.NewGuid();
         var handler = new RoutingHandler()
             .When(
                 r =>
                     r.Method == HttpMethod.Get
-                    && r.RequestUri!.AbsoluteUri.Contains("item/member-type/search"),
+                    && r.RequestUri!.AbsoluteUri.Contains("tree/member-type/root"),
                 HttpStatusCode.OK,
-                $$"""{"total":1,"items":[{"id":"{{memberTypeId}}","name":"Member"}]}"""
+                $$"""{"total":1,"items":[{"id":"{{memberTypeId}}","name":"Member","isFolder":false}]}"""
             )
             .When(
                 r =>

@@ -22,21 +22,15 @@ namespace Umbraco.Cli.Client;
 /// envelope, the transport-failure guard, and the command-facing DTOs stable, so
 /// commands never see the generated types or Kiota's exception-based failure model.
 ///
-/// Migration is incremental (#50). Most calls now go through the generated request
-/// builders via <see cref="GuardedApiAsync{T}"/>: all reads that had a clean generated
-/// equivalent, every delete, the language/dictionary/webhook creates, and user invite.
-/// Still on the hand-written <see cref="HttpClient"/> helpers below (tracked by #79, which
-/// removes <see cref="_http"/> entirely): the content write path (create/update/publish/
-/// unpublish) and media upload — they need document-type alias→id resolution, a
-/// JSON→UntypedNode value converter, and the two-step temporary-file upload flow — plus the
-/// handful of overlooked reads (document-type/data-type/user/dictionary/webhook) that are
-/// mopped up there since <see cref="_http"/> lives on for the content/media writes anyway.
+/// Migration is complete (#50, #79). Every call goes through the generated request builders
+/// via <see cref="GuardedApiAsync{T}"/> - reads, deletes, creates, the content write path
+/// (with document-type alias→id resolution and a JSON→UntypedNode value converter), and the
+/// two-step temporary-file media upload. The hand-written <see cref="HttpClient"/> path and
+/// its helper stack have been removed; the client is now fully generated.
 /// </summary>
 public sealed class UmbracoManagementClient : IUmbracoManagementClient
 {
-    private readonly HttpClient _http;
-
-    /// <summary>The Kiota-generated Management API client, backed by <see cref="_http"/>.</summary>
+    /// <summary>The Kiota-generated Management API client.</summary>
     private readonly UmbracoApiClient _api;
 
     /// <summary>
@@ -45,12 +39,6 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     /// resolve its per-part serializers, and the builder's own adapter is not publicly exposed.
     /// </summary>
     private readonly IRequestAdapter _adapter;
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
 
     /// <summary>
     /// Creates the client over an already-configured <see cref="HttpClient"/> (base
@@ -62,8 +50,6 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="http">The configured HTTP client (base address, auth header, timeout).</param>
     public UmbracoManagementClient(HttpClient http)
     {
-        _http = http;
-
         // Kiota resolves "{+baseurl}" against the adapter's BaseUrl. The HttpClient's
         // base address is the host root with a trailing slash (e.g.
         // "https://host:45000/"); Kiota expects it without the trailing slash because
@@ -197,15 +183,37 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
+    /// Document-type tree leaf ids (folders excluded), captured on the first alias resolution of
+    /// this client's lifetime so a second resolution does not re-walk the tree.
+    /// </summary>
+    private List<Guid>? _documentTypeLeafIds;
+
+    /// <summary>Document-type alias to id, filled in as candidates are read by-id.</summary>
+    private readonly Dictionary<string, Guid> _documentTypeAliases = new(
+        StringComparer.OrdinalIgnoreCase
+    );
+
+    /// <summary>Document-type ids already read by-id, so a candidate is never fetched twice.</summary>
+    private readonly HashSet<Guid> _documentTypeAliasesRead = [];
+
+    /// <summary>
     /// Resolves a document-type reference - an alias (e.g. <c>textPage</c>) or a GUID id - to
     /// its id, which is what the generated create model requires. A value that parses as a GUID
-    /// is used directly. Otherwise the alias is resolved via the document-type item search;
-    /// because the search result model carries only name/id (not alias), each candidate's full
-    /// document type is fetched and its alias compared exactly. This mirrors the proven template
-    /// alias resolver (<see cref="GetTemplateByAliasAsync"/>), which relies on the same item
-    /// search indexing aliases - with the one extra by-id fetch the doc-type item model forces.
-    /// See ADR 0004.
+    /// is used directly.
     /// </summary>
+    /// <remarks>
+    /// An alias is resolved by walking the document-type <em>tree</em> and comparing the alias on
+    /// each type read by-id - deliberately NOT via the document-type item search. The item search
+    /// indexes only the <em>name</em>, so searching for an alias finds nothing whenever the alias
+    /// differs from the name by more than case - which is the Umbraco norm for any multi-word type
+    /// ("Text Page" -> <c>textPage</c>). An earlier revision of #79 used the search and so failed
+    /// to resolve exactly those types; see ADR 0004.
+    ///
+    /// Neither the tree item model nor the item-search model exposes Alias, so each candidate
+    /// costs one by-id GET. Results are cached per client instance (the tree walk and every alias
+    /// seen), and the scan short-circuits on the first match, so the common case of one alias per
+    /// invocation stops as soon as it is found rather than reading every type.
+    /// </remarks>
     /// <param name="aliasOrId">The document-type alias or id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved document-type id.</returns>
@@ -215,27 +223,133 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         if (Guid.TryParse(aliasOrId, out var parsed))
             return parsed;
 
-        var search = await _api.Umbraco.Management.Api.V1.Item.DocumentType.Search.GetAsync(
-            c =>
-            {
-                c.QueryParameters.Query = aliasOrId;
-                c.QueryParameters.Take = 100;
-            },
-            ct
-        );
-        foreach (var item in search?.Items ?? [])
+        // Already resolved (or seen while resolving something else) on this client instance.
+        if (_documentTypeAliases.TryGetValue(aliasOrId, out var cached))
+            return cached;
+
+        _documentTypeLeafIds ??= await CollectTreeLeafIdsAsync(FetchDocumentTypeTreePageAsync, ct);
+
+        foreach (var candidateId in _documentTypeLeafIds)
         {
-            if (item.Id is not { } candidateId)
+            // Skip candidates already read: their alias is in the cache, which missed above.
+            if (!_documentTypeAliasesRead.Add(candidateId))
                 continue;
-            // The search item omits Alias, so read the full document type to compare it.
+
             var dt = await _api
                 .Umbraco.Management.Api.V1.DocumentType[candidateId]
                 .GetAsync(cancellationToken: ct);
+            if (dt?.Alias is { } alias)
+                _documentTypeAliases[alias] = candidateId;
             if (string.Equals(dt?.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase))
                 return candidateId;
         }
 
-        throw NotFound($"No document type found with alias '{aliasOrId}'.");
+        throw NotFound(
+            $"No document type found with alias '{aliasOrId}'. Use 'umbraco content-types list' "
+                + "to find one, or pass a document type id."
+        );
+    }
+
+    /// <summary>
+    /// Fetches one page of the document-type tree: the root level when
+    /// <paramref name="parentId"/> is null, otherwise the children of that folder.
+    /// </summary>
+    /// <param name="parentId">The parent folder id, or null for the tree root.</param>
+    /// <param name="skip">Items to skip.</param>
+    /// <param name="take">Page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The page's items as (id, is-folder) pairs.</returns>
+    private async Task<IReadOnlyList<(Guid Id, bool IsFolder)>> FetchDocumentTypeTreePageAsync(
+        Guid? parentId,
+        int skip,
+        int take,
+        CancellationToken ct
+    )
+    {
+        var items = parentId is null
+            ? (
+                await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Root.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                )
+            )?.Items?.Select(i => (i.Id, i.IsFolder))
+            : (
+                await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Children.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.ParentId = parentId;
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                )
+            )?.Items?.Select(i => (i.Id, i.IsFolder));
+
+        return
+        [
+            .. (items ?? [])
+                .Where(i => i.Id is not null)
+                .Select(i => (i.Id!.Value, i.IsFolder ?? false)),
+        ];
+    }
+
+    /// <summary>
+    /// Walks a Management-API tree breadth-first and returns the ids of every non-folder item.
+    /// Used by the alias resolvers, which must consider types nested inside folders - the tree
+    /// root alone omits them.
+    /// </summary>
+    /// <param name="fetchPage">Fetches a page: (parent folder id or null for root, skip, take, ct).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The ids of all non-folder items in the tree.</returns>
+    private static async Task<List<Guid>> CollectTreeLeafIdsAsync(
+        Func<
+            Guid?,
+            int,
+            int,
+            CancellationToken,
+            Task<IReadOnlyList<(Guid Id, bool IsFolder)>>
+        > fetchPage,
+        CancellationToken ct
+    )
+    {
+        const int pageSize = 100;
+        // Backstop against a pathological (or cyclic) tree: stop rather than loop forever.
+        const int maxLeaves = 10_000;
+
+        var leaves = new List<Guid>();
+        var pending = new Queue<Guid?>();
+        pending.Enqueue(null); // null == the tree root level
+        var seenFolders = new HashSet<Guid>();
+
+        while (pending.Count > 0 && leaves.Count < maxLeaves)
+        {
+            var parentId = pending.Dequeue();
+            for (var skip = 0; ; )
+            {
+                var page = await fetchPage(parentId, skip, pageSize, ct);
+                if (page.Count == 0)
+                    break;
+
+                foreach (var (id, isFolder) in page)
+                {
+                    if (!isFolder)
+                        leaves.Add(id);
+                    else if (seenFolders.Add(id))
+                        pending.Enqueue(id);
+                }
+
+                // A short page is the last one; otherwise advance and keep paging.
+                if (page.Count < pageSize)
+                    break;
+                skip += page.Count;
+            }
+        }
+
+        return leaves;
     }
 
     /// <summary>
@@ -1187,14 +1301,65 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    public async Task<UmbracoResponse<DocumentTypeResponse>> CreateDocumentTypeAsync(
+    /// <summary>
+    /// Creates a document type via <c>POST document-type</c> (generated client, #79). The id is
+    /// client-supplied so the created type is echoed back with the accepted fields (the create
+    /// response is empty). The CLI exposes only the scalar fields (name/alias/icon/description/
+    /// element/root flags); properties, containers, compositions and allowed-type collections
+    /// are sent empty, matching the command's surface.
+    /// </summary>
+    /// <param name="request">The document type to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created document type (with the supplied id), or a mapped failure.</returns>
+    public Task<UmbracoResponse<DocumentTypeResponse>> CreateDocumentTypeAsync(
         CreateDocumentTypeRequest request,
         CancellationToken ct = default
     ) =>
-        await PostAsync<CreateDocumentTypeRequest, DocumentTypeResponse>(
-            "umbraco/management/api/v1/document-type",
-            request,
-            ct
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.CreateDocumentTypeRequestModel
+                {
+                    Id = request.Id,
+                    Name = request.Name,
+                    Alias = request.Alias,
+                    Icon = request.Icon,
+                    Description = request.Description,
+                    IsElement = request.IsElement,
+                    AllowedAsRoot = request.AllowedAsRoot,
+                    VariesByCulture = request.VariesByCulture,
+                    VariesBySegment = request.VariesBySegment,
+                    Cleanup = new Gen.DocumentTypeCleanupModel
+                    {
+                        PreventCleanup = request.Cleanup.PreventCleanup,
+                        KeepAllVersionsNewerThanDays = request.Cleanup.KeepAllVersionsNewerThanDays,
+                        KeepLatestVersionPerDayForDays = request
+                            .Cleanup
+                            .KeepLatestVersionPerDayForDays,
+                    },
+                    Containers = [],
+                    Properties = [],
+                    AllowedDocumentTypes = [],
+                    Compositions = [],
+                    AllowedTemplates = request
+                        .AllowedTemplates.Select(t => new Gen.ReferenceByIdModel { Id = t.Id })
+                        .ToList(),
+                };
+                await _api.Umbraco.Management.Api.V1.DocumentType.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return new DocumentTypeResponse
+                {
+                    Id = request.Id,
+                    Name = request.Name,
+                    Alias = request.Alias,
+                    Description = request.Description,
+                    IsElement = request.IsElement,
+                    AllowedAsRoot = request.AllowedAsRoot,
+                };
+            }
         );
 
     /// <summary>Deletes a document type via <c>DELETE document-type/{id}</c> (generated client).</summary>
@@ -1781,10 +1946,23 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
+    /// Member-type tree leaf ids (folders excluded), captured on the first alias resolution.
+    /// </summary>
+    private List<Guid>? _memberTypeLeafIds;
+
+    /// <summary>Member-type alias to id, filled in as candidates are read by-id.</summary>
+    private readonly Dictionary<string, Guid> _memberTypeAliases = new(
+        StringComparer.OrdinalIgnoreCase
+    );
+
+    /// <summary>Member-type ids already read by-id, so a candidate is never fetched twice.</summary>
+    private readonly HashSet<Guid> _memberTypeAliasesRead = [];
+
+    /// <summary>
     /// Resolves a member-type reference - an alias or a GUID id - to its id, mirroring
-    /// <see cref="ResolveDocumentTypeIdAsync"/>: a GUID is used directly, otherwise the alias is
-    /// resolved via the member-type item search and each candidate's full member type is fetched
-    /// to compare its alias (the search item model carries no alias). See ADR 0004.
+    /// <see cref="ResolveDocumentTypeIdAsync"/>: a GUID is used directly, otherwise the member-type
+    /// tree is walked and each candidate read by-id to compare its alias. As with document types
+    /// the item search is deliberately avoided - it indexes names, not aliases. See ADR 0004.
     /// </summary>
     /// <param name="aliasOrId">The member-type alias or id.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -1795,26 +1973,76 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         if (Guid.TryParse(aliasOrId, out var parsed))
             return parsed;
 
-        var search = await _api.Umbraco.Management.Api.V1.Item.MemberType.Search.GetAsync(
-            c =>
-            {
-                c.QueryParameters.Query = aliasOrId;
-                c.QueryParameters.Take = 100;
-            },
-            ct
-        );
-        foreach (var item in search?.Items ?? [])
+        if (_memberTypeAliases.TryGetValue(aliasOrId, out var cached))
+            return cached;
+
+        _memberTypeLeafIds ??= await CollectTreeLeafIdsAsync(FetchMemberTypeTreePageAsync, ct);
+
+        foreach (var candidateId in _memberTypeLeafIds)
         {
-            if (item.Id is not { } candidateId)
+            if (!_memberTypeAliasesRead.Add(candidateId))
                 continue;
+
             var mt = await _api
                 .Umbraco.Management.Api.V1.MemberType[candidateId]
                 .GetAsync(cancellationToken: ct);
+            if (mt?.Alias is { } alias)
+                _memberTypeAliases[alias] = candidateId;
             if (string.Equals(mt?.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase))
                 return candidateId;
         }
 
-        throw NotFound($"No member type found with alias '{aliasOrId}'.");
+        throw NotFound(
+            $"No member type found with alias '{aliasOrId}'. Use 'umbraco member-types list' "
+                + "to find one, or pass a member type id."
+        );
+    }
+
+    /// <summary>
+    /// Fetches one page of the member-type tree: the root level when <paramref name="parentId"/>
+    /// is null, otherwise the children of that folder.
+    /// </summary>
+    /// <param name="parentId">The parent folder id, or null for the tree root.</param>
+    /// <param name="skip">Items to skip.</param>
+    /// <param name="take">Page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The page's items as (id, is-folder) pairs.</returns>
+    private async Task<IReadOnlyList<(Guid Id, bool IsFolder)>> FetchMemberTypeTreePageAsync(
+        Guid? parentId,
+        int skip,
+        int take,
+        CancellationToken ct
+    )
+    {
+        var items = parentId is null
+            ? (
+                await _api.Umbraco.Management.Api.V1.Tree.MemberType.Root.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                )
+            )?.Items?.Select(i => (i.Id, i.IsFolder))
+            : (
+                await _api.Umbraco.Management.Api.V1.Tree.MemberType.Children.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.ParentId = parentId;
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = take;
+                    },
+                    ct
+                )
+            )?.Items?.Select(i => (i.Id, i.IsFolder));
+
+        return
+        [
+            .. (items ?? [])
+                .Where(i => i.Id is not null)
+                .Select(i => (i.Id!.Value, i.IsFolder ?? false)),
+        ];
     }
 
     /// <summary>
@@ -2532,98 +2760,6 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private Task<UmbracoResponse<TResponse>> GetAsync<TResponse>(
-        string url,
-        CancellationToken ct
-    ) =>
-        GuardedAsync(
-            async () =>
-            {
-                var response = await _http.GetAsync(url, ct);
-                return await DeserializeAsync<TResponse>(response, ct);
-            },
-            ct
-        );
-
-    private Task<UmbracoResponse<TResponse>> PostAsync<TRequest, TResponse>(
-        string url,
-        TRequest body,
-        CancellationToken ct
-    ) =>
-        GuardedAsync(
-            async () =>
-            {
-                var response = await _http.PostAsJsonAsync(url, body, JsonOptions, ct);
-                return await DeserializeAsync<TResponse>(response, ct);
-            },
-            ct
-        );
-
-    private Task<UmbracoResponse<TResponse>> PutAsync<TRequest, TResponse>(
-        string url,
-        TRequest body,
-        CancellationToken ct
-    ) =>
-        GuardedAsync(
-            async () =>
-            {
-                var response = await _http.PutAsJsonAsync(url, body, JsonOptions, ct);
-                return await DeserializeAsync<TResponse>(response, ct);
-            },
-            ct
-        );
-
-    private Task<UmbracoResponse<TResponse>> SendAsync<TResponse>(
-        HttpMethod method,
-        string url,
-        HttpContent content,
-        CancellationToken ct
-    ) =>
-        GuardedAsync(
-            async () =>
-            {
-                var request = new HttpRequestMessage(method, url) { Content = content };
-                var response = await _http.SendAsync(request, ct);
-                return await DeserializeAsync<TResponse>(response, ct);
-            },
-            ct
-        );
-
-    /// <summary>
-    /// Converts transport-level failures (host unreachable, timeout, unreadable body)
-    /// into a failed <see cref="UmbracoResponse{T}"/> with status code 0, so callers
-    /// see a normal failure instead of an exception. A genuine cancellation requested
-    /// via <paramref name="ct"/> is left to propagate.
-    /// </summary>
-    private static async Task<UmbracoResponse<T>> GuardedAsync<T>(
-        Func<Task<UmbracoResponse<T>>> action,
-        CancellationToken ct
-    )
-    {
-        try
-        {
-            return await action();
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-        {
-            return UmbracoResponse<T>.Failure(0, "The request to the Umbraco instance timed out.");
-        }
-        catch (HttpRequestException ex)
-        {
-            return UmbracoResponse<T>.Failure(
-                0,
-                $"Could not reach the Umbraco instance: {ex.Message}"
-            );
-        }
-        catch (JsonException ex)
-        {
-            return UmbracoResponse<T>.Failure(
-                0,
-                $"The Umbraco instance returned an unreadable response: {ex.Message}"
-            );
-        }
-    }
-
     /// <summary>
     /// Runs a generated-client call and wraps the outcome in a <see cref="UmbracoResponse{T}"/>.
     /// Kiota signals HTTP errors by throwing <see cref="ApiException"/> (and transport
@@ -2656,9 +2792,8 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
                 : !string.IsNullOrWhiteSpace(pd.Title) ? pd.Title!
                 : $"Error {status}";
             // Append the field-level "errors" map (e.g. "isoCode: Required") so a rejected
-            // write tells the user WHICH field failed, matching the hand-written path's
-            // BuildErrorAsync/FormatValidationErrors behaviour (#48). On the Kiota path the
-            // map has no typed property; it lands in AdditionalData as an UntypedNode.
+            // write tells the user WHICH field failed (#48). The generated ProblemDetails has
+            // no typed property for it; it lands in AdditionalData as an UntypedNode.
             var fieldErrors = FormatProblemDetailsErrors(pd);
             var message = fieldErrors is null ? baseMessage : $"{baseMessage} ({fieldErrors})";
             return UmbracoResponse<T>.Failure(status, message);
@@ -2761,158 +2896,13 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         };
     }
 
-    private static async Task<UmbracoResponse<TResponse>> DeserializeAsync<TResponse>(
-        HttpResponseMessage response,
-        CancellationToken ct
-    )
-    {
-        if (!response.IsSuccessStatusCode)
-            return await BuildErrorAsync<TResponse>(response, ct);
-
-        var status = (int)response.StatusCode;
-
-        // Umbraco returns 201 Created (and 200/202) with an EMPTY body for writes.
-        // Treat any 2xx with no content as success — previously only 204 was handled,
-        // so a successful create surfaced a bogus "unreadable response" error (#43).
-        var body = await response.Content.ReadAsStringAsync(ct);
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            // Surface the new id when the API returns it via the Location header
-            // (e.g. Location: .../webhook/{id}). Every response DTO exposes an "id"
-            // JSON property, so hydrating {"id":"..."} yields a DTO carrying just the
-            // new id — enough for callers/agents to chain follow-up calls (#43).
-            var newId = TryGetIdFromLocation(response);
-            if (newId is not null)
-            {
-                var withId = JsonSerializer.Deserialize<TResponse>(
-                    $$"""{"id":"{{newId}}"}""",
-                    JsonOptions
-                );
-                if (withId is not null)
-                    return UmbracoResponse<TResponse>.Success(withId, status);
-            }
-            return UmbracoResponse<TResponse>.Success(default!, status);
-        }
-
-        var data = JsonSerializer.Deserialize<TResponse>(body, JsonOptions);
-        return data is not null
-            ? UmbracoResponse<TResponse>.Success(data, status)
-            : UmbracoResponse<TResponse>.Failure(status, "Empty response body");
-    }
-
-    /// <summary>
-    /// Extracts the trailing GUID from the <c>Location</c> response header of a create
-    /// (e.g. <c>/umbraco/management/api/v1/webhook/{id}</c>). Returns null when there is
-    /// no Location header or its last segment is not a GUID.
-    /// </summary>
-    /// <param name="response">The HTTP response from a create call.</param>
-    /// <returns>The new resource id as a string, or null.</returns>
-    private static string? TryGetIdFromLocation(HttpResponseMessage response)
-    {
-        var location = response.Headers.Location?.ToString();
-        if (string.IsNullOrEmpty(location))
-            return null;
-        var lastSegment = location.TrimEnd('/').Split('/').LastOrDefault();
-        return Guid.TryParse(lastSegment, out var id) ? id.ToString() : null;
-    }
-
-    private static async Task<UmbracoResponse<T>> BuildErrorAsync<T>(
-        HttpResponseMessage response,
-        CancellationToken ct
-    )
-    {
-        var body = await response.Content.ReadAsStringAsync(ct);
-
-        // Empty body (typically a bare 404): fall back to the HTTP reason phrase so the
-        // user sees "Not Found" rather than a blank message (#48).
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            var reason = response.ReasonPhrase;
-            return UmbracoResponse<T>.Failure(
-                (int)response.StatusCode,
-                string.IsNullOrWhiteSpace(reason) ? $"Error {(int)response.StatusCode}" : reason
-            );
-        }
-
-        string message = body;
-        try
-        {
-            var err = JsonSerializer.Deserialize<JsonElement>(body, JsonOptions);
-            // Umbraco returns RFC-9110 ProblemDetails: {title, detail, errors}. Prefer the
-            // human title/detail, then append the field-level "errors" so a failed create
-            // tells the user WHICH field failed instead of a generic message (#48).
-            var baseMessage =
-                err.TryGetProperty("detail", out var detail)
-                && detail.ValueKind == JsonValueKind.String
-                    ? detail.GetString()
-                : err.TryGetProperty("title", out var title)
-                && title.ValueKind == JsonValueKind.String
-                    ? title.GetString()
-                : null;
-
-            var fieldErrors = FormatValidationErrors(err);
-
-            message = (baseMessage, fieldErrors) switch
-            {
-                (not null, not null) => $"{baseMessage} ({fieldErrors})",
-                (not null, null) => baseMessage,
-                (null, not null) => fieldErrors,
-                _ => body,
-            };
-        }
-        catch (JsonException)
-        {
-            // Non-JSON error body: surface it verbatim.
-            message = body;
-        }
-        return UmbracoResponse<T>.Failure((int)response.StatusCode, message);
-    }
-
-    /// <summary>
-    /// Flattens a ProblemDetails <c>errors</c> member into a single readable string.
-    /// Handles both the object form (<c>{"field":["msg"]}</c>) and the array-of-objects
-    /// form (<c>[{"field":["msg"]}]</c>) that Umbraco can return (#48).
-    /// </summary>
-    /// <param name="problem">The parsed ProblemDetails root element.</param>
-    /// <returns>A "field: message; ..." string, or null when there are no field errors.</returns>
-    private static string? FormatValidationErrors(JsonElement problem)
-    {
-        if (!problem.TryGetProperty("errors", out var errors))
-            return null;
-
-        var parts = new List<string>();
-
-        // Collects "field: msg1, msg2" from an object whose values are string arrays.
-        void CollectFromObject(JsonElement obj)
-        {
-            foreach (var field in obj.EnumerateObject())
-            {
-                var messages =
-                    field.Value.ValueKind == JsonValueKind.Array
-                        ? string.Join(", ", field.Value.EnumerateArray().Select(v => v.GetString()))
-                        : field.Value.ToString();
-                parts.Add($"{field.Name}: {messages}");
-            }
-        }
-
-        if (errors.ValueKind == JsonValueKind.Object)
-            CollectFromObject(errors);
-        else if (errors.ValueKind == JsonValueKind.Array)
-            foreach (var element in errors.EnumerateArray())
-                if (element.ValueKind == JsonValueKind.Object)
-                    CollectFromObject(element);
-
-        return parts.Count > 0 ? string.Join("; ", parts) : null;
-    }
-
     /// <summary>
     /// Flattens the RFC-9110 field-level <c>errors</c> map from a generated
     /// <see cref="Gen.ProblemDetails"/> into a readable "field: msg; ..." string, so a
-    /// write rejected on the Kiota path keeps the "which field failed" detail the
-    /// hand-written path surfaces via <see cref="FormatValidationErrors(JsonElement)"/>
-    /// (#48). The generated ProblemDetails has no typed <c>errors</c> property, so the map
-    /// arrives under <see cref="Gen.ProblemDetails.AdditionalData"/> as a Kiota
-    /// <see cref="UntypedNode"/> tree (an object of field -> array-of-message-strings).
+    /// write rejected on the Kiota path tells the user which field failed (#48). The generated
+    /// ProblemDetails has no typed <c>errors</c> property, so the map arrives under
+    /// <see cref="Gen.ProblemDetails.AdditionalData"/> as a Kiota <see cref="UntypedNode"/> tree
+    /// (an object of field -> array-of-message-strings).
     /// </summary>
     /// <param name="pd">The generated ProblemDetails thrown by a failed Kiota write.</param>
     /// <returns>A "field: message; ..." string, or null when there are no field errors.</returns>
@@ -2956,8 +2946,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         }
 
         // Umbraco returns the errors map either as an object ({"field":["msg"]}) or, less
-        // commonly, as an array of such objects ([{"field":["msg"]}]) — handle both, matching
-        // the hand-written FormatValidationErrors on the HttpClient path (#48).
+        // commonly, as an array of such objects ([{"field":["msg"]}]) — handle both (#48).
         if (raw is UntypedObject errorsObj)
             CollectFromObject(errorsObj);
         else if (raw is UntypedArray errorsArr)

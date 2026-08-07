@@ -227,6 +227,37 @@ public sealed class CommandIntegrationTests
             Assert.Equal(1, item.EnumerateObject().Count());
     }
 
+    /// <summary>
+    /// Finds a document-type alias that exists on the live instance, or skips the test. The alias
+    /// cannot be hard-coded: a dry-run content create now resolves the alias against the real
+    /// instance (#79), and every instance has a different schema. `content-types list` exposes only
+    /// name + id (and includes folders, whose ids 404 on get - see issue #97), so each candidate is
+    /// read by-id until one yields an alias.
+    /// </summary>
+    /// <returns>The id and alias of an existing document type.</returns>
+    private static (string Id, string Alias) FindDocumentType()
+    {
+        var list = CliRunner.Run("content-types", "list", "--take", "50");
+        Skip.IfNot(list.Ok, $"Could not list content types: {list.Stderr}");
+
+        foreach (var item in list.Data().EnumerateArray())
+        {
+            if (item.TryGetProperty("id", out var idProp) && idProp.GetString() is { } id)
+            {
+                var get = CliRunner.Run("content-types", "get", id);
+                if (
+                    get.Ok
+                    && get.Data().TryGetProperty("alias", out var alias)
+                    && alias.GetString() is { Length: > 0 } value
+                )
+                    return (id, value);
+            }
+        }
+
+        Skip.If(true, "No document type with an alias found on the live instance.");
+        return ("", ""); // unreachable - the Skip above always throws.
+    }
+
     [SkippableFact]
     public void StdinBody_ContentCreate_ReadsPipedBody()
     {
@@ -234,8 +265,12 @@ public sealed class CommandIntegrationTests
         // #63: `--json-body -` reads the body from stdin. Use --dry-run so nothing is created;
         // the dry-run preview proves the piped body was parsed and would be sent. Includes a
         // non-ASCII name to guard the UTF-8 stdin decoding (H1).
+        //
+        // The document type must really exist: under --dry-run the mutation interceptor still lets
+        // the alias->id resolution reads through, so only the final POST is withheld (#79).
         const string name = "Søg 日本";
-        var body = $$"""{"contentType":{"alias":"textPage"},"variants":[{"name":"{{name}}"}]}""";
+        var (docTypeId, alias) = FindDocumentType();
+        var body = $$"""{"contentType":{"alias":"{{alias}}"},"variants":[{"name":"{{name}}"}]}""";
         var result = CliRunner.RunWithInput(
             body,
             "content",
@@ -257,6 +292,15 @@ public sealed class CommandIntegrationTests
             .GetProperty("name")
             .GetString();
         Assert.Equal(name, echoedName);
+        // The previewed body must carry the id the alias resolves to, not the alias - and the
+        // RIGHT id. Live guard for the resolver: it walks the document-type tree rather than the
+        // item search, which indexes names only and so missed any alias unlike its name (#79).
+        var resolvedId = request
+            .GetProperty("body")
+            .GetProperty("documentType")
+            .GetProperty("id")
+            .GetString();
+        Assert.Equal(docTypeId, resolvedId);
     }
 
     [SkippableFact]
