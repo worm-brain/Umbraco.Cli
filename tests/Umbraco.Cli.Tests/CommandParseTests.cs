@@ -9,12 +9,15 @@ using Umbraco.Cli.Commands.DataTypes;
 using Umbraco.Cli.Commands.Diagnostics;
 using Umbraco.Cli.Commands.Dictionary;
 using Umbraco.Cli.Commands.DocumentBlueprints;
+using Umbraco.Cli.Commands.Examine;
+using Umbraco.Cli.Commands.Imaging;
 using Umbraco.Cli.Commands.Languages;
 using Umbraco.Cli.Commands.Media;
 using Umbraco.Cli.Commands.MediaTypes;
 using Umbraco.Cli.Commands.MemberGroups;
 using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.MemberTypes;
+using Umbraco.Cli.Commands.PropertyTypes;
 using Umbraco.Cli.Commands.Redirects;
 using Umbraco.Cli.Commands.Relations;
 using Umbraco.Cli.Commands.StaticFiles;
@@ -109,6 +112,10 @@ public class CommandParseTests
         root.Add(RedirectCommand.Build(executor));
         root.Add(RelationTypeCommand.Build(executor));
         root.Add(RelationCommand.Build(executor));
+        root.Add(IndexerCommand.Build(executor));
+        root.Add(SearcherCommand.Build(executor));
+        root.Add(ImagingCommand.Build(executor));
+        root.Add(PropertyTypeCommand.Build(executor));
 
         return root;
     }
@@ -169,6 +176,10 @@ public class CommandParseTests
     [InlineData("redirect")]
     [InlineData("relation-type")]
     [InlineData("relation")]
+    [InlineData("indexer")]
+    [InlineData("searcher")]
+    [InlineData("imaging")]
+    [InlineData("property-type")]
     public void RootCommand_ContainsExpectedSubcommand(string subcommand)
     {
         var root = BuildRoot();
@@ -255,6 +266,26 @@ public class CommandParseTests
     [InlineData("redirect", new[] { "list", "status", "delete", "tracking" })]
     [InlineData("relation-type", new[] { "list", "get" })]
     [InlineData("relation", new[] { "list" })]
+    [InlineData("indexer", new[] { "list", "get", "rebuild" })]
+    [InlineData("searcher", new[] { "list", "query" })]
+    [InlineData("imaging", new[] { "resize-urls" })]
+    [InlineData("property-type", new[] { "is-used" })]
+    [InlineData(
+        "data-types",
+        new[]
+        {
+            "list",
+            "get",
+            "create",
+            "update",
+            "delete",
+            "is-used",
+            "referenced-by",
+            "copy",
+            "move",
+            "folder",
+        }
+    )]
     [InlineData("auth", new[] { "login", "logout", "whoami", "doctor" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)
     {
@@ -469,6 +500,28 @@ public class CommandParseTests
     [InlineData("relation-type list")]
     [InlineData("relation-type get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("relation list --type 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("indexer list")]
+    [InlineData("indexer get ExternalIndex")]
+    [InlineData("indexer rebuild ExternalIndex")]
+    [InlineData("searcher list")]
+    [InlineData("searcher query ExternalSearcher --term news")]
+    [InlineData("imaging resize-urls --id 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "imaging resize-urls --id 3f7a8b2e-1234-5678-abcd-ef0123456789 --width 300 --height 200 --mode Crop --format webp"
+    )]
+    [InlineData(
+        "property-type is-used --content-type 3f7a8b2e-1234-5678-abcd-ef0123456789 --alias bodyText"
+    )]
+    [InlineData("data-types is-used 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("data-types referenced-by 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "data-types copy 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("data-types move 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("data-types folder create --name Pickers")]
+    [InlineData("data-types folder get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("data-types folder update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Pickers")]
+    [InlineData("data-types folder delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("member-types create --name Author --alias author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --icon icon-user")]
@@ -538,6 +591,13 @@ public class CommandParseTests
     [InlineData("relation-type get not-a-uuid")]
     [InlineData("relation list")] // --type is required
     [InlineData("relation list --type not-a-uuid")]
+    [InlineData("indexer get")] // missing name argument
+    [InlineData("searcher query ExternalSearcher")] // missing required --term
+    [InlineData("imaging resize-urls")] // missing required --id
+    [InlineData("imaging resize-urls --id 3f7a8b2e-1234-5678-abcd-ef0123456789 --mode Nonsense")] // invalid enum
+    [InlineData("property-type is-used --alias bodyText")] // missing required --content-type
+    [InlineData("data-types is-used not-a-uuid")]
+    [InlineData("data-types folder create")] // missing required --name
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]

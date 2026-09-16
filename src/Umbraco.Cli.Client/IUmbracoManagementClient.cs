@@ -53,4 +53,8 @@ public interface IUmbracoManagementClient
         // Redirects and relations (#118).
         IRedirectClient,
         IRelationTypeClient,
-        IRelationClient;
+        IRelationClient,
+        // Examine, imaging, property-type usage (#121).
+        IExamineClient,
+        IImagingClient,
+        IPropertyTypeClient;

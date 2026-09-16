@@ -1505,4 +1505,208 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
             )
         );
     }
+
+    // ── Coverage finale: Examine, imaging, data-type advanced, property-type (#121) ──
+
+    /// <summary>Indexes the list method returns (seeded by a test).</summary>
+    public List<IndexResponse> Indexes { get; } = [];
+
+    /// <summary>Index names passed to <see cref="RebuildIndexAsync"/>, in order.</summary>
+    public List<string> IndexesRebuilt { get; } = [];
+
+    /// <summary>Searchers the list method returns (seeded by a test).</summary>
+    public List<SearcherResponse> Searchers { get; } = [];
+
+    /// <summary>The (searcher, term) of the last query.</summary>
+    public (string Name, string Term)? LastSearcherQuery { get; private set; }
+
+    public Task<UmbracoResponse<PagedResponse<IndexResponse>>> GetIndexersAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<IndexResponse>>.Success(
+                new PagedResponse<IndexResponse>
+                {
+                    Total = Indexes.Count,
+                    Items = Indexes.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+
+    public Task<UmbracoResponse<IndexResponse>> GetIndexerAsync(
+        string name,
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<IndexResponse>.Success(new IndexResponse { Name = name }));
+
+    public Task<UmbracoResponse<Empty>> RebuildIndexAsync(
+        string name,
+        CancellationToken ct = default
+    )
+    {
+        IndexesRebuilt.Add(name);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<PagedResponse<SearcherResponse>>> GetSearchersAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<SearcherResponse>>.Success(
+                new PagedResponse<SearcherResponse>
+                {
+                    Total = Searchers.Count,
+                    Items = Searchers.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+
+    public Task<UmbracoResponse<PagedResponse<SearchResultResponse>>> QuerySearcherAsync(
+        string name,
+        string term,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    )
+    {
+        LastSearcherQuery = (name, term);
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<SearchResultResponse>>.Success(
+                new PagedResponse<SearchResultResponse> { Total = 0, Items = [] }
+            )
+        );
+    }
+
+    /// <summary>The (ids, width, height, mode, format) of the last resize-urls call.</summary>
+    public (
+        IReadOnlyList<Guid> Ids,
+        int? Width,
+        int? Height,
+        ImageResizeMode? Mode,
+        string? Format
+    )? LastResizeUrls { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<MediaResizeUrlResponse>>> GetResizeUrlsAsync(
+        IReadOnlyList<Guid> mediaIds,
+        int? width = null,
+        int? height = null,
+        ImageResizeMode? mode = null,
+        string? format = null,
+        CancellationToken ct = default
+    )
+    {
+        LastResizeUrls = (mediaIds, width, height, mode, format);
+        return Task.FromResult(UmbracoResponse<IReadOnlyList<MediaResizeUrlResponse>>.Success([]));
+    }
+
+    /// <summary>Recorded data-type is-used queries.</summary>
+    public List<Guid> DataTypeIsUsedQueried { get; } = [];
+
+    /// <summary>Recorded data-type copies, in <c>(id, target)</c> order.</summary>
+    public List<(Guid Id, Guid? Target)> DataTypesCopied { get; } = [];
+
+    /// <summary>Recorded data-type moves, in <c>(id, target)</c> order.</summary>
+    public List<(Guid Id, Guid? Target)> DataTypesMoved { get; } = [];
+
+    /// <summary>Recorded data-type folder creates.</summary>
+    public List<CreateDataTypeFolderRequest> DataTypeFoldersCreated { get; } = [];
+
+    /// <summary>Recorded data-type folder deletes.</summary>
+    public List<Guid> DataTypeFoldersDeleted { get; } = [];
+
+    public Task<UmbracoResponse<bool>> IsDataTypeUsedAsync(Guid id, CancellationToken ct = default)
+    {
+        DataTypeIsUsedQueried.Add(id);
+        return Task.FromResult(UmbracoResponse<bool>.Success(false));
+    }
+
+    public Task<UmbracoResponse<JsonNode>> GetDataTypeReferencedByRawAsync(
+        Guid id,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<JsonNode>.Success(
+                new JsonObject { ["total"] = 0, ["items"] = new JsonArray() }
+            )
+        );
+
+    public Task<UmbracoResponse<Empty>> CopyDataTypeAsync(
+        Guid id,
+        Guid? targetId,
+        CancellationToken ct = default
+    )
+    {
+        DataTypesCopied.Add((id, targetId));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> MoveDataTypeAsync(
+        Guid id,
+        Guid? targetId,
+        CancellationToken ct = default
+    )
+    {
+        DataTypesMoved.Add((id, targetId));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<DataTypeFolderResponse>> GetDataTypeFolderAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<DataTypeFolderResponse>.Success(
+                new DataTypeFolderResponse { Id = id, Name = "Folder" }
+            )
+        );
+
+    public Task<UmbracoResponse<DataTypeFolderResponse>> CreateDataTypeFolderAsync(
+        CreateDataTypeFolderRequest request,
+        CancellationToken ct = default
+    )
+    {
+        DataTypeFoldersCreated.Add(request);
+        return Task.FromResult(
+            UmbracoResponse<DataTypeFolderResponse>.Success(
+                new DataTypeFolderResponse
+                {
+                    Id = request.Id ?? Guid.NewGuid(),
+                    Name = request.Name,
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> UpdateDataTypeFolderAsync(
+        Guid id,
+        string name,
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+
+    public Task<UmbracoResponse<Empty>> DeleteDataTypeFolderAsync(
+        Guid id,
+        CancellationToken ct = default
+    )
+    {
+        DataTypeFoldersDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>The (contentTypeId, alias) of the last property-type is-used query.</summary>
+    public (Guid ContentTypeId, string Alias)? LastPropertyTypeUsedQuery { get; private set; }
+
+    public Task<UmbracoResponse<bool>> IsPropertyTypeUsedAsync(
+        Guid contentTypeId,
+        string propertyAlias,
+        CancellationToken ct = default
+    )
+    {
+        LastPropertyTypeUsedQuery = (contentTypeId, propertyAlias);
+        return Task.FromResult(UmbracoResponse<bool>.Success(true));
+    }
 }
