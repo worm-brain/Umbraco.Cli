@@ -172,6 +172,14 @@ root.Add(PropertyTypeCommand.Build(executor));
 // describe the fully-assembled tree (including itself).
 root.Add(CommandsCommand.Build(globalOptions, root));
 
+// Richer --version (#95): replace System.CommandLine's default version action so the output
+// reports the tool version, target framework and runtime instead of just the assembly version.
+foreach (var option in root.Options)
+{
+    if (option is VersionOption versionOption)
+        versionOption.Action = new VersionCommandAction();
+}
+
 // ── Run ───────────────────────────────────────────────────────────────────────
 // Parse with response-file expansion disabled (#115) so option values beginning with '@'
 // (e.g. Serilog log-viewer filters like "@Level='Error'") are passed through verbatim.
