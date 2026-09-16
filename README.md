@@ -10,7 +10,7 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 ## Features
 
-- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures, user groups, user data, document blueprints, server diagnostics, health checks, log viewer, models builder, package manifests
+- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures, user groups, user data, document blueprints, server diagnostics, health checks, log viewer, models builder, package manifests, URL redirects, relation types, relations
 - **Schema export / diff / apply** — dump document types, data types, and templates to a portable JSON snapshot, diff it against a live instance, and apply the difference (CI/agent-friendly, complements uSync); see [`schema`](#schema-export--diff--apply)
 - **Content export / diff / apply** — dump a content subtree to a portable snapshot with stable cross-environment identity, diff it, and reconcile a live instance towards it; see [`content`](#content-export--diff--apply)
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
@@ -464,6 +464,29 @@ umbraco models-builder build                               # regenerates source 
 
 ```bash
 umbraco manifest list [--scope All|Public|Private]         # default: All
+```
+
+### `redirect`
+
+```bash
+umbraco redirect list [--content <key>] [--filter <s>] [--skip <n>] [--take <n>]   # --content lists redirects to that document (key ignores --filter)
+umbraco redirect status                                    # whether automatic URL-redirect tracking is enabled
+umbraco redirect delete <id>                               # needs --yes non-interactively
+umbraco redirect tracking enable                           # site-wide toggle; needs --yes non-interactively
+umbraco redirect tracking disable                          # site-wide toggle; needs --yes non-interactively
+```
+
+### `relation-type` (read-only)
+
+```bash
+umbraco relation-type list [--skip <n>] [--take <n>]
+umbraco relation-type get <id>
+```
+
+### `relation` (read-only)
+
+```bash
+umbraco relation list --type <relationTypeId> [--skip <n>] [--take <n>]   # relations are listed only by relation-type id
 ```
 
 ### `schema` (export / diff / apply)
