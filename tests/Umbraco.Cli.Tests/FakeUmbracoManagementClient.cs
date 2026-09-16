@@ -749,7 +749,11 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     ) =>
         Task.FromResult(
             UmbracoResponse<PagedResponse<TagResponse>>.Success(
-                new PagedResponse<TagResponse> { Total = TagList.Count, Items = TagList }
+                new PagedResponse<TagResponse>
+                {
+                    Total = TagList.Count,
+                    Items = TagList.Skip(skip).Take(take).ToList(),
+                }
             )
         );
 
@@ -763,7 +767,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
                 new PagedResponse<CultureResponse>
                 {
                     Total = CultureList.Count,
-                    Items = CultureList,
+                    Items = CultureList.Skip(skip).Take(take).ToList(),
                 }
             )
         );
