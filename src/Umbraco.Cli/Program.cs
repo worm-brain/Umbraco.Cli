@@ -173,4 +173,6 @@ root.Add(PropertyTypeCommand.Build(executor));
 root.Add(CommandsCommand.Build(globalOptions, root));
 
 // ── Run ───────────────────────────────────────────────────────────────────────
-return await root.Parse(args).InvokeAsync();
+// Parse with response-file expansion disabled (#115) so option values beginning with '@'
+// (e.g. Serilog log-viewer filters like "@Level='Error'") are passed through verbatim.
+return await root.Parse(args, CliParserConfiguration.Create()).InvokeAsync();

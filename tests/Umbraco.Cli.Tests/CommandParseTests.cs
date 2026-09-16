@@ -120,11 +120,16 @@ public class CommandParseTests
         return root;
     }
 
-    private static bool HasErrors(string args)
-    {
-        var parsed = BuildRoot().Parse(args);
-        return parsed.Errors.Count > 0;
-    }
+    /// <summary>
+    /// Parses <paramref name="args"/> against a fresh root using the same parser configuration as
+    /// production (response files disabled, #115), so the tests exercise real parsing behaviour.
+    /// </summary>
+    /// <param name="args">The raw command-line string.</param>
+    /// <returns>The parse result.</returns>
+    private static ParseResult Parse(string args) =>
+        BuildRoot().Parse(args, Umbraco.Cli.Infrastructure.CliParserConfiguration.Create());
+
+    private static bool HasErrors(string args) => Parse(args).Errors.Count > 0;
 
     // ── Conditional requirement + --schema (#61) ─────────────────────────────
 
@@ -608,5 +613,29 @@ public class CommandParseTests
     public void InvalidArgs_ProduceParseErrors(string args)
     {
         Assert.True(HasErrors(args), $"Expected parse errors for: {args}");
+    }
+
+    // ── Response-file tokens disabled (#115) ─────────────────────────────────────
+    // An option value starting with '@' (common in Serilog log-viewer filters, e.g.
+    // "@Level='Error'") must be taken literally, not as an "@file" response-file directive that
+    // would fail to load and abort the parse.
+
+    [Theory]
+    [InlineData("log-viewer log --filter @Level='Error'", "--filter", "@Level='Error'")]
+    [InlineData(
+        "log-viewer saved-search create --name Errors --query @Exception",
+        "--query",
+        "@Exception"
+    )]
+    public void AtPrefixedOptionValue_IsNotTreatedAsResponseFile_AndRoundTrips(
+        string args,
+        string option,
+        string expected
+    )
+    {
+        var parsed = Parse(args);
+
+        Assert.Empty(parsed.Errors);
+        Assert.Equal(expected, parsed.GetValue<string>(option));
     }
 }
