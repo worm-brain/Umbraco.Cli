@@ -10,10 +10,7 @@ public static class DataTypesListCommand
             "list",
             "List all data types (property editors) configured in the Umbraco instance.\n\nExample:\n  umbraco data-types list"
         );
-        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
-        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 20 };
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunTableAsync(

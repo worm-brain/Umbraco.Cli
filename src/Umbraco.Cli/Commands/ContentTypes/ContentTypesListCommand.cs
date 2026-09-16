@@ -10,10 +10,7 @@ public static class ContentTypesListCommand
             "list",
             "List all document types defined in the Umbraco instance.\n\nExamples:\n  umbraco content-types list\n  umbraco content-types list --output json | jq '.[].alias'"
         );
-        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
-        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 20 };
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunTableAsync(

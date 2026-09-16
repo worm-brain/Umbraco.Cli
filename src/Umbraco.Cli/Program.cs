@@ -10,12 +10,15 @@ using Umbraco.Cli.Commands.DataTypes;
 using Umbraco.Cli.Commands.Diagnostics;
 using Umbraco.Cli.Commands.Dictionary;
 using Umbraco.Cli.Commands.DocumentBlueprints;
+using Umbraco.Cli.Commands.Examine;
+using Umbraco.Cli.Commands.Imaging;
 using Umbraco.Cli.Commands.Languages;
 using Umbraco.Cli.Commands.Media;
 using Umbraco.Cli.Commands.MediaTypes;
 using Umbraco.Cli.Commands.MemberGroups;
 using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.MemberTypes;
+using Umbraco.Cli.Commands.PropertyTypes;
 using Umbraco.Cli.Commands.Redirects;
 using Umbraco.Cli.Commands.Relations;
 using Umbraco.Cli.Commands.Schema;
@@ -154,6 +157,12 @@ root.Add(ManifestCommand.Build(executor));
 root.Add(RedirectCommand.Build(executor));
 root.Add(RelationTypeCommand.Build(executor));
 root.Add(RelationCommand.Build(executor));
+
+// Examine, imaging, property-type (#121).
+root.Add(IndexerCommand.Build(executor));
+root.Add(SearcherCommand.Build(executor));
+root.Add(ImagingCommand.Build(executor));
+root.Add(PropertyTypeCommand.Build(executor));
 
 // Machine-readable command catalog for agents (#60). Added last and given the root so it can
 // describe the fully-assembled tree (including itself).

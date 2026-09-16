@@ -10,7 +10,7 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 ## Features
 
-- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures, user groups, user data, document blueprints, server diagnostics, health checks, log viewer, models builder, package manifests, URL redirects, relation types, relations
+- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures, user groups, user data, document blueprints, server diagnostics, health checks, log viewer, models builder, package manifests, URL redirects, relation types, relations, Examine indexers, Examine searchers, image resize URLs, property-type usage
 - **Schema export / diff / apply** — dump document types, data types, and templates to a portable JSON snapshot, diff it against a live instance, and apply the difference (CI/agent-friendly, complements uSync); see [`schema`](#schema-export--diff--apply)
 - **Content export / diff / apply** — dump a content subtree to a portable snapshot with stable cross-environment identity, diff it, and reconcile a live instance towards it; see [`content`](#content-export--diff--apply)
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
@@ -289,6 +289,16 @@ umbraco data-types get <id|alias>
 umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types update <id> --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types delete <id>
+umbraco data-types is-used <id>                            # whether any content type uses it
+umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
+umbraco data-types copy <id> [--target <folder>]          # omit --target to copy to the root; needs --yes non-interactively
+umbraco data-types move <id> [--target <folder>]          # omit --target to move to the root; needs --yes non-interactively
+
+# folder sub-noun (organise data types in the tree):
+umbraco data-types folder get <id>
+umbraco data-types folder create --name <name> [--parent <folder>] [--id <guid>]
+umbraco data-types folder update <id> --name <name>
+umbraco data-types folder delete <id>                     # needs --yes non-interactively
 ```
 
 ### `languages`
@@ -487,6 +497,33 @@ umbraco relation-type get <id>
 
 ```bash
 umbraco relation list --type <relationTypeId> [--skip <n>] [--take <n>]   # relations are listed only by relation-type id
+```
+
+### `indexer`
+
+```bash
+umbraco indexer list [--skip <n>] [--take <n>]             # Examine indexes, with health + document counts
+umbraco indexer get <name>
+umbraco indexer rebuild <name>                             # expensive; needs --yes non-interactively (POST, so blocked by --readonly)
+```
+
+### `searcher` (read-only)
+
+```bash
+umbraco searcher list [--skip <n>] [--take <n>]
+umbraco searcher query <name> --term <term> [--skip <n>] [--take <n>]
+```
+
+### `imaging` (read-only)
+
+```bash
+umbraco imaging resize-urls --id <guid>... [--width <px>] [--height <px>] [--mode <Crop|Max|Stretch|Pad|BoxPad|Min>] [--format <fmt>]   # --id repeatable
+```
+
+### `property-type` (read-only)
+
+```bash
+umbraco property-type is-used --content-type <id> --alias <alias>
 ```
 
 ### `schema` (export / diff / apply)

@@ -33,8 +33,6 @@ public static class LogViewerCommand
             "log",
             "List log messages, optionally filtered by level/date/expression."
         );
-        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
-        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 100 };
         var levelOpt = new Option<LogLevel[]>("--level")
         {
             AllowMultipleArgumentsPerToken = true,
@@ -57,8 +55,7 @@ public static class LogViewerCommand
         {
             Description = "Order oldest-first (default is newest-first).",
         };
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.Add(levelOpt);
         cmd.Add(filterOpt);
         cmd.Add(startOpt);
@@ -94,10 +91,7 @@ public static class LogViewerCommand
     private static Command BuildLevels(CommandExecutor executor)
     {
         var cmd = new Command("levels", "List the configured loggers and their minimum levels.");
-        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
-        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 100 };
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunTableAsync(
@@ -144,12 +138,9 @@ public static class LogViewerCommand
     private static Command BuildMessageTemplates(CommandExecutor executor)
     {
         var cmd = new Command("message-templates", "List the most common message templates.");
-        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
-        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 100 };
         var startOpt = new Option<DateTimeOffset?>("--start-date") { Description = "Range start." };
         var endOpt = new Option<DateTimeOffset?>("--end-date") { Description = "Range end." };
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.Add(startOpt);
         cmd.Add(endOpt);
         cmd.SetAction(
@@ -188,10 +179,7 @@ public static class LogViewerCommand
     private static Command BuildSavedSearchList(CommandExecutor executor)
     {
         var cmd = new Command("list", "List saved log searches.");
-        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
-        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 100 };
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunTableAsync(

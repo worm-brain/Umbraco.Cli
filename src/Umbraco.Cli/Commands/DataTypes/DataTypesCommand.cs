@@ -15,6 +15,12 @@ public static class DataTypesCommand
         cmd.Add(DataTypesCreateCommand.Build(executor));
         cmd.Add(DataTypesUpdateCommand.Build(executor));
         cmd.Add(DataTypesDeleteCommand.Build(executor));
+        // Advanced verbs (#121).
+        cmd.Add(DataTypesAdvancedCommands.BuildIsUsed(executor));
+        cmd.Add(DataTypesAdvancedCommands.BuildReferencedBy(executor));
+        cmd.Add(DataTypesAdvancedCommands.BuildCopy(executor));
+        cmd.Add(DataTypesAdvancedCommands.BuildMove(executor));
+        cmd.Add(DataTypesAdvancedCommands.BuildFolder(executor));
         return cmd;
     }
 }
