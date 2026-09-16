@@ -7,6 +7,7 @@ using Umbraco.Cli.Commands.ContentTypes;
 using Umbraco.Cli.Commands.Cultures;
 using Umbraco.Cli.Commands.DataTypes;
 using Umbraco.Cli.Commands.Dictionary;
+using Umbraco.Cli.Commands.DocumentBlueprints;
 using Umbraco.Cli.Commands.Languages;
 using Umbraco.Cli.Commands.Media;
 using Umbraco.Cli.Commands.MediaTypes;
@@ -96,6 +97,7 @@ public class CommandParseTests
         root.Add(CulturesCommand.Build(executor));
         root.Add(UserGroupsCommand.Build(executor));
         root.Add(UserDataCommand.Build(executor));
+        root.Add(DocumentBlueprintCommand.Build(executor));
 
         return root;
     }
@@ -147,6 +149,7 @@ public class CommandParseTests
     [InlineData("cultures")]
     [InlineData("user-groups")]
     [InlineData("user-data")]
+    [InlineData("document-blueprint")]
     public void RootCommand_ContainsExpectedSubcommand(string subcommand)
     {
         var root = BuildRoot();
@@ -207,6 +210,21 @@ public class CommandParseTests
         }
     )]
     [InlineData("user-data", new[] { "list", "get", "create", "update", "delete" })]
+    [InlineData(
+        "document-blueprint",
+        new[]
+        {
+            "list",
+            "get",
+            "scaffold",
+            "create",
+            "update",
+            "delete",
+            "from-document",
+            "move",
+            "folder",
+        }
+    )]
     [InlineData("auth", new[] { "login", "logout", "whoami", "doctor" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)
     {
@@ -362,6 +380,35 @@ public class CommandParseTests
         "user-data update --key 3f7a8b2e-1234-5678-abcd-ef0123456789 --group g --identifier i --value light"
     )]
     [InlineData("user-data delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("document-blueprint list")]
+    [InlineData("document-blueprint list --parent 3f7a8b2e-1234-5678-abcd-ef0123456789 --take 50")]
+    [InlineData("document-blueprint get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("document-blueprint scaffold 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("document-blueprint create --document-type textPage --name Starter")]
+    [InlineData(
+        "document-blueprint create --document-type textPage --name Starter --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --id 2b3c4d5e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("document-blueprint create --json-body bp.json")]
+    [InlineData("document-blueprint create --schema")] // --schema bypasses the requirement
+    [InlineData("document-blueprint update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Renamed")]
+    [InlineData(
+        "document-blueprint update 3f7a8b2e-1234-5678-abcd-ef0123456789 --json-body bp.json"
+    )]
+    [InlineData("document-blueprint update --schema")]
+    [InlineData("document-blueprint delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "document-blueprint from-document 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Starter"
+    )]
+    [InlineData("document-blueprint move 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "document-blueprint move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("document-blueprint folder get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("document-blueprint folder create --name Marketing")]
+    [InlineData(
+        "document-blueprint folder update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Marketing"
+    )]
+    [InlineData("document-blueprint folder delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("member-types create --name Author --alias author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --icon icon-user")]
@@ -415,6 +462,12 @@ public class CommandParseTests
     [InlineData("user-data create --group g --identifier i")] // missing required --value
     [InlineData("user-data update --group g --identifier i --value v")] // missing required --key
     [InlineData("user-data get not-a-uuid")]
+    [InlineData("document-blueprint create")] // needs --document-type + --name, or --json-body/--schema
+    [InlineData("document-blueprint create --document-type textPage")] // missing --name
+    [InlineData("document-blueprint update 3f7a8b2e-1234-5678-abcd-ef0123456789")] // needs --name or --json-body
+    [InlineData("document-blueprint get not-a-uuid")]
+    [InlineData("document-blueprint from-document 3f7a8b2e-1234-5678-abcd-ef0123456789")] // missing --name
+    [InlineData("document-blueprint folder create")] // missing --name
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]

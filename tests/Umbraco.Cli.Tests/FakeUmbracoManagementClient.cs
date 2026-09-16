@@ -972,4 +972,174 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         UserDataDeleted.Add(id);
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
+
+    // ── Document blueprints (#113) ──────────────────────────────────────────────
+
+    /// <summary>Blueprint tree items the list method returns (seeded by a test).</summary>
+    public List<DocumentBlueprintTreeItem> BlueprintTreeItems { get; } = [];
+
+    /// <summary>The (parentId, skip, take) of the last list call.</summary>
+    public (Guid? ParentId, int Skip, int Take)? LastBlueprintListArgs { get; private set; }
+
+    /// <summary>Recorded blueprint creates.</summary>
+    public List<CreateDocumentBlueprintRequest> BlueprintsCreated { get; } = [];
+
+    /// <summary>Recorded from-document blueprint creates.</summary>
+    public List<CreateBlueprintFromDocumentRequest> BlueprintsFromDocumentCreated { get; } = [];
+
+    /// <summary>Recorded blueprint updates, in <c>(id, request)</c> order.</summary>
+    public List<(Guid Id, UpdateDocumentBlueprintRequest Request)> BlueprintsUpdated { get; } = [];
+
+    /// <summary>Recorded blueprint deletes.</summary>
+    public List<Guid> BlueprintsDeleted { get; } = [];
+
+    /// <summary>Recorded blueprint moves, in <c>(id, target)</c> order.</summary>
+    public List<(Guid Id, Guid? Target)> BlueprintsMoved { get; } = [];
+
+    /// <summary>Recorded folder creates.</summary>
+    public List<CreateBlueprintFolderRequest> BlueprintFoldersCreated { get; } = [];
+
+    /// <summary>Recorded folder updates, in <c>(id, name)</c> order.</summary>
+    public List<(Guid Id, string Name)> BlueprintFoldersUpdated { get; } = [];
+
+    /// <summary>Recorded folder deletes.</summary>
+    public List<Guid> BlueprintFoldersDeleted { get; } = [];
+
+    public Task<
+        UmbracoResponse<PagedResponse<DocumentBlueprintTreeItem>>
+    > GetDocumentBlueprintsAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    )
+    {
+        LastBlueprintListArgs = (parentId, skip, take);
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<DocumentBlueprintTreeItem>>.Success(
+                new PagedResponse<DocumentBlueprintTreeItem>
+                {
+                    Total = BlueprintTreeItems.Count,
+                    Items = BlueprintTreeItems.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<JsonNode>> GetDocumentBlueprintAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<JsonNode>.Success(new JsonObject { ["id"] = id.ToString() })
+        );
+
+    public Task<UmbracoResponse<JsonNode>> ScaffoldDocumentBlueprintAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<JsonNode>.Success(
+                new JsonObject { ["id"] = id.ToString(), ["scaffold"] = true }
+            )
+        );
+
+    public Task<UmbracoResponse<JsonNode>> CreateDocumentBlueprintAsync(
+        CreateDocumentBlueprintRequest request,
+        CancellationToken ct = default
+    )
+    {
+        BlueprintsCreated.Add(request);
+        var id = request.Id ?? Guid.NewGuid();
+        return Task.FromResult(
+            UmbracoResponse<JsonNode>.Success(new JsonObject { ["id"] = id.ToString() })
+        );
+    }
+
+    public Task<UmbracoResponse<JsonNode>> CreateDocumentBlueprintFromDocumentAsync(
+        CreateBlueprintFromDocumentRequest request,
+        CancellationToken ct = default
+    )
+    {
+        BlueprintsFromDocumentCreated.Add(request);
+        var id = request.Id ?? Guid.NewGuid();
+        return Task.FromResult(
+            UmbracoResponse<JsonNode>.Success(new JsonObject { ["id"] = id.ToString() })
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> UpdateDocumentBlueprintAsync(
+        Guid id,
+        UpdateDocumentBlueprintRequest request,
+        CancellationToken ct = default
+    )
+    {
+        BlueprintsUpdated.Add((id, request));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> DeleteDocumentBlueprintAsync(
+        Guid id,
+        CancellationToken ct = default
+    )
+    {
+        BlueprintsDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> MoveDocumentBlueprintAsync(
+        Guid id,
+        Guid? targetId,
+        CancellationToken ct = default
+    )
+    {
+        BlueprintsMoved.Add((id, targetId));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<BlueprintFolderResponse>> GetBlueprintFolderAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<BlueprintFolderResponse>.Success(
+                new BlueprintFolderResponse { Id = id, Name = "Folder" }
+            )
+        );
+
+    public Task<UmbracoResponse<BlueprintFolderResponse>> CreateBlueprintFolderAsync(
+        CreateBlueprintFolderRequest request,
+        CancellationToken ct = default
+    )
+    {
+        BlueprintFoldersCreated.Add(request);
+        return Task.FromResult(
+            UmbracoResponse<BlueprintFolderResponse>.Success(
+                new BlueprintFolderResponse
+                {
+                    Id = request.Id ?? Guid.NewGuid(),
+                    Name = request.Name,
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> UpdateBlueprintFolderAsync(
+        Guid id,
+        string name,
+        CancellationToken ct = default
+    )
+    {
+        BlueprintFoldersUpdated.Add((id, name));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> DeleteBlueprintFolderAsync(
+        Guid id,
+        CancellationToken ct = default
+    )
+    {
+        BlueprintFoldersDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 }

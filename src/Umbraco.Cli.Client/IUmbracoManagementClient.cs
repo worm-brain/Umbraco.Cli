@@ -41,4 +41,6 @@ public interface IUmbracoManagementClient
         ICultureClient,
         // User-administration resources: user groups, user data (#109).
         IUserGroupClient,
-        IUserDataClient;
+        IUserDataClient,
+        // Document blueprints (content templates): CRUD, folders, scaffold, move (#113).
+        IDocumentBlueprintClient;

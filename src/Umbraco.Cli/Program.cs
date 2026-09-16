@@ -8,6 +8,7 @@ using Umbraco.Cli.Commands.ContentTypes;
 using Umbraco.Cli.Commands.Cultures;
 using Umbraco.Cli.Commands.DataTypes;
 using Umbraco.Cli.Commands.Dictionary;
+using Umbraco.Cli.Commands.DocumentBlueprints;
 using Umbraco.Cli.Commands.Languages;
 using Umbraco.Cli.Commands.Media;
 using Umbraco.Cli.Commands.MediaTypes;
@@ -135,6 +136,9 @@ root.Add(CulturesCommand.Build(executor));
 // User-administration resources (#109).
 root.Add(UserGroupsCommand.Build(executor));
 root.Add(UserDataCommand.Build(executor));
+
+// Document blueprints / content templates (#113).
+root.Add(DocumentBlueprintCommand.Build(executor));
 
 // Machine-readable command catalog for agents (#60). Added last and given the root so it can
 // describe the fully-assembled tree (including itself).

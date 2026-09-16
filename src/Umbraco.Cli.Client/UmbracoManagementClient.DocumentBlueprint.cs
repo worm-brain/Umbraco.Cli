@@ -1,0 +1,352 @@
+using System.Text.Json.Nodes;
+using Gen = Umbraco.Cli.Client.Generated.Models;
+
+namespace Umbraco.Cli.Client;
+
+/// <summary>
+/// Document-blueprint resource on <see cref="UmbracoManagementClient"/> (issue #113). Kept in its
+/// own partial so the main client file stays focused. The create/update body mirrors the document
+/// (content) body - the same <see cref="Gen.DocumentValueModel"/>/<see cref="Gen.DocumentVariantRequestModel"/>
+/// shapes and the <see cref="UntypedNodeFactory"/> value converter are reused. get/scaffold/create
+/// return raw JSON via the shared <c>GetRawJsonAsync</c> seam so no property-value fidelity is lost.
+/// </summary>
+public sealed partial class UmbracoManagementClient
+{
+    /// <summary>The Management API path prefix for the blueprint resource (used by the raw seam).</summary>
+    private const string BlueprintPath = "umbraco/management/api/v1/document-blueprint";
+
+    // ── Listing (tree) ───────────────────────────────────────────────────────────
+
+    /// <inheritdoc />
+    public Task<
+        UmbracoResponse<PagedResponse<DocumentBlueprintTreeItem>>
+    > GetDocumentBlueprintsAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                // No collection GET exists on /document-blueprint: the tree root/children endpoints
+                // are the only listing surface. Root when no parent, children under a folder.
+                var tree = _api.Umbraco.Management.Api.V1.Tree.DocumentBlueprint;
+                var paged = parentId is { } pid
+                    ? await tree.Children.GetAsync(
+                        c =>
+                        {
+                            c.QueryParameters.ParentId = pid;
+                            c.QueryParameters.Skip = skip;
+                            c.QueryParameters.Take = take;
+                        },
+                        ct
+                    )
+                    : await tree.Root.GetAsync(
+                        c =>
+                        {
+                            c.QueryParameters.Skip = skip;
+                            c.QueryParameters.Take = take;
+                        },
+                        ct
+                    );
+                return new PagedResponse<DocumentBlueprintTreeItem>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = (paged?.Items ?? [])
+                        .Select(i => new DocumentBlueprintTreeItem
+                        {
+                            Id = i.Id ?? Guid.Empty,
+                            Name = i.Name ?? "",
+                            DocumentType = i.DocumentType?.Id is { } dtId
+                                ? new ContentTypeReference { Id = dtId }
+                                : null,
+                            IsFolder = i.IsFolder ?? false,
+                            HasChildren = i.HasChildren ?? false,
+                            Parent = i.Parent?.Id is { } pId
+                                ? new ContentParentReference { Id = pId }
+                                : null,
+                        })
+                        .ToList(),
+                };
+            }
+        );
+
+    // ── Read (raw, full fidelity) ────────────────────────────────────────────────
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> GetDocumentBlueprintAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => GuardedApiAsync(ct, () => GetRawJsonAsync($"{BlueprintPath}/{id}", ct));
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> ScaffoldDocumentBlueprintAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => GuardedApiAsync(ct, () => GetRawJsonAsync($"{BlueprintPath}/{id}/scaffold", ct));
+
+    // ── Create ───────────────────────────────────────────────────────────────────
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> CreateDocumentBlueprintAsync(
+        CreateDocumentBlueprintRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                // A GUID document-type reference is used directly; an alias is resolved to its id.
+                var reference =
+                    request.DocumentType.Id != Guid.Empty
+                        ? request.DocumentType.Id.ToString()
+                        : request.DocumentType.Alias;
+                var documentTypeId = await ResolveDocumentTypeIdAsync(reference, ct);
+
+                var id = request.Id ?? Guid.NewGuid();
+                var body = new Gen.CreateDocumentBlueprintRequestModel
+                {
+                    Id = id,
+                    DocumentType = new Gen.ReferenceByIdModel { Id = documentTypeId },
+                    Parent = request.Parent is { } p
+                        ? new Gen.ReferenceByIdModel { Id = p.Id }
+                        : null,
+                    Variants = MapVariants(request.Variants),
+                    Values = MapValues(request.Values),
+                };
+                await _api.Umbraco.Management.Api.V1.DocumentBlueprint.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return await HydrateBlueprintAsync(id, ct);
+            }
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> CreateDocumentBlueprintFromDocumentAsync(
+        CreateBlueprintFromDocumentRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var id = request.Id ?? Guid.NewGuid();
+                var body = new Gen.CreateDocumentBlueprintFromDocumentRequestModel
+                {
+                    Id = id,
+                    Document = new Gen.ReferenceByIdModel { Id = request.Document },
+                    Name = request.Name,
+                    Parent = request.Parent is { } p
+                        ? new Gen.ReferenceByIdModel { Id = p.Id }
+                        : null,
+                };
+                await _api.Umbraco.Management.Api.V1.DocumentBlueprint.FromDocument.PostAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return await HydrateBlueprintAsync(id, ct);
+            }
+        );
+
+    // ── Mutate ───────────────────────────────────────────────────────────────────
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> UpdateDocumentBlueprintAsync(
+        Guid id,
+        UpdateDocumentBlueprintRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.DocumentBlueprint[id]
+                    .PutAsync(
+                        new Gen.UpdateDocumentBlueprintRequestModel
+                        {
+                            Variants = MapVariants(request.Variants),
+                            Values = MapValues(request.Values),
+                        },
+                        cancellationToken: ct
+                    );
+                return Empty.Value;
+            }
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> DeleteDocumentBlueprintAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.DocumentBlueprint[id]
+                    .DeleteAsync(cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> MoveDocumentBlueprintAsync(
+        Guid id,
+        Guid? targetId,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.DocumentBlueprint[id]
+                    .Move.PutAsync(
+                        new Gen.MoveDocumentBlueprintRequestModel
+                        {
+                            // A null target moves the blueprint to the tree root.
+                            Target = targetId is { } t
+                                ? new Gen.ReferenceByIdModel { Id = t }
+                                : null,
+                        },
+                        cancellationToken: ct
+                    );
+                return Empty.Value;
+            }
+        );
+
+    // ── Folders ──────────────────────────────────────────────────────────────────
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<BlueprintFolderResponse>> GetBlueprintFolderAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var f = await _api
+                    .Umbraco.Management.Api.V1.DocumentBlueprint.Folder[id]
+                    .GetAsync(cancellationToken: ct);
+                return new BlueprintFolderResponse { Id = f?.Id ?? id, Name = f?.Name ?? "" };
+            }
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<BlueprintFolderResponse>> CreateBlueprintFolderAsync(
+        CreateBlueprintFolderRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                // Client-generated id (the 201 body is empty), echoed back to the caller.
+                var id = request.Id ?? Guid.NewGuid();
+                await _api.Umbraco.Management.Api.V1.DocumentBlueprint.Folder.PostAsync(
+                    new Gen.CreateFolderRequestModel
+                    {
+                        Id = id,
+                        Name = request.Name,
+                        Parent = request.Parent is { } p
+                            ? new Gen.ReferenceByIdModel { Id = p.Id }
+                            : null,
+                    },
+                    cancellationToken: ct
+                );
+                return new BlueprintFolderResponse { Id = id, Name = request.Name };
+            }
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> UpdateBlueprintFolderAsync(
+        Guid id,
+        string name,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.DocumentBlueprint.Folder[id]
+                    .PutAsync(
+                        new Gen.UpdateFolderResponseModel { Name = name },
+                        cancellationToken: ct
+                    );
+                return Empty.Value;
+            }
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> DeleteBlueprintFolderAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.DocumentBlueprint.Folder[id]
+                    .DeleteAsync(cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    // ── Helpers ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Re-reads a just-created blueprint so the returned JSON is fully hydrated. The create/from-document
+    /// endpoints return an empty body, and the hydration read is best-effort: a failure still reports
+    /// success (the create itself succeeded) by returning a minimal <c>{ "id": ... }</c> document.
+    /// </summary>
+    /// <param name="id">The created blueprint's id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The hydrated blueprint JSON, or a minimal id-only object.</returns>
+    private async Task<JsonNode> HydrateBlueprintAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            return await GetRawJsonAsync($"{BlueprintPath}/{id}", ct);
+        }
+        catch
+        {
+            return new JsonObject { ["id"] = id.ToString() };
+        }
+    }
+
+    /// <summary>Maps command-facing variants to the generated request shape.</summary>
+    /// <param name="variants">The command-facing variants.</param>
+    /// <returns>The generated variant models.</returns>
+    private static List<Gen.DocumentVariantRequestModel> MapVariants(
+        IEnumerable<ContentVariant> variants
+    ) =>
+        variants
+            .Select(v => new Gen.DocumentVariantRequestModel
+            {
+                Name = v.Name,
+                Culture = v.Culture,
+                Segment = v.Segment,
+            })
+            .ToList();
+
+    /// <summary>Maps command-facing values to the generated request shape (JSON to UntypedNode).</summary>
+    /// <param name="values">The command-facing values.</param>
+    /// <returns>The generated value models.</returns>
+    private static List<Gen.DocumentValueModel> MapValues(IEnumerable<ContentValue> values) =>
+        values
+            .Select(cv => new Gen.DocumentValueModel
+            {
+                Alias = cv.Alias,
+                Culture = cv.Culture,
+                Segment = cv.Segment,
+                Value = UntypedNodeFactory.FromValue(cv.Value),
+            })
+            .ToList();
+}
