@@ -301,6 +301,7 @@ umbraco members delete <id>
 umbraco member-types list
 umbraco member-types get <id>
 umbraco member-types create --name <name> --alias <alias> [--icon <alias>]
+umbraco member-types update <id> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
 umbraco member-types delete <id>
 ```
 
