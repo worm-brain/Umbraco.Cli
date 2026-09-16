@@ -29,7 +29,16 @@ public sealed class GlobalOptions
         new("--output", new[] { "-o" })
         {
             Description =
-                "Output format: json | human (default: json when piped, human in terminal).",
+                "Output format: json | human | csv (default: json when piped, human in terminal).",
+            Recursive = true,
+        };
+
+    public Option<bool> Quiet { get; } =
+        new("--quiet", new[] { "-q" })
+        {
+            Description =
+                "Suppress success confirmations (e.g. \"Deleted.\"). Requested data, errors, and "
+                + "exit codes are unaffected.",
             Recursive = true,
         };
 
@@ -98,6 +107,7 @@ public sealed class GlobalOptions
         command.Add(Host);
         command.Add(Token);
         command.Add(Output);
+        command.Add(Quiet);
         command.Add(Verbose);
         command.Add(DryRun);
         command.Add(Yes);

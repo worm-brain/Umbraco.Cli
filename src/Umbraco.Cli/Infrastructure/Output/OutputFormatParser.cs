@@ -17,6 +17,7 @@ public static class OutputFormatParser
         {
             "json" => OutputFormat.Json,
             "human" => OutputFormat.Human,
+            "csv" => OutputFormat.Csv,
             _ => null,
         };
 }
