@@ -7,6 +7,11 @@ namespace Umbraco.Cli.Infrastructure.Output;
 /// and exit codes - so a scripted caller still gets its output and can rely on the exit code.
 /// </summary>
 /// <param name="inner">The underlying writer to delegate to.</param>
+/// <remarks>
+/// This decorator suppresses ONLY <see cref="WriteMessage"/>; everything else passes through. If a
+/// new "chatter"-style method is added to <see cref="IOutputWriter"/>, suppress it here too - a new
+/// method left on the default pass-through would leak under <c>--quiet</c>.
+/// </remarks>
 public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
 {
     /// <inheritdoc />

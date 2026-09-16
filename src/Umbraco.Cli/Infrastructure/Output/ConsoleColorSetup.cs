@@ -16,13 +16,12 @@ public static class ConsoleColorSetup
     public static bool NoColorRequested(string? value) => value is not null;
 
     /// <summary>
-    /// Disables colour on the global <see cref="AnsiConsole"/> when <paramref name="noColor"/> is
-    /// true. Safe to call unconditionally; a false value leaves the console untouched.
+    /// Reads <c>NO_COLOR</c> from the environment and disables colour on the global
+    /// <see cref="AnsiConsole"/> when it is present. Call once at startup.
     /// </summary>
-    /// <param name="noColor">Whether to disable colour (typically <see cref="NoColorRequested"/>).</param>
-    public static void Apply(bool noColor)
+    public static void ApplyFromEnvironment()
     {
-        if (!noColor)
+        if (!NoColorRequested(Environment.GetEnvironmentVariable("NO_COLOR")))
             return;
         AnsiConsole.Profile.Capabilities.ColorSystem = ColorSystem.NoColors;
         AnsiConsole.Profile.Capabilities.Ansi = false;

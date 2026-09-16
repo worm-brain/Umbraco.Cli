@@ -48,9 +48,7 @@ catch (IOException)
 }
 
 // Honour NO_COLOR (#94): strip colour from all Spectre.Console output when the variable is present.
-ConsoleColorSetup.Apply(
-    ConsoleColorSetup.NoColorRequested(Environment.GetEnvironmentVariable("NO_COLOR"))
-);
+ConsoleColorSetup.ApplyFromEnvironment();
 
 // ── DI ────────────────────────────────────────────────────────────────────────
 var services = new ServiceCollection();

@@ -18,10 +18,17 @@ public sealed class CsvOutputWriter : IOutputWriter
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    private readonly string[]? _fields;
+
+    /// <summary>Creates the writer, optionally projecting output to a set of fields/columns (#63).</summary>
+    /// <param name="fields">Field names to keep (in order), or null for no projection.</param>
+    public CsvOutputWriter(string[]? fields = null) =>
+        _fields = fields is { Length: > 0 } ? fields : null;
+
     /// <inheritdoc />
     public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null)
     {
-        var node = JsonSerializer.SerializeToNode(data, Options);
+        var node = OutputShaping.Project(JsonSerializer.SerializeToNode(data, Options), _fields);
         switch (node)
         {
             case JsonArray array:
@@ -45,12 +52,10 @@ public sealed class CsvOutputWriter : IOutputWriter
     }
 
     /// <inheritdoc />
-    public void WriteTable(string[] headers, IEnumerable<string[]> rows)
-    {
-        Console.Out.WriteLine(string.Join(",", headers.Select(Escape)));
-        foreach (var row in rows)
-            Console.Out.WriteLine(string.Join(",", row.Select(Escape)));
-    }
+    public void WriteTable(string[] headers, IEnumerable<string[]> rows) =>
+        // Route through WriteSuccess so table columns use the same camelCase keys as object output
+        // (#87 consistency) and honour --fields, exactly like the JSON writer.
+        WriteSuccess(OutputShaping.TableToRecords(headers, rows));
 
     /// <inheritdoc />
     public void WriteMessage(string message)

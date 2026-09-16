@@ -32,10 +32,50 @@ public class CsvOutputWriterTests
     }
 
     [Fact]
-    public void WriteTable_EmitsHeaderAndRows()
+    public void WriteTable_EmitsCamelCaseHeaderAndRows()
     {
+        // Columns use camelCase keys (like object/get output), not the raw human headers (#87/#123).
         var (stdout, _) = Capture(() =>
             _writer.WriteTable(
+                ["Id", "Content Type"],
+                [
+                    ["1", "textPage"],
+                    ["2", "blogPost"],
+                ]
+            )
+        );
+
+        var lines = stdout.TrimEnd().Split(Environment.NewLine);
+        Assert.Equal("id,contentType", lines[0]);
+        Assert.Equal("1,textPage", lines[1]);
+        Assert.Equal("2,blogPost", lines[2]);
+    }
+
+    [Fact]
+    public void WriteTable_And_WriteSuccess_UseTheSameColumnKeys()
+    {
+        // list (WriteTable) and get (WriteSuccess) must agree on column names in CSV.
+        var (tableOut, _) = Capture(() =>
+            _writer.WriteTable(
+                ["Content Type"],
+                [
+                    ["textPage"],
+                ]
+            )
+        );
+        var (objectOut, _) = Capture(() => _writer.WriteSuccess(new { contentType = "textPage" }));
+
+        Assert.Equal("contentType", tableOut.TrimEnd().Split(Environment.NewLine)[0]);
+        Assert.Equal("contentType", objectOut.TrimEnd().Split(Environment.NewLine)[0]);
+    }
+
+    [Fact]
+    public void WriteTable_WithFields_ProjectsColumns()
+    {
+        var writer = new CsvOutputWriter(["name"]);
+
+        var (stdout, _) = Capture(() =>
+            writer.WriteTable(
                 ["Id", "Name"],
                 [
                     ["1", "Home"],
@@ -45,9 +85,9 @@ public class CsvOutputWriterTests
         );
 
         var lines = stdout.TrimEnd().Split(Environment.NewLine);
-        Assert.Equal("Id,Name", lines[0]);
-        Assert.Equal("1,Home", lines[1]);
-        Assert.Equal("2,About", lines[2]);
+        Assert.Equal("name", lines[0]); // only the requested column
+        Assert.Equal("Home", lines[1]);
+        Assert.Equal("About", lines[2]);
     }
 
     [Fact]
