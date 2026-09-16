@@ -7,6 +7,7 @@ using Umbraco.Cli.Commands.Content;
 using Umbraco.Cli.Commands.ContentTypes;
 using Umbraco.Cli.Commands.Cultures;
 using Umbraco.Cli.Commands.DataTypes;
+using Umbraco.Cli.Commands.Diagnostics;
 using Umbraco.Cli.Commands.Dictionary;
 using Umbraco.Cli.Commands.DocumentBlueprints;
 using Umbraco.Cli.Commands.Languages;
@@ -139,6 +140,13 @@ root.Add(UserDataCommand.Build(executor));
 
 // Document blueprints / content templates (#113).
 root.Add(DocumentBlueprintCommand.Build(executor));
+
+// Read-only diagnostics: server, health, log-viewer, models-builder, manifest (#115).
+root.Add(ServerCommand.Build(executor));
+root.Add(HealthCommand.Build(executor));
+root.Add(LogViewerCommand.Build(executor));
+root.Add(ModelsBuilderCommand.Build(executor));
+root.Add(ManifestCommand.Build(executor));
 
 // Machine-readable command catalog for agents (#60). Added last and given the root so it can
 // describe the fully-assembled tree (including itself).
