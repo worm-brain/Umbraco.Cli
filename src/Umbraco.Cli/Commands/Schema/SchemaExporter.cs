@@ -4,7 +4,7 @@ using Umbraco.Cli.Client;
 namespace Umbraco.Cli.Commands.Schema;
 
 /// <summary>
-/// Assembles a <see cref="SchemaSnapshot"/> from a live instance (issue #68 / ADR 0004 §4,
+/// Assembles a <see cref="SchemaSnapshot"/> from a live instance (issue #68 / ADR 0005 §4,
 /// export). For each entity kind it enumerates every id through the existing paged tree-root
 /// list method (there is no flat collection endpoint — #39), then fetches the full verbatim
 /// body per id via <see cref="ISchemaClient"/>. Enumeration + N per-id reads is O(entities),

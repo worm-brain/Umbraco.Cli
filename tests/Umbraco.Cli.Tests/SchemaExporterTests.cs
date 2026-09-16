@@ -5,7 +5,7 @@ using Umbraco.Cli.Commands.Schema;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// Behaviour of <see cref="SchemaExporter"/> (#68 / ADR 0004): it enumerates every schema
+/// Behaviour of <see cref="SchemaExporter"/> (#68 / ADR 0005): it enumerates every schema
 /// entity and assembles their verbatim bodies into a snapshot, pages past the first page, and
 /// fails fast (never returns a partial snapshot) when any read fails.
 /// </summary>

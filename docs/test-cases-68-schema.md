@@ -1,6 +1,6 @@
 # Test cases — Schema export / diff / apply (#68)
 
-Living test-case list for the schema pipeline (ADR 0004). Tiered **E2E** (drive the built CLI
+Living test-case list for the schema pipeline (ADR 0005). Tiered **E2E** (drive the built CLI
 against a live instance), **Integration** (in-process, fake client), and **Manual** (needs human
 judgement or a specially-shaped instance). Each case links to the automating test where one
 exists.
@@ -42,4 +42,4 @@ exists.
   create/update/delete round-trip was exercised by hand against the local Umbraco 17.3.5 during
   development (template probe, self-cleaned). A future mutating live fixture could automate it.
 - Cross-environment reference remapping (TC-68-20) is out of scope for the first slice; snapshots
-  are most reliable when GUIDs are shared (see ADR 0004 §1 consequences).
+  are most reliable when GUIDs are shared (see ADR 0005 §1 consequences).

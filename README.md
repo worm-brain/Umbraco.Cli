@@ -333,7 +333,7 @@ umbraco webhooks delete <id>
 
 Dump the site's **schema** — document types, data types, and templates — to a portable JSON
 snapshot, diff it against a live instance, and apply the difference. Driven from any shell or
-agent; complements uSync for CI pipelines. (Issue #68; see [ADR 0004](docs/adr/0004-schema-export-diff-apply.md).)
+agent; complements uSync for CI pipelines. (Issue #68; see [ADR 0005](docs/adr/0005-schema-export-diff-apply.md).)
 
 ```bash
 # Export every document type, data type, and template to a snapshot file.

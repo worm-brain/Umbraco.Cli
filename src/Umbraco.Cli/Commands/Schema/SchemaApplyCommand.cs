@@ -3,7 +3,7 @@ using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.Schema;
 
-/// <summary>Wires the <c>schema apply</c> command (issue #68 / ADR 0004 §4).</summary>
+/// <summary>Wires the <c>schema apply</c> command (issue #68 / ADR 0005 §4).</summary>
 public static class SchemaApplyCommand
 {
     /// <summary>
@@ -56,23 +56,22 @@ public static class SchemaApplyCommand
                     "schema.apply",
                     async (ctx, c) =>
                     {
-                        var desired = await SchemaFile.LoadAsync(
+                        var diff = await SchemaPipeline.DiffAgainstLiveAsync(
+                            ctx.Client,
                             parseResult.GetValue(snapshotArg)!,
                             c
                         );
-                        var current = await SchemaExporter.ExportAsync(ctx.Client, c);
-                        if (!current.IsSuccess)
+                        if (!diff.IsSuccess)
                             return UmbracoResponse<SchemaApplyResult>.Failure(
-                                current.StatusCode,
-                                current.ErrorMessage!
+                                diff.StatusCode,
+                                diff.ErrorMessage!
                             );
 
-                        var diff = SchemaDiffEngine.Compare(desired, current.Data!);
                         // ctx.DryRun is honoured inside the applier so the *whole* plan is
                         // previewed, not just the first write.
                         return await SchemaApplier.ApplyAsync(
                             ctx.Client,
-                            diff,
+                            diff.Data!,
                             prune,
                             ctx.DryRun,
                             c

@@ -4,8 +4,24 @@ using System.Text.Json.Serialization;
 namespace Umbraco.Cli.Commands.Schema;
 
 /// <summary>
+/// The three schema entity-kind tags (issue #68), shared by the diff engine, applier, and
+/// command output so the strings are defined once rather than re-declared per file.
+/// </summary>
+public static class SchemaKinds
+{
+    /// <summary>Document type kind tag.</summary>
+    public const string DocumentType = "documentType";
+
+    /// <summary>Data type kind tag.</summary>
+    public const string DataType = "dataType";
+
+    /// <summary>Template kind tag.</summary>
+    public const string Template = "template";
+}
+
+/// <summary>
 /// How a single schema entity differs between the desired snapshot and the live instance
-/// (issue #68 / ADR 0004 §2). <see cref="Skipped"/> is not a real difference — it flags an
+/// (issue #68 / ADR 0005 §2). <see cref="Skipped"/> is not a real difference — it flags an
 /// entity the pipeline refuses to touch (e.g. an ambiguous data-type name), carrying a
 /// <see cref="SchemaEntityChange.Note"/> explaining why.
 /// </summary>

@@ -29,5 +29,5 @@ public interface IUmbracoManagementClient
         IUserClient,
         IDictionaryClient,
         IWebhookClient,
-        // Full-fidelity raw-JSON schema access for the export/diff/apply pipeline (#68, ADR 0004).
+        // Full-fidelity raw-JSON schema access for the export/diff/apply pipeline (#68, ADR 0005).
         ISchemaClient;

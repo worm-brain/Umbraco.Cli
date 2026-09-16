@@ -3,7 +3,7 @@ using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.Schema;
 
-/// <summary>Wires the <c>schema diff</c> command (issue #68 / ADR 0004 §5).</summary>
+/// <summary>Wires the <c>schema diff</c> command (issue #68 / ADR 0005 §5).</summary>
 public static class SchemaDiffCommand
 {
     /// <summary>
@@ -34,26 +34,22 @@ public static class SchemaDiffCommand
                 executor.RunTableAsync(
                     parseResult,
                     "schema.diff",
-                    async (client, c) =>
-                    {
-                        // Load the desired snapshot (may throw -> clean error), then export the
-                        // live schema to diff against. A failed export propagates as a failure.
-                        var desired = await SchemaFile.LoadAsync(
+                    (client, c) =>
+                        SchemaPipeline.DiffAgainstLiveAsync(
+                            client,
                             parseResult.GetValue(snapshotArg)!,
                             c
-                        );
-                        var current = await SchemaExporter.ExportAsync(client, c);
-                        if (!current.IsSuccess)
-                            return UmbracoResponse<SchemaDiff>.Failure(
-                                current.StatusCode,
-                                current.ErrorMessage!
-                            );
-
-                        return UmbracoResponse<SchemaDiff>.Success(
-                            SchemaDiffEngine.Compare(desired, current.Data!)
-                        );
+                        ),
+                    new[]
+                    {
+                        "Kind",
+                        "Change",
+                        "Identity",
+                        "Desired Id",
+                        "Current Id",
+                        "Id Mismatch",
+                        "Note",
                     },
-                    new[] { "Kind", "Change", "Identity", "Id Mismatch", "Note" },
                     diff => Flatten(diff),
                     ct
                 )
@@ -88,6 +84,8 @@ public static class SchemaDiffCommand
                     change.Kind,
                     change.Change.ToString(),
                     change.Identity,
+                    change.DesiredId?.ToString() ?? "",
+                    change.CurrentId?.ToString() ?? "",
                     change.IdMismatch ? "yes" : "",
                     change.Note ?? "",
                 ];

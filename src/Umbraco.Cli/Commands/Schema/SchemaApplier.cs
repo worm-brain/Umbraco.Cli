@@ -47,22 +47,21 @@ public sealed record SchemaApplyResult(
 
 /// <summary>
 /// Executes (or, under dry run, plans) the changes a <see cref="SchemaDiff"/> describes
-/// (issue #68 / ADR 0004 §4). It never computes a diff itself — the command feeds it one — so
+/// (issue #68 / ADR 0005 §4). It never computes a diff itself — the command feeds it one — so
 /// the ordering/execution logic is testable in isolation.
 ///
 /// Order respects cross-kind dependencies: creates/updates run data types -> templates ->
 /// document types (a document type's properties reference data types and its
-/// <c>allowedTemplates</c> reference templates). Within a kind, creates are topologically
+/// <c>allowedTemplates</c> reference templates). Within a kind, <b>creates</b> are topologically
 /// ordered so a referenced same-kind entity (a composition, or a template's master) is created
-/// before the entity that references it. Deletes (prune) run in the reverse order. Apply is
-/// **fail-fast**: the first failed write stops the run so a broken state is not piled onto.
+/// before the entity that references it. Deletes (prune) run in the reverse cross-kind order
+/// (document types -> templates -> data types) in each kind's enumeration order — Umbraco
+/// rejects a delete that is still depended on, which fail-fast surfaces and a re-run resolves.
+/// Apply is **fail-fast**: the first failed write stops the run so a broken state is not piled
+/// onto.
 /// </summary>
 public static class SchemaApplier
 {
-    private const string DocumentType = "documentType";
-    private const string DataType = "dataType";
-    private const string Template = "template";
-
     /// <summary>
     /// Applies <paramref name="diff"/> to the live instance, or (when <paramref name="dryRun"/>)
     /// returns the plan without writing anything.
@@ -158,13 +157,16 @@ public static class SchemaApplier
                 ops.Add(new Op("update", changed));
         }
 
-        // Deletes (prune) in reverse: dependents before their dependencies, and doc types before
-        // the templates/data types they use.
+        // Deletes (prune) in reverse cross-kind order (doc types first, since they depend on
+        // templates and data types). Within a kind we cannot topologically order deletes — a
+        // Removed change carries no body (nothing to inspect for references) — so we delete in
+        // enumeration order and rely on fail-fast: Umbraco rejects a delete that is still
+        // referenced, and a re-run (now that the referrer is gone) completes it.
         if (prune)
         {
             foreach (var kind in new[] { diff.DocumentTypes, diff.Templates, diff.DataTypes })
             {
-                foreach (var removed in TopoOrder(kind.Removed).AsEnumerable().Reverse())
+                foreach (var removed in kind.Removed)
                     ops.Add(new Op("delete", removed));
             }
         }
@@ -186,51 +188,45 @@ public static class SchemaApplier
         if (changes.Count <= 1)
             return changes.ToList();
 
-        // Map each in-set id to its change so we only treat *in-batch* references as dependencies.
-        var byId = changes
-            .Where(c => c.DesiredId is not null)
-            .GroupBy(c => c.DesiredId!.Value)
-            .ToDictionary(g => g.Key, g => g.First());
-        var inSet = byId.Keys.ToHashSet();
+        // Work by index throughout: SchemaEntityChange is a value-equal record, so keying maps by
+        // the change itself would throw on two equal entries — indices are always distinct.
+        var inSet = changes.Where(c => c.DesiredId is not null).Select(c => c.DesiredId!.Value).ToHashSet();
 
-        // deps[c] = the in-batch ids that c references (excluding itself).
-        var deps = changes.ToDictionary(
-            c => c,
-            c =>
-            {
-                var self = c.DesiredId;
-                var referenced = c.DesiredBody is null
+        // deps[i] = the in-batch ids that changes[i] references (excluding its own id).
+        var deps = new List<HashSet<Guid>>(changes.Count);
+        foreach (var c in changes)
+        {
+            var self = c.DesiredId;
+            deps.Add(
+                c.DesiredBody is null
                     ? []
-                    : ExtractGuids(c.DesiredBody)
-                        .Where(g => inSet.Contains(g) && g != self)
-                        .ToHashSet();
-                return referenced;
-            }
-        );
+                    : ExtractGuids(c.DesiredBody).Where(g => inSet.Contains(g) && g != self).ToHashSet()
+            );
+        }
 
         var ordered = new List<SchemaEntityChange>();
         var emitted = new HashSet<Guid>();
-        var remaining = changes.ToList();
+        var remaining = Enumerable.Range(0, changes.Count).ToList();
 
         while (remaining.Count > 0)
         {
             // Emit every entity whose in-batch dependencies are all already emitted.
-            var ready = remaining.Where(c => deps[c].All(d => emitted.Contains(d))).ToList();
+            var ready = remaining.Where(i => deps[i].All(emitted.Contains)).ToList();
 
             if (ready.Count == 0)
             {
                 // Cycle (or a self-referential remainder): emit the rest in input order so we make
                 // progress instead of spinning. Umbraco will reject a genuine impossible order.
-                ordered.AddRange(remaining);
+                ordered.AddRange(remaining.Select(i => changes[i]));
                 break;
             }
 
-            foreach (var c in ready)
+            foreach (var i in ready)
             {
-                ordered.Add(c);
-                if (c.DesiredId is { } id)
+                ordered.Add(changes[i]);
+                if (changes[i].DesiredId is { } id)
                     emitted.Add(id);
-                remaining.Remove(c);
+                remaining.Remove(i);
             }
         }
 
@@ -288,29 +284,41 @@ public static class SchemaApplier
         var change = op.Change;
         return (op.Operation, change.Kind) switch
         {
-            ("create", DocumentType) => client.CreateDocumentTypeRawAsync(change.DesiredBody!, ct),
-            ("create", DataType) => client.CreateDataTypeRawAsync(change.DesiredBody!, ct),
-            ("create", Template) => client.CreateTemplateRawAsync(change.DesiredBody!, ct),
-
-            ("update", DocumentType) => client.UpdateDocumentTypeRawAsync(
-                change.CurrentId!.Value,
-                WithId(change.DesiredBody!, change.CurrentId!.Value),
+            ("create", SchemaKinds.DocumentType) => client.CreateDocumentTypeRawAsync(
+                change.DesiredBody!,
                 ct
             ),
-            ("update", DataType) => client.UpdateDataTypeRawAsync(
-                change.CurrentId!.Value,
-                WithId(change.DesiredBody!, change.CurrentId!.Value),
+            ("create", SchemaKinds.DataType) => client.CreateDataTypeRawAsync(
+                change.DesiredBody!,
                 ct
             ),
-            ("update", Template) => client.UpdateTemplateRawAsync(
-                change.CurrentId!.Value,
-                WithId(change.DesiredBody!, change.CurrentId!.Value),
+            ("create", SchemaKinds.Template) => client.CreateTemplateRawAsync(
+                change.DesiredBody!,
                 ct
             ),
 
-            ("delete", DocumentType) => client.DeleteDocumentTypeAsync(change.CurrentId!.Value, ct),
-            ("delete", DataType) => client.DeleteDataTypeAsync(change.CurrentId!.Value, ct),
-            ("delete", Template) => client.DeleteTemplateAsync(change.CurrentId!.Value, ct),
+            ("update", SchemaKinds.DocumentType) => client.UpdateDocumentTypeRawAsync(
+                change.CurrentId!.Value,
+                WithId(change.DesiredBody!, change.CurrentId!.Value),
+                ct
+            ),
+            ("update", SchemaKinds.DataType) => client.UpdateDataTypeRawAsync(
+                change.CurrentId!.Value,
+                WithId(change.DesiredBody!, change.CurrentId!.Value),
+                ct
+            ),
+            ("update", SchemaKinds.Template) => client.UpdateTemplateRawAsync(
+                change.CurrentId!.Value,
+                WithId(change.DesiredBody!, change.CurrentId!.Value),
+                ct
+            ),
+
+            ("delete", SchemaKinds.DocumentType) => client.DeleteDocumentTypeAsync(
+                change.CurrentId!.Value,
+                ct
+            ),
+            ("delete", SchemaKinds.DataType) => client.DeleteDataTypeAsync(change.CurrentId!.Value, ct),
+            ("delete", SchemaKinds.Template) => client.DeleteTemplateAsync(change.CurrentId!.Value, ct),
 
             _ => throw new InvalidOperationException(
                 $"Unknown schema operation {op.Operation}/{change.Kind}."

@@ -4,7 +4,7 @@ namespace Umbraco.Cli.Client;
 
 /// <summary>
 /// Full-fidelity, raw-JSON access to Umbraco schema entities — document types, data
-/// types, and templates — for the export/diff/apply pipeline (issue #68, ADR 0004).
+/// types, and templates — for the export/diff/apply pipeline (issue #68, ADR 0005).
 ///
 /// The typed read methods on <see cref="IDocumentTypeClient"/>, <see cref="IDataTypeClient"/>
 /// and <see cref="ITemplateClient"/> return **lossy** projection records: they drop
@@ -12,7 +12,7 @@ namespace Umbraco.Cli.Client;
 /// template Razor <c>content</c>. Those records are fine for <c>list</c>/<c>get</c> display
 /// but cannot round-trip a schema. These members instead return and accept the **verbatim
 /// Management-API JSON body** (a <see cref="JsonNode"/>), so a schema can be exported and
-/// re-applied without loss. See ADR 0004 §1 (raw-JSON passthrough).
+/// re-applied without loss. See ADR 0005 §1 (raw-JSON passthrough).
 ///
 /// Enumerating the entities is done through the existing typed paged list methods
 /// (<c>Get*TypesAsync</c>), which carry the id; only the full per-entity body needs these raw

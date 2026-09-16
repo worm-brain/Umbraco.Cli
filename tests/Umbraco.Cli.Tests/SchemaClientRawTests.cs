@@ -7,7 +7,7 @@ namespace Umbraco.Cli.Tests;
 
 /// <summary>
 /// Tests the raw-JSON schema methods on <see cref="UmbracoManagementClient"/> (#68 / ADR
-/// 0004): reads must hit the correct by-id endpoint and return the verbatim body without the
+/// 0005): reads must hit the correct by-id endpoint and return the verbatim body without the
 /// lossy projection, and writes must POST/PUT the body to the correct endpoint. Uses the same
 /// stub-handler pattern as <see cref="UmbracoManagementClientTests"/>.
 /// </summary>

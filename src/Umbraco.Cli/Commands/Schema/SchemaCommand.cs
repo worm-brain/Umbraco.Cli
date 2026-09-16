@@ -3,7 +3,7 @@ using System.CommandLine;
 namespace Umbraco.Cli.Commands.Schema;
 
 /// <summary>
-/// The <c>schema</c> noun (issue #68 / ADR 0004): export, diff, and apply an instance's
+/// The <c>schema</c> noun (issue #68 / ADR 0005): export, diff, and apply an instance's
 /// document types, data types, and templates as a portable JSON snapshot — the CLI's
 /// CI/agent-facing schema pipeline, complementing uSync but driven from any shell.
 /// </summary>

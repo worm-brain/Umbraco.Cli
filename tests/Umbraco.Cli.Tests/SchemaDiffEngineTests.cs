@@ -4,7 +4,7 @@ using Umbraco.Cli.Commands.Schema;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// The core matching logic of the pipeline (#68 / ADR 0004 §2): GUID-primary, alias-fallback,
+/// The core matching logic of the pipeline (#68 / ADR 0005 §2): GUID-primary, alias-fallback,
 /// with change/unchanged classification, prune detection, id-mismatch flagging, and the
 /// ambiguous-key skip. Pure and fast, so every branch gets a focused test.
 /// </summary>
@@ -103,7 +103,7 @@ public class SchemaDiffEngineTests
     }
 
     [Fact]
-    public void Compare_IdMatchWins_EvenWhenAnotherLiveEntityShbaresAlias()
+    public void Compare_IdMatchWins_EvenWhenAnotherLiveEntitySharesAlias()
     {
         // GUID-primary: the id match must win over a same-alias candidate.
         var id = Guid.NewGuid();
@@ -113,6 +113,27 @@ public class SchemaDiffEngineTests
         );
 
         Assert.Equal(1, diff.DocumentTypes.Unchanged);
+        Assert.Empty(diff.DocumentTypes.Removed);
+    }
+
+    [Fact]
+    public void Compare_GuidAndAliasCrossCollision_DoesNotDoubleMatchTheSameLiveEntity()
+    {
+        // Desired A (idA) GUID-matches live L (idA). Desired B (idB) shares A's alias. The
+        // two-pass matcher must NOT let B also claim L by alias: B has no live match -> Added,
+        // and L is matched exactly once (by A), so it is not reported Removed.
+        var idA = Guid.NewGuid();
+        var idB = Guid.NewGuid();
+        var diff = SchemaDiffEngine.Compare(
+            DocSnapshot(Doc(idA, "blogPost", name: "A"), Doc(idB, "blogPost", name: "B")),
+            DocSnapshot(Doc(idA, "blogPost", name: "A"))
+        );
+
+        // A matched live L by id (unchanged); B is genuinely new.
+        Assert.Equal(1, diff.DocumentTypes.Unchanged);
+        var added = Assert.Single(diff.DocumentTypes.Added);
+        Assert.Equal(idB, added.DesiredId);
+        // L was claimed once by A, so it must not appear as a prune candidate.
         Assert.Empty(diff.DocumentTypes.Removed);
     }
 
@@ -149,6 +170,9 @@ public class SchemaDiffEngineTests
         Assert.Contains("ambiguous", skipped.Note!, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(diff.DataTypes.Added);
         Assert.Empty(diff.DataTypes.Changed);
+        // Critical: the two ambiguous live entities must NOT become prune candidates — otherwise
+        // a --prune run would delete the very entities we refused to touch.
+        Assert.Empty(diff.DataTypes.Removed);
     }
 
     // ── order-insensitive body comparison ────────────────────────────────────────

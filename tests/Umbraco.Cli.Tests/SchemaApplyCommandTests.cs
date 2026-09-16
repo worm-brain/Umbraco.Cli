@@ -10,7 +10,7 @@ using Umbraco.Cli.Infrastructure.Http;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// End-to-end safety behaviour of <c>schema apply</c> (#68 / ADR 0004 §4): dry-run writes
+/// End-to-end safety behaviour of <c>schema apply</c> (#68 / ADR 0005 §4): dry-run writes
 /// nothing, the prune path is gated behind <c>--yes</c> non-interactively, and prune actually
 /// deletes when confirmed.
 /// </summary>

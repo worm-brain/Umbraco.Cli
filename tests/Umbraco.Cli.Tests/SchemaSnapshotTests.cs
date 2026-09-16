@@ -5,7 +5,7 @@ using Umbraco.Cli.Commands.Schema;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// Serialization behaviour of <see cref="SchemaSnapshot"/> (#68 / ADR 0004): it round-trips
+/// Serialization behaviour of <see cref="SchemaSnapshot"/> (#68 / ADR 0005): it round-trips
 /// through JSON preserving verbatim bodies, and <see cref="SchemaSnapshot.FromJson"/> tolerates
 /// a CLI output envelope so a snapshot piped straight from <c>schema export</c> still loads.
 /// </summary>

@@ -1884,7 +1884,7 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    // ── Schema (raw-JSON passthrough, #68 / ADR 0004) ──────────────────────────
+    // ── Schema (raw-JSON passthrough, #68 / ADR 0005) ──────────────────────────
     //
     // Full-fidelity reads/writes for the export/diff/apply pipeline. Unlike the typed
     // methods above, these carry the verbatim Management-API body as a JsonNode so nothing
@@ -2088,58 +2088,164 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<JsonNode>> GetDocumentTypeRawAsync(
         Guid id,
         CancellationToken ct = default
-    ) => GetAsync<JsonNode>($"umbraco/management/api/v1/document-type/{id}", ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => GetRawJsonAsync($"umbraco/management/api/v1/document-type/{id}", ct)
+        );
 
     /// <inheritdoc />
     public Task<UmbracoResponse<JsonNode>> GetDataTypeRawAsync(
         Guid id,
         CancellationToken ct = default
-    ) => GetAsync<JsonNode>($"umbraco/management/api/v1/data-type/{id}", ct);
+    ) =>
+        GuardedApiAsync(ct, () => GetRawJsonAsync($"umbraco/management/api/v1/data-type/{id}", ct));
 
     /// <inheritdoc />
     public Task<UmbracoResponse<JsonNode>> GetTemplateRawAsync(
         Guid id,
         CancellationToken ct = default
-    ) => GetAsync<JsonNode>($"umbraco/management/api/v1/template/{id}", ct);
+    ) => GuardedApiAsync(ct, () => GetRawJsonAsync($"umbraco/management/api/v1/template/{id}", ct));
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> CreateDocumentTypeRawAsync(
         JsonNode body,
         CancellationToken ct = default
-    ) => PostAsync<JsonNode, Empty>("umbraco/management/api/v1/document-type", body, ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => SendRawJsonAsync(Method.POST, "umbraco/management/api/v1/document-type", body, ct)
+        );
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> UpdateDocumentTypeRawAsync(
         Guid id,
         JsonNode body,
         CancellationToken ct = default
-    ) => PutAsync<JsonNode, Empty>($"umbraco/management/api/v1/document-type/{id}", body, ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () =>
+                SendRawJsonAsync(
+                    Method.PUT,
+                    $"umbraco/management/api/v1/document-type/{id}",
+                    body,
+                    ct
+                )
+        );
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> CreateDataTypeRawAsync(
         JsonNode body,
         CancellationToken ct = default
-    ) => PostAsync<JsonNode, Empty>("umbraco/management/api/v1/data-type", body, ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => SendRawJsonAsync(Method.POST, "umbraco/management/api/v1/data-type", body, ct)
+        );
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
         Guid id,
         JsonNode body,
         CancellationToken ct = default
-    ) => PutAsync<JsonNode, Empty>($"umbraco/management/api/v1/data-type/{id}", body, ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () =>
+                SendRawJsonAsync(Method.PUT, $"umbraco/management/api/v1/data-type/{id}", body, ct)
+        );
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> CreateTemplateRawAsync(
         JsonNode body,
         CancellationToken ct = default
-    ) => PostAsync<JsonNode, Empty>("umbraco/management/api/v1/template", body, ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => SendRawJsonAsync(Method.POST, "umbraco/management/api/v1/template", body, ct)
+        );
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> UpdateTemplateRawAsync(
         Guid id,
         JsonNode body,
         CancellationToken ct = default
-    ) => PutAsync<JsonNode, Empty>($"umbraco/management/api/v1/template/{id}", body, ct);
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => SendRawJsonAsync(Method.PUT, $"umbraco/management/api/v1/template/{id}", body, ct)
+        );
+
+    // ── Raw-JSON transport (schema passthrough) ────────────────────────────────
+    //
+    // The typed generated builders drop fields the schema pipeline must preserve
+    // (properties, data-type config values, template Razor), so these endpoints are
+    // driven straight off the Kiota request adapter with a verbatim JSON body/response
+    // instead. Requests still flow through the same HttpClient the generated calls use,
+    // so the bearer header, the --dry-run/--readonly mutation interceptor, and the
+    // transport-failure guard all apply unchanged. Error bodies are mapped to the
+    // generated ProblemDetails so GuardedApiAsync renders them like any other failure.
+
+    /// <summary>Maps any 4xx/5xx response to the generated <see cref="Gen.ProblemDetails"/> so
+    /// <see cref="GuardedApiAsync{T}"/> catches it and produces a readable failure.</summary>
+    private static readonly Dictionary<string, ParsableFactory<IParsable>> RawErrorMapping = new()
+    {
+        { "4XX", Gen.ProblemDetails.CreateFromDiscriminatorValue },
+        { "5XX", Gen.ProblemDetails.CreateFromDiscriminatorValue },
+    };
+
+    /// <summary>
+    /// Issues a GET against <paramref name="path"/> and returns the response body as a verbatim
+    /// <see cref="JsonNode"/> DOM (nothing is dropped or reshaped).
+    /// </summary>
+    /// <param name="path">The API path, relative to the host root (no leading slash).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parsed response body.</returns>
+    /// <exception cref="ApiException">The response had no body to parse.</exception>
+    private async Task<JsonNode> GetRawJsonAsync(string path, CancellationToken ct)
+    {
+        var requestInfo = new RequestInformation { HttpMethod = Method.GET, URI = RawUri(path) };
+        requestInfo.Headers.TryAdd("Accept", "application/json");
+
+        var stream = await _adapter.SendPrimitiveAsync<Stream>(requestInfo, RawErrorMapping, ct);
+        if (stream is null)
+            throw new ApiException("The Umbraco instance returned an empty body.")
+            {
+                ResponseStatusCode = 204,
+            };
+        return JsonNode.Parse(stream)
+            ?? throw new ApiException("The Umbraco instance returned a null JSON body.");
+    }
+
+    /// <summary>
+    /// Sends a state-changing request (<see cref="Method.POST"/>/<see cref="Method.PUT"/>) carrying
+    /// <paramref name="body"/> verbatim as its JSON payload and expecting no response content.
+    /// </summary>
+    /// <param name="method">The HTTP method (POST to create, PUT to update).</param>
+    /// <param name="path">The API path, relative to the host root (no leading slash).</param>
+    /// <param name="body">The request body, sent byte-for-byte as serialized.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><see cref="Empty.Value"/> on success.</returns>
+    private async Task<Empty> SendRawJsonAsync(
+        Method method,
+        string path,
+        JsonNode body,
+        CancellationToken ct
+    )
+    {
+        var requestInfo = new RequestInformation { HttpMethod = method, URI = RawUri(path) };
+        var payload = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(body.ToJsonString()));
+        requestInfo.SetStreamContent(payload, "application/json");
+
+        await _adapter.SendNoContentAsync(requestInfo, RawErrorMapping, ct);
+        return Empty.Value;
+    }
+
+    /// <summary>Builds the absolute request URI for a raw call from the adapter's base URL.</summary>
+    /// <param name="path">The API path, relative to the host root (no leading slash).</param>
+    /// <returns>The absolute URI to request.</returns>
+    private Uri RawUri(string path) => new($"{_adapter.BaseUrl}/{path}");
 
     // ── Members ──────────────────────────────────────────────────────────────
 

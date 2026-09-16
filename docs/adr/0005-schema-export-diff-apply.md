@@ -1,4 +1,4 @@
-# ADR 0004: Schema export / diff / apply pipeline
+# ADR 0005: Schema export / diff / apply pipeline
 
 - Status: Accepted
 - Date: 2026-07-28
@@ -91,13 +91,16 @@ guid/alias cross-collision).
 Data-type caveat: data-type `name` is not guaranteed unique by Umbraco. Duplicate
 names in either side are reported as ambiguous and skipped rather than guessed.
 
-### 3. Add `UpdateDocumentTypeAsync`
+### 3. Add a document-type update path
 
-Add document-type update to `IDocumentTypeClient` + `UmbracoManagementClient`,
-mirroring the existing data-type/template read-modify-write full-replace pattern
-(GET current, overlay non-null fields, PUT). Enables in-place doc-type update so
-apply never resorts to the destructive delete+recreate that would cascade to
-content.
+Apply needs to update an existing document type in place (never the destructive
+delete+recreate that would cascade to content). Because fidelity is raw-JSON
+passthrough (§1), this is a **raw** update — `UpdateDocumentTypeRawAsync(id, body)`
+on `ISchemaClient`, PUTting the verbatim body — rather than a typed
+`UpdateDocumentTypeRequest`. (A typed doc-type update was the original plan, but a
+typed request would re-introduce the lossy-model problem for properties/
+compositions; the raw update is consistent with the create/update path for all
+three kinds.)
 
 ### 4. Apply semantics and safety
 
@@ -112,16 +115,23 @@ content.
   `ctx.DryRun`) rather than relying on `MutationInterceptorHandler`, whose
   capture-and-abort fires on the *first* write and so cannot preview a
   multi-write plan.
-- **`--readonly`** is honoured for free: the first write throws
-  `ReadOnlyModeException`. Apply also checks `ctx.ReadOnly` up front and aborts
-  with a clean error before doing any work.
-- **Apply order respects dependencies:** data types -> templates -> document
-  types (doc-type properties reference data types; `allowedTemplates` reference
-  templates). Within document types, creates are topologically ordered by
-  `compositions` so a composed type exists before the type that composes it;
-  because ids are client-supplied and known up front, other references resolve
-  regardless of order. A composition cycle (unsupported by Umbraco anyway) is
-  reported, not retried forever. Deletes run in reverse dependency order.
+- **`--readonly`** is honoured at the HTTP layer for free: apply does its
+  harmless reads (load snapshot, export live, diff) and then the first write
+  throws `ReadOnlyModeException`, which the executor maps to a clean error and
+  exit 2 — nothing is mutated. (We deliberately do *not* add a bespoke up-front
+  `ctx.ReadOnly` check in the command: it would duplicate the interceptor's job
+  and add a special-case branch for no behavioural gain.)
+- **Apply order respects dependencies:** creates/updates run data types ->
+  templates -> document types (doc-type properties reference data types;
+  `allowedTemplates` reference templates). Within a kind, **creates** are
+  topologically ordered by any same-kind id referenced in the body (captures
+  `compositions` and template master references generically); because ids are
+  client-supplied and known up front, other references resolve regardless of
+  order. A reference cycle (unsupported by Umbraco anyway) falls back to input
+  order rather than looping. Deletes run in reverse **cross-kind** order
+  (document types -> templates -> data types); within a kind deletes use
+  enumeration order (a `Removed` change carries no body to order by), relying on
+  fail-fast + re-run when a still-referenced delete is rejected.
 
 ### 5. Catalog + command wiring
 
@@ -133,11 +143,14 @@ content.
 - `export` writes the snapshot to stdout (default) or to a path via `--out`;
   `diff` and `apply` take the snapshot file as a positional argument, or `-` /
   stdin.
-- `diff` output: the CLI success envelope wrapping a structured diff
-  (`{ documentTypes: { added, removed, changed }, dataTypes: {...}, templates: {...} }`)
-  for agents, plus a human summary table. Exit code is 0; a non-empty diff is
-  data, not an error. (A future `--exit-code` flag could make drift a non-zero
-  exit for CI gates -- deferred.)
+- `diff` output follows the repo's list idiom (`RunTableAsync`): a **flat row per
+  actionable change** — `kind, change, identity, desiredId, currentId, idMismatch,
+  note` — rendered as a table for humans and, in JSON mode, an array of those row
+  objects for agents. Unchanged entities are omitted, so an **empty array means no
+  drift** (the CI signal). Exit code is 0; a non-empty diff is data, not an error.
+  (A future `--exit-code` flag could make drift a non-zero exit; a nested
+  `{added,changed,removed}` shape was considered but the flat rows carry the ids
+  an agent needs to act and match how every other list command renders. Deferred.)
 
 ## Approach: TDD, one slice at a time
 

@@ -5,7 +5,7 @@ using Umbraco.Cli.Commands.Schema;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// Behaviour of <see cref="SchemaApplier"/> (#68 / ADR 0004 §4): dependency-ordered writes,
+/// Behaviour of <see cref="SchemaApplier"/> (#68 / ADR 0005 §4): dependency-ordered writes,
 /// prune gating, the dry-run "write nothing" guarantee, id-rewrite on alias-matched updates, and
 /// fail-fast. Driven through the fake, asserting the exact writes recorded.
 /// </summary>

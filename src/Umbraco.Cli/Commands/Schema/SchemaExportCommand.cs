@@ -18,7 +18,7 @@ public sealed record SchemaExportSummary(
     string Path
 );
 
-/// <summary>Wires the <c>schema export</c> command (issue #68 / ADR 0004).</summary>
+/// <summary>Wires the <c>schema export</c> command (issue #68 / ADR 0005).</summary>
 public static class SchemaExportCommand
 {
     /// <summary>
