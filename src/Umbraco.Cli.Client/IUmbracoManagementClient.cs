@@ -43,4 +43,10 @@ public interface IUmbracoManagementClient
         IUserGroupClient,
         IUserDataClient,
         // Document blueprints (content templates): CRUD, folders, scaffold, move (#113).
-        IDocumentBlueprintClient;
+        IDocumentBlueprintClient,
+        // Read-only diagnostics: server, health, log-viewer, models-builder, manifest (#115).
+        IServerClient,
+        IHealthClient,
+        ILogViewerClient,
+        IModelsBuilderClient,
+        IManifestClient;

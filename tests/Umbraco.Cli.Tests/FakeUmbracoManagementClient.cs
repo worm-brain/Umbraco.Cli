@@ -1142,4 +1142,234 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         BlueprintFoldersDeleted.Add(id);
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
+
+    // ── Diagnostics (#115) ──────────────────────────────────────────────────────
+
+    // Server (read-only; return simple canned objects).
+    public Task<UmbracoResponse<ServerStatusResponse>> GetServerStatusAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<ServerStatusResponse>.Success(
+                new ServerStatusResponse { ServerStatus = "Run" }
+            )
+        );
+
+    public Task<UmbracoResponse<ServerInformationResponse>> GetServerInformationAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<ServerInformationResponse>.Success(
+                new ServerInformationResponse { Version = "14.0.0" }
+            )
+        );
+
+    public Task<UmbracoResponse<ServerConfigurationResponse>> GetServerConfigurationAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<ServerConfigurationResponse>.Success(new ServerConfigurationResponse())
+        );
+
+    public Task<
+        UmbracoResponse<IReadOnlyList<ServerTroubleshootingItem>>
+    > GetServerTroubleshootingAsync(CancellationToken ct = default) =>
+        Task.FromResult(UmbracoResponse<IReadOnlyList<ServerTroubleshootingItem>>.Success([]));
+
+    // Health.
+    /// <summary>Health-check groups the list method returns (seeded by a test).</summary>
+    public List<HealthCheckGroupSummary> HealthGroups { get; } = [];
+
+    /// <summary>Group names passed to <see cref="RunHealthCheckGroupAsync"/>, in order.</summary>
+    public List<string> HealthGroupsRun { get; } = [];
+
+    public Task<UmbracoResponse<PagedResponse<HealthCheckGroupSummary>>> GetHealthCheckGroupsAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<HealthCheckGroupSummary>>.Success(
+                new PagedResponse<HealthCheckGroupSummary>
+                {
+                    Total = HealthGroups.Count,
+                    Items = HealthGroups.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+
+    public Task<UmbracoResponse<HealthCheckGroupDetail>> GetHealthCheckGroupAsync(
+        string name,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<HealthCheckGroupDetail>.Success(
+                new HealthCheckGroupDetail { Name = name }
+            )
+        );
+
+    public Task<UmbracoResponse<HealthCheckRunResult>> RunHealthCheckGroupAsync(
+        string name,
+        CancellationToken ct = default
+    )
+    {
+        HealthGroupsRun.Add(name);
+        return Task.FromResult(
+            UmbracoResponse<HealthCheckRunResult>.Success(new HealthCheckRunResult())
+        );
+    }
+
+    // Log viewer.
+    /// <summary>Log messages the list method returns (seeded by a test).</summary>
+    public List<LogMessageResponse> LogMessages { get; } = [];
+
+    /// <summary>The (skip, take, levels, filter, start, end, descending) of the last log query.</summary>
+    public (
+        int Skip,
+        int Take,
+        IReadOnlyList<LogLevel>? Levels,
+        string? Filter,
+        DateTimeOffset? Start,
+        DateTimeOffset? End,
+        bool Descending
+    )? LastLogQuery { get; private set; }
+
+    /// <summary>Recorded saved-search creates, in <c>(name, query)</c> order.</summary>
+    public List<(string Name, string Query)> SavedSearchesCreated { get; } = [];
+
+    /// <summary>Recorded saved-search deletes.</summary>
+    public List<string> SavedSearchesDeleted { get; } = [];
+
+    public Task<UmbracoResponse<PagedResponse<LogMessageResponse>>> GetLogsAsync(
+        int skip = 0,
+        int take = 100,
+        IReadOnlyList<LogLevel>? levels = null,
+        string? filterExpression = null,
+        DateTimeOffset? startDate = null,
+        DateTimeOffset? endDate = null,
+        bool descending = true,
+        CancellationToken ct = default
+    )
+    {
+        LastLogQuery = (skip, take, levels, filterExpression, startDate, endDate, descending);
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<LogMessageResponse>>.Success(
+                new PagedResponse<LogMessageResponse>
+                {
+                    Total = LogMessages.Count,
+                    Items = LogMessages.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<PagedResponse<LoggerLevelResponse>>> GetLogLevelsAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<LoggerLevelResponse>>.Success(
+                new PagedResponse<LoggerLevelResponse> { Total = 0, Items = [] }
+            )
+        );
+
+    public Task<UmbracoResponse<LogLevelCounts>> GetLogLevelCountsAsync(
+        DateTimeOffset? startDate = null,
+        DateTimeOffset? endDate = null,
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<LogLevelCounts>.Success(new LogLevelCounts()));
+
+    public Task<UmbracoResponse<PagedResponse<LogTemplateResponse>>> GetLogMessageTemplatesAsync(
+        int skip = 0,
+        int take = 100,
+        DateTimeOffset? startDate = null,
+        DateTimeOffset? endDate = null,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<LogTemplateResponse>>.Success(
+                new PagedResponse<LogTemplateResponse> { Total = 0, Items = [] }
+            )
+        );
+
+    public Task<UmbracoResponse<PagedResponse<SavedLogSearchResponse>>> GetSavedLogSearchesAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<SavedLogSearchResponse>>.Success(
+                new PagedResponse<SavedLogSearchResponse> { Total = 0, Items = [] }
+            )
+        );
+
+    public Task<UmbracoResponse<SavedLogSearchResponse>> CreateSavedLogSearchAsync(
+        string name,
+        string query,
+        CancellationToken ct = default
+    )
+    {
+        SavedSearchesCreated.Add((name, query));
+        return Task.FromResult(
+            UmbracoResponse<SavedLogSearchResponse>.Success(
+                new SavedLogSearchResponse { Name = name, Query = query }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> DeleteSavedLogSearchAsync(
+        string name,
+        CancellationToken ct = default
+    )
+    {
+        SavedSearchesDeleted.Add(name);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    // Models builder.
+    /// <summary>How many times <see cref="BuildModelsAsync"/> was called.</summary>
+    public int ModelsBuiltCount { get; private set; }
+
+    public Task<UmbracoResponse<ModelsBuilderDashboard>> GetModelsBuilderDashboardAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<ModelsBuilderDashboard>.Success(
+                new ModelsBuilderDashboard { Mode = "InMemoryAuto" }
+            )
+        );
+
+    public Task<UmbracoResponse<ModelsBuilderStatus>> GetModelsBuilderStatusAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<ModelsBuilderStatus>.Success(
+                new ModelsBuilderStatus { Status = "Current" }
+            )
+        );
+
+    public Task<UmbracoResponse<Empty>> BuildModelsAsync(CancellationToken ct = default)
+    {
+        ModelsBuiltCount++;
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    // Manifest.
+    /// <summary>Manifests the list method returns (seeded by a test).</summary>
+    public List<ManifestResponse> Manifests { get; } = [];
+
+    /// <summary>The scope of the last manifest list call.</summary>
+    public ManifestScope? LastManifestScope { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<ManifestResponse>>> GetManifestsAsync(
+        ManifestScope scope = ManifestScope.All,
+        CancellationToken ct = default
+    )
+    {
+        LastManifestScope = scope;
+        return Task.FromResult(
+            UmbracoResponse<IReadOnlyList<ManifestResponse>>.Success(Manifests.ToList())
+        );
+    }
 }

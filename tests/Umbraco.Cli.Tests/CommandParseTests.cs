@@ -6,6 +6,7 @@ using Umbraco.Cli.Commands.Content;
 using Umbraco.Cli.Commands.ContentTypes;
 using Umbraco.Cli.Commands.Cultures;
 using Umbraco.Cli.Commands.DataTypes;
+using Umbraco.Cli.Commands.Diagnostics;
 using Umbraco.Cli.Commands.Dictionary;
 using Umbraco.Cli.Commands.DocumentBlueprints;
 using Umbraco.Cli.Commands.Languages;
@@ -98,6 +99,11 @@ public class CommandParseTests
         root.Add(UserGroupsCommand.Build(executor));
         root.Add(UserDataCommand.Build(executor));
         root.Add(DocumentBlueprintCommand.Build(executor));
+        root.Add(ServerCommand.Build(executor));
+        root.Add(HealthCommand.Build(executor));
+        root.Add(LogViewerCommand.Build(executor));
+        root.Add(ModelsBuilderCommand.Build(executor));
+        root.Add(ManifestCommand.Build(executor));
 
         return root;
     }
@@ -150,6 +156,11 @@ public class CommandParseTests
     [InlineData("user-groups")]
     [InlineData("user-data")]
     [InlineData("document-blueprint")]
+    [InlineData("server")]
+    [InlineData("health")]
+    [InlineData("log-viewer")]
+    [InlineData("models-builder")]
+    [InlineData("manifest")]
     public void RootCommand_ContainsExpectedSubcommand(string subcommand)
     {
         var root = BuildRoot();
@@ -225,6 +236,14 @@ public class CommandParseTests
             "folder",
         }
     )]
+    [InlineData("server", new[] { "status", "info", "configuration", "troubleshooting" })]
+    [InlineData("health", new[] { "list", "get", "run" })]
+    [InlineData(
+        "log-viewer",
+        new[] { "log", "levels", "level-count", "message-templates", "saved-search" }
+    )]
+    [InlineData("models-builder", new[] { "dashboard", "status", "build" })]
+    [InlineData("manifest", new[] { "list" })]
     [InlineData("auth", new[] { "login", "logout", "whoami", "doctor" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)
     {
@@ -409,6 +428,26 @@ public class CommandParseTests
         "document-blueprint folder update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Marketing"
     )]
     [InlineData("document-blueprint folder delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("server status")]
+    [InlineData("server info")]
+    [InlineData("server troubleshooting")]
+    [InlineData("health list")]
+    [InlineData("health get \"Data Integrity\"")]
+    [InlineData("health run Services")]
+    [InlineData("log-viewer log")]
+    [InlineData("log-viewer log --level Error --level Warning --take 50 --ascending")]
+    [InlineData("log-viewer log --start-date 2026-01-01 --end-date 2026-02-01 --filter foo")]
+    [InlineData("log-viewer levels")]
+    [InlineData("log-viewer level-count")]
+    [InlineData("log-viewer message-templates")]
+    [InlineData("log-viewer saved-search list")]
+    [InlineData("log-viewer saved-search create --name Errors --query x")]
+    [InlineData("log-viewer saved-search delete Errors")]
+    [InlineData("models-builder dashboard")]
+    [InlineData("models-builder status")]
+    [InlineData("models-builder build")]
+    [InlineData("manifest list")]
+    [InlineData("manifest list --scope Public")]
     [InlineData("member-types create --name Author --alias author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --icon icon-user")]
@@ -468,6 +507,12 @@ public class CommandParseTests
     [InlineData("document-blueprint get not-a-uuid")]
     [InlineData("document-blueprint from-document 3f7a8b2e-1234-5678-abcd-ef0123456789")] // missing --name
     [InlineData("document-blueprint folder create")] // missing --name
+    [InlineData("health get")] // missing group name argument
+    [InlineData("health run")] // missing group name argument
+    [InlineData("log-viewer saved-search create --name Errors")] // missing required --query
+    [InlineData("log-viewer log --take abc")] // non-integer take
+    [InlineData("log-viewer log --level Nonsense")] // invalid log level rejected at parse time
+    [InlineData("manifest list --scope Nonsense")] // invalid enum value
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]

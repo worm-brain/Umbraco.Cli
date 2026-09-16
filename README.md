@@ -10,7 +10,7 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 ## Features
 
-- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures, user groups, user data, document blueprints
+- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures, user groups, user data, document blueprints, server diagnostics, health checks, log viewer, models builder, package manifests
 - **Schema export / diff / apply** — dump document types, data types, and templates to a portable JSON snapshot, diff it against a live instance, and apply the difference (CI/agent-friendly, complements uSync); see [`schema`](#schema-export--diff--apply)
 - **Content export / diff / apply** — dump a content subtree to a portable snapshot with stable cross-environment identity, diff it, and reconcile a live instance towards it; see [`content`](#content-export--diff--apply)
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
@@ -417,6 +417,53 @@ umbraco member-groups delete <id>
 ```bash
 umbraco tags list [--group <group>] [--culture <iso>]      # tags, with node counts
 umbraco cultures list                                      # available cultures (isoCode + name)
+```
+
+### `server` (read-only)
+
+```bash
+umbraco server status                                      # runtime status
+umbraco server info                                        # version + runtime mode
+umbraco server configuration                               # public config flags
+umbraco server troubleshooting                             # troubleshooting items (name/value)
+```
+
+### `health`
+
+```bash
+umbraco health list [--skip <n>] [--take <n>]              # health-check groups
+umbraco health get <group>                                 # a group and the checks it contains
+umbraco health run <group>                                 # run the group, return results (POST, so blocked by --readonly)
+```
+
+### `log-viewer`
+
+```bash
+umbraco log-viewer log [--level <Verbose|Debug|Information|Warning|Error|Fatal>]... [--filter <expr>] [--start-date <date>] [--end-date <date>] [--skip <n>] [--take <n>] [--ascending]
+umbraco log-viewer levels [--skip <n>] [--take <n>]        # loggers and their minimum levels
+umbraco log-viewer level-count [--start-date <date>] [--end-date <date>]   # message counts by level
+umbraco log-viewer message-templates [--skip <n>] [--take <n>] [--start-date <date>] [--end-date <date>]
+
+# saved-search sub-noun:
+umbraco log-viewer saved-search list [--skip <n>] [--take <n>]
+umbraco log-viewer saved-search create --name <name> --query <query>
+umbraco log-viewer saved-search delete <name>             # needs --yes non-interactively
+```
+
+`--level` is a typed enum (`Verbose`/`Debug`/`Information`/`Warning`/`Error`/`Fatal`); repeat it for several levels. An unknown value is rejected at parse time.
+
+### `models-builder`
+
+```bash
+umbraco models-builder dashboard                           # dashboard status
+umbraco models-builder status                              # whether generated models are out of date
+umbraco models-builder build                               # regenerates source files on the server; needs --yes non-interactively (POST, so blocked by --readonly)
+```
+
+### `manifest` (read-only)
+
+```bash
+umbraco manifest list [--scope All|Public|Private]         # default: All
 ```
 
 ### `schema` (export / diff / apply)
