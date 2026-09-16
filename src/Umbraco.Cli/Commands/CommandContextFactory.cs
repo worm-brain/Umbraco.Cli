@@ -88,12 +88,27 @@ public sealed class CommandContextFactory
 
         // Resolve the selected profile (#64): --profile flag, else UMBRACO_PROFILE / the
         // configured default.
-        var config = store.Load(parseResult.GetValue(_globalOptions.Profile));
+        var profileName = parseResult.GetValue(_globalOptions.Profile);
+        var config = store.Load(profileName);
 
         // Command allow-list (#69): when configured, only the listed noun groups / commands may
         // run. Checked before auth so a disallowed command fails fast. The `auth` group is
         // always allowed — you need it to authenticate and inspect the session.
-        if (!IsCommandAllowed(commandName, config.AllowedCommands))
+        //
+        // The allow-list is a supervisor-set guardrail, so --config must not be able to LOOSEN it
+        // (#83 M2): a restricted agent could otherwise pass --config pointing at a file without an
+        // allow-list to escape its restriction. Enforce the most-restrictive of the fixed default
+        // store's allow-list (which also carries any UMBRACO_ALLOWED_COMMANDS value) and the
+        // resolved --config store's — so --config can only ever tighten, never bypass. When no
+        // --config is given the two stores are the same and this is a single check.
+        var resolvedAllowList = config.AllowedCommands;
+        var baselineAllowList = ReferenceEquals(store, _configStore)
+            ? resolvedAllowList
+            : _configStore.Load(profileName).AllowedCommands;
+        if (
+            !IsCommandAllowed(commandName, baselineAllowList)
+            || !IsCommandAllowed(commandName, resolvedAllowList)
+        )
         {
             output.WriteError(
                 2,
@@ -225,17 +240,25 @@ public sealed class CommandContextFactory
     }
 
     /// <summary>
-    /// Whether <paramref name="commandName"/> is permitted by the allow-list (#69). An empty
-    /// allow-list permits everything. An entry matches either the command's noun group
-    /// (e.g. <c>content</c>) or its full name (e.g. <c>content.list</c>). The <c>auth</c> group
-    /// is always permitted so the session can authenticate and be inspected.
+    /// Whether <paramref name="commandName"/> is permitted by the allow-list (#69). A <c>null</c>
+    /// allow-list means none was configured anywhere, so nothing is restricted. An allow-list that
+    /// is present but empty or whitespace (e.g. <c>UMBRACO_ALLOWED_COMMANDS=" "</c> or a config
+    /// <c>allowedCommands</c> of <c>","</c>) is an <em>explicit lockdown</em>: it permits nothing but
+    /// the always-allowed <c>auth</c> group (#83 L3). This removes the earlier asymmetry where an
+    /// empty string meant "allow everything" while <c>","</c> meant "deny everything". A non-empty
+    /// entry matches either the command's noun group (e.g. <c>content</c>) or its full name
+    /// (e.g. <c>content.list</c>). The <c>auth</c> group is always permitted so the session can
+    /// authenticate and be inspected.
     /// </summary>
     /// <param name="commandName">The dotted command name, e.g. <c>content.delete</c>.</param>
-    /// <param name="allowedRaw">The comma-separated allow-list, or null/empty for no restriction.</param>
+    /// <param name="allowedRaw">The comma-separated allow-list; <c>null</c> for no restriction, or set-but-empty for an explicit lockdown.</param>
     /// <returns>True if the command may run.</returns>
     private static bool IsCommandAllowed(string commandName, string? allowedRaw)
     {
-        if (string.IsNullOrWhiteSpace(allowedRaw))
+        // Only a truly absent (null) allow-list means "unrestricted". A present-but-blank value is
+        // a deliberate lockdown and falls through to the entry check below, which yields no entries
+        // and so permits only the auth group.
+        if (allowedRaw is null)
             return true;
 
         var group = commandName.Split('.', 2)[0];

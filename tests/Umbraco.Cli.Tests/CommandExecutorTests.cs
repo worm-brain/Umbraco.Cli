@@ -536,6 +536,92 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task AllowList_ConfigOverrideWithoutAllowList_DoesNotBypassDefaultAllowList()
+    {
+        // #83 M2: the allow-list is a supervisor guardrail, so pointing --config at a file without
+        // an allow-list must not escape the default store's restriction. The most-restrictive of
+        // the two applies, so a command outside the default allow-list is still refused.
+        var bypassConfig = Path.Combine(
+            Path.GetTempPath(),
+            $"umbraco-bypass-{Guid.NewGuid()}.json"
+        );
+        File.WriteAllText(bypassConfig, "{}"); // a valid config that carries no allow-list
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            args: $"--host https://example.com --token tok --output json --config \"{bypassConfig}\"",
+            allowedCommands: "content"
+        );
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "webhooks.list",
+                (c, ct) =>
+                {
+                    called = true;
+                    return c.GetWebhooksAsync(0, 20, ct);
+                },
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.False(called); // the --config file could not loosen the default allow-list
+        Assert.Contains(
+            "allow-list",
+            JsonDocument.Parse(stderr).RootElement.GetProperty("message").GetString()
+        );
+    }
+
+    [Fact]
+    public async Task AllowList_WhitespaceValue_IsExplicitLockdown_DeniesNonAuthCommand()
+    {
+        // #83 L3: a present-but-blank allow-list (e.g. UMBRACO_ALLOWED_COMMANDS=" ") is an explicit
+        // lockdown, not "allow everything" — non-auth commands are refused.
+        var called = false;
+        var (executor, parse) = Build(new FakeUmbracoManagementClient(), allowedCommands: " ");
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) =>
+                {
+                    called = true;
+                    return c.GetContentByIdAsync(Guid.NewGuid(), ct);
+                },
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.False(called);
+    }
+
+    [Fact]
+    public async Task AllowList_WhitespaceLockdown_StillAllowsAuth()
+    {
+        // Even under an explicit lockdown the auth group stays exempt, so the session can still
+        // authenticate and be inspected (#83 L3).
+        var (executor, parse) = Build(new FakeUmbracoManagementClient(), allowedCommands: " ");
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "auth.whoami",
+                (c, ct) =>
+                    Task.FromResult(
+                        UmbracoResponse<CurrentUserResponse>.Success(new CurrentUserResponse())
+                    ),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
     public async Task ReadOnlyFlag_SetsBlockPolicy()
     {
         // Wiring: --readonly flips the shared interceptor policy to Block for the invocation.
