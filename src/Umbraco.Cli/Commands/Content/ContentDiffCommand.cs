@@ -39,7 +39,7 @@ public static class ContentDiffCommand
                             parseResult.GetValue(snapshotArg)!,
                             c
                         ),
-                    new[] { "Change", "Id", "Parent", "Parent Drift" },
+                    new[] { "Change", "Id", "Parent" },
                     diff => Flatten(diff),
                     ct
                 )
@@ -49,9 +49,9 @@ public static class ContentDiffCommand
     }
 
     /// <summary>
-    /// Flattens a diff into one table row per actionable change (added, changed, removed);
-    /// unchanged documents are omitted to keep the output lean. In JSON mode each row becomes an
-    /// object keyed by the camelCased headers.
+    /// Flattens a diff into one table row per reported change - added, changed, removed, and drifted
+    /// (advisory placement drift); unchanged documents are omitted to keep the output lean. In JSON
+    /// mode each row becomes an object keyed by the camelCased headers.
     /// </summary>
     /// <param name="diff">The computed diff, or null on an (unexpected) empty result.</param>
     /// <returns>The rows, one per change.</returns>
@@ -60,14 +60,15 @@ public static class ContentDiffCommand
         if (diff is null)
             yield break;
 
-        foreach (var change in diff.Added.Concat(diff.Changed).Concat(diff.Removed))
+        foreach (
+            var change in diff.Added.Concat(diff.Changed).Concat(diff.Removed).Concat(diff.Drifted)
+        )
         {
             yield return
             [
                 change.Change.ToString(),
                 change.Id.ToString(),
                 change.Parent?.ToString() ?? "",
-                change.ParentDrift ? "yes" : "",
             ];
         }
     }

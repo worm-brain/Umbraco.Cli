@@ -26,6 +26,7 @@ public static class ContentDiffEngine
 
         var added = new List<ContentDocumentChange>();
         var changed = new List<ContentDocumentChange>();
+        var drifted = new List<ContentDocumentChange>();
         var matchedLiveIds = new HashSet<Guid>();
         var unchanged = 0;
 
@@ -44,21 +45,30 @@ public static class ContentDiffEngine
             }
 
             matchedLiveIds.Add(d.Id);
-            var parentDrift = d.Parent != live.Parent;
-            if (JsonNode.DeepEquals(d.Body, live.Body) && !parentDrift)
+            var bodyDiffers = !JsonNode.DeepEquals(d.Body, live.Body);
+            var parentDiffers = d.Parent != live.Parent;
+
+            if (bodyDiffers)
+            {
+                // Body differs -> update (converges the body). If the parent also drifted, that part
+                // is still not fixed - apply does not move documents - but the update is real work.
+                changed.Add(
+                    new ContentDocumentChange(ContentChangeKind.Changed, d.Id, d.Parent)
+                    {
+                        DesiredBody = d.Body,
+                    }
+                );
+            }
+            else if (parentDiffers)
+            {
+                // Body identical, only placement differs. Advisory: reported but never applied (an
+                // update would be a no-op that leaves the drift, so it must not enter the plan).
+                drifted.Add(new ContentDocumentChange(ContentChangeKind.Drifted, d.Id, d.Parent));
+            }
+            else
             {
                 unchanged++;
-                continue;
             }
-
-            // Body (or placement) differs -> update. Placement drift is flagged for visibility but
-            // not fixed: apply replaces the document body, it does not move documents (issue #100).
-            changed.Add(
-                new ContentDocumentChange(ContentChangeKind.Changed, d.Id, d.Parent, parentDrift)
-                {
-                    DesiredBody = d.Body,
-                }
-            );
         }
 
         // Any live document the snapshot never mentioned is a prune candidate.
@@ -67,6 +77,6 @@ public static class ContentDiffEngine
             .Select(c => new ContentDocumentChange(ContentChangeKind.Removed, c.Id))
             .ToList();
 
-        return new ContentDiff(added, changed, removed, unchanged);
+        return new ContentDiff(added, changed, removed, drifted, unchanged);
     }
 }

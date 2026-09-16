@@ -29,7 +29,7 @@ public class ContentApplierTests
         IReadOnlyList<ContentDocumentChange>? added = null,
         IReadOnlyList<ContentDocumentChange>? changed = null,
         IReadOnlyList<ContentDocumentChange>? removed = null
-    ) => new(added ?? [], changed ?? [], removed ?? [], 0);
+    ) => new(added ?? [], changed ?? [], removed ?? [], [], 0);
 
     [Fact]
     public async Task ApplyAsync_DryRun_WritesNothingAndPlansEveryStep()

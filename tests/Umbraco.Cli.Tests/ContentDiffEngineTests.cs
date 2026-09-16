@@ -61,9 +61,9 @@ public class ContentDiffEngineTests
 
         var changed = Assert.Single(diff.Changed);
         Assert.Equal(id, changed.Id);
-        Assert.False(changed.ParentDrift);
         Assert.Empty(diff.Added);
         Assert.Empty(diff.Removed);
+        Assert.Empty(diff.Drifted);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class ContentDiffEngineTests
     }
 
     [Fact]
-    public void Compare_SameBodyDifferentParent_IsChangedWithParentDrift()
+    public void Compare_SameBodyDifferentParent_IsDriftedNotChanged()
     {
         var id = Guid.NewGuid();
 
@@ -90,7 +90,11 @@ public class ContentDiffEngineTests
             Snap(Doc(id, null, "Same"))
         );
 
-        var changed = Assert.Single(diff.Changed);
-        Assert.True(changed.ParentDrift);
+        // Placement-only drift is advisory: reported as Drifted, never an actionable change.
+        var drifted = Assert.Single(diff.Drifted);
+        Assert.Equal(ContentChangeKind.Drifted, drifted.Change);
+        Assert.Equal(id, drifted.Id);
+        Assert.Empty(diff.Changed);
+        Assert.False(diff.HasChanges); // apply cannot converge drift, so nothing to do
     }
 }

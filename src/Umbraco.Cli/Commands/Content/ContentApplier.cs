@@ -9,10 +9,14 @@ namespace Umbraco.Cli.Commands.Content;
 /// executed steps up to any failure) - apply is fail-fast, so a failure surfaces through the exit
 /// code and message rather than a per-step error row.
 /// </summary>
-/// <param name="Operation">The step: <c>create</c>, <c>update</c>, or <c>delete</c>.</param>
+/// <param name="Change">The change kind: <see cref="ContentChangeKind.Added"/> (create), <see cref="ContentChangeKind.Changed"/> (update), or <see cref="ContentChangeKind.Removed"/> (delete).</param>
 /// <param name="Id">The document id the step targets.</param>
 /// <param name="Status">The step status: <c>planned</c> (dry run) or <c>success</c> (executed).</param>
-public sealed record ContentAction(string Operation, Guid Id, string Status);
+public sealed record ContentAction(ContentChangeKind Change, Guid Id, string Status)
+{
+    /// <summary>The user-facing verb for this step (<c>create</c>/<c>update</c>/<c>delete</c>).</summary>
+    public string Operation => ContentApplier.VerbOf(Change);
+}
 
 /// <summary>
 /// The outcome of a content apply run (issue #100): whether it was a dry run, whether prune was
@@ -28,13 +32,13 @@ public sealed record ContentApplyResult(
 )
 {
     /// <summary>Number of create steps.</summary>
-    public int Created => Actions.Count(a => a.Operation == "create");
+    public int Created => Actions.Count(a => a.Change == ContentChangeKind.Added);
 
     /// <summary>Number of update steps.</summary>
-    public int Updated => Actions.Count(a => a.Operation == "update");
+    public int Updated => Actions.Count(a => a.Change == ContentChangeKind.Changed);
 
     /// <summary>Number of delete steps.</summary>
-    public int Deleted => Actions.Count(a => a.Operation == "delete");
+    public int Deleted => Actions.Count(a => a.Change == ContentChangeKind.Removed);
 }
 
 /// <summary>
@@ -48,10 +52,24 @@ public sealed record ContentApplyResult(
 /// while it still has children. Apply is <b>fail-fast</b>: the first failed write stops the run.
 ///
 /// Apply replaces document bodies and creates new documents in place; it does <b>not</b> re-parent
-/// existing documents (a placement drift is reported by <c>diff</c> but a move is out of scope).
+/// existing documents (placement drift is reported by <c>diff</c> but a move is out of scope).
 /// </summary>
 public static class ContentApplier
 {
+    /// <summary>Maps a change kind to its user-facing apply verb.</summary>
+    /// <param name="change">The change kind (must be an actionable one: added/changed/removed).</param>
+    /// <returns>The verb: <c>create</c>, <c>update</c>, or <c>delete</c>.</returns>
+    public static string VerbOf(ContentChangeKind change) =>
+        change switch
+        {
+            ContentChangeKind.Added => "create",
+            ContentChangeKind.Changed => "update",
+            ContentChangeKind.Removed => "delete",
+            _ => throw new InvalidOperationException(
+                $"{change} is not an actionable apply operation."
+            ),
+        };
+
     /// <summary>
     /// Applies <paramref name="diff"/> to the live instance, or (when <paramref name="dryRun"/>)
     /// returns the plan without writing anything.
@@ -74,27 +92,27 @@ public static class ContentApplier
 
         if (dryRun)
         {
-            var planned = plan.Select(op => op.ToAction("planned")).ToList();
+            var planned = plan.Select(c => new ContentAction(c.Change, c.Id, "planned")).ToList();
             return UmbracoResponse<ContentApplyResult>.Success(
                 new ContentApplyResult(DryRun: true, Pruned: prune, planned)
             );
         }
 
         var done = new List<ContentAction>();
-        foreach (var op in plan)
+        foreach (var change in plan)
         {
-            var result = await Execute(client, op, ct);
+            var result = await Execute(client, change, ct);
             if (!result.IsSuccess)
             {
                 var doneSummary =
                     done.Count == 0 ? "no changes were applied" : $"{done.Count} change(s) applied";
                 return UmbracoResponse<ContentApplyResult>.Failure(
                     result.StatusCode,
-                    $"Apply failed on {op.Operation} document '{op.Change.Id}' "
+                    $"Apply failed on {VerbOf(change.Change)} document '{change.Id}' "
                         + $"({doneSummary} before the failure): {result.ErrorMessage}"
                 );
             }
-            done.Add(op.ToAction("success"));
+            done.Add(new ContentAction(change.Change, change.Id, "success"));
         }
 
         return UmbracoResponse<ContentApplyResult>.Success(
@@ -102,35 +120,20 @@ public static class ContentApplier
         );
     }
 
-    /// <summary>A single planned operation: the change plus which verb to run for it.</summary>
-    /// <param name="Operation">create / update / delete.</param>
-    /// <param name="Change">The diff entry to act on.</param>
-    private sealed record Op(string Operation, ContentDocumentChange Change)
-    {
-        /// <summary>Projects this planned op into a user-facing <see cref="ContentAction"/>.</summary>
-        /// <param name="status">The status to stamp (<c>planned</c> or <c>success</c>).</param>
-        /// <returns>The action record.</returns>
-        public ContentAction ToAction(string status) => new(Operation, Change.Id, status);
-    }
-
     /// <summary>
-    /// Builds the ordered operation list from a diff: creates in snapshot pre-order (parents
-    /// first), then updates, then - if pruning - deletes in reverse (deepest documents first, so a
-    /// parent is never deleted while it still has children).
+    /// Builds the ordered change list from a diff: creates in snapshot pre-order (parents first),
+    /// then updates, then - if pruning - deletes in reverse (deepest documents first, so a parent
+    /// is never deleted while it still has children). Drift is never planned (apply cannot move
+    /// documents).
     /// </summary>
     /// <param name="diff">The diff to plan.</param>
     /// <param name="prune">Whether to include deletes.</param>
-    /// <returns>The ordered operations.</returns>
-    private static List<Op> BuildPlan(ContentDiff diff, bool prune)
+    /// <returns>The ordered changes to execute.</returns>
+    private static List<ContentDocumentChange> BuildPlan(ContentDiff diff, bool prune)
     {
-        var ops = new List<Op>();
-
         // Creates preserve the snapshot's pre-order (parent before child); nothing to topo-sort.
-        foreach (var added in diff.Added)
-            ops.Add(new Op("create", added));
-
-        foreach (var changed in diff.Changed)
-            ops.Add(new Op("update", changed));
+        var plan = new List<ContentDocumentChange>(diff.Added);
+        plan.AddRange(diff.Changed);
 
         // Deletes in reverse tree order: the Removed list is in live pre-order (parents first), so
         // reversing it deletes children before their parents. Fail-fast covers any residual order
@@ -138,37 +141,40 @@ public static class ContentApplier
         if (prune)
         {
             for (var i = diff.Removed.Count - 1; i >= 0; i--)
-                ops.Add(new Op("delete", diff.Removed[i]));
+                plan.Add(diff.Removed[i]);
         }
 
-        return ops;
+        return plan;
     }
 
-    /// <summary>Runs a single planned operation against the client.</summary>
+    /// <summary>Runs a single change against the client, dispatched on its kind.</summary>
     /// <param name="client">The management client.</param>
-    /// <param name="op">The operation to run.</param>
+    /// <param name="change">The change to execute.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The write result.</returns>
     private static Task<UmbracoResponse<Empty>> Execute(
         IUmbracoManagementClient client,
-        Op op,
+        ContentDocumentChange change,
         CancellationToken ct
-    )
-    {
-        var change = op.Change;
-        return op.Operation switch
+    ) =>
+        change.Change switch
         {
             // Create carries the document's own id (GUID-primary) already in the body; inject the
             // captured parent so it lands in the right place.
-            "create" => client.CreateDocumentRawAsync(
+            ContentChangeKind.Added => client.CreateDocumentRawAsync(
                 WithParent(change.DesiredBody!, change.Parent),
                 ct
             ),
-            "update" => client.UpdateDocumentRawAsync(change.Id, change.DesiredBody!, ct),
-            "delete" => client.DeleteContentAsync(change.Id, ct),
-            _ => throw new InvalidOperationException($"Unknown content operation {op.Operation}."),
+            ContentChangeKind.Changed => client.UpdateDocumentRawAsync(
+                change.Id,
+                change.DesiredBody!,
+                ct
+            ),
+            ContentChangeKind.Removed => client.DeleteContentAsync(change.Id, ct),
+            _ => throw new InvalidOperationException(
+                $"{change.Change} is not an executable apply operation."
+            ),
         };
-    }
 
     /// <summary>
     /// Returns a clone of <paramref name="body"/> with its top-level <c>parent</c> set for a create:
