@@ -29,6 +29,8 @@ public static class SchemaPipeline
         if (!current.IsSuccess)
             return UmbracoResponse<SchemaDiff>.Failure(current.StatusCode, current.ErrorMessage!);
 
-        return UmbracoResponse<SchemaDiff>.Success(SchemaDiffEngine.Compare(desired, current.Data!));
+        return UmbracoResponse<SchemaDiff>.Success(
+            SchemaDiffEngine.Compare(desired, current.Data!)
+        );
     }
 }

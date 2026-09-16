@@ -21,14 +21,10 @@ public static class TemplatesCreateCommand
         );
         var nameOpt = new Option<string>("--name") { Required = true };
         var aliasOpt = new Option<string>("--alias") { Required = true };
-        var contentOpt = new Option<string?>("--content")
-        {
-            Description = "Razor view content (inline). Mutually exclusive with --content-file.",
-        };
-        var contentFileOpt = new Option<FileInfo?>("--content-file")
-        {
-            Description = "Path to a file whose contents become the Razor view.",
-        };
+        var (contentOpt, contentFileOpt) = FileContentInput.Options(
+            "Razor view content (inline). Mutually exclusive with --content-file.",
+            "Path to a file whose contents become the Razor view."
+        );
         var idOpt = new Option<Guid?>("--id")
         {
             Description = "Optional client-supplied UUID for an idempotent create (#86).",
@@ -45,13 +41,14 @@ public static class TemplatesCreateCommand
                     "templates.create",
                     async (client, c) =>
                     {
-                        // Prefer --content-file when given; else --content; else empty. The file
-                        // read happens here (inside the executor's try) so a missing file becomes
-                        // a clean error rather than an unhandled exception.
-                        var file = parseResult.GetValue(contentFileOpt);
-                        var content = file is not null
-                            ? await File.ReadAllTextAsync(file.FullName, ct)
-                            : parseResult.GetValue(contentOpt) ?? "";
+                        // Prefer --content-file when given; else --content; else empty.
+                        var content =
+                            await FileContentInput.ReadAsync(
+                                parseResult,
+                                contentOpt,
+                                contentFileOpt,
+                                ct
+                            ) ?? "";
                         return await client.CreateTemplateAsync(
                             new CreateTemplateRequest
                             {

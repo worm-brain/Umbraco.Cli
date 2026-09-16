@@ -30,7 +30,12 @@ public static class SchemaDiffEngine
     /// <returns>The diff across document types, data types, and templates.</returns>
     public static SchemaDiff Compare(SchemaSnapshot desired, SchemaSnapshot current) =>
         new(
-            CompareKind(SchemaKinds.DocumentType, "alias", desired.DocumentTypes, current.DocumentTypes),
+            CompareKind(
+                SchemaKinds.DocumentType,
+                "alias",
+                desired.DocumentTypes,
+                current.DocumentTypes
+            ),
             CompareKind(SchemaKinds.DataType, "name", desired.DataTypes, current.DataTypes),
             CompareKind(SchemaKinds.Template, "alias", desired.Templates, current.Templates)
         );

@@ -190,7 +190,10 @@ public static class SchemaApplier
 
         // Work by index throughout: SchemaEntityChange is a value-equal record, so keying maps by
         // the change itself would throw on two equal entries — indices are always distinct.
-        var inSet = changes.Where(c => c.DesiredId is not null).Select(c => c.DesiredId!.Value).ToHashSet();
+        var inSet = changes
+            .Where(c => c.DesiredId is not null)
+            .Select(c => c.DesiredId!.Value)
+            .ToHashSet();
 
         // deps[i] = the in-batch ids that changes[i] references (excluding its own id).
         var deps = new List<HashSet<Guid>>(changes.Count);
@@ -200,7 +203,9 @@ public static class SchemaApplier
             deps.Add(
                 c.DesiredBody is null
                     ? []
-                    : ExtractGuids(c.DesiredBody).Where(g => inSet.Contains(g) && g != self).ToHashSet()
+                    : ExtractGuids(c.DesiredBody)
+                        .Where(g => inSet.Contains(g) && g != self)
+                        .ToHashSet()
             );
         }
 
@@ -317,8 +322,14 @@ public static class SchemaApplier
                 change.CurrentId!.Value,
                 ct
             ),
-            ("delete", SchemaKinds.DataType) => client.DeleteDataTypeAsync(change.CurrentId!.Value, ct),
-            ("delete", SchemaKinds.Template) => client.DeleteTemplateAsync(change.CurrentId!.Value, ct),
+            ("delete", SchemaKinds.DataType) => client.DeleteDataTypeAsync(
+                change.CurrentId!.Value,
+                ct
+            ),
+            ("delete", SchemaKinds.Template) => client.DeleteTemplateAsync(
+                change.CurrentId!.Value,
+                ct
+            ),
 
             _ => throw new InvalidOperationException(
                 $"Unknown schema operation {op.Operation}/{change.Kind}."

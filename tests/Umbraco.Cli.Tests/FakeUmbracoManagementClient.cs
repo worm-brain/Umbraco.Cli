@@ -588,4 +588,85 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         JsonNode body,
         CancellationToken ct = default
     ) => RecordWrite("document", id, body);
+
+    // ── Static files (IStaticFileClient, #105) ─────────────────────────────────
+    // Configurable so command tests can drive StaticFileCommand end-to-end: each write records
+    // the (kind, path/name, content) so a test can assert what the command layer sent.
+
+    /// <summary>Recorded creates: the kind and the request the command built.</summary>
+    public List<(
+        StaticFileKind Kind,
+        CreateStaticFileRequest Request
+    )> StaticFilesCreated { get; } = [];
+
+    /// <summary>Recorded updates: the kind, target path, and the new content the command sent.</summary>
+    public List<(StaticFileKind Kind, string Path, string Content)> StaticFilesUpdated { get; } =
+    [];
+
+    /// <summary>Recorded deletes: the kind and target path.</summary>
+    public List<(StaticFileKind Kind, string Path)> StaticFilesDeleted { get; } = [];
+
+    public Task<UmbracoResponse<PagedResponse<StaticFileTreeItem>>> GetStaticFilesAsync(
+        StaticFileKind kind,
+        string? parentPath = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<StaticFileTreeItem>>.Success(
+                new PagedResponse<StaticFileTreeItem> { Total = 0, Items = [] }
+            )
+        );
+
+    public Task<UmbracoResponse<StaticFileResponse>> GetStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<StaticFileResponse>.Success(
+                new StaticFileResponse { Path = path, Name = path }
+            )
+        );
+
+    public Task<UmbracoResponse<StaticFileResponse>> CreateStaticFileAsync(
+        StaticFileKind kind,
+        CreateStaticFileRequest request,
+        CancellationToken ct = default
+    )
+    {
+        StaticFilesCreated.Add((kind, request));
+        return Task.FromResult(
+            UmbracoResponse<StaticFileResponse>.Success(
+                new StaticFileResponse
+                {
+                    Path = request.Name,
+                    Name = request.Name,
+                    Content = request.Content,
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> UpdateStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        UpdateStaticFileRequest request,
+        CancellationToken ct = default
+    )
+    {
+        StaticFilesUpdated.Add((kind, path, request.Content));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> DeleteStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        CancellationToken ct = default
+    )
+    {
+        StaticFilesDeleted.Add((kind, path));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 }

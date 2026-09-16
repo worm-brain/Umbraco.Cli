@@ -11,6 +11,7 @@ using Umbraco.Cli.Commands.Media;
 using Umbraco.Cli.Commands.MediaTypes;
 using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.MemberTypes;
+using Umbraco.Cli.Commands.StaticFiles;
 using Umbraco.Cli.Commands.Templates;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
@@ -73,6 +74,18 @@ public class CommandParseTests
         root.Add(UsersCommand.Build(executor));
         root.Add(DictionaryCommand.Build(executor));
         root.Add(WebhooksCommand.Build(executor));
+        root.Add(StaticFileCommand.Build(executor, StaticFileKind.Script, "script", "script"));
+        root.Add(
+            StaticFileCommand.Build(executor, StaticFileKind.Stylesheet, "stylesheet", "stylesheet")
+        );
+        root.Add(
+            StaticFileCommand.Build(
+                executor,
+                StaticFileKind.PartialView,
+                "partial-view",
+                "partial view"
+            )
+        );
 
         return root;
     }
@@ -116,6 +129,9 @@ public class CommandParseTests
     [InlineData("users")]
     [InlineData("dictionary")]
     [InlineData("webhooks")]
+    [InlineData("script")]
+    [InlineData("stylesheet")]
+    [InlineData("partial-view")]
     public void RootCommand_ContainsExpectedSubcommand(string subcommand)
     {
         var root = BuildRoot();
@@ -155,6 +171,9 @@ public class CommandParseTests
     )]
     [InlineData("media-types", new[] { "list", "get", "create", "delete" })]
     [InlineData("member-types", new[] { "list", "get", "create", "update", "delete" })]
+    [InlineData("script", new[] { "list", "get", "create", "update", "delete" })]
+    [InlineData("stylesheet", new[] { "list", "get", "create", "update", "delete" })]
+    [InlineData("partial-view", new[] { "list", "get", "create", "update", "delete" })]
     [InlineData("auth", new[] { "login", "logout", "whoami", "doctor" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)
     {
@@ -259,6 +278,17 @@ public class CommandParseTests
     [InlineData("members list")]
     [InlineData("member-types list")]
     [InlineData("member-types get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("script list")]
+    [InlineData("script list --parent folder --take 50")]
+    [InlineData("script get folder/site.js")]
+    [InlineData("script create --name site.js --content \"// hi\"")]
+    [InlineData("script create --name site.js --parent lib --content-file ./x.js")]
+    [InlineData("script update folder/site.js --content \"// x\"")]
+    [InlineData("script delete folder/site.js")]
+    [InlineData("stylesheet get theme/site.css")]
+    [InlineData("stylesheet create --name site.css")]
+    [InlineData("partial-view get grid/row.cshtml")]
+    [InlineData("partial-view delete grid/row.cshtml")]
     [InlineData("member-types create --name Author --alias author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --icon icon-user")]

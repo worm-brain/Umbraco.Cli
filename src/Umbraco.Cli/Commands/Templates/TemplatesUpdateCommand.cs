@@ -23,14 +23,10 @@ public static class TemplatesUpdateCommand
         var idArg = new Argument<Guid>("id") { Description = "Template ID." };
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var aliasOpt = new Option<string?>("--alias") { Description = "New alias." };
-        var contentOpt = new Option<string?>("--content")
-        {
-            Description = "Razor view content (inline). Mutually exclusive with --content-file.",
-        };
-        var contentFileOpt = new Option<FileInfo?>("--content-file")
-        {
-            Description = "Path to a file whose contents become the Razor view.",
-        };
+        var (contentOpt, contentFileOpt) = FileContentInput.Options(
+            "Razor view content (inline). Mutually exclusive with --content-file.",
+            "Path to a file whose contents become the Razor view."
+        );
         cmd.Add(idArg);
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);
@@ -45,10 +41,12 @@ public static class TemplatesUpdateCommand
                     {
                         // null content => preserve existing (read-merge in the client). Only a
                         // supplied --content/--content-file replaces the Razor body.
-                        var file = parseResult.GetValue(contentFileOpt);
-                        var content = file is not null
-                            ? await File.ReadAllTextAsync(file.FullName, ct)
-                            : parseResult.GetValue(contentOpt);
+                        var content = await FileContentInput.ReadAsync(
+                            parseResult,
+                            contentOpt,
+                            contentFileOpt,
+                            ct
+                        );
                         return await client.UpdateTemplateAsync(
                             parseResult.GetValue(idArg),
                             new UpdateTemplateRequest

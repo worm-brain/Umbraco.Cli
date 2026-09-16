@@ -10,7 +10,7 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 ## Features
 
-- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, users, dictionary items, webhooks
+- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, users, dictionary items, webhooks, scripts, stylesheets, partial views
 - **Schema export / diff / apply** — dump document types, data types, and templates to a portable JSON snapshot, diff it against a live instance, and apply the difference (CI/agent-friendly, complements uSync); see [`schema`](#schema-export--diff--apply)
 - **Content export / diff / apply** — dump a content subtree to a portable snapshot with stable cross-environment identity, diff it, and reconcile a live instance towards it; see [`content`](#content-export--diff--apply)
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
@@ -332,6 +332,24 @@ umbraco dictionary delete <id>
 umbraco webhooks list
 umbraco webhooks create --url <url> --events <csv> [--name <name>] [--description <text>]
 umbraco webhooks delete <id>
+```
+
+### `script` / `stylesheet` / `partial-view` (static files)
+
+The three static-file resources share the same path-addressed verbs (the noun is
+`script`, `stylesheet`, or `partial-view`). Files are identified by **path** (not a GUID);
+`update` replaces the content only.
+
+```bash
+umbraco script list [--parent <folder>]                    # tree root, or a folder's children
+umbraco script get <path>                                  # includes the file content
+umbraco script create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
+umbraco script update <path> [--content <text> | --content-file <file>]
+umbraco script delete <path>                               # needs --yes non-interactively
+
+# stylesheet and partial-view take exactly the same verbs, e.g.:
+umbraco stylesheet create --name site.css --content-file ./site.css
+umbraco partial-view get grid/row.cshtml
 ```
 
 ### `schema` (export / diff / apply)
