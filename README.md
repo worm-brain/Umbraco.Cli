@@ -10,7 +10,7 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 ## Features
 
-- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures
+- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures, user groups, user data
 - **Schema export / diff / apply** — dump document types, data types, and templates to a portable JSON snapshot, diff it against a live instance, and apply the difference (CI/agent-friendly, complements uSync); see [`schema`](#schema-export--diff--apply)
 - **Content export / diff / apply** — dump a content subtree to a portable snapshot with stable cross-environment identity, diff it, and reconcile a live instance towards it; see [`content`](#content-export--diff--apply)
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
@@ -315,6 +315,35 @@ umbraco member-types delete <id>
 umbraco users list
 umbraco users get <id|email>
 umbraco users invite --email <email> --name <name>
+```
+
+### `user-groups`
+
+```bash
+umbraco user-groups list
+umbraco user-groups get <id>
+umbraco user-groups create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access] [--media-root-access] [--id <guid>]
+umbraco user-groups update <id> --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access] [--media-root-access]
+umbraco user-groups delete <id>
+umbraco user-groups delete-many --ids <id>...              # bulk; needs --yes non-interactively
+umbraco user-groups add-users <id> --user <id>...          # --user repeatable
+umbraco user-groups remove-users <id> --user <id>...       # --user repeatable
+```
+
+Granular per-node permissions are a deferred follow-up: `create`/`update`
+set the scalar and list fields but send an empty permissions set. `update`
+replaces the whole group, so pass the full desired state.
+
+### `user-data`
+
+Key/value data scoped to the **authenticated** user.
+
+```bash
+umbraco user-data list [--group <group>] [--identifier <id>] [--skip <n>] [--take <n>]
+umbraco user-data get <key>
+umbraco user-data create --group <group> --identifier <id> --value <value> [--key <guid>]
+umbraco user-data update --key <key> --group <group> --identifier <id> --value <value>
+umbraco user-data delete <key>
 ```
 
 ### `dictionary`
