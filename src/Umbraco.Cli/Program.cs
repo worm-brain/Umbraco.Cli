@@ -13,6 +13,7 @@ using Umbraco.Cli.Commands.MediaTypes;
 using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.MemberTypes;
 using Umbraco.Cli.Commands.Schema;
+using Umbraco.Cli.Commands.StaticFiles;
 using Umbraco.Cli.Commands.Templates;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
@@ -113,6 +114,13 @@ root.Add(UsersCommand.Build(executor));
 root.Add(DictionaryCommand.Build(executor));
 root.Add(WebhooksCommand.Build(executor));
 root.Add(SchemaCommand.Build(executor));
+
+// Static-file resources: one factory, three nouns (#105).
+root.Add(StaticFileCommand.Build(executor, StaticFileKind.Script, "script", "script"));
+root.Add(StaticFileCommand.Build(executor, StaticFileKind.Stylesheet, "stylesheet", "stylesheet"));
+root.Add(
+    StaticFileCommand.Build(executor, StaticFileKind.PartialView, "partial-view", "partial view")
+);
 
 // Machine-readable command catalog for agents (#60). Added last and given the root so it can
 // describe the fully-assembled tree (including itself).

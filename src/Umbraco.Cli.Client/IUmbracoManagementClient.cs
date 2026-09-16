@@ -32,4 +32,6 @@ public interface IUmbracoManagementClient
         // Full-fidelity raw-JSON schema access for the export/diff/apply pipeline (#68, ADR 0005).
         ISchemaClient,
         // Full-fidelity raw-JSON document access for the content pipeline (#100, ADR 0006).
-        IContentSnapshotClient;
+        IContentSnapshotClient,
+        // Static-file resources: scripts, stylesheets, partial views (#105).
+        IStaticFileClient;

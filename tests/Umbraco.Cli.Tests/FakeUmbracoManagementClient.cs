@@ -588,4 +588,41 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         JsonNode body,
         CancellationToken ct = default
     ) => RecordWrite("document", id, body);
+
+    // ── Static files (IStaticFileClient, #105) ─────────────────────────────────
+    // Not exercised by command tests (the client methods are tested directly against a routing
+    // handler), so these are unimplemented until a test needs them.
+
+    public Task<UmbracoResponse<PagedResponse<StaticFileTreeItem>>> GetStaticFilesAsync(
+        StaticFileKind kind,
+        string? parentPath = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) => throw new NotImplementedException();
+
+    public Task<UmbracoResponse<StaticFileResponse>> GetStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        CancellationToken ct = default
+    ) => throw new NotImplementedException();
+
+    public Task<UmbracoResponse<StaticFileResponse>> CreateStaticFileAsync(
+        StaticFileKind kind,
+        CreateStaticFileRequest request,
+        CancellationToken ct = default
+    ) => throw new NotImplementedException();
+
+    public Task<UmbracoResponse<Empty>> UpdateStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        UpdateStaticFileRequest request,
+        CancellationToken ct = default
+    ) => throw new NotImplementedException();
+
+    public Task<UmbracoResponse<Empty>> DeleteStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        CancellationToken ct = default
+    ) => throw new NotImplementedException();
 }
