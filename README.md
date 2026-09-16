@@ -10,7 +10,7 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 ## Features
 
-- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, users, dictionary items, webhooks, scripts, stylesheets, partial views
+- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures
 - **Schema export / diff / apply** — dump document types, data types, and templates to a portable JSON snapshot, diff it against a live instance, and apply the difference (CI/agent-friendly, complements uSync); see [`schema`](#schema-export--diff--apply)
 - **Content export / diff / apply** — dump a content subtree to a portable snapshot with stable cross-environment identity, diff it, and reconcile a live instance towards it; see [`content`](#content-export--diff--apply)
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
@@ -350,6 +350,23 @@ umbraco script delete <path>                               # needs --yes non-int
 # stylesheet and partial-view take exactly the same verbs, e.g.:
 umbraco stylesheet create --name site.css --content-file ./site.css
 umbraco partial-view get grid/row.cshtml
+```
+
+### `member-groups`
+
+```bash
+umbraco member-groups list
+umbraco member-groups get <id>
+umbraco member-groups create --name <name>
+umbraco member-groups update <id> --name <name>
+umbraco member-groups delete <id>
+```
+
+### `tags` / `cultures` (read-only)
+
+```bash
+umbraco tags list [--group <group>] [--culture <iso>]      # tags, with node counts
+umbraco cultures list                                      # available cultures (isoCode + name)
 ```
 
 ### `schema` (export / diff / apply)

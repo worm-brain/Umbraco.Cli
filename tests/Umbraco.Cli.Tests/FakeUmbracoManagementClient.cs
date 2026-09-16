@@ -669,4 +669,106 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         StaticFilesDeleted.Add((kind, path));
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
+
+    // ── Coverage resources: member groups, tags, cultures (#107) ───────────────
+
+    /// <summary>Member groups the list method returns (seeded by a test).</summary>
+    public List<MemberGroupResponse> MemberGroupList { get; } = [];
+
+    /// <summary>Recorded member-group creates.</summary>
+    public List<CreateMemberGroupRequest> MemberGroupsCreated { get; } = [];
+
+    /// <summary>Recorded member-group deletes.</summary>
+    public List<Guid> MemberGroupsDeleted { get; } = [];
+
+    /// <summary>Tags the list method returns (seeded by a test).</summary>
+    public List<TagResponse> TagList { get; } = [];
+
+    /// <summary>Cultures the list method returns (seeded by a test).</summary>
+    public List<CultureResponse> CultureList { get; } = [];
+
+    public Task<UmbracoResponse<PagedResponse<MemberGroupResponse>>> GetMemberGroupsAsync(
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<MemberGroupResponse>>.Success(
+                new PagedResponse<MemberGroupResponse>
+                {
+                    Total = MemberGroupList.Count,
+                    Items = MemberGroupList.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+
+    public Task<UmbracoResponse<MemberGroupResponse>> GetMemberGroupByIdAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            MemberGroupList.FirstOrDefault(g => g.Id == id) is { } g
+                ? UmbracoResponse<MemberGroupResponse>.Success(g)
+                : UmbracoResponse<MemberGroupResponse>.Failure(404, $"Not found: {id}")
+        );
+
+    public Task<UmbracoResponse<MemberGroupResponse>> CreateMemberGroupAsync(
+        CreateMemberGroupRequest request,
+        CancellationToken ct = default
+    )
+    {
+        MemberGroupsCreated.Add(request);
+        return Task.FromResult(
+            UmbracoResponse<MemberGroupResponse>.Success(
+                new MemberGroupResponse { Id = request.Id ?? Guid.NewGuid(), Name = request.Name }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> UpdateMemberGroupAsync(
+        Guid id,
+        UpdateMemberGroupRequest request,
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+
+    public Task<UmbracoResponse<Empty>> DeleteMemberGroupAsync(
+        Guid id,
+        CancellationToken ct = default
+    )
+    {
+        MemberGroupsDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<PagedResponse<TagResponse>>> GetTagsAsync(
+        string? tagGroup = null,
+        string? culture = null,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<TagResponse>>.Success(
+                new PagedResponse<TagResponse>
+                {
+                    Total = TagList.Count,
+                    Items = TagList.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+
+    public Task<UmbracoResponse<PagedResponse<CultureResponse>>> GetCulturesAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<CultureResponse>>.Success(
+                new PagedResponse<CultureResponse>
+                {
+                    Total = CultureList.Count,
+                    Items = CultureList.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
 }

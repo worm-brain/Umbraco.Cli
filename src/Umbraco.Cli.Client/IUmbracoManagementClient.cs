@@ -34,4 +34,8 @@ public interface IUmbracoManagementClient
         // Full-fidelity raw-JSON document access for the content pipeline (#100, ADR 0006).
         IContentSnapshotClient,
         // Static-file resources: scripts, stylesheets, partial views (#105).
-        IStaticFileClient;
+        IStaticFileClient,
+        // Small coverage resources: member groups, tags, cultures (#107).
+        IMemberGroupClient,
+        ITagClient,
+        ICultureClient;

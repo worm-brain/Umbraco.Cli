@@ -5,15 +5,18 @@ using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.Auth;
 using Umbraco.Cli.Commands.Content;
 using Umbraco.Cli.Commands.ContentTypes;
+using Umbraco.Cli.Commands.Cultures;
 using Umbraco.Cli.Commands.DataTypes;
 using Umbraco.Cli.Commands.Dictionary;
 using Umbraco.Cli.Commands.Languages;
 using Umbraco.Cli.Commands.Media;
 using Umbraco.Cli.Commands.MediaTypes;
+using Umbraco.Cli.Commands.MemberGroups;
 using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.MemberTypes;
 using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Commands.StaticFiles;
+using Umbraco.Cli.Commands.Tags;
 using Umbraco.Cli.Commands.Templates;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
@@ -121,6 +124,11 @@ root.Add(StaticFileCommand.Build(executor, StaticFileKind.Stylesheet, "styleshee
 root.Add(
     StaticFileCommand.Build(executor, StaticFileKind.PartialView, "partial-view", "partial view")
 );
+
+// Small coverage resources (#107).
+root.Add(MemberGroupsCommand.Build(executor));
+root.Add(TagsCommand.Build(executor));
+root.Add(CulturesCommand.Build(executor));
 
 // Machine-readable command catalog for agents (#60). Added last and given the root so it can
 // describe the fully-assembled tree (including itself).

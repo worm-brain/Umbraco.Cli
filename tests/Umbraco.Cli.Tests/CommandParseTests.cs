@@ -4,14 +4,17 @@ using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.Auth;
 using Umbraco.Cli.Commands.Content;
 using Umbraco.Cli.Commands.ContentTypes;
+using Umbraco.Cli.Commands.Cultures;
 using Umbraco.Cli.Commands.DataTypes;
 using Umbraco.Cli.Commands.Dictionary;
 using Umbraco.Cli.Commands.Languages;
 using Umbraco.Cli.Commands.Media;
 using Umbraco.Cli.Commands.MediaTypes;
+using Umbraco.Cli.Commands.MemberGroups;
 using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.MemberTypes;
 using Umbraco.Cli.Commands.StaticFiles;
+using Umbraco.Cli.Commands.Tags;
 using Umbraco.Cli.Commands.Templates;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
@@ -86,6 +89,9 @@ public class CommandParseTests
                 "partial view"
             )
         );
+        root.Add(MemberGroupsCommand.Build(executor));
+        root.Add(TagsCommand.Build(executor));
+        root.Add(CulturesCommand.Build(executor));
 
         return root;
     }
@@ -132,6 +138,9 @@ public class CommandParseTests
     [InlineData("script")]
     [InlineData("stylesheet")]
     [InlineData("partial-view")]
+    [InlineData("member-groups")]
+    [InlineData("tags")]
+    [InlineData("cultures")]
     public void RootCommand_ContainsExpectedSubcommand(string subcommand)
     {
         var root = BuildRoot();
@@ -174,6 +183,9 @@ public class CommandParseTests
     [InlineData("script", new[] { "list", "get", "create", "update", "delete" })]
     [InlineData("stylesheet", new[] { "list", "get", "create", "update", "delete" })]
     [InlineData("partial-view", new[] { "list", "get", "create", "update", "delete" })]
+    [InlineData("member-groups", new[] { "list", "get", "create", "update", "delete" })]
+    [InlineData("tags", new[] { "list" })]
+    [InlineData("cultures", new[] { "list" })]
     [InlineData("auth", new[] { "login", "logout", "whoami", "doctor" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)
     {
@@ -289,6 +301,14 @@ public class CommandParseTests
     [InlineData("stylesheet create --name site.css")]
     [InlineData("partial-view get grid/row.cshtml")]
     [InlineData("partial-view delete grid/row.cshtml")]
+    [InlineData("member-groups list")]
+    [InlineData("member-groups get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("member-groups create --name Editors")]
+    [InlineData("member-groups update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Editors")]
+    [InlineData("member-groups delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("tags list")]
+    [InlineData("tags list --group default --culture en-US")]
+    [InlineData("cultures list")]
     [InlineData("member-types create --name Author --alias author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --icon icon-user")]
