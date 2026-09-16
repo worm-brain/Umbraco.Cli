@@ -762,6 +762,28 @@ public record CreateMemberTypeRequest
     public string? Description { get; init; }
 }
 
+/// <summary>
+/// Update payload for a member type (issue #56). The underlying PUT is a full replace, so this
+/// exposes only the scalar fields the CLI understands (name/alias/description/icon); everything
+/// else on the type - its properties, containers, compositions and varies-by flags - is
+/// preserved by reading the current type as raw JSON and patching only the supplied fields
+/// before writing it back. A null field keeps the current value.
+/// </summary>
+public record UpdateMemberTypeRequest
+{
+    /// <summary>New name, or null to keep the current one.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>New alias, or null to keep the current one.</summary>
+    public string? Alias { get; init; }
+
+    /// <summary>New description, or null to keep the current one.</summary>
+    public string? Description { get; init; }
+
+    /// <summary>New backoffice icon, or null to keep the current one.</summary>
+    public string? Icon { get; init; }
+}
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 public record UserResponse

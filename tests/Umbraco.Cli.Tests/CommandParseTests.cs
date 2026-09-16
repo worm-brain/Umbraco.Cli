@@ -151,6 +151,7 @@ public class CommandParseTests
         new[] { "list", "get", "upload", "delete", "trash", "restore", "empty-recycle-bin", "move" }
     )]
     [InlineData("media-types", new[] { "list", "get", "create", "delete" })]
+    [InlineData("member-types", new[] { "list", "get", "create", "update", "delete" })]
     [InlineData("auth", new[] { "login", "logout", "whoami", "doctor" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)
     {
@@ -248,6 +249,8 @@ public class CommandParseTests
     [InlineData("member-types list")]
     [InlineData("member-types get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("member-types create --name Author --alias author")]
+    [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Author")]
+    [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --icon icon-user")]
     [InlineData("member-types delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("users list")]
     [InlineData("dictionary list")]
@@ -289,6 +292,7 @@ public class CommandParseTests
     [InlineData("media-types get not-a-uuid")]
     [InlineData("member-types create --alias onlyAlias")] // missing required --name
     [InlineData("member-types get not-a-uuid")]
+    [InlineData("member-types update not-a-uuid --name Author")] // id must be a uuid
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]

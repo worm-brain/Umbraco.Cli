@@ -2677,6 +2677,46 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
+    /// <summary>
+    /// Updates a member type via a raw-JSON read-merge (issue #56). The member-type PUT is a
+    /// full replace whose typed model would drop the type's properties, containers and
+    /// compositions (the response and request models use different element types for those), so
+    /// this reads the current type as verbatim JSON, patches only the supplied scalar fields,
+    /// and writes the whole document back - the same lossless round-trip the schema pipeline
+    /// uses (ADR 0005). The PUT flows through the intercepted <see cref="HttpClient"/>, so
+    /// <c>--dry-run</c> previews it like any other mutation.
+    /// </summary>
+    /// <param name="id">The member type id.</param>
+    /// <param name="request">The fields to change; null fields keep their current value.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> UpdateMemberTypeAsync(
+        Guid id,
+        UpdateMemberTypeRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var path = $"umbraco/management/api/v1/member-type/{id}";
+                var current = await GetRawJsonAsync(path, ct);
+
+                // Patch only the fields the caller supplied; everything else round-trips untouched.
+                if (request.Name is not null)
+                    current["name"] = request.Name;
+                if (request.Alias is not null)
+                    current["alias"] = request.Alias;
+                if (request.Description is not null)
+                    current["description"] = request.Description;
+                if (request.Icon is not null)
+                    current["icon"] = request.Icon;
+
+                await SendRawJsonAsync(Method.PUT, path, current, ct);
+                return Empty.Value;
+            }
+        );
+
     /// <summary>Deletes a member type via <c>DELETE member-type/{id}</c> (generated client).</summary>
     /// <param name="id">The member type id.</param>
     /// <param name="ct">Cancellation token.</param>

@@ -382,6 +382,12 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    public Task<UmbracoResponse<Empty>> UpdateMemberTypeAsync(
+        Guid id,
+        UpdateMemberTypeRequest request,
+        CancellationToken ct = default
+    ) => throw new NotImplementedException();
+
     public Task<UmbracoResponse<Empty>> DeleteMemberTypeAsync(
         Guid id,
         CancellationToken ct = default
