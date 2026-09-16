@@ -88,29 +88,20 @@ public static class UserGroupsCommand
             Description = "Unique group alias.",
         };
         var nameOpt = new Option<string>("--name") { Required = true, Description = "Group name." };
-        var (icon, description, sections, languages, fallback, allLangs, docRoot, mediaRoot) =
-            BuildSharedOptions();
+        var shared = new SharedGroupOptions();
         var idOpt = new Option<Guid?>("--id")
         {
             Description = "Optional client-supplied UUID for an idempotent create (#86).",
         };
         cmd.Add(aliasOpt);
         cmd.Add(nameOpt);
-        AddSharedOptions(
-            cmd,
-            icon,
-            description,
-            sections,
-            languages,
-            fallback,
-            allLangs,
-            docRoot,
-            mediaRoot
-        );
+        shared.AddTo(cmd);
         cmd.Add(idOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunObjectAsync(
+            {
+                var s = shared.ReadInto(parseResult);
+                return executor.RunObjectAsync(
                     parseResult,
                     "user-groups.create",
                     (client, c) =>
@@ -120,19 +111,20 @@ public static class UserGroupsCommand
                                 Id = parseResult.GetValue(idOpt),
                                 Alias = parseResult.GetValue(aliasOpt)!,
                                 Name = parseResult.GetValue(nameOpt)!,
-                                Icon = parseResult.GetValue(icon),
-                                Description = parseResult.GetValue(description),
-                                Sections = parseResult.GetValue(sections) ?? [],
-                                Languages = parseResult.GetValue(languages) ?? [],
-                                FallbackPermissions = parseResult.GetValue(fallback) ?? [],
-                                HasAccessToAllLanguages = parseResult.GetValue(allLangs),
-                                DocumentRootAccess = parseResult.GetValue(docRoot),
-                                MediaRootAccess = parseResult.GetValue(mediaRoot),
+                                Icon = s.Icon,
+                                Description = s.Description,
+                                Sections = s.Sections,
+                                Languages = s.Languages,
+                                FallbackPermissions = s.FallbackPermissions,
+                                HasAccessToAllLanguages = s.HasAccessToAllLanguages,
+                                DocumentRootAccess = s.DocumentRootAccess,
+                                MediaRootAccess = s.MediaRootAccess,
                             },
                             c
                         ),
                     ct
-                )
+                );
+            }
         );
         return cmd;
     }
@@ -150,25 +142,16 @@ public static class UserGroupsCommand
             Description = "Unique group alias.",
         };
         var nameOpt = new Option<string>("--name") { Required = true, Description = "Group name." };
-        var (icon, description, sections, languages, fallback, allLangs, docRoot, mediaRoot) =
-            BuildSharedOptions();
+        var shared = new SharedGroupOptions();
         cmd.Add(idArg);
         cmd.Add(aliasOpt);
         cmd.Add(nameOpt);
-        AddSharedOptions(
-            cmd,
-            icon,
-            description,
-            sections,
-            languages,
-            fallback,
-            allLangs,
-            docRoot,
-            mediaRoot
-        );
+        shared.AddTo(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunMessageAsync(
+            {
+                var s = shared.ReadInto(parseResult);
+                return executor.RunMessageAsync(
                     parseResult,
                     "user-groups.update",
                     (client, c) =>
@@ -178,20 +161,21 @@ public static class UserGroupsCommand
                             {
                                 Alias = parseResult.GetValue(aliasOpt)!,
                                 Name = parseResult.GetValue(nameOpt)!,
-                                Icon = parseResult.GetValue(icon),
-                                Description = parseResult.GetValue(description),
-                                Sections = parseResult.GetValue(sections) ?? [],
-                                Languages = parseResult.GetValue(languages) ?? [],
-                                FallbackPermissions = parseResult.GetValue(fallback) ?? [],
-                                HasAccessToAllLanguages = parseResult.GetValue(allLangs),
-                                DocumentRootAccess = parseResult.GetValue(docRoot),
-                                MediaRootAccess = parseResult.GetValue(mediaRoot),
+                                Icon = s.Icon,
+                                Description = s.Description,
+                                Sections = s.Sections,
+                                Languages = s.Languages,
+                                FallbackPermissions = s.FallbackPermissions,
+                                HasAccessToAllLanguages = s.HasAccessToAllLanguages,
+                                DocumentRootAccess = s.DocumentRootAccess,
+                                MediaRootAccess = s.MediaRootAccess,
                             },
                             c
                         ),
                     "User group updated.",
                     ct
-                )
+                );
+            }
         );
         return cmd;
     }
@@ -309,82 +293,98 @@ public static class UserGroupsCommand
     }
 
     /// <summary>
-    /// Builds the option set shared by <c>create</c> and <c>update</c> (everything except alias,
-    /// name, and the create-only <c>--id</c>). Kept in one place so the two verbs stay in step.
+    /// The option set shared by <c>create</c> and <c>update</c> (everything except alias, name, and
+    /// the create-only <c>--id</c>). Owning the options in one cohesive object - rather than a loose
+    /// positional tuple threaded through several call sites - keeps the two verbs in step and removes
+    /// the risk of mis-ordering interchangeable options. Granular per-node permissions are a deferred
+    /// follow-up, so they are not represented here.
     /// </summary>
-    /// <returns>The shared options as a tuple.</returns>
-    private static (
-        Option<string?> Icon,
-        Option<string?> Description,
-        Option<string[]> Sections,
-        Option<string[]> Languages,
-        Option<string[]> Fallback,
-        Option<bool> AllLanguages,
-        Option<bool> DocumentRoot,
-        Option<bool> MediaRoot
-    ) BuildSharedOptions() =>
-        (
-            new Option<string?>("--icon") { Description = "Backoffice icon (e.g. icon-users)." },
-            new Option<string?>("--description") { Description = "Free-text description." },
-            new Option<string[]>("--section")
-            {
-                AllowMultipleArgumentsPerToken = true,
-                Description = "Section alias the group can access (repeat for several).",
-            },
-            new Option<string[]>("--language")
-            {
-                AllowMultipleArgumentsPerToken = true,
-                Description = "Culture ISO code the group can edit (repeat for several).",
-            },
-            new Option<string[]>("--fallback-permission")
-            {
-                AllowMultipleArgumentsPerToken = true,
-                Description =
-                    "Default permission verb applied where no node-specific permission is set.",
-            },
-            new Option<bool>("--has-access-to-all-languages")
-            {
-                Description = "Grant edit access to content in every language.",
-            },
-            new Option<bool>("--document-root-access")
-            {
-                Description = "Set the content start node to the tree root.",
-            },
-            new Option<bool>("--media-root-access")
-            {
-                Description = "Set the media start node to the tree root.",
-            }
-        );
-
-    /// <summary>Adds the shared option set to a command.</summary>
-    /// <param name="cmd">The command to add the options to.</param>
-    /// <param name="icon">The icon option.</param>
-    /// <param name="description">The description option.</param>
-    /// <param name="sections">The sections option.</param>
-    /// <param name="languages">The languages option.</param>
-    /// <param name="fallback">The fallback-permissions option.</param>
-    /// <param name="allLangs">The has-access-to-all-languages option.</param>
-    /// <param name="docRoot">The document-root-access option.</param>
-    /// <param name="mediaRoot">The media-root-access option.</param>
-    private static void AddSharedOptions(
-        Command cmd,
-        Option<string?> icon,
-        Option<string?> description,
-        Option<string[]> sections,
-        Option<string[]> languages,
-        Option<string[]> fallback,
-        Option<bool> allLangs,
-        Option<bool> docRoot,
-        Option<bool> mediaRoot
-    )
+    private sealed class SharedGroupOptions
     {
-        cmd.Add(icon);
-        cmd.Add(description);
-        cmd.Add(sections);
-        cmd.Add(languages);
-        cmd.Add(fallback);
-        cmd.Add(allLangs);
-        cmd.Add(docRoot);
-        cmd.Add(mediaRoot);
+        private readonly Option<string?> _icon = new("--icon")
+        {
+            Description = "Backoffice icon (e.g. icon-users).",
+        };
+        private readonly Option<string?> _description = new("--description")
+        {
+            Description = "Free-text description.",
+        };
+        private readonly Option<string[]> _sections = new("--section")
+        {
+            AllowMultipleArgumentsPerToken = true,
+            Description = "Section alias the group can access (repeat for several).",
+        };
+        private readonly Option<string[]> _languages = new("--language")
+        {
+            AllowMultipleArgumentsPerToken = true,
+            Description = "Culture ISO code the group can edit (repeat for several).",
+        };
+        private readonly Option<string[]> _fallback = new("--fallback-permission")
+        {
+            AllowMultipleArgumentsPerToken = true,
+            Description =
+                "Default permission verb applied where no node-specific permission is set.",
+        };
+        private readonly Option<bool> _allLanguages = new("--has-access-to-all-languages")
+        {
+            Description = "Grant edit access to content in every language.",
+        };
+        private readonly Option<bool> _documentRoot = new("--document-root-access")
+        {
+            Description = "Set the content start node to the tree root.",
+        };
+        private readonly Option<bool> _mediaRoot = new("--media-root-access")
+        {
+            Description = "Set the media start node to the tree root.",
+        };
+
+        /// <summary>Adds every shared option to a command.</summary>
+        /// <param name="cmd">The command to add the options to.</param>
+        public void AddTo(Command cmd)
+        {
+            cmd.Add(_icon);
+            cmd.Add(_description);
+            cmd.Add(_sections);
+            cmd.Add(_languages);
+            cmd.Add(_fallback);
+            cmd.Add(_allLanguages);
+            cmd.Add(_documentRoot);
+            cmd.Add(_mediaRoot);
+        }
+
+        /// <summary>Reads the shared option values off a parsed command line.</summary>
+        /// <param name="parseResult">The parsed command line.</param>
+        /// <returns>The shared field values, ready to copy into a create/update request.</returns>
+        public SharedGroupValues ReadInto(ParseResult parseResult) =>
+            new(
+                parseResult.GetValue(_icon),
+                parseResult.GetValue(_description),
+                parseResult.GetValue(_sections) ?? [],
+                parseResult.GetValue(_languages) ?? [],
+                parseResult.GetValue(_fallback) ?? [],
+                parseResult.GetValue(_allLanguages),
+                parseResult.GetValue(_documentRoot),
+                parseResult.GetValue(_mediaRoot)
+            );
     }
+
+    /// <summary>The parsed values of the shared create/update options.</summary>
+    /// <param name="Icon">The backoffice icon.</param>
+    /// <param name="Description">The free-text description.</param>
+    /// <param name="Sections">The section aliases the group can access.</param>
+    /// <param name="Languages">The culture ISO codes the group can edit.</param>
+    /// <param name="FallbackPermissions">The default permission verbs.</param>
+    /// <param name="HasAccessToAllLanguages">Whether the group can edit every language.</param>
+    /// <param name="DocumentRootAccess">Whether the content start node is the tree root.</param>
+    /// <param name="MediaRootAccess">Whether the media start node is the tree root.</param>
+    private readonly record struct SharedGroupValues(
+        string? Icon,
+        string? Description,
+        IReadOnlyList<string> Sections,
+        IReadOnlyList<string> Languages,
+        IReadOnlyList<string> FallbackPermissions,
+        bool HasAccessToAllLanguages,
+        bool DocumentRootAccess,
+        bool MediaRootAccess
+    );
 }

@@ -264,13 +264,9 @@ public sealed partial class UmbracoManagementClient
                 {
                     Total = (int)(paged?.Total ?? 0),
                     Items = (paged?.Items ?? [])
-                        .Select(d => new UserDataResponse
-                        {
-                            Key = d.Key ?? Guid.Empty,
-                            Group = d.Group ?? "",
-                            Identifier = d.Identifier ?? "",
-                            Value = d.Value ?? "",
-                        })
+                        .Select(d =>
+                            MapUserData(d.Key ?? Guid.Empty, d.Group, d.Identifier, d.Value)
+                        )
                         .ToList(),
                 };
             }
@@ -289,13 +285,7 @@ public sealed partial class UmbracoManagementClient
                     .Umbraco.Management.Api.V1.UserData[id]
                     .GetAsync(cancellationToken: ct);
                 // The item body carries group/identifier/value but not the key; echo the requested id.
-                return new UserDataResponse
-                {
-                    Key = id,
-                    Group = d?.Group ?? "",
-                    Identifier = d?.Identifier ?? "",
-                    Value = d?.Value ?? "",
-                };
+                return MapUserData(id, d?.Group, d?.Identifier, d?.Value);
             }
         );
 
@@ -320,13 +310,7 @@ public sealed partial class UmbracoManagementClient
                     },
                     cancellationToken: ct
                 );
-                return new UserDataResponse
-                {
-                    Key = key,
-                    Group = request.Group,
-                    Identifier = request.Identifier,
-                    Value = request.Value,
-                };
+                return MapUserData(key, request.Group, request.Identifier, request.Value);
             }
         );
 
@@ -368,4 +352,29 @@ public sealed partial class UmbracoManagementClient
                 return Empty.Value;
             }
         );
+
+    /// <summary>
+    /// Projects a user-data entry into the command-facing DTO. Takes the fields rather than a
+    /// generated model because the two read paths return different generated shapes (the list's
+    /// <c>UserDataResponseModel</c> carries the key; the item's <c>UserDataModel</c> does not, so the
+    /// caller supplies the requested id).
+    /// </summary>
+    /// <param name="key">The entry key.</param>
+    /// <param name="group">The group, or null.</param>
+    /// <param name="identifier">The identifier, or null.</param>
+    /// <param name="value">The value, or null.</param>
+    /// <returns>The mapped <see cref="UserDataResponse"/>.</returns>
+    private static UserDataResponse MapUserData(
+        Guid key,
+        string? group,
+        string? identifier,
+        string? value
+    ) =>
+        new()
+        {
+            Key = key,
+            Group = group ?? "",
+            Identifier = identifier ?? "",
+            Value = value ?? "",
+        };
 }
