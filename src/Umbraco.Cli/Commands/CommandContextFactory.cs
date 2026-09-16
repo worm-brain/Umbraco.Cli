@@ -88,20 +88,12 @@ public sealed class CommandContextFactory
 
         // Resolve the selected profile (#64): --profile flag, else UMBRACO_PROFILE / the
         // configured default.
-        var config = store.Load(parseResult.GetValue(_globalOptions.Profile));
+        var profileName = parseResult.GetValue(_globalOptions.Profile);
+        var config = store.Load(profileName);
 
         // Command allow-list (#69): when configured, only the listed noun groups / commands may
-        // run. Checked before auth so a disallowed command fails fast. The `auth` group is
-        // always allowed — you need it to authenticate and inspect the session.
-        if (!IsCommandAllowed(commandName, config.AllowedCommands))
-        {
-            output.WriteError(
-                2,
-                $"Command '{commandName}' is not in the allow-list. Set UMBRACO_ALLOWED_COMMANDS "
-                    + "(or the config 'allowedCommands') to include its group or full name."
-            );
-            throw new CommandAbortedException();
-        }
+        // run. Checked before auth so a disallowed command fails fast.
+        EnforceAllowList(commandName, store, config, profileName, output);
 
         var host = hostOverride ?? config.Host;
         if (string.IsNullOrEmpty(host))
@@ -225,17 +217,89 @@ public sealed class CommandContextFactory
     }
 
     /// <summary>
-    /// Whether <paramref name="commandName"/> is permitted by the allow-list (#69). An empty
-    /// allow-list permits everything. An entry matches either the command's noun group
-    /// (e.g. <c>content</c>) or its full name (e.g. <c>content.list</c>). The <c>auth</c> group
-    /// is always permitted so the session can authenticate and be inspected.
+    /// Enforces the command allow-list (#69) for <paramref name="commandName"/>, aborting with exit
+    /// code 2 when the command is not permitted.
+    /// <para>
+    /// The allow-list is a supervisor-set guardrail, so neither <c>--config</c> nor <c>--profile</c>
+    /// may be used to LOOSEN it (#83 M2). The decision is the most-restrictive of two allow-lists:
+    /// the one from the <em>resolved</em> store/profile the command runs against, and a
+    /// <em>baseline</em> from the trusted default store (which also carries any
+    /// <c>UMBRACO_ALLOWED_COMMANDS</c> value). The baseline honours the requested profile only when
+    /// the default store actually defines it; a profile that exists solely in a <c>--config</c> file
+    /// fails closed to the default store's default profile rather than resolving to an empty,
+    /// unrestricted config. A command must satisfy both lists, so <c>--config</c> / <c>--profile</c>
+    /// can only ever tighten, never bypass.
+    /// </para>
+    /// </summary>
+    /// <param name="commandName">The dotted command name being run, e.g. <c>content.delete</c>.</param>
+    /// <param name="store">The store resolved for this invocation (honours <c>--config</c>).</param>
+    /// <param name="config">The already-loaded config for the resolved store and requested profile.</param>
+    /// <param name="profileName">The requested profile (from <c>--profile</c>), or null for the default.</param>
+    /// <param name="output">The output writer used to report a refusal.</param>
+    /// <exception cref="CommandAbortedException">Thrown when the command is not in the allow-list.</exception>
+    private void EnforceAllowList(
+        string commandName,
+        ConfigStore store,
+        CliConfig config,
+        string? profileName,
+        IOutputWriter output
+    )
+    {
+        var resolvedAllowList = config.AllowedCommands;
+
+        string? baselineAllowList;
+        if (ReferenceEquals(store, _configStore))
+        {
+            // No --config: the resolved store IS the trusted default store, so this is one check.
+            baselineAllowList = resolvedAllowList;
+        }
+        else
+        {
+            // --config is in play. Take the baseline from the default store, trusting the requested
+            // profile only when the default store actually defines it; otherwise fall back to the
+            // default store's default profile so a --config-only profile cannot dodge the guardrail
+            // by resolving to an empty (unrestricted) config (#83 M2, profile axis).
+            var baselineProfile =
+                profileName is not null && !_configStore.HasProfile(profileName)
+                    ? null
+                    : profileName;
+            baselineAllowList = _configStore.Load(baselineProfile).AllowedCommands;
+        }
+
+        if (
+            !IsCommandAllowed(commandName, baselineAllowList)
+            || !IsCommandAllowed(commandName, resolvedAllowList)
+        )
+        {
+            output.WriteError(
+                2,
+                $"Command '{commandName}' is not in the allow-list. Set UMBRACO_ALLOWED_COMMANDS "
+                    + "(or the config 'allowedCommands') to include its group or full name."
+            );
+            throw new CommandAbortedException();
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="commandName"/> is permitted by the allow-list (#69). A <c>null</c>
+    /// allow-list means none was configured anywhere, so nothing is restricted. An allow-list that
+    /// is present but empty or whitespace (e.g. <c>UMBRACO_ALLOWED_COMMANDS=" "</c> or a config
+    /// <c>allowedCommands</c> of <c>","</c>) is an <em>explicit lockdown</em>: it permits nothing but
+    /// the always-allowed <c>auth</c> group (#83 L3). This removes the earlier asymmetry where an
+    /// empty string meant "allow everything" while <c>","</c> meant "deny everything". A non-empty
+    /// entry matches either the command's noun group (e.g. <c>content</c>) or its full name
+    /// (e.g. <c>content.list</c>). The <c>auth</c> group is always permitted so the session can
+    /// authenticate and be inspected.
     /// </summary>
     /// <param name="commandName">The dotted command name, e.g. <c>content.delete</c>.</param>
-    /// <param name="allowedRaw">The comma-separated allow-list, or null/empty for no restriction.</param>
+    /// <param name="allowedRaw">The comma-separated allow-list; <c>null</c> for no restriction, or set-but-empty for an explicit lockdown.</param>
     /// <returns>True if the command may run.</returns>
     private static bool IsCommandAllowed(string commandName, string? allowedRaw)
     {
-        if (string.IsNullOrWhiteSpace(allowedRaw))
+        // Only a truly absent (null) allow-list means "unrestricted". A present-but-blank value is
+        // a deliberate lockdown and falls through to the entry check below, which yields no entries
+        // and so permits only the auth group.
+        if (allowedRaw is null)
             return true;
 
         var group = commandName.Split('.', 2)[0];

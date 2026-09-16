@@ -138,7 +138,7 @@ umbraco auth logout --profile stage    # remove one profile
 
 Profiles are stored in the same (owner-only, secret-encrypted) config file. The `UMBRACO_HOST`/`UMBRACO_CLIENT_ID`/`UMBRACO_CLIENT_SECRET` env vars override the selected profile's fields, so CI can still run with pure environment credentials. A pre-profiles (flat) config is migrated automatically to a `default` profile.
 
-> Note: the command allow-list (`allowedCommands`) is stored **per profile**, so it applies only to the profile it was set on — switching profiles uses that profile's allow-list. For a hard sandbox, set `UMBRACO_ALLOWED_COMMANDS` in the environment (it applies regardless of profile).
+> Note: the command allow-list (`allowedCommands`) is stored **per profile**, so it applies only to the profile it was set on. Switching profiles applies that profile's allow-list, but only to *tighten*: the effective list is intersected with the default store's, so a profile switch can never *widen* access (#83). For a hard sandbox, set `UMBRACO_ALLOWED_COMMANDS` in the environment (it applies regardless of profile).
 
 `--fields` keeps only the listed fields on each JSON result (object or array item), in the order given, matched case-insensitively. Under `--output csv` the same list selects and orders the CSV columns:
 
@@ -159,14 +159,14 @@ For agent/automation use, two guardrails restrict what a session can do (inspire
 
 - **Read-only mode** — `--readonly` (or `UMBRACO_READONLY=1`) refuses every write with a clear error and a non-zero exit; read commands are unaffected.
 - **Command allow-list** — `UMBRACO_ALLOWED_COMMANDS` (or the config `allowedCommands` field) restricts which commands may run. Entries are noun groups (`content`, `media`) and/or specific commands (`content.list`); a command runs only if its group or full name is listed. The `auth` group is always allowed. A blocked command aborts before running with exit `2`.
-  - **Empty vs deny-all:** an unset or empty value (`UMBRACO_ALLOWED_COMMANDS=""`) means *no restriction*; a value with only separators (e.g. `","`) means *deny everything except `auth`*. Set an explicit list to restrict.
+  - **Unset vs lockdown:** only a *truly unset* value (the variable absent and no config `allowedCommands`) means *no restriction*. Any *present* value that is blank or separators-only — `UMBRACO_ALLOWED_COMMANDS=" "` or `","` — is an **explicit lockdown**: nothing runs but the always-allowed `auth` group. Set an explicit list (e.g. `content,media`) to allow specific groups or commands.
 
 ```bash
 # An agent that may only read content and media, and never write:
 UMBRACO_READONLY=1 UMBRACO_ALLOWED_COMMANDS=content,media umbraco content list
 ```
 
-> **Enforcement note:** the **environment-variable** forms (`UMBRACO_READONLY`, `UMBRACO_ALLOWED_COMMANDS`) are the enforcement boundary — set them in the parent process that supervises the agent, where the agent cannot change them. The config-file `allowedCommands` form is a convenience/default and is hardened against the obvious footguns — `auth logout` now clears only credentials and **preserves** a profile's allow-list, and a present-but-unreadable config is reported on stderr rather than silently dropping the guardrail — but a process that controls its own arguments could still point `--config` at a different file, so treat the file form as advisory, not a hard sandbox.
+> **Enforcement note:** the **environment-variable** forms (`UMBRACO_READONLY`, `UMBRACO_ALLOWED_COMMANDS`) are the enforcement boundary — set them in the parent process that supervises the agent, where the agent cannot change them. The config-file `allowedCommands` form is a convenience/default and is hardened against the obvious footguns — `auth logout` now clears only credentials and **preserves** a profile's allow-list, and a present-but-unreadable config is reported on stderr rather than silently dropping the guardrail — and `--config` / `--profile` can no longer *loosen* it: the effective allow-list is the most-restrictive of the default store's and the resolved one, so pointing `--config` at another file — or selecting a `--profile` defined only there — can only ever *tighten*, never bypass (#83). The environment-variable form remains the recommended boundary for a supervised agent.
 
 Destructive and high-impact commands prompt for confirmation: the permanent `delete` commands, `empty-recycle-bin`, and `content unpublish` / `content bulk unpublish` (which take live content offline). When run non-interactively (no TTY — piped, scripted, or agent-driven) they refuse to proceed unless `--yes` is given, so they can never happen silently. The machine-readable catalog (`umbraco commands`) flags each such command with `"destructive": true` so an agent knows which need `--yes` care.
 
@@ -464,6 +464,13 @@ umbraco log-viewer saved-search delete <name>             # needs --yes non-inte
 ```
 
 `--level` is a typed enum (`Verbose`/`Debug`/`Information`/`Warning`/`Error`/`Fatal`); repeat it for several levels. An unknown value is rejected at parse time.
+
+Serilog filter expressions commonly start with `@` (e.g. `@Level='Error'`, `@Exception is not null`). These are taken literally — the CLI disables `@file` response-file expansion — so no escaping is needed:
+
+```bash
+umbraco log-viewer log --filter "@Level='Error'"
+umbraco log-viewer saved-search create --name Errors --query "@Level='Error'"
+```
 
 ### `models-builder`
 
