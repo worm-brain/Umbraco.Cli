@@ -3,6 +3,8 @@ using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.StaticFiles;
 
+// FileContentInput lives in the parent Umbraco.Cli.Commands namespace (shared with Templates).
+
 /// <summary>
 /// Wires a static-file noun - <c>script</c>, <c>stylesheet</c>, or <c>partial-view</c> (issue #105).
 /// The three share an identical path-addressed shape, so one factory builds the whole
@@ -112,7 +114,7 @@ public static class StaticFileCommand
         {
             Description = "Parent folder path; omit to create at the root.",
         };
-        var (contentOpt, contentFileOpt) = ContentOptions();
+        var (contentOpt, contentFileOpt) = FileContentInput.Options();
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
         cmd.Add(contentOpt);
@@ -124,7 +126,7 @@ public static class StaticFileCommand
                     $"{noun}.create",
                     async (client, c) =>
                     {
-                        var content = await ReadContentAsync(
+                        var content = await FileContentInput.ReadAsync(
                             parseResult,
                             contentOpt,
                             contentFileOpt,
@@ -157,7 +159,7 @@ public static class StaticFileCommand
     {
         var cmd = new Command("update", $"Replace a {noun}'s content (by path).");
         var pathArg = new Argument<string>("path") { Description = "The file path." };
-        var (contentOpt, contentFileOpt) = ContentOptions();
+        var (contentOpt, contentFileOpt) = FileContentInput.Options();
         cmd.Add(pathArg);
         cmd.Add(contentOpt);
         cmd.Add(contentFileOpt);
@@ -168,7 +170,7 @@ public static class StaticFileCommand
                     $"{noun}.update",
                     async (client, c) =>
                     {
-                        var content = await ReadContentAsync(
+                        var content = await FileContentInput.ReadAsync(
                             parseResult,
                             contentOpt,
                             contentFileOpt,
@@ -218,40 +220,5 @@ public static class StaticFileCommand
                 )
         );
         return cmd;
-    }
-
-    /// <summary>The shared <c>--content</c> / <c>--content-file</c> option pair for create/update.</summary>
-    /// <returns>The two options.</returns>
-    private static (Option<string?> Content, Option<FileInfo?> ContentFile) ContentOptions()
-    {
-        var contentOpt = new Option<string?>("--content") { Description = "Inline file content." };
-        var contentFileOpt = new Option<FileInfo?>("--content-file")
-        {
-            Description =
-                "Read the content from this local file (takes precedence over --content).",
-        };
-        return (contentOpt, contentFileOpt);
-    }
-
-    /// <summary>
-    /// Resolves the content to send: the <c>--content-file</c> body if given (read here so a missing
-    /// file surfaces as a clean error), else <c>--content</c>, else null.
-    /// </summary>
-    /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="contentOpt">The inline-content option.</param>
-    /// <param name="contentFileOpt">The content-file option.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The resolved content, or null when neither option was supplied.</returns>
-    private static async Task<string?> ReadContentAsync(
-        System.CommandLine.ParseResult parseResult,
-        Option<string?> contentOpt,
-        Option<FileInfo?> contentFileOpt,
-        CancellationToken ct
-    )
-    {
-        var file = parseResult.GetValue(contentFileOpt);
-        if (file is not null)
-            return await File.ReadAllTextAsync(file.FullName, ct);
-        return parseResult.GetValue(contentOpt);
     }
 }
