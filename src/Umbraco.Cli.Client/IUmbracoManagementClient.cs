@@ -49,4 +49,8 @@ public interface IUmbracoManagementClient
         IHealthClient,
         ILogViewerClient,
         IModelsBuilderClient,
-        IManifestClient;
+        IManifestClient,
+        // Redirects and relations (#118).
+        IRedirectClient,
+        IRelationTypeClient,
+        IRelationClient;

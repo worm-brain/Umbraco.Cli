@@ -16,6 +16,8 @@ using Umbraco.Cli.Commands.MediaTypes;
 using Umbraco.Cli.Commands.MemberGroups;
 using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.MemberTypes;
+using Umbraco.Cli.Commands.Redirects;
+using Umbraco.Cli.Commands.Relations;
 using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Commands.StaticFiles;
 using Umbraco.Cli.Commands.Tags;
@@ -147,6 +149,11 @@ root.Add(HealthCommand.Build(executor));
 root.Add(LogViewerCommand.Build(executor));
 root.Add(ModelsBuilderCommand.Build(executor));
 root.Add(ManifestCommand.Build(executor));
+
+// Redirects and relations (#118).
+root.Add(RedirectCommand.Build(executor));
+root.Add(RelationTypeCommand.Build(executor));
+root.Add(RelationCommand.Build(executor));
 
 // Machine-readable command catalog for agents (#60). Added last and given the root so it can
 // describe the fully-assembled tree (including itself).
