@@ -437,3 +437,6 @@ FodyWeavers.xsd
 # generated tree; only the Kiota run log is kept out.
 !src/Umbraco.Cli.Client/Generated/**
 src/Umbraco.Cli.Client/Generated/.kiota.log
+
+# Claude Code local session scratch (ship ledgers, settings, agents)
+.claude/
