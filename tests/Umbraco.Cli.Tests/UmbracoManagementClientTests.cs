@@ -190,51 +190,80 @@ public class UmbracoManagementClientTests
         Assert.Contains("tree/media-type/root", handler.LastRequestUri!.AbsoluteUri);
     }
 
-    [Fact]
-    public async Task GetDocumentTypesAsync_FiltersOutFolders()
+    /// <summary>Routes tree responses by URL so a folder walk can be exercised (#97).</summary>
+    private sealed class TreeRouteHandler(Func<Uri, string> route) : HttpMessageHandler
     {
-        // #97: the tree root includes folders whose ids 404 on `get`. They must not appear in the
-        // list, so the list->get chain is reliable.
-        var typeId = Guid.NewGuid();
-        var folderId = Guid.NewGuid();
-        var json = $$"""
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken ct
+        ) =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        route(request.RequestUri!),
+                        Encoding.UTF8,
+                        "application/json"
+                    ),
+                }
+            );
+    }
+
+    private static UmbracoManagementClient TreeRouteClient(Func<Uri, string> route) =>
+        new(
+            new HttpClient(new TreeRouteHandler(route))
             {
-              "total": 2,
-              "items": [
-                { "id": "{{typeId}}", "name": "Text Page", "isFolder": false },
-                { "id": "{{folderId}}", "name": "Pages", "isFolder": true }
-              ]
+                BaseAddress = new Uri("https://example.com/"),
             }
-            """;
-        var (client, _) = ClientReturning(json);
+        );
 
-        var result = await client.GetDocumentTypesAsync(ct: CancellationToken.None);
+    [Fact]
+    public async Task GetDocumentTypesAsync_ExcludesFolders_AndIncludesNestedTypes()
+    {
+        // #97: the tree groups types into folders whose ids 404 on `get`. The walk must skip the
+        // folder container yet surface the type nested inside it.
+        var rootTypeId = Guid.NewGuid();
+        var folderId = Guid.NewGuid();
+        var nestedTypeId = Guid.NewGuid();
+        var client = TreeRouteClient(uri =>
+            uri.AbsolutePath.EndsWith("/tree/document-type/root")
+                ? $$"""{"total":2,"items":[{"id":"{{rootTypeId}}","name":"Text Page","isFolder":false,"hasChildren":false},{"id":"{{folderId}}","name":"Pages","isFolder":true,"hasChildren":true}]}"""
+            : uri.Query.Contains(folderId.ToString())
+                ? $$"""{"total":1,"items":[{"id":"{{nestedTypeId}}","name":"Landing","isFolder":false,"hasChildren":false}]}"""
+            : """{"total":0,"items":[]}"""
+        );
 
-        var item = Assert.Single(result.Data!.Items);
-        Assert.Equal(typeId, item.Id);
-        Assert.False(item.IsFolder);
+        var result = await client.GetDocumentTypesAsync(take: 100, ct: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var ids = result.Data!.Items.Select(i => i.Id).ToList();
+        Assert.Contains(rootTypeId, ids); // root-level type
+        Assert.Contains(nestedTypeId, ids); // type nested inside the folder
+        Assert.DoesNotContain(folderId, ids); // the folder itself is excluded
+        Assert.Equal(2, result.Data.Total); // Total counts real types, not folders
     }
 
     [Fact]
-    public async Task GetMediaTypesAsync_FiltersOutFolders()
+    public async Task GetMediaTypesAsync_ExcludesFolders_AndIncludesNestedTypes()
     {
-        // #97: same folder-filtering for the media-type tree root.
-        var typeId = Guid.NewGuid();
-        var json = $$"""
-            {
-              "total": 2,
-              "items": [
-                { "id": "{{typeId}}", "name": "Image", "isFolder": false },
-                { "id": "{{Guid.NewGuid()}}", "name": "Assets", "isFolder": true }
-              ]
-            }
-            """;
-        var (client, _) = ClientReturning(json);
+        var rootTypeId = Guid.NewGuid();
+        var folderId = Guid.NewGuid();
+        var nestedTypeId = Guid.NewGuid();
+        var client = TreeRouteClient(uri =>
+            uri.AbsolutePath.EndsWith("/tree/media-type/root")
+                ? $$"""{"total":2,"items":[{"id":"{{rootTypeId}}","name":"Image","isFolder":false,"hasChildren":false},{"id":"{{folderId}}","name":"Assets","isFolder":true,"hasChildren":true}]}"""
+            : uri.Query.Contains(folderId.ToString())
+                ? $$"""{"total":1,"items":[{"id":"{{nestedTypeId}}","name":"Video","isFolder":false,"hasChildren":false}]}"""
+            : """{"total":0,"items":[]}"""
+        );
 
-        var result = await client.GetMediaTypesAsync(ct: CancellationToken.None);
+        var result = await client.GetMediaTypesAsync(take: 100, ct: CancellationToken.None);
 
-        var item = Assert.Single(result.Data!.Items);
-        Assert.Equal(typeId, item.Id);
+        Assert.True(result.IsSuccess);
+        var ids = result.Data!.Items.Select(i => i.Id).ToList();
+        Assert.Contains(rootTypeId, ids);
+        Assert.Contains(nestedTypeId, ids);
+        Assert.DoesNotContain(folderId, ids);
     }
 
     [Fact]

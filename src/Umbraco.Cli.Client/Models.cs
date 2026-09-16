@@ -264,14 +264,6 @@ public record DocumentTypeResponse
 
     [JsonPropertyName("allowedAsRoot")]
     public bool AllowedAsRoot { get; init; }
-
-    /// <summary>
-    /// Whether this tree item is a folder (a container grouping types) rather than a real type
-    /// (#97). Folders are excluded from <c>list</c> - their ids 404 on <c>get</c> - so this is false
-    /// for every listed item; it exists so the contract is explicit for JSON consumers.
-    /// </summary>
-    [JsonPropertyName("isFolder")]
-    public bool IsFolder { get; init; }
 }
 
 /// <summary>
@@ -448,14 +440,6 @@ public record MediaTypeResponse
 
     [JsonPropertyName("allowedAsRoot")]
     public bool AllowedAsRoot { get; init; }
-
-    /// <summary>
-    /// Whether this tree item is a folder (a container grouping types) rather than a real type
-    /// (#97). Folders are excluded from <c>list</c> - their ids 404 on <c>get</c> - so this is false
-    /// for every listed item; it exists so the contract is explicit for JSON consumers.
-    /// </summary>
-    [JsonPropertyName("isFolder")]
-    public bool IsFolder { get; init; }
 }
 
 /// <summary>

@@ -354,6 +354,61 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     }
 
     /// <summary>
+    /// Walks a Management-API tree breadth-first and returns the projected non-folder items (#97).
+    /// Like <see cref="CollectTreeLeafIdsAsync"/> but keeps a mapped item per leaf, so a <c>list</c>
+    /// can enumerate every real type - including those nested inside folders, which the tree root
+    /// omits - and skip the folder containers, whose ids 404 on <c>get</c>.
+    /// </summary>
+    /// <typeparam name="T">The mapped item type.</typeparam>
+    /// <param name="fetchPage">Fetches a page as <c>(id, isFolder, mappedItem)</c> for a parent folder (null = root).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every non-folder item in the tree, in breadth-first order.</returns>
+    private static async Task<List<T>> CollectTreeLeavesAsync<T>(
+        Func<
+            Guid?,
+            int,
+            int,
+            CancellationToken,
+            Task<IReadOnlyList<(Guid Id, bool IsFolder, T Item)>>
+        > fetchPage,
+        CancellationToken ct
+    )
+    {
+        const int pageSize = 100;
+        const int maxLeaves = 10_000;
+
+        var leaves = new List<T>();
+        var pending = new Queue<Guid?>();
+        pending.Enqueue(null); // null == the tree root level
+        var seenFolders = new HashSet<Guid>();
+
+        while (pending.Count > 0 && leaves.Count < maxLeaves)
+        {
+            var parentId = pending.Dequeue();
+            for (var skip = 0; ; )
+            {
+                var page = await fetchPage(parentId, skip, pageSize, ct);
+                if (page.Count == 0)
+                    break;
+
+                foreach (var (id, isFolder, item) in page)
+                {
+                    if (!isFolder)
+                        leaves.Add(item);
+                    else if (seenFolders.Add(id))
+                        pending.Enqueue(id); // descend into the folder
+                }
+
+                if (page.Count < pageSize)
+                    break;
+                skip += page.Count;
+            }
+        }
+
+        return leaves;
+    }
+
+    /// <summary>
     /// Creates a content item via <c>POST document</c> (generated client, #79). The document
     /// type is passed by alias, which is resolved to an id first (the generated model references
     /// the type by id only). The id is client-generated so the new item's id is known despite
@@ -1111,30 +1166,57 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var paged = await _api.Umbraco.Management.Api.V1.Tree.MediaType.Root.GetAsync(
-                    c =>
+                // #97: walk the media-type tree keeping only real types (folders excluded, nested
+                // types included), then page client-side. Mirrors GetDocumentTypesAsync.
+                var all = await CollectTreeLeavesAsync<MediaTypeResponse>(
+                    async (parentId, s, t, c) =>
                     {
-                        c.QueryParameters.Skip = skip;
-                        c.QueryParameters.Take = take;
+                        var items = parentId is null
+                            ? (
+                                await _api.Umbraco.Management.Api.V1.Tree.MediaType.Root.GetAsync(
+                                    q =>
+                                    {
+                                        q.QueryParameters.Skip = s;
+                                        q.QueryParameters.Take = t;
+                                    },
+                                    c
+                                )
+                            )?.Items
+                            : (
+                                await _api.Umbraco.Management.Api.V1.Tree.MediaType.Children.GetAsync(
+                                    q =>
+                                    {
+                                        q.QueryParameters.ParentId = parentId;
+                                        q.QueryParameters.Skip = s;
+                                        q.QueryParameters.Take = t;
+                                    },
+                                    c
+                                )
+                            )?.Items;
+                        return
+                        [
+                            .. (items ?? [])
+                                .Where(i => i.Id is not null)
+                                .Select(i =>
+                                    (
+                                        i.Id!.Value,
+                                        i.IsFolder ?? false,
+                                        new MediaTypeResponse
+                                        {
+                                            Id = i.Id!.Value,
+                                            Name = i.Name ?? "",
+                                            Icon = i.Icon,
+                                        }
+                                    )
+                                ),
+                        ];
                     },
                     ct
                 );
                 return new PagedResponse<MediaTypeResponse>
                 {
-                    Total = (int)(paged?.Total ?? 0),
-                    // #97: the media-type tree root includes folders (containers), whose ids 404 on
-                    // `get`. Filter them so the list->get chain is reliable. Total still reflects the
-                    // API's unfiltered per-page count, so a page may return fewer than `take`.
-                    Items = (paged?.Items ?? [])
-                        .Where(i => !(i.IsFolder ?? false))
-                        .Select(i => new MediaTypeResponse
-                        {
-                            Id = i.Id ?? Guid.Empty,
-                            Name = i.Name ?? "",
-                            Icon = i.Icon,
-                            IsFolder = i.IsFolder ?? false,
-                        })
-                        .ToList(),
+                    Total = all.Count,
+                    Items = all.Skip(skip).Take(take).ToList(),
                 };
             }
         );
@@ -1258,30 +1340,58 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var paged = await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Root.GetAsync(
-                    c =>
+                // #97: the document-type tree groups types into folders whose ids 404 on `get`.
+                // Walk the whole tree, keeping only real types (folders excluded, nested types
+                // included), then page client-side so Total and Items agree.
+                var all = await CollectTreeLeavesAsync<DocumentTypeResponse>(
+                    async (parentId, s, t, c) =>
                     {
-                        c.QueryParameters.Skip = skip;
-                        c.QueryParameters.Take = take;
+                        var items = parentId is null
+                            ? (
+                                await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Root.GetAsync(
+                                    q =>
+                                    {
+                                        q.QueryParameters.Skip = s;
+                                        q.QueryParameters.Take = t;
+                                    },
+                                    c
+                                )
+                            )?.Items
+                            : (
+                                await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Children.GetAsync(
+                                    q =>
+                                    {
+                                        q.QueryParameters.ParentId = parentId;
+                                        q.QueryParameters.Skip = s;
+                                        q.QueryParameters.Take = t;
+                                    },
+                                    c
+                                )
+                            )?.Items;
+                        return
+                        [
+                            .. (items ?? [])
+                                .Where(i => i.Id is not null)
+                                .Select(i =>
+                                    (
+                                        i.Id!.Value,
+                                        i.IsFolder ?? false,
+                                        new DocumentTypeResponse
+                                        {
+                                            Id = i.Id!.Value,
+                                            Name = i.Name ?? "",
+                                            IsElement = i.IsElement ?? false,
+                                        }
+                                    )
+                                ),
+                        ];
                     },
                     ct
                 );
                 return new PagedResponse<DocumentTypeResponse>
                 {
-                    Total = (int)(paged?.Total ?? 0),
-                    // #97: the document-type tree root includes folders (containers), whose ids 404
-                    // on `get`. Filter them so the list->get chain is reliable. Total still reflects
-                    // the API's unfiltered per-page count, so a page may return fewer than `take`.
-                    Items = (paged?.Items ?? [])
-                        .Where(i => !(i.IsFolder ?? false))
-                        .Select(i => new DocumentTypeResponse
-                        {
-                            Id = i.Id ?? Guid.Empty,
-                            Name = i.Name ?? "",
-                            IsElement = i.IsElement ?? false,
-                            IsFolder = i.IsFolder ?? false,
-                        })
-                        .ToList(),
+                    Total = all.Count,
+                    Items = all.Skip(skip).Take(take).ToList(),
                 };
             }
         );
