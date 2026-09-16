@@ -543,6 +543,10 @@ public class CommandParseTests
 
     [Theory]
     [InlineData("--output json content list")]
+    [InlineData("--output csv content list")]
+    [InlineData("-o csv content list")]
+    [InlineData("--quiet content list")]
+    [InlineData("-q content delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("--host https://x.com content list")]
     [InlineData("-H https://x.com content list")]
     [InlineData("-o json content list")]

@@ -32,6 +32,7 @@ using Umbraco.Cli.Commands.Webhooks;
 using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Http;
+using Umbraco.Cli.Infrastructure.Output;
 
 // Render non-ASCII output (e.g. the "Søg" example in dictionary help) correctly on the
 // Windows console, whose default code page would otherwise show it as "S?g" (issue #49).
@@ -45,6 +46,9 @@ catch (IOException)
 {
     // No attached console (or it rejected the change); safe to ignore.
 }
+
+// Honour NO_COLOR (#94): strip colour from all Spectre.Console output when the variable is present.
+ConsoleColorSetup.ApplyFromEnvironment();
 
 // ── DI ────────────────────────────────────────────────────────────────────────
 var services = new ServiceCollection();

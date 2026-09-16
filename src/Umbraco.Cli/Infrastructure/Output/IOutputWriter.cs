@@ -4,6 +4,7 @@ public enum OutputFormat
 {
     Human,
     Json,
+    Csv,
 }
 
 public interface IOutputWriter

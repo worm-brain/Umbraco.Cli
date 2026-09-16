@@ -51,7 +51,8 @@ public sealed class CommandContextFactory
         // --fields projection (#63): split the comma-separated list once and hand it to the
         // JSON writer, which trims each result to those fields.
         var fields = ParseFields(parseResult.GetValue(_globalOptions.Fields));
-        var output = OutputWriterFactory.Create(outputFormat, fields);
+        var quiet = parseResult.GetValue(_globalOptions.Quiet);
+        var output = OutputWriterFactory.Create(outputFormat, fields, quiet);
 
         var store = ResolveConfigStore(parseResult);
 

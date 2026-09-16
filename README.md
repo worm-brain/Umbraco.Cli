@@ -109,14 +109,17 @@ Global options available on every command:
 |---|---|
 | `--host <url>` | Umbraco instance base URL (overrides config) |
 | `--token <bearer>` | Raw bearer token (overrides stored credentials) |
-| `--output json\|human` | Output format (default: `json` when piped, `human` in terminal) |
+| `--output json\|human\|csv` | Output format (default: `json` when piped, `human` in terminal). `csv` emits RFC-4180 CSV: tables map row-per-line, an object/scalar success flattens to a header+value row, columns use the same camelCase keys as JSON; errors go to stderr as `code,message` |
+| `--quiet`, `-q` | Suppress success confirmation messages (e.g. "Deleted."); requested data, errors, and exit codes are still emitted |
 | `--verbose` | Log HTTP requests/responses to stderr |
 | `--dry-run` | Preview the HTTP request a write command would send (method, URL, body) without executing it; no effect on read commands |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive/high-impact commands (delete, empty-recycle-bin, unpublish). Required to run one non-interactively (piped/scripted/agent) |
 | `--readonly` | Block all write operations (create/update/delete/publish) for this session; reads still work. Also `UMBRACO_READONLY=1` |
-| `--fields <a,b>` | Trim JSON output to these top-level fields, in order (e.g. `id,name`), to keep agent context small |
+| `--fields <a,b>` | Trim JSON output — or CSV columns — to these top-level fields, in order (e.g. `id,name`), to keep agent context small |
 | `--profile <name>`, `-p` | Named credential profile to use (see `auth profiles`); also `UMBRACO_PROFILE`. Defaults to the configured default profile |
 | `--config <path>` | Path to config file |
+
+> Colour: ANSI colour in human output is disabled when the `NO_COLOR` environment variable is present (any value, per https://no-color.org), or when stdout is not a TTY.
 
 ### Profiles (multiple environments)
 
@@ -137,7 +140,7 @@ Profiles are stored in the same (owner-only, secret-encrypted) config file. The 
 
 > Note: the command allow-list (`allowedCommands`) is stored **per profile**, so it applies only to the profile it was set on — switching profiles uses that profile's allow-list. For a hard sandbox, set `UMBRACO_ALLOWED_COMMANDS` in the environment (it applies regardless of profile).
 
-`--fields` keeps only the listed fields on each JSON result (object or array item), in the order given, matched case-insensitively:
+`--fields` keeps only the listed fields on each JSON result (object or array item), in the order given, matched case-insensitively. Under `--output csv` the same list selects and orders the CSV columns:
 
 ```bash
 umbraco content list --fields id,name
@@ -624,6 +627,10 @@ Errors are written to **stderr**:
 The success envelope is versioned via `meta.schemaVersion` (currently `"2"`). The field names above (`status`, `data`, `meta`, `command`, `durationMs`, `schemaVersion`, and the error envelope's `code`/`message`) are part of the contract: they are **never renamed silently**. `schemaVersion` is bumped only on a **breaking** change — a renamed/removed field or a changed meaning. New fields may be added without a bump, so consumers should ignore unknown fields. Agents can gate on `meta.schemaVersion` and diff `.data` between runs (`meta.timestamp` changes every call).
 
 **v2** switched list (table) JSON keys from the human header text to camelCase — e.g. a `content-types list` item is now `{"id": ..., "name": ..., "alias": ..., "isElement": ...}` instead of `{"ID": ..., "Content Type": ...}` — so the same field uses the same key whether it comes from a `list` or a `get`.
+
+### CSV output (`--output csv`)
+
+`--output csv` emits RFC-4180 CSV instead of the JSON envelope. A list result becomes one CSV row per item; an object or scalar success flattens to a two-line header+value CSV. Column headers use the same camelCase keys as JSON output, and `--fields` projects and orders the columns just as it does for JSON. Errors are written to **stderr** as a single `code,message` line.
 
 ### `--schema` (request body shape)
 
