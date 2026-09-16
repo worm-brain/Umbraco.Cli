@@ -54,11 +54,8 @@ public static class StaticFileCommand
         {
             Description = "Folder path to list children of; omit for the tree root.",
         };
-        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
-        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 20 };
         cmd.Add(parentOpt);
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunTableAsync(

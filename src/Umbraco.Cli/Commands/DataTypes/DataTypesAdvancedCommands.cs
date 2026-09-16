@@ -40,11 +40,8 @@ public static class DataTypesAdvancedCommands
             "List what references a data type (raw JSON; the references are a mixed set of kinds)."
         );
         var idArg = new Argument<Guid>("id") { Description = "Data type ID." };
-        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
-        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 100 };
         cmd.Add(idArg);
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(

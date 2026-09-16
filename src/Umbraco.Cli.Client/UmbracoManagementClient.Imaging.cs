@@ -65,6 +65,6 @@ public sealed partial class UmbracoManagementClient
             ImageResizeMode.Pad => Gen.ImageCropModeModel.Pad,
             ImageResizeMode.BoxPad => Gen.ImageCropModeModel.BoxPad,
             ImageResizeMode.Min => Gen.ImageCropModeModel.Min,
-            _ => Gen.ImageCropModeModel.Crop,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown resize mode."),
         };
 }
