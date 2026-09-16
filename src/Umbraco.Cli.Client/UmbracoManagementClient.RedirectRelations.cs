@@ -223,20 +223,24 @@ public sealed partial class UmbracoManagementClient
                 return new PagedResponse<RelationResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? [])
-                        .Select(r => new RelationResponse
-                        {
-                            Id = r.Id ?? Guid.Empty,
-                            ParentId = r.Parent?.Id ?? Guid.Empty,
-                            ParentName = r.Parent?.Name ?? "",
-                            ChildId = r.Child?.Id ?? Guid.Empty,
-                            ChildName = r.Child?.Name ?? "",
-                            RelationTypeId = r.RelationType?.Id ?? Guid.Empty,
-                            Comment = r.Comment,
-                            CreateDate = r.CreateDate ?? default,
-                        })
-                        .ToList(),
+                    Items = (paged?.Items ?? []).Select(MapRelation).ToList(),
                 };
             }
         );
+
+    /// <summary>Maps a generated relation model to the command-facing DTO.</summary>
+    /// <param name="r">The generated model.</param>
+    /// <returns>The mapped <see cref="RelationResponse"/>.</returns>
+    private static RelationResponse MapRelation(Gen.RelationResponseModel r) =>
+        new()
+        {
+            Id = r.Id ?? Guid.Empty,
+            ParentId = r.Parent?.Id ?? Guid.Empty,
+            ParentName = r.Parent?.Name ?? "",
+            ChildId = r.Child?.Id ?? Guid.Empty,
+            ChildName = r.Child?.Name ?? "",
+            RelationTypeId = r.RelationType?.Id ?? Guid.Empty,
+            Comment = r.Comment,
+            CreateDate = r.CreateDate ?? default,
+        };
 }
