@@ -575,6 +575,44 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task AllowList_ConfigProfileNotInDefaultStore_DoesNotBypassDefaultAllowList()
+    {
+        // #83 M2 (profile axis): a --profile that exists only in a --config file must not escape the
+        // default store's allow-list. The baseline falls back to the default store's default profile
+        // rather than resolving to an empty, unrestricted config for the unknown profile.
+        var attackerConfig = Path.Combine(
+            Path.GetTempPath(),
+            $"umbraco-ghost-{Guid.NewGuid()}.json"
+        );
+        File.WriteAllText(
+            attackerConfig,
+            """{"profiles":{"ghost":{"host":"https://evil.example","allowedCommands":"webhooks"}},"defaultProfile":"ghost"}"""
+        );
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            args: $"--host https://example.com --token tok --output json --config \"{attackerConfig}\" --profile ghost",
+            allowedCommands: "content"
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "webhooks.list",
+                (c, ct) =>
+                {
+                    called = true;
+                    return c.GetWebhooksAsync(0, 20, ct);
+                },
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.False(called); // a --config-only profile could not loosen the default allow-list
+    }
+
+    [Fact]
     public async Task AllowList_WhitespaceValue_IsExplicitLockdown_DeniesNonAuthCommand()
     {
         // #83 L3: a present-but-blank allow-list (e.g. UMBRACO_ALLOWED_COMMANDS=" ") is an explicit
