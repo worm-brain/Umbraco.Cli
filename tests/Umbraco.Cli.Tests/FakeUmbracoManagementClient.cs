@@ -771,4 +771,205 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
                 }
             )
         );
+
+    // ── User administration: user groups, user data (#109) ─────────────────────
+
+    /// <summary>User groups the list/get methods return (seeded by a test).</summary>
+    public List<UserGroupResponse> UserGroupList { get; } = [];
+
+    /// <summary>Recorded user-group creates.</summary>
+    public List<CreateUserGroupRequest> UserGroupsCreated { get; } = [];
+
+    /// <summary>Recorded user-group updates, in <c>(id, request)</c> order.</summary>
+    public List<(Guid Id, UpdateUserGroupRequest Request)> UserGroupsUpdated { get; } = [];
+
+    /// <summary>Recorded single user-group deletes.</summary>
+    public List<Guid> UserGroupsDeleted { get; } = [];
+
+    /// <summary>Recorded bulk user-group deletes (each call's id list).</summary>
+    public List<IReadOnlyList<Guid>> UserGroupsBulkDeleted { get; } = [];
+
+    /// <summary>Recorded add-users calls, in <c>(groupId, userIds)</c> order.</summary>
+    public List<(Guid GroupId, IReadOnlyList<Guid> UserIds)> UserGroupUsersAdded { get; } = [];
+
+    /// <summary>Recorded remove-users calls, in <c>(groupId, userIds)</c> order.</summary>
+    public List<(Guid GroupId, IReadOnlyList<Guid> UserIds)> UserGroupUsersRemoved { get; } = [];
+
+    public Task<UmbracoResponse<PagedResponse<UserGroupResponse>>> GetUserGroupsAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<UserGroupResponse>>.Success(
+                new PagedResponse<UserGroupResponse>
+                {
+                    Total = UserGroupList.Count,
+                    Items = UserGroupList.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+
+    public Task<UmbracoResponse<UserGroupResponse>> GetUserGroupByIdAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UserGroupList.FirstOrDefault(g => g.Id == id) is { } g
+                ? UmbracoResponse<UserGroupResponse>.Success(g)
+                : UmbracoResponse<UserGroupResponse>.Failure(404, $"Not found: {id}")
+        );
+
+    public Task<UmbracoResponse<UserGroupResponse>> CreateUserGroupAsync(
+        CreateUserGroupRequest request,
+        CancellationToken ct = default
+    )
+    {
+        UserGroupsCreated.Add(request);
+        return Task.FromResult(
+            UmbracoResponse<UserGroupResponse>.Success(
+                new UserGroupResponse
+                {
+                    Id = request.Id ?? Guid.NewGuid(),
+                    Alias = request.Alias,
+                    Name = request.Name,
+                    Icon = request.Icon,
+                    Description = request.Description,
+                    Sections = request.Sections,
+                    Languages = request.Languages,
+                    FallbackPermissions = request.FallbackPermissions,
+                    HasAccessToAllLanguages = request.HasAccessToAllLanguages,
+                    DocumentRootAccess = request.DocumentRootAccess,
+                    MediaRootAccess = request.MediaRootAccess,
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> UpdateUserGroupAsync(
+        Guid id,
+        UpdateUserGroupRequest request,
+        CancellationToken ct = default
+    )
+    {
+        UserGroupsUpdated.Add((id, request));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> DeleteUserGroupAsync(
+        Guid id,
+        CancellationToken ct = default
+    )
+    {
+        UserGroupsDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> DeleteUserGroupsAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken ct = default
+    )
+    {
+        UserGroupsBulkDeleted.Add(ids);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> AddUsersToGroupAsync(
+        Guid id,
+        IReadOnlyList<Guid> userIds,
+        CancellationToken ct = default
+    )
+    {
+        UserGroupUsersAdded.Add((id, userIds));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> RemoveUsersFromGroupAsync(
+        Guid id,
+        IReadOnlyList<Guid> userIds,
+        CancellationToken ct = default
+    )
+    {
+        UserGroupUsersRemoved.Add((id, userIds));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>User-data entries the list/get methods return (seeded by a test).</summary>
+    public List<UserDataResponse> UserDataList { get; } = [];
+
+    /// <summary>Recorded user-data creates.</summary>
+    public List<CreateUserDataRequest> UserDataCreated { get; } = [];
+
+    /// <summary>Recorded user-data updates.</summary>
+    public List<UpdateUserDataRequest> UserDataUpdated { get; } = [];
+
+    /// <summary>Recorded user-data deletes.</summary>
+    public List<Guid> UserDataDeleted { get; } = [];
+
+    public Task<UmbracoResponse<PagedResponse<UserDataResponse>>> GetUserDataAsync(
+        string? group = null,
+        string? identifier = null,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    )
+    {
+        var filtered = UserDataList
+            .Where(d => group is null || d.Group == group)
+            .Where(d => identifier is null || d.Identifier == identifier)
+            .ToList();
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<UserDataResponse>>.Success(
+                new PagedResponse<UserDataResponse>
+                {
+                    Total = filtered.Count,
+                    Items = filtered.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<UserDataResponse>> GetUserDataByIdAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UserDataList.FirstOrDefault(d => d.Key == id) is { } d
+                ? UmbracoResponse<UserDataResponse>.Success(d)
+                : UmbracoResponse<UserDataResponse>.Failure(404, $"Not found: {id}")
+        );
+
+    public Task<UmbracoResponse<UserDataResponse>> CreateUserDataAsync(
+        CreateUserDataRequest request,
+        CancellationToken ct = default
+    )
+    {
+        UserDataCreated.Add(request);
+        return Task.FromResult(
+            UmbracoResponse<UserDataResponse>.Success(
+                new UserDataResponse
+                {
+                    Key = request.Key ?? Guid.NewGuid(),
+                    Group = request.Group,
+                    Identifier = request.Identifier,
+                    Value = request.Value,
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> UpdateUserDataAsync(
+        UpdateUserDataRequest request,
+        CancellationToken ct = default
+    )
+    {
+        UserDataUpdated.Add(request);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> DeleteUserDataAsync(Guid id, CancellationToken ct = default)
+    {
+        UserDataDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 }

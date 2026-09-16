@@ -38,4 +38,7 @@ public interface IUmbracoManagementClient
         // Small coverage resources: member groups, tags, cultures (#107).
         IMemberGroupClient,
         ITagClient,
-        ICultureClient;
+        ICultureClient,
+        // User-administration resources: user groups, user data (#109).
+        IUserGroupClient,
+        IUserDataClient;

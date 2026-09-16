@@ -18,6 +18,8 @@ using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Commands.StaticFiles;
 using Umbraco.Cli.Commands.Tags;
 using Umbraco.Cli.Commands.Templates;
+using Umbraco.Cli.Commands.UserData;
+using Umbraco.Cli.Commands.UserGroups;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
 using Umbraco.Cli.Infrastructure;
@@ -129,6 +131,10 @@ root.Add(
 root.Add(MemberGroupsCommand.Build(executor));
 root.Add(TagsCommand.Build(executor));
 root.Add(CulturesCommand.Build(executor));
+
+// User-administration resources (#109).
+root.Add(UserGroupsCommand.Build(executor));
+root.Add(UserDataCommand.Build(executor));
 
 // Machine-readable command catalog for agents (#60). Added last and given the root so it can
 // describe the fully-assembled tree (including itself).

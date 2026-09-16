@@ -16,6 +16,8 @@ using Umbraco.Cli.Commands.MemberTypes;
 using Umbraco.Cli.Commands.StaticFiles;
 using Umbraco.Cli.Commands.Tags;
 using Umbraco.Cli.Commands.Templates;
+using Umbraco.Cli.Commands.UserData;
+using Umbraco.Cli.Commands.UserGroups;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
 using Umbraco.Cli.Infrastructure.Config;
@@ -92,6 +94,8 @@ public class CommandParseTests
         root.Add(MemberGroupsCommand.Build(executor));
         root.Add(TagsCommand.Build(executor));
         root.Add(CulturesCommand.Build(executor));
+        root.Add(UserGroupsCommand.Build(executor));
+        root.Add(UserDataCommand.Build(executor));
 
         return root;
     }
@@ -141,6 +145,8 @@ public class CommandParseTests
     [InlineData("member-groups")]
     [InlineData("tags")]
     [InlineData("cultures")]
+    [InlineData("user-groups")]
+    [InlineData("user-data")]
     public void RootCommand_ContainsExpectedSubcommand(string subcommand)
     {
         var root = BuildRoot();
@@ -186,6 +192,21 @@ public class CommandParseTests
     [InlineData("member-groups", new[] { "list", "get", "create", "update", "delete" })]
     [InlineData("tags", new[] { "list" })]
     [InlineData("cultures", new[] { "list" })]
+    [InlineData(
+        "user-groups",
+        new[]
+        {
+            "list",
+            "get",
+            "create",
+            "update",
+            "delete",
+            "delete-many",
+            "add-users",
+            "remove-users",
+        }
+    )]
+    [InlineData("user-data", new[] { "list", "get", "create", "update", "delete" })]
     [InlineData("auth", new[] { "login", "logout", "whoami", "doctor" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)
     {
@@ -309,6 +330,38 @@ public class CommandParseTests
     [InlineData("tags list")]
     [InlineData("tags list --group default --culture en-US")]
     [InlineData("cultures list")]
+    [InlineData("user-groups list")]
+    [InlineData("user-groups list --skip 0 --take 50")]
+    [InlineData("user-groups get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("user-groups create --alias editors --name Editors")]
+    [InlineData(
+        "user-groups create --alias editors --name Editors --section Umb.Section.Content --section Umb.Section.Media --language en-US --fallback-permission Umb.Document.Read --has-access-to-all-languages --document-root-access"
+    )]
+    [InlineData("user-groups create --alias e --name E --id 3f7a8b2e-1234-5678-abcd-ef0123456789")] // #86 --id
+    [InlineData(
+        "user-groups update 3f7a8b2e-1234-5678-abcd-ef0123456789 --alias editors --name Editors"
+    )]
+    [InlineData("user-groups delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "user-groups delete-many --ids 3f7a8b2e-1234-5678-abcd-ef0123456789 1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "user-groups add-users 3f7a8b2e-1234-5678-abcd-ef0123456789 --user 1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "user-groups remove-users 3f7a8b2e-1234-5678-abcd-ef0123456789 --user 1a2b3c4d-1234-5678-abcd-ef0123456789 --user 2b3c4d5e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("user-data list")]
+    [InlineData("user-data list --group myGroup --identifier theme --skip 0 --take 10")]
+    [InlineData("user-data get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("user-data create --group myGroup --identifier theme --value dark")]
+    [InlineData(
+        "user-data create --group g --identifier i --value v --key 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )] // #86 --key
+    [InlineData(
+        "user-data update --key 3f7a8b2e-1234-5678-abcd-ef0123456789 --group g --identifier i --value light"
+    )]
+    [InlineData("user-data delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("member-types create --name Author --alias author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --icon icon-user")]
@@ -354,6 +407,14 @@ public class CommandParseTests
     [InlineData("member-types create --alias onlyAlias")] // missing required --name
     [InlineData("member-types get not-a-uuid")]
     [InlineData("member-types update not-a-uuid --name Author")] // id must be a uuid
+    [InlineData("user-groups create --name NoAlias")] // missing required --alias
+    [InlineData("user-groups create --alias noName")] // missing required --name
+    [InlineData("user-groups get not-a-uuid")]
+    [InlineData("user-groups delete-many")] // missing required --ids
+    [InlineData("user-groups add-users 3f7a8b2e-1234-5678-abcd-ef0123456789")] // missing required --user
+    [InlineData("user-data create --group g --identifier i")] // missing required --value
+    [InlineData("user-data update --group g --identifier i --value v")] // missing required --key
+    [InlineData("user-data get not-a-uuid")]
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]
