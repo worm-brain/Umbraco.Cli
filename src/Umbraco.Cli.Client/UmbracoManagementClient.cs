@@ -2247,6 +2247,35 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>The absolute URI to request.</returns>
     private Uri RawUri(string path) => new($"{_adapter.BaseUrl}/{path}");
 
+    /// <summary>
+    /// Raw-JSON scalar read-merge: GET the document at <paramref name="path"/> verbatim, overwrite
+    /// only the supplied top-level string fields, and PUT the whole document back. A null value in
+    /// <paramref name="patch"/> is skipped, leaving that field at its current value. This preserves
+    /// every field the typed create/update models would drop (properties, containers, editor config)
+    /// and is the reusable core behind the resource <c>update</c> verbs whose typed round-trip is
+    /// lossy - see <see cref="UpdateMemberTypeAsync"/> and ADR 0005. The PUT flows through the
+    /// intercepted <see cref="HttpClient"/>, so <c>--dry-run</c> previews it.
+    /// </summary>
+    /// <param name="path">The by-id resource path, relative to the host root (no leading slash).</param>
+    /// <param name="patch">Top-level field name to new value; null values leave the field unchanged.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><see cref="Empty.Value"/> on success.</returns>
+    private async Task<Empty> UpdateRawScalarsAsync(
+        string path,
+        IReadOnlyDictionary<string, string?> patch,
+        CancellationToken ct
+    )
+    {
+        var current = await GetRawJsonAsync(path, ct);
+        foreach (var (key, value) in patch)
+        {
+            if (value is not null)
+                current[key] = value;
+        }
+        await SendRawJsonAsync(Method.PUT, path, current, ct);
+        return Empty.Value;
+    }
+
     // ── Members ──────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -2675,6 +2704,40 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
                     Icon = request.Icon,
                 };
             }
+        );
+
+    /// <summary>
+    /// Updates a member type via a raw-JSON read-merge (issue #56). The member-type PUT is a
+    /// full replace whose typed model would drop the type's properties, containers and
+    /// compositions (the response and request models use different element types for those), so
+    /// this reads the current type as verbatim JSON, patches only the supplied scalar fields,
+    /// and writes the whole document back - the same lossless round-trip the schema pipeline
+    /// uses (ADR 0005). The PUT flows through the intercepted <see cref="HttpClient"/>, so
+    /// <c>--dry-run</c> previews it like any other mutation.
+    /// </summary>
+    /// <param name="id">The member type id.</param>
+    /// <param name="request">The fields to change; null fields keep their current value.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> UpdateMemberTypeAsync(
+        Guid id,
+        UpdateMemberTypeRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () =>
+                UpdateRawScalarsAsync(
+                    $"umbraco/management/api/v1/member-type/{id}",
+                    new Dictionary<string, string?>
+                    {
+                        ["name"] = request.Name,
+                        ["alias"] = request.Alias,
+                        ["description"] = request.Description,
+                        ["icon"] = request.Icon,
+                    },
+                    ct
+                )
         );
 
     /// <summary>Deletes a member type via <c>DELETE member-type/{id}</c> (generated client).</summary>
