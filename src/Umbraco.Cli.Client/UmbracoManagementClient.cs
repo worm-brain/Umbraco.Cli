@@ -2247,6 +2247,35 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>The absolute URI to request.</returns>
     private Uri RawUri(string path) => new($"{_adapter.BaseUrl}/{path}");
 
+    /// <summary>
+    /// Raw-JSON scalar read-merge: GET the document at <paramref name="path"/> verbatim, overwrite
+    /// only the supplied top-level string fields, and PUT the whole document back. A null value in
+    /// <paramref name="patch"/> is skipped, leaving that field at its current value. This preserves
+    /// every field the typed create/update models would drop (properties, containers, editor config)
+    /// and is the reusable core behind the resource <c>update</c> verbs whose typed round-trip is
+    /// lossy - see <see cref="UpdateMemberTypeAsync"/> and ADR 0005. The PUT flows through the
+    /// intercepted <see cref="HttpClient"/>, so <c>--dry-run</c> previews it.
+    /// </summary>
+    /// <param name="path">The by-id resource path, relative to the host root (no leading slash).</param>
+    /// <param name="patch">Top-level field name to new value; null values leave the field unchanged.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><see cref="Empty.Value"/> on success.</returns>
+    private async Task<Empty> UpdateRawScalarsAsync(
+        string path,
+        IReadOnlyDictionary<string, string?> patch,
+        CancellationToken ct
+    )
+    {
+        var current = await GetRawJsonAsync(path, ct);
+        foreach (var (key, value) in patch)
+        {
+            if (value is not null)
+                current[key] = value;
+        }
+        await SendRawJsonAsync(Method.PUT, path, current, ct);
+        return Empty.Value;
+    }
+
     // ── Members ──────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -2697,24 +2726,18 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
     ) =>
         GuardedApiAsync(
             ct,
-            async () =>
-            {
-                var path = $"umbraco/management/api/v1/member-type/{id}";
-                var current = await GetRawJsonAsync(path, ct);
-
-                // Patch only the fields the caller supplied; everything else round-trips untouched.
-                if (request.Name is not null)
-                    current["name"] = request.Name;
-                if (request.Alias is not null)
-                    current["alias"] = request.Alias;
-                if (request.Description is not null)
-                    current["description"] = request.Description;
-                if (request.Icon is not null)
-                    current["icon"] = request.Icon;
-
-                await SendRawJsonAsync(Method.PUT, path, current, ct);
-                return Empty.Value;
-            }
+            () =>
+                UpdateRawScalarsAsync(
+                    $"umbraco/management/api/v1/member-type/{id}",
+                    new Dictionary<string, string?>
+                    {
+                        ["name"] = request.Name,
+                        ["alias"] = request.Alias,
+                        ["description"] = request.Description,
+                        ["icon"] = request.Icon,
+                    },
+                    ct
+                )
         );
 
     /// <summary>Deletes a member type via <c>DELETE member-type/{id}</c> (generated client).</summary>
