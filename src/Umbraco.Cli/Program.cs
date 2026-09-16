@@ -12,6 +12,7 @@ using Umbraco.Cli.Commands.Media;
 using Umbraco.Cli.Commands.MediaTypes;
 using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.MemberTypes;
+using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Commands.Templates;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
@@ -111,6 +112,7 @@ root.Add(MemberTypesCommand.Build(executor));
 root.Add(UsersCommand.Build(executor));
 root.Add(DictionaryCommand.Build(executor));
 root.Add(WebhooksCommand.Build(executor));
+root.Add(SchemaCommand.Build(executor));
 
 // Machine-readable command catalog for agents (#60). Added last and given the root so it can
 // describe the fully-assembled tree (including itself).

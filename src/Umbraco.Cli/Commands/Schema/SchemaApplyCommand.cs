@@ -1,0 +1,104 @@
+using System.CommandLine;
+using Umbraco.Cli.Client;
+
+namespace Umbraco.Cli.Commands.Schema;
+
+/// <summary>Wires the <c>schema apply</c> command (issue #68 / ADR 0005 §4).</summary>
+public static class SchemaApplyCommand
+{
+    /// <summary>
+    /// Builds the <c>schema apply</c> command: reconciles the live instance towards a snapshot.
+    /// By default it only creates and updates — it never deletes. <c>--prune</c> additionally
+    /// removes live entities the snapshot does not contain, which makes the run destructive and
+    /// therefore requires <c>--yes</c> non-interactively. <c>--dry-run</c> prints the full plan
+    /// without writing anything (unlike a normal write command's single-request preview, apply's
+    /// dry run previews the whole multi-write plan); <c>--readonly</c> blocks the writes.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command(
+            "apply",
+            "Apply a schema snapshot to the live instance (create + update; --prune also deletes).\n\n"
+                + "Examples:\n"
+                + "  umbraco schema apply schema.json --dry-run\n"
+                + "  umbraco schema apply schema.json\n"
+                + "  umbraco schema apply schema.json --prune --yes"
+        );
+        var snapshotArg = new Argument<string>("snapshot")
+        {
+            Description = "Path to a snapshot file produced by 'schema export', or '-' for stdin.",
+        };
+        var pruneOpt = new Option<bool>("--prune")
+        {
+            Description =
+                "Also DELETE live document types, data types, and templates that the snapshot "
+                + "does not contain. Destructive: requires --yes when non-interactive.",
+        };
+        cmd.Add(snapshotArg);
+        cmd.Add(pruneOpt);
+
+        cmd.SetAction(
+            (parseResult, ct) =>
+            {
+                var prune = parseResult.GetValue(pruneOpt);
+                // Prune can delete live schema, so gate it behind the confirmation prompt (skipped
+                // under --dry-run / --readonly by the executor). A non-prune apply only creates/
+                // updates and is not gated.
+                var confirmation = prune
+                    ? "This will DELETE live document types, data types, and templates that are "
+                        + "not present in the snapshot."
+                    : null;
+
+                return executor.RunContextualAsync(
+                    parseResult,
+                    "schema.apply",
+                    async (ctx, c) =>
+                    {
+                        var diff = await SchemaPipeline.DiffAgainstLiveAsync(
+                            ctx.Client,
+                            parseResult.GetValue(snapshotArg)!,
+                            c
+                        );
+                        if (!diff.IsSuccess)
+                            return UmbracoResponse<SchemaApplyResult>.Failure(
+                                diff.StatusCode,
+                                diff.ErrorMessage!
+                            );
+
+                        // ctx.DryRun is honoured inside the applier so the *whole* plan is
+                        // previewed, not just the first write.
+                        return await SchemaApplier.ApplyAsync(
+                            ctx.Client,
+                            diff.Data!,
+                            prune,
+                            ctx.DryRun,
+                            c
+                        );
+                    },
+                    (ctx, result) =>
+                        ctx.Output.WriteTable(
+                            new[] { "Operation", "Kind", "Identity", "Id", "Status" },
+                            Rows(result)
+                        ),
+                    ct,
+                    confirmation
+                );
+            }
+        );
+
+        return cmd;
+    }
+
+    /// <summary>Projects the apply result's steps into table rows (one per create/update/delete).</summary>
+    /// <param name="result">The apply result, or null on an unexpected empty payload.</param>
+    /// <returns>The rows.</returns>
+    private static IEnumerable<string[]> Rows(SchemaApplyResult? result)
+    {
+        if (result is null)
+            yield break;
+        foreach (var a in result.Actions)
+            yield return [a.Operation, a.Kind, a.Identity, a.Id?.ToString() ?? "", a.Status];
+    }
+}

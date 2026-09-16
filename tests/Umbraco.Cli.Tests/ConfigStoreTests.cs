@@ -2,6 +2,11 @@ using Umbraco.Cli.Infrastructure.Config;
 
 namespace Umbraco.Cli.Tests;
 
+// Shares the "ConsoleCapture" collection with the command tests: this class mutates the
+// process-global UMBRACO_ALLOWED_COMMANDS env var mid-test, which CommandContextFactory reads
+// when resolving the allow-list. Serialising with the command tests prevents that write from
+// racing a concurrent command run (which would spuriously block an allowed command).
+[Collection("ConsoleCapture")]
 public class ConfigStoreTests : IDisposable
 {
     private readonly string _tempPath = Path.Combine(

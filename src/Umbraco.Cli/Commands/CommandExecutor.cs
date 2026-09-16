@@ -40,10 +40,46 @@ public sealed class CommandExecutor
     /// <c>130</c> cancelled (Ctrl-C). Note a <c>--readonly</c> block can fire after prerequisite
     /// reads (e.g. alias→id resolution) have already run.
     /// </summary>
-    public async Task<int> RunAsync<T>(
+    public Task<int> RunAsync<T>(
         ParseResult parseResult,
         string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
+        Action<CommandContext, T?> render,
+        CancellationToken ct,
+        string? confirmationPrompt = null
+    ) =>
+        // The vast majority of commands are a single client call; expose the client-only shape
+        // and delegate to the context-aware core below.
+        RunContextualAsync(
+            parseResult,
+            commandName,
+            (ctx, c) => call(ctx.Client, c),
+            render,
+            ct,
+            confirmationPrompt
+        );
+
+    /// <summary>
+    /// Context-aware variant of <see cref="RunAsync{T}"/>: the operation receives the whole
+    /// <see cref="CommandContext"/> (not just the client), so a command that must branch on
+    /// <see cref="CommandContext.DryRun"/> / <see cref="CommandContext.ReadOnly"/> before doing
+    /// its work can. Used by <c>schema apply</c>, whose <c>--dry-run</c> previews a *multi-write*
+    /// plan and so cannot rely on the per-request mutation interceptor (which aborts on the first
+    /// write). Shares the identical context-build, confirmation gate, error mapping, and
+    /// exit-code handling.
+    /// </summary>
+    /// <typeparam name="T">The rendered payload type.</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <param name="call">The operation, receiving the built context.</param>
+    /// <param name="render">Renders the payload on success.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <param name="confirmationPrompt">A destructive-op prompt, or null.</param>
+    /// <returns>The process exit code.</returns>
+    public async Task<int> RunContextualAsync<T>(
+        ParseResult parseResult,
+        string commandName,
+        Func<CommandContext, CancellationToken, Task<UmbracoResponse<T>>> call,
         Action<CommandContext, T?> render,
         CancellationToken ct,
         string? confirmationPrompt = null
@@ -90,7 +126,7 @@ public sealed class CommandExecutor
 
         try
         {
-            var result = await call(ctx.Client, ct);
+            var result = await call(ctx, ct);
             if (!result.IsSuccess)
             {
                 // Permission-aware failure (#70): a raw 403 is opaque, so translate it into an

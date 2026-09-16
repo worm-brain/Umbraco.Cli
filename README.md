@@ -11,6 +11,7 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 ## Features
 
 - **Full Management API coverage** — content, media, document types, data types, languages, templates, members, users, dictionary items, webhooks
+- **Schema export / diff / apply** — dump document types, data types, and templates to a portable JSON snapshot, diff it against a live instance, and apply the difference (CI/agent-friendly, complements uSync); see [`schema`](#schema-export--diff--apply)
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
 - **Cross-platform** — Windows, macOS, Linux via .NET 9
 - **OAuth2 auth** — Client Credentials stored in an OS-specific config file (see [Configuration](#configuration)); the secret is DPAPI-encrypted at rest on Windows and the file is restricted to your user on macOS/Linux. Environment-variable fallback for CI/CD
@@ -327,6 +328,45 @@ umbraco webhooks list
 umbraco webhooks create --url <url> --events <csv> [--name <name>] [--description <text>]
 umbraco webhooks delete <id>
 ```
+
+### `schema` (export / diff / apply)
+
+Dump the site's **schema** — document types, data types, and templates — to a portable JSON
+snapshot, diff it against a live instance, and apply the difference. Driven from any shell or
+agent; complements uSync for CI pipelines. (Issue #68; see [ADR 0005](docs/adr/0005-schema-export-diff-apply.md).)
+
+```bash
+# Export every document type, data type, and template to a snapshot file.
+umbraco schema export --out schema.json
+
+# See what differs between a snapshot and the live instance (read-only; empty == in sync).
+umbraco schema diff schema.json
+umbraco schema export | umbraco schema diff -          # pipe an export straight into a diff
+
+# Preview the full apply plan without writing anything.
+umbraco schema apply schema.json --dry-run
+
+# Reconcile the instance towards the snapshot (create + update; never deletes by default).
+umbraco schema apply schema.json
+
+# Also delete live entities absent from the snapshot (destructive; requires --yes non-interactively).
+umbraco schema apply schema.json --prune --yes
+```
+
+How it works:
+
+- **Fidelity** — the snapshot stores each entity's **verbatim Management-API body**, so nothing
+  is lost (document-type properties/compositions, data-type configuration values, template
+  Razor). The snapshot is `{ schemaVersion, documentTypes[], dataTypes[], templates[] }`.
+- **Matching** — diff/apply pair a snapshot entity to a live one by **id first, then human key**
+  (alias for document types/templates, name for data types), so a snapshot is idempotent against
+  its own instance and portable to another. An id-only-vs-key match is flagged `idMismatch`.
+- **Safety** — `apply` respects the global guardrails: `--dry-run` previews the whole plan and
+  writes nothing, `--readonly` (or `UMBRACO_READONLY=1`) blocks it, and the destructive `--prune`
+  requires confirmation / `--yes`. Writes run in dependency order (data types -> templates ->
+  document types, topologically sorted within each) and stop at the first failure.
+- **Scope** — this first slice covers schema only; content export/diff/apply is tracked as
+  follow-up issues.
 
 ---
 
