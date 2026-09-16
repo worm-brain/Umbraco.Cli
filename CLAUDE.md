@@ -42,7 +42,7 @@ Every API-backed command is built the same way, so to add a command you fill in 
 
 1. **`Program.cs`** builds the DI container and the `System.CommandLine` root command, then calls each `XxxCommand.Build(executor)` to attach the subcommand tree. Each top-level noun (content, media, users, ...) has a folder under `Commands/` with one `XxxCommand.cs` that wires up child verb commands (`list`, `get`, `create`, ...).
 
-2. **`GlobalOptions`** holds the recursive options (`--host`, `--token`, `--output`, `--verbose`, `--config`) as singletons. They are added once to the root and are readable off any subcommand's `ParseResult` — so command `Build` methods don't thread option instances through their signatures. (Exception: the `auth login`/`logout` commands take specific options explicitly because they run *before* auth exists.)
+2. **`GlobalOptions`** holds the recursive options (`--host`, `--token`, `--output`, `--quiet`, `--verbose`, `--config`) as singletons. They are added once to the root and are readable off any subcommand's `ParseResult` — so command `Build` methods don't thread option instances through their signatures. (Exception: the `auth login`/`logout` commands take specific options explicitly because they run *before* auth exists.)
 
 3. A leaf command's `SetAction` delegates to **`CommandExecutor`**, passing: the command name (e.g. `"content.list"`), a lambda `(client, ct) => client.SomeApiCall(...)`, and a render strategy. Use the right helper:
    - `RunObjectAsync` — serialize the returned object (`WriteSuccess`).
@@ -65,7 +65,7 @@ So: **command files contain almost no logic** — just option definitions and th
 ### Config & output
 
 - **`ConfigStore`** loads/saves `CliConfig` at the OS app-data path (`%APPDATA%/Umbraco/config.json` etc.). Environment variables (`UMBRACO_HOST`/`UMBRACO_CLIENT_ID`/`UMBRACO_CLIENT_SECRET`) take precedence over the file, per-field.
-- **`OutputWriterFactory`** picks the writer: explicit `--output json|human`, else JSON when `Console.IsOutputRedirected`, else human. `JsonOutputWriter` writes the `{status, data, meta}` envelope to stdout and `{status, code, message}` errors to **stderr**; `HumanOutputWriter` uses Spectre.Console.
+- **`OutputWriterFactory`** picks the writer: explicit `--output json|human|csv`, else JSON when `Console.IsOutputRedirected`, else human (csv is only ever explicit). `JsonOutputWriter` writes the `{status, data, meta}` envelope to stdout and `{status, code, message}` errors to **stderr**; `CsvOutputWriter` emits RFC-4180 CSV; `HumanOutputWriter` uses Spectre.Console. Table/`--fields` shaping is shared via `OutputShaping` so list and get output agree on camelCase field keys across formats. `--quiet` wraps the writer (`QuietOutputWriter`) to drop success chatter; `ConsoleColorSetup` honours `NO_COLOR`.
 
 ## Conventions specific to this repo
 
