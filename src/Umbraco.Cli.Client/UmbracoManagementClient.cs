@@ -2276,6 +2276,114 @@ public sealed class UmbracoManagementClient : IUmbracoManagementClient
         return Empty.Value;
     }
 
+    // ── Content snapshot (raw-JSON passthrough, #100 / ADR 0006) ────────────────
+    //
+    // Full-fidelity document reads/writes for the content export/diff/apply pipeline. Unlike the
+    // typed content methods, these carry the verbatim document body so nothing is dropped. A
+    // document's raw GET body does not include its parent (placement lives in the tree), so
+    // GetDocumentTreeAsync captures id+parent from the tree walk and the exporter stores them
+    // alongside each body; on apply the parent is written back into the create body.
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<IReadOnlyList<ContentTreeNode>>> GetDocumentTreeAsync(
+        Guid? root = null,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync<IReadOnlyList<ContentTreeNode>>(
+            ct,
+            async () =>
+            {
+                // With an explicit root, include the root itself as a portable top-level node
+                // (parent null) so the exported subtree stands alone; then walk its descendants.
+                if (root is null)
+                    return await WalkDocumentTreeAsync(parent: null, ct);
+
+                var nodes = new List<ContentTreeNode> { new(root.Value, Parent: null) };
+                nodes.AddRange(await WalkDocumentTreeAsync(root, ct));
+                return nodes;
+            }
+        );
+
+    /// <summary>
+    /// Recursively enumerates the document tree beneath <paramref name="parent"/> in pre-order,
+    /// recording each document's id and its parent. Every level is paged; the recursion depth is
+    /// bounded by the content tree's real nesting.
+    /// </summary>
+    /// <param name="parent">The parent whose children to list, or null for the content root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every document beneath <paramref name="parent"/> as id/parent pairs, pre-order.</returns>
+    private async Task<List<ContentTreeNode>> WalkDocumentTreeAsync(
+        Guid? parent,
+        CancellationToken ct
+    )
+    {
+        var nodes = new List<ContentTreeNode>();
+        var skip = 0;
+        while (true)
+        {
+            var paged = parent is null
+                ? await _api.Umbraco.Management.Api.V1.Tree.Document.Root.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = TreePageSize;
+                    },
+                    ct
+                )
+                : await _api.Umbraco.Management.Api.V1.Tree.Document.Children.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.ParentId = parent;
+                        c.QueryParameters.Skip = skip;
+                        c.QueryParameters.Take = TreePageSize;
+                    },
+                    ct
+                );
+
+            var items = paged?.Items ?? [];
+            foreach (var item in items)
+            {
+                var id = item.Id ?? Guid.Empty;
+                // Pre-order: emit the node before descending, so parents precede their children.
+                nodes.Add(new ContentTreeNode(id, parent));
+                if (item.HasChildren ?? false)
+                    nodes.AddRange(await WalkDocumentTreeAsync(id, ct));
+            }
+
+            skip += items.Count;
+            if (items.Count == 0 || skip >= (int)(paged?.Total ?? 0))
+                break;
+        }
+        return nodes;
+    }
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> GetDocumentRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => GuardedApiAsync(ct, () => GetRawJsonAsync($"umbraco/management/api/v1/document/{id}", ct));
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> CreateDocumentRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => SendRawJsonAsync(Method.POST, "umbraco/management/api/v1/document", body, ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> UpdateDocumentRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => SendRawJsonAsync(Method.PUT, $"umbraco/management/api/v1/document/{id}", body, ct)
+        );
+
     // ── Members ──────────────────────────────────────────────────────────────
 
     /// <summary>

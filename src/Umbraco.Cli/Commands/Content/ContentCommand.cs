@@ -28,6 +28,9 @@ public static class ContentCommand
         cmd.Add(ContentCopyCommand.Build(executor));
         cmd.Add(ContentPublishDescendantsCommand.Build(executor));
         cmd.Add(ContentBulkCommand.Build(executor));
+        cmd.Add(ContentExportCommand.Build(executor));
+        cmd.Add(ContentDiffCommand.Build(executor));
+        cmd.Add(ContentApplyCommand.Build(executor));
         return cmd;
     }
 }

@@ -144,6 +144,9 @@ public class CommandParseTests
             "copy",
             "publish-descendants",
             "bulk",
+            "export",
+            "diff",
+            "apply",
         }
     )]
     [InlineData(
@@ -195,6 +198,14 @@ public class CommandParseTests
     [InlineData("content bulk delete")] // reads stdin at run time
     [InlineData("content bulk publish --cultures en-US")]
     [InlineData("content bulk unpublish --file ids.txt")]
+    [InlineData("content export")]
+    [InlineData("content export --out content.json")]
+    [InlineData("content export --root 3f7a8b2e-1234-5678-abcd-ef0123456789 --out sub.json")]
+    [InlineData("content diff content.json")]
+    [InlineData("content diff -")]
+    [InlineData("content apply content.json")]
+    [InlineData("content apply content.json --dry-run")]
+    [InlineData("content apply content.json --prune --yes")]
     [InlineData("media trash 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("media restore 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("media empty-recycle-bin")]

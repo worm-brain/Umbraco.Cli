@@ -554,4 +554,38 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         JsonNode body,
         CancellationToken ct = default
     ) => RecordWrite("template", id, body);
+
+    // ── Content snapshot raw-JSON access (IContentSnapshotClient, #100) ─────────
+    // Mirrors the schema harness: DocumentTree drives enumeration, DocumentRaw hands out canned
+    // bodies keyed by id, and creates/updates land in the shared RawWrites (kind "document").
+
+    /// <summary>The document placements returned by <see cref="GetDocumentTreeAsync"/> (pre-order).</summary>
+    public List<ContentTreeNode> DocumentTree { get; } = [];
+
+    /// <summary>Canned raw bodies returned by <see cref="GetDocumentRawAsync"/>, keyed by id.</summary>
+    public Dictionary<Guid, JsonNode> DocumentRaw { get; } = [];
+
+    public Task<UmbracoResponse<IReadOnlyList<ContentTreeNode>>> GetDocumentTreeAsync(
+        Guid? root = null,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<IReadOnlyList<ContentTreeNode>>.Success(DocumentTree.ToList())
+        );
+
+    public Task<UmbracoResponse<JsonNode>> GetDocumentRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => Raw(DocumentRaw, id);
+
+    public Task<UmbracoResponse<Empty>> CreateDocumentRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("document", null, body);
+
+    public Task<UmbracoResponse<Empty>> UpdateDocumentRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("document", id, body);
 }
