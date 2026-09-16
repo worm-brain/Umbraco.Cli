@@ -177,4 +177,5 @@ committed independently:
 - The diff engine is pure and client-free, so the hardest logic is the
   cheapest to test.
 - Content export/diff/apply, cross-version verification, and a `diff --exit-code`
-  CI gate are out of scope here and tracked as follow-ups.
+  CI gate are out of scope here and tracked as follow-ups. Content export/diff/apply
+  is now implemented as a parallel pipeline in [ADR 0006](0006-content-export-diff-apply.md).

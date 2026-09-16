@@ -17,8 +17,9 @@ Project-specific terms. Add entries as concepts are introduced.
   `scripts/regen-client.ps1`.
 - **Schema (in the pipeline sense)** — the structural definitions of an Umbraco
   site: document types, data types, and templates. Distinct from **content**
-  (the documents/media authored against that schema). Issue #68's first slice
-  covers schema; content is deferred. See [ADR 0005](adr/0005-schema-export-diff-apply.md).
+  (the documents/media authored against that schema). Schema export/diff/apply is
+  ADR 0005; the parallel pipeline for content is ADR 0006. See
+  [ADR 0005](adr/0005-schema-export-diff-apply.md).
 - **Snapshot** — a single JSON document produced by `schema export` holding the
   verbatim Management-API bodies of every document type, data type, and template
   (`{ schemaVersion, documentTypes[], dataTypes[], templates[] }`). The
@@ -32,12 +33,26 @@ Project-specific terms. Add entries as concepts are introduced.
   properties). Fine for `list`/`get` display; unusable for a faithful export,
   which is why the pipeline reads raw JSON instead.
 - **Identity / matching key** — how `diff`/`apply` pair a snapshot entity with a
-  live one: **GUID-primary, alias-fallback** (GUID `id` first; then `alias` for
-  doc types/templates, `name` for data types). Enables both same-instance
-  idempotency and cross-environment portability. See ADR 0005 §2.
+  live one. For **schema**: **GUID-primary, alias-fallback** (GUID `id` first; then
+  `alias` for doc types/templates, `name` for data types). See ADR 0005 §2. For
+  **content**: **GUID-only, no fallback** — documents have no stable natural key (a
+  name is per-culture and not unique), so identity is the document id and
+  portability depends on it being preserved. See ADR 0006 §2.
+- **Placement / parent drift** — content-only. A document's raw body does not carry
+  its parent, so a **content snapshot** stores each entry as `{ id, parent, body }`
+  (placement captured from the tree). When a live document's body matches the
+  snapshot but its parent differs, `content diff` reports it as **`Drifted`** —
+  advisory only: apply replaces bodies and creates documents in place, it does not
+  move existing documents. See ADR 0006 §1, §4.
+- **Scope root** — content-only. The `root` a `content export` was scoped to, stored
+  in the snapshot so `diff`/`apply` compare against the **same** live scope. Without
+  it a subtree snapshot's `--prune` would treat every out-of-scope document as
+  "removed" and delete it. See ADR 0006 §3.
 - **Prune** — the opt-in `apply --prune` behaviour of deleting live entities that
   the snapshot matches nothing to. Off by default (apply never deletes without
-  it); when on, the run is destructive and needs `--yes`. See ADR 0005 §4.
+  it); when on, the run is destructive and needs `--yes`. Schema gates prune on
+  `--yes` (ADR 0005 §4); content, being riskier, requires **both** `--prune` and
+  `--yes` (ADR 0006 §4).
 - **Snapshot format version** — the `schemaVersion` field *inside* a snapshot
   document (currently `"1"`), versioning the snapshot layout. Independent of the
   output envelope's `meta.schemaVersion` (the CLI's JSON contract version).

@@ -12,6 +12,7 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 - **Full Management API coverage** — content, media, document types, data types, languages, templates, members, users, dictionary items, webhooks
 - **Schema export / diff / apply** — dump document types, data types, and templates to a portable JSON snapshot, diff it against a live instance, and apply the difference (CI/agent-friendly, complements uSync); see [`schema`](#schema-export--diff--apply)
+- **Content export / diff / apply** — dump a content subtree to a portable snapshot with stable cross-environment identity, diff it, and reconcile a live instance towards it; see [`content`](#content-export--diff--apply)
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
 - **Cross-platform** — Windows, macOS, Linux via .NET 9
 - **OAuth2 auth** — Client Credentials stored in an OS-specific config file (see [Configuration](#configuration)); the secret is DPAPI-encrypted at rest on Windows and the file is restricted to your user on macOS/Linux. Environment-variable fallback for CI/CD
@@ -208,6 +209,9 @@ umbraco content empty-recycle-bin                          # permanent; needs --
 umbraco content move <id> [--parent <id>]
 umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished]
+umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
+umbraco content diff <snapshot>                            # diff a snapshot vs live (read-only)
+umbraco content apply <snapshot> [--prune] [--dry-run]     # reconcile; --prune deletes, needs --yes
 
 # Bulk ops over many ids (from --file or stdin), with a per-item results array:
 umbraco content bulk delete [--file ids.txt]        # permanent; needs --yes
@@ -366,8 +370,38 @@ How it works:
   writes nothing, `--readonly` (or `UMBRACO_READONLY=1`) blocks it, and the destructive `--prune`
   requires confirmation / `--yes`. Writes run in dependency order (data types -> templates ->
   document types, topologically sorted within each) and stop at the first failure.
-- **Scope** — this first slice covers schema only; content export/diff/apply is tracked as
-  follow-up issues.
+- **Scope** — this covers schema (document types, data types, templates). The parallel pipeline
+  for content is documented below under [`content (export / diff / apply)`](#content-export--diff--apply).
+
+### `content` (export / diff / apply)
+
+The content pipeline mirrors the schema one for documents (issue #100, ADR 0006), so the same
+`export` -> `diff` -> `apply` workflow moves content between environments and detects drift.
+
+```bash
+umbraco content export --out content.json                 # whole content tree
+umbraco content export --root <id> --out subtree.json     # a subtree (root included)
+umbraco content diff content.json                         # read-only
+umbraco content apply content.json --dry-run              # preview the whole plan
+umbraco content apply content.json                        # create + update
+umbraco content apply content.json --prune --yes          # also delete what the snapshot omits
+```
+
+- **Full fidelity** — each document is stored as its verbatim Management-API body, so nothing is
+  lost (all variants, all property values). A document's raw body does not carry its parent, so the
+  snapshot records placement separately: `{ contentVersion, root, documents[] }` where each entry is
+  `{ id, parent, body }`, in tree pre-order (parents before children).
+- **Identity** — documents are matched by **GUID only** (they have no stable natural key). Apply
+  recreates a document with its snapshot GUID (Umbraco 14+ honours a client-supplied id), so the
+  same content has the same identity in every environment.
+- **Scope-safe prune** — the snapshot records its export `root`, and diff/apply compare against the
+  same live scope, so a subtree snapshot's `--prune` can never delete documents outside the subtree.
+- **Safety** — `apply` respects the global guardrails; it creates/updates by default and requires
+  **both** `--prune` and `--yes` to delete. Creates run parent-first, deletes deepest-first, and the
+  run stops at the first failure.
+- **Out of scope** — property-value references (to media/other content by GUID) are not rewritten, so
+  referenced items must already exist in the target; and apply does not move existing documents (a
+  placement drift is reported by `diff` as `Drifted` but not applied).
 
 ---
 
