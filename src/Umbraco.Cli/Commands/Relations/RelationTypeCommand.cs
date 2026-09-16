@@ -1,0 +1,71 @@
+using System.CommandLine;
+using Umbraco.Cli.Client;
+
+namespace Umbraco.Cli.Commands.Relations;
+
+/// <summary>
+/// Wires the read-only <c>relation-type</c> noun (issue #118): list relation types and get one by id.
+/// The generated client exposes no create/update/delete for relation types.
+/// </summary>
+public static class RelationTypeCommand
+{
+    /// <summary>Builds the <c>relation-type</c> noun with its verbs.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command(
+            "relation-type",
+            "List and inspect relation types.\n\nExample:\n  umbraco relation-type list"
+        );
+        cmd.Add(BuildList(executor));
+        cmd.Add(BuildGet(executor));
+        return cmd;
+    }
+
+    private static Command BuildList(CommandExecutor executor)
+    {
+        var cmd = new Command("list", "List relation types.");
+        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
+        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 100 };
+        cmd.Add(skipOpt);
+        cmd.Add(takeOpt);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunTableAsync(
+                    parseResult,
+                    "relation-type.list",
+                    (client, c) =>
+                        client.GetRelationTypesAsync(
+                            parseResult.GetValue(skipOpt),
+                            parseResult.GetValue(takeOpt),
+                            c
+                        ),
+                    new[] { "Id", "Alias", "Name", "Bidirectional" },
+                    data =>
+                        (data?.Items ?? []).Select(t =>
+                            new[] { t.Id.ToString(), t.Alias, t.Name, t.IsBidirectional.ToString() }
+                        ),
+                    ct
+                )
+        );
+        return cmd;
+    }
+
+    private static Command BuildGet(CommandExecutor executor)
+    {
+        var cmd = new Command("get", "Get a relation type by UUID.");
+        var idArg = new Argument<Guid>("id") { Description = "Relation type ID." };
+        cmd.Add(idArg);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunObjectAsync(
+                    parseResult,
+                    "relation-type.get",
+                    (client, c) => client.GetRelationTypeByIdAsync(parseResult.GetValue(idArg), c),
+                    ct
+                )
+        );
+        return cmd;
+    }
+}

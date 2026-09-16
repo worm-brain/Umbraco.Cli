@@ -15,6 +15,8 @@ using Umbraco.Cli.Commands.MediaTypes;
 using Umbraco.Cli.Commands.MemberGroups;
 using Umbraco.Cli.Commands.Members;
 using Umbraco.Cli.Commands.MemberTypes;
+using Umbraco.Cli.Commands.Redirects;
+using Umbraco.Cli.Commands.Relations;
 using Umbraco.Cli.Commands.StaticFiles;
 using Umbraco.Cli.Commands.Tags;
 using Umbraco.Cli.Commands.Templates;
@@ -104,6 +106,9 @@ public class CommandParseTests
         root.Add(LogViewerCommand.Build(executor));
         root.Add(ModelsBuilderCommand.Build(executor));
         root.Add(ManifestCommand.Build(executor));
+        root.Add(RedirectCommand.Build(executor));
+        root.Add(RelationTypeCommand.Build(executor));
+        root.Add(RelationCommand.Build(executor));
 
         return root;
     }
@@ -161,6 +166,9 @@ public class CommandParseTests
     [InlineData("log-viewer")]
     [InlineData("models-builder")]
     [InlineData("manifest")]
+    [InlineData("redirect")]
+    [InlineData("relation-type")]
+    [InlineData("relation")]
     public void RootCommand_ContainsExpectedSubcommand(string subcommand)
     {
         var root = BuildRoot();
@@ -244,6 +252,9 @@ public class CommandParseTests
     )]
     [InlineData("models-builder", new[] { "dashboard", "status", "build" })]
     [InlineData("manifest", new[] { "list" })]
+    [InlineData("redirect", new[] { "list", "status", "delete", "tracking" })]
+    [InlineData("relation-type", new[] { "list", "get" })]
+    [InlineData("relation", new[] { "list" })]
     [InlineData("auth", new[] { "login", "logout", "whoami", "doctor" })]
     public void SubcommandGroup_ContainsExpectedVerbs(string group, string[] verbs)
     {
@@ -448,6 +459,16 @@ public class CommandParseTests
     [InlineData("models-builder build")]
     [InlineData("manifest list")]
     [InlineData("manifest list --scope Public")]
+    [InlineData("redirect list")]
+    [InlineData("redirect list --filter old --skip 0 --take 20")]
+    [InlineData("redirect list --content 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("redirect status")]
+    [InlineData("redirect delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("redirect tracking enable")]
+    [InlineData("redirect tracking disable")]
+    [InlineData("relation-type list")]
+    [InlineData("relation-type get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("relation list --type 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("member-types create --name Author --alias author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Author")]
     [InlineData("member-types update 3f7a8b2e-1234-5678-abcd-ef0123456789 --icon icon-user")]
@@ -513,6 +534,10 @@ public class CommandParseTests
     [InlineData("log-viewer log --take abc")] // non-integer take
     [InlineData("log-viewer log --level Nonsense")] // invalid log level rejected at parse time
     [InlineData("manifest list --scope Nonsense")] // invalid enum value
+    [InlineData("redirect delete not-a-uuid")]
+    [InlineData("relation-type get not-a-uuid")]
+    [InlineData("relation list")] // --type is required
+    [InlineData("relation list --type not-a-uuid")]
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]

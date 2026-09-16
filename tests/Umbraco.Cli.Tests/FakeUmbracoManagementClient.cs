@@ -1372,4 +1372,137 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
             UmbracoResponse<IReadOnlyList<ManifestResponse>>.Success(Manifests.ToList())
         );
     }
+
+    // ── Redirects + relations (#118) ────────────────────────────────────────────
+
+    /// <summary>Redirects the list method returns (seeded by a test).</summary>
+    public List<RedirectResponse> Redirects { get; } = [];
+
+    /// <summary>The content key of the last for-content list call, or null for a global list.</summary>
+    public Guid? LastRedirectContentKey { get; private set; }
+
+    /// <summary>The filter of the last global redirect list call.</summary>
+    public string? LastRedirectFilter { get; private set; }
+
+    /// <summary>Recorded redirect deletes.</summary>
+    public List<Guid> RedirectsDeleted { get; } = [];
+
+    /// <summary>Recorded tracking-toggle calls (the enabled state each set).</summary>
+    public List<bool> RedirectTrackingSet { get; } = [];
+
+    /// <summary>Relation types the list/get methods return (seeded by a test).</summary>
+    public List<RelationTypeResponse> RelationTypes { get; } = [];
+
+    /// <summary>Relations the list method returns (seeded by a test).</summary>
+    public List<RelationResponse> Relations { get; } = [];
+
+    /// <summary>The relation-type id of the last relation list call.</summary>
+    public Guid? LastRelationTypeQueried { get; private set; }
+
+    public Task<UmbracoResponse<PagedResponse<RedirectResponse>>> GetRedirectsAsync(
+        string? filter = null,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    )
+    {
+        LastRedirectFilter = filter;
+        LastRedirectContentKey = null;
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<RedirectResponse>>.Success(
+                new PagedResponse<RedirectResponse>
+                {
+                    Total = Redirects.Count,
+                    Items = Redirects.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<PagedResponse<RedirectResponse>>> GetRedirectsForContentAsync(
+        Guid contentKey,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    )
+    {
+        LastRedirectContentKey = contentKey;
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<RedirectResponse>>.Success(
+                new PagedResponse<RedirectResponse>
+                {
+                    Total = Redirects.Count,
+                    Items = Redirects.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<RedirectStatusResponse>> GetRedirectStatusAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<RedirectStatusResponse>.Success(
+                new RedirectStatusResponse { Enabled = true, UserIsAdmin = true }
+            )
+        );
+
+    public Task<UmbracoResponse<Empty>> DeleteRedirectAsync(Guid id, CancellationToken ct = default)
+    {
+        RedirectsDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<Empty>> SetRedirectTrackingAsync(
+        bool enabled,
+        CancellationToken ct = default
+    )
+    {
+        RedirectTrackingSet.Add(enabled);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    public Task<UmbracoResponse<PagedResponse<RelationTypeResponse>>> GetRelationTypesAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<RelationTypeResponse>>.Success(
+                new PagedResponse<RelationTypeResponse>
+                {
+                    Total = RelationTypes.Count,
+                    Items = RelationTypes.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+
+    public Task<UmbracoResponse<RelationTypeResponse>> GetRelationTypeByIdAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            RelationTypes.FirstOrDefault(t => t.Id == id) is { } t
+                ? UmbracoResponse<RelationTypeResponse>.Success(t)
+                : UmbracoResponse<RelationTypeResponse>.Failure(404, $"Not found: {id}")
+        );
+
+    public Task<UmbracoResponse<PagedResponse<RelationResponse>>> GetRelationsByTypeAsync(
+        Guid relationTypeId,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    )
+    {
+        LastRelationTypeQueried = relationTypeId;
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<RelationResponse>>.Success(
+                new PagedResponse<RelationResponse>
+                {
+                    Total = Relations.Count,
+                    Items = Relations.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
 }
