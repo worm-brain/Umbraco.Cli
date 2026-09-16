@@ -10,7 +10,7 @@ A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distribu
 
 ## Features
 
-- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures, user groups, user data
+- **Full Management API coverage** — content, media, document types, data types, languages, templates, members, member groups, users, dictionary items, webhooks, scripts, stylesheets, partial views, tags, cultures, user groups, user data, document blueprints
 - **Schema export / diff / apply** — dump document types, data types, and templates to a portable JSON snapshot, diff it against a live instance, and apply the difference (CI/agent-friendly, complements uSync); see [`schema`](#schema-export--diff--apply)
 - **Content export / diff / apply** — dump a content subtree to a portable snapshot with stable cross-environment identity, diff it, and reconcile a live instance towards it; see [`content`](#content-export--diff--apply)
 - **AI-friendly** — JSON output by default when stdout is not a TTY; consistent envelope with `status`, `data`, and `meta` fields
@@ -228,6 +228,27 @@ umbraco content list --fields id | jq -r '.[].id' | umbraco content bulk publish
 Each id is reported independently in the `data` results array (`{"id", "status", "error"}`); the exit code is `1` if any item failed. A bulk `delete` is gated by a single confirmation (`--yes` required non-interactively) — it never prompts per item.
 
 All create commands accept an optional `--id <guid>` for **idempotent creates** (Umbraco 14+ honours a client-supplied id), so re-running a provisioning script does not create duplicates.
+
+### `document-blueprint`
+
+Content templates (blueprints) authors start a new document from — keyed off a document type. `get`/`scaffold` return raw JSON (full fidelity); `create`/`update` mirror `content create` (scalar flags OR `--json-body` OR `--schema`).
+
+```bash
+umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>]   # --parent lists a folder's children
+umbraco document-blueprint get <id>                        # raw JSON (full fidelity)
+umbraco document-blueprint scaffold <id>                   # pre-filled create template Umbraco would use
+umbraco document-blueprint create --document-type <alias|uuid> --name <name> [--parent <folder>] [--json-body <file>] [--schema] [--id <guid>]
+umbraco document-blueprint update <id> [--name <name>] [--json-body <file>] [--schema]
+umbraco document-blueprint delete <id>                     # needs --yes non-interactively
+umbraco document-blueprint from-document <documentId> --name <name> [--parent <folder>] [--id <guid>]
+umbraco document-blueprint move <id> [--target <folder>]   # omit --target to move to the root
+
+# folder sub-noun (organise blueprints in the tree):
+umbraco document-blueprint folder get <id>
+umbraco document-blueprint folder create --name <name> [--parent <folder>] [--id <guid>]
+umbraco document-blueprint folder update <id> --name <name>
+umbraco document-blueprint folder delete <id>             # needs --yes non-interactively
+```
 
 ### `media`
 

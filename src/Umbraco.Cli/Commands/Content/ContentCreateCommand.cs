@@ -33,29 +33,21 @@ public static class ContentCreateCommand
         {
             Description = "Parent content item UUID. Omit to create at the root.",
         };
-        var bodyOpt = new Option<string?>("--json-body")
-        {
-            Description =
-                "Path to a JSON file (or - for stdin) containing the full create request body "
-                + "(overrides other flags).",
-        };
-        var schemaOpt = new Option<bool>("--schema")
-        {
-            Description =
-                "Print the JSON Schema for the --json-body request and exit (no host/auth needed).",
-        };
+        var body = new JsonBodyOption(
+            "Path to a JSON file (or - for stdin) containing the full create request body "
+                + "(overrides other flags)."
+        );
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
-        cmd.Add(bodyOpt);
-        cmd.Add(schemaOpt);
+        body.AddTo(cmd);
 
         // Parse-level conditional requirement: unless --schema (describe-and-exit) or a
         // --json-body is given, both --content-type and --name are required. Emitting this as a
         // parse error keeps usage help and a fast, local, argument-level failure.
         cmd.Validators.Add(result =>
         {
-            if (result.GetValue(schemaOpt) || !string.IsNullOrEmpty(result.GetValue(bodyOpt)))
+            if (body.SchemaRequested(result) || body.HasBody(result))
                 return;
             if (
                 string.IsNullOrEmpty(result.GetValue(typeOpt))
@@ -72,7 +64,7 @@ public static class ContentCreateCommand
             {
                 // --schema is a local describe-and-exit (like --help): print the body schema
                 // without touching the API.
-                if (parseResult.GetValue(schemaOpt))
+                if (body.SchemaRequested(parseResult))
                 {
                     JsonBodySchema.Print<CreateContentRequest>();
                     return Task.FromResult(0);
@@ -84,10 +76,9 @@ public static class ContentCreateCommand
                     async (client, c) =>
                     {
                         CreateContentRequest request;
-                        var bodySource = parseResult.GetValue(bodyOpt);
-                        if (!string.IsNullOrEmpty(bodySource))
+                        if (body.HasBody(parseResult))
                         {
-                            var json = await JsonBodyInput.ReadAsync(bodySource, c);
+                            var json = await body.ReadAsync(parseResult, c);
                             request =
                                 JsonSerializer.Deserialize<CreateContentRequest>(json)
                                 ?? throw new InvalidOperationException("Invalid JSON body.");
