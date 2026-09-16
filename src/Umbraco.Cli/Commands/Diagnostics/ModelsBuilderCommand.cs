@@ -19,39 +19,25 @@ public static class ModelsBuilderCommand
             "models-builder",
             "Inspect and trigger the Umbraco models builder.\n\nExamples:\n  umbraco models-builder dashboard\n  umbraco models-builder build --yes"
         );
-        cmd.Add(BuildDashboard(executor));
-        cmd.Add(BuildStatus(executor));
+        cmd.Add(
+            DiagnosticsVerb.Object(
+                executor,
+                "dashboard",
+                "Show the models-builder dashboard status.",
+                "models-builder.dashboard",
+                (c, ct) => c.GetModelsBuilderDashboardAsync(ct)
+            )
+        );
+        cmd.Add(
+            DiagnosticsVerb.Object(
+                executor,
+                "status",
+                "Show whether the generated models are out of date.",
+                "models-builder.status",
+                (c, ct) => c.GetModelsBuilderStatusAsync(ct)
+            )
+        );
         cmd.Add(BuildBuild(executor));
-        return cmd;
-    }
-
-    private static Command BuildDashboard(CommandExecutor executor)
-    {
-        var cmd = new Command("dashboard", "Show the models-builder dashboard status.");
-        cmd.SetAction(
-            (parseResult, ct) =>
-                executor.RunObjectAsync(
-                    parseResult,
-                    "models-builder.dashboard",
-                    (client, c) => client.GetModelsBuilderDashboardAsync(c),
-                    ct
-                )
-        );
-        return cmd;
-    }
-
-    private static Command BuildStatus(CommandExecutor executor)
-    {
-        var cmd = new Command("status", "Show whether the generated models are out of date.");
-        cmd.SetAction(
-            (parseResult, ct) =>
-                executor.RunObjectAsync(
-                    parseResult,
-                    "models-builder.status",
-                    (client, c) => client.GetModelsBuilderStatusAsync(c),
-                    ct
-                )
-        );
         return cmd;
     }
 

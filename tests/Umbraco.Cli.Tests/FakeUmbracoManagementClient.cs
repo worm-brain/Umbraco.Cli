@@ -1227,7 +1227,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public (
         int Skip,
         int Take,
-        IReadOnlyList<string>? Levels,
+        IReadOnlyList<LogLevel>? Levels,
         string? Filter,
         DateTimeOffset? Start,
         DateTimeOffset? End,
@@ -1243,7 +1243,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<PagedResponse<LogMessageResponse>>> GetLogsAsync(
         int skip = 0,
         int take = 100,
-        IReadOnlyList<string>? levels = null,
+        IReadOnlyList<LogLevel>? levels = null,
         string? filterExpression = null,
         DateTimeOffset? startDate = null,
         DateTimeOffset? endDate = null,

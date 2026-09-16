@@ -511,6 +511,7 @@ public class CommandParseTests
     [InlineData("health run")] // missing group name argument
     [InlineData("log-viewer saved-search create --name Errors")] // missing required --query
     [InlineData("log-viewer log --take abc")] // non-integer take
+    [InlineData("log-viewer log --level Nonsense")] // invalid log level rejected at parse time
     [InlineData("manifest list --scope Nonsense")] // invalid enum value
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]

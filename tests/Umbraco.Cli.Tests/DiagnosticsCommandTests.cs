@@ -111,7 +111,7 @@ public class DiagnosticsCommandTests
         Assert.Equal(0, exit);
         Assert.NotNull(fake.LastLogQuery);
         Assert.Equal(25, fake.LastLogQuery!.Value.Take);
-        Assert.Equal(["Error", "Warning"], fake.LastLogQuery.Value.Levels);
+        Assert.Equal([LogLevel.Error, LogLevel.Warning], fake.LastLogQuery.Value.Levels);
         Assert.True(fake.LastLogQuery.Value.Descending); // default order
     }
 

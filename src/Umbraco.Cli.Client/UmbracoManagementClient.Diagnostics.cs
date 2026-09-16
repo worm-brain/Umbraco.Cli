@@ -187,7 +187,7 @@ public sealed partial class UmbracoManagementClient
     public Task<UmbracoResponse<PagedResponse<LogMessageResponse>>> GetLogsAsync(
         int skip = 0,
         int take = 100,
-        IReadOnlyList<string>? levels = null,
+        IReadOnlyList<LogLevel>? levels = null,
         string? filterExpression = null,
         DateTimeOffset? startDate = null,
         DateTimeOffset? endDate = null,
@@ -198,7 +198,7 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var parsedLevels = ParseLogLevels(levels);
+                var parsedLevels = (levels ?? []).Select(ToGenLogLevel).ToArray();
                 var paged = await _api.Umbraco.Management.Api.V1.LogViewer.Log.GetAsync(
                     c =>
                     {
@@ -487,20 +487,18 @@ public sealed partial class UmbracoManagementClient
             }
         );
 
-    /// <summary>
-    /// Parses caller-supplied level names (e.g. "Error", "warning") into the generated
-    /// <see cref="Gen.LogLevelModel"/> enum, ignoring any that do not match a known level.
-    /// </summary>
-    /// <param name="levels">The raw level names, or null.</param>
-    /// <returns>The parsed levels (empty when none supplied or none matched).</returns>
-    private static Gen.LogLevelModel[] ParseLogLevels(IReadOnlyList<string>? levels) =>
-        (levels ?? [])
-            .Select(l =>
-                Enum.TryParse<Gen.LogLevelModel>(l, ignoreCase: true, out var parsed)
-                    ? parsed
-                    : (Gen.LogLevelModel?)null
-            )
-            .Where(l => l is not null)
-            .Select(l => l!.Value)
-            .ToArray();
+    /// <summary>Maps a command-facing <see cref="LogLevel"/> to the generated log-level enum.</summary>
+    /// <param name="level">The command-facing level (already validated at parse time).</param>
+    /// <returns>The equivalent <see cref="Gen.LogLevelModel"/>.</returns>
+    private static Gen.LogLevelModel ToGenLogLevel(LogLevel level) =>
+        level switch
+        {
+            LogLevel.Verbose => Gen.LogLevelModel.Verbose,
+            LogLevel.Debug => Gen.LogLevelModel.Debug,
+            LogLevel.Information => Gen.LogLevelModel.Information,
+            LogLevel.Warning => Gen.LogLevelModel.Warning,
+            LogLevel.Error => Gen.LogLevelModel.Error,
+            LogLevel.Fatal => Gen.LogLevelModel.Fatal,
+            _ => Gen.LogLevelModel.Information,
+        };
 }

@@ -35,7 +35,7 @@ public static class LogViewerCommand
         );
         var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
         var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 100 };
-        var levelOpt = new Option<string[]>("--level")
+        var levelOpt = new Option<LogLevel[]>("--level")
         {
             AllowMultipleArgumentsPerToken = true,
             Description =

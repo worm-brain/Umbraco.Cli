@@ -85,7 +85,7 @@ public interface ILogViewerClient
     Task<UmbracoResponse<PagedResponse<LogMessageResponse>>> GetLogsAsync(
         int skip = 0,
         int take = 100,
-        IReadOnlyList<string>? levels = null,
+        IReadOnlyList<LogLevel>? levels = null,
         string? filterExpression = null,
         DateTimeOffset? startDate = null,
         DateTimeOffset? endDate = null,
@@ -196,6 +196,32 @@ public interface IManifestClient
         ManifestScope scope = ManifestScope.All,
         CancellationToken ct = default
     );
+}
+
+/// <summary>
+/// Log levels for the <c>log-viewer log</c> filter (issue #115). Mirrors the Management API's log
+/// levels; a typed option means an unknown level is rejected at parse time rather than silently
+/// dropped.
+/// </summary>
+public enum LogLevel
+{
+    /// <summary>Verbose (most detailed).</summary>
+    Verbose,
+
+    /// <summary>Debug.</summary>
+    Debug,
+
+    /// <summary>Information.</summary>
+    Information,
+
+    /// <summary>Warning.</summary>
+    Warning,
+
+    /// <summary>Error.</summary>
+    Error,
+
+    /// <summary>Fatal (most severe).</summary>
+    Fatal,
 }
 
 /// <summary>Which manifests to list (issue #115).</summary>

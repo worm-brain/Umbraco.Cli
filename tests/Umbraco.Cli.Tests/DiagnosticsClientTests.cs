@@ -92,7 +92,7 @@ public class DiagnosticsClientTests
         var result = await client.GetLogsAsync(
             0,
             50,
-            levels: ["Error"],
+            levels: [LogLevel.Error],
             filterExpression: null,
             startDate: null,
             endDate: null,
