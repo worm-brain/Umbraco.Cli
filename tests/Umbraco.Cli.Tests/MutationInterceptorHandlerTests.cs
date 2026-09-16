@@ -65,6 +65,38 @@ public class MutationInterceptorHandlerTests
     }
 
     [Fact]
+    public async Task Preview_TemporaryFileStaging_FakedNotForwardedAndDoesNotThrow()
+    {
+        // #79/#62: the media upload stages bytes to temporary-file before the media create.
+        // Under dry-run that staging must not be forwarded (nothing staged) yet must not abort
+        // the flow either - so it is faked with a success response, letting the following media
+        // create POST be the mutation that is actually previewed.
+        var (client, inner) = Build(MutationInterceptPolicy.Preview);
+
+        var response = await client.PostAsync(
+            "umbraco/management/api/v1/temporary-file",
+            new StringContent("multipart-body")
+        );
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.False(inner.WasCalled); // faked, not sent to the wire
+    }
+
+    [Fact]
+    public async Task Preview_MediaCreateAfterStaging_IsThePreviewedMutation()
+    {
+        // The media create POST that follows the faked staging is captured as the dry-run
+        // preview, exactly like any other write.
+        var (client, _) = Build(MutationInterceptPolicy.Preview);
+
+        var ex = await Assert.ThrowsAsync<DryRunException>(() =>
+            client.PostAsync("umbraco/management/api/v1/media", new StringContent("""{"id":"x"}"""))
+        );
+
+        Assert.EndsWith("/umbraco/management/api/v1/media", ex.Url);
+    }
+
+    [Fact]
     public async Task Block_MutatingRequest_ThrowsReadOnlyAndDoesNotSend()
     {
         // #69: under Block (--readonly) a write is refused before it reaches the wire.

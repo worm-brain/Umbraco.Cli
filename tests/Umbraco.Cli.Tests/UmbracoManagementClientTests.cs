@@ -816,17 +816,12 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task UploadMediaAsync_WithLocationHeader_StillEchoesName()
+    public async Task UploadMediaAsync_EmptyCreateBody_EchoesClientGeneratedIdAndName()
     {
-        // Review fix: when the media create returns a Location header, created.Data is hydrated
-        // with a non-empty id — the client must still echo the intended name (not blank it) and
-        // surface the server-returned id.
-        var serverId = Guid.NewGuid();
-        var handler = new StubHandler(
-            "",
-            HttpStatusCode.Created,
-            location: $"/umbraco/management/api/v1/media/{serverId}"
-        );
+        // #79: on the generated client the media create is a void POST (empty 201, and Kiota does
+        // not surface the Location header), so the returned id is the client-generated one and the
+        // name is echoed - the returned payload reflects the accepted request, not a re-read.
+        var handler = new StubHandler("", HttpStatusCode.Created);
         var client = new UmbracoManagementClient(
             new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") }
         );
@@ -843,8 +838,8 @@ public class UmbracoManagementClientTests
         );
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Logo", result.Data!.Name); // not blanked
-        Assert.Equal(serverId, result.Data.Id); // server id preferred
+        Assert.Equal("Logo", result.Data!.Name); // echoed, not blanked (#74)
+        Assert.NotEqual(Guid.Empty, result.Data.Id); // client-generated id
     }
 
     [Fact]
@@ -1181,18 +1176,35 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task CreateMemberAsync_201EmptyBody_IsSuccessWithIdFromLocation()
+    public async Task CreateMemberAsync_ResolvesTypeAliasAndEchoesRequest()
     {
-        // #43 guard for the creates still on the hand-written path (content/member): a 201
-        // with an empty body must succeed and surface the new id parsed from the Location
-        // header. (Migrated creates supply a client GUID instead; this keeps the Location
-        // path covered until #79 finishes the migration - the migrated webhook create used to
-        // be this test's subject.)
-        var id = Guid.NewGuid();
-        var (client, _) = ClientReturning(
-            "",
-            HttpStatusCode.Created,
-            location: $"/umbraco/management/api/v1/member/{id}"
+        // #79: member create resolves the member-type alias to an id (tree walk then GET-by-id
+        // alias match - the item search indexes names, not aliases), then POSTs with a
+        // client-supplied id and echoes the accepted request (the create response is empty). The
+        // POST body carries the resolved member-type id and the name as a variant.
+        var memberTypeId = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r =>
+                    r.Method == HttpMethod.Get
+                    && r.RequestUri!.AbsoluteUri.Contains("tree/member-type/root"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{memberTypeId}}","name":"Member","isFolder":false}]}"""
+            )
+            .When(
+                r =>
+                    r.Method == HttpMethod.Get
+                    && r.RequestUri!.AbsoluteUri.Contains($"member-type/{memberTypeId}"),
+                HttpStatusCode.OK,
+                $$"""{"id":"{{memberTypeId}}","alias":"member","name":"Member"}"""
+            )
+            .When(
+                r => r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/member"),
+                HttpStatusCode.Created,
+                ""
+            );
+        var client = new UmbracoManagementClient(
+            new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") }
         );
 
         var result = await client.CreateMemberAsync(
@@ -1206,7 +1218,42 @@ public class UmbracoManagementClientTests
         );
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(id, result.Data!.Id);
+        Assert.NotEqual(Guid.Empty, result.Data!.Id);
+        Assert.Equal("m@example.com", result.Data.Email);
+        Assert.Equal("M", result.Data.Name);
+        var postBody = handler.BodyForFirst(r =>
+            r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/member")
+        );
+        Assert.Contains(memberTypeId.ToString(), postBody);
+        Assert.Contains("\"M\"", postBody); // name carried as a variant
+    }
+
+    [Fact]
+    public async Task CreateMemberAsync_UnknownTypeAlias_Returns404()
+    {
+        // An unresolvable member-type alias yields a clean 404 and never POSTs a member.
+        var handler = new RoutingHandler().When(
+            r => r.Method == HttpMethod.Get,
+            HttpStatusCode.OK,
+            """{"total":0,"items":[]}"""
+        );
+        var client = new UmbracoManagementClient(
+            new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") }
+        );
+
+        var result = await client.CreateMemberAsync(
+            new CreateMemberRequest
+            {
+                Email = "m@example.com",
+                Name = "M",
+                MemberType = new ContentTypeReference { Alias = "nope" },
+            },
+            CancellationToken.None
+        );
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(404, result.StatusCode);
+        Assert.DoesNotContain(handler.Requests, u => u.AbsolutePath.EndsWith("/member"));
     }
 
     [Fact]
