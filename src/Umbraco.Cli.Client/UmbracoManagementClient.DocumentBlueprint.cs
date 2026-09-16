@@ -315,38 +315,11 @@ public sealed partial class UmbracoManagementClient
         {
             return await GetRawJsonAsync($"{BlueprintPath}/{id}", ct);
         }
-        catch
+        // Best-effort: a failed hydration read still reports the successful create. A cancellation,
+        // however, must propagate rather than be masked as a hydration miss.
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             return new JsonObject { ["id"] = id.ToString() };
         }
     }
-
-    /// <summary>Maps command-facing variants to the generated request shape.</summary>
-    /// <param name="variants">The command-facing variants.</param>
-    /// <returns>The generated variant models.</returns>
-    private static List<Gen.DocumentVariantRequestModel> MapVariants(
-        IEnumerable<ContentVariant> variants
-    ) =>
-        variants
-            .Select(v => new Gen.DocumentVariantRequestModel
-            {
-                Name = v.Name,
-                Culture = v.Culture,
-                Segment = v.Segment,
-            })
-            .ToList();
-
-    /// <summary>Maps command-facing values to the generated request shape (JSON to UntypedNode).</summary>
-    /// <param name="values">The command-facing values.</param>
-    /// <returns>The generated value models.</returns>
-    private static List<Gen.DocumentValueModel> MapValues(IEnumerable<ContentValue> values) =>
-        values
-            .Select(cv => new Gen.DocumentValueModel
-            {
-                Alias = cv.Alias,
-                Culture = cv.Culture,
-                Segment = cv.Segment,
-                Value = UntypedNodeFactory.FromValue(cv.Value),
-            })
-            .ToList();
 }

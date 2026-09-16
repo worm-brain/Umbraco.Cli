@@ -387,23 +387,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Parent = request.Parent is { } p
                         ? new Gen.ReferenceByIdModel { Id = p.Id }
                         : null,
-                    Variants = request
-                        .Variants.Select(v => new Gen.DocumentVariantRequestModel
-                        {
-                            Name = v.Name,
-                            Culture = v.Culture,
-                            Segment = v.Segment,
-                        })
-                        .ToList(),
-                    Values = request
-                        .Values.Select(cv => new Gen.DocumentValueModel
-                        {
-                            Alias = cv.Alias,
-                            Culture = cv.Culture,
-                            Segment = cv.Segment,
-                            Value = UntypedNodeFactory.FromValue(cv.Value),
-                        })
-                        .ToList(),
+                    Variants = MapVariants(request.Variants),
+                    Values = MapValues(request.Values),
                 };
                 await _api.Umbraco.Management.Api.V1.Document.PostAsync(
                     body,
@@ -442,23 +427,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             {
                 var body = new Gen.UpdateDocumentRequestModel
                 {
-                    Variants = request
-                        .Variants.Select(v => new Gen.DocumentVariantRequestModel
-                        {
-                            Name = v.Name,
-                            Culture = v.Culture,
-                            Segment = v.Segment,
-                        })
-                        .ToList(),
-                    Values = request
-                        .Values.Select(cv => new Gen.DocumentValueModel
-                        {
-                            Alias = cv.Alias,
-                            Culture = cv.Culture,
-                            Segment = cv.Segment,
-                            Value = UntypedNodeFactory.FromValue(cv.Value),
-                        })
-                        .ToList(),
+                    Variants = MapVariants(request.Variants),
+                    Values = MapValues(request.Values),
                 };
                 await _api
                     .Umbraco.Management.Api.V1.Document[id]
@@ -470,6 +440,41 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return new ContentItemResponse { Id = id };
             }
         );
+
+    /// <summary>
+    /// Maps command-facing variants to the generated document variant shape. Shared by the document
+    /// (content) and document-blueprint write paths, which use the same variant contract.
+    /// </summary>
+    /// <param name="variants">The command-facing variants.</param>
+    /// <returns>The generated variant models.</returns>
+    private static List<Gen.DocumentVariantRequestModel> MapVariants(
+        IEnumerable<ContentVariant> variants
+    ) =>
+        variants
+            .Select(v => new Gen.DocumentVariantRequestModel
+            {
+                Name = v.Name,
+                Culture = v.Culture,
+                Segment = v.Segment,
+            })
+            .ToList();
+
+    /// <summary>
+    /// Maps command-facing values to the generated document value shape, converting each JSON value
+    /// to an <c>UntypedNode</c>. Shared by the document (content) and document-blueprint write paths.
+    /// </summary>
+    /// <param name="values">The command-facing values.</param>
+    /// <returns>The generated value models.</returns>
+    private static List<Gen.DocumentValueModel> MapValues(IEnumerable<ContentValue> values) =>
+        values
+            .Select(cv => new Gen.DocumentValueModel
+            {
+                Alias = cv.Alias,
+                Culture = cv.Culture,
+                Segment = cv.Segment,
+                Value = UntypedNodeFactory.FromValue(cv.Value),
+            })
+            .ToList();
 
     /// <summary>Deletes a content item via <c>DELETE document/{id}</c> (generated client).</summary>
     /// <param name="id">The content item id.</param>

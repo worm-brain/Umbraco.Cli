@@ -139,29 +139,22 @@ public static class DocumentBlueprintCommand
         {
             Description = "Parent folder UUID. Omit to create at the blueprint root.",
         };
-        var bodyOpt = new Option<string?>("--json-body")
-        {
-            Description =
-                "Path to a JSON file (or - for stdin) with the full create body (overrides flags).",
-        };
+        var body = new JsonBodyOption(
+            "Path to a JSON file (or - for stdin) with the full create body (overrides flags)."
+        );
         var idOpt = new Option<Guid?>("--id")
         {
             Description = "Optional client-supplied UUID for an idempotent create (#86).",
         };
-        var schemaOpt = new Option<bool>("--schema")
-        {
-            Description = "Print the JSON body schema and exit (no host/auth needed).",
-        };
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
-        cmd.Add(bodyOpt);
+        body.AddTo(cmd);
         cmd.Add(idOpt);
-        cmd.Add(schemaOpt);
 
         cmd.Validators.Add(result =>
         {
-            if (result.GetValue(schemaOpt) || !string.IsNullOrEmpty(result.GetValue(bodyOpt)))
+            if (body.SchemaRequested(result) || body.HasBody(result))
                 return;
             if (
                 string.IsNullOrEmpty(result.GetValue(typeOpt))
@@ -176,7 +169,7 @@ public static class DocumentBlueprintCommand
         cmd.SetAction(
             (parseResult, ct) =>
             {
-                if (parseResult.GetValue(schemaOpt))
+                if (body.SchemaRequested(parseResult))
                 {
                     JsonBodySchema.Print<CreateDocumentBlueprintRequest>();
                     return Task.FromResult(0);
@@ -188,10 +181,9 @@ public static class DocumentBlueprintCommand
                     async (client, c) =>
                     {
                         CreateDocumentBlueprintRequest request;
-                        var bodySource = parseResult.GetValue(bodyOpt);
-                        if (!string.IsNullOrEmpty(bodySource))
+                        if (body.HasBody(parseResult))
                         {
-                            var json = await JsonBodyInput.ReadAsync(bodySource, c);
+                            var json = await body.ReadAsync(parseResult, c);
                             request =
                                 JsonSerializer.Deserialize<CreateDocumentBlueprintRequest>(json)
                                 ?? throw new InvalidOperationException("Invalid JSON body.");
@@ -241,32 +233,22 @@ public static class DocumentBlueprintCommand
                 "New display name (sets a single invariant variant). "
                 + "Required unless --json-body or --schema is used.",
         };
-        var bodyOpt = new Option<string?>("--json-body")
-        {
-            Description =
-                "Path to a JSON file (or - for stdin) with the full update body (overrides --name).",
-        };
-        var schemaOpt = new Option<bool>("--schema")
-        {
-            Description = "Print the JSON body schema and exit (no host/auth needed).",
-        };
+        var body = new JsonBodyOption(
+            "Path to a JSON file (or - for stdin) with the full update body (overrides --name)."
+        );
         cmd.Add(idArg);
         cmd.Add(nameOpt);
-        cmd.Add(bodyOpt);
-        cmd.Add(schemaOpt);
+        body.AddTo(cmd);
 
         cmd.Validators.Add(result =>
         {
-            if (result.GetValue(schemaOpt))
+            if (body.SchemaRequested(result))
                 return;
             if (result.GetValue(idArg) is null)
                 result.AddError(
                     "Supply the blueprint id. Run with --schema to see the body shape."
                 );
-            if (
-                string.IsNullOrEmpty(result.GetValue(bodyOpt))
-                && string.IsNullOrEmpty(result.GetValue(nameOpt))
-            )
+            if (!body.HasBody(result) && string.IsNullOrEmpty(result.GetValue(nameOpt)))
                 result.AddError(
                     "Supply --name, or --json-body. Run with --schema to see the JSON body shape."
                 );
@@ -275,7 +257,7 @@ public static class DocumentBlueprintCommand
         cmd.SetAction(
             (parseResult, ct) =>
             {
-                if (parseResult.GetValue(schemaOpt))
+                if (body.SchemaRequested(parseResult))
                 {
                     JsonBodySchema.Print<UpdateDocumentBlueprintRequest>();
                     return Task.FromResult(0);
@@ -287,10 +269,9 @@ public static class DocumentBlueprintCommand
                     async (client, c) =>
                     {
                         UpdateDocumentBlueprintRequest request;
-                        var bodySource = parseResult.GetValue(bodyOpt);
-                        if (!string.IsNullOrEmpty(bodySource))
+                        if (body.HasBody(parseResult))
                         {
-                            var json = await JsonBodyInput.ReadAsync(bodySource, c);
+                            var json = await body.ReadAsync(parseResult, c);
                             request =
                                 JsonSerializer.Deserialize<UpdateDocumentBlueprintRequest>(json)
                                 ?? throw new InvalidOperationException("Invalid JSON body.");
