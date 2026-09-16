@@ -191,6 +191,53 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task GetDocumentTypesAsync_FiltersOutFolders()
+    {
+        // #97: the tree root includes folders whose ids 404 on `get`. They must not appear in the
+        // list, so the list->get chain is reliable.
+        var typeId = Guid.NewGuid();
+        var folderId = Guid.NewGuid();
+        var json = $$"""
+            {
+              "total": 2,
+              "items": [
+                { "id": "{{typeId}}", "name": "Text Page", "isFolder": false },
+                { "id": "{{folderId}}", "name": "Pages", "isFolder": true }
+              ]
+            }
+            """;
+        var (client, _) = ClientReturning(json);
+
+        var result = await client.GetDocumentTypesAsync(ct: CancellationToken.None);
+
+        var item = Assert.Single(result.Data!.Items);
+        Assert.Equal(typeId, item.Id);
+        Assert.False(item.IsFolder);
+    }
+
+    [Fact]
+    public async Task GetMediaTypesAsync_FiltersOutFolders()
+    {
+        // #97: same folder-filtering for the media-type tree root.
+        var typeId = Guid.NewGuid();
+        var json = $$"""
+            {
+              "total": 2,
+              "items": [
+                { "id": "{{typeId}}", "name": "Image", "isFolder": false },
+                { "id": "{{Guid.NewGuid()}}", "name": "Assets", "isFolder": true }
+              ]
+            }
+            """;
+        var (client, _) = ClientReturning(json);
+
+        var result = await client.GetMediaTypesAsync(ct: CancellationToken.None);
+
+        var item = Assert.Single(result.Data!.Items);
+        Assert.Equal(typeId, item.Id);
+    }
+
+    [Fact]
     public async Task CreateWebhookAsync_WithNameAndDescription_EchoesAndSendsThem()
     {
         // #80: name/description are sent in the request body and echoed on the response (the

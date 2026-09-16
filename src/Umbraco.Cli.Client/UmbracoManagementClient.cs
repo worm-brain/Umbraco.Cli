@@ -1122,12 +1122,17 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return new PagedResponse<MediaTypeResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
+                    // #97: the media-type tree root includes folders (containers), whose ids 404 on
+                    // `get`. Filter them so the list->get chain is reliable. Total still reflects the
+                    // API's unfiltered per-page count, so a page may return fewer than `take`.
                     Items = (paged?.Items ?? [])
+                        .Where(i => !(i.IsFolder ?? false))
                         .Select(i => new MediaTypeResponse
                         {
                             Id = i.Id ?? Guid.Empty,
                             Name = i.Name ?? "",
                             Icon = i.Icon,
+                            IsFolder = i.IsFolder ?? false,
                         })
                         .ToList(),
                 };
@@ -1264,12 +1269,17 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return new PagedResponse<DocumentTypeResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
+                    // #97: the document-type tree root includes folders (containers), whose ids 404
+                    // on `get`. Filter them so the list->get chain is reliable. Total still reflects
+                    // the API's unfiltered per-page count, so a page may return fewer than `take`.
                     Items = (paged?.Items ?? [])
+                        .Where(i => !(i.IsFolder ?? false))
                         .Select(i => new DocumentTypeResponse
                         {
                             Id = i.Id ?? Guid.Empty,
                             Name = i.Name ?? "",
                             IsElement = i.IsElement ?? false,
+                            IsFolder = i.IsFolder ?? false,
                         })
                         .ToList(),
                 };
