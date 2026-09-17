@@ -196,6 +196,54 @@ public sealed class CommandIntegrationTests
     }
 
     [SkippableFact]
+    public void Member_CreateAndGet_RoundTrips()
+    {
+        RequireLive();
+
+        // Regression for #136: `members create` had no --password, so it sent an empty password
+        // that the default complexity policy rejected with HTTP 400. It now generates a compliant
+        // password when none is supplied. Create a throwaway member type, then a member with no
+        // --password (the auto-generated path), and read it back.
+        // NOTE: this does not assert `members delete` - that returns HTTP 500 on Umbraco 17.x
+        // (tracked separately); cleanup deletes the member best-effort and relies on the
+        // member-type delete cascading to remove any member of that type.
+        var mtAlias = "clitestMember" + Guid.NewGuid().ToString("N")[..8];
+        var memberType = CliRunner.Run("member-types", "create", "--alias", mtAlias, "--name", mtAlias);
+        Assert.True(memberType.Ok, memberType.Stderr);
+        var memberTypeId = memberType.Data().GetProperty("id").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(memberTypeId));
+
+        string? memberId = null;
+        try
+        {
+            var email = $"clitest-{Guid.NewGuid():N}@example.com";
+            var create = CliRunner.Run(
+                "members",
+                "create",
+                "--email",
+                email,
+                "--name",
+                "clitest member",
+                "--type",
+                mtAlias
+            );
+            Assert.True(create.Ok, create.Stderr); // was HTTP 400 (empty password) before #136
+            memberId = create.Data().GetProperty("id").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(memberId));
+
+            var get = CliRunner.Run("members", "get", memberId!);
+            Assert.True(get.Ok, get.Stderr);
+            Assert.Equal(memberId, get.Data().GetProperty("id").GetString());
+        }
+        finally
+        {
+            if (memberId is not null)
+                CliRunner.Run("members", "delete", memberId, "--yes");
+            CliRunner.Run("member-types", "delete", memberTypeId!, "--yes");
+        }
+    }
+
+    [SkippableFact]
     public void DictionaryList_ReturnsItems()
     {
         RequireLive();

@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Members;
 
@@ -18,6 +19,15 @@ public static class MembersCreateCommand
             Description = "Alias of the member type (e.g. Member).",
             Required = true,
         };
+        var passwordOpt = new Option<string?>("--password")
+        {
+            // #136: without a password the API rejects the create ("did not meet the complexity
+            // requirements"). When omitted we generate a policy-compliant one so a member can be
+            // provisioned non-interactively; it is not returned, so pass --password to set a known one.
+            Description =
+                "Member password. If omitted, a random policy-compliant password is generated "
+                + "(not returned in the response; supply --password to set a known one).",
+        };
         var idOpt = new Option<Guid?>("--id")
         {
             Description = "Optional client-supplied UUID for an idempotent create (#86).",
@@ -25,6 +35,7 @@ public static class MembersCreateCommand
         cmd.Add(emailOpt);
         cmd.Add(nameOpt);
         cmd.Add(typeOpt);
+        cmd.Add(passwordOpt);
         cmd.Add(idOpt);
         cmd.SetAction(
             (parseResult, ct) =>
@@ -38,6 +49,10 @@ public static class MembersCreateCommand
                                 Id = parseResult.GetValue(idOpt),
                                 Email = parseResult.GetValue(emailOpt)!,
                                 Name = parseResult.GetValue(nameOpt)!,
+                                // Use the supplied password, or a generated compliant one (#136).
+                                Password = parseResult.GetValue(passwordOpt) is { Length: > 0 } pw
+                                    ? pw
+                                    : PasswordGenerator.Generate(),
                                 MemberType = new ContentTypeReference
                                 {
                                     Alias = parseResult.GetValue(typeOpt)!,
