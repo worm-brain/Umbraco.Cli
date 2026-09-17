@@ -412,8 +412,11 @@ public class UmbracoManagementClientTests
 
         var result = await client.CopyContentAsync(id, ct: CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
+        // The copy endpoint is hit. This stub returns no Location header, so the client reports the
+        // new id could not be resolved (#91) - a case that cannot occur against a real server, where
+        // the 201 always carries the Location. Full success is covered by ContentCopyClientTests.
         Assert.EndsWith($"/document/{id}/copy", handler.LastRequestUri!.AbsolutePath);
+        Assert.False(result.IsSuccess);
     }
 
     [Fact]

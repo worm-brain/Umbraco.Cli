@@ -148,6 +148,19 @@ public class CommandParseTests
     public void WriteCommand_ValidOrSchema_IsNotParseError(string args) =>
         Assert.False(HasErrors(args));
 
+    [Theory]
+    [InlineData("content sort")] // --children is required (#88)
+    [InlineData("content sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
+    [InlineData("media sort")]
+    public void Sort_MissingChildren_IsParseError(string args) => Assert.True(HasErrors(args));
+
+    [Theory]
+    [InlineData("content find")] // neither --name nor --path (#89)
+    [InlineData("content find --name About --path Home/About")] // both is ambiguous
+    [InlineData("media find")]
+    [InlineData("media find --name logo --path Images/Logos")]
+    public void Find_NotExactlyOneMode_IsParseError(string args) => Assert.True(HasErrors(args));
+
     // ── Command tree structure ────────────────────────────────────────────────
 
     [Theory]
@@ -198,6 +211,8 @@ public class CommandParseTests
         new[]
         {
             "list",
+            "tree",
+            "find",
             "get",
             "create",
             "update",
@@ -210,6 +225,7 @@ public class CommandParseTests
             "restore",
             "empty-recycle-bin",
             "move",
+            "sort",
             "copy",
             "publish-descendants",
             "bulk",
@@ -220,7 +236,20 @@ public class CommandParseTests
     )]
     [InlineData(
         "media",
-        new[] { "list", "get", "upload", "delete", "trash", "restore", "empty-recycle-bin", "move" }
+        new[]
+        {
+            "list",
+            "tree",
+            "find",
+            "get",
+            "upload",
+            "delete",
+            "trash",
+            "restore",
+            "empty-recycle-bin",
+            "move",
+            "sort",
+        }
     )]
     [InlineData("media-types", new[] { "list", "get", "create", "delete" })]
     [InlineData("member-types", new[] { "list", "get", "create", "update", "delete" })]
@@ -309,9 +338,21 @@ public class CommandParseTests
     [InlineData("content list --skip 0 --take 50")]
     [InlineData("content list --take 100")]
     [InlineData("content list --parent 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("content tree")]
+    [InlineData("content tree --parent 3f7a8b2e-1234-5678-abcd-ef0123456789 --recursive")]
+    [InlineData("content tree --depth 3")]
+    [InlineData("content find --name About")]
+    [InlineData("content find --name Team --parent 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("content find --path Home/About")]
     [InlineData("content get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content publish 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --publish-at 2026-01-01T09:00:00Z"
+    )]
+    [InlineData(
+        "content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --publish-at 2026-01-01T09:00:00Z --unpublish-at 2026-02-01T18:30:00Z"
+    )]
     [InlineData("content unpublish 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content versions 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content versions 3f7a8b2e-1234-5678-abcd-ef0123456789 --culture en-US")]
@@ -328,8 +369,13 @@ public class CommandParseTests
     [InlineData("content move 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content copy 3f7a8b2e-1234-5678-abcd-ef0123456789 --include-descendants")]
     [InlineData(
+        "content sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --children 3f7a8b2e-1234-5678-abcd-ef0123456789 9c4d5e6f-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --parent optional (reorder the root)
+    [InlineData(
         "content publish-descendants 3f7a8b2e-1234-5678-abcd-ef0123456789 --cultures en-US"
     )]
+    [InlineData("content publish-descendants 3f7a8b2e-1234-5678-abcd-ef0123456789 --wait")]
     [InlineData("content bulk delete --file ids.txt")]
     [InlineData("content bulk delete")] // reads stdin at run time
     [InlineData("content bulk publish --cultures en-US")]
@@ -348,7 +394,14 @@ public class CommandParseTests
     [InlineData(
         "media move 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 1a2b3c4d-1234-5678-abcd-ef0123456789"
     )]
+    [InlineData(
+        "media sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --children 3f7a8b2e-1234-5678-abcd-ef0123456789 9c4d5e6f-1234-5678-abcd-ef0123456789"
+    )]
     [InlineData("media list")]
+    [InlineData("media tree")]
+    [InlineData("media tree --parent 3f7a8b2e-1234-5678-abcd-ef0123456789 --depth 2")]
+    [InlineData("media find --name logo")]
+    [InlineData("media find --path Images/Logos")]
     [InlineData("media get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("media upload ./logo.png")] // --parent optional (#57)
     [InlineData("media upload ./big.mp4 --media-type File --name Promo")]
@@ -373,6 +426,14 @@ public class CommandParseTests
     [InlineData("templates update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Home --alias home")]
     [InlineData("templates delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("dictionary delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("dictionary tree")]
+    [InlineData("dictionary tree --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
+    [InlineData("dictionary create --key Nav.Home")]
+    [InlineData("dictionary create --key Nav.Home --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --target optional (to root)
     [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name \"Jane Roe\"")]
     [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --approved")]
     [InlineData(

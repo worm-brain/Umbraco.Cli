@@ -100,15 +100,17 @@ meaningless results.
 Every command falls into exactly one tier. The tier decides whether you may run it and how.
 
 ### Tier SAFE (run freely)
-All reads: `list`, `get`, `status`, `info`, `configuration`, `troubleshooting`, `whoami`,
-`doctor`, `commands`, `--schema`, `--dry-run` on any write, `is-used`, `referenced-by`,
+All reads: `list`, `tree`, `find`, `get`, `status`, `info`, `configuration`, `troubleshooting`,
+`whoami`, `doctor`, `commands`, `--schema`, `--dry-run` on any write, `is-used`, `referenced-by`,
 `versions`, `resize-urls`, `searcher query`, `log-viewer` reads, `manifest list`,
 `relation`/`relation-type` reads, `tags`/`cultures` list. These never change server state.
+(`content`/`media tree` and `find`, and `dictionary tree`, are reads.)
 
 ### Tier SCOPED-WRITE (allowed only on entities you created this run)
-`create`, `update`, `delete`, `trash`, `restore`, `move`, `copy`, `publish`, `unpublish`,
+`create`, `update`, `delete`, `trash`, `restore`, `move`, `sort`, `copy`, `publish`, `unpublish`,
 `publish-descendants`, `upload`, `add-users`/`remove-users`, `from-document`, `rollback`,
 `bulk publish/unpublish/delete`, saved-search create/delete, `schema apply` / `content apply`.
+(`content`/`media sort` reorders children; `dictionary move` reparents an item.)
 Run these **only** against the `clitest` namespace and the fixed ids in the
 [Appendix](#appendix-fixed-test-ids-and-jq-helpers). Every one is undone in [Teardown](#ss6-teardown--baseline-verification).
 

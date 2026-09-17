@@ -64,12 +64,22 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(DeleteContentHandler(id));
     }
 
+    /// <summary>The (publishAt, unpublishAt) of the last publish call (#90).</summary>
+    public (DateTimeOffset? PublishAt, DateTimeOffset? UnpublishAt)? LastPublishSchedule
+    {
+        get;
+        private set;
+    }
+
     public Task<UmbracoResponse<Empty>> PublishContentAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
+        DateTimeOffset? publishAt = null,
+        DateTimeOffset? unpublishAt = null,
         CancellationToken ct = default
     )
     {
+        LastPublishSchedule = (publishAt, unpublishAt);
         if (PublishContentHandler is null)
             throw new NotImplementedException();
         CalledIds.Add(id);
@@ -111,20 +121,127 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<Empty>> CopyContentAsync(
+    /// <summary>The (id, parentId) of the last copy call (#91).</summary>
+    public (Guid Id, Guid? ParentId)? LastCopyArgs { get; private set; }
+
+    /// <summary>The response the fake returns for a copy; a default carrying a new id is used when unset (#91).</summary>
+    public UmbracoResponse<ContentItemResponse>? CopyContentResponse { get; set; }
+
+    public Task<UmbracoResponse<ContentItemResponse>> CopyContentAsync(
         Guid id,
         Guid? parentId = null,
         bool includeDescendants = false,
         bool relateToOriginal = false,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastCopyArgs = (id, parentId);
+        return Task.FromResult(
+            CopyContentResponse
+                ?? UmbracoResponse<ContentItemResponse>.Success(
+                    new ContentItemResponse { Id = Guid.NewGuid() }
+                )
+        );
+    }
 
-    public Task<UmbracoResponse<Empty>> PublishContentWithDescendantsAsync(
+    /// <summary>Recorded content sort calls, in <c>(parentId, orderedChildIds)</c> order (#88).</summary>
+    public List<(Guid? ParentId, IReadOnlyList<Guid> OrderedChildIds)> ContentSorted { get; } = [];
+
+    public Task<UmbracoResponse<Empty>> SortContentAsync(
+        Guid? parentId,
+        IReadOnlyList<Guid> orderedChildIds,
+        CancellationToken ct = default
+    )
+    {
+        ContentSorted.Add((parentId, orderedChildIds));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>Content tree items <see cref="GetContentTreeAsync"/> returns (seeded by a test) (#89).</summary>
+    public List<TreeItem> ContentTreeNodes { get; } = [];
+
+    /// <summary>The (parentId, maxDepth) of the last content tree call (#89).</summary>
+    public (Guid? ParentId, int MaxDepth)? LastContentTreeArgs { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<TreeItem>>> GetContentTreeAsync(
+        Guid? parentId,
+        int maxDepth,
+        CancellationToken ct = default
+    )
+    {
+        LastContentTreeArgs = (parentId, maxDepth);
+        return Task.FromResult(
+            UmbracoResponse<IReadOnlyList<TreeItem>>.Success(ContentTreeNodes.ToList())
+        );
+    }
+
+    /// <summary>Content items <see cref="FindContentByNameAsync"/> returns (seeded by a test) (#89).</summary>
+    public List<ContentItemResponse> ContentFindResults { get; } = [];
+
+    /// <summary>The (query, parentId) of the last content find-by-name call (#89).</summary>
+    public (string Query, Guid? ParentId)? LastContentFindByName { get; private set; }
+
+    public Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> FindContentByNameAsync(
+        string query,
+        Guid? parentId,
+        int skip,
+        int take,
+        CancellationToken ct = default
+    )
+    {
+        LastContentFindByName = (query, parentId);
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<ContentItemResponse>>.Success(
+                new PagedResponse<ContentItemResponse>
+                {
+                    Total = ContentFindResults.Count,
+                    Items = ContentFindResults.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
+
+    /// <summary>Content items <see cref="FindContentByPathAsync"/> returns (seeded by a test) (#89).</summary>
+    public List<ContentItemResponse> ContentFindPathResults { get; } = [];
+
+    /// <summary>The path of the last content find-by-path call (#89).</summary>
+    public string? LastContentFindByPath { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<ContentItemResponse>>> FindContentByPathAsync(
+        string path,
+        CancellationToken ct = default
+    )
+    {
+        LastContentFindByPath = path;
+        return Task.FromResult(
+            UmbracoResponse<IReadOnlyList<ContentItemResponse>>.Success(
+                ContentFindPathResults.ToList()
+            )
+        );
+    }
+
+    /// <summary>The (id, wait) of the last publish-descendants call (#90).</summary>
+    public (Guid Id, bool Wait)? LastPublishDescendantsArgs { get; private set; }
+
+    /// <summary>The response the fake returns for publish-descendants; a default is used when unset (#90).</summary>
+    public UmbracoResponse<PublishDescendantsResult>? PublishDescendantsResponse { get; set; }
+
+    public Task<UmbracoResponse<PublishDescendantsResult>> PublishContentWithDescendantsAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
         bool includeUnpublishedDescendants = false,
+        bool wait = false,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastPublishDescendantsArgs = (id, wait);
+        return Task.FromResult(
+            PublishDescendantsResponse
+                ?? UmbracoResponse<PublishDescendantsResult>.Success(
+                    new PublishDescendantsResult { TaskId = Guid.NewGuid(), IsComplete = wait }
+                )
+        );
+    }
 
     public Task<UmbracoResponse<PagedResponse<DocumentVersionResponse>>> GetDocumentVersionsAsync(
         Guid documentId,
@@ -182,6 +299,80 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         Guid? parentId = null,
         CancellationToken ct = default
     ) => throw new NotImplementedException();
+
+    /// <summary>Recorded media sort calls, in <c>(parentId, orderedChildIds)</c> order (#88).</summary>
+    public List<(Guid? ParentId, IReadOnlyList<Guid> OrderedChildIds)> MediaSorted { get; } = [];
+
+    public Task<UmbracoResponse<Empty>> SortMediaAsync(
+        Guid? parentId,
+        IReadOnlyList<Guid> orderedChildIds,
+        CancellationToken ct = default
+    )
+    {
+        MediaSorted.Add((parentId, orderedChildIds));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>Media tree items <see cref="GetMediaTreeAsync"/> returns (seeded by a test) (#89).</summary>
+    public List<TreeItem> MediaTreeNodes { get; } = [];
+
+    /// <summary>The (parentId, maxDepth) of the last media tree call (#89).</summary>
+    public (Guid? ParentId, int MaxDepth)? LastMediaTreeArgs { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<TreeItem>>> GetMediaTreeAsync(
+        Guid? parentId,
+        int maxDepth,
+        CancellationToken ct = default
+    )
+    {
+        LastMediaTreeArgs = (parentId, maxDepth);
+        return Task.FromResult(
+            UmbracoResponse<IReadOnlyList<TreeItem>>.Success(MediaTreeNodes.ToList())
+        );
+    }
+
+    /// <summary>Media items <see cref="FindMediaByNameAsync"/> returns (seeded by a test) (#89).</summary>
+    public List<MediaItemResponse> MediaFindResults { get; } = [];
+
+    /// <summary>The (query, parentId) of the last media find-by-name call (#89).</summary>
+    public (string Query, Guid? ParentId)? LastMediaFindByName { get; private set; }
+
+    public Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> FindMediaByNameAsync(
+        string query,
+        Guid? parentId,
+        int skip,
+        int take,
+        CancellationToken ct = default
+    )
+    {
+        LastMediaFindByName = (query, parentId);
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<MediaItemResponse>>.Success(
+                new PagedResponse<MediaItemResponse>
+                {
+                    Total = MediaFindResults.Count,
+                    Items = MediaFindResults.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
+
+    /// <summary>Media items <see cref="FindMediaByPathAsync"/> returns (seeded by a test) (#89).</summary>
+    public List<MediaItemResponse> MediaFindPathResults { get; } = [];
+
+    /// <summary>The path of the last media find-by-path call (#89).</summary>
+    public string? LastMediaFindByPath { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<MediaItemResponse>>> FindMediaByPathAsync(
+        string path,
+        CancellationToken ct = default
+    )
+    {
+        LastMediaFindByPath = path;
+        return Task.FromResult(
+            UmbracoResponse<IReadOnlyList<MediaItemResponse>>.Success(MediaFindPathResults.ToList())
+        );
+    }
 
     public Task<UmbracoResponse<PagedResponse<MediaTypeResponse>>> GetMediaTypesAsync(
         int skip = 0,
@@ -420,10 +611,64 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>Recorded dictionary creates (#110 asserts the mapped parent).</summary>
+    public List<CreateDictionaryItemRequest> DictionaryItemsCreated { get; } = [];
+
     public Task<UmbracoResponse<DictionaryItemResponse>> CreateDictionaryItemAsync(
         CreateDictionaryItemRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        DictionaryItemsCreated.Add(request);
+        return Task.FromResult(
+            UmbracoResponse<DictionaryItemResponse>.Success(
+                new DictionaryItemResponse
+                {
+                    Id = request.Id ?? Guid.NewGuid(),
+                    Name = request.Name,
+                    Translations = request.Translations.ToList(),
+                }
+            )
+        );
+    }
+
+    /// <summary>Dictionary tree items the tree method returns (seeded by a test) (#110).</summary>
+    public List<DictionaryTreeItem> DictionaryTreeItems { get; } = [];
+
+    /// <summary>The (parentId, skip, take) of the last dictionary tree call (#110).</summary>
+    public (Guid? ParentId, int Skip, int Take)? LastDictionaryTreeArgs { get; private set; }
+
+    /// <summary>Recorded dictionary moves, in <c>(id, target)</c> order (#110).</summary>
+    public List<(Guid Id, Guid? Target)> DictionaryItemsMoved { get; } = [];
+
+    public Task<UmbracoResponse<PagedResponse<DictionaryTreeItem>>> GetDictionaryTreeAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    )
+    {
+        LastDictionaryTreeArgs = (parentId, skip, take);
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<DictionaryTreeItem>>.Success(
+                new PagedResponse<DictionaryTreeItem>
+                {
+                    Total = DictionaryTreeItems.Count,
+                    Items = DictionaryTreeItems.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> MoveDictionaryItemAsync(
+        Guid id,
+        Guid? targetId,
+        CancellationToken ct = default
+    )
+    {
+        DictionaryItemsMoved.Add((id, targetId));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<Empty>> DeleteDictionaryItemAsync(
         Guid id,

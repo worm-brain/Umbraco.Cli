@@ -34,7 +34,7 @@ public static class ContentBulkPublishCommand
                     parseResult,
                     "content.bulk.publish",
                     () => BulkIds.Read(parseResult.GetValue(fileOpt)),
-                    (client, id, c) => client.PublishContentAsync(id, effective, c),
+                    (client, id, c) => client.PublishContentAsync(id, effective, ct: c),
                     ct
                 );
             }

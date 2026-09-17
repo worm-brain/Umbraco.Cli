@@ -35,7 +35,9 @@ public static class ContentCopyCommand
         cmd.Add(relateOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunMessageAsync(
+                // Object output surfaces the copy's new id (#91) so a script can chain to it, matching
+                // every other create verb.
+                executor.RunObjectAsync(
                     parseResult,
                     "content.copy",
                     (client, c) =>
@@ -46,7 +48,6 @@ public static class ContentCopyCommand
                             parseResult.GetValue(relateOpt),
                             c
                         ),
-                    "Content copied.",
                     ct
                 )
         );

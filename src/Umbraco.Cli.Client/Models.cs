@@ -123,6 +123,50 @@ public record ContentParentReference
     public Guid Id { get; init; }
 }
 
+/// <summary>
+/// A flat node of a content or media tree walk (issue #89). The <see cref="Depth"/> and
+/// <see cref="ParentId"/> make the hierarchy reconstructable from a flat, agent-friendly list, so a
+/// caller never has to nest the output to understand placement.
+/// </summary>
+public record TreeItem
+{
+    /// <summary>The node id.</summary>
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    /// <summary>The display name.</summary>
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    /// <summary>The parent id, or null when the node sits at the walked root.</summary>
+    [JsonPropertyName("parentId")]
+    public Guid? ParentId { get; init; }
+
+    /// <summary>Depth below the walked root: 1 for the first listed level, 2 for its children, and so on.</summary>
+    [JsonPropertyName("depth")]
+    public int Depth { get; init; }
+
+    /// <summary>Whether the node has children (which may be beyond the requested depth).</summary>
+    [JsonPropertyName("hasChildren")]
+    public bool HasChildren { get; init; }
+}
+
+/// <summary>
+/// The outcome of a publish-with-descendants request (issue #90). The server runs the branch
+/// publish as a background task; <see cref="TaskId"/> identifies it and <see cref="IsComplete"/>
+/// says whether it has finished (immediately, or after <c>--wait</c> polling).
+/// </summary>
+public record PublishDescendantsResult
+{
+    /// <summary>The background task id the server assigned, or null if it completed synchronously.</summary>
+    [JsonPropertyName("taskId")]
+    public Guid? TaskId { get; init; }
+
+    /// <summary>Whether the branch publish has completed.</summary>
+    [JsonPropertyName("isComplete")]
+    public bool IsComplete { get; init; }
+}
+
 public record UrlInfo
 {
     [JsonPropertyName("culture")]
@@ -862,6 +906,26 @@ public record DictionaryTranslation
     public string Translation { get; init; } = "";
 }
 
+/// <summary>Command-facing view of a dictionary tree item (issue #110): one row of the hierarchy.</summary>
+public record DictionaryTreeItem
+{
+    /// <summary>The dictionary item id.</summary>
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    /// <summary>The display name (the dictionary key).</summary>
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    /// <summary>Whether this item has child items.</summary>
+    [JsonPropertyName("hasChildren")]
+    public bool HasChildren { get; init; }
+
+    /// <summary>The parent reference, or null at the dictionary root.</summary>
+    [JsonPropertyName("parent")]
+    public ContentParentReference? Parent { get; init; }
+}
+
 public record CreateDictionaryItemRequest
 {
     /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
@@ -872,6 +936,10 @@ public record CreateDictionaryItemRequest
 
     [JsonPropertyName("translations")]
     public IEnumerable<DictionaryTranslation> Translations { get; init; } = [];
+
+    /// <summary>Optional parent to create the item under; null creates it at the dictionary root (#110).</summary>
+    [JsonPropertyName("parent")]
+    public ContentParentReference? Parent { get; init; }
 }
 
 // ── Webhooks ──────────────────────────────────────────────────────────────────

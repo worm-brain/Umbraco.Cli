@@ -28,9 +28,22 @@ public interface IContentClient
 
     Task<UmbracoResponse<Empty>> DeleteContentAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>
+    /// Publishes a document (issue #79), optionally scheduling when it goes live and/or comes down
+    /// (issue #90). The schedule rides the publish request's per-culture schedule, so a scheduled
+    /// unpublish is expressed here via <paramref name="unpublishAt"/> rather than on the unpublish verb.
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">Cultures to publish; null/empty publishes all (<c>"*"</c>).</param>
+    /// <param name="publishAt">When to publish; null publishes immediately.</param>
+    /// <param name="unpublishAt">When to unpublish again; null leaves it published.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> PublishContentAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
+        DateTimeOffset? publishAt = null,
+        DateTimeOffset? unpublishAt = null,
         CancellationToken ct = default
     );
 
@@ -99,14 +112,14 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
-    /// <summary>Copies a document under a new parent (issue #67).</summary>
+    /// <summary>Copies a document under a new parent and returns the copy's new id (issues #67, #91).</summary>
     /// <param name="id">The document id to copy.</param>
     /// <param name="parentId">Target parent id; null copies to the content root.</param>
     /// <param name="includeDescendants">Whether to copy descendants too.</param>
     /// <param name="relateToOriginal">Whether to create a relation to the original.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> CopyContentAsync(
+    /// <returns>The copied document (with its new id), or a mapped failure.</returns>
+    Task<UmbracoResponse<ContentItemResponse>> CopyContentAsync(
         Guid id,
         Guid? parentId = null,
         bool includeDescendants = false,
@@ -114,16 +127,81 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
-    /// <summary>Publishes a document and its descendants (issue #67).</summary>
+    /// <summary>
+    /// Walks the document tree (issue #89) and returns a flat, pre-order list carrying each node's
+    /// depth and parent. Lists from the content root, or beneath <paramref name="parentId"/>.
+    /// </summary>
+    /// <param name="parentId">The node whose subtree to walk; null walks from the content root.</param>
+    /// <param name="maxDepth">How many levels to descend (1 = direct children only). Bounded for safety.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The subtree as a flat pre-order list, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<TreeItem>>> GetContentTreeAsync(
+        Guid? parentId,
+        int maxDepth,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Finds documents whose name matches <paramref name="query"/> (issue #89), via the document
+    /// search endpoint. Matching is the server's (contains, case-insensitive).
+    /// </summary>
+    /// <param name="query">The name text to search for.</param>
+    /// <param name="parentId">Optional subtree to scope the search to; null searches everywhere.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of matching documents, or a mapped failure.</returns>
+    Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> FindContentByNameAsync(
+        string query,
+        Guid? parentId,
+        int skip,
+        int take,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Locates a document by its name path from the content root (issue #89), e.g.
+    /// <c>Home/About/Team</c>. Each segment is matched against a child's name (case-insensitive,
+    /// exact), descending one level per segment.
+    /// </summary>
+    /// <param name="path">A <c>/</c>-separated path of node names from the root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matched node (a list of zero or one item), or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<ContentItemResponse>>> FindContentByPathAsync(
+        string path,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Reorders a parent's child documents (issue #88). The supplied ids define the new order:
+    /// the first id gets sort order 0, the next 1, and so on.
+    /// </summary>
+    /// <param name="parentId">The parent whose children to reorder; null reorders the content root.</param>
+    /// <param name="orderedChildIds">Child document ids in the desired order.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> SortContentAsync(
+        Guid? parentId,
+        IReadOnlyList<Guid> orderedChildIds,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Publishes a document and its descendants (issue #67). The server runs the branch publish as a
+    /// background task; the result carries its task id and completion state. With
+    /// <paramref name="wait"/> the call polls the task to completion before returning (issue #90).
+    /// </summary>
     /// <param name="id">The root document id.</param>
     /// <param name="cultures">Cultures to publish; null/empty publishes all.</param>
     /// <param name="includeUnpublishedDescendants">Whether to also publish descendants that were never published.</param>
+    /// <param name="wait">Whether to poll the background task until it completes.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> PublishContentWithDescendantsAsync(
+    /// <returns>The task id and completion state, or a mapped failure.</returns>
+    Task<UmbracoResponse<PublishDescendantsResult>> PublishContentWithDescendantsAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
         bool includeUnpublishedDescendants = false,
+        bool wait = false,
         CancellationToken ct = default
     );
 }
