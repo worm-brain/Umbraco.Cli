@@ -66,10 +66,25 @@ public sealed class CommandIntegrationTests
     }
 
     [SkippableFact]
-    public void DataTypesList_ReturnsItems()
+    public void DataTypes_ListThenGet_RoundTrips()
     {
         RequireLive();
-        Assert.True(CliRunner.Run("data-types", "list", "--take", "5").Ok);
+
+        // Regression for #135: data-types list used to return folder containers whose ids 404 on
+        // `data-types get` (only real, gettable data types should appear - folders excluded, types
+        // nested inside folders included). So every id the list returns must be gettable.
+        var list = CliRunner.Run("data-types", "list", "--take", "10");
+        Assert.True(list.Ok, list.Stderr);
+        var items = list.Data();
+        Assert.Equal(JsonValueKind.Array, items.ValueKind);
+        Skip.If(items.GetArrayLength() == 0, "No data types on the instance to round-trip.");
+
+        foreach (var item in items.EnumerateArray())
+        {
+            var id = item.GetProperty("id").GetString();
+            var get = CliRunner.Run("data-types", "get", id!);
+            Assert.True(get.Ok, $"data-types get {id} failed (folder leaked into list?): {get.Stderr}");
+        }
     }
 
     [SkippableFact]

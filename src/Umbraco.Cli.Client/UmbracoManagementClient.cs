@@ -1539,9 +1539,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     // ── Data Types ───────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Lists data types from <c>tree/data-type/root</c> (issue #39 — no flat
-    /// <c>/data-type</c> collection). The editor alias is not carried on tree items, so
-    /// only id/name/editorUiAlias are populated for the list view.
+    /// Lists data types from the data-type tree (issue #39 - there is no flat
+    /// <c>/data-type</c> collection). Folders are organisational containers whose ids 404 on
+    /// <c>data-type get</c>, so the tree is walked to return only real data types - folders
+    /// excluded, types nested inside folders included - then paged client-side (#135, mirroring
+    /// the #97 fix for content-types/media-types). The editor alias is not carried on tree
+    /// items, so only id/name/editorUiAlias are populated for the list view.
     /// </summary>
     /// <param name="skip">Number of items to skip (paging).</param>
     /// <param name="take">Maximum number of items to return.</param>
@@ -1556,25 +1559,55 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var paged = await _api.Umbraco.Management.Api.V1.Tree.DataType.Root.GetAsync(
-                    c =>
+                var all = await CollectTreeLeavesAsync<DataTypeResponse>(
+                    async (parentId, s, t, c) =>
                     {
-                        c.QueryParameters.Skip = skip;
-                        c.QueryParameters.Take = take;
+                        var items = parentId is null
+                            ? (
+                                await _api.Umbraco.Management.Api.V1.Tree.DataType.Root.GetAsync(
+                                    q =>
+                                    {
+                                        q.QueryParameters.Skip = s;
+                                        q.QueryParameters.Take = t;
+                                    },
+                                    c
+                                )
+                            )?.Items
+                            : (
+                                await _api.Umbraco.Management.Api.V1.Tree.DataType.Children.GetAsync(
+                                    q =>
+                                    {
+                                        q.QueryParameters.ParentId = parentId;
+                                        q.QueryParameters.Skip = s;
+                                        q.QueryParameters.Take = t;
+                                    },
+                                    c
+                                )
+                            )?.Items;
+                        return
+                        [
+                            .. (items ?? [])
+                                .Where(i => i.Id is not null)
+                                .Select(i =>
+                                    (
+                                        i.Id!.Value,
+                                        i.IsFolder ?? false,
+                                        new DataTypeResponse
+                                        {
+                                            Id = i.Id!.Value,
+                                            Name = i.Name ?? "",
+                                            EditorUiAlias = i.EditorUiAlias,
+                                        }
+                                    )
+                                ),
+                        ];
                     },
                     ct
                 );
                 return new PagedResponse<DataTypeResponse>
                 {
-                    Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? [])
-                        .Select(i => new DataTypeResponse
-                        {
-                            Id = i.Id ?? Guid.Empty,
-                            Name = i.Name ?? "",
-                            EditorUiAlias = i.EditorUiAlias,
-                        })
-                        .ToList(),
+                    Total = all.Count,
+                    Items = all.Skip(skip).Take(take).ToList(),
                 };
             }
         );
