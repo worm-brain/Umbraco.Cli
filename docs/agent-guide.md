@@ -4,6 +4,13 @@ The operating manual for an AI agent (or any script) that drives the `umbraco` C
 a human setting the tool up, start with [getting-started.md](getting-started.md); if you are
 looking for a specific command, see [commands.md](commands.md).
 
+> **This CLI or the official Umbraco MCP?** For an AI assistant that manages Umbraco
+> conversationally (Claude, Cursor, Copilot), use Umbraco's first-party
+> [MCP server](https://docs.umbraco.com/umbraco-in-ai/mcp) - it is version-locked to the CMS and
+> exposes the Management API as MCP tools. This guide is for the other case: an agent or script
+> that drives the `umbraco` CLI as a **subprocess** inside automation or CI, where you want
+> deterministic JSON, exit codes, and shell composability.
+
 Two properties make this CLI cheap to drive programmatically:
 
 1. **Everything is JSON.** When stdout is not a TTY, every command emits the same envelope.

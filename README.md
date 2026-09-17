@@ -1,34 +1,53 @@
 # Umbraco.Cli
 
-A cross-platform .NET CLI tool for [Umbraco CMS](https://umbraco.com/), distributed as a NuGet
-global tool. Drive your Umbraco 14+ instance from the terminal or any AI agent that can call a
-subprocess.
+A cross-platform .NET CLI for [Umbraco CMS](https://umbraco.com/)'s Management API, distributed
+as a NuGet global tool. Built for terminals, shell scripts, and CI/CD - promote schema and
+content between environments, run bulk jobs, and get structured JSON or CSV out of every command.
 
 [![NuGet](https://img.shields.io/nuget/v/Umbraco.Community.Cli.svg)](https://www.nuget.org/packages/Umbraco.Community.Cli)
 [![CI](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml/badge.svg)](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> Status: alpha, published on NuGet.org. The CLI covers the Umbraco 14+ Management API surface
-> and is built to be driven by AI agents as well as people.
+> Status: alpha, published on NuGet.org. Works against Umbraco 14+ (including v18).
+
+## Umbraco.Cli or the official Umbraco MCP?
+
+Umbraco ships a first-party [MCP server](https://docs.umbraco.com/umbraco-in-ai/mcp) (Node,
+version-locked to the CMS) that exposes the Management API as tools for **AI chat agents** -
+Claude, Cursor, Copilot and the like. If you want an assistant to manage Umbraco
+conversationally, use that.
+
+Umbraco.Cli is a **command-line tool** for a different job - terminals, shell scripts, and
+CI/CD. Reach for it to
+
+- **promote schema and content between environments** (`export -> diff -> apply` with drift
+  detection),
+- **run bulk operations** over many items from a file or a pipe,
+- **script the Management API** with deterministic JSON/CSV, exit codes, and Unix piping,
+- **stay in .NET** with no Node runtime (`dotnet tool install`).
+
+An AI agent that prefers calling a subprocess can drive it too (see the
+[agent guide](docs/agent-guide.md)) - it just isn't the tool's reason to exist.
 
 ---
 
 ## What this is
 
-- **Full Management API coverage** - content, media, document/media/member/data types,
-  languages, templates, members, users, dictionary, webhooks, static files (scripts,
-  stylesheets, partial views), tags, cultures, user groups, redirects, relations, Examine,
-  diagnostics (server, health, log viewer, models builder, manifest), and more. Every command
-  is listed in [docs/commands.md](docs/commands.md).
-- **Schema and content sync** - export document types / data types / templates (and content
+- **Environment sync** - export document types, data types, and templates (and content
   subtrees) to a portable JSON snapshot, diff it against a live instance, and apply the
-  difference. CI- and agent-friendly; complements uSync.
-- **Built for AI agents** - JSON by default when stdout is not a TTY; a single versioned
-  `{status, data, meta}` envelope; a self-describing surface (`umbraco commands`, `--schema`);
-  and guardrails (`--readonly`, a command allow-list, `--yes`, `--dry-run`). See the
-  [agent guide](docs/agent-guide.md).
-- **Cross-platform** - Windows, macOS, Linux via .NET 9.
-- **Human-readable mode** - Spectre.Console tables and colour when running interactively.
+  difference. Drift detection and environment promotion for CI; complements uSync.
+- **Bulk operations** - publish, unpublish, or delete many items from a file or stdin, each
+  reported independently with its own status.
+- **Structured, scriptable output** - one versioned `{status, data, meta}` JSON envelope,
+  RFC-4180 CSV, `--fields` projection, and documented exit codes - plus Spectre.Console tables
+  when you are at a terminal.
+- **Guardrails** - `--readonly`, a command allow-list, `--yes` confirmations, and `--dry-run`
+  request previews for safe automation.
+- **Full Management API coverage** - content, media, document/media/member/data types,
+  languages, templates, members, users, dictionary, webhooks, static files, tags, cultures,
+  user groups, redirects, relations, Examine, and diagnostics (server, health, log viewer,
+  models builder, manifest). Every command is in [docs/commands.md](docs/commands.md).
+- **.NET-native and cross-platform** - Windows, macOS, Linux via .NET 9; no Node runtime.
 
 ---
 
@@ -59,7 +78,7 @@ umbraco auth doctor
 # 3. List content
 umbraco content list
 
-# 4. JSON for scripting / AI agents
+# 4. Structured JSON for scripting and CI
 umbraco content list --output json | jq '.data[].name'
 ```
 
@@ -73,7 +92,7 @@ Full setup (including how to create the API user and its client id/secret) is in
 | I want to... | Go to |
 |---|---|
 | Install, authenticate, run first commands | [docs/getting-started.md](docs/getting-started.md) |
-| Drive the CLI from an AI agent or script | [docs/agent-guide.md](docs/agent-guide.md) |
+| Automate the CLI in scripts, CI, or an agent | [docs/agent-guide.md](docs/agent-guide.md) |
 | Look up any command and its options | [docs/commands.md](docs/commands.md) |
 | See the full docs map | [docs/README.md](docs/README.md) |
 | Contribute to this repository | [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) |
