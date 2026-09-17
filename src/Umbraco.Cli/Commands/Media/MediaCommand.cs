@@ -18,6 +18,7 @@ public static class MediaCommand
         cmd.Add(MediaRestoreCommand.Build(executor));
         cmd.Add(MediaEmptyRecycleBinCommand.Build(executor));
         cmd.Add(MediaMoveCommand.Build(executor));
+        cmd.Add(MediaSortCommand.Build(executor));
         return cmd;
     }
 }

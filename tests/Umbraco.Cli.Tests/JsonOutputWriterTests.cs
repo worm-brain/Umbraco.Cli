@@ -65,7 +65,14 @@ public class JsonOutputWriterTests
     {
         // #137: list/table output must carry meta.command and meta.durationMs like object output.
         var (stdout, _) = Capture(() =>
-            _writer.WriteTable(["id", "name"], [["1", "a"]], "content.list", 99)
+            _writer.WriteTable(
+                ["id", "name"],
+                [
+                    ["1", "a"],
+                ],
+                "content.list",
+                99
+            )
         );
         var doc = JsonDocument.Parse(stdout);
         Assert.Equal(JsonValueKind.Array, doc.RootElement.GetProperty("data").ValueKind);
@@ -91,7 +98,14 @@ public class JsonOutputWriterTests
         // #137: an agent keying on meta.command cannot rely on it unless list (table) and object
         // (WriteSuccess) envelopes expose the same meta keys. Assert the sets are identical.
         var (tableOut, _) = Capture(() =>
-            _writer.WriteTable(["id", "name"], [["1", "a"]], "content.list", 5)
+            _writer.WriteTable(
+                ["id", "name"],
+                [
+                    ["1", "a"],
+                ],
+                "content.list",
+                5
+            )
         );
         var (objectOut, _) = Capture(() => _writer.WriteSuccess(new { id = 1 }, "content.get", 5));
 

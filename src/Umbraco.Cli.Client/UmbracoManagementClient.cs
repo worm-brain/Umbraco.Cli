@@ -855,6 +855,42 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
+    /// Reorders a parent's child documents via <c>PUT document/sort</c> (issue #88). The order of
+    /// <paramref name="orderedChildIds"/> becomes the sort order (index 0, 1, 2, ...); a null
+    /// parent reorders the content root.
+    /// </summary>
+    /// <param name="parentId">The parent whose children to reorder; null reorders the content root.</param>
+    /// <param name="orderedChildIds">Child document ids in the desired order.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> SortContentAsync(
+        Guid? parentId,
+        IReadOnlyList<Guid> orderedChildIds,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.SortingRequestModel
+                {
+                    Parent = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                    Sorting = orderedChildIds
+                        .Select(
+                            (childId, index) =>
+                                new Gen.ItemSortingRequestModel { Id = childId, SortOrder = index }
+                        )
+                        .ToList(),
+                };
+                await _api.Umbraco.Management.Api.V1.Document.Sort.PutAsync(
+                    body,
+                    cancellationToken: ct
+                );
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>
     /// Publishes a document and its descendants via
     /// <c>PUT document/{id}/publish-with-descendants</c> (issue #67).
     /// </summary>
@@ -1173,6 +1209,42 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 await _api
                     .Umbraco.Management.Api.V1.Media[id]
                     .Move.PutAsync(body, cancellationToken: ct);
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>
+    /// Reorders a parent folder's child media items via <c>PUT media/sort</c> (issue #88). The
+    /// order of <paramref name="orderedChildIds"/> becomes the sort order (index 0, 1, 2, ...); a
+    /// null parent reorders the media root.
+    /// </summary>
+    /// <param name="parentId">The parent folder whose children to reorder; null reorders the media root.</param>
+    /// <param name="orderedChildIds">Child media ids in the desired order.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Empty>> SortMediaAsync(
+        Guid? parentId,
+        IReadOnlyList<Guid> orderedChildIds,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = new Gen.SortingRequestModel
+                {
+                    Parent = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                    Sorting = orderedChildIds
+                        .Select(
+                            (childId, index) =>
+                                new Gen.ItemSortingRequestModel { Id = childId, SortOrder = index }
+                        )
+                        .ToList(),
+                };
+                await _api.Umbraco.Management.Api.V1.Media.Sort.PutAsync(
+                    body,
+                    cancellationToken: ct
+                );
                 return Empty.Value;
             }
         );

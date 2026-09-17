@@ -83,7 +83,10 @@ public sealed class CommandIntegrationTests
         {
             var id = item.GetProperty("id").GetString();
             var get = CliRunner.Run("data-types", "get", id!);
-            Assert.True(get.Ok, $"data-types get {id} failed (folder leaked into list?): {get.Stderr}");
+            Assert.True(
+                get.Ok,
+                $"data-types get {id} failed (folder leaked into list?): {get.Stderr}"
+            );
         }
     }
 
@@ -223,7 +226,14 @@ public sealed class CommandIntegrationTests
         // (tracked separately); cleanup deletes the member best-effort and relies on the
         // member-type delete cascading to remove any member of that type.
         var mtAlias = "clitestMember" + Guid.NewGuid().ToString("N")[..8];
-        var memberType = CliRunner.Run("member-types", "create", "--alias", mtAlias, "--name", mtAlias);
+        var memberType = CliRunner.Run(
+            "member-types",
+            "create",
+            "--alias",
+            mtAlias,
+            "--name",
+            mtAlias
+        );
         Assert.True(memberType.Ok, memberType.Stderr);
         var memberTypeId = memberType.Data().GetProperty("id").GetString();
         Assert.False(string.IsNullOrWhiteSpace(memberTypeId));

@@ -114,6 +114,20 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Reorders a parent's child documents (issue #88). The supplied ids define the new order:
+    /// the first id gets sort order 0, the next 1, and so on.
+    /// </summary>
+    /// <param name="parentId">The parent whose children to reorder; null reorders the content root.</param>
+    /// <param name="orderedChildIds">Child document ids in the desired order.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> SortContentAsync(
+        Guid? parentId,
+        IReadOnlyList<Guid> orderedChildIds,
+        CancellationToken ct = default
+    );
+
     /// <summary>Publishes a document and its descendants (issue #67).</summary>
     /// <param name="id">The root document id.</param>
     /// <param name="cultures">Cultures to publish; null/empty publishes all.</param>

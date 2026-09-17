@@ -73,4 +73,18 @@ public interface IMediaClient
         Guid? parentId = null,
         CancellationToken ct = default
     );
+
+    /// <summary>
+    /// Reorders a parent folder's child media items (issue #88). The supplied ids define the new
+    /// order: the first id gets sort order 0, the next 1, and so on.
+    /// </summary>
+    /// <param name="parentId">The parent folder whose children to reorder; null reorders the media root.</param>
+    /// <param name="orderedChildIds">Child media ids in the desired order.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> SortMediaAsync(
+        Guid? parentId,
+        IReadOnlyList<Guid> orderedChildIds,
+        CancellationToken ct = default
+    );
 }

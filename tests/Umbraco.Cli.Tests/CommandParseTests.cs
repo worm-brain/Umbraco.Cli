@@ -148,6 +148,12 @@ public class CommandParseTests
     public void WriteCommand_ValidOrSchema_IsNotParseError(string args) =>
         Assert.False(HasErrors(args));
 
+    [Theory]
+    [InlineData("content sort")] // --children is required (#88)
+    [InlineData("content sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
+    [InlineData("media sort")]
+    public void Sort_MissingChildren_IsParseError(string args) => Assert.True(HasErrors(args));
+
     // ── Command tree structure ────────────────────────────────────────────────
 
     [Theory]
@@ -210,6 +216,7 @@ public class CommandParseTests
             "restore",
             "empty-recycle-bin",
             "move",
+            "sort",
             "copy",
             "publish-descendants",
             "bulk",
@@ -220,7 +227,18 @@ public class CommandParseTests
     )]
     [InlineData(
         "media",
-        new[] { "list", "get", "upload", "delete", "trash", "restore", "empty-recycle-bin", "move" }
+        new[]
+        {
+            "list",
+            "get",
+            "upload",
+            "delete",
+            "trash",
+            "restore",
+            "empty-recycle-bin",
+            "move",
+            "sort",
+        }
     )]
     [InlineData("media-types", new[] { "list", "get", "create", "delete" })]
     [InlineData("member-types", new[] { "list", "get", "create", "update", "delete" })]
@@ -328,6 +346,10 @@ public class CommandParseTests
     [InlineData("content move 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content copy 3f7a8b2e-1234-5678-abcd-ef0123456789 --include-descendants")]
     [InlineData(
+        "content sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --children 3f7a8b2e-1234-5678-abcd-ef0123456789 9c4d5e6f-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --parent optional (reorder the root)
+    [InlineData(
         "content publish-descendants 3f7a8b2e-1234-5678-abcd-ef0123456789 --cultures en-US"
     )]
     [InlineData("content bulk delete --file ids.txt")]
@@ -347,6 +369,9 @@ public class CommandParseTests
     [InlineData("media empty-recycle-bin")]
     [InlineData(
         "media move 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "media sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --children 3f7a8b2e-1234-5678-abcd-ef0123456789 9c4d5e6f-1234-5678-abcd-ef0123456789"
     )]
     [InlineData("media list")]
     [InlineData("media get 3f7a8b2e-1234-5678-abcd-ef0123456789")]

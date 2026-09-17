@@ -119,6 +119,19 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>Recorded content sort calls, in <c>(parentId, orderedChildIds)</c> order (#88).</summary>
+    public List<(Guid? ParentId, IReadOnlyList<Guid> OrderedChildIds)> ContentSorted { get; } = [];
+
+    public Task<UmbracoResponse<Empty>> SortContentAsync(
+        Guid? parentId,
+        IReadOnlyList<Guid> orderedChildIds,
+        CancellationToken ct = default
+    )
+    {
+        ContentSorted.Add((parentId, orderedChildIds));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
     public Task<UmbracoResponse<Empty>> PublishContentWithDescendantsAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
@@ -182,6 +195,19 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         Guid? parentId = null,
         CancellationToken ct = default
     ) => throw new NotImplementedException();
+
+    /// <summary>Recorded media sort calls, in <c>(parentId, orderedChildIds)</c> order (#88).</summary>
+    public List<(Guid? ParentId, IReadOnlyList<Guid> OrderedChildIds)> MediaSorted { get; } = [];
+
+    public Task<UmbracoResponse<Empty>> SortMediaAsync(
+        Guid? parentId,
+        IReadOnlyList<Guid> orderedChildIds,
+        CancellationToken ct = default
+    )
+    {
+        MediaSorted.Add((parentId, orderedChildIds));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<MediaTypeResponse>>> GetMediaTypesAsync(
         int skip = 0,

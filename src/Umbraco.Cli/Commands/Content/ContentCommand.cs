@@ -25,6 +25,7 @@ public static class ContentCommand
         cmd.Add(ContentRestoreCommand.Build(executor));
         cmd.Add(ContentEmptyRecycleBinCommand.Build(executor));
         cmd.Add(ContentMoveCommand.Build(executor));
+        cmd.Add(ContentSortCommand.Build(executor));
         cmd.Add(ContentCopyCommand.Build(executor));
         cmd.Add(ContentPublishDescendantsCommand.Build(executor));
         cmd.Add(ContentBulkCommand.Build(executor));
