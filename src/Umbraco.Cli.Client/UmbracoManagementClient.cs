@@ -830,14 +830,21 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    /// <summary>Copies a document under a new parent via <c>POST document/{id}/copy</c> (issue #67).</summary>
+    /// <summary>
+    /// Copies a document under a new parent via <c>POST document/{id}/copy</c> (issue #67) and
+    /// surfaces the copy's new id (issue #91). The endpoint returns <c>201 Created</c> with the new
+    /// id in the <c>Location</c> header and an empty body; unlike the other creates the server
+    /// assigns the id, so it cannot be pre-supplied. The generated method discards the response, so
+    /// a Kiota <see cref="NativeResponseHandler"/> captures the raw response to read the
+    /// <c>Location</c>; the new node is then best-effort hydrated so a script can chain to the copy.
+    /// </summary>
     /// <param name="id">The document id to copy.</param>
     /// <param name="parentId">Target parent id; null copies to the content root.</param>
     /// <param name="includeDescendants">Whether to copy descendants too.</param>
     /// <param name="relateToOriginal">Whether to create a relation to the original.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> CopyContentAsync(
+    /// <returns>The copied document (with its new id), or a mapped failure.</returns>
+    public Task<UmbracoResponse<ContentItemResponse>> CopyContentAsync(
         Guid id,
         Guid? parentId = null,
         bool includeDescendants = false,
@@ -854,12 +861,49 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     IncludeDescendants = includeDescendants,
                     RelateToOriginal = relateToOriginal,
                 };
+                // The generated Copy endpoint throws the response away; attach a native response
+                // handler so we can read the 201 Location header - the only place the new id appears.
+                var capture = new NativeResponseHandler();
                 await _api
                     .Umbraco.Management.Api.V1.Document[id]
-                    .Copy.PostAsync(body, cancellationToken: ct);
-                return Empty.Value;
+                    .Copy.PostAsync(
+                        body,
+                        config =>
+                            config.Options.Add(
+                                new ResponseHandlerOption { ResponseHandler = capture }
+                            ),
+                        ct
+                    );
+
+                var newId = ExtractIdFromLocation(capture);
+                // Best-effort hydration: re-read the new node for a full item. A failed read still
+                // reports success carrying the id we resolved (the copy itself succeeded).
+                if (newId is { } nid)
+                {
+                    var hydrated = await GetContentByIdAsync(nid, ct);
+                    return hydrated is { IsSuccess: true, Data: { } data }
+                        ? data
+                        : new ContentItemResponse { Id = nid };
+                }
+                return new ContentItemResponse();
             }
         );
+
+    /// <summary>
+    /// Reads the new resource id from a captured <c>201</c> response's <c>Location</c> header (issue
+    /// #91): the id is the last path segment. Returns null when there is no location or it is not a GUID.
+    /// </summary>
+    /// <param name="capture">The native response handler that captured the raw HTTP response.</param>
+    /// <returns>The new document id, or null when it cannot be read.</returns>
+    private static Guid? ExtractIdFromLocation(NativeResponseHandler capture)
+    {
+        if (capture.Value is not HttpResponseMessage response)
+            return null;
+        var lastSegment = response
+            .Headers.Location?.OriginalString.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .LastOrDefault();
+        return Guid.TryParse(lastSegment, out var parsed) ? parsed : null;
+    }
 
     /// <summary>
     /// Reorders a parent's child documents via <c>PUT document/sort</c> (issue #88). The order of

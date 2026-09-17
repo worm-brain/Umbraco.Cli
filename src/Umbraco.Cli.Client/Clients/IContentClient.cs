@@ -112,14 +112,14 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
-    /// <summary>Copies a document under a new parent (issue #67).</summary>
+    /// <summary>Copies a document under a new parent and returns the copy's new id (issues #67, #91).</summary>
     /// <param name="id">The document id to copy.</param>
     /// <param name="parentId">Target parent id; null copies to the content root.</param>
     /// <param name="includeDescendants">Whether to copy descendants too.</param>
     /// <param name="relateToOriginal">Whether to create a relation to the original.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> CopyContentAsync(
+    /// <returns>The copied document (with its new id), or a mapped failure.</returns>
+    Task<UmbracoResponse<ContentItemResponse>> CopyContentAsync(
         Guid id,
         Guid? parentId = null,
         bool includeDescendants = false,

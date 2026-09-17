@@ -121,13 +121,28 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<Empty>> CopyContentAsync(
+    /// <summary>The (id, parentId) of the last copy call (#91).</summary>
+    public (Guid Id, Guid? ParentId)? LastCopyArgs { get; private set; }
+
+    /// <summary>The response the fake returns for a copy; a default carrying a new id is used when unset (#91).</summary>
+    public UmbracoResponse<ContentItemResponse>? CopyContentResponse { get; set; }
+
+    public Task<UmbracoResponse<ContentItemResponse>> CopyContentAsync(
         Guid id,
         Guid? parentId = null,
         bool includeDescendants = false,
         bool relateToOriginal = false,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastCopyArgs = (id, parentId);
+        return Task.FromResult(
+            CopyContentResponse
+                ?? UmbracoResponse<ContentItemResponse>.Success(
+                    new ContentItemResponse { Id = Guid.NewGuid() }
+                )
+        );
+    }
 
     /// <summary>Recorded content sort calls, in <c>(parentId, orderedChildIds)</c> order (#88).</summary>
     public List<(Guid? ParentId, IReadOnlyList<Guid> OrderedChildIds)> ContentSorted { get; } = [];
