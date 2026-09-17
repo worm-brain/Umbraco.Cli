@@ -76,7 +76,12 @@ public static class ContentApplyCommand
                         );
                     },
                     (ctx, result) =>
-                        ctx.Output.WriteTable(new[] { "Operation", "Id", "Status" }, Rows(result)),
+                        ctx.Output.WriteTable(
+                            new[] { "Operation", "Id", "Status" },
+                            Rows(result),
+                            ctx.CommandName,
+                            ctx.Stopwatch.ElapsedMilliseconds
+                        ),
                     ct,
                     confirmation
                 );

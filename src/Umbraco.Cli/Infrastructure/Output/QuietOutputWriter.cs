@@ -22,11 +22,15 @@ public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
     public void WriteError(int code, string message) => inner.WriteError(code, message);
 
     /// <inheritdoc />
-    public void WriteTable(string[] headers, IEnumerable<string[]> rows) =>
-        inner.WriteTable(headers, rows);
+    public void WriteTable(
+        string[] headers,
+        IEnumerable<string[]> rows,
+        string? commandName = null,
+        long? durationMs = null
+    ) => inner.WriteTable(headers, rows, commandName, durationMs);
 
     /// <inheritdoc />
-    public void WriteMessage(string message)
+    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
     {
         // Suppressed under --quiet: a fixed success confirmation is chatter, not data.
     }

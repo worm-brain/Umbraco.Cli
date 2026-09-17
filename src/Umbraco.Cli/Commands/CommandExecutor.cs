@@ -365,7 +365,12 @@ public sealed class CommandExecutor
             parseResult,
             commandName,
             call,
-            (ctx, _) => ctx.Output.WriteMessage(successMessage),
+            (ctx, _) =>
+                ctx.Output.WriteMessage(
+                    successMessage,
+                    ctx.CommandName,
+                    ctx.Stopwatch.ElapsedMilliseconds
+                ),
             ct,
             confirmationPrompt
         );
@@ -383,7 +388,13 @@ public sealed class CommandExecutor
             parseResult,
             commandName,
             call,
-            (ctx, data) => ctx.Output.WriteTable(headers, rows(data)),
+            (ctx, data) =>
+                ctx.Output.WriteTable(
+                    headers,
+                    rows(data),
+                    ctx.CommandName,
+                    ctx.Stopwatch.ElapsedMilliseconds
+                ),
             ct
         );
 }

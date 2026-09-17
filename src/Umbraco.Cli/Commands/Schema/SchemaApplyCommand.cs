@@ -80,7 +80,9 @@ public static class SchemaApplyCommand
                     (ctx, result) =>
                         ctx.Output.WriteTable(
                             new[] { "Operation", "Kind", "Identity", "Id", "Status" },
-                            Rows(result)
+                            Rows(result),
+                            ctx.CommandName,
+                            ctx.Stopwatch.ElapsedMilliseconds
                         ),
                     ct,
                     confirmation
