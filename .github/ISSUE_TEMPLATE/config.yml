@@ -1,0 +1,10 @@
+# Keep blank issues enabled so anyone can file freely; the structured forms are a convenience,
+# not a gate. The gate is on pull requests, not on ideas - see CONTRIBUTING.md.
+blank_issues_enabled: true
+contact_links:
+  - name: Contribution policy (read before opening a PR)
+    url: https://github.com/worm-brain/Umbraco.Cli/blob/main/CONTRIBUTING.md
+    about: Ideas and issues are welcome from everyone. Pull requests are issue-first and invitation-only.
+  - name: Using the CLI with an AI agent
+    url: https://github.com/worm-brain/Umbraco.Cli/blob/main/docs/agent-guide.md
+    about: The operating manual for agents that drive the umbraco CLI.

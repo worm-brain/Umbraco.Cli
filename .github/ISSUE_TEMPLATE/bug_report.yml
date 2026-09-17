@@ -1,0 +1,53 @@
+name: Bug report
+description: Something the CLI does wrong. Repro welcome from humans and AI agents alike.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. A copy-pasteable repro beats a description.
+        Ideas and reports are welcome from anyone, including AI agents - see CONTRIBUTING.md.
+        (Note: filing a bug does not mean you should open a PR. PRs are issue-first and
+        invitation-only; wait for this issue to be labelled `accepted` first.)
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `umbraco --version`.
+      placeholder: e.g. 0.5.0-alpha
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran
+      description: The exact command and flags. Redact secrets.
+      render: shell
+      placeholder: umbraco content list --output json
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The output you got (stdout and/or stderr) and the exit code.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other / multiple
+    validations:
+      required: false
