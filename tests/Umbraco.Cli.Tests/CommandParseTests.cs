@@ -347,6 +347,12 @@ public class CommandParseTests
     [InlineData("content get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content publish 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --publish-at 2026-01-01T09:00:00Z"
+    )]
+    [InlineData(
+        "content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --publish-at 2026-01-01T09:00:00Z --unpublish-at 2026-02-01T18:30:00Z"
+    )]
     [InlineData("content unpublish 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content versions 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content versions 3f7a8b2e-1234-5678-abcd-ef0123456789 --culture en-US")]
@@ -369,6 +375,7 @@ public class CommandParseTests
     [InlineData(
         "content publish-descendants 3f7a8b2e-1234-5678-abcd-ef0123456789 --cultures en-US"
     )]
+    [InlineData("content publish-descendants 3f7a8b2e-1234-5678-abcd-ef0123456789 --wait")]
     [InlineData("content bulk delete --file ids.txt")]
     [InlineData("content bulk delete")] // reads stdin at run time
     [InlineData("content bulk publish --cultures en-US")]

@@ -151,6 +151,22 @@ public record TreeItem
     public bool HasChildren { get; init; }
 }
 
+/// <summary>
+/// The outcome of a publish-with-descendants request (issue #90). The server runs the branch
+/// publish as a background task; <see cref="TaskId"/> identifies it and <see cref="IsComplete"/>
+/// says whether it has finished (immediately, or after <c>--wait</c> polling).
+/// </summary>
+public record PublishDescendantsResult
+{
+    /// <summary>The background task id the server assigned, or null if it completed synchronously.</summary>
+    [JsonPropertyName("taskId")]
+    public Guid? TaskId { get; init; }
+
+    /// <summary>Whether the branch publish has completed.</summary>
+    [JsonPropertyName("isComplete")]
+    public bool IsComplete { get; init; }
+}
+
 public record UrlInfo
 {
     [JsonPropertyName("culture")]

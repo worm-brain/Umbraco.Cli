@@ -594,6 +594,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<Empty>> PublishContentAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
+        DateTimeOffset? publishAt = null,
+        DateTimeOffset? unpublishAt = null,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -606,8 +608,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         .Select(c => new Gen.CultureAndScheduleRequestModel
                         {
                             Culture = c,
-                            // No PublishTime/UnpublishTime = publish immediately.
-                            Schedule = new Gen.ScheduleRequestModel(),
+                            // #90: a null time on either side means "now" for publish / "never" for
+                            // unpublish, so an all-null schedule is still an immediate publish.
+                            Schedule = new Gen.ScheduleRequestModel
+                            {
+                                PublishTime = publishAt,
+                                UnpublishTime = unpublishAt,
+                            },
                         })
                         .ToList(),
                 };
@@ -890,19 +897,31 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
+    /// <summary>How often <c>--wait</c> polls the publish-with-descendants task (issue #90).</summary>
+    private static readonly TimeSpan PublishDescendantsPollInterval = TimeSpan.FromSeconds(1);
+
+    /// <summary>How long <c>--wait</c> polls before giving up and returning the last-known state (issue #90).</summary>
+    private static readonly TimeSpan PublishDescendantsPollTimeout = TimeSpan.FromMinutes(2);
+
     /// <summary>
     /// Publishes a document and its descendants via
-    /// <c>PUT document/{id}/publish-with-descendants</c> (issue #67).
+    /// <c>PUT document/{id}/publish-with-descendants</c> (issue #67). The server runs the branch
+    /// publish as a background task, returning a task id and a completion flag; with
+    /// <paramref name="wait"/> the call polls
+    /// <c>GET document/{id}/publish-with-descendants/result/{taskId}</c> until it completes or the
+    /// poll timeout elapses (issue #90).
     /// </summary>
     /// <param name="id">The root document id.</param>
     /// <param name="cultures">Cultures to publish; null/empty publishes all (<c>*</c>).</param>
     /// <param name="includeUnpublishedDescendants">Whether to also publish never-published descendants.</param>
+    /// <param name="wait">Whether to poll the background task to completion before returning.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> PublishContentWithDescendantsAsync(
+    /// <returns>The task id and completion state, or a mapped failure.</returns>
+    public Task<UmbracoResponse<PublishDescendantsResult>> PublishContentWithDescendantsAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
         bool includeUnpublishedDescendants = false,
+        bool wait = false,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -914,12 +933,46 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Cultures = (cultures ?? ["*"]).ToList(),
                     IncludeUnpublishedDescendants = includeUnpublishedDescendants,
                 };
-                await _api
+                var started = await _api
                     .Umbraco.Management.Api.V1.Document[id]
                     .PublishWithDescendants.PutAsync(body, cancellationToken: ct);
-                return Empty.Value;
+
+                var taskId = started?.TaskId;
+                var complete = started?.IsComplete ?? false;
+
+                // #90: poll the result endpoint until the task reports complete (or we time out).
+                // A synchronously-complete server, or a missing task id, needs no polling.
+                if (wait && !complete && taskId is { } tid)
+                    complete = await PollPublishDescendantsAsync(id, tid, ct);
+
+                return new PublishDescendantsResult { TaskId = taskId, IsComplete = complete };
             }
         );
+
+    /// <summary>
+    /// Polls the publish-with-descendants result endpoint until the task completes or
+    /// <see cref="PublishDescendantsPollTimeout"/> elapses (issue #90).
+    /// </summary>
+    /// <param name="id">The root document id.</param>
+    /// <param name="taskId">The background task id to poll.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>True if the task completed within the timeout; false if it timed out still running.</returns>
+    private async Task<bool> PollPublishDescendantsAsync(Guid id, Guid taskId, CancellationToken ct)
+    {
+        var deadline = DateTimeOffset.UtcNow + PublishDescendantsPollTimeout;
+        while (true)
+        {
+            var result = await _api
+                .Umbraco.Management.Api.V1.Document[id]
+                .PublishWithDescendants.Result[taskId]
+                .GetAsync(cancellationToken: ct);
+            if (result?.IsComplete ?? false)
+                return true;
+            if (DateTimeOffset.UtcNow >= deadline)
+                return false;
+            await Task.Delay(PublishDescendantsPollInterval, ct);
+        }
+    }
 
     // ── Media ────────────────────────────────────────────────────────────────
 

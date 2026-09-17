@@ -25,14 +25,23 @@ public static class ContentPublishDescendantsCommand
             DefaultValueFactory = _ => false,
             Description = "Also publish descendants that have never been published.",
         };
+        var waitOpt = new Option<bool>("--wait")
+        {
+            DefaultValueFactory = _ => false,
+            Description =
+                "Poll the background publish task until it completes, rather than returning as soon as it is queued (#90).",
+        };
         cmd.Add(idArg);
         cmd.Add(culturesOpt);
         cmd.Add(includeUnpublishedOpt);
+        cmd.Add(waitOpt);
         cmd.SetAction(
             (parseResult, ct) =>
             {
                 var cultures = parseResult.GetValue(culturesOpt);
-                return executor.RunMessageAsync(
+                // Object output (rather than a fixed message) surfaces the background task id and
+                // completion state, so a script can chain on --wait or poll the id itself (#90).
+                return executor.RunObjectAsync(
                     parseResult,
                     "content.publish-descendants",
                     (client, c) =>
@@ -40,9 +49,9 @@ public static class ContentPublishDescendantsCommand
                             parseResult.GetValue(idArg),
                             cultures?.Length > 0 ? cultures : null,
                             parseResult.GetValue(includeUnpublishedOpt),
+                            parseResult.GetValue(waitOpt),
                             c
                         ),
-                    "Content and descendants published.",
                     ct
                 );
             }

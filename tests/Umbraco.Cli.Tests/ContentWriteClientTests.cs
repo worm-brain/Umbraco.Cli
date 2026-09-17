@@ -275,7 +275,7 @@ public class ContentWriteClientTests
         var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
         var client = Client(handler);
 
-        var result = await client.PublishContentAsync(id, null, CancellationToken.None);
+        var result = await client.PublishContentAsync(id, null, ct: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var put = handler.RequestFor(r =>
@@ -283,6 +283,93 @@ public class ContentWriteClientTests
         );
         Assert.NotNull(put);
         Assert.Contains("*", handler.BodyForFirst(r => Has(r, $"document/{id}/publish")));
+    }
+
+    /// <summary>
+    /// #90: a scheduled publish sends the publish and unpublish times on the per-culture schedule
+    /// (rather than the empty schedule that means "now / never").
+    /// </summary>
+    [Fact]
+    public async Task PublishContentAsync_WithSchedule_SendsPublishAndUnpublishTimes()
+    {
+        var id = Guid.NewGuid();
+        var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
+        var client = Client(handler);
+        var publishAt = DateTimeOffset.Parse("2026-01-01T09:00:00Z");
+        var unpublishAt = DateTimeOffset.Parse("2026-02-01T18:30:00Z");
+
+        var result = await client.PublishContentAsync(
+            id,
+            null,
+            publishAt,
+            unpublishAt,
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        var body = handler.BodyForFirst(r => Has(r, $"document/{id}/publish"));
+        Assert.Contains("2026-01-01", body); // publishTime
+        Assert.Contains("2026-02-01", body); // unpublishTime
+    }
+
+    /// <summary>
+    /// #90: publish-with-descendants surfaces the background task id and completion flag from the
+    /// PUT response instead of discarding them.
+    /// </summary>
+    [Fact]
+    public async Task PublishContentWithDescendantsAsync_SurfacesTaskId()
+    {
+        var id = Guid.NewGuid();
+        var taskId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var handler = new RoutingHandler().When(
+            r => r.Method == HttpMethod.Put && Has(r, "publish-with-descendants"),
+            HttpStatusCode.OK,
+            """{"taskId":"11111111-1111-1111-1111-111111111111","isComplete":false}"""
+        );
+        var client = Client(handler);
+
+        var result = await client.PublishContentWithDescendantsAsync(
+            id,
+            ct: CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(taskId, result.Data!.TaskId);
+        Assert.False(result.Data!.IsComplete);
+    }
+
+    /// <summary>
+    /// #90: with --wait the client polls the result endpoint until the task reports complete.
+    /// </summary>
+    [Fact]
+    public async Task PublishContentWithDescendantsAsync_Wait_PollsResultUntilComplete()
+    {
+        var id = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Put && Has(r, "publish-with-descendants"),
+                HttpStatusCode.OK,
+                """{"taskId":"11111111-1111-1111-1111-111111111111","isComplete":false}"""
+            )
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, "publish-with-descendants/result"),
+                HttpStatusCode.OK,
+                """{"taskId":"11111111-1111-1111-1111-111111111111","isComplete":true}"""
+            );
+        var client = Client(handler);
+
+        var result = await client.PublishContentWithDescendantsAsync(
+            id,
+            wait: true,
+            ct: CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Data!.IsComplete);
+        Assert.Contains(
+            handler.Requests,
+            u => u.AbsoluteUri.Contains("publish-with-descendants/result")
+        );
     }
 
     /// <summary>

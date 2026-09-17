@@ -772,7 +772,7 @@ public class CommandExecutorTests
                 parse,
                 "content.bulk.publish",
                 () => [id1.ToString(), id2.ToString()],
-                (c, id, ct) => c.PublishContentAsync(id, null, ct),
+                (c, id, ct) => c.PublishContentAsync(id, null, ct: ct),
                 CancellationToken.None
             )
         );
@@ -808,7 +808,7 @@ public class CommandExecutorTests
                 parse,
                 "content.bulk.publish",
                 () => [ok.ToString(), bad.ToString(), "not-a-guid"],
-                (c, id, ct) => c.PublishContentAsync(id, null, ct),
+                (c, id, ct) => c.PublishContentAsync(id, null, ct: ct),
                 CancellationToken.None
             )
         );

@@ -28,9 +28,22 @@ public interface IContentClient
 
     Task<UmbracoResponse<Empty>> DeleteContentAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>
+    /// Publishes a document (issue #79), optionally scheduling when it goes live and/or comes down
+    /// (issue #90). The schedule rides the publish request's per-culture schedule, so a scheduled
+    /// unpublish is expressed here via <paramref name="unpublishAt"/> rather than on the unpublish verb.
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">Cultures to publish; null/empty publishes all (<c>"*"</c>).</param>
+    /// <param name="publishAt">When to publish; null publishes immediately.</param>
+    /// <param name="unpublishAt">When to unpublish again; null leaves it published.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> PublishContentAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
+        DateTimeOffset? publishAt = null,
+        DateTimeOffset? unpublishAt = null,
         CancellationToken ct = default
     );
 
@@ -173,16 +186,22 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
-    /// <summary>Publishes a document and its descendants (issue #67).</summary>
+    /// <summary>
+    /// Publishes a document and its descendants (issue #67). The server runs the branch publish as a
+    /// background task; the result carries its task id and completion state. With
+    /// <paramref name="wait"/> the call polls the task to completion before returning (issue #90).
+    /// </summary>
     /// <param name="id">The root document id.</param>
     /// <param name="cultures">Cultures to publish; null/empty publishes all.</param>
     /// <param name="includeUnpublishedDescendants">Whether to also publish descendants that were never published.</param>
+    /// <param name="wait">Whether to poll the background task until it completes.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> PublishContentWithDescendantsAsync(
+    /// <returns>The task id and completion state, or a mapped failure.</returns>
+    Task<UmbracoResponse<PublishDescendantsResult>> PublishContentWithDescendantsAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
         bool includeUnpublishedDescendants = false,
+        bool wait = false,
         CancellationToken ct = default
     );
 }

@@ -64,12 +64,22 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(DeleteContentHandler(id));
     }
 
+    /// <summary>The (publishAt, unpublishAt) of the last publish call (#90).</summary>
+    public (DateTimeOffset? PublishAt, DateTimeOffset? UnpublishAt)? LastPublishSchedule
+    {
+        get;
+        private set;
+    }
+
     public Task<UmbracoResponse<Empty>> PublishContentAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
+        DateTimeOffset? publishAt = null,
+        DateTimeOffset? unpublishAt = null,
         CancellationToken ct = default
     )
     {
+        LastPublishSchedule = (publishAt, unpublishAt);
         if (PublishContentHandler is null)
             throw new NotImplementedException();
         CalledIds.Add(id);
@@ -195,12 +205,28 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
-    public Task<UmbracoResponse<Empty>> PublishContentWithDescendantsAsync(
+    /// <summary>The (id, wait) of the last publish-descendants call (#90).</summary>
+    public (Guid Id, bool Wait)? LastPublishDescendantsArgs { get; private set; }
+
+    /// <summary>The response the fake returns for publish-descendants; a default is used when unset (#90).</summary>
+    public UmbracoResponse<PublishDescendantsResult>? PublishDescendantsResponse { get; set; }
+
+    public Task<UmbracoResponse<PublishDescendantsResult>> PublishContentWithDescendantsAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
         bool includeUnpublishedDescendants = false,
+        bool wait = false,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastPublishDescendantsArgs = (id, wait);
+        return Task.FromResult(
+            PublishDescendantsResponse
+                ?? UmbracoResponse<PublishDescendantsResult>.Success(
+                    new PublishDescendantsResult { TaskId = Guid.NewGuid(), IsComplete = wait }
+                )
+        );
+    }
 
     public Task<UmbracoResponse<PagedResponse<DocumentVersionResponse>>> GetDocumentVersionsAsync(
         Guid documentId,
