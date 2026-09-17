@@ -34,9 +34,40 @@ permissions:
   id-token: write   # required for Trusted Publishing: mint the GitHub OIDC token
 
 jobs:
+  # Cross-platform gate: a tag is published only if the tests pass on every OS.
+  # Releases are rare, so the full ubuntu/windows/macos matrix runs here - where
+  # routine CI (ci.yml) is Linux-only - because a release is where cross-platform
+  # confidence matters most.
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Test
+        run: dotnet test --no-build -c Release
+
   release:
     name: Pack & Publish to NuGet
     runs-on: ubuntu-latest
+    # Only publish once the cross-platform test matrix above is green.
+    needs: test
 
     steps:
       - uses: actions/checkout@v7
@@ -58,10 +89,8 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release -p:Version=${{ steps.version.outputs.version }}
 
-      # Gate the publish on a green test run so we never ship a broken tool.
-      - name: Test
-        run: dotnet test --no-build -c Release
-
+      # No inline test step here: the `test` job above already gated this publish
+      # on a green run across ubuntu/windows/macos, so we never ship a broken tool.
       - name: Pack
         run: >
           dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj

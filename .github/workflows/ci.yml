@@ -1,18 +1,46 @@
 name: CI
 
+# Routine CI runs tests on Linux only, to keep GitHub Actions minutes down:
+# GitHub bills macOS runners at 10x and Windows at 2x Linux minutes, so a 3-OS
+# matrix costs ~13x a Linux-only run. Cross-platform is still verified where it
+# matters - the release workflow (publish.yml) gates every tag on the full
+# ubuntu/windows/macos matrix, and a manual `workflow_dispatch` here runs the
+# full matrix on demand.
+
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+      - "LICENSE"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+      - "LICENSE"
+  # Run the full cross-platform matrix on demand (Actions tab -> CI -> Run workflow).
+  workflow_dispatch:
+
+# A newer push to the same branch/PR cancels the in-progress run, so rapid
+# pushes don't stack up parallel runs and burn minutes on superseded commits.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
+      # Linux only for routine PR/push runs; the full matrix only on a manual
+      # workflow_dispatch (the expression yields a JSON array either way).
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') || fromJSON('["ubuntu-latest"]') }}
 
     steps:
       - uses: actions/checkout@v7
