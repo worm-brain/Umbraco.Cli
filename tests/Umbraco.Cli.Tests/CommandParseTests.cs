@@ -154,6 +154,13 @@ public class CommandParseTests
     [InlineData("media sort")]
     public void Sort_MissingChildren_IsParseError(string args) => Assert.True(HasErrors(args));
 
+    [Theory]
+    [InlineData("content find")] // neither --name nor --path (#89)
+    [InlineData("content find --name About --path Home/About")] // both is ambiguous
+    [InlineData("media find")]
+    [InlineData("media find --name logo --path Images/Logos")]
+    public void Find_NotExactlyOneMode_IsParseError(string args) => Assert.True(HasErrors(args));
+
     // ── Command tree structure ────────────────────────────────────────────────
 
     [Theory]
@@ -204,6 +211,8 @@ public class CommandParseTests
         new[]
         {
             "list",
+            "tree",
+            "find",
             "get",
             "create",
             "update",
@@ -230,6 +239,8 @@ public class CommandParseTests
         new[]
         {
             "list",
+            "tree",
+            "find",
             "get",
             "upload",
             "delete",
@@ -327,6 +338,12 @@ public class CommandParseTests
     [InlineData("content list --skip 0 --take 50")]
     [InlineData("content list --take 100")]
     [InlineData("content list --parent 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("content tree")]
+    [InlineData("content tree --parent 3f7a8b2e-1234-5678-abcd-ef0123456789 --recursive")]
+    [InlineData("content tree --depth 3")]
+    [InlineData("content find --name About")]
+    [InlineData("content find --name Team --parent 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("content find --path Home/About")]
     [InlineData("content get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content publish 3f7a8b2e-1234-5678-abcd-ef0123456789")]
@@ -374,6 +391,10 @@ public class CommandParseTests
         "media sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --children 3f7a8b2e-1234-5678-abcd-ef0123456789 9c4d5e6f-1234-5678-abcd-ef0123456789"
     )]
     [InlineData("media list")]
+    [InlineData("media tree")]
+    [InlineData("media tree --parent 3f7a8b2e-1234-5678-abcd-ef0123456789 --depth 2")]
+    [InlineData("media find --name logo")]
+    [InlineData("media find --path Images/Logos")]
     [InlineData("media get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("media upload ./logo.png")] // --parent optional (#57)
     [InlineData("media upload ./big.mp4 --media-type File --name Promo")]

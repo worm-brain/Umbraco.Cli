@@ -115,6 +115,51 @@ public interface IContentClient
     );
 
     /// <summary>
+    /// Walks the document tree (issue #89) and returns a flat, pre-order list carrying each node's
+    /// depth and parent. Lists from the content root, or beneath <paramref name="parentId"/>.
+    /// </summary>
+    /// <param name="parentId">The node whose subtree to walk; null walks from the content root.</param>
+    /// <param name="maxDepth">How many levels to descend (1 = direct children only). Bounded for safety.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The subtree as a flat pre-order list, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<TreeItem>>> GetContentTreeAsync(
+        Guid? parentId,
+        int maxDepth,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Finds documents whose name matches <paramref name="query"/> (issue #89), via the document
+    /// search endpoint. Matching is the server's (contains, case-insensitive).
+    /// </summary>
+    /// <param name="query">The name text to search for.</param>
+    /// <param name="parentId">Optional subtree to scope the search to; null searches everywhere.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A paged list of matching documents, or a mapped failure.</returns>
+    Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> FindContentByNameAsync(
+        string query,
+        Guid? parentId,
+        int skip,
+        int take,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Locates a document by its name path from the content root (issue #89), e.g.
+    /// <c>Home/About/Team</c>. Each segment is matched against a child's name (case-insensitive,
+    /// exact), descending one level per segment.
+    /// </summary>
+    /// <param name="path">A <c>/</c>-separated path of node names from the root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matched node (a list of zero or one item), or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<ContentItemResponse>>> FindContentByPathAsync(
+        string path,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
     /// Reorders a parent's child documents (issue #88). The supplied ids define the new order:
     /// the first id gets sort order 0, the next 1, and so on.
     /// </summary>
