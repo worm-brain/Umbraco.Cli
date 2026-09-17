@@ -102,11 +102,13 @@ Run it first in any new environment. See [getting-started.md](getting-started.md
 
 ```bash
 umbraco content list [--parent <id>] [--skip <n>] [--take <n>]
+umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
+umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco content get <id>
 umbraco content create --content-type <alias> --name <name> [--json-body <file>] [--id <guid>]
 umbraco content update <id> [--json-body <file>]
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
-umbraco content publish <id> [--cultures <csv>]
+umbraco content publish <id> [--cultures <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule
 umbraco content unpublish <id> [--cultures <csv>]          # takes offline; needs --yes
 umbraco content versions <id> [--culture <code>]           # version history
 umbraco content rollback <version-id> [--culture <code>]   # restore a version
@@ -114,8 +116,9 @@ umbraco content trash <id>                                 # move to recycle bin
 umbraco content restore <id> [--parent <id>]               # restore from recycle bin
 umbraco content empty-recycle-bin                          # permanent; needs --yes
 umbraco content move <id> [--parent <id>]
-umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]
-umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished]
+umbraco content sort [--parent <id>] --children <id> <id> ...   # reorder a parent's children (order given = sort order)
+umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # returns the new node's id
+umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
 umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
 umbraco content diff <snapshot>                            # diff a snapshot vs live (read-only)
 umbraco content apply <snapshot> [--prune] [--dry-run]     # reconcile; --prune deletes, needs --yes
@@ -169,6 +172,8 @@ umbraco document-blueprint folder delete <id>              # needs --yes non-int
 
 ```bash
 umbraco media list [--parent <id>]
+umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
+umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco media get <id>
 umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>]  # staged via temporary-file
 umbraco media delete <id>                                  # permanent; needs --yes
@@ -176,6 +181,7 @@ umbraco media trash <id>                                   # move to recycle bin
 umbraco media restore <id> [--parent <id>]
 umbraco media empty-recycle-bin                            # permanent; needs --yes
 umbraco media move <id> [--parent <id>]
+umbraco media sort [--parent <id>] --children <id> <id> ...   # reorder a parent folder's children
 ```
 
 ## `media-types`
@@ -306,8 +312,10 @@ umbraco user-data delete <key>                             # needs --yes non-int
 
 ```bash
 umbraco dictionary list
+umbraco dictionary tree [--parent <id>]                    # browse the hierarchy: root, or children of --parent
 umbraco dictionary get <key>
-umbraco dictionary create --key <key> [--values en=Hello --values da=Hej]
+umbraco dictionary create --key <key> [--values en=Hello --values da=Hej] [--parent <id>]   # --parent creates under an item
+umbraco dictionary move <id> [--target <id>]               # reparent; omit --target to move to the root
 umbraco dictionary delete <id>                             # needs --yes non-interactively
 ```
 
