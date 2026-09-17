@@ -12,8 +12,9 @@
     Some builds also expose /umbraco/openapi/management.json — the script tries
     the swagger path first and falls back.
 
-.PARAMETER Host
+.PARAMETER BaseUrl
     Base URL of the Umbraco instance, e.g. https://localhost:45000.
+    Also accepts the -Host alias.
 
 .PARAMETER SkipCertificateCheck
     Skip TLS validation (needed for the self-signed dev certificate on localhost).
@@ -23,9 +24,12 @@
 #>
 [CmdletBinding()]
 param(
-    # Base URL of the running Umbraco instance.
+    # Base URL of the running Umbraco instance. Named -BaseUrl because $Host is a
+    # read-only PowerShell automatic variable (assigning it throws on pwsh 7);
+    # the -Host alias keeps the documented invocation working.
     [Parameter(Mandatory)]
-    [string]$Host,
+    [Alias('Host')]
+    [string]$BaseUrl,
 
     # Skip TLS validation for self-signed dev certificates.
     [switch]$SkipCertificateCheck
@@ -43,8 +47,8 @@ if (-not (Test-Path $specDir)) {
 
 # Candidate document locations, most-current first.
 $candidates = @(
-    "$($Host.TrimEnd('/'))/umbraco/swagger/management/swagger.json",
-    "$($Host.TrimEnd('/'))/umbraco/openapi/management.json"
+    "$($BaseUrl.TrimEnd('/'))/umbraco/swagger/management/swagger.json",
+    "$($BaseUrl.TrimEnd('/'))/umbraco/openapi/management.json"
 )
 
 $invokeArgs = @{}
@@ -62,4 +66,4 @@ foreach ($url in $candidates) {
     }
 }
 
-throw "Could not fetch the OpenAPI document from any known path on $Host."
+throw "Could not fetch the OpenAPI document from any known path on $BaseUrl."

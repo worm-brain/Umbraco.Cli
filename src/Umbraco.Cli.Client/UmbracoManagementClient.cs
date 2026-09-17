@@ -435,7 +435,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 var documentTypeId = await ResolveDocumentTypeIdAsync(reference, ct);
 
                 var id = Guid.NewGuid();
-                var body = new Gen.CreateDocumentRequestModel
+                // CreateDocumentBody (not the raw generated model) so that `template` is
+                // always serialized: Umbraco 17+ requires the property to be present on a
+                // document-create body, but Kiota omits a null complex property. See #134.
+                var body = new CreateDocumentBody
                 {
                     Id = id,
                     DocumentType = new Gen.ReferenceByIdModel { Id = documentTypeId },
@@ -461,6 +464,32 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 };
             }
         );
+
+    /// <summary>
+    /// A <see cref="Gen.CreateDocumentRequestModel"/> that always serializes the
+    /// <c>template</c> property, even when it is null. The Umbraco 17+ Management API marks
+    /// <c>template</c> as <b>required</b> on document create (it is nullable - a document may
+    /// have no template), but Kiota omits null complex properties from the request body, so a
+    /// create with no template was rejected with HTTP 400 ("missing required properties
+    /// including: 'template'"). Forcing the key to be written keeps document create working
+    /// across Umbraco 14-18. See issue #134.
+    /// </summary>
+    internal sealed class CreateDocumentBody : Gen.CreateDocumentRequestModel
+    {
+        /// <summary>
+        /// Serializes the model, then writes <c>"template": null</c> when no template is set,
+        /// because the base serializer omits the null complex property and v17 rejects a body
+        /// without the key. When a template <i>is</i> set the base serializer writes it and
+        /// this adds nothing.
+        /// </summary>
+        /// <param name="writer">The Kiota serialization writer.</param>
+        public override void Serialize(ISerializationWriter writer)
+        {
+            base.Serialize(writer);
+            if (Template is null)
+                writer.WriteNullValue("template");
+        }
+    }
 
     /// <summary>
     /// Updates a content item via <c>PUT document/{id}</c> (generated client, #79). The PUT
