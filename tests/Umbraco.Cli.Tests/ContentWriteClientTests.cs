@@ -74,6 +74,55 @@ public class ContentWriteClientTests
     }
 
     /// <summary>
+    /// #140: a client-supplied id must be posted verbatim (idempotent create), not replaced by a
+    /// generated one, so re-provisioning with the same id targets the same document.
+    /// </summary>
+    [Fact]
+    public async Task CreateContentAsync_WithSuppliedId_PostsThatId()
+    {
+        var docTypeId = Guid.NewGuid();
+        var suppliedId = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, "tree/document-type/root"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{docTypeId}}","name":"Text Page","isFolder":false}]}"""
+            )
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, $"document-type/{docTypeId}"),
+                HttpStatusCode.OK,
+                $$"""{"id":"{{docTypeId}}","alias":"textPage","name":"Text Page"}"""
+            )
+            .When(
+                r => r.Method == HttpMethod.Post && HasPath(r, "/document"),
+                HttpStatusCode.Created,
+                ""
+            )
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, "/document/"),
+                HttpStatusCode.OK,
+                $$"""{"id":"{{suppliedId}}","variants":[{"name":"Home"}]}"""
+            );
+        var client = Client(handler);
+
+        var result = await client.CreateContentAsync(
+            new CreateContentRequest
+            {
+                Id = suppliedId,
+                ContentType = new ContentTypeReference { Alias = "textPage" },
+                Variants = [new ContentVariant { Name = "Home" }],
+            },
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        var postBody = handler.BodyForFirst(r =>
+            r.Method == HttpMethod.Post && HasPath(r, "/document")
+        );
+        Assert.Contains(suppliedId.ToString(), postBody);
+    }
+
+    /// <summary>
     /// Regression guard: the alias must be resolved WITHOUT the document-type item search. The
     /// search indexes only the type's name, so an alias that differs from the name by more than
     /// case ("Text Page" -> <c>textPage</c>, the Umbraco norm) is unfindable through it. An earlier

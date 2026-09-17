@@ -33,6 +33,10 @@ public static class ContentCreateCommand
         {
             Description = "Parent content item UUID. Omit to create at the root.",
         };
+        var idOpt = new Option<Guid?>("--id")
+        {
+            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+        };
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) containing the full create request body "
                 + "(overrides other flags)."
@@ -40,6 +44,7 @@ public static class ContentCreateCommand
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
+        cmd.Add(idOpt);
         body.AddTo(cmd);
 
         // Parse-level conditional requirement: unless --schema (describe-and-exit) or a
@@ -91,6 +96,7 @@ public static class ContentCreateCommand
                             var parentId = parseResult.GetValue(parentOpt);
                             request = new CreateContentRequest
                             {
+                                Id = parseResult.GetValue(idOpt),
                                 ContentType = new ContentTypeReference { Alias = alias },
                                 Parent = parentId.HasValue
                                     ? new ContentParentReference { Id = parentId.Value }
