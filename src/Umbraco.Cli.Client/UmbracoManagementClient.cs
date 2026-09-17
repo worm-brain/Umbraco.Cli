@@ -844,14 +844,16 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="relateToOriginal">Whether to create a relation to the original.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The copied document (with its new id), or a mapped failure.</returns>
-    public Task<UmbracoResponse<ContentItemResponse>> CopyContentAsync(
+    public async Task<UmbracoResponse<ContentItemResponse>> CopyContentAsync(
         Guid id,
         Guid? parentId = null,
         bool includeDescendants = false,
         bool relateToOriginal = false,
         CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
+    )
+    {
+        // Guarded copy: POST the copy and resolve the new id from the 201 Location header.
+        var copied = await GuardedApiAsync<Guid?>(
             ct,
             async () =>
             {
@@ -874,20 +876,31 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                             ),
                         ct
                     );
-
-                var newId = ExtractIdFromLocation(capture);
-                // Best-effort hydration: re-read the new node for a full item. A failed read still
-                // reports success carrying the id we resolved (the copy itself succeeded).
-                if (newId is { } nid)
-                {
-                    var hydrated = await GetContentByIdAsync(nid, ct);
-                    return hydrated is { IsSuccess: true, Data: { } data }
-                        ? data
-                        : new ContentItemResponse { Id = nid };
-                }
-                return new ContentItemResponse();
+                return ExtractIdFromLocation(capture);
             }
         );
+
+        if (!copied.IsSuccess)
+            return UmbracoResponse<ContentItemResponse>.Failure(
+                copied.StatusCode,
+                copied.ErrorMessage ?? "The copy request failed."
+            );
+
+        // #91: the whole point of copy is to surface the new id. If the server returned 201 but no
+        // usable Location, report it explicitly rather than as a silent empty-id success.
+        if (copied.Data is not { } newId)
+            return UmbracoResponse<ContentItemResponse>.Failure(
+                502,
+                "The document was copied but the server did not return the new id (no Location header)."
+            );
+
+        // Best-effort hydration: re-read the new node for a full item. A failed read still reports
+        // success carrying the id we resolved (the copy itself succeeded).
+        var hydrated = await GetContentByIdAsync(newId, ct);
+        return hydrated is { IsSuccess: true, Data: { } data }
+            ? UmbracoResponse<ContentItemResponse>.Success(data)
+            : UmbracoResponse<ContentItemResponse>.Success(new ContentItemResponse { Id = newId });
+    }
 
     /// <summary>
     /// Reads the new resource id from a captured <c>201</c> response's <c>Location</c> header (issue
@@ -904,42 +917,6 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             .LastOrDefault();
         return Guid.TryParse(lastSegment, out var parsed) ? parsed : null;
     }
-
-    /// <summary>
-    /// Reorders a parent's child documents via <c>PUT document/sort</c> (issue #88). The order of
-    /// <paramref name="orderedChildIds"/> becomes the sort order (index 0, 1, 2, ...); a null
-    /// parent reorders the content root.
-    /// </summary>
-    /// <param name="parentId">The parent whose children to reorder; null reorders the content root.</param>
-    /// <param name="orderedChildIds">Child document ids in the desired order.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> SortContentAsync(
-        Guid? parentId,
-        IReadOnlyList<Guid> orderedChildIds,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var body = new Gen.SortingRequestModel
-                {
-                    Parent = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
-                    Sorting = orderedChildIds
-                        .Select(
-                            (childId, index) =>
-                                new Gen.ItemSortingRequestModel { Id = childId, SortOrder = index }
-                        )
-                        .ToList(),
-                };
-                await _api.Umbraco.Management.Api.V1.Document.Sort.PutAsync(
-                    body,
-                    cancellationToken: ct
-                );
-                return Empty.Value;
-            }
-        );
 
     /// <summary>How often <c>--wait</c> polls the publish-with-descendants task (issue #90).</summary>
     private static readonly TimeSpan PublishDescendantsPollInterval = TimeSpan.FromSeconds(1);
@@ -1306,42 +1283,6 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 await _api
                     .Umbraco.Management.Api.V1.Media[id]
                     .Move.PutAsync(body, cancellationToken: ct);
-                return Empty.Value;
-            }
-        );
-
-    /// <summary>
-    /// Reorders a parent folder's child media items via <c>PUT media/sort</c> (issue #88). The
-    /// order of <paramref name="orderedChildIds"/> becomes the sort order (index 0, 1, 2, ...); a
-    /// null parent reorders the media root.
-    /// </summary>
-    /// <param name="parentId">The parent folder whose children to reorder; null reorders the media root.</param>
-    /// <param name="orderedChildIds">Child media ids in the desired order.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> SortMediaAsync(
-        Guid? parentId,
-        IReadOnlyList<Guid> orderedChildIds,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var body = new Gen.SortingRequestModel
-                {
-                    Parent = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
-                    Sorting = orderedChildIds
-                        .Select(
-                            (childId, index) =>
-                                new Gen.ItemSortingRequestModel { Id = childId, SortOrder = index }
-                        )
-                        .ToList(),
-                };
-                await _api.Umbraco.Management.Api.V1.Media.Sort.PutAsync(
-                    body,
-                    cancellationToken: ct
-                );
                 return Empty.Value;
             }
         );
@@ -2976,96 +2917,6 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Name = request.Name,
                     Translations = request.Translations.ToList(),
                 };
-            }
-        );
-
-    /// <summary>
-    /// Lists the dictionary tree via <c>tree/dictionary/root</c> or <c>tree/dictionary/children</c>
-    /// (issue #110). There is no folder concept for dictionary items, so every row is a real item;
-    /// each carries its parent id and whether it has children. Mirrors
-    /// <see cref="GetDocumentBlueprintsAsync"/>.
-    /// </summary>
-    /// <param name="parentId">Parent id to list children of; null lists the root level.</param>
-    /// <param name="skip">Number of items to skip (paging).</param>
-    /// <param name="take">Maximum number of items to return.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A paged list of dictionary tree items, or a mapped failure.</returns>
-    public Task<UmbracoResponse<PagedResponse<DictionaryTreeItem>>> GetDictionaryTreeAsync(
-        Guid? parentId = null,
-        int skip = 0,
-        int take = 100,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var tree = _api.Umbraco.Management.Api.V1.Tree.Dictionary;
-                var paged = parentId is { } pid
-                    ? await tree.Children.GetAsync(
-                        c =>
-                        {
-                            c.QueryParameters.ParentId = pid;
-                            c.QueryParameters.Skip = skip;
-                            c.QueryParameters.Take = take;
-                        },
-                        ct
-                    )
-                    : await tree.Root.GetAsync(
-                        c =>
-                        {
-                            c.QueryParameters.Skip = skip;
-                            c.QueryParameters.Take = take;
-                        },
-                        ct
-                    );
-                return new PagedResponse<DictionaryTreeItem>
-                {
-                    Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? [])
-                        .Select(i => new DictionaryTreeItem
-                        {
-                            Id = i.Id ?? Guid.Empty,
-                            Name = i.Name ?? "",
-                            HasChildren = i.HasChildren ?? false,
-                            Parent = i.Parent?.Id is { } pId
-                                ? new ContentParentReference { Id = pId }
-                                : null,
-                        })
-                        .ToList(),
-                };
-            }
-        );
-
-    /// <summary>
-    /// Reparents a dictionary item via <c>PUT dictionary/{id}/move</c> (issue #110). A null target
-    /// moves the item to the dictionary root. Mirrors <see cref="MoveDocumentBlueprintAsync"/>.
-    /// </summary>
-    /// <param name="id">The dictionary item id to move.</param>
-    /// <param name="targetId">Target parent id; null moves the item to the dictionary root.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> MoveDictionaryItemAsync(
-        Guid id,
-        Guid? targetId,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                await _api
-                    .Umbraco.Management.Api.V1.Dictionary[id]
-                    .Move.PutAsync(
-                        new Gen.MoveDictionaryRequestModel
-                        {
-                            Target = targetId is { } t
-                                ? new Gen.ReferenceByIdModel { Id = t }
-                                : null,
-                        },
-                        cancellationToken: ct
-                    );
-                return Empty.Value;
             }
         );
 

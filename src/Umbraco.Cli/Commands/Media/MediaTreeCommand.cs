@@ -21,12 +21,12 @@ public static class MediaTreeCommand
         var recursiveOpt = new Option<bool>("--recursive")
         {
             Description =
-                "Descend all levels (bounded for safety). Without it, only direct children are listed.",
+                "Descend all levels, up to a safety cap of 50. Without it, only direct children are listed.",
         };
         var depthOpt = new Option<int?>("--depth")
         {
             Description =
-                "Maximum levels to descend (1 = direct children). Overrides --recursive when given.",
+                "Maximum levels to descend (1 = direct children, capped at 50). Overrides --recursive when given.",
         };
         cmd.Add(parentOpt);
         cmd.Add(recursiveOpt);

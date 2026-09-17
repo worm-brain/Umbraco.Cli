@@ -68,17 +68,17 @@ public class ContentCopyClientTests
     }
 
     [Fact]
-    public async Task CopyContentAsync_NoLocationHeader_SucceedsWithoutId()
+    public async Task CopyContentAsync_NoLocationHeader_ReturnsFailure()
     {
-        // A 201 without a Location header (or an unparseable one) must not crash: the copy still
-        // succeeded, we just cannot surface an id.
+        // A 201 without a usable Location header cannot happen against a real server. When it does,
+        // the client reports it explicitly (#91) rather than a silent empty-id success, so a script
+        // chaining on the id gets an error instead of Guid.Empty.
         var handler = new CopyHandler(locationId: null);
         var client = Client(handler);
 
         var result = await client.CopyContentAsync(Guid.NewGuid(), ct: CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(Guid.Empty, result.Data!.Id);
+        Assert.False(result.IsSuccess);
         // With no id to hydrate, only the copy POST is made - no follow-up GET.
         Assert.Single(handler.Requests);
     }
