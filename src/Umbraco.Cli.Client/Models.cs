@@ -134,6 +134,14 @@ public record UrlInfo
 
 public record CreateContentRequest
 {
+    /// <summary>
+    /// Optional client-supplied id for an idempotent create (#86/#140). Umbraco 14+ honours a
+    /// client-supplied document id, so re-running a provisioning script with the same id does not
+    /// create a duplicate. When null the client generates a new id.
+    /// </summary>
+    [JsonPropertyName("id")]
+    public Guid? Id { get; init; }
+
     [JsonPropertyName("contentType")]
     public required ContentTypeReference ContentType { get; init; }
 

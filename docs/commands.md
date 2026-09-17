@@ -192,7 +192,7 @@ umbraco media-types delete <id>                            # needs --yes non-int
 ```bash
 umbraco content-types list
 umbraco content-types get <id|alias>
-umbraco content-types create --name <name> --alias <alias> [--json-body <file>]
+umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
 umbraco content-types delete <id>                          # needs --yes non-interactively
 ```
 

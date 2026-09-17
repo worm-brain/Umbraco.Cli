@@ -434,7 +434,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         : request.ContentType.Alias;
                 var documentTypeId = await ResolveDocumentTypeIdAsync(reference, ct);
 
-                var id = Guid.NewGuid();
+                // Honour a client-supplied id for an idempotent create (#140); generate one
+                // otherwise. Either way the id is known, so the empty 201 body can be hydrated.
+                var id = request.Id ?? Guid.NewGuid();
                 // CreateDocumentBody (not the raw generated model) so that `template` is
                 // always serialized: Umbraco 17+ requires the property to be present on a
                 // document-create body, but Kiota omits a null complex property. See #134.
