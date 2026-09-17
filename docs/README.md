@@ -5,6 +5,7 @@
 | Install, authenticate, and run your first commands | [getting-started.md](getting-started.md) |
 | Drive the CLI from an AI agent or script | [agent-guide.md](agent-guide.md) |
 | Look up any command and its options | [commands.md](commands.md) |
+| Acceptance-test a release (agent runbook) | [testing/alpha-test-guide.md](testing/alpha-test-guide.md) |
 | Work on this repository (contribute code) | [../AGENTS.md](../AGENTS.md) and [../CONTRIBUTING.md](../CONTRIBUTING.md) |
 
 ## Reference material
