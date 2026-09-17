@@ -11,8 +11,34 @@ public interface IOutputWriter
 {
     void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null);
     void WriteError(int code, string message);
-    void WriteTable(string[] headers, IEnumerable<string[]> rows);
-    void WriteMessage(string message);
+
+    /// <summary>
+    /// Renders a list result as a table. <paramref name="commandName"/> and
+    /// <paramref name="durationMs"/> populate the same <c>meta</c> fields that
+    /// <see cref="WriteSuccess"/> emits, so list output carries the same envelope contract as
+    /// object output (#137) - a structured writer with no <c>meta</c> (CSV/human) ignores them.
+    /// </summary>
+    /// <param name="headers">Column headers (camelCased into field keys by structured writers).</param>
+    /// <param name="rows">The row cells, aligned to <paramref name="headers"/>.</param>
+    /// <param name="commandName">The dotted command name for <c>meta.command</c>, or null.</param>
+    /// <param name="durationMs">The command duration for <c>meta.durationMs</c>, or null.</param>
+    void WriteTable(
+        string[] headers,
+        IEnumerable<string[]> rows,
+        string? commandName = null,
+        long? durationMs = null
+    );
+
+    /// <summary>
+    /// Renders a fixed success message. <paramref name="commandName"/> and
+    /// <paramref name="durationMs"/> populate the same <c>meta</c> fields as
+    /// <see cref="WriteSuccess"/>, so a message-style success (delete/publish) carries the same
+    /// envelope contract (#137).
+    /// </summary>
+    /// <param name="message">The success message.</param>
+    /// <param name="commandName">The dotted command name for <c>meta.command</c>, or null.</param>
+    /// <param name="durationMs">The command duration for <c>meta.durationMs</c>, or null.</param>
+    void WriteMessage(string message, string? commandName = null, long? durationMs = null);
 
     /// <summary>
     /// Renders a <c>--dry-run</c> preview of the write request that would have been sent,

@@ -52,13 +52,19 @@ public sealed class CsvOutputWriter : IOutputWriter
     }
 
     /// <inheritdoc />
-    public void WriteTable(string[] headers, IEnumerable<string[]> rows) =>
+    public void WriteTable(
+        string[] headers,
+        IEnumerable<string[]> rows,
+        string? commandName = null,
+        long? durationMs = null
+    ) =>
         // Route through WriteSuccess so table columns use the same camelCase keys as object output
-        // (#87 consistency) and honour --fields, exactly like the JSON writer.
+        // (#87 consistency) and honour --fields, exactly like the JSON writer. CSV has no meta, so
+        // command/duration (#137) do not apply here.
         WriteSuccess(OutputShaping.TableToRecords(headers, rows));
 
     /// <inheritdoc />
-    public void WriteMessage(string message)
+    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
     {
         Console.Out.WriteLine("message");
         Console.Out.WriteLine(Escape(message));

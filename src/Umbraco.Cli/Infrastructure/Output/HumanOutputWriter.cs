@@ -15,7 +15,12 @@ public sealed class HumanOutputWriter : IOutputWriter
         AnsiConsole.MarkupLine($"[red]✗ Error {code}:[/] {Markup.Escape(message)}");
     }
 
-    public void WriteTable(string[] headers, IEnumerable<string[]> rows)
+    public void WriteTable(
+        string[] headers,
+        IEnumerable<string[]> rows,
+        string? commandName = null,
+        long? durationMs = null
+    )
     {
         var table = new Table().Border(TableBorder.Rounded);
         foreach (var h in headers)
@@ -27,7 +32,7 @@ public sealed class HumanOutputWriter : IOutputWriter
         AnsiConsole.Write(table);
     }
 
-    public void WriteMessage(string message)
+    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
     {
         AnsiConsole.MarkupLine($"[green]✓[/] {Markup.Escape(message)}");
     }

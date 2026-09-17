@@ -58,6 +58,58 @@ public class JsonOutputWriterTests
         Assert.Equal("2", meta.GetProperty("schemaVersion").GetString());
     }
 
+    // ── meta parity across output shapes (#137) ────────────────────────────────
+
+    [Fact]
+    public void WriteTable_MetaContainsCommandAndDuration()
+    {
+        // #137: list/table output must carry meta.command and meta.durationMs like object output.
+        var (stdout, _) = Capture(() =>
+            _writer.WriteTable(["id", "name"], [["1", "a"]], "content.list", 99)
+        );
+        var doc = JsonDocument.Parse(stdout);
+        Assert.Equal(JsonValueKind.Array, doc.RootElement.GetProperty("data").ValueKind);
+        var meta = doc.RootElement.GetProperty("meta");
+        Assert.Equal("content.list", meta.GetProperty("command").GetString());
+        Assert.Equal(99, meta.GetProperty("durationMs").GetInt64());
+    }
+
+    [Fact]
+    public void WriteMessage_MetaContainsCommandAndDuration()
+    {
+        // #137: message-shaped success (delete/publish) carries command/duration/timestamp too.
+        var (stdout, _) = Capture(() => _writer.WriteMessage("Deleted.", "content.delete", 12));
+        var meta = JsonDocument.Parse(stdout).RootElement.GetProperty("meta");
+        Assert.Equal("content.delete", meta.GetProperty("command").GetString());
+        Assert.Equal(12, meta.GetProperty("durationMs").GetInt64());
+        Assert.True(DateTimeOffset.TryParse(meta.GetProperty("timestamp").GetString(), out _));
+    }
+
+    [Fact]
+    public void WriteTable_MetaKeysMatchWriteSuccess()
+    {
+        // #137: an agent keying on meta.command cannot rely on it unless list (table) and object
+        // (WriteSuccess) envelopes expose the same meta keys. Assert the sets are identical.
+        var (tableOut, _) = Capture(() =>
+            _writer.WriteTable(["id", "name"], [["1", "a"]], "content.list", 5)
+        );
+        var (objectOut, _) = Capture(() => _writer.WriteSuccess(new { id = 1 }, "content.get", 5));
+
+        var tableKeys = JsonDocument
+            .Parse(tableOut)
+            .RootElement.GetProperty("meta")
+            .EnumerateObject()
+            .Select(p => p.Name)
+            .OrderBy(n => n);
+        var objectKeys = JsonDocument
+            .Parse(objectOut)
+            .RootElement.GetProperty("meta")
+            .EnumerateObject()
+            .Select(p => p.Name)
+            .OrderBy(n => n);
+        Assert.Equal(objectKeys, tableKeys);
+    }
+
     [Fact]
     public void WriteSuccess_DataIsPresent()
     {

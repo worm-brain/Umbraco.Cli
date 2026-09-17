@@ -16,15 +16,31 @@ public class QuietOutputWriterTests
         public bool TableCalled { get; private set; }
         public bool MessageCalled { get; private set; }
         public bool DryRunCalled { get; private set; }
+        public string? LastTableCommand { get; private set; }
+        public long? LastTableDuration { get; private set; }
 
         public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null) =>
             SuccessCalled = true;
 
         public void WriteError(int code, string message) => ErrorCalled = true;
 
-        public void WriteTable(string[] headers, IEnumerable<string[]> rows) => TableCalled = true;
+        public void WriteTable(
+            string[] headers,
+            IEnumerable<string[]> rows,
+            string? commandName = null,
+            long? durationMs = null
+        )
+        {
+            TableCalled = true;
+            LastTableCommand = commandName;
+            LastTableDuration = durationMs;
+        }
 
-        public void WriteMessage(string message) => MessageCalled = true;
+        public void WriteMessage(
+            string message,
+            string? commandName = null,
+            long? durationMs = null
+        ) => MessageCalled = true;
 
         public void WriteDryRun(string method, string url, string? body) => DryRunCalled = true;
     }
@@ -52,7 +68,9 @@ public class QuietOutputWriterTests
             ["Id"],
             [
                 ["1"],
-            ]
+            ],
+            "content.list",
+            7
         );
         quiet.WriteDryRun("POST", "https://x", null);
 
@@ -60,6 +78,9 @@ public class QuietOutputWriterTests
         Assert.True(inner.ErrorCalled);
         Assert.True(inner.TableCalled);
         Assert.True(inner.DryRunCalled);
+        // #137: the decorator forwards command/duration so quiet list output keeps full meta.
+        Assert.Equal("content.list", inner.LastTableCommand);
+        Assert.Equal(7, inner.LastTableDuration);
     }
 
     [Fact]

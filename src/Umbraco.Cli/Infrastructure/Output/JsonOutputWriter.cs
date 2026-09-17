@@ -69,18 +69,31 @@ public sealed class JsonOutputWriter : IOutputWriter
         Console.Error.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
-    public void WriteTable(string[] headers, IEnumerable<string[]> rows) =>
+    public void WriteTable(
+        string[] headers,
+        IEnumerable<string[]> rows,
+        string? commandName = null,
+        long? durationMs = null
+    ) =>
         // Render the table as an array of objects keyed by the camelCased headers so list output
-        // uses the same field keys as object/get output (#87). Shared with the CSV writer.
-        WriteSuccess(OutputShaping.TableToRecords(headers, rows));
+        // uses the same field keys as object/get output (#87). Passing command/duration through
+        // keeps meta identical to object output (#137). Shared shaping with the CSV writer.
+        WriteSuccess(OutputShaping.TableToRecords(headers, rows), commandName, durationMs);
 
-    public void WriteMessage(string message)
+    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
     {
         var envelope = new
         {
             status = "success",
             message,
-            meta = new { schemaVersion = SchemaVersion },
+            // Same meta shape as WriteSuccess so every success envelope agrees (#137).
+            meta = new
+            {
+                command = commandName,
+                durationMs,
+                timestamp = DateTimeOffset.UtcNow,
+                schemaVersion = SchemaVersion,
+            },
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
