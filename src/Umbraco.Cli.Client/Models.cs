@@ -862,6 +862,26 @@ public record DictionaryTranslation
     public string Translation { get; init; } = "";
 }
 
+/// <summary>Command-facing view of a dictionary tree item (issue #110): one row of the hierarchy.</summary>
+public record DictionaryTreeItem
+{
+    /// <summary>The dictionary item id.</summary>
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    /// <summary>The display name (the dictionary key).</summary>
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    /// <summary>Whether this item has child items.</summary>
+    [JsonPropertyName("hasChildren")]
+    public bool HasChildren { get; init; }
+
+    /// <summary>The parent reference, or null at the dictionary root.</summary>
+    [JsonPropertyName("parent")]
+    public ContentParentReference? Parent { get; init; }
+}
+
 public record CreateDictionaryItemRequest
 {
     /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
@@ -872,6 +892,10 @@ public record CreateDictionaryItemRequest
 
     [JsonPropertyName("translations")]
     public IEnumerable<DictionaryTranslation> Translations { get; init; } = [];
+
+    /// <summary>Optional parent to create the item under; null creates it at the dictionary root (#110).</summary>
+    [JsonPropertyName("parent")]
+    public ContentParentReference? Parent { get; init; }
 }
 
 // ── Webhooks ──────────────────────────────────────────────────────────────────

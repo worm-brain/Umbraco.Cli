@@ -398,6 +398,14 @@ public class CommandParseTests
     [InlineData("templates update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Home --alias home")]
     [InlineData("templates delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("dictionary delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("dictionary tree")]
+    [InlineData("dictionary tree --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
+    [InlineData("dictionary create --key Nav.Home")]
+    [InlineData("dictionary create --key Nav.Home --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --target optional (to root)
     [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name \"Jane Roe\"")]
     [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --approved")]
     [InlineData(

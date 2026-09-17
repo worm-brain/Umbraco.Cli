@@ -446,10 +446,64 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>Recorded dictionary creates (#110 asserts the mapped parent).</summary>
+    public List<CreateDictionaryItemRequest> DictionaryItemsCreated { get; } = [];
+
     public Task<UmbracoResponse<DictionaryItemResponse>> CreateDictionaryItemAsync(
         CreateDictionaryItemRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        DictionaryItemsCreated.Add(request);
+        return Task.FromResult(
+            UmbracoResponse<DictionaryItemResponse>.Success(
+                new DictionaryItemResponse
+                {
+                    Id = request.Id ?? Guid.NewGuid(),
+                    Name = request.Name,
+                    Translations = request.Translations.ToList(),
+                }
+            )
+        );
+    }
+
+    /// <summary>Dictionary tree items the tree method returns (seeded by a test) (#110).</summary>
+    public List<DictionaryTreeItem> DictionaryTreeItems { get; } = [];
+
+    /// <summary>The (parentId, skip, take) of the last dictionary tree call (#110).</summary>
+    public (Guid? ParentId, int Skip, int Take)? LastDictionaryTreeArgs { get; private set; }
+
+    /// <summary>Recorded dictionary moves, in <c>(id, target)</c> order (#110).</summary>
+    public List<(Guid Id, Guid? Target)> DictionaryItemsMoved { get; } = [];
+
+    public Task<UmbracoResponse<PagedResponse<DictionaryTreeItem>>> GetDictionaryTreeAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    )
+    {
+        LastDictionaryTreeArgs = (parentId, skip, take);
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<DictionaryTreeItem>>.Success(
+                new PagedResponse<DictionaryTreeItem>
+                {
+                    Total = DictionaryTreeItems.Count,
+                    Items = DictionaryTreeItems.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
+    }
+
+    public Task<UmbracoResponse<Empty>> MoveDictionaryItemAsync(
+        Guid id,
+        Guid? targetId,
+        CancellationToken ct = default
+    )
+    {
+        DictionaryItemsMoved.Add((id, targetId));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<Empty>> DeleteDictionaryItemAsync(
         Guid id,

@@ -23,9 +23,15 @@ public static class DictionaryCreateCommand
         {
             Description = "Optional client-supplied UUID for an idempotent create (#86).",
         };
+        var parentOpt = new Option<Guid?>("--parent")
+        {
+            Description =
+                "Optional parent item ID to create this item under. Creates at the root if omitted (#110).",
+        };
         cmd.Add(keyOpt);
         cmd.Add(valuesOpt);
         cmd.Add(idOpt);
+        cmd.Add(parentOpt);
         cmd.SetAction(
             (parseResult, ct) =>
             {
@@ -34,6 +40,7 @@ public static class DictionaryCreateCommand
                     .Where(p => p.Length == 2)
                     .Select(p => new DictionaryTranslation { IsoCode = p[0], Translation = p[1] });
 
+                var parent = parseResult.GetValue(parentOpt);
                 return executor.RunObjectAsync(
                     parseResult,
                     "dictionary.create",
@@ -44,6 +51,9 @@ public static class DictionaryCreateCommand
                                 Id = parseResult.GetValue(idOpt),
                                 Name = parseResult.GetValue(keyOpt)!,
                                 Translations = translations,
+                                Parent = parent is { } p
+                                    ? new ContentParentReference { Id = p }
+                                    : null,
                             },
                             c
                         ),
