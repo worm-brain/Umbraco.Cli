@@ -1,0 +1,13 @@
+# CodeQL configuration for the Security workflow (.github/workflows/security.yml).
+#
+# The Kiota-generated Management API client is a build artifact, regenerated from
+# spec/management.json by scripts/regen-client.ps1 - not hand-written code. Auditing it
+# as source produces noise (and we do not fix findings by editing generated files). For
+# compiled languages such as C#, `paths-ignore` filters results AFTER analysis, so alerts
+# located in the generated tree are dropped from the report. The generated client is
+# instead covered at the dependency/spec level - see the supply-chain lens in
+# docs/security-audit.md.
+name: "Umbraco.Cli CodeQL config"
+
+paths-ignore:
+  - "src/Umbraco.Cli.Client/Generated/**"

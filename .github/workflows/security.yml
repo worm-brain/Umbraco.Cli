@@ -1,0 +1,121 @@
+name: Security
+
+# Tier-1 of the two-tier security audit (see docs/security-audit.md).
+#
+# A deterministic, rerunnable security gate: it produces a clean pass/fail on every PR,
+# every push to main, every release tag, and once a week. It deliberately holds ONLY the
+# checks that are reproducible and cheap enough to sit on the critical path - CodeQL,
+# dependency vulnerabilities, secret scanning and package hygiene. The deep, human-triaged
+# adversarial audit (threat model, exploit construction) is Tier-2 and runs on a cadence,
+# NOT here (issue #156).
+#
+# Each check has a documented suppression path so an accepted finding does not re-fail
+# later runs, keeping reruns a diff rather than a re-litigation:
+#   - CodeQL           -> dismiss the alert in the repo Security tab (code scanning).
+#   - Secret scan      -> add the finding fingerprint to .gitleaksignore.
+#   - Dependency scan  -> add the advisory URL / package id to
+#                         security/nuget-audit-allowlist.txt (with a reason).
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    # Release tags run the full gate before a version ships. publish.yml still owns the
+    # actual publish; this only adds the security signal. Tag pushes do not match the
+    # branch filter above, so they are listed explicitly.
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  # Weekly run catches newly-disclosed CVEs and CodeQL query updates even with no commit.
+  schedule:
+    - cron: "17 4 * * 1" # Mondays 04:17 UTC
+  workflow_dispatch:
+
+# A newer push to the same ref cancels the in-progress run (matches ci.yml).
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege by default; the CodeQL job widens its own permissions below.
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL (C#)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # upload SARIF results to code scanning
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      # build-mode: none uses CodeQL's buildless C# extraction - no SDK or compile step
+      # needed, which removes the main source of CodeQL job flakiness. Switch to
+      # build-mode: manual (restore + build between init and analyze) if deeper dataflow
+      # extraction is ever required; see docs/security-audit.md.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+          build-mode: none
+          queries: security-extended
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:csharp"
+
+  dependencies:
+    name: NuGet vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      # Fails on any restored package (direct or transitive) with a known vulnerability at
+      # or above the threshold, excluding advisories accepted in the allow-list.
+      - name: Audit vulnerable packages
+        shell: pwsh
+        run: ./scripts/ci/nuget-audit.ps1 -Threshold High
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history for a history-wide scan
+
+      - name: Scan history for secrets
+        shell: pwsh
+        run: ./scripts/ci/secret-scan.ps1
+
+  package:
+    name: Package hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Pack
+        run: dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj -c Release -o ./nupkg
+
+      # Inspects the .nupkg so no secret material or unexpected file ships to NuGet.org.
+      - name: Audit package contents
+        shell: pwsh
+        run: ./scripts/ci/package-audit.ps1
