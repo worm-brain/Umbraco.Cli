@@ -1,0 +1,18 @@
+# NuGet vulnerability allow-list - accepted advisories the dependency gate should ignore.
+#
+# The Security workflow's dependency scan (scripts/ci/nuget-audit.ps1) fails when a restored
+# package has a known vulnerability at or above the threshold (default: High). When an
+# advisory cannot be remediated yet (no fixed version, or a transitive pin we do not
+# control) and the risk is accepted, list it here so it does not re-fail later runs.
+#
+# One entry per non-comment line, either:
+#   - an advisory URL, e.g.  https://github.com/advisories/GHSA-xxxx-xxxx-xxxx
+#   - a package id,     e.g.  Some.Transitive.Package
+# '#' starts a comment. Prefer the advisory URL (narrow) over the package id (broad).
+#
+# ALWAYS record who accepted it, why, and when to revisit - an allow-list with no expiry
+# quietly becomes a permanent hole:
+#   # GHSA-.... accepted by @worm-brain 2026-09-18: no fixed version yet, low reachability;
+#   # revisit when the upstream patch ships. Tracking issue: #NNN
+#
+# (empty = every advisory at/above the threshold fails the build)

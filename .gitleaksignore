@@ -1,0 +1,13 @@
+# gitleaks suppression file - one accepted finding per line, by fingerprint.
+#
+# The Security workflow's secret scan (scripts/ci/secret-scan.ps1) fails on any secret
+# gitleaks finds in the commit history. When a finding is a false positive or an accepted
+# test fixture, add its fingerprint here (with a comment saying why) so it does not re-fail
+# later runs - this is what keeps reruns a diff, not a re-litigation.
+#
+# A fingerprint looks like:  <commit-sha>:<file-path>:<rule-id>:<line-number>
+# gitleaks prints the exact fingerprint for each finding; copy it verbatim.
+#
+# Example:
+#   # Test fixture, not a real key - approved by @worm-brain 2026-09-18
+#   0adc1e2f...:tests/Umbraco.Cli.Tests/Fixtures/sample.json:generic-api-key:12
