@@ -21,6 +21,15 @@ public interface IServerClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Best-effort product version of the connected server, resolved lazily and cached for the
+    /// life of the client (#152). Used to annotate error output so a failure can be attributed to
+    /// a server version; never throws, and returns null when the version cannot be determined.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The server product version, or null when unknown.</returns>
+    Task<string?> GetServerVersionAsync(CancellationToken ct = default);
+
     /// <summary>Gets public server configuration flags.</summary>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The server configuration.</returns>

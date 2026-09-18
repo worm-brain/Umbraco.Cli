@@ -69,6 +69,26 @@ Errors go to **stderr**:
 { "status": "error", "code": 404, "message": "Content item not found" }
 ```
 
+An error from an Umbraco API call also carries a `category` and, when the server responded, the
+`serverVersion` - so you can tell **whose** problem it is without a controlled experiment:
+
+```json
+{
+  "status": "error",
+  "code": 500,
+  "message": "The Umbraco server returned an internal error (HTTP 500). This is a server-side problem, not a rejected request; check the Umbraco logs.",
+  "category": "server_error",
+  "serverVersion": "17.3.5"
+}
+```
+
+`category` is one of: `unreachable` (no response - DNS/connection), `timeout`, `request_rejected`
+(a 4xx - usually bad input or the request itself), `server_error` (a 5xx or an undeclared status -
+a server-side fault), or `unexpected_response` (the body did not match what the CLI expected, a
+likely version mismatch). `serverVersion` is omitted when the server could not be reached
+(`unreachable`/`timeout`) or the version could not be determined. Policy errors that never hit the
+API (auth, `--readonly`, cancellation) carry neither field.
+
 A write command run with `--dry-run` uses a distinct status and does not touch the server:
 
 ```json
@@ -78,7 +98,8 @@ A write command run with `--dry-run` uses a distinct status and does not touch t
 ### Contract stability rules
 
 - The field names above (`status`, `data`, `meta`, `command`, `durationMs`, `schemaVersion`,
-  and the error `code`/`message`) are part of the contract and are never renamed silently.
+  the error `code`/`message`, and the error `category`/`serverVersion`) are part of the contract
+  and are never renamed silently.
 - `meta.schemaVersion` (currently `"2"`) is bumped **only** on a breaking change - a renamed or
   removed field, or a changed meaning. New fields can appear without a bump.
 - Therefore: **ignore unknown fields**, and if you want to be defensive, gate on

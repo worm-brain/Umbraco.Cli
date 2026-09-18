@@ -13,6 +13,31 @@ public sealed partial class UmbracoManagementClient
 {
     // ── Server ─────────────────────────────────────────────────────────────────
 
+    /// <summary>Cached product version of the connected server; null once resolved-and-unknown.</summary>
+    private string? _cachedServerVersion;
+
+    /// <summary>Whether <see cref="GetServerVersionAsync"/> has already run (so it is not retried per error).</summary>
+    private bool _serverVersionResolved;
+
+    /// <inheritdoc />
+    public async Task<string?> GetServerVersionAsync(CancellationToken ct = default)
+    {
+        // Lazy + cached per client (#152): a version lookup is only ever wanted to annotate an
+        // error, so it is fetched on demand, at most once, and never retried - a repeated failure
+        // (e.g. mid-bulk) must not add a round-trip each time. GetServerInformationAsync is guarded
+        // and never throws, so a failed lookup returns null and can never mask the real error.
+        if (_serverVersionResolved)
+            return _cachedServerVersion;
+
+        var info = await GetServerInformationAsync(ct);
+        _cachedServerVersion =
+            info.IsSuccess && !string.IsNullOrWhiteSpace(info.Data?.Version)
+                ? info.Data!.Version
+                : null;
+        _serverVersionResolved = true;
+        return _cachedServerVersion;
+    }
+
     /// <inheritdoc />
     public Task<UmbracoResponse<ServerStatusResponse>> GetServerStatusAsync(
         CancellationToken ct = default

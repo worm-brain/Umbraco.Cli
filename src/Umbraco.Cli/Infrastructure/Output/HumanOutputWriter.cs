@@ -10,9 +10,19 @@ public sealed class HumanOutputWriter : IOutputWriter
         AnsiConsole.MarkupLine($"[green]✓[/] Done");
     }
 
-    public void WriteError(int code, string message)
+    public void WriteError(
+        int code,
+        string message,
+        string? category = null,
+        string? serverVersion = null
+    )
     {
         AnsiConsole.MarkupLine($"[red]✗ Error {code}:[/] {Markup.Escape(message)}");
+        // Show the server version when it is known (#152): it is the single most useful bit of
+        // triage context on a failure - which server produced it. Category is left to the
+        // structured (JSON) output; the human line stays terse.
+        if (!string.IsNullOrWhiteSpace(serverVersion))
+            AnsiConsole.MarkupLine($"[grey]  Umbraco server:[/] {Markup.Escape(serverVersion)}");
     }
 
     public void WriteTable(

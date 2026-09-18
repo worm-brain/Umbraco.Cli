@@ -161,6 +161,68 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task RunObject_ServerErrorFailure_TagsCategoryAndServerVersion()
+    {
+        // #152: a server-side failure is tagged with its category and the connected server
+        // version, so a caller can attribute it. The fake reports version 14.0.0.
+        var client = new FakeUmbracoManagementClient
+        {
+            ServerVersion = "17.3.5",
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Failure(
+                500,
+                "boom",
+                FailureCategory.ServerError
+            ),
+        };
+        var (executor, parse) = Build(client);
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(1, exit);
+        using var doc = JsonDocument.Parse(stderr);
+        Assert.Equal("server_error", doc.RootElement.GetProperty("category").GetString());
+        Assert.Equal("17.3.5", doc.RootElement.GetProperty("serverVersion").GetString());
+    }
+
+    [Fact]
+    public async Task RunObject_UnreachableFailure_TagsCategoryButSkipsServerVersion()
+    {
+        // #152: for an unreachable/timeout failure the server cannot be queried, so the version
+        // lookup is skipped and the field is omitted - but the category is still reported.
+        var client = new FakeUmbracoManagementClient
+        {
+            ServerVersion = "17.3.5", // would be returned if (wrongly) queried
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Failure(
+                0,
+                "Could not reach the Umbraco instance: no such host",
+                FailureCategory.Unreachable
+            ),
+        };
+        var (executor, parse) = Build(client);
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                "content.get",
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(1, exit);
+        using var doc = JsonDocument.Parse(stderr);
+        Assert.Equal("unreachable", doc.RootElement.GetProperty("category").GetString());
+        Assert.False(doc.RootElement.TryGetProperty("serverVersion", out _));
+    }
+
+    [Fact]
     public async Task RunObject_PassesParsedArgumentToClientCall()
     {
         var id = Guid.NewGuid();

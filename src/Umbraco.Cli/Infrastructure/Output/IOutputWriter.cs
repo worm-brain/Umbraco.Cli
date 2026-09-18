@@ -10,7 +10,23 @@ public enum OutputFormat
 public interface IOutputWriter
 {
     void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null);
-    void WriteError(int code, string message);
+
+    /// <summary>
+    /// Writes an error to stderr. <paramref name="category"/> and <paramref name="serverVersion"/>
+    /// annotate an API failure (#152) so a caller can tell whose problem it is and against which
+    /// server; both are optional and only the structured (JSON) writer emits them. Policy errors
+    /// (auth, read-only, cancellation) call this without them.
+    /// </summary>
+    /// <param name="code">The error/exit code.</param>
+    /// <param name="message">The human-readable error message.</param>
+    /// <param name="category">The failure category wire name (e.g. <c>server_error</c>), or null.</param>
+    /// <param name="serverVersion">The connected server's version, or null when unknown/not applicable.</param>
+    void WriteError(
+        int code,
+        string message,
+        string? category = null,
+        string? serverVersion = null
+    );
 
     /// <summary>
     /// Renders a list result as a table. <paramref name="commandName"/> and

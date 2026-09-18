@@ -294,6 +294,28 @@ public class JsonOutputWriterTests
         Assert.NotEmpty(stderr);
     }
 
+    [Fact]
+    public void WriteError_WithCategoryAndServerVersion_EmitsBothFields()
+    {
+        // #152: an API failure carries a machine-readable category and the connected server
+        // version so a caller can attribute the failure without a controlled experiment.
+        var (_, stderr) = Capture(() => _writer.WriteError(500, "oops", "server_error", "17.3.5"));
+        var root = JsonDocument.Parse(stderr).RootElement;
+        Assert.Equal("server_error", root.GetProperty("category").GetString());
+        Assert.Equal("17.3.5", root.GetProperty("serverVersion").GetString());
+    }
+
+    [Fact]
+    public void WriteError_WithoutCategoryOrVersion_OmitsThoseFields()
+    {
+        // A policy error (auth, read-only) passes neither; the fields must be absent, not null,
+        // so the original 3-key envelope shape is preserved for those errors.
+        var (_, stderr) = Capture(() => _writer.WriteError(2, "Operation cancelled."));
+        var root = JsonDocument.Parse(stderr).RootElement;
+        Assert.False(root.TryGetProperty("category", out _));
+        Assert.False(root.TryGetProperty("serverVersion", out _));
+    }
+
     // ── WriteTable ───────────────────────────────────────────────────────────
 
     [Fact]

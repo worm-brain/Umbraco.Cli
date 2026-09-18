@@ -141,7 +141,25 @@ public sealed class CommandExecutor
                                     : $" ({result.ErrorMessage})"
                             )
                         : result.ErrorMessage!;
-                ctx.Output.WriteError(result.StatusCode, message);
+
+                // Attribution context (#152): tag the error with its failure category and, when
+                // the server actually responded, the server version - so a caller can tell a
+                // server-side fault from a rejected request. The version is only fetched when the
+                // server responded (a category that saw an HTTP status); for unreachable/timeout
+                // the lookup would just fail or hang again, so it is skipped. Best-effort: a null
+                // version is simply omitted and never delays or masks this error.
+                var serverVersion = result.Category
+                    is FailureCategory.RequestRejected
+                        or FailureCategory.ServerError
+                        or FailureCategory.UnexpectedResponse
+                    ? await ctx.Client.GetServerVersionAsync(ct)
+                    : null;
+                ctx.Output.WriteError(
+                    result.StatusCode,
+                    message,
+                    result.Category.ToWire(),
+                    serverVersion
+                );
                 return 1;
             }
 

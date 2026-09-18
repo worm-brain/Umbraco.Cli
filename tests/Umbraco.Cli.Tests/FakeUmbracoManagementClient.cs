@@ -1409,6 +1409,12 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
             )
         );
 
+    /// <summary>The version the fake reports from <see cref="GetServerVersionAsync"/> (default matches the fake server info).</summary>
+    public string? ServerVersion { get; set; } = "14.0.0";
+
+    public Task<string?> GetServerVersionAsync(CancellationToken ct = default) =>
+        Task.FromResult(ServerVersion);
+
     public Task<UmbracoResponse<ServerConfigurationResponse>> GetServerConfigurationAsync(
         CancellationToken ct = default
     ) =>

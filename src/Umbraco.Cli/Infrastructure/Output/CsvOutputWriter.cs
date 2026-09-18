@@ -45,8 +45,15 @@ public sealed class CsvOutputWriter : IOutputWriter
     }
 
     /// <inheritdoc />
-    public void WriteError(int code, string message)
+    public void WriteError(
+        int code,
+        string message,
+        string? category = null,
+        string? serverVersion = null
+    )
     {
+        // The failure category and server version (#152) are part of the structured (JSON)
+        // contract; the CSV error stays the simple code/message pair it has always been.
         Console.Error.WriteLine("code,message");
         Console.Error.WriteLine($"{Escape(code.ToString())},{Escape(message)}");
     }

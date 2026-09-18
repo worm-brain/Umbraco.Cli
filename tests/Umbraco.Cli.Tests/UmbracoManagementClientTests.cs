@@ -136,6 +136,82 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task TransportFailure_CategorisedUnreachable()
+    {
+        // #152: a transport failure (no HTTP response) is categorised Unreachable, distinct from a
+        // timeout, so a caller can tell a connectivity problem from a server one.
+        var client = ClientThatThrows(new HttpRequestException("no such host"));
+
+        var result = await client.GetContentByIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Equal(FailureCategory.Unreachable, result.Category);
+    }
+
+    [Fact]
+    public async Task Timeout_CategorisedTimeout()
+    {
+        // #152: a timeout carries the same status 0 as an unreachable host, so the category (not
+        // the code) is what distinguishes them.
+        var client = ClientThatThrows(new TaskCanceledException("timeout"));
+
+        var result = await client.GetContentByIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Equal(FailureCategory.Timeout, result.Category);
+    }
+
+    [Fact]
+    public async Task ApiError_4xx_CategorisedRequestRejected()
+    {
+        // #152: a 4xx is the server rejecting the request - the request/CLI's side, not a server fault.
+        var (client, _) = ClientReturning("""{"title":"Not Found"}""", HttpStatusCode.NotFound);
+
+        var result = await client.GetContentAsync(ct: CancellationToken.None);
+
+        Assert.Equal(FailureCategory.RequestRejected, result.Category);
+    }
+
+    [Fact]
+    public async Task ApiError_5xx_CategorisedServerError()
+    {
+        // #152: a 5xx (here an undeclared 500) is a server-side fault, so it is categorised
+        // ServerError - the attribution that would have told us #150 was Umbraco's bug, not ours.
+        var (client, _) = ClientReturning("", HttpStatusCode.InternalServerError);
+
+        var result = await client.GetContentAsync(ct: CancellationToken.None);
+
+        Assert.Equal(FailureCategory.ServerError, result.Category);
+    }
+
+    [Fact]
+    public async Task GetServerVersionAsync_ReturnsVersionAndCachesTheLookup()
+    {
+        // #152: the version is fetched from server/information and cached, so annotating several
+        // errors in one process (e.g. a bulk run) never re-fetches it.
+        var (client, handler) = ClientReturning(
+            """{"version":"17.3.5","assemblyVersion":"17.3.5.0"}"""
+        );
+
+        var first = await client.GetServerVersionAsync(CancellationToken.None);
+        var second = await client.GetServerVersionAsync(CancellationToken.None);
+
+        Assert.Equal("17.3.5", first);
+        Assert.Equal("17.3.5", second);
+        Assert.Single(handler.Requests); // resolved once, then served from cache
+    }
+
+    [Fact]
+    public async Task GetServerVersionAsync_UnreachableServer_ReturnsNullWithoutThrowing()
+    {
+        // The lookup is best-effort: an unreachable server yields null, never an exception, so it
+        // can never mask or delay the real error it was meant to annotate.
+        var client = ClientThatThrows(new HttpRequestException("no such host"));
+
+        var version = await client.GetServerVersionAsync(CancellationToken.None);
+
+        Assert.Null(version);
+    }
+
+    [Fact]
     public async Task GetContentAsync_NoParent_CallsTreeRootEndpoint()
     {
         // Regression for #39: root listing must hit the document tree, not the flat

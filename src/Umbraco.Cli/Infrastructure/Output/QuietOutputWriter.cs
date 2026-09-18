@@ -19,7 +19,12 @@ public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
         inner.WriteSuccess(data, commandName, durationMs);
 
     /// <inheritdoc />
-    public void WriteError(int code, string message) => inner.WriteError(code, message);
+    public void WriteError(
+        int code,
+        string message,
+        string? category = null,
+        string? serverVersion = null
+    ) => inner.WriteError(code, message, category, serverVersion);
 
     /// <inheritdoc />
     public void WriteTable(

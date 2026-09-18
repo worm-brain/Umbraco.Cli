@@ -4,6 +4,57 @@ namespace Umbraco.Cli.Client;
 
 // ── Envelope ─────────────────────────────────────────────────────────────────
 
+/// <summary>
+/// Why a client call failed, classified by <em>where</em> the failure was caught rather than
+/// guessed from the HTTP status (#152). The status code alone is a poor fault signal - a 400 can
+/// be the CLI's fault (a malformed request, e.g. #149) and a 500 can be the server's fault
+/// (e.g. #150) - so this gives a caller a machine-readable answer to "whose problem is this?".
+/// </summary>
+public enum FailureCategory
+{
+    /// <summary>Not a failure (a success response).</summary>
+    None = 0,
+
+    /// <summary>The Umbraco instance could not be reached (DNS/connection/TLS); no HTTP response.</summary>
+    Unreachable,
+
+    /// <summary>The request to the Umbraco instance timed out before a response.</summary>
+    Timeout,
+
+    /// <summary>The server responded and rejected the request (a 4xx). Often bad input or the CLI's request.</summary>
+    RequestRejected,
+
+    /// <summary>The server responded with an internal error (a 5xx, or an undeclared status). A server-side problem.</summary>
+    ServerError,
+
+    /// <summary>
+    /// The server responded but the body did not match what this CLI expected - a likely sign of
+    /// an Umbraco version the generated client was not built against. Reserved here; populated by #154.
+    /// </summary>
+    UnexpectedResponse,
+}
+
+/// <summary>Wire-name mapping for <see cref="FailureCategory"/> (the string emitted in the JSON error envelope).</summary>
+public static class FailureCategoryExtensions
+{
+    /// <summary>
+    /// The snake_case wire name for a category, or null for <see cref="FailureCategory.None"/>
+    /// (so a success or an uncategorised failure emits no <c>category</c> field).
+    /// </summary>
+    /// <param name="category">The category to convert.</param>
+    /// <returns>The wire string, or null when there is no category to emit.</returns>
+    public static string? ToWire(this FailureCategory category) =>
+        category switch
+        {
+            FailureCategory.Unreachable => "unreachable",
+            FailureCategory.Timeout => "timeout",
+            FailureCategory.RequestRejected => "request_rejected",
+            FailureCategory.ServerError => "server_error",
+            FailureCategory.UnexpectedResponse => "unexpected_response",
+            _ => null,
+        };
+}
+
 public record UmbracoResponse<T>
 {
     public bool IsSuccess { get; init; }
@@ -11,20 +62,55 @@ public record UmbracoResponse<T>
     public int StatusCode { get; init; }
     public string? ErrorMessage { get; init; }
 
+    /// <summary>Why the call failed (#152); <see cref="FailureCategory.None"/> on success.</summary>
+    public FailureCategory Category { get; init; }
+
     public static UmbracoResponse<T> Success(T data, int code = 200) =>
         new()
         {
             IsSuccess = true,
             Data = data,
             StatusCode = code,
+            Category = FailureCategory.None,
         };
 
-    public static UmbracoResponse<T> Failure(int code, string message) =>
+    /// <summary>
+    /// Builds a failed response. When <paramref name="category"/> is null it is derived from the
+    /// status code (a reasonable default for direct callers); the request guard passes the precise
+    /// category explicitly, because a status of 0 alone cannot tell an unreachable host from a
+    /// timeout.
+    /// </summary>
+    /// <param name="code">The HTTP status code (0 when no response was received).</param>
+    /// <param name="message">The human-readable error message.</param>
+    /// <param name="category">The explicit failure category, or null to derive one from <paramref name="code"/>.</param>
+    /// <returns>A failed <see cref="UmbracoResponse{T}"/>.</returns>
+    public static UmbracoResponse<T> Failure(
+        int code,
+        string message,
+        FailureCategory? category = null
+    ) =>
         new()
         {
             IsSuccess = false,
             StatusCode = code,
             ErrorMessage = message,
+            Category = category ?? DeriveCategory(code),
+        };
+
+    /// <summary>
+    /// Best-effort category from a status code, for callers that do not pass one explicitly.
+    /// A status of 0 (no response) defaults to <see cref="FailureCategory.Unreachable"/>; the
+    /// timeout path sets <see cref="FailureCategory.Timeout"/> itself.
+    /// </summary>
+    /// <param name="code">The HTTP status code.</param>
+    /// <returns>The derived category.</returns>
+    private static FailureCategory DeriveCategory(int code) =>
+        code switch
+        {
+            0 => FailureCategory.Unreachable,
+            >= 500 => FailureCategory.ServerError,
+            >= 400 => FailureCategory.RequestRejected,
+            _ => FailureCategory.ServerError,
         };
 }
 

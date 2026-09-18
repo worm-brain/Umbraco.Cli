@@ -3196,27 +3196,54 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             // no typed property for it; it lands in AdditionalData as an UntypedNode.
             var fieldErrors = FormatProblemDetailsErrors(pd);
             var message = fieldErrors is null ? baseMessage : $"{baseMessage} ({fieldErrors})";
-            return UmbracoResponse<T>.Failure(status, message);
+            // A declared error body: a 5xx is a server-side problem, anything else the server
+            // rejecting the request (#152).
+            return UmbracoResponse<T>.Failure(status, message, CategoryFor(status));
         }
         catch (ApiException ex)
         {
             // ResponseStatusCode is 0 when Kiota never got an HTTP response.
-            return UmbracoResponse<T>.Failure(ex.ResponseStatusCode, DescribeApiException(ex));
+            return UmbracoResponse<T>.Failure(
+                ex.ResponseStatusCode,
+                DescribeApiException(ex),
+                CategoryFor(ex.ResponseStatusCode)
+            );
         }
         catch (HttpRequestException ex)
         {
             return UmbracoResponse<T>.Failure(
                 0,
-                $"Could not reach the Umbraco instance: {ex.Message}"
+                $"Could not reach the Umbraco instance: {ex.Message}",
+                FailureCategory.Unreachable
             );
         }
         // A timeout surfaces as a cancellation whose token is NOT the caller's; a genuine
         // caller cancellation (ct signalled) is rethrown so callers can observe it.
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            return UmbracoResponse<T>.Failure(0, "The request to the Umbraco instance timed out.");
+            return UmbracoResponse<T>.Failure(
+                0,
+                "The request to the Umbraco instance timed out.",
+                FailureCategory.Timeout
+            );
         }
     }
+
+    /// <summary>
+    /// Classifies an HTTP status into a <see cref="FailureCategory"/> for a response the server
+    /// actually returned (#152): a 5xx (or an undeclared status carried as a 0-less code) is a
+    /// server-side error, a 4xx is the request being rejected, and a 0 means no response arrived.
+    /// </summary>
+    /// <param name="status">The HTTP status code from the response, or 0 when none was received.</param>
+    /// <returns>The matching failure category.</returns>
+    private static FailureCategory CategoryFor(int status) =>
+        status switch
+        {
+            0 => FailureCategory.Unreachable,
+            >= 500 => FailureCategory.ServerError,
+            >= 400 => FailureCategory.RequestRejected,
+            _ => FailureCategory.ServerError,
+        };
 
     /// <summary>
     /// Builds a 404 <see cref="ApiException"/> for client-side resolution failures (e.g. an

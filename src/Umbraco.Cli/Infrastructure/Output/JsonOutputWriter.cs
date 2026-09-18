@@ -57,13 +57,22 @@ public sealed class JsonOutputWriter : IOutputWriter
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
-    public void WriteError(int code, string message)
+    public void WriteError(
+        int code,
+        string message,
+        string? category = null,
+        string? serverVersion = null
+    )
     {
+        // category/serverVersion are additive fields (#152); null ones are dropped by the
+        // WhenWritingNull policy, so a policy error (no category) keeps the original shape.
         var envelope = new
         {
             status = "error",
             code,
             message,
+            category,
+            serverVersion,
             schemaVersion = SchemaVersion,
         };
         Console.Error.WriteLine(JsonSerializer.Serialize(envelope, Options));

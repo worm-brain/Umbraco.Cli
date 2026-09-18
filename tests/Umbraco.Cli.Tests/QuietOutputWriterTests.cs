@@ -18,11 +18,23 @@ public class QuietOutputWriterTests
         public bool DryRunCalled { get; private set; }
         public string? LastTableCommand { get; private set; }
         public long? LastTableDuration { get; private set; }
+        public string? LastErrorCategory { get; private set; }
+        public string? LastErrorServerVersion { get; private set; }
 
         public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null) =>
             SuccessCalled = true;
 
-        public void WriteError(int code, string message) => ErrorCalled = true;
+        public void WriteError(
+            int code,
+            string message,
+            string? category = null,
+            string? serverVersion = null
+        )
+        {
+            ErrorCalled = true;
+            LastErrorCategory = category;
+            LastErrorServerVersion = serverVersion;
+        }
 
         public void WriteTable(
             string[] headers,
@@ -63,7 +75,7 @@ public class QuietOutputWriterTests
         var quiet = new QuietOutputWriter(inner);
 
         quiet.WriteSuccess(new { id = 1 });
-        quiet.WriteError(1, "boom");
+        quiet.WriteError(500, "boom", "server_error", "17.3.5");
         quiet.WriteTable(
             ["Id"],
             [
@@ -81,6 +93,9 @@ public class QuietOutputWriterTests
         // #137: the decorator forwards command/duration so quiet list output keeps full meta.
         Assert.Equal("content.list", inner.LastTableCommand);
         Assert.Equal(7, inner.LastTableDuration);
+        // #152: the decorator forwards the failure category and server version too.
+        Assert.Equal("server_error", inner.LastErrorCategory);
+        Assert.Equal("17.3.5", inner.LastErrorServerVersion);
     }
 
     [Fact]
