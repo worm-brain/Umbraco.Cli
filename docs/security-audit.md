@@ -63,8 +63,46 @@ CodeQL runs in CI only; to reproduce locally, use the CodeQL CLI with the same c
 
 ## Tier 2 - the deep audit
 
-A repeatable process, not an improvised prompt. Run it end to end; produce a report in the
-schema below; file each confirmed finding as its own issue and promote it into Tier 1.
+A repeatable process, not an improvised prompt. Run it end to end; write every output to a
+local, git-ignored run folder (below); **review it before anything is filed publicly**. This
+is a public repository - findings never go straight into public issues (Step 5).
+
+### Where audit output goes
+
+Tier-2 output is security-sensitive (attack scenarios, proof-of-concept payloads, sometimes
+captured responses), and this repo is public - so it is written to a local, **git-ignored**
+directory and never committed:
+
+```
+.claude/security-audits/<run-id>/
+```
+
+`.claude/` is already git-ignored (see `.gitignore`), so nothing here can be pushed by
+accident. Scaffold a run - which creates the folder and its templates for you:
+
+```powershell
+./scripts/security/new-audit-run.ps1         # create the next run folder, print its path
+./scripts/security/new-audit-run.ps1 -List   # list previous runs, newest first
+```
+
+Each run is a timestamped snapshot, so runs can be compared over time:
+
+```
+.claude/security-audits/
+  2026-09-18-1423-f391858/          <run-id> = UTC timestamp + commit
+    meta.json          run metadata: date, commit, reviewer, status
+    threat-model.md    the threat model for this run (Step 1)
+    report.md          the findings report (schema below)
+    hypotheses.md      unproven candidates - never block a release
+    raw/               per-lens raw agent output
+```
+
+Because finding ids are stable (`SEC-LENS-NNN`), comparing two runs is just a diff of their
+`report.md` - what is new, what is fixed, what still stands:
+
+```powershell
+git diff --no-index <old-run>/report.md <new-run>/report.md
+```
 
 ### Step 1 - Threat model (before any code review)
 
@@ -143,6 +181,26 @@ review starts from real coordinates. The copy-paste prompt spec is in the append
 Without this step a deep AI review produces an impressive pile of plausible-but-non-exploitable
 findings. Do not skip it.
 
+### Step 5 - Review, then triage to issues (never the other way round)
+
+Findings stay in the git-ignored run folder until a human has read `report.md`. Only then are
+they triaged out of it - and because this repository is **public**, *how* matters as much as
+*whether*:
+
+- **A real, unfixed vulnerability** (Confirmed/Probable, Medium+) -> a GitHub **private
+  security advisory** (repo -> Security -> Advisories -> New draft), or fix it on a private
+  branch first and disclose after the fix ships. Do **not** open a public issue that hands an
+  attacker a working PoC before a fix exists.
+- **A hardening / defence-in-depth item with no live exploit** -> a normal public issue is
+  fine. Strip sensitive detail first (captured tokens, internal hostnames, exact PoC payloads)
+  and reference the local run folder for the full write-up rather than pasting it.
+- **A false positive / accepted risk** -> record it in `report.md` with a reason and a revisit
+  date; add the Tier-1 suppression entry if it trips the gate.
+
+The rule of thumb: the full, unsanitised detail lives in the git-ignored run folder; only what
+is safe to publish goes into the tracker. Update the finding's `Status` and `Links` in
+`report.md` once filed, so the next run's diff shows it as handled.
+
 ### Severity rubric (tuned to a CLI, not a web app)
 
 | Severity | Meaning for this tool |
@@ -198,10 +256,13 @@ A finding is only "done" when its regression is green in Tier 1.
 
 ## Appendix - reusable agent prompt spec
 
-Run once per lens. Fill in `{LENS}` and `{FOCUS AREAS}` from Step 3.
+Run once per lens. Fill in `{LENS}`, `{FOCUS AREAS}` from Step 3, and `{RUN FOLDER}` with the
+path printed by `new-audit-run.ps1`.
 
 ```
 You are performing an adversarial security review of the Umbraco.Cli .NET 9 CLI, lens: {LENS}.
+Write your raw findings to {RUN FOLDER}/raw/{LENS}.md and add confirmed/probable entries to
+{RUN FOLDER}/report.md. Never write findings anywhere git-tracked - this is a public repo.
 
 Context: this CLI holds Umbraco Management API OAuth client-credentials and a bearer token,
 talks to a server over HTTP, and runs both interactively and unattended in CI (secrets in env
@@ -219,7 +280,7 @@ For each candidate issue:
 5. Emit each confirmed/probable finding in the SEC-{LENS}-NNN schema. Put hypotheses in a
    separate appendix. Do not pad the report - a short validated list beats a long speculative one.
 
-Do not edit code. Output only the report.
+Do not edit production code; write only into {RUN FOLDER}.
 ```
 
 Adjust cadence, threshold and scope over time; keep this document and the schema stable so
