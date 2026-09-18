@@ -146,6 +146,30 @@ umbraco content create --content-type blogPost --name "Hello World"
 umbraco commands                                       # the entire command tree as JSON
 ```
 
+### Querying JSON output
+
+Several examples pipe JSON into [`jq`](https://jqlang.github.io/jq/) - a small, popular
+command-line JSON processor. `jq '.data[].name'` reads as "for each item in the `data` array,
+print its `name`". **`jq` is a separate tool, not part of this CLI or of your operating system**;
+if it is not installed, you have two alternatives that need nothing extra:
+
+- **Use `--fields`** to project fields without any external tool - it covers most cases:
+  `umbraco content list --fields id,name`.
+- **On Windows, use PowerShell's built-in `ConvertFrom-Json`:**
+
+  ```powershell
+  # every name
+  (umbraco content list --output json | ConvertFrom-Json).data.name
+  # one field, ready to pipe on to another command
+  (umbraco content list --fields id --output json | ConvertFrom-Json).data.id
+  ```
+
+  PowerShell auto-enumerates arrays, so `.data.name` yields every item's name with no explicit loop.
+
+Every success envelope is `{ "status", "data", "meta" }`, so the payload always lives under
+`.data` (this is why the examples say `.data[]`, not `.[]`). The `jq` pipes elsewhere in the docs
+are written for bash/macOS/Linux; the `ConvertFrom-Json` form above is the PowerShell equivalent.
+
 The full command reference is in [commands.md](commands.md).
 
 ## 9. Troubleshooting

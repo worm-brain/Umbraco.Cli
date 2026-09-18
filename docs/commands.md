@@ -132,7 +132,14 @@ umbraco content bulk unpublish [--file ids.txt] [--cultures <csv>]   # takes off
 Bulk commands read ids one per line from `--file` or stdin, so you can pipe:
 
 ```bash
-umbraco content list --fields id | jq -r '.[].id' | umbraco content bulk publish
+umbraco content list --fields id | jq -r '.data[].id' | umbraco content bulk publish
+```
+
+On Windows PowerShell, use the built-in `ConvertFrom-Json` instead of `jq` (which is not
+installed by default):
+
+```powershell
+(umbraco content list --fields id --output json | ConvertFrom-Json).data.id | umbraco content bulk publish
 ```
 
 Each id is reported independently in the `data` results array (`{id, status, error}`); the exit

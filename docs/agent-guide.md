@@ -257,7 +257,13 @@ Bulk commands read ids one per line from `--file` or stdin, and report each id i
 the `data` results array (`{id, status, error}`); the exit code is `1` if any item failed.
 
 ```bash
-umbraco content list --fields id | jq -r '.[].id' | umbraco content bulk publish
+umbraco content list --fields id | jq -r '.data[].id' | umbraco content bulk publish
+```
+
+On Windows PowerShell (no `jq`), use the built-in `ConvertFrom-Json`:
+
+```powershell
+(umbraco content list --fields id --output json | ConvertFrom-Json).data.id | umbraco content bulk publish
 ```
 
 ### A read-only audit agent
