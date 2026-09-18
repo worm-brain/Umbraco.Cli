@@ -627,11 +627,16 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
     /// <summary>
     /// Unpublishes a content item via <c>PUT document/{id}/unpublish</c> (generated client, #79).
-    /// The unpublish payload is a plain list of cultures (distinct from publish's schedule list);
-    /// the default <c>"*"</c> unpublishes all cultures.
+    /// The unpublish payload is a plain list of cultures (distinct from publish's schedule list).
+    /// When no cultures are given the <c>cultures</c> field is omitted, which unpublishes the whole
+    /// document. This deliberately differs from <see cref="PublishContentAsync"/>: unpublish does
+    /// NOT accept publish's <c>"*"</c> wildcard as a culture, and sending <c>["*"]</c> against an
+    /// invariant document is rejected with HTTP 400 "Cannot publish a given culture when the
+    /// document is invariant." Omitting the field is the correct way to unpublish all cultures for
+    /// both invariant and variant documents (#149, found in alpha.8 acceptance testing).
     /// </summary>
     /// <param name="id">The content item id.</param>
-    /// <param name="cultures">Cultures to unpublish; null/empty unpublishes all cultures (<c>"*"</c>).</param>
+    /// <param name="cultures">Specific cultures to unpublish; null/empty unpublishes the whole document.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     public Task<UmbracoResponse<Empty>> UnpublishContentAsync(
@@ -645,7 +650,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             {
                 var body = new Gen.UnpublishDocumentRequestModel
                 {
-                    Cultures = (cultures ?? ["*"]).ToList(),
+                    // Null (not ["*"]): a null cultures list unpublishes the whole document. See the
+                    // summary - "*" is a publish-only wildcard and 400s on invariant content here.
+                    Cultures = cultures?.ToList(),
                 };
                 await _api
                     .Umbraco.Management.Api.V1.Document[id]
@@ -2478,7 +2485,19 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    /// <summary>Deletes a member via <c>DELETE member/{id}</c> (generated client).</summary>
+    /// <summary>
+    /// Deletes a member via <c>DELETE member/{id}</c> (generated client).
+    /// </summary>
+    /// <remarks>
+    /// Umbraco 17.x returns an undeclared HTTP 500 from this endpoint even when the member IS
+    /// removed (the OpenAPI spec only declares 200/400/404, so the generated client has no error
+    /// factory for 500 and throws "no error factory is registered for this code: 500"). Reporting
+    /// that as a failure breaks callers and teardown scripts that then treat a successful delete as
+    /// a failure. So on a 500 we confirm the post-condition with a follow-up read: if the member is
+    /// gone the delete succeeded; only a member that still exists is a genuine failure we surface.
+    /// A side effect is that deleting an already-absent member reports success (idempotent delete),
+    /// which is the friendlier behaviour for scripts (#150, found in alpha.8 acceptance testing).
+    /// </remarks>
     /// <param name="id">The member id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
@@ -2490,10 +2509,53 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                await _api.Umbraco.Management.Api.V1.Member[id].DeleteAsync(cancellationToken: ct);
-                return Empty.Value;
+                try
+                {
+                    await _api
+                        .Umbraco.Management.Api.V1.Member[id]
+                        .DeleteAsync(cancellationToken: ct);
+                    return Empty.Value;
+                }
+                catch (ApiException ex) when (ex.ResponseStatusCode == 500)
+                {
+                    // Undeclared 500 from a delete that may well have succeeded - verify.
+                    if (await MemberExistsAsync(id, ct))
+                        throw; // still there: a real 500, let the guard surface it
+                    return Empty.Value; // gone: the delete worked despite the 500
+                }
             }
         );
+
+    /// <summary>
+    /// Probes whether a member still exists, used to confirm a delete whose response was an
+    /// undeclared HTTP 500 (see <see cref="DeleteMemberAsync"/>). Only a definitive 404 from the
+    /// read proves the member is gone; a returned member, or any inconclusive error, is treated as
+    /// "still exists" so the original failure is surfaced rather than masked.
+    /// </summary>
+    /// <param name="id">The member id to probe.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><c>true</c> if the member still exists or existence could not be disproven.</returns>
+    private async Task<bool> MemberExistsAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var member = await _api
+                .Umbraco.Management.Api.V1.Member[id]
+                .GetAsync(cancellationToken: ct);
+            return member is not null;
+        }
+        // A 404 arrives as the generated ProblemDetails (a declared error body); ResponseStatusCode
+        // can be 0 on it, so fall back to the parsed Status - matching GuardedApiAsync.
+        catch (Gen.ProblemDetails pd)
+            when ((pd.ResponseStatusCode != 0 ? pd.ResponseStatusCode : pd.Status ?? 0) == 404)
+        {
+            return false;
+        }
+        catch (ApiException ex) when (ex.ResponseStatusCode == 404)
+        {
+            return false;
+        }
+    }
 
     // ── Member Types ───────────────────────────────────────────────────────────
 
@@ -3139,12 +3201,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         catch (ApiException ex)
         {
             // ResponseStatusCode is 0 when Kiota never got an HTTP response.
-            return UmbracoResponse<T>.Failure(
-                ex.ResponseStatusCode,
-                string.IsNullOrWhiteSpace(ex.Message)
-                    ? $"Error {ex.ResponseStatusCode}"
-                    : ex.Message
-            );
+            return UmbracoResponse<T>.Failure(ex.ResponseStatusCode, DescribeApiException(ex));
         }
         catch (HttpRequestException ex)
         {
@@ -3170,6 +3227,30 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>An <see cref="ApiException"/> with status 404.</returns>
     private static ApiException NotFound(string message) =>
         new(message) { ResponseStatusCode = 404 };
+
+    /// <summary>
+    /// Produces a legible message for a Kiota <see cref="ApiException"/>. When the server returns
+    /// a status the OpenAPI spec did not declare, Kiota's own message is the unhelpful "The server
+    /// returned an unexpected status code and no error factory is registered for this code: NNN"
+    /// (seen on Umbraco 17.x member delete, which 500s server-side - see <see cref="DeleteMemberAsync"/>).
+    /// Rewrite that into something a user can act on, distinguishing a server-side 5xx from other
+    /// undeclared codes, while keeping any genuinely useful message intact.
+    /// </summary>
+    /// <param name="ex">The exception thrown by the generated client.</param>
+    /// <returns>A human-readable error message.</returns>
+    private static string DescribeApiException(ApiException ex)
+    {
+        var code = ex.ResponseStatusCode;
+        var isUndeclared =
+            string.IsNullOrWhiteSpace(ex.Message)
+            || ex.Message.Contains("no error factory is registered", StringComparison.Ordinal);
+        if (!isUndeclared)
+            return ex.Message;
+        return code >= 500
+            ? $"The Umbraco server returned an internal error (HTTP {code}). This is a "
+                + "server-side problem, not a rejected request; check the Umbraco logs."
+            : $"The Umbraco server returned an unexpected HTTP {code} with no error details.";
+    }
 
     /// <summary>Returns the invariant (or first available) variant name from a document tree item.</summary>
     /// <param name="item">The generated document tree item.</param>

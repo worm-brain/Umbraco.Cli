@@ -956,6 +956,97 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task DeleteMemberAsync_ServerReturns500ButMemberIsGone_ReportsSuccess()
+    {
+        // Regression for the alpha.8 finding members.delete.reports-500-on-success: Umbraco 17.x
+        // returns an undeclared 500 from member delete even when the member IS removed. The client
+        // must confirm the delete with a follow-up read and, finding the member gone (404), report
+        // success rather than a false failure that breaks teardown scripts.
+        var id = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Delete && Has(r, $"member/{id}"),
+                HttpStatusCode.InternalServerError,
+                ""
+            )
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, $"member/{id}"),
+                HttpStatusCode.NotFound,
+                """{"status":404,"title":"Not Found"}"""
+            );
+        var client = new UmbracoManagementClient(
+            new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") }
+        );
+
+        var result = await client.DeleteMemberAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        // The delete was attempted and then verified with a read.
+        Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith($"/member/{id}"));
+    }
+
+    [Fact]
+    public async Task DeleteMemberAsync_ServerReturns500AndMemberStillExists_ReportsFailure()
+    {
+        // The 500 is only swallowed when the delete is proven to have worked. If the follow-up read
+        // still returns the member, the 500 is a genuine failure and must be surfaced (status 500).
+        var id = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Delete && Has(r, $"member/{id}"),
+                HttpStatusCode.InternalServerError,
+                ""
+            )
+            .When(
+                r => r.Method == HttpMethod.Get && Has(r, $"member/{id}"),
+                HttpStatusCode.OK,
+                $$"""{"id":"{{id}}","email":"m@example.com","variants":[{"name":"M"}]}"""
+            );
+        var client = new UmbracoManagementClient(
+            new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") }
+        );
+
+        var result = await client.DeleteMemberAsync(id, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(500, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task UndeclaredServerError_500_SurfacesLegibleMessageNotKiotaNoErrorFactory()
+    {
+        // An HTTP 500 is not declared on most endpoints, so Kiota throws a bare ApiException whose
+        // own message is "...no error factory is registered for this code: 500". That must be
+        // rewritten into an actionable message while preserving the 500 status. (Surfaced by the
+        // Umbraco 17.x member-delete server bug; see finding members.delete.500-when-membertype-present.)
+        var (client, _) = ClientReturning("", HttpStatusCode.InternalServerError);
+
+        var result = await client.GetContentByIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(500, result.StatusCode);
+        Assert.DoesNotContain("no error factory", result.ErrorMessage);
+        Assert.Contains("internal error", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task DeleteMemberAsync_HappyPath_CallsDeleteEndpoint()
+    {
+        // The ordinary success path: a clean delete reports success and hits DELETE /member/{id}.
+        var id = Guid.NewGuid();
+        var (client, handler) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.DeleteMemberAsync(id, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.EndsWith($"/member/{id}", handler.LastRequestUri!.AbsolutePath);
+    }
+
+    /// <summary>Substring match over a request's absolute URI (mirrors the content-write tests).</summary>
+    private static bool Has(HttpRequestMessage r, string fragment) =>
+        r.RequestUri!.AbsoluteUri.Contains(fragment);
+
+    [Fact]
     public async Task GetLanguagesAsync_ParsesPagedShape()
     {
         // Regression for #41: GET /language returns a paged {total,items} object, not a

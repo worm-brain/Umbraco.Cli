@@ -373,11 +373,13 @@ public class ContentWriteClientTests
     }
 
     /// <summary>
-    /// Unpublishing sends a plain <c>cultures</c> list (distinct from publish's schedule payload),
-    /// defaulting to the <c>"*"</c> wildcard.
+    /// With no cultures the unpublish body must OMIT the cultures field (unpublish the whole
+    /// document) rather than send the <c>"*"</c> wildcard: unpublish, unlike publish, rejects
+    /// <c>"*"</c> on an invariant document with HTTP 400. Regression for the alpha.8 finding
+    /// <c>content.unpublish.invariant-culture</c>.
     /// </summary>
     [Fact]
-    public async Task UnpublishContentAsync_SendsCulturesList()
+    public async Task UnpublishContentAsync_NoCultures_OmitsCulturesSoInvariantDocsUnpublish()
     {
         var id = Guid.NewGuid();
         var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
@@ -389,8 +391,30 @@ public class ContentWriteClientTests
         var body = handler.BodyForFirst(r =>
             r.Method == HttpMethod.Put && Has(r, $"document/{id}/unpublish")
         );
+        // No "*" wildcard is sent - that is the payload the invariant document rejects.
+        Assert.DoesNotContain("*", body);
+    }
+
+    /// <summary>
+    /// When specific cultures are given they are sent as the <c>cultures</c> list verbatim (and no
+    /// <c>"*"</c> wildcard is injected).
+    /// </summary>
+    [Fact]
+    public async Task UnpublishContentAsync_WithCultures_SendsThoseCultures()
+    {
+        var id = Guid.NewGuid();
+        var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
+        var client = Client(handler);
+
+        var result = await client.UnpublishContentAsync(id, ["en-US"], CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var body = handler.BodyForFirst(r =>
+            r.Method == HttpMethod.Put && Has(r, $"document/{id}/unpublish")
+        );
         Assert.Contains("cultures", body, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("*", body);
+        Assert.Contains("en-US", body);
+        Assert.DoesNotContain("*", body);
     }
 
     /// <summary>
