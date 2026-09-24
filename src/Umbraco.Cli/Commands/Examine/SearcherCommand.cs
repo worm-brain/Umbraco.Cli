@@ -31,12 +31,7 @@ public static class SearcherCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "searcher.list",
-                    (client, c) =>
-                        client.GetSearchersAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetSearchersAsync(skip, take, c),
                     new[] { "Name" },
                     s => new[] { s.Name },
                     parseResult.GetValue(skipOpt),
@@ -64,12 +59,12 @@ public static class SearcherCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "searcher.query",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.QuerySearcherAsync(
                             parseResult.GetValue(nameArg)!,
                             parseResult.GetValue(termOpt)!,
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     new[] { "Id", "Score" },

@@ -1850,19 +1850,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 // needed it. It is not on the tree, so the page is hydrated by id. Only the
                 // requested page, never the whole tree, so the cost is bounded by --take.
                 var page = all.Skip(skip).Take(take).ToList();
+
+                // Concurrently, in bounded batches: serially this was one round trip per item,
+                // so --take 100 meant 100 in a row.
+                const int batchSize = 8;
                 var hydrated = new List<DataTypeResponse>(page.Count);
-                foreach (var item in page)
+                for (var i = 0; i < page.Count; i += batchSize)
                 {
-                    try
-                    {
-                        hydrated.Add(await ReadDataTypeAsync(item.Id, ct));
-                    }
-                    catch (ApiException)
-                    {
-                        // One unreadable data type must not fail the whole list; keep the tree's
-                        // view of it rather than dropping the row.
-                        hydrated.Add(item);
-                    }
+                    var batch = page.Skip(i).Take(batchSize).Select(item => HydrateAsync(item, ct));
+                    hydrated.AddRange(await Task.WhenAll(batch));
                 }
 
                 return new PagedResponse<DataTypeResponse> { Total = all.Count, Items = hydrated };
@@ -1876,6 +1872,31 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="id">The data type id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The data type mapped to <see cref="DataTypeResponse"/>.</returns>
+    /// <summary>
+    /// Reads a data type's full record for the list (#176), falling back to the tree's view when
+    /// it cannot be read.
+    /// <para>
+    /// The fallback leaves <see cref="DataTypeResponse.EditorAlias"/> null rather than the tree's
+    /// empty string, so "we could not read this" is distinguishable from "this genuinely has
+    /// none" - in the one field the hydration exists to deliver, a silent downgrade would be
+    /// worse than the gap it fills.
+    /// </para>
+    /// </summary>
+    /// <param name="item">The tree's view of the data type.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The full record, or the tree's view with a null editor alias.</returns>
+    private async Task<DataTypeResponse> HydrateAsync(DataTypeResponse item, CancellationToken ct)
+    {
+        try
+        {
+            return await ReadDataTypeAsync(item.Id, ct);
+        }
+        catch (ApiException)
+        {
+            return item with { EditorAlias = null };
+        }
+    }
+
     public Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
         Guid id,
         CancellationToken ct = default

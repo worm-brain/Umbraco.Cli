@@ -22,13 +22,8 @@ public static class MediaListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "media.list",
-                    (client, c) =>
-                        client.GetMediaAsync(
-                            parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) =>
+                        client.GetMediaAsync(parseResult.GetValue(parentOpt), skip, take, c),
                     // Media Type is intentionally omitted: the media-tree list items carry only
                     // the type id (no alias), so the column was always blank (#75). Use
                     // 'media get <id>' for the full media type.

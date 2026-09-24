@@ -59,12 +59,12 @@ public static class MediaFindCommand
                 return executor.RunPagedAsync(
                     parseResult,
                     "media.find",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.FindMediaByNameAsync(
                             parseResult.GetValue(nameOpt)!,
                             parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     headers,

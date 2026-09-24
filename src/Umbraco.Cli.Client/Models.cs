@@ -832,8 +832,12 @@ public record DataTypeResponse
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
 
+    /// <summary>
+    /// The backend property editor, e.g. <c>Umbraco.TextBox</c>. Null when it could not be read
+    /// (#176) - distinct from a type that genuinely has none, which the empty string would blur.
+    /// </summary>
     [JsonPropertyName("editorAlias")]
-    public string EditorAlias { get; init; } = "";
+    public string? EditorAlias { get; init; }
 
     [JsonPropertyName("editorUiAlias")]
     public string? EditorUiAlias { get; init; }

@@ -47,12 +47,12 @@ public static class UserDataCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "user-data.list",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetUserDataAsync(
                             parseResult.GetValue(groupOpt),
                             parseResult.GetValue(identifierOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     new[] { "Key", "Group", "Identifier", "Value" },

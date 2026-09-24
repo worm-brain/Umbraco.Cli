@@ -43,7 +43,10 @@ public sealed class HumanOutputWriter : IOutputWriter
 
         // #173: a truncated list used to look identical to a complete one. Say so, on stderr so
         // the table itself stays pipeable.
-        if (paging.HasMore is true && paging is { Total: { } total, Skip: { } skip })
+        if (
+            paging.HasMoreAfter(items.Count) is true
+            && paging is { Total: { } total, Skip: { } skip }
+        )
             Console.Error.WriteLine(
                 $"Showing {skip + items.Count} of {total}. Use --skip/--take to page, or --all."
             );

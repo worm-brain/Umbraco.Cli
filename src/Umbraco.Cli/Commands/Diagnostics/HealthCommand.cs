@@ -34,12 +34,7 @@ public static class HealthCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "health.list",
-                    (client, c) =>
-                        client.GetHealthCheckGroupsAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetHealthCheckGroupsAsync(skip, take, c),
                     new[] { "Name" },
                     g => new[] { g.Name },
                     parseResult.GetValue(skipOpt),

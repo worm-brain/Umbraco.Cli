@@ -16,12 +16,7 @@ public static class UsersListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "users.list",
-                    (client, c) =>
-                        client.GetUsersAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetUsersAsync(skip, take, c),
                     ["ID", "Name", "Email", "State"],
                     i => new[] { i.Id.ToString(), i.Name, i.Email, i.State },
                     parseResult.GetValue(skipOpt),

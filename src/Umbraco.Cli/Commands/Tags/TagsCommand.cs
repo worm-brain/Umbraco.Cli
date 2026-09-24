@@ -37,12 +37,12 @@ public static class TagsCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "tags.list",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetTagsAsync(
                             parseResult.GetValue(groupOpt),
                             parseResult.GetValue(cultureOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     new[] { "Text", "Group", "Nodes", "Id" },

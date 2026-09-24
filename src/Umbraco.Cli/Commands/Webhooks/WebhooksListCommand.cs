@@ -16,12 +16,7 @@ public static class WebhooksListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "webhooks.list",
-                    (client, c) =>
-                        client.GetWebhooksAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetWebhooksAsync(skip, take, c),
                     ["ID", "URL", "Events", "Enabled"],
                     i =>
                         new[]

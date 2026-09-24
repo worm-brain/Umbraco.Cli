@@ -66,7 +66,7 @@ public static class LogViewerCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "log-viewer.log",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetLogsAsync(
                             parseResult.GetValue(skipOpt),
                             parseResult.GetValue(takeOpt),
@@ -96,12 +96,7 @@ public static class LogViewerCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "log-viewer.levels",
-                    (client, c) =>
-                        client.GetLogLevelsAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetLogLevelsAsync(skip, take, c),
                     new[] { "Name", "Level" },
                     l => new[] { l.Name, l.Level ?? "" },
                     parseResult.GetValue(skipOpt),
@@ -149,7 +144,7 @@ public static class LogViewerCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "log-viewer.message-templates",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetLogMessageTemplatesAsync(
                             parseResult.GetValue(skipOpt),
                             parseResult.GetValue(takeOpt),
@@ -185,12 +180,7 @@ public static class LogViewerCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "log-viewer.saved-search.list",
-                    (client, c) =>
-                        client.GetSavedLogSearchesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetSavedLogSearchesAsync(skip, take, c),
                     new[] { "Name", "Query" },
                     s => new[] { s.Name, s.Query },
                     parseResult.GetValue(skipOpt),

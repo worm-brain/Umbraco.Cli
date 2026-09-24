@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Help;
 using System.CommandLine.Parsing;
 using Umbraco.Cli.Commands;
 using Umbraco.Cli.Infrastructure.Output;
@@ -48,12 +49,21 @@ public static class ParseErrorReporter
 
         var writer = OutputWriterFactory.Create(requested);
         var message = string.Join(" ", parsed.Errors.Select(e => e.Message));
-        var command = parsed.CommandResult.Command.Name;
+        // The dotted name, matching meta.command everywhere else - "content.list", not "list".
+        var path = new List<string>();
+        for (
+            var result = parsed.CommandResult;
+            result is not null;
+            result = result.Parent as CommandResult
+        )
+            path.Insert(0, result.Command.Name);
+        var usage = string.Join(" ", path.Skip(1));
+        var command = string.Join(".", path.Skip(1));
 
         writer.WriteError(
             1,
-            $"{message} Run 'umbraco {command} --help' for usage.",
-            commandName: command
+            $"{message} Run 'umbraco {usage} --help' for usage.".Replace("  ", " "),
+            commandName: string.IsNullOrEmpty(command) ? null : command
         );
         return 1;
     }

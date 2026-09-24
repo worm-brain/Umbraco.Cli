@@ -23,12 +23,7 @@ public static class MediaTypesListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "media-types.list",
-                    (client, c) =>
-                        client.GetMediaTypesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetMediaTypesAsync(skip, take, c),
                     ["ID", "Name", "Icon"],
                     i => new[] { i.Id.ToString(), i.Name, i.Icon ?? "" },
                     parseResult.GetValue(skipOpt),

@@ -315,7 +315,7 @@ umbraco content-types delete <id>                          # needs --yes non-int
 ## `data-types`
 
 ```bash
-umbraco data-types list                                    # omits editorAlias (#176)
+umbraco data-types list                                    # includes editorAlias (one read per item)
 umbraco data-types get <name|id>                           # by NAME (a data type has no alias); includes its configuration
 umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types update <id> --name <name> --editor-alias <alias> --editor-ui-alias <alias>

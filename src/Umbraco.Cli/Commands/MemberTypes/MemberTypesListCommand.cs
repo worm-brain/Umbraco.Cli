@@ -23,12 +23,7 @@ public static class MemberTypesListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "member-types.list",
-                    (client, c) =>
-                        client.GetMemberTypesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetMemberTypesAsync(skip, take, c),
                     ["ID", "Name", "Icon"],
                     i => new[] { i.Id.ToString(), i.Name, i.Icon ?? "" },
                     parseResult.GetValue(skipOpt),

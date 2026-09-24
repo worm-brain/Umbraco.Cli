@@ -72,10 +72,19 @@ public sealed class CsvOutputWriter : IOutputWriter
         ListPaging paging,
         string? commandName = null,
         long? durationMs = null
-    ) =>
-        // #164: from the DTOs, so the CSV columns carry the same names as the JSON keys. Paging
-        // meta has nowhere to go in a CSV and is deliberately dropped rather than faked into a row.
+    )
+    {
+        // #164: from the DTOs, so the CSV columns carry the same names as the JSON keys.
         WriteSuccess(items, commandName, durationMs);
+
+        // A CSV row cannot carry paging, but leaving it out entirely would make this the one
+        // format where a truncated list still looks complete - which is #173 exactly. It goes to
+        // stderr, so the CSV on stdout stays loadable as-is.
+        if (paging.HasMoreAfter(items.Count) is true && paging is { Total: { } t, Skip: { } s })
+            Console.Error.WriteLine(
+                $"Showing {s + items.Count} of {t}. Use --skip/--take to page."
+            );
+    }
 
     /// <inheritdoc />
     public void WriteTable(

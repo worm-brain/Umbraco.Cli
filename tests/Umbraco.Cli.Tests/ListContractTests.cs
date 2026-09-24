@@ -106,7 +106,8 @@ public class ListContractTests
     [Fact]
     public void WriteList_OnTheLastPage_SaysThereIsNoMore()
     {
-        var meta = Write(new ListPaging(37, 20, 20)).GetProperty("meta");
+        // The fixture writes two items, so a last page is one that starts at 20 of a total 22.
+        var meta = Write(new ListPaging(22, 20, 20)).GetProperty("meta");
 
         Assert.False(meta.GetProperty("hasMore").GetBoolean());
     }
@@ -133,14 +134,22 @@ public class ListContractTests
     }
 
     [Theory]
-    [InlineData(37, 0, 20, true)]
-    [InlineData(37, 20, 20, false)]
-    [InlineData(20, 0, 20, false)]
-    [InlineData(0, 0, 20, false)]
-    public void HasMore_IsTrueOnlyWhenItemsRemain(int total, int skip, int take, bool expected) =>
-        Assert.Equal(expected, new ListPaging(total, skip, take).HasMore);
+    [InlineData(37, 0, 20, 20, true)]
+    [InlineData(37, 20, 20, 17, false)]
+    [InlineData(20, 0, 20, 20, false)]
+    [InlineData(0, 0, 20, 0, false)]
+    // A page that came back short of what was asked for: counting the request would say there is
+    // more, counting what arrived says there is not.
+    [InlineData(10, 0, 20, 10, false)]
+    public void HasMore_CountsWhatWasDelivered(
+        int total,
+        int skip,
+        int take,
+        int delivered,
+        bool expected
+    ) => Assert.Equal(expected, new ListPaging(total, skip, take).HasMoreAfter(delivered));
 
     [Fact]
     public void HasMore_IsUnknownWhenTheTotalIs() =>
-        Assert.Null(new ListPaging(null, 0, 20).HasMore);
+        Assert.Null(new ListPaging(null, 0, 20).HasMoreAfter(20));
 }

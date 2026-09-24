@@ -21,11 +21,15 @@ public readonly record struct ListPaging(int? Total, int? Skip, int? Take)
     public static ListPaging Unknown => new(null, null, null);
 
     /// <summary>
-    /// Whether more items exist beyond this page. Null when <see cref="Total"/> is unknown, since
-    /// "probably not" is exactly the guess that hides a truncated list.
+    /// Whether more items exist beyond this page, given how many it actually returned. Null when
+    /// <see cref="Total"/> is unknown, since "probably not" is exactly the guess that hides a
+    /// truncated list. Counts delivered items rather than the requested page size, so a short or
+    /// filtered page reports the truth.
     /// </summary>
-    public bool? HasMore =>
-        Total is { } total && Skip is { } skip && Take is { } take ? skip + take < total : null;
+    /// <param name="delivered">How many items this page actually returned.</param>
+    /// <returns>Whether more items exist beyond this page.</returns>
+    public bool? HasMoreAfter(int delivered) =>
+        Total is { } total && Skip is { } skip ? skip + delivered < total : null;
 }
 
 public interface IOutputWriter

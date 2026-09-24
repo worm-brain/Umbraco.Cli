@@ -33,12 +33,7 @@ public static class IndexerCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "indexer.list",
-                    (client, c) =>
-                        client.GetIndexersAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetIndexersAsync(skip, take, c),
                     new[] { "Name", "Health", "Documents", "CanRebuild" },
                     i =>
                         new[]

@@ -48,10 +48,8 @@ public static class RedirectCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "redirect.list",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                     {
-                        var skip = parseResult.GetValue(skipOpt);
-                        var take = parseResult.GetValue(takeOpt);
                         return parseResult.GetValue(contentOpt) is { } key
                             ? client.GetRedirectsForContentAsync(key, skip, take, c)
                             : client.GetRedirectsAsync(

@@ -119,7 +119,7 @@ public sealed class CommandExecutor
 
             if (!_confirmation.Confirm(confirmationPrompt))
             {
-                ctx.Output.WriteError(2, "Operation cancelled.");
+                ctx.Output.WriteError(2, "Operation cancelled.", commandName: ctx.CommandName);
                 return 2;
             }
         }
@@ -186,7 +186,8 @@ public sealed class CommandExecutor
             ctx.Output.WriteError(
                 2,
                 $"Read-only mode is active ({ro.Method} {ro.Url} was blocked). This command "
-                    + "performs a write, which is not allowed under --readonly / UMBRACO_READONLY."
+                    + "performs a write, which is not allowed under --readonly / UMBRACO_READONLY.",
+                commandName: ctx.CommandName
             );
             return 2;
         }
@@ -198,7 +199,7 @@ public sealed class CommandExecutor
         {
             // Backstop: any unforeseen failure (e.g. a malformed --json-body, a missing
             // upload file) becomes a clean error instead of a raw stack trace.
-            ctx.Output.WriteError(1, ex.Message);
+            ctx.Output.WriteError(1, ex.Message, commandName: ctx.CommandName);
             return 1;
         }
     }
@@ -273,14 +274,22 @@ public sealed class CommandExecutor
         }
         catch (Exception ex)
         {
-            ctx.Output.WriteError(2, $"Could not read ids: {ex.Message}");
+            ctx.Output.WriteError(
+                2,
+                $"Could not read ids: {ex.Message}",
+                commandName: ctx.CommandName
+            );
             return 2;
         }
 
         // Nothing to do — surface an empty result rather than silently exiting.
         if (rawIds.Count == 0)
         {
-            ctx.Output.WriteError(2, "No ids supplied. Provide ids via --file <path> or stdin.");
+            ctx.Output.WriteError(
+                2,
+                "No ids supplied. Provide ids via --file <path> or stdin.",
+                commandName: ctx.CommandName
+            );
             return 2;
         }
 
@@ -300,7 +309,7 @@ public sealed class CommandExecutor
             }
             if (!_confirmation.Confirm(confirmationPrompt))
             {
-                ctx.Output.WriteError(2, "Operation cancelled.");
+                ctx.Output.WriteError(2, "Operation cancelled.", commandName: ctx.CommandName);
                 return 2;
             }
         }
@@ -432,10 +441,20 @@ public sealed class CommandExecutor
             (ctx, data) =>
             {
                 var list = items(data);
+
+                // The human table's cells and its captions are declared separately, so nothing
+                // but this checks they line up. A mismatch would silently shift every column.
+                var cells = list.Select(row).ToList();
+                if (cells.FirstOrDefault() is { } first && first.Length != headers.Length)
+                    throw new InvalidOperationException(
+                        $"{commandName} declares {headers.Length} column(s) but produced "
+                            + $"{first.Length} cell(s) per row."
+                    );
+
                 ctx.Output.WriteList(
                     [.. list.Cast<object>()],
                     headers,
-                    list.Select(row),
+                    cells,
                     paging(data),
                     ctx.CommandName,
                     ctx.Stopwatch.ElapsedMilliseconds
@@ -463,6 +482,8 @@ public sealed class CommandExecutor
         string commandName,
         Func<
             IUmbracoManagementClient,
+            int,
+            int,
             CancellationToken,
             Task<UmbracoResponse<PagedResponse<TItem>>>
         > call,
@@ -472,10 +493,12 @@ public sealed class CommandExecutor
         int take,
         CancellationToken ct
     ) =>
+        // The call receives the same skip/take that reach meta, so the two cannot drift - a
+        // caller cannot report a page the server was never asked for.
         RunListAsync(
             parseResult,
             commandName,
-            call,
+            (client, c) => call(client, skip, take, c),
             d => (d?.Items ?? []).ToList(),
             headers,
             row,
@@ -559,8 +582,10 @@ public sealed class CommandExecutor
             d => select(d)?.ToList() ?? [],
             headers,
             row,
-            // Everything there is, so the count is the total and there is no more.
-            d => new ListPaging(select(d)?.Count() ?? 0, 0, select(d)?.Count() ?? 0),
+            // Unknown, not complete. These sources return what they return; whether the server
+            // capped it is not something the response says, and claiming otherwise is the same
+            // silent-completeness assertion #173 exists to end.
+            _ => ListPaging.Unknown,
             ct
         );
 

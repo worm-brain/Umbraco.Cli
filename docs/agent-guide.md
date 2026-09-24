@@ -83,7 +83,12 @@ names, same types - and its `meta` says how much more there is:
 ```
 
 `total`, `skip`, `take` and `hasMore` are **omitted when the source cannot report them** - an
-absent `hasMore` means "unknown", not "no". Never read a missing `total` as a complete list.
+absent `hasMore` means "unknown", not "no". Never read a missing `total` as a complete list. Many
+commands (`content tree`, `content find --path`, `manifest list`) genuinely cannot count, and say
+so by omission rather than claiming completeness.
+
+`--output csv` cannot carry `meta`, so a truncated CSV prints the same "showing N of M" line to
+stderr that human output does - stdout stays loadable as-is.
 
 Errors go to **stderr**:
 

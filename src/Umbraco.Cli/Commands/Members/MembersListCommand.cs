@@ -23,13 +23,8 @@ public static class MembersListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "members.list",
-                    (client, c) =>
-                        client.GetMembersAsync(
-                            parseResult.GetValue(groupOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) =>
+                        client.GetMembersAsync(parseResult.GetValue(groupOpt), skip, take, c),
                     ["ID", "Name", "Email", "Approved"],
                     i => new[] { i.Id.ToString(), i.Name, i.Email, i.IsApproved.ToString() },
                     parseResult.GetValue(skipOpt),

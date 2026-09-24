@@ -16,12 +16,7 @@ public static class DictionaryListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "dictionary.list",
-                    (client, c) =>
-                        client.GetDictionaryItemsAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetDictionaryItemsAsync(skip, take, c),
                     ["ID", "Name"],
                     i => new[] { i.Id.ToString(), i.Name },
                     parseResult.GetValue(skipOpt),

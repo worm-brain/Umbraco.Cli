@@ -59,12 +59,12 @@ public static class ContentFindCommand
                 return executor.RunPagedAsync(
                     parseResult,
                     "content.find",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.FindContentByNameAsync(
                             parseResult.GetValue(nameOpt)!,
                             parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     headers,

@@ -27,12 +27,12 @@ public static class ContentVersionsCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "content.versions",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetDocumentVersionsAsync(
                             parseResult.GetValue(idArg),
                             parseResult.GetValue(cultureOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     ["Version ID", "Date", "Draft", "Published"],

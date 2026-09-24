@@ -26,11 +26,11 @@ public static class DictionaryTreeCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "dictionary.tree",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetDictionaryTreeAsync(
                             parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     ["ID", "Name", "Parent ID", "Has Children"],

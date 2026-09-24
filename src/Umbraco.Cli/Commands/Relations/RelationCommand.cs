@@ -37,11 +37,11 @@ public static class RelationCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "relation.list",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetRelationsByTypeAsync(
                             parseResult.GetValue(typeOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     new[] { "Parent", "Child", "Comment" },

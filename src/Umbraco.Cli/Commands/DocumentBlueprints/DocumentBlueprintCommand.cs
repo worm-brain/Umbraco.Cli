@@ -51,11 +51,11 @@ public static class DocumentBlueprintCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "document-blueprint.list",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetDocumentBlueprintsAsync(
                             parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     new[] { "Id", "Name", "IsFolder", "HasChildren" },

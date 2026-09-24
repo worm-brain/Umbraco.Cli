@@ -16,12 +16,7 @@ public static class DataTypesListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "data-types.list",
-                    (client, c) =>
-                        client.GetDataTypesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetDataTypesAsync(skip, take, c),
                     // #176: editorAlias is what decides a property's value shape (#174), so the
                     // list carries it even though the tree items do not - the client hydrates
                     // each one. See the note in the command description about the cost.

@@ -34,13 +34,8 @@ public static class ContentListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "content.list",
-                    (client, c) =>
-                        client.GetContentAsync(
-                            parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) =>
+                        client.GetContentAsync(parseResult.GetValue(parentOpt), skip, take, c),
                     // Content Type is intentionally omitted: the document-tree list items carry
                     // only the type id (no alias), so the column was always blank (#75). Use
                     // 'content get <id>' for the full content type.

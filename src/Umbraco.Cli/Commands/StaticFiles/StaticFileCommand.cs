@@ -61,12 +61,12 @@ public static class StaticFileCommand
                 executor.RunPagedAsync(
                     parseResult,
                     $"{noun}.list",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetStaticFilesAsync(
                             kind,
                             parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     new[] { "Path", "Name", "Type" },

@@ -16,12 +16,7 @@ public static class ContentTypesListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     "content-types.list",
-                    (client, c) =>
-                        client.GetDocumentTypesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetDocumentTypesAsync(skip, take, c),
                     // Alias is intentionally omitted: the document-type tree list items don't
                     // carry an alias, so the column was always blank (#75). Use
                     // 'content-types get <id|alias>' for the full alias.

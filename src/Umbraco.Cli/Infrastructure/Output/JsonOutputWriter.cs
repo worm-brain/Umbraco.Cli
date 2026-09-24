@@ -122,7 +122,7 @@ public sealed class JsonOutputWriter : IOutputWriter
                 total = paging.Total,
                 skip = paging.Skip,
                 take = paging.Take,
-                hasMore = paging.HasMore,
+                hasMore = paging.HasMoreAfter(items.Count),
             },
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
