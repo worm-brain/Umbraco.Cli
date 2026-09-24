@@ -1,3 +1,4 @@
+using Microsoft.Kiota.Abstractions;
 using Gen = Umbraco.Cli.Client.Generated.Models;
 
 namespace Umbraco.Cli.Client;
@@ -99,4 +100,84 @@ public sealed partial class UmbracoManagementClient
                 return Empty.Value;
             }
         );
+
+    /// <summary>
+    /// Reads a dictionary item by id, for the post-create read-back (#181). By id rather than by
+    /// name: the by-key read lists every item and string-matches, which is both wasteful and
+    /// ambiguous if two items share a name.
+    /// </summary>
+    /// <param name="id">The dictionary item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The item as the instance holds it, or a mapped failure.</returns>
+    private Task<UmbracoResponse<DictionaryItemResponse>> ReadDictionaryItemAsync(
+        Guid id,
+        CancellationToken ct
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var d = await _api
+                    .Umbraco.Management.Api.V1.Dictionary[id]
+                    .GetAsync(cancellationToken: ct);
+                return new DictionaryItemResponse
+                {
+                    Id = d?.Id ?? id,
+                    Name = d?.Name ?? "",
+                    Translations = (d?.Translations ?? [])
+                        .Select(t => new DictionaryTranslation
+                        {
+                            IsoCode = t.IsoCode ?? "",
+                            Translation = t.Translation ?? "",
+                        })
+                        .ToList(),
+                };
+            }
+        );
+
+    /// <summary>
+    /// Rejects translations whose ISO code is not a language on this instance (#181).
+    /// <para>
+    /// Umbraco accepts the create and silently drops those translations, so without this the
+    /// caller is told the item saved and only finds out later that it is empty. Deliberately does
+    /// not try to resolve a short code like <c>en</c> to <c>en-US</c>: on a site with both en-US
+    /// and en-GB that guess is a coin flip, and guessing is what produced this class of bug.
+    /// </para>
+    /// </summary>
+    /// <param name="translations">The requested translations.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="ApiException">A code does not match any configured language (mapped to 400).</exception>
+    private async Task GuardDictionaryIsoCodesAsync(
+        IEnumerable<DictionaryTranslation> translations,
+        CancellationToken ct
+    )
+    {
+        var requested = translations.Select(t => t.IsoCode).ToList();
+        if (requested.Count == 0)
+            return;
+
+        // A blank code is rejected rather than filtered out: filtering would let it past the
+        // guard to be discarded by Umbraco, which is the behaviour being fixed.
+        if (requested.Any(string.IsNullOrWhiteSpace))
+            throw BadRequest("A translation's ISO code cannot be empty.");
+
+        var known = await KnownIsoCodesAsync(ct);
+
+        // A language list we could not read is a failure to validate, not a pass - skipping the
+        // check here would quietly restore the silent-discard behaviour.
+        if (known is null)
+            throw BadRequest(
+                "Could not read this instance's languages to check the translation ISO codes. "
+                    + "Umbraco discards translations whose code it does not recognise, so the "
+                    + "request was not sent."
+            );
+
+        var unknown = requested.Where(c => !known.Contains(c)).ToList();
+        if (unknown.Count > 0)
+            throw BadRequest(
+                $"This instance has no language with the ISO code {string.Join(", ", unknown.Select(u => $"'{u}'"))}. "
+                    + $"Umbraco would accept the request and discard those translations. "
+                    + $"Configured languages: {string.Join(", ", known.Order())}."
+            );
+    }
 }

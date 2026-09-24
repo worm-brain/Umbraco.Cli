@@ -139,7 +139,14 @@ public class MediaAndContentAncillaryWireTests
     [Fact]
     public async Task CreateDictionaryItemAsync_SendsEveryTranslation()
     {
-        var handler = Wire.Blank();
+        // #181: the codes are checked against the instance's languages before the create, so the
+        // handler has to answer that read.
+        var handler = Wire.Routed(
+            (
+                "/language",
+                """{ "total": 2, "items": [ { "isoCode": "en-US" }, { "isoCode": "da-DK" } ] }"""
+            )
+        );
 
         await Wire.Client(handler)
             .CreateDictionaryItemAsync(
@@ -169,7 +176,9 @@ public class MediaAndContentAncillaryWireTests
     [Fact]
     public async Task CreateDictionaryItemAsync_NoParent_OmitsIt()
     {
-        var handler = Wire.Blank();
+        var handler = Wire.Routed(
+            ("/language", """{ "total": 1, "items": [ { "isoCode": "en-US" } ] }""")
+        );
 
         await Wire.Client(handler)
             .CreateDictionaryItemAsync(

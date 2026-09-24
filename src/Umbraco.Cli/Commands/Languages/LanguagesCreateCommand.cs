@@ -16,7 +16,10 @@ public static class LanguagesCreateCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command("create", "Add a language.");
+        var cmd = new Command(
+            "create",
+            "Add a language.\n\nExamples:\n  umbraco languages create --culture da-DK\n  umbraco languages create --culture da-DK --fallback en-US --mandatory"
+        );
         var cultureOpt = new Option<string>("--culture")
         {
             Description = "ISO 4646 culture code for the language (e.g. en-US, fr-FR, da-DK).",
@@ -37,10 +40,16 @@ public static class LanguagesCreateCommand
             DefaultValueFactory = _ => false,
             Description = "Mark this language as mandatory (content must be translated into it).",
         };
+        var fallbackOpt = new Option<string?>("--fallback")
+        {
+            Description =
+                "ISO code of the language to fall back to when content has no translation in this one (e.g. en-US).",
+        };
         cmd.Add(cultureOpt);
         cmd.Add(nameOpt);
         cmd.Add(defaultOpt);
         cmd.Add(mandatoryOpt);
+        cmd.Add(fallbackOpt);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
@@ -56,6 +65,9 @@ public static class LanguagesCreateCommand
                                 Name = parseResult.GetValue(nameOpt) ?? DeriveName(culture),
                                 IsDefault = parseResult.GetValue(defaultOpt),
                                 IsMandatory = parseResult.GetValue(mandatoryOpt),
+                                // #183: `update` always had this, so setting up a language took
+                                // two commands.
+                                FallbackIsoCode = parseResult.GetValue(fallbackOpt),
                             },
                             c
                         );

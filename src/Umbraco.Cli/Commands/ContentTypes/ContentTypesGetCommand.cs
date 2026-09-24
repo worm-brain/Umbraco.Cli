@@ -8,16 +8,19 @@ public static class ContentTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a document type by UUID, including its properties, property groups, allowed templates and compositions.\n\nAn alias is not accepted here yet (#159); resolve it with 'umbraco content-types list' first.\n\nExample:\n  umbraco content-types get 3f7a8b2e-..."
+            "Get a document type by alias or UUID, including its properties, property groups, allowed templates and compositions.\n\nExamples:\n  umbraco content-types get blogPost\n  umbraco content-types get 3f7a8b2e-..."
         );
-        var idArg = new Argument<Guid>("id");
+        var idArg = new Argument<string>("id")
+        {
+            Description = "Document type alias (e.g. blogPost) or UUID.",
+        };
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
                     "content-types.get",
-                    (client, c) => client.GetDocumentTypeByIdAsync(parseResult.GetValue(idArg), c),
+                    (client, c) => client.GetDocumentTypeAsync(parseResult.GetValue(idArg)!, c),
                     ct
                 )
         );

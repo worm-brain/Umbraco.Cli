@@ -1636,11 +1636,14 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
+    ) => GuardedApiAsync(ct, () => ReadDocumentTypeAsync(id, ct));
+
+    /// <summary>Reads the by-id body and maps it, shared with the by-key lookup (#159).</summary>
+    /// <param name="id">The type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The mapped type.</returns>
+    private async Task<DocumentTypeResponse> ReadDocumentTypeAsync(Guid id, CancellationToken ct)
+    {
                 var dt = await _api
                     .Umbraco.Management.Api.V1.DocumentType[id]
                     .GetAsync(cancellationToken: ct);
@@ -1692,8 +1695,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         .ToList(),
                     DefaultTemplate = dt?.DefaultTemplate?.Id,
                 };
-            }
-        );
+    }
 
     /// <summary>
     /// Creates a document type via <c>POST document-type</c> (generated client, #79). The id is
@@ -1861,11 +1863,14 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
+    ) => GuardedApiAsync(ct, () => ReadDataTypeAsync(id, ct));
+
+    /// <summary>Reads the by-id body and maps it, shared with the by-key lookup (#159).</summary>
+    /// <param name="id">The type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The mapped type.</returns>
+    private async Task<DataTypeResponse> ReadDataTypeAsync(Guid id, CancellationToken ct)
+    {
                 var dt = await _api
                     .Umbraco.Management.Api.V1.DataType[id]
                     .GetAsync(cancellationToken: ct);
@@ -1884,8 +1889,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         })
                         .ToList(),
                 };
-            }
-        );
+    }
 
     /// <summary>
     /// Creates a data type via <c>POST data-type</c> (generated client, issue #59). The id is
@@ -2326,8 +2330,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     {
                         c.QueryParameters.Skip = skip;
                         c.QueryParameters.Take = take;
+                        // #184: MemberGroupName, not Filter. `filter` is the free-text search
+                        // over name and email, so filtering by group matched nothing and
+                        // returned an empty list with exit 0 - a silent wrong answer.
                         if (!string.IsNullOrEmpty(group))
-                            c.QueryParameters.Filter = group;
+                            c.QueryParameters.MemberGroupName = group;
                     },
                     ct
                 );
@@ -3061,6 +3068,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
+                await GuardDictionaryIsoCodesAsync(request.Translations, ct);
+
                 var id = request.Id ?? Guid.NewGuid();
                 var body = new Gen.CreateDictionaryItemRequestModel
                 {
@@ -3082,11 +3091,22 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     body,
                     cancellationToken: ct
                 );
+
+                // #181: this used to echo request.Translations, so a code Umbraco silently
+                // discarded still came back looking saved. Re-read - by the id we generated, not
+                // by name, which would mean listing every item and could match a different one if
+                // names are not unique - and report what the instance actually kept.
+                var stored = await ReadDictionaryItemAsync(id, ct);
+                if (stored.IsSuccess && stored.Data is { } item)
+                    return item;
+
+                // The write succeeded but the read did not. Say so rather than fabricating the
+                // translations, which is the lie this fix exists to remove.
                 return new DictionaryItemResponse
                 {
                     Id = id,
                     Name = request.Name,
-                    Translations = request.Translations.ToList(),
+                    Translations = null,
                 };
             }
         );
@@ -3363,6 +3383,44 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>An <see cref="ApiException"/> with status 404.</returns>
     private static ApiException NotFound(string message) =>
         new(message) { ResponseStatusCode = 404 };
+
+    /// <summary>Builds a 400 for a request this client refuses to send.</summary>
+    /// <param name="message">What is wrong, and what the caller can do about it.</param>
+    /// <returns>An exception <see cref="GuardedApiAsync{T}"/> maps to a rejected request.</returns>
+    private static ApiException BadRequest(string message) =>
+        new(message) { ResponseStatusCode = 400 };
+
+    /// <summary>The instance's configured language ISO codes, read once per client.</summary>
+    private HashSet<string>? _knownIsoCodes;
+
+    /// <summary>
+    /// The ISO codes of every language on the instance, cached for the life of the client so a
+    /// batch of dictionary creates pays for the lookup once.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The codes, or null when the language list could not be read.</returns>
+    private async Task<HashSet<string>?> KnownIsoCodesAsync(CancellationToken ct)
+    {
+        if (_knownIsoCodes is not null)
+            return _knownIsoCodes;
+
+        var languages = await _api.Umbraco.Management.Api.V1.Language.GetAsync(
+            c => c.QueryParameters.Take = 1000,
+            ct
+        );
+        var codes = (languages?.Items ?? [])
+            .Select(l => l.IsoCode)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase)!;
+
+        // Umbraco always has at least one language, so an empty list means the read did not work.
+        // Only a real answer is cached.
+        if (codes.Count == 0)
+            return null;
+
+        _knownIsoCodes = codes;
+        return codes;
+    }
 
     /// <summary>
     /// Produces a legible message for a Kiota <see cref="ApiException"/>. When the server returns

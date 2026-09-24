@@ -208,8 +208,6 @@ effect, or use the workaround.
 
 | Command | What actually happens | Escape hatch |
 |---|---|---|
-| `members list --group` ([#184](https://github.com/worm-brain/Umbraco.Cli/issues/184)) | Sends the group as a free-text name/email filter, so it returns `[]` | `GET /umbraco/management/api/v1/filter/member?memberGroupName=Subscribers` |
-| `dictionary create --values` ([#181](https://github.com/worm-brain/Umbraco.Cli/issues/181)) | Echoes unrecognised language codes back as saved; Umbraco drops them | Use full ISO codes (`en-US`, not `en`) and confirm with `dictionary get` |
 | Any `list` ([#173](https://github.com/worm-brain/Umbraco.Cli/issues/173)) | Truncates at `--take` (default 20) with no `total` or `hasMore` | Page explicitly with `--skip`/`--take`; treat a full page as "probably more" |
 
 ### Publishing
