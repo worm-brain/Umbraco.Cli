@@ -49,13 +49,33 @@ internal sealed class RoutingHandler : HttpMessageHandler
         return index >= 0 ? Requests[index] : null;
     }
 
-    /// <summary>Returns the captured body of the first request matching <paramref name="match"/>.</summary>
+    /// <summary>
+    /// Returns the captured body of the first request matching <paramref name="match"/>.
+    /// <para>
+    /// Throws when nothing matched rather than returning an empty string. Returning "" meant a
+    /// predicate with a typo'd path satisfied every <c>Assert.DoesNotContain</c> and any
+    /// "the body must not carry X" assertion silently passed against a request that was never
+    /// made - a false green in exactly the tests meant to catch #158-class bugs (#187 Phase 2).
+    /// A request that genuinely carried no body still returns "".
+    /// </para>
+    /// </summary>
     /// <param name="match">Predicate over the recorded requests.</param>
-    /// <returns>The body text (empty string if none matched or the body was null).</returns>
+    /// <returns>The body text; empty when the matched request had no body.</returns>
+    /// <exception cref="InvalidOperationException">No recorded request matched.</exception>
     public string BodyForFirst(Func<HttpRequestMessage, bool> match)
     {
         var index = _matched.FindIndex(r => match(r));
-        return index >= 0 ? RequestBodies[index] ?? "" : "";
+        if (index < 0)
+            throw new InvalidOperationException(
+                "No recorded request matched the predicate. "
+                    + (
+                        Requests.Count == 0
+                            ? "No requests were made at all."
+                            : "Requests made: "
+                                + string.Join(", ", Requests.Select(u => u.PathAndQuery))
+                    )
+            );
+        return RequestBodies[index] ?? "";
     }
 
     // The HttpRequestMessage is disposed after SendAsync, so a snapshot needed for later
