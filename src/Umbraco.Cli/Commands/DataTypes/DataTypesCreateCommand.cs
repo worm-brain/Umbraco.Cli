@@ -57,16 +57,13 @@ public static class DataTypesCreateCommand
             (parseResult, ct) =>
             {
                 if (body.SchemaRequested(parseResult))
-                    return executor.RunObjectAsync(
+                    return RawBodyCommand.RunSchemaAsync(
+                        executor,
                         parseResult,
                         "data-types.create",
-                        (client, c) =>
-                            RawBodyCommand.ExampleAsync(
-                                client.GetDataTypeIdsAsync,
-                                client.GetDataTypeRawAsync,
-                                "data types",
-                                c
-                            ),
+                        client => client.GetDataTypeIdsAsync,
+                        client => client.GetDataTypeRawAsync,
+                        "data types",
                         ct
                     );
 
@@ -76,8 +73,7 @@ public static class DataTypesCreateCommand
                         "data-types.create",
                         async (client, c) =>
                             await client.CreateDataTypeRawAsync(
-                                JsonNode.Parse(await body.ReadAsync(parseResult, c))
-                                    ?? throw new InvalidOperationException("Invalid JSON body."),
+                                await RawBodyCommand.ReadBodyAsync(body, parseResult, c),
                                 c
                             ),
                         "Data type created.",

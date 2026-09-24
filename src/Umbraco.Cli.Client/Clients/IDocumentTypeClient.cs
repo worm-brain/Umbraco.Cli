@@ -31,5 +31,21 @@ public interface IDocumentTypeClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Replaces a document type addressed by alias or id with a verbatim body (#161). The alias
+    /// is resolved here rather than in the command, so a caller never has to look an id up just
+    /// to write back what it has just read, and so the resolution failure surfaces as this
+    /// call's own failure.
+    /// </summary>
+    /// <param name="aliasOrId">The document type alias (e.g. <c>blogPost</c>) or its id.</param>
+    /// <param name="body">The full replacement document-type JSON body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> UpdateDocumentTypeRawAsync(
+        string aliasOrId,
+        System.Text.Json.Nodes.JsonNode body,
+        CancellationToken ct = default
+    );
+
     Task<UmbracoResponse<Empty>> DeleteDocumentTypeAsync(Guid id, CancellationToken ct = default);
 }

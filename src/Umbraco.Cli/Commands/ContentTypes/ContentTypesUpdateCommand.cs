@@ -47,44 +47,27 @@ public static class ContentTypesUpdateCommand
             (parseResult, ct) =>
             {
                 if (body.SchemaRequested(parseResult))
-                    return executor.RunObjectAsync(
+                    return RawBodyCommand.RunSchemaAsync(
+                        executor,
                         parseResult,
                         "content-types.update",
-                        (client, c) =>
-                            RawBodyCommand.ExampleAsync(
-                                client.GetDocumentTypeIdsAsync,
-                                client.GetDocumentTypeRawAsync,
-                                "document types",
-                                c
-                            ),
+                        client => client.GetDocumentTypeIdsAsync,
+                        client => client.GetDocumentTypeRawAsync,
+                        "document types",
                         ct
                     );
 
+                // The alias the rest of the noun accepts (#159) is resolved by the client, so a
+                // caller never has to look an id up just to write back what they just read.
                 return executor.RunMessageAsync(
                     parseResult,
                     "content-types.update",
                     async (client, c) =>
-                    {
-                        // Accept the alias the rest of the noun accepts (#159), so a caller never
-                        // has to look an id up just to write back what they just read.
-                        var resolved = await client.GetDocumentTypeAsync(
+                        await client.UpdateDocumentTypeRawAsync(
                             parseResult.GetValue(idArg)!,
+                            await RawBodyCommand.ReadBodyAsync(body, parseResult, c),
                             c
-                        );
-                        if (!resolved.IsSuccess)
-                            return UmbracoResponse<Empty>.Failure(
-                                resolved.StatusCode,
-                                resolved.ErrorMessage!,
-                                resolved.Category
-                            );
-
-                        return await client.UpdateDocumentTypeRawAsync(
-                            resolved.Data!.Id,
-                            JsonNode.Parse(await body.ReadAsync(parseResult, c))
-                                ?? throw new InvalidOperationException("Invalid JSON body."),
-                            c
-                        );
-                    },
+                        ),
                     "Document type updated.",
                     ct
                 );

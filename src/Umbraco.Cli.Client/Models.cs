@@ -99,6 +99,31 @@ public record UmbracoResponse<T>
         };
 
     /// <summary>
+    /// Re-wraps someone else's failure as this payload type, carrying the status, message and
+    /// category across unchanged. A command that has to read something before it can write - to
+    /// resolve an alias, say - must surface the read's own failure rather than inventing one, and
+    /// copying three fields by hand at each site is how one of them ends up dropping the category
+    /// and downgrading a "host unreachable" to a generic error.
+    /// </summary>
+    /// <typeparam name="TOther">The payload type of the failed response.</typeparam>
+    /// <param name="failed">The failed response to re-wrap.</param>
+    /// <returns>The same failure, typed as <see cref="UmbracoResponse{T}"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="failed"/> is not a failure.</exception>
+    public static UmbracoResponse<T> FailureFrom<TOther>(UmbracoResponse<TOther> failed) =>
+        failed.IsSuccess
+            ? throw new ArgumentException(
+                "Only a failed response can be re-wrapped as a failure.",
+                nameof(failed)
+            )
+            : new()
+            {
+                IsSuccess = false,
+                StatusCode = failed.StatusCode,
+                ErrorMessage = failed.ErrorMessage,
+                Category = failed.Category,
+            };
+
+    /// <summary>
     /// Best-effort category from a status code, for callers that do not pass one explicitly.
     /// A status of 0 (no response) defaults to <see cref="FailureCategory.Unreachable"/>; the
     /// timeout path sets <see cref="FailureCategory.Timeout"/> itself.

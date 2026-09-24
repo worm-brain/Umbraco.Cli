@@ -71,6 +71,121 @@ public class SchemaAuthoringTests
         );
     }
 
+    // ── addressing a type by the key a human has (#159), resolved by the client ──
+
+    [Fact]
+    public async Task UpdateDocumentTypeRawAsync_ByAlias_ResolvesItThenPutsToTheResolvedId()
+    {
+        var id = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var handler = Wire.Routed(
+            ("tree/document-type", $$"""{ "total": 1, "items": [ { "id": "{{id}}" } ] }"""),
+            ($"document-type/{id}", $$"""{ "id": "{{id}}", "alias": "blogPost" }""")
+        );
+
+        var result = await Wire.Client(handler)
+            .UpdateDocumentTypeRawAsync(
+                "blogPost",
+                JsonNode.Parse("""{ "alias": "blogPost", "name": "Blog Post" }""")!,
+                CancellationToken.None
+            );
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        // The PUT has to land on the resolved id - the alias is not a valid path segment.
+        Assert.Equal(
+            "Blog Post",
+            handler.BodyOf(HttpMethod.Put, $"/document-type/{id}")["name"]!.GetValue<string>()
+        );
+    }
+
+    [Fact]
+    public async Task UpdateDocumentTypeRawAsync_UnknownAlias_FailsWithoutWriting()
+    {
+        var handler = Wire.Routed(("tree/document-type", """{ "total": 0, "items": [] }"""));
+
+        var result = await Wire.Client(handler)
+            .UpdateDocumentTypeRawAsync(
+                "noSuchType",
+                JsonNode.Parse("""{ "alias": "noSuchType" }""")!,
+                CancellationToken.None
+            );
+
+        // The resolve failure is this call's failure - reporting anything else would have the
+        // caller looking for a document type that was never touched.
+        Assert.False(result.IsSuccess);
+        Assert.Equal(404, result.StatusCode);
+        Assert.Contains("noSuchType", result.ErrorMessage);
+        handler.AssertNoRequest(HttpMethod.Put, "/document-type");
+    }
+
+    [Fact]
+    public async Task UpdateDataTypeRawAsync_ByName_ResolvesItThenPutsToTheResolvedId()
+    {
+        var id = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        var handler = Wire.Routed(
+            (
+                "item/data-type/search",
+                $$"""{ "total": 1, "items": [ { "id": "{{id}}", "name": "Blog Categories" } ] }"""
+            )
+        );
+
+        var result = await Wire.Client(handler)
+            .UpdateDataTypeRawAsync(
+                "Blog Categories",
+                JsonNode.Parse("""{ "name": "Blog Categories" }""")!,
+                CancellationToken.None
+            );
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        handler.AssertRequested(HttpMethod.Put, $"/data-type/{id}");
+    }
+
+    [Fact]
+    public async Task UpdateDataTypeAsync_ByName_ResolvesItThenPutsToTheResolvedId()
+    {
+        var id = Guid.Parse("66666666-6666-6666-6666-666666666666");
+        var handler = Wire.Routed(
+            (
+                "item/data-type/search",
+                $$"""{ "total": 1, "items": [ { "id": "{{id}}", "name": "Textstring" } ] }"""
+            ),
+            (
+                $"data-type/{id}",
+                $$"""{ "id": "{{id}}", "name": "Textstring", "editorAlias": "Umbraco.TextBox", "editorUiAlias": "Umb.PropertyEditorUi.TextBox" }"""
+            )
+        );
+
+        var result = await Wire.Client(handler)
+            .UpdateDataTypeAsync(
+                "Textstring",
+                new UpdateDataTypeRequest { Name = "Short Text" },
+                CancellationToken.None
+            );
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal(
+            "Short Text",
+            handler.BodyOf(HttpMethod.Put, $"/data-type/{id}")["name"]!.GetValue<string>()
+        );
+    }
+
+    [Fact]
+    public async Task UpdateDataTypeAsync_UnknownName_FailsWithoutWriting()
+    {
+        var handler = Wire.Routed(("item/data-type/search", """{ "total": 0, "items": [] }"""));
+
+        var result = await Wire.Client(handler)
+            .UpdateDataTypeAsync(
+                "NotARealDataType",
+                new UpdateDataTypeRequest { Name = "Short Text" },
+                CancellationToken.None
+            );
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(404, result.StatusCode);
+        Assert.Contains("NotARealDataType", result.ErrorMessage);
+        handler.AssertNoRequest(HttpMethod.Put, "/data-type");
+    }
+
     [Fact]
     public async Task Example_ReadsARealOneOffTheInstance()
     {

@@ -64,16 +64,13 @@ public static class ContentTypesCreateCommand
             (parseResult, ct) =>
             {
                 if (body.SchemaRequested(parseResult))
-                    return executor.RunObjectAsync(
+                    return RawBodyCommand.RunSchemaAsync(
+                        executor,
                         parseResult,
                         "content-types.create",
-                        (client, c) =>
-                            RawBodyCommand.ExampleAsync(
-                                client.GetDocumentTypeIdsAsync,
-                                client.GetDocumentTypeRawAsync,
-                                "document types",
-                                c
-                            ),
+                        client => client.GetDocumentTypeIdsAsync,
+                        client => client.GetDocumentTypeRawAsync,
+                        "document types",
                         ct
                     );
 
@@ -83,8 +80,7 @@ public static class ContentTypesCreateCommand
                         "content-types.create",
                         async (client, c) =>
                             await client.CreateDocumentTypeRawAsync(
-                                JsonNode.Parse(await body.ReadAsync(parseResult, c))
-                                    ?? throw new InvalidOperationException("Invalid JSON body."),
+                                await RawBodyCommand.ReadBodyAsync(body, parseResult, c),
                                 c
                             ),
                         "Document type created.",

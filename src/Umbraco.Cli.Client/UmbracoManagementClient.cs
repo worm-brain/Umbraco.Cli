@@ -2642,32 +2642,23 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
                 // Values are merged by alias + culture + segment rather than replaced, so
                 // setting one property does not clear the rest (#179's rule, applied here too).
-                var values = (m.Values ?? [])
-                    .Select(v => new Gen.MemberValueModel
+                var values = MergeByKey.Upsert(
+                    (m.Values ?? []).Select(v => new Gen.MemberValueModel
                     {
                         Alias = v.Alias,
                         Culture = v.Culture,
                         Segment = v.Segment,
                         Value = v.Value,
-                    })
-                    .ToList();
-                foreach (var v in request.Values ?? [])
-                {
-                    var entry = new Gen.MemberValueModel
+                    }),
+                    (request.Values ?? []).Select(v => new Gen.MemberValueModel
                     {
                         Alias = v.Alias,
                         Culture = v.Culture,
                         Segment = v.Segment,
                         Value = UntypedNodeFactory.FromValue(v.Value),
-                    };
-                    var existing = values.FindIndex(e =>
-                        e.Alias == v.Alias && e.Culture == v.Culture && e.Segment == v.Segment
-                    );
-                    if (existing >= 0)
-                        values[existing] = entry;
-                    else
-                        values.Add(entry);
-                }
+                    }),
+                    v => (v.Alias, v.Culture, v.Segment)
+                );
 
                 var body = new Gen.UpdateMemberRequestModel
                 {

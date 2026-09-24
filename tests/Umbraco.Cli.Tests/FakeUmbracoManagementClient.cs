@@ -557,6 +557,24 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    public Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
+        string nameOrId,
+        UpdateDataTypeRequest request,
+        CancellationToken ct = default
+    ) => throw new NotImplementedException();
+
+    public Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
+        string nameOrId,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => throw new NotImplementedException();
+
+    public Task<UmbracoResponse<Empty>> UpdateDocumentTypeRawAsync(
+        string aliasOrId,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => throw new NotImplementedException();
+
     public Task<UmbracoResponse<Empty>> DeleteDataTypeAsync(Guid id, CancellationToken ct = default)
     {
         SchemaDeletedIds.Add(id);

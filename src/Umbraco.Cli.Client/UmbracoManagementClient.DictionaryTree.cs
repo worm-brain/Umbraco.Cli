@@ -123,28 +123,20 @@ public sealed partial class UmbracoManagementClient
 
                 // The PUT replaces, so merge by ISO code: naming one language must not clear the
                 // rest (#179's shape, one noun over).
-                var merged = (current.Translations ?? [])
-                    .Select(t => new Gen.DictionaryItemTranslationModel
+                var merged = MergeByKey.Upsert(
+                    (current.Translations ?? []).Select(t => new Gen.DictionaryItemTranslationModel
                     {
                         IsoCode = t.IsoCode,
                         Translation = t.Translation,
-                    })
-                    .ToList();
-                foreach (var t in request.Translations)
-                {
-                    var existing = merged.FindIndex(m =>
-                        string.Equals(m.IsoCode, t.IsoCode, StringComparison.OrdinalIgnoreCase)
-                    );
-                    var entry = new Gen.DictionaryItemTranslationModel
+                    }),
+                    request.Translations.Select(t => new Gen.DictionaryItemTranslationModel
                     {
                         IsoCode = t.IsoCode,
                         Translation = t.Translation,
-                    };
-                    if (existing >= 0)
-                        merged[existing] = entry;
-                    else
-                        merged.Add(entry);
-                }
+                    }),
+                    t => t.IsoCode ?? "",
+                    StringComparer.OrdinalIgnoreCase
+                );
 
                 await _api
                     .Umbraco.Management.Api.V1.Dictionary[id]

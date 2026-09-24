@@ -120,27 +120,14 @@ public static class ContentDomainsCommand
                         {
                             var current = await client.GetDomainsAsync(id, c);
                             if (!current.IsSuccess)
-                                return UmbracoResponse<DomainsResponse>.Failure(
-                                    current.StatusCode,
-                                    current.ErrorMessage!,
-                                    current.Category
-                                );
+                                return UmbracoResponse<DomainsResponse>.FailureFrom(current);
 
-                            merged = [.. current.Data!.Domains];
-                            foreach (var binding in requested)
-                            {
-                                var existing = merged.FindIndex(m =>
-                                    string.Equals(
-                                        m.DomainName,
-                                        binding.DomainName,
-                                        StringComparison.OrdinalIgnoreCase
-                                    )
-                                );
-                                if (existing >= 0)
-                                    merged[existing] = binding;
-                                else
-                                    merged.Add(binding);
-                            }
+                            merged = MergeByKey.Upsert(
+                                current.Data!.Domains,
+                                requested,
+                                b => b.DomainName,
+                                StringComparer.OrdinalIgnoreCase
+                            );
 
                             defaultIso ??= current.Data!.DefaultIsoCode;
                         }

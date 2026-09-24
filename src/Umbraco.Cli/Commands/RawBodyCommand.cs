@@ -39,6 +39,59 @@ public static class RawBodyCommand
     }
 
     /// <summary>
+    /// Runs the <c>--schema</c> branch: prints a real entity of this kind off the instance.
+    /// Identical at all four schema verbs, so it lives here rather than four times over.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The command name for the output envelope.</param>
+    /// <param name="listIds">Lists the ids of this kind, given a client.</param>
+    /// <param name="getRaw">Reads one verbatim by id, given a client.</param>
+    /// <param name="kind">The noun, for the error when the instance has none.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The command's exit code.</returns>
+    public static Task<int> RunSchemaAsync(
+        CommandExecutor executor,
+        ParseResult parseResult,
+        string commandName,
+        Func<
+            IUmbracoManagementClient,
+            Func<CancellationToken, Task<UmbracoResponse<IReadOnlyList<Guid>>>>
+        > listIds,
+        Func<
+            IUmbracoManagementClient,
+            Func<Guid, CancellationToken, Task<UmbracoResponse<JsonNode>>>
+        > getRaw,
+        string kind,
+        CancellationToken ct
+    ) =>
+        executor.RunObjectAsync(
+            parseResult,
+            commandName,
+            (client, c) => ExampleAsync(listIds(client), getRaw(client), kind, c),
+            ct
+        );
+
+    /// <summary>
+    /// Reads the <c>--json-body</c> source and parses it, failing with a message that says which
+    /// input was bad rather than a bare parser exception.
+    /// </summary>
+    /// <param name="body">The body option handle.</param>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parsed body.</returns>
+    /// <exception cref="InvalidOperationException">The input is not valid JSON.</exception>
+    public static async Task<JsonNode> ReadBodyAsync(
+        JsonBodyOption body,
+        ParseResult parseResult,
+        CancellationToken ct
+    ) =>
+        JsonNode.Parse(await body.ReadAsync(parseResult, ct))
+        ?? throw new InvalidOperationException(
+            "--json-body did not contain a JSON object. Run with --schema to print a real one."
+        );
+
+    /// <summary>
     /// Reads an existing entity of this kind and returns it as a worked example for
     /// <c>--schema</c>.
     /// </summary>
@@ -56,11 +109,7 @@ public static class RawBodyCommand
     {
         var ids = await listIds(ct);
         if (!ids.IsSuccess)
-            return UmbracoResponse<JsonNode>.Failure(
-                ids.StatusCode,
-                ids.ErrorMessage!,
-                ids.Category
-            );
+            return UmbracoResponse<JsonNode>.FailureFrom(ids);
 
         if (ids.Data is not { Count: > 0 } found)
             return UmbracoResponse<JsonNode>.Failure(
