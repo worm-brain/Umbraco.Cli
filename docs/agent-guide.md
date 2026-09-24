@@ -64,15 +64,48 @@ Every successful command emits this envelope on **stdout**:
 {
   "status": "success",
   "data": { },
-  "meta": { "command": "content.list", "durationMs": 142, "schemaVersion": "2" }
+  "meta": { "command": "content.list", "durationMs": 142, "schemaVersion": "3" }
 }
 ```
+
+A **list** result's `data` is an array of the same objects the matching `get` returns - same field
+names, same types - and its `meta` says how much more there is:
+
+```json
+{
+  "status": "success",
+  "data": [ { "id": "...", "name": "Home", "isPublished": true } ],
+  "meta": {
+    "command": "content.list", "durationMs": 142, "schemaVersion": "3",
+    "total": 37, "skip": 0, "take": 20, "hasMore": true
+  }
+}
+```
+
+`total`, `skip`, `take` and `hasMore` are **omitted when the source cannot report them** - an
+absent `hasMore` means "unknown", not "no". Never read a missing `total` as a complete list. Many
+commands (`content tree`, `content find --path`, `manifest list`) genuinely cannot count, and say
+so by omission rather than claiming completeness.
+
+`--output csv` cannot carry `meta`, so a truncated CSV prints the same "showing N of M" line to
+stderr that human output does - stdout stays loadable as-is.
 
 Errors go to **stderr**:
 
 ```json
-{ "status": "error", "code": 404, "message": "Content item not found" }
+{
+  "status": "error",
+  "exitCode": 1,
+  "httpStatus": 404,
+  "message": "Content item not found",
+  "meta": { "command": "content.get", "schemaVersion": "3" }
+}
 ```
+
+`exitCode` is the process exit code; `httpStatus` is the server's status and is **absent when the
+request never reached the server** (a policy refusal, an unreachable host, a timeout). They were
+a single `code` field before schemaVersion 3, which meant you could not act on it without already
+knowing which kind of failure you had.
 
 An error from an Umbraco API call also carries a `category` and, when the server responded, the
 `serverVersion` - so you can tell **whose** problem it is without a controlled experiment:
@@ -80,10 +113,12 @@ An error from an Umbraco API call also carries a `category` and, when the server
 ```json
 {
   "status": "error",
-  "code": 500,
+  "exitCode": 1,
+  "httpStatus": 500,
   "message": "The Umbraco server returned an internal error (HTTP 500). This is a server-side problem, not a rejected request; check the Umbraco logs.",
   "category": "server_error",
-  "serverVersion": "17.3.5"
+  "serverVersion": "17.3.5",
+  "meta": { "command": "content.get", "schemaVersion": "3" }
 }
 ```
 
@@ -97,29 +132,38 @@ API (auth, `--readonly`, cancellation) carry neither field.
 A write command run with `--dry-run` uses a distinct status and does not touch the server:
 
 ```json
-{ "status": "dry-run", "request": { "method": "POST", "url": ".../webhook", "body": { } } }
+{ "status": "dry-run", "data": { "method": "POST", "url": ".../webhook", "body": { } } }
 ```
+
+The payload is under `data`, like every other success envelope - it was `request` before
+schemaVersion 3, the one exception to that rule.
 
 ### Contract stability rules
 
 - The field names above (`status`, `data`, `meta`, `command`, `durationMs`, `schemaVersion`,
-  the error `code`/`message`, and the error `category`/`serverVersion`) are part of the contract
-  and are never renamed silently.
-- `meta.schemaVersion` (currently `"2"`) is bumped **only** on a breaking change - a renamed or
+  the error `exitCode`/`httpStatus`/`message`, and the error `category`/`serverVersion`) are part
+  of the contract and are never renamed silently.
+- `meta.schemaVersion` (currently `"3"`) is bumped **only** on a breaking change - a renamed or
   removed field, or a changed meaning. New fields can appear without a bump.
 - Therefore: **ignore unknown fields**, and if you want to be defensive, gate on
   `meta.schemaVersion`.
-- `list` results use the same camelCase keys as the corresponding `get`, so a field has the
-  same name wherever it appears (this is what schemaVersion 2 established).
+- **`list` results carry the same objects as the corresponding `get`** - same field names, same
+  types. A boolean is a boolean, not `"True"`. This holds by construction: list output is
+  serialized from the same objects `get` returns, rather than from the human table.
+- An absent `meta` field means **unknown**, never a default. A list with no `total` is one whose
+  source could not count, not one that is complete.
 
-> **Known exception, being fixed.** Some `list` commands do not yet honour that last rule.
-> List output is currently projected from the human table columns, so its values are
-> **strings** and a few of its keys differ from the matching `get`: `content list` gives
-> `"published": "True"` where `content get` gives `"isPublished": true`, and `languages list`
-> gives `"default"`/`"mandatory"` against `create`/`update`'s `isDefault`/`isMandatory`. Do not
-> write `jq 'select(.published)'` against a list result until this is closed -
-> compare strings, or read the item with `get`.
-> ([#164](https://github.com/worm-brain/Umbraco.Cli/issues/164))
+**What changed in schemaVersion 3**, if you are moving from `"2"`:
+
+| Before | Now |
+|---|---|
+| `"published": "True"` (string, from the table caption) | `"isPublished": true` |
+| `"default"` / `"mandatory"` on `languages list` | `"isDefault"` / `"isMandatory"` |
+| every list value was a string | booleans, numbers and dates keep their types |
+| `"code": 404` (exit code *or* HTTP status) | `"exitCode": 1` **and** `"httpStatus": 404` |
+| error `schemaVersion` at the top level, no `meta` | error carries `meta`, like every other envelope |
+| `--dry-run` payload under `request` | under `data` |
+| lists had no paging information | `meta.total` / `skip` / `take` / `hasMore` |
 
 ## 4. Output formats and trimming
 
@@ -144,6 +188,11 @@ A write command run with `--dry-run` uses a distinct status and does not touch t
 | `1` | API error, or an invalid invocation (parse/validation error). |
 | `2` | Aborted before running: no host / not authenticated, blocked by the allow-list, a destructive command refused without `--yes`, or a write blocked by `--readonly`. |
 | `130` | Cancelled (Ctrl-C). |
+
+Since schemaVersion 3 the JSON error envelope reports this as `exitCode`, separately from the
+server's `httpStatus` - so `exitCode: 1` with `httpStatus: 404` is an API 404, while `exitCode: 1`
+with no `httpStatus` never reached the server at all. A parse error is also reported this way
+rather than as plain text plus a help screen (#167), so `-o json` stays parseable when you mistype.
 
 Gate your automation on the exit code first, then parse the envelope.
 

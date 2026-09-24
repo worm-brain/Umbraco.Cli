@@ -46,7 +46,7 @@ public class JsonOutputWriterTests
         var doc = JsonDocument.Parse(stdout);
         var version = doc.RootElement.GetProperty("meta").GetProperty("schemaVersion").GetString();
         // Assert the literal so a deliberate contract bump is a deliberate test change.
-        Assert.Equal("2", version);
+        Assert.Equal("3", version);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class JsonOutputWriterTests
         // #61: message-shaped success envelopes (delete/publish) are versioned too.
         var (stdout, _) = Capture(() => _writer.WriteMessage("Done."));
         var meta = JsonDocument.Parse(stdout).RootElement.GetProperty("meta");
-        Assert.Equal("2", meta.GetProperty("schemaVersion").GetString());
+        Assert.Equal("3", meta.GetProperty("schemaVersion").GetString());
     }
 
     // ── meta parity across output shapes (#137) ────────────────────────────────
@@ -278,12 +278,38 @@ public class JsonOutputWriterTests
     }
 
     [Fact]
-    public void WriteError_CodeAndMessagePresent()
+    public void WriteError_SeparatesTheExitCodeFromTheHttpStatus()
     {
-        var (_, stderr) = Capture(() => _writer.WriteError(401, "Unauthorized"));
+        var (_, stderr) = Capture(() => _writer.WriteError(1, "Unauthorized", 401));
         var doc = JsonDocument.Parse(stderr);
-        Assert.Equal(401, doc.RootElement.GetProperty("code").GetInt32());
+
+        // #177: `code` used to carry whichever of the two applied, so a caller could not act on
+        // it without already knowing which kind of failure it had.
+        Assert.Equal(1, doc.RootElement.GetProperty("exitCode").GetInt32());
+        Assert.Equal(401, doc.RootElement.GetProperty("httpStatus").GetInt32());
         Assert.Equal("Unauthorized", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public void WriteError_PolicyFailure_OmitsTheHttpStatus()
+    {
+        // A failure that never reached the server has no status to report - absent, not 0.
+        var (_, stderr) = Capture(() => _writer.WriteError(2, "Not authenticated"));
+        var root = JsonDocument.Parse(stderr).RootElement;
+
+        Assert.Equal(2, root.GetProperty("exitCode").GetInt32());
+        Assert.False(root.TryGetProperty("httpStatus", out _));
+    }
+
+    [Fact]
+    public void WriteError_CarriesSchemaVersionInMetaLikeSuccess()
+    {
+        var (_, stderr) = Capture(() => _writer.WriteError(2, "Not authenticated"));
+        var root = JsonDocument.Parse(stderr).RootElement;
+
+        // #177: it used to sit at the top level, so the error envelope was the one shape that did
+        // not carry a meta object at all.
+        Assert.Equal("3", root.GetProperty("meta").GetProperty("schemaVersion").GetString());
     }
 
     [Fact]
@@ -299,7 +325,9 @@ public class JsonOutputWriterTests
     {
         // #152: an API failure carries a machine-readable category and the connected server
         // version so a caller can attribute the failure without a controlled experiment.
-        var (_, stderr) = Capture(() => _writer.WriteError(500, "oops", "server_error", "17.3.5"));
+        var (_, stderr) = Capture(() =>
+            _writer.WriteError(1, "oops", 500, "server_error", "17.3.5")
+        );
         var root = JsonDocument.Parse(stderr).RootElement;
         Assert.Equal("server_error", root.GetProperty("category").GetString());
         Assert.Equal("17.3.5", root.GetProperty("serverVersion").GetString());

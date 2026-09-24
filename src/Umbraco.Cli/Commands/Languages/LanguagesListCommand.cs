@@ -12,22 +12,19 @@ public static class LanguagesListCommand
         );
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunCompleteListAsync(
                     parseResult,
                     "languages.list",
                     (client, c) => client.GetLanguagesAsync(c),
                     ["ISO Code", "Name", "Default", "Mandatory"],
-                    data =>
-                        data?.Select(l =>
-                            new[]
-                            {
-                                l.IsoCode,
-                                l.Name,
-                                l.IsDefault.ToString(),
-                                l.IsMandatory.ToString(),
-                            }
-                        )
-                        ?? [],
+                    l =>
+                        new[]
+                        {
+                            l.IsoCode,
+                            l.Name,
+                            l.IsDefault.ToString(),
+                            l.IsMandatory.ToString(),
+                        },
                     ct
                 )
         );

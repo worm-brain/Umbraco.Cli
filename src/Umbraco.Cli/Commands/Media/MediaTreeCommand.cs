@@ -38,24 +38,21 @@ public static class MediaTreeCommand
                 var recursive = parseResult.GetValue(recursiveOpt);
                 var maxDepth = depth ?? (recursive ? int.MaxValue : 1);
 
-                return executor.RunTableAsync(
+                return executor.RunCompleteListAsync(
                     parseResult,
                     "media.tree",
                     (client, c) =>
                         client.GetMediaTreeAsync(parseResult.GetValue(parentOpt), maxDepth, c),
                     ["ID", "Name", "Parent ID", "Depth", "Has Children"],
-                    data =>
-                        data?.Select(i =>
-                            new[]
-                            {
-                                i.Id.ToString(),
-                                i.Name,
-                                i.ParentId?.ToString() ?? "",
-                                i.Depth.ToString(),
-                                i.HasChildren ? "yes" : "no",
-                            }
-                        )
-                        ?? [],
+                    i =>
+                        new[]
+                        {
+                            i.Id.ToString(),
+                            i.Name,
+                            i.ParentId?.ToString() ?? "",
+                            i.Depth.ToString(),
+                            i.HasChildren ? "yes" : "no",
+                        },
                     ct
                 );
             }

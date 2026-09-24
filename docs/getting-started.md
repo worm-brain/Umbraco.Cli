@@ -166,10 +166,9 @@ if it is not installed, you have two alternatives that need nothing extra:
 
   PowerShell auto-enumerates arrays, so `.data.name` yields every item's name with no explicit loop.
 
-Every success envelope is `{ "status", "data", "meta" }`, so the payload lives under `.data`
-(this is why the examples say `.data[]`, not `.[]`). The one exception is a `--dry-run` preview,
-which uses `{ "status": "dry-run", "request": { ... }, "meta": { ... } }` - the request it would
-have sent lives under `.request`. The `jq` pipes elsewhere in the docs
+Every success envelope is `{ "status", "data", "meta" }`, so the payload always lives under
+`.data` (this is why the examples say `.data[]`, not `.[]`) - including a `--dry-run` preview,
+which uses `{ "status": "dry-run", "data": { ... }, "meta": { ... } }`. The `jq` pipes elsewhere in the docs
 are written for bash/macOS/Linux; the `ConvertFrom-Json` form above is the PowerShell equivalent.
 
 The full command reference is in [commands.md](commands.md).

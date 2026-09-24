@@ -36,20 +36,14 @@ public static class UserGroupsCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "user-groups.list",
-                    (client, c) =>
-                        client.GetUserGroupsAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetUserGroupsAsync(skip, take, c),
                     new[] { "Id", "Alias", "Name", "Sections" },
-                    data =>
-                        (data?.Items ?? []).Select(g =>
-                            new[] { g.Id.ToString(), g.Alias, g.Name, string.Join(",", g.Sections) }
-                        ),
+                    g => new[] { g.Id.ToString(), g.Alias, g.Name, string.Join(",", g.Sections) },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

@@ -24,16 +24,41 @@ public class QuietOutputWriterTests
         public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null) =>
             SuccessCalled = true;
 
+        public int? LastExitCode { get; private set; }
+        public int? LastHttpStatus { get; private set; }
+
         public void WriteError(
-            int code,
+            int exitCode,
             string message,
+            int? httpStatus = null,
             string? category = null,
-            string? serverVersion = null
+            string? serverVersion = null,
+            string? commandName = null
         )
         {
             ErrorCalled = true;
+            LastExitCode = exitCode;
+            LastHttpStatus = httpStatus;
             LastErrorCategory = category;
             LastErrorServerVersion = serverVersion;
+        }
+
+        public bool ListCalled { get; private set; }
+        public ListPaging LastPaging { get; private set; }
+
+        public void WriteList(
+            IReadOnlyList<object> items,
+            string[] headers,
+            IEnumerable<string[]> rows,
+            ListPaging paging,
+            string? commandName = null,
+            long? durationMs = null
+        )
+        {
+            ListCalled = true;
+            LastPaging = paging;
+            LastTableCommand = commandName;
+            LastTableDuration = durationMs;
         }
 
         public void WriteTable(
@@ -75,7 +100,7 @@ public class QuietOutputWriterTests
         var quiet = new QuietOutputWriter(inner);
 
         quiet.WriteSuccess(new { id = 1 });
-        quiet.WriteError(500, "boom", "server_error", "17.3.5");
+        quiet.WriteError(1, "boom", 500, "server_error", "17.3.5");
         quiet.WriteTable(
             ["Id"],
             [

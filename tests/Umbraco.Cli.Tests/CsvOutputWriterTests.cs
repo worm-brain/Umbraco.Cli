@@ -127,13 +127,24 @@ public class CsvOutputWriterTests
     }
 
     [Fact]
-    public void WriteError_WritesCodeAndMessageToStderr()
+    public void WriteError_WritesBothCodesAndMessageToStderr()
     {
-        var (stdout, stderr) = Capture(() => _writer.WriteError(404, "Not found"));
+        var (stdout, stderr) = Capture(() => _writer.WriteError(1, "Not found", 404));
 
         Assert.Empty(stdout);
         var lines = stderr.TrimEnd().Split(Environment.NewLine);
-        Assert.Equal("code,message", lines[0]);
-        Assert.Equal("404,Not found", lines[1]);
+        // #177: the exit code and the HTTP status are separate columns, so a CSV consumer can
+        // tell them apart the same way a JSON one can.
+        Assert.Equal("exitCode,httpStatus,message", lines[0]);
+        Assert.Equal("1,404,Not found", lines[1]);
+    }
+
+    [Fact]
+    public void WriteError_PolicyFailure_LeavesTheHttpStatusColumnEmpty()
+    {
+        var (_, stderr) = Capture(() => _writer.WriteError(2, "Not authenticated"));
+
+        var lines = stderr.TrimEnd().Split(Environment.NewLine);
+        Assert.Equal("2,,Not authenticated", lines[1]);
     }
 }

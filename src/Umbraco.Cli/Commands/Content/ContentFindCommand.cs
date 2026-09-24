@@ -47,28 +47,30 @@ public static class ContentFindCommand
             {
                 var path = parseResult.GetValue(pathOpt);
                 if (!string.IsNullOrWhiteSpace(path))
-                    return executor.RunTableAsync(
+                    return executor.RunCompleteListAsync(
                         parseResult,
                         "content.find",
                         (client, c) => client.FindContentByPathAsync(path, c),
                         headers,
-                        data => data?.Select(Row) ?? [],
+                        Row,
                         ct
                     );
 
-                return executor.RunTableAsync(
+                return executor.RunPagedAsync(
                     parseResult,
                     "content.find",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.FindContentByNameAsync(
                             parseResult.GetValue(nameOpt)!,
                             parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     headers,
-                    data => data?.Items.Select(Row) ?? [],
+                    Row,
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 );
             }

@@ -13,17 +13,14 @@ public static class DictionaryListCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "dictionary.list",
-                    (client, c) =>
-                        client.GetDictionaryItemsAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetDictionaryItemsAsync(skip, take, c),
                     ["ID", "Name"],
-                    data => data?.Items.Select(i => new[] { i.Id.ToString(), i.Name }) ?? [],
+                    i => new[] { i.Id.ToString(), i.Name },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

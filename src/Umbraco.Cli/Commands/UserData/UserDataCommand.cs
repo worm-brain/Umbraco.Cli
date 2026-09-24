@@ -44,22 +44,21 @@ public static class UserDataCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "user-data.list",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetUserDataAsync(
                             parseResult.GetValue(groupOpt),
                             parseResult.GetValue(identifierOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     new[] { "Key", "Group", "Identifier", "Value" },
-                    data =>
-                        (data?.Items ?? []).Select(d =>
-                            new[] { d.Key.ToString(), d.Group, d.Identifier, d.Value }
-                        ),
+                    d => new[] { d.Key.ToString(), d.Group, d.Identifier, d.Value },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

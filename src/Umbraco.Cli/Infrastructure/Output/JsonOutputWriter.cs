@@ -23,9 +23,14 @@ public sealed class JsonOutputWriter : IOutputWriter
     /// never renamed silently. Additive fields do not bump it.
     ///
     /// History: "1" initial; "2" table JSON keys switched from human headers ("Content Type")
-    /// to camelCase ("contentType") so list output agrees with object/get output (#87).
+    /// to camelCase ("contentType") so list output agrees with object/get output (#87); "3" list
+    /// output is serialized from the DTOs instead of the human table cells, so field names and
+    /// types now match the matching `get` exactly (#164) - booleans are booleans, `published`
+    /// became `isPublished`; the error envelope moved `schemaVersion` into `meta` and split the
+    /// overloaded `code` into `exitCode` + `httpStatus` (#177); and the `--dry-run` payload moved
+    /// from `request` to `data` (#165).
     /// </summary>
-    public const string SchemaVersion = "2";
+    public const string SchemaVersion = "3";
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -58,10 +63,12 @@ public sealed class JsonOutputWriter : IOutputWriter
     }
 
     public void WriteError(
-        int code,
+        int exitCode,
         string message,
+        int? httpStatus = null,
         string? category = null,
-        string? serverVersion = null
+        string? serverVersion = null,
+        string? commandName = null
     )
     {
         // category/serverVersion are additive fields (#152); null ones are dropped by the
@@ -69,13 +76,56 @@ public sealed class JsonOutputWriter : IOutputWriter
         var envelope = new
         {
             status = "error",
-            code,
+            // #177: `code` used to be the CLI exit code sometimes and the HTTP status other
+            // times, so it could not be acted on without knowing which. They are separate fields
+            // now; `httpStatus` is absent when the failure never reached the server.
+            exitCode,
+            httpStatus,
             message,
             category,
             serverVersion,
-            schemaVersion = SchemaVersion,
+            meta = new
+            {
+                command = commandName,
+                timestamp = DateTimeOffset.UtcNow,
+                schemaVersion = SchemaVersion,
+            },
         };
         Console.Error.WriteLine(JsonSerializer.Serialize(envelope, Options));
+    }
+
+    public void WriteList(
+        IReadOnlyList<object> items,
+        string[] headers,
+        IEnumerable<string[]> rows,
+        ListPaging paging,
+        string? commandName = null,
+        long? durationMs = null
+    )
+    {
+        // #164: the DTOs, not the table cells - so keys and types match the matching `get`.
+        object? payload = _fields is null
+            ? items
+            : OutputShaping.Project(JsonSerializer.SerializeToNode(items, Options), _fields);
+
+        var envelope = new
+        {
+            status = "success",
+            data = payload,
+            meta = new
+            {
+                command = commandName,
+                durationMs,
+                timestamp = DateTimeOffset.UtcNow,
+                schemaVersion = SchemaVersion,
+                // #173: absent rather than guessed when the source cannot say how many there are.
+                total = paging.Total,
+                skip = paging.Skip,
+                take = paging.Take,
+                hasMore = paging.HasMoreAfter(items.Count),
+            },
+        };
+        Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
     public void WriteTable(
@@ -125,10 +175,12 @@ public sealed class JsonOutputWriter : IOutputWriter
             }
         }
 
+        // #165: under `data`, like every other success envelope. It used to be `request`, which
+        // was the one documented exception to "the payload always lives under .data".
         var envelope = new
         {
             status = "dry-run",
-            request = new
+            data = new
             {
                 method,
                 url,

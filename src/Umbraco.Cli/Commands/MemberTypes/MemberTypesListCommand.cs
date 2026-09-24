@@ -20,19 +20,14 @@ public static class MemberTypesListCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "member-types.list",
-                    (client, c) =>
-                        client.GetMemberTypesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetMemberTypesAsync(skip, take, c),
                     ["ID", "Name", "Icon"],
-                    data =>
-                        data?.Items.Select(i => new[] { i.Id.ToString(), i.Name, i.Icon ?? "" })
-                        ?? [],
+                    i => new[] { i.Id.ToString(), i.Name, i.Icon ?? "" },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

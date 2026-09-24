@@ -30,26 +30,21 @@ public static class IndexerCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "indexer.list",
-                    (client, c) =>
-                        client.GetIndexersAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetIndexersAsync(skip, take, c),
                     new[] { "Name", "Health", "Documents", "CanRebuild" },
-                    data =>
-                        (data?.Items ?? []).Select(i =>
-                            new[]
-                            {
-                                i.Name,
-                                i.HealthStatus ?? "",
-                                i.DocumentCount.ToString(),
-                                i.CanRebuild.ToString(),
-                            }
-                        ),
+                    i =>
+                        new[]
+                        {
+                            i.Name,
+                            i.HealthStatus ?? "",
+                            i.DocumentCount.ToString(),
+                            i.CanRebuild.ToString(),
+                        },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

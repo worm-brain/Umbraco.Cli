@@ -183,4 +183,12 @@ foreach (var option in root.Options)
 // ── Run ───────────────────────────────────────────────────────────────────────
 // Parse with response-file expansion disabled (#115) so option values beginning with '@'
 // (e.g. Serilog log-viewer filters like "@Level='Error'") are passed through verbatim.
-return await root.Parse(args, CliParserConfiguration.Create()).InvokeAsync();
+var parsed = root.Parse(args, CliParserConfiguration.Create());
+
+// #167: System.CommandLine reports a parse error as plain text plus the help screen, whichever
+// output format was asked for - so `... -o json | jq` failed on the help text instead of reading
+// an error envelope. Emit the same envelope every other failure uses before handing over.
+if (parsed.Errors.Count > 0 && !ParseErrorReporter.IsHelpOrVersion(parsed))
+    return ParseErrorReporter.Report(parsed, globalOptions);
+
+return await parsed.InvokeAsync();

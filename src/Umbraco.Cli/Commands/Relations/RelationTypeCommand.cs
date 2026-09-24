@@ -29,20 +29,14 @@ public static class RelationTypeCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "relation-type.list",
-                    (client, c) =>
-                        client.GetRelationTypesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetRelationTypesAsync(skip, take, c),
                     new[] { "Id", "Alias", "Name", "Bidirectional" },
-                    data =>
-                        (data?.Items ?? []).Select(t =>
-                            new[] { t.Id.ToString(), t.Alias, t.Name, t.IsBidirectional.ToString() }
-                        ),
+                    t => new[] { t.Id.ToString(), t.Alias, t.Name, t.IsBidirectional.ToString() },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

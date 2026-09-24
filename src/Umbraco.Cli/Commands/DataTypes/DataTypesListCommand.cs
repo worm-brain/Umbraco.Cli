@@ -8,29 +8,22 @@ public static class DataTypesListCommand
     {
         var cmd = new Command(
             "list",
-            "List all data types (property editors) configured in the Umbraco instance.\n\nExample:\n  umbraco data-types list"
+            "List all data types (property editors) configured in the Umbraco instance.\n\nEach item on the page is read individually so it can carry its editorAlias, which is what decides a property's value format - so this costs one request per item returned. Use --take to bound it.\n\nExample:\n  umbraco data-types list --take 50"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "data-types.list",
-                    (client, c) =>
-                        client.GetDataTypesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
-                    // The data-type tree list carries the editor UI alias, not the backend
-                    // editor alias (which is always blank in the list, #75). Show the UI alias;
-                    // use 'data-types get <id>' for the full backend editor alias.
-                    ["ID", "Name", "Editor UI Alias"],
-                    data =>
-                        data?.Items.Select(i =>
-                            new[] { i.Id.ToString(), i.Name, i.EditorUiAlias ?? "" }
-                        )
-                        ?? [],
+                    (client, skip, take, c) => client.GetDataTypesAsync(skip, take, c),
+                    // #176: editorAlias is what decides a property's value shape (#174), so the
+                    // list carries it even though the tree items do not - the client hydrates
+                    // each one. See the note in the command description about the cost.
+                    ["ID", "Name", "Editor Alias"],
+                    i => new[] { i.Id.ToString(), i.Name, i.EditorAlias },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

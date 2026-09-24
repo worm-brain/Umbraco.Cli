@@ -46,16 +46,44 @@ public sealed class CsvOutputWriter : IOutputWriter
 
     /// <inheritdoc />
     public void WriteError(
-        int code,
+        int exitCode,
         string message,
+        int? httpStatus = null,
         string? category = null,
-        string? serverVersion = null
+        string? serverVersion = null,
+        string? commandName = null
     )
     {
         // The failure category and server version (#152) are part of the structured (JSON)
         // contract; the CSV error stays the simple code/message pair it has always been.
-        Console.Error.WriteLine("code,message");
-        Console.Error.WriteLine($"{Escape(code.ToString())},{Escape(message)}");
+        // #177: both codes, so a CSV consumer can tell an exit code from an HTTP status.
+        Console.Error.WriteLine("exitCode,httpStatus,message");
+        Console.Error.WriteLine(
+            $"{Escape(exitCode.ToString())},{Escape(httpStatus?.ToString() ?? "")},{Escape(message)}"
+        );
+    }
+
+    /// <inheritdoc />
+    /// <inheritdoc />
+    public void WriteList(
+        IReadOnlyList<object> items,
+        string[] headers,
+        IEnumerable<string[]> rows,
+        ListPaging paging,
+        string? commandName = null,
+        long? durationMs = null
+    )
+    {
+        // #164: from the DTOs, so the CSV columns carry the same names as the JSON keys.
+        WriteSuccess(items, commandName, durationMs);
+
+        // A CSV row cannot carry paging, but leaving it out entirely would make this the one
+        // format where a truncated list still looks complete - which is #173 exactly. It goes to
+        // stderr, so the CSV on stdout stays loadable as-is.
+        if (paging.HasMoreAfter(items.Count) is true && paging is { Total: { } t, Skip: { } s })
+            Console.Error.WriteLine(
+                $"Showing {s + items.Count} of {t}. Use --skip/--take to page."
+            );
     }
 
     /// <inheritdoc />

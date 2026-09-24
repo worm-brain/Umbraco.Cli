@@ -23,28 +23,27 @@ public static class DictionaryTreeCommand
         cmd.Add(parentOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "dictionary.tree",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetDictionaryTreeAsync(
                             parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     ["ID", "Name", "Parent ID", "Has Children"],
-                    data =>
-                        data?.Items.Select(i =>
-                            new[]
-                            {
-                                i.Id.ToString(),
-                                i.Name,
-                                i.Parent?.Id.ToString() ?? "",
-                                i.HasChildren ? "yes" : "no",
-                            }
-                        )
-                        ?? [],
+                    i =>
+                        new[]
+                        {
+                            i.Id.ToString(),
+                            i.Name,
+                            i.Parent?.Id.ToString() ?? "",
+                            i.HasChildren ? "yes" : "no",
+                        },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

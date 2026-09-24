@@ -156,7 +156,8 @@ public class CommandExecutorTests
         Assert.Empty(stdout);
         using var doc = JsonDocument.Parse(stderr);
         Assert.Equal("error", doc.RootElement.GetProperty("status").GetString());
-        Assert.Equal(404, doc.RootElement.GetProperty("code").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("exitCode").GetInt32());
+        Assert.Equal(404, doc.RootElement.GetProperty("httpStatus").GetInt32());
         Assert.Equal("Not found", doc.RootElement.GetProperty("message").GetString());
     }
 
@@ -292,7 +293,8 @@ public class CommandExecutorTests
         Assert.Empty(stderr);
         using var doc = JsonDocument.Parse(stdout);
         Assert.Equal("dry-run", doc.RootElement.GetProperty("status").GetString());
-        var request = doc.RootElement.GetProperty("request");
+        // #165: under `data`, like every other success envelope.
+        var request = doc.RootElement.GetProperty("data");
         Assert.Equal("POST", request.GetProperty("method").GetString());
         Assert.Contains("document", request.GetProperty("url").GetString());
         // A valid-JSON body is embedded as nested JSON, not a string.
@@ -447,7 +449,8 @@ public class CommandExecutorTests
         // The original API detail is preserved in parentheses.
         Assert.Contains("(Forbidden)", message);
         // The raw status code is still carried on the envelope.
-        Assert.Equal(403, doc.RootElement.GetProperty("code").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("exitCode").GetInt32());
+        Assert.Equal(403, doc.RootElement.GetProperty("httpStatus").GetInt32());
     }
 
     [Fact]

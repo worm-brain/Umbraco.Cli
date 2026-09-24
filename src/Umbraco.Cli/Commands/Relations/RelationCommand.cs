@@ -34,21 +34,20 @@ public static class RelationCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "relation.list",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetRelationsByTypeAsync(
                             parseResult.GetValue(typeOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     new[] { "Parent", "Child", "Comment" },
-                    data =>
-                        (data?.Items ?? []).Select(r =>
-                            new[] { r.ParentName, r.ChildName, r.Comment ?? "" }
-                        ),
+                    r => new[] { r.ParentName, r.ChildName, r.Comment ?? "" },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

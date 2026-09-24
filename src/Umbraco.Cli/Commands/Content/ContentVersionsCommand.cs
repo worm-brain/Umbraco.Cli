@@ -24,29 +24,28 @@ public static class ContentVersionsCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "content.versions",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetDocumentVersionsAsync(
                             parseResult.GetValue(idArg),
                             parseResult.GetValue(cultureOpt),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             c
                         ),
                     ["Version ID", "Date", "Draft", "Published"],
-                    data =>
-                        data?.Items.Select(v =>
-                            new[]
-                            {
-                                v.Id.ToString(),
-                                v.VersionDate.ToString("u"),
-                                v.IsCurrentDraftVersion ? "yes" : "",
-                                v.IsCurrentPublishedVersion ? "yes" : "",
-                            }
-                        )
-                        ?? [],
+                    v =>
+                        new[]
+                        {
+                            v.Id.ToString(),
+                            v.VersionDate.ToString("u"),
+                            v.IsCurrentDraftVersion ? "yes" : "",
+                            v.IsCurrentPublishedVersion ? "yes" : "",
+                        },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

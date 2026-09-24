@@ -63,10 +63,10 @@ public static class LogViewerCommand
         cmd.Add(ascendingOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "log-viewer.log",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetLogsAsync(
                             parseResult.GetValue(skipOpt),
                             parseResult.GetValue(takeOpt),
@@ -78,10 +78,9 @@ public static class LogViewerCommand
                             c
                         ),
                     new[] { "Timestamp", "Level", "Message" },
-                    data =>
-                        (data?.Items ?? []).Select(m =>
-                            new[] { m.Timestamp.ToString("u"), m.Level ?? "", m.RenderedMessage }
-                        ),
+                    m => new[] { m.Timestamp.ToString("u"), m.Level ?? "", m.RenderedMessage },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );
@@ -94,17 +93,14 @@ public static class LogViewerCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "log-viewer.levels",
-                    (client, c) =>
-                        client.GetLogLevelsAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetLogLevelsAsync(skip, take, c),
                     new[] { "Name", "Level" },
-                    data => (data?.Items ?? []).Select(l => new[] { l.Name, l.Level ?? "" }),
+                    l => new[] { l.Name, l.Level ?? "" },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );
@@ -145,10 +141,10 @@ public static class LogViewerCommand
         cmd.Add(endOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "log-viewer.message-templates",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         client.GetLogMessageTemplatesAsync(
                             parseResult.GetValue(skipOpt),
                             parseResult.GetValue(takeOpt),
@@ -157,10 +153,9 @@ public static class LogViewerCommand
                             c
                         ),
                     new[] { "Count", "MessageTemplate" },
-                    data =>
-                        (data?.Items ?? []).Select(t =>
-                            new[] { t.Count.ToString(), t.MessageTemplate }
-                        ),
+                    t => new[] { t.Count.ToString(), t.MessageTemplate },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );
@@ -182,17 +177,14 @@ public static class LogViewerCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "log-viewer.saved-search.list",
-                    (client, c) =>
-                        client.GetSavedLogSearchesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
-                            c
-                        ),
+                    (client, skip, take, c) => client.GetSavedLogSearchesAsync(skip, take, c),
                     new[] { "Name", "Query" },
-                    data => (data?.Items ?? []).Select(s => new[] { s.Name, s.Query }),
+                    s => new[] { s.Name, s.Query },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

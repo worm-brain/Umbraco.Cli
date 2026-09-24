@@ -47,7 +47,7 @@ public static class ImagingCommand
         cmd.Add(formatOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunCompleteListAsync(
                     parseResult,
                     "imaging.resize-urls",
                     (client, c) =>
@@ -59,13 +59,16 @@ public static class ImagingCommand
                             parseResult.GetValue(formatOpt),
                             c
                         ),
-                    new[] { "Id", "Culture", "Url" },
-                    data =>
-                        (data ?? []).SelectMany(m =>
-                            m.Urls.Select(u =>
-                                new[] { m.Id.ToString(), u.Culture ?? "", u.Url ?? "" }
-                            )
-                        ),
+                    // One row per media item rather than per URL: structured output now carries
+                    // the nested { id, urls[] } shape from the DTO, which is truer than the
+                    // flattened rows it used to emit, so the table joins them for reading.
+                    new[] { "Id", "Urls" },
+                    m =>
+                        new[]
+                        {
+                            m.Id.ToString(),
+                            string.Join(", ", m.Urls.Select(u => u.Url ?? "")),
+                        },
                     ct
                 )
         );
