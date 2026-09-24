@@ -121,10 +121,10 @@ umbraco content list [--parent <id>] [--skip <n>] [--take <n>]
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco content get <id>                                   # core fields only - no values/variants/template (#168)
-umbraco content create --content-type <alias> --name <name> [--json-body <file>] [--id <guid>]
-umbraco content update <id> [--json-body <file>]           # FULL REPLACE - see the warning below
+umbraco content create --content-type <alias> --name <name> [--json-body <file>] [--id <guid>] [--template <alias|id>]
+umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
-umbraco content publish <id> [--cultures <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; BROKEN on 17.x, see below (#158)
+umbraco content publish <id> [--cultures <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; no --cultures publishes every culture the item has
 umbraco content unpublish <id> [--cultures <csv>]          # takes offline; needs --yes
 umbraco content versions <id> [--culture <code>]           # version history
 umbraco content rollback <version-id> [--culture <code>]   # restore a version
@@ -145,37 +145,40 @@ umbraco content bulk publish [--file ids.txt] [--cultures <csv>]
 umbraco content bulk unpublish [--file ids.txt] [--cultures <csv>]   # takes offline; needs --yes
 ```
 
+### How `content update` writes
+
+`update` **merges** into the item. Values are matched on alias + culture + segment and variants
+on culture + segment, so a body that mentions one property changes that property and leaves the
+rest alone; the item's template is carried through untouched.
+
+```bash
+# adds a Danish title; the English title, the body text and the template all survive
+echo '{"values":[{"alias":"title","culture":"da-DK","value":"Hej"}],
+       "variants":[{"culture":"da-DK","name":"Hej"}]}' \
+  | umbraco content update <id> --json-body -
+```
+
+Pass **`--replace`** when you do want the body to stand alone: the item's values and variants are
+replaced wholesale and anything absent is cleared. The template still survives `--replace` - use
+`--template` to change it.
+
+This was the other way round before 0.1.0-alpha.7, which cost a test site its templates and every
+unlisted property value ([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178),
+[#179](https://github.com/worm-brain/Umbraco.Cli/issues/179)). If you are on alpha.6, either
+upgrade or send the complete document body every time.
+
 ### Known sharp edges on `content` (Umbraco 17.x)
 
-Found in a hands-on test round against 17.7.0 and not yet fixed. Read these before scripting a
-content workflow - each one either loses data or reports success for something that did not
-happen. Tracked in [#187](https://github.com/worm-brain/Umbraco.Cli/issues/187).
+Found in a hands-on test round against 17.7.0 and still open. Tracked in
+[#187](https://github.com/worm-brain/Umbraco.Cli/issues/187).
 
 | What | Effect | Do this instead |
 |---|---|---|
-| `content update` is a **full replace** ([#179](https://github.com/worm-brain/Umbraco.Cli/issues/179)) | Every value and variant you omit is cleared on the draft | Read the whole document from the Management API, merge your edit in, send the complete body |
-| `content update` **drops the template** ([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178)) | The page 404s once republished ("No physical template file was found...") | Re-set it with a direct `PUT /umbraco/management/api/v1/document/{id}` including `template`, then republish |
-| `content publish` **publishes nothing** ([#158](https://github.com/worm-brain/Umbraco.Cli/issues/158)) | Reports `success`; the draft stays unpublished. Also affects `content bulk publish` | `PUT /umbraco/management/api/v1/document/{id}/publish` with `{"publishSchedules":[{"culture":"en-US"}]}` (or `{"culture":null}` when invariant), or use `content publish-descendants`, which works |
-| `content get` returns **core fields only** ([#168](https://github.com/worm-brain/Umbraco.Cli/issues/168)) | No `values`, `variants`, `template` or `parent`, so a `get -> edit -> update` round-trip is not possible with the CLI alone | `GET /umbraco/management/api/v1/document/{id}` |
+| `content get` returns **core fields only** ([#168](https://github.com/worm-brain/Umbraco.Cli/issues/168)) | No `values`, `variants`, `template` or `parent` | `GET /umbraco/management/api/v1/document/{id}` - though `content update` no longer needs you to read first |
 
-**Publishing from the CLI today.** Until [#158](https://github.com/worm-brain/Umbraco.Cli/issues/158)
-is fixed, `content publish-descendants` is the only publish command that works - it uses a
-different endpoint, and it publishes the node itself as well as its descendants:
-
-```bash
-umbraco content publish-descendants <id>                      # the node and everything under it
-umbraco content publish-descendants <id> --cultures da-DK     # one culture
-```
-
-**It is a safe substitute for `content publish` on a leaf node only.** On a branch it also
-republishes every already-published descendant, and `--include-unpublished` will push drafts
-that nobody has reviewed. If you need to publish exactly one node in a tree, use the direct
-endpoint in the table above instead.
-
-A related trap: a change that touches **only** the template does not mark culture variants as
-having pending changes, so `publish-descendants` skips them as already published. Fixing the
-templates cleared by [#178](https://github.com/worm-brain/Umbraco.Cli/issues/178) needed a
-per-culture publish on each node.
+A trap worth knowing when fixing templates in bulk: a change that touches **only** the template
+does not mark culture variants as having pending changes, so `publish-descendants` skips them as
+already published. Publish the affected cultures explicitly.
 
 Bulk commands read ids one per line from `--file` or stdin, so you can pipe:
 

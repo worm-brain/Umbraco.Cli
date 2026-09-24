@@ -20,10 +20,10 @@ Two properties make this CLI cheap to drive programmatically:
 Read the two discovery sections first - they let you operate the tool without this document
 being exhaustive.
 
-> **Before you write to content, read
-> [section 8, Known limits and escape hatches](#8-known-limits-and-escape-hatches).** A handful
-> of commands currently report success for something that did not happen, and `content update`
-> clears any value you leave out of the body. That section lists each one with the workaround.
+> **Before you rely on a command, check
+> [section 8, Known limits and escape hatches](#8-known-limits-and-escape-hatches).** A few
+> commands still report success for something that did not happen, and several reads return less
+> than their help suggests. That section lists each one with the workaround.
 
 ---
 
@@ -207,33 +207,28 @@ effect, or use the workaround.
 
 | Command | What actually happens | Escape hatch |
 |---|---|---|
-| `content publish` ([#158](https://github.com/worm-brain/Umbraco.Cli/issues/158)) | Sends an empty `schedule` object; Umbraco returns `200` and publishes nothing. Also affects `content bulk publish` | `content publish-descendants` (see below), or `PUT /umbraco/management/api/v1/document/{id}/publish` with `{"publishSchedules":[{"culture":"en-US"}]}` - `{"culture":null}` when invariant |
-| `content update` ([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178)) | Silently removes the item's template, so the page 404s once republished | Re-set the template with a direct `PUT /document/{id}` that includes it, then republish |
 | `members list --group` ([#184](https://github.com/worm-brain/Umbraco.Cli/issues/184)) | Sends the group as a free-text name/email filter, so it returns `[]` | `GET /umbraco/management/api/v1/filter/member?memberGroupName=Subscribers` |
 | `dictionary create --values` ([#181](https://github.com/worm-brain/Umbraco.Cli/issues/181)) | Echoes unrecognised language codes back as saved; Umbraco drops them | Use full ISO codes (`en-US`, not `en`) and confirm with `dictionary get` |
 | Any `list` ([#173](https://github.com/worm-brain/Umbraco.Cli/issues/173)) | Truncates at `--take` (default 20) with no `total` or `hasMore` | Page explicitly with `--skip`/`--take`; treat a full page as "probably more" |
 
-Note on `"*"`: it is **not** a wildcard on the publish endpoint. On a document that varies by
-culture Umbraco reads it as the invariant culture and rejects it with
-`400 "Cannot publish invariant culture when the document varies by culture."` Enumerate the
-cultures explicitly.
+### Publishing
 
-### Publishing until #158 is fixed
+`content publish <id>` with no `--cultures` reads the document and publishes every culture it
+has. Name cultures explicitly to publish a subset.
 
-`content publish-descendants` uses a different endpoint and works. It publishes the node itself
-as well as everything beneath it:
+Two things about the endpoint are worth knowing if you ever call it directly. An empty
+`schedule` object is not "publish now" - Umbraco answers `200` and publishes nothing. And `"*"`
+is **not** a wildcard: it is the invariant culture, so on a document that varies by culture it is
+rejected with `400 "Cannot publish invariant culture when the document varies by culture."`
+Enumerate the cultures instead. Both cost a test round real time (#158).
 
-```bash
-umbraco content publish-descendants <id> [--cultures da-DK] [--include-unpublished] [--wait]
-```
-
-**Safe as a drop-in for `content publish` only on a leaf node.** On a branch it also republishes
-every already-published descendant, and `--include-unpublished` pushes drafts nobody has
-reviewed. To publish exactly one node inside a tree, use the direct `PUT .../publish` above.
+`content publish-descendants` publishes a node and everything beneath it. It is not a drop-in for
+`publish` on a branch: it republishes already-published descendants, and `--include-unpublished`
+pushes drafts nobody has reviewed.
 
 A change that touches **only** the template does not mark culture variants as having pending
-changes, so `publish-descendants` skips them as already published - the templates cleared by
-#178 needed a per-culture publish on each node.
+changes, so `publish-descendants` skips them as already published. Publish those cultures
+explicitly.
 
 ### Reading content back
 
@@ -256,27 +251,28 @@ Two escape hatches, in order of preference:
 2. **A direct Management API call** for everything else, using the same credentials - see
    "Getting a token for the direct calls above" below.
 
-### Editing content safely
+### Editing content
 
-`content update` is a **full replace**: any value or variant missing from the body is cleared on
-the draft ([#179](https://github.com/worm-brain/Umbraco.Cli/issues/179)). Because `content get`
-cannot return the current values, a safe read-modify-write is **not possible with the CLI
-alone** today. The working pattern is:
+`content update` **merges**: the body's values are matched on alias + culture + segment, its
+variants on culture + segment, and anything you leave out keeps its current value. The template
+is preserved. So adding one translation is one call, with no read first:
 
 ```bash
-# 1. read the whole document from the Management API (not `content get`)
-curl -sH "Authorization: Bearer $TOKEN" \
-  "$UMBRACO_HOST/umbraco/management/api/v1/document/$ID" > doc.json
-
-# 2. merge your edit into the full values/variants arrays, keeping everything else
-jq '.values += [{"alias":"title","culture":"da-DK","segment":null,"value":"Hej"}]' doc.json > body.json
-
-# 3. send the complete body back, then re-set the template and publish directly
-umbraco content update "$ID" --json-body body.json
+echo '{"values":[{"alias":"title","culture":"da-DK","segment":null,"value":"Hej"}],
+       "variants":[{"culture":"da-DK","segment":null,"name":"Hej"}]}' \
+  | umbraco content update "$ID" --json-body -
 ```
 
-Always `--dry-run` an update first and read the body it prints: that is what the server will
-receive, and anything absent from it is being deleted.
+`--replace` opts into the destructive behaviour: the body's values and variants replace the
+item's wholesale, clearing anything absent. Use it when you are writing a document you already
+hold in full. The template survives `--replace` too; change it with `--template <alias|id>`.
+
+Before alpha.7 replace was the only behaviour, and `content get` could not return the current
+values, so a safe read-modify-write was impossible with the CLI alone (#178/#179). On alpha.6,
+read the document from the Management API and send the complete body back.
+
+`--dry-run` prints the body the server will receive, which is the quickest way to confirm a merge
+did what you expected.
 
 See [commands.md](commands.md#property-value-formats-for---json-body) for the value shape each
 property editor expects.
