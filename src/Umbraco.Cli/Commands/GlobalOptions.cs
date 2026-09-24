@@ -45,7 +45,8 @@ public sealed class GlobalOptions
     public Option<bool> Verbose { get; } =
         new("--verbose", new[] { "-v" })
         {
-            Description = "Write HTTP request/response details to stderr.",
+            Description =
+                "Write the HTTP method, URL, selected headers and status to stderr. Request and response bodies are NOT included - use --dry-run to see the request body.",
             Recursive = true,
         };
 

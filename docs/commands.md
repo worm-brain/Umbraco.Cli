@@ -57,7 +57,7 @@ Available on every command:
 | `--token <bearer>` | Raw bearer token (overrides stored credentials). |
 | `--output json\|human\|csv` | Output format. Default: `json` when piped, `human` in a terminal. `csv` is RFC-4180 and only ever explicit. |
 | `--quiet`, `-q` | Suppress success-confirmation messages; data, errors, and exit codes still emitted. |
-| `--verbose` | Log HTTP requests/responses to stderr. |
+| `--verbose` | Log the HTTP method, URL, selected headers and status to stderr. Bodies are **not** logged ([#166](https://github.com/worm-brain/Umbraco.Cli/issues/166)) - use `--dry-run` to see the request body. |
 | `--dry-run` | On a write command, print the request that would be sent (method, URL, body) and exit `0` without executing. No effect on reads. |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands. **Required** to run one non-interactively. |
 | `--readonly` | Block all writes for this session; reads still work. Also `UMBRACO_READONLY=1`. |
@@ -157,6 +157,25 @@ happen. Tracked in [#187](https://github.com/worm-brain/Umbraco.Cli/issues/187).
 | `content update` **drops the template** ([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178)) | The page 404s once republished ("No physical template file was found...") | Re-set it with a direct `PUT /umbraco/management/api/v1/document/{id}` including `template`, then republish |
 | `content publish` **publishes nothing** ([#158](https://github.com/worm-brain/Umbraco.Cli/issues/158)) | Reports `success`; the draft stays unpublished. Also affects `content bulk publish` | `PUT /umbraco/management/api/v1/document/{id}/publish` with `{"publishSchedules":[{"culture":"en-US"}]}` (or `{"culture":null}` when invariant), or use `content publish-descendants`, which works |
 | `content get` returns **core fields only** ([#168](https://github.com/worm-brain/Umbraco.Cli/issues/168)) | No `values`, `variants`, `template` or `parent`, so a `get -> edit -> update` round-trip is not possible with the CLI alone | `GET /umbraco/management/api/v1/document/{id}` |
+
+**Publishing from the CLI today.** Until [#158](https://github.com/worm-brain/Umbraco.Cli/issues/158)
+is fixed, `content publish-descendants` is the only publish command that works - it uses a
+different endpoint, and it publishes the node itself as well as its descendants:
+
+```bash
+umbraco content publish-descendants <id>                      # the node and everything under it
+umbraco content publish-descendants <id> --cultures da-DK     # one culture
+```
+
+**It is a safe substitute for `content publish` on a leaf node only.** On a branch it also
+republishes every already-published descendant, and `--include-unpublished` will push drafts
+that nobody has reviewed. If you need to publish exactly one node in a tree, use the direct
+endpoint in the table above instead.
+
+A related trap: a change that touches **only** the template does not mark culture variants as
+having pending changes, so `publish-descendants` skips them as already published. Fixing the
+templates cleared by [#178](https://github.com/worm-brain/Umbraco.Cli/issues/178) needed a
+per-culture publish on each node.
 
 Bulk commands read ids one per line from `--file` or stdin, so you can pipe:
 

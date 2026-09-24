@@ -38,15 +38,19 @@ An AI agent that prefers calling a subprocess can drive it too (see the
   difference. Drift detection and environment promotion for CI; complements uSync.
 - **Bulk operations** - publish, unpublish, or delete many items from a file or stdin, each
   reported independently with its own status.
-- **Structured, scriptable output** - one versioned `{status, data, meta}` JSON envelope,
-  RFC-4180 CSV, `--fields` projection, and documented exit codes - plus Spectre.Console tables
-  when you are at a terminal.
+- **Structured, scriptable output** - one versioned `{status, data, meta}` JSON envelope
+  (a `--dry-run` preview uses `{status, request, meta}` instead), RFC-4180 CSV, `--fields`
+  projection, and documented exit codes - plus Spectre.Console tables when you are at a
+  terminal.
 - **Guardrails** - `--readonly`, a command allow-list, `--yes` confirmations, and `--dry-run`
   request previews for safe automation.
-- **Full Management API coverage** - content, media, document/media/member/data types,
+- **Broad Management API coverage** - content, media, document/media/member/data types,
   languages, templates, members, users, dictionary, webhooks, static files, tags, cultures,
   user groups, redirects, relations, Examine, and diagnostics (server, health, log viewer,
-  models builder, manifest). Every command is in [docs/commands.md](docs/commands.md).
+  models builder, manifest). Every command is in [docs/commands.md](docs/commands.md). Not yet
+  covered: domains, media folders, member type properties, data type configuration, and member
+  groups/passwords - see [#187](https://github.com/worm-brain/Umbraco.Cli/issues/187) for the
+  gaps and their workarounds.
 - **.NET-native and cross-platform** - Windows, macOS, Linux via .NET 9; no Node runtime.
 
 ---

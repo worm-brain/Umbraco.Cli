@@ -207,11 +207,33 @@ effect, or use the workaround.
 
 | Command | What actually happens | Escape hatch |
 |---|---|---|
-| `content publish` ([#158](https://github.com/worm-brain/Umbraco.Cli/issues/158)) | Sends an empty `schedule` object; Umbraco returns `200` and publishes nothing. Also affects `content bulk publish` | `PUT /umbraco/management/api/v1/document/{id}/publish` with `{"publishSchedules":[{"culture":"en-US"}]}`, or `{"culture":null}` when invariant. `content publish-descendants` uses a different endpoint and works |
+| `content publish` ([#158](https://github.com/worm-brain/Umbraco.Cli/issues/158)) | Sends an empty `schedule` object; Umbraco returns `200` and publishes nothing. Also affects `content bulk publish` | `content publish-descendants` (see below), or `PUT /umbraco/management/api/v1/document/{id}/publish` with `{"publishSchedules":[{"culture":"en-US"}]}` - `{"culture":null}` when invariant |
 | `content update` ([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178)) | Silently removes the item's template, so the page 404s once republished | Re-set the template with a direct `PUT /document/{id}` that includes it, then republish |
 | `members list --group` ([#184](https://github.com/worm-brain/Umbraco.Cli/issues/184)) | Sends the group as a free-text name/email filter, so it returns `[]` | `GET /umbraco/management/api/v1/filter/member?memberGroupName=Subscribers` |
 | `dictionary create --values` ([#181](https://github.com/worm-brain/Umbraco.Cli/issues/181)) | Echoes unrecognised language codes back as saved; Umbraco drops them | Use full ISO codes (`en-US`, not `en`) and confirm with `dictionary get` |
 | Any `list` ([#173](https://github.com/worm-brain/Umbraco.Cli/issues/173)) | Truncates at `--take` (default 20) with no `total` or `hasMore` | Page explicitly with `--skip`/`--take`; treat a full page as "probably more" |
+
+Note on `"*"`: it is **not** a wildcard on the publish endpoint. On a document that varies by
+culture Umbraco reads it as the invariant culture and rejects it with
+`400 "Cannot publish invariant culture when the document varies by culture."` Enumerate the
+cultures explicitly.
+
+### Publishing until #158 is fixed
+
+`content publish-descendants` uses a different endpoint and works. It publishes the node itself
+as well as everything beneath it:
+
+```bash
+umbraco content publish-descendants <id> [--cultures da-DK] [--include-unpublished] [--wait]
+```
+
+**Safe as a drop-in for `content publish` only on a leaf node.** On a branch it also republishes
+every already-published descendant, and `--include-unpublished` pushes drafts nobody has
+reviewed. To publish exactly one node inside a tree, use the direct `PUT .../publish` above.
+
+A change that touches **only** the template does not mark culture variants as having pending
+changes, so `publish-descendants` skips them as already published - the templates cleared by
+#178 needed a per-culture publish on each node.
 
 ### Reading content back
 
@@ -228,7 +250,11 @@ Two escape hatches, in order of preference:
 
 1. **`umbraco schema export`** returns verbatim `GET /document-type/{id}`, `/data-type/{id}` and
    `/template/{id}` bodies - full fidelity, no projection. This is the right way to read schema.
-2. **A direct Management API call** for everything else, using the same credentials.
+   It covers **only those three**: member types and media types are not in the snapshot
+   ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)), so this escape hatch does not
+   reach them.
+2. **A direct Management API call** for everything else, using the same credentials - see
+   "Getting a token for the direct calls above" below.
 
 ### Editing content safely
 
@@ -286,6 +312,33 @@ curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json
   "$UMBRACO_HOST/umbraco/management/api/v1/document/$ID/domains" \
   -d '{"defaultIsoCode":"en-US","domains":[{"domainName":"example.com","isoCode":"en-US"},{"domainName":"example.com/da","isoCode":"da-DK"}]}'
 ```
+
+### Getting a token for the direct calls above
+
+Several escape hatches here are raw Management API calls. They use the **same API user** the CLI
+is configured with, so no extra setup is needed - exchange the client credentials for a bearer
+token at the same endpoint the CLI uses:
+
+```bash
+TOKEN=$(curl -s -X POST "$UMBRACO_HOST/umbraco/management/api/v1/security/back-office/token" \
+  -d grant_type=client_credentials \
+  -d client_id="$UMBRACO_CLIENT_ID" \
+  -d client_secret="$UMBRACO_CLIENT_SECRET" | jq -r .access_token)
+
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "$UMBRACO_HOST/umbraco/management/api/v1/document/$ID"
+```
+
+```powershell
+$body = @{ grant_type = 'client_credentials'; client_id = $env:UMBRACO_CLIENT_ID; client_secret = $env:UMBRACO_CLIENT_SECRET }
+$token = (Invoke-RestMethod -Method Post -Uri "$env:UMBRACO_HOST/umbraco/management/api/v1/security/back-office/token" -Body $body).access_token
+Invoke-RestMethod -Uri "$env:UMBRACO_HOST/umbraco/management/api/v1/document/$ID" -Headers @{ Authorization = "Bearer $token" }
+```
+
+Tokens are short-lived; fetch one per script run rather than storing it. Note that a direct call
+bypasses every guardrail in section 9 - `--readonly` and the allow-list constrain the CLI, not
+`curl`. If you are the supervising process, that is the reason to prefer a CLI command once one
+exists.
 
 ### Parse errors are not JSON
 
