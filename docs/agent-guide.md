@@ -20,6 +20,11 @@ Two properties make this CLI cheap to drive programmatically:
 Read the two discovery sections first - they let you operate the tool without this document
 being exhaustive.
 
+> **Before you write to content, read
+> [section 8, Known limits and escape hatches](#8-known-limits-and-escape-hatches).** A handful
+> of commands currently report success for something that did not happen, and `content update`
+> clears any value you leave out of the body. That section lists each one with the workaround.
+
 ---
 
 ## 1. Discover the surface: `umbraco commands`
@@ -107,6 +112,15 @@ A write command run with `--dry-run` uses a distinct status and does not touch t
 - `list` results use the same camelCase keys as the corresponding `get`, so a field has the
   same name wherever it appears (this is what schemaVersion 2 established).
 
+> **Known exception, being fixed.** Some `list` commands do not yet honour that last rule.
+> List output is currently projected from the human table columns, so its values are
+> **strings** and a few of its keys differ from the matching `get`: `content list` gives
+> `"published": "True"` where `content get` gives `"isPublished": true`, and `languages list`
+> gives `"default"`/`"mandatory"` against `create`/`update`'s `isDefault`/`isMandatory`. Do not
+> write `jq 'select(.published)'` against a list result until this is closed -
+> compare strings, or read the item with `get`.
+> ([#164](https://github.com/worm-brain/Umbraco.Cli/issues/164))
+
 ## 4. Output formats and trimming
 
 - **JSON** is the default whenever stdout is redirected/piped. Force it anywhere with
@@ -178,7 +192,110 @@ full auth story and profiles.
 
 ---
 
-## 8. Guardrails (for whoever supervises the agent)
+## 8. Known limits and escape hatches
+
+The CLI does not yet cover the whole Management API, and in a few places it reports success for
+something that did not happen. This section is the **sanctioned route** for each of those today.
+Everything here is temporary and tracked against
+[#187](https://github.com/worm-brain/Umbraco.Cli/issues/187); the issue number is given so you
+can check whether your version still needs the workaround.
+
+### Operations that lie about succeeding
+
+These exit `0` and print `"status":"success"`. Do not trust the envelope alone - verify the
+effect, or use the workaround.
+
+| Command | What actually happens | Escape hatch |
+|---|---|---|
+| `content publish` ([#158](https://github.com/worm-brain/Umbraco.Cli/issues/158)) | Sends an empty `schedule` object; Umbraco returns `200` and publishes nothing. Also affects `content bulk publish` | `PUT /umbraco/management/api/v1/document/{id}/publish` with `{"publishSchedules":[{"culture":"en-US"}]}`, or `{"culture":null}` when invariant. `content publish-descendants` uses a different endpoint and works |
+| `content update` ([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178)) | Silently removes the item's template, so the page 404s once republished | Re-set the template with a direct `PUT /document/{id}` that includes it, then republish |
+| `members list --group` ([#184](https://github.com/worm-brain/Umbraco.Cli/issues/184)) | Sends the group as a free-text name/email filter, so it returns `[]` | `GET /umbraco/management/api/v1/filter/member?memberGroupName=Subscribers` |
+| `dictionary create --values` ([#181](https://github.com/worm-brain/Umbraco.Cli/issues/181)) | Echoes unrecognised language codes back as saved; Umbraco drops them | Use full ISO codes (`en-US`, not `en`) and confirm with `dictionary get` |
+| Any `list` ([#173](https://github.com/worm-brain/Umbraco.Cli/issues/173)) | Truncates at `--take` (default 20) with no `total` or `hasMore` | Page explicitly with `--skip`/`--take`; treat a full page as "probably more" |
+
+### Reading content back
+
+`content get`, `content-types get`, `data-types get`, `media get` and `members get` all return a
+narrow projection - core fields only. Property values, variants, templates, configuration, media
+URLs, member groups and document-type properties are **not** returned
+([#168](https://github.com/worm-brain/Umbraco.Cli/issues/168),
+[#160](https://github.com/worm-brain/Umbraco.Cli/issues/160),
+[#170](https://github.com/worm-brain/Umbraco.Cli/issues/170),
+[#172](https://github.com/worm-brain/Umbraco.Cli/issues/172),
+[#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)).
+
+Two escape hatches, in order of preference:
+
+1. **`umbraco schema export`** returns verbatim `GET /document-type/{id}`, `/data-type/{id}` and
+   `/template/{id}` bodies - full fidelity, no projection. This is the right way to read schema.
+2. **A direct Management API call** for everything else, using the same credentials.
+
+### Editing content safely
+
+`content update` is a **full replace**: any value or variant missing from the body is cleared on
+the draft ([#179](https://github.com/worm-brain/Umbraco.Cli/issues/179)). Because `content get`
+cannot return the current values, a safe read-modify-write is **not possible with the CLI
+alone** today. The working pattern is:
+
+```bash
+# 1. read the whole document from the Management API (not `content get`)
+curl -sH "Authorization: Bearer $TOKEN" \
+  "$UMBRACO_HOST/umbraco/management/api/v1/document/$ID" > doc.json
+
+# 2. merge your edit into the full values/variants arrays, keeping everything else
+jq '.values += [{"alias":"title","culture":"da-DK","segment":null,"value":"Hej"}]' doc.json > body.json
+
+# 3. send the complete body back, then re-set the template and publish directly
+umbraco content update "$ID" --json-body body.json
+```
+
+Always `--dry-run` an update first and read the body it prints: that is what the server will
+receive, and anything absent from it is being deleted.
+
+See [commands.md](commands.md#property-value-formats-for---json-body) for the value shape each
+property editor expects.
+
+### Authoring schema
+
+`content-types create`, `data-types create/update` and `member-types create/update` take a small
+set of scalar flags. They cannot set properties, groups, configuration, templates, allowed
+children, compositions or culture variance
+([#161](https://github.com/worm-brain/Umbraco.Cli/issues/161),
+[#169](https://github.com/worm-brain/Umbraco.Cli/issues/169)).
+
+The sanctioned route is the snapshot round-trip:
+
+```bash
+umbraco schema export --out schema.json     # full-fidelity bodies
+# edit .documentTypes[] / .dataTypes[] - generate GUIDs for new containers and properties
+umbraco schema apply schema.json --dry-run  # preview the plan
+umbraco schema apply schema.json
+```
+
+Not yet covered by the snapshot, and needing a direct Management API call: **member types with
+properties** and **media types** ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)),
+**media folders** ([#171](https://github.com/worm-brain/Umbraco.Cli/issues/171)) and **domains /
+Culture and Hostnames** ([#180](https://github.com/worm-brain/Umbraco.Cli/issues/180)). Domains
+in particular are required for a multilingual site: without them Umbraco logs "The root node was
+published with multiple cultures, but no domains are configured" and the non-default culture is
+unreachable.
+
+```bash
+# route /da/ to the Danish variant
+curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  "$UMBRACO_HOST/umbraco/management/api/v1/document/$ID/domains" \
+  -d '{"defaultIsoCode":"en-US","domains":[{"domainName":"example.com","isoCode":"en-US"},{"domainName":"example.com/da","isoCode":"da-DK"}]}'
+```
+
+### Parse errors are not JSON
+
+An invalid argument (a non-GUID where a GUID is expected, a missing required option) is reported
+as **plain text on stderr plus help text on stdout**, ignoring `--output json`
+([#167](https://github.com/worm-brain/Umbraco.Cli/issues/167)). Piping such a run into `jq`
+fails with a parse error rather than yielding an error envelope. Check the exit code before
+parsing: `1` can mean either an API error (envelope on stderr) or a parse error (no envelope).
+
+## 9. Guardrails (for whoever supervises the agent)
 
 Two mechanisms constrain what a session can do. They are most useful set by the **parent
 process** that supervises an agent, where the agent itself cannot change them.
@@ -217,7 +334,7 @@ without changing anything (`"status": "dry-run"`). Use it to show a plan before 
 
 ---
 
-## 9. Recipes
+## 10. Recipes
 
 ### Provision idempotently
 
@@ -275,7 +392,7 @@ UMBRACO_READONLY=1 UMBRACO_ALLOWED_COMMANDS=content,media,server,health,log-view
 
 ---
 
-## 10. A note on "AI-focused" docs
+## 11. A note on "AI-focused" docs
 
 These docs are plain Markdown on purpose. Claude Code auto-loads `CLAUDE.md` (which redirects
 to `AGENTS.md`); other coding agents look for `AGENTS.md`; agents without a special convention

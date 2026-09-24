@@ -11,7 +11,7 @@ public static class ContentUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update an existing content item by replacing its values with those from a JSON body file.\n\nExample:\n  umbraco content update 3f7a8b2e-... --json-body ./update.json"
+            "Update an existing content item by replacing its values with those from a JSON body file.\n\nDATA LOSS WARNING - this is a FULL REPLACE, not a patch:\n  * Any value or variant you leave out of the body is CLEARED on the draft.\n  * The item's template is currently REMOVED on every update, which makes the page 404 once republished. Re-set it with a direct 'PUT /umbraco/management/api/v1/document/{id}' afterwards.\n  * 'content get' cannot yet return current values, so read the document from the Management API first and send the whole body back with your edits merged in.\n\nSee docs/agent-guide.md 'Known limits and escape hatches' before scripting this.\n\nExample:\n  umbraco content update 3f7a8b2e-... --json-body ./update.json"
         );
         // id and --json-body are optional at the PARSE level only so that `--schema` can
         // describe the body without them. A nullable id makes "omitted" (null) unambiguous

@@ -68,6 +68,22 @@ Available on every command:
 Colour in human output is disabled when `NO_COLOR` is set (any value) or when stdout is not a
 TTY.
 
+### Paging applies to every `list` - and it is silent
+
+`list` commands return at most `--take` items, **default 20**, and nothing in the output says
+whether more exist: there is no `total`, no `hasMore`, no warning in human output, and no
+`--all` ([#173](https://github.com/worm-brain/Umbraco.Cli/issues/173)). `umbraco data-types list`
+on a stock site returns 20 of 37, and the 17 it omits include Textstring and Richtext.
+
+Until that is fixed, page explicitly and stop when a page comes back short:
+
+```bash
+umbraco data-types list --take 100                  # raise the cap
+umbraco data-types list --skip 100 --take 100       # then walk
+```
+
+Treat a full page as "probably more", not "that is everything".
+
 ---
 
 ## Discovery: `commands` and `--schema`
@@ -104,11 +120,11 @@ Run it first in any new environment. See [getting-started.md](getting-started.md
 umbraco content list [--parent <id>] [--skip <n>] [--take <n>]
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
-umbraco content get <id>
+umbraco content get <id>                                   # core fields only - no values/variants/template (#168)
 umbraco content create --content-type <alias> --name <name> [--json-body <file>] [--id <guid>]
-umbraco content update <id> [--json-body <file>]
+umbraco content update <id> [--json-body <file>]           # FULL REPLACE - see the warning below
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
-umbraco content publish <id> [--cultures <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule
+umbraco content publish <id> [--cultures <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; BROKEN on 17.x, see below (#158)
 umbraco content unpublish <id> [--cultures <csv>]          # takes offline; needs --yes
 umbraco content versions <id> [--culture <code>]           # version history
 umbraco content rollback <version-id> [--culture <code>]   # restore a version
@@ -117,7 +133,7 @@ umbraco content restore <id> [--parent <id>]               # restore from recycl
 umbraco content empty-recycle-bin                          # permanent; needs --yes
 umbraco content move <id> [--parent <id>]
 umbraco content sort [--parent <id>] --children <id> <id> ...   # reorder a parent's children (order given = sort order)
-umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # returns the new node's id
+umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # does not yet return the new node's id (#175)
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
 umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
 umbraco content diff <snapshot>                            # diff a snapshot vs live (read-only)
@@ -128,6 +144,19 @@ umbraco content bulk delete [--file ids.txt]               # permanent; needs --
 umbraco content bulk publish [--file ids.txt] [--cultures <csv>]
 umbraco content bulk unpublish [--file ids.txt] [--cultures <csv>]   # takes offline; needs --yes
 ```
+
+### Known sharp edges on `content` (Umbraco 17.x)
+
+Found in a hands-on test round against 17.7.0 and not yet fixed. Read these before scripting a
+content workflow - each one either loses data or reports success for something that did not
+happen. Tracked in [#187](https://github.com/worm-brain/Umbraco.Cli/issues/187).
+
+| What | Effect | Do this instead |
+|---|---|---|
+| `content update` is a **full replace** ([#179](https://github.com/worm-brain/Umbraco.Cli/issues/179)) | Every value and variant you omit is cleared on the draft | Read the whole document from the Management API, merge your edit in, send the complete body |
+| `content update` **drops the template** ([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178)) | The page 404s once republished ("No physical template file was found...") | Re-set it with a direct `PUT /umbraco/management/api/v1/document/{id}` including `template`, then republish |
+| `content publish` **publishes nothing** ([#158](https://github.com/worm-brain/Umbraco.Cli/issues/158)) | Reports `success`; the draft stays unpublished. Also affects `content bulk publish` | `PUT /umbraco/management/api/v1/document/{id}/publish` with `{"publishSchedules":[{"culture":"en-US"}]}` (or `{"culture":null}` when invariant), or use `content publish-descendants`, which works |
+| `content get` returns **core fields only** ([#168](https://github.com/worm-brain/Umbraco.Cli/issues/168)) | No `values`, `variants`, `template` or `parent`, so a `get -> edit -> update` round-trip is not possible with the CLI alone | `GET /umbraco/management/api/v1/document/{id}` |
 
 Bulk commands read ids one per line from `--file` or stdin, so you can pipe:
 
@@ -148,6 +177,50 @@ non-interactively) - it never prompts per item.
 
 All create commands accept `--id <guid>` for **idempotent creates** (Umbraco 14+ honours a
 client-supplied id), so re-running a provisioning script does not create duplicates.
+
+### Property value formats for `--json-body`
+
+`content create --schema` types `values[].value` as "any", because the shape depends on the
+property editor behind each property, not on the CLI. Look up a property's editor with
+`umbraco schema export` (`.documentTypes[].properties[].dataType` -> `.dataTypes[].editorAlias`),
+then use the matching shape below. Verified against Umbraco 17.7.0.
+
+| Editor (data type name) | `value` shape |
+|---|---|
+| Textstring, Textarea (`Umbraco.TextBox`) | `"some text"` |
+| Rich text (Tiptap) | `{"markup":"<p>...</p>","blocks":null}` |
+| Image media picker (`Umbraco.MediaPicker3`) | `[{"key":"<new guid>","mediaKey":"<media id>","mediaTypeAlias":"Image","crops":[],"focalPoint":null}]` |
+| Date picker (`Umbraco.DateTime`) | `"2026-05-01 00:00:00"` |
+| Dropdown (flexible, multiple) | `["News","Opinion"]` |
+| Tags | `["umbraco","cli"]` |
+| Numeric | `5` |
+| True/false | `true` |
+| Content picker | `"<document guid>"` |
+
+`key` on a media picker entry is the **picker entry's own** new GUID, not the media item's -
+`mediaKey` carries the media id. Generate a fresh one per entry.
+
+Where the backend `editorAlias` is not listed above it was not captured during testing - read it
+off the live site with `umbraco schema export` rather than guessing.
+
+A full value entry carries the property alias and, on a variant document, the culture:
+
+```json
+{
+  "values": [
+    { "alias": "title", "culture": "en-US", "segment": null, "value": "Hello" },
+    { "alias": "title", "culture": "da-DK", "segment": null, "value": "Hej" }
+  ],
+  "variants": [
+    { "name": "Hello", "culture": "en-US", "segment": null },
+    { "name": "Hej",   "culture": "da-DK", "segment": null }
+  ]
+}
+```
+
+A property that does not itself vary by culture takes `culture: null` even on a document that
+does. If a value is rejected or silently ignored, read the document back from the Management API
+and copy the `culture`/`segment` pairing it reports.
 
 The `export` / `diff` / `apply` trio has its own section:
 [content (export / diff / apply)](#content-export--diff--apply).
@@ -181,7 +254,7 @@ umbraco document-blueprint folder delete <id>              # needs --yes non-int
 umbraco media list [--parent <id>]
 umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
-umbraco media get <id>
+umbraco media get <id>                                     # no URL/dimensions/size yet (#172)
 umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>]  # staged via temporary-file
 umbraco media delete <id>                                  # permanent; needs --yes
 umbraco media trash <id>                                   # move to recycle bin (reversible)
@@ -204,7 +277,7 @@ umbraco media-types delete <id>                            # needs --yes non-int
 
 ```bash
 umbraco content-types list
-umbraco content-types get <id|alias>
+umbraco content-types get <id>                             # UUID only (#159); core fields only, no properties/groups (#160)
 umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
 umbraco content-types delete <id>                          # needs --yes non-interactively
 ```
@@ -212,8 +285,8 @@ umbraco content-types delete <id>                          # needs --yes non-int
 ## `data-types`
 
 ```bash
-umbraco data-types list
-umbraco data-types get <id|alias>
+umbraco data-types list                                    # omits editorAlias (#176)
+umbraco data-types get <id>                                # UUID only (#159); no configuration values (#170)
 umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types update <id> --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types delete <id>                             # needs --yes non-interactively
@@ -251,8 +324,8 @@ umbraco templates delete <id>                              # needs --yes non-int
 ## `members`
 
 ```bash
-umbraco members list [--group <name>]
-umbraco members get <id|email>
+umbraco members list [--group <name>]                      # --group is sent as a free-text filter and never matches (#184)
+umbraco members get <id>                                   # UUID only; no groups or property values (#185)
 umbraco members create --email <email> --name <name> --type <alias>
 umbraco members update <id> [--email <email>] [--name <name>] [--approved]
 umbraco members delete <id>                                # needs --yes non-interactively
@@ -321,10 +394,18 @@ umbraco user-data delete <key>                             # needs --yes non-int
 umbraco dictionary list
 umbraco dictionary tree [--parent <id>]                    # browse the hierarchy: root, or children of --parent
 umbraco dictionary get <key>
-umbraco dictionary create --key <key> [--values en=Hello --values da=Hej] [--parent <id>]   # --parent creates under an item
+umbraco dictionary create --key <key> [--values en-US=Hello --values da-DK=Hej] [--parent <id>]   # --parent creates under an item
 umbraco dictionary move <id> [--target <id>]               # reparent; omit --target to move to the root
 umbraco dictionary delete <id>                             # needs --yes non-interactively
 ```
+
+**Use full ISO codes in `--values`** (`en-US`, not `en`). Umbraco matches them against the
+site's configured languages and **silently discards** any it does not recognise, while the CLI
+echoes your request back as if it had been saved. Check the result with `dictionary get`, and
+use `umbraco languages list` to see the exact codes in use
+([#181](https://github.com/worm-brain/Umbraco.Cli/issues/181)). There is no `dictionary update`
+yet - correcting a translation means delete and recreate, which changes the id
+([#182](https://github.com/worm-brain/Umbraco.Cli/issues/182)).
 
 ## `webhooks`
 
