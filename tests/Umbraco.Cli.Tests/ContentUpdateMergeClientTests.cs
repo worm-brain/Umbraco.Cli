@@ -182,14 +182,40 @@ public class ContentUpdateMergeClientTests
 
         await client.UpdateContentAsync(
             id,
+            new UpdateContentRequest
+            {
+                Variants = [new ContentVariant { Culture = "en-US", Name = "Renamed" }],
+            },
+            ct: CancellationToken.None
+        );
+
+        var body = PutBody(handler, id);
+        Assert.Equal(templateId.ToString(), body["template"]!["id"]!.GetValue<string>());
+        // The rename must land on the existing variant, not alongside it.
+        var variant = Assert.Single(body["variants"]!.AsArray());
+        Assert.Equal("en-US", variant!["culture"]!.GetValue<string>());
+        Assert.Equal("Renamed", variant["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task UpdateContentAsync_VariantWithNoCultureOnAVaryingDocument_Fails()
+    {
+        var id = Guid.NewGuid();
+        var handler = Handler(id, Guid.NewGuid());
+        var client = Client(handler);
+
+        var result = await client.UpdateContentAsync(
+            id,
             new UpdateContentRequest { Variants = [new ContentVariant { Name = "Renamed" }] },
             ct: CancellationToken.None
         );
 
-        Assert.Equal(
-            templateId.ToString(),
-            PutBody(handler, id)["template"]!["id"]!.GetValue<string>()
-        );
+        // Appending a null-culture variant beside the real ones would leave the rename undone and
+        // produce a body Umbraco rejects, so this fails with a message naming the cultures.
+        Assert.False(result.IsSuccess);
+        Assert.Contains("varies by culture", result.ErrorMessage);
+        Assert.Contains("en-US", result.ErrorMessage);
+        Assert.DoesNotContain(handler.Requests, u => u.AbsoluteUri.Contains("PUT"));
     }
 
     [Fact]
@@ -232,7 +258,10 @@ public class ContentUpdateMergeClientTests
 
         await client.UpdateContentAsync(
             id,
-            new UpdateContentRequest { Variants = [new ContentVariant { Name = "Renamed" }] },
+            new UpdateContentRequest
+            {
+                Variants = [new ContentVariant { Culture = "en-US", Name = "Renamed" }],
+            },
             ct: CancellationToken.None
         );
 
