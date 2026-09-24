@@ -42,11 +42,25 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The (id, request, replace) of the last <see cref="UpdateContentAsync"/> call (#178/#179).</summary>
+    public (Guid Id, UpdateContentRequest Request, bool Replace)? LastUpdate { get; private set; }
+
+    /// <summary>Response returned by <see cref="UpdateContentAsync"/>; a bare success when unset.</summary>
+    public UmbracoResponse<ContentItemResponse>? UpdateContentResponse { get; set; }
+
     public Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(
         Guid id,
         UpdateContentRequest request,
+        bool replace = false,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastUpdate = (id, request, replace);
+        return Task.FromResult(
+            UpdateContentResponse
+                ?? UmbracoResponse<ContentItemResponse>.Success(new ContentItemResponse { Id = id })
+        );
+    }
 
     // Optional per-id handlers used by the bulk-operation tests (#85). When null the method
     // throws (flagging an unintended call), matching the fake's default behaviour.

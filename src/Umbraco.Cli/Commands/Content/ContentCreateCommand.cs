@@ -41,10 +41,16 @@ public static class ContentCreateCommand
             "Path to a JSON file (or - for stdin) containing the full create request body "
                 + "(overrides other flags)."
         );
+        var templateOpt = new Option<string?>("--template")
+        {
+            Description =
+                "Template for the new item, by alias or UUID. Omitted, the document type's default is used.",
+        };
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
         cmd.Add(idOpt);
+        cmd.Add(templateOpt);
         body.AddTo(cmd);
 
         // Parse-level conditional requirement: unless --schema (describe-and-exit) or a
@@ -104,6 +110,14 @@ public static class ContentCreateCommand
                                 Variants = [new ContentVariant { Name = name }],
                             };
                         }
+
+                        // --template wins over one in the body. Left unset the request carries a
+                        // null template, which Umbraco reads as "the document type's default".
+                        if (parseResult.GetValue(templateOpt) is { Length: > 0 } template)
+                            request = request with
+                            {
+                                Template = ContentUpdateCommand.TemplateReference(template),
+                            };
 
                         return await client.CreateContentAsync(request, c);
                     },

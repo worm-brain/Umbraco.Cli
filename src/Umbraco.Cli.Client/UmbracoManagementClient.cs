@@ -449,6 +449,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         : null,
                     Variants = MapVariants(request.Variants),
                     Values = MapValues(request.Values),
+                    // Null is meaningful here: Umbraco 17 reads an explicit null template as
+                    // "use the document type's default" (#134/#162), so only set it when asked.
+                    Template = request.Template is { } t
+                        ? new Gen.ReferenceByIdModel { Id = await ResolveTemplateIdAsync(t, ct) }
+                        : null,
                 };
                 await _api.Umbraco.Management.Api.V1.Document.PostAsync(
                     body,
@@ -505,26 +510,211 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(
         Guid id,
         UpdateContentRequest request,
+        bool replace = false,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
             ct,
             async () =>
             {
-                var body = new Gen.UpdateDocumentRequestModel
-                {
-                    Variants = MapVariants(request.Variants),
-                    Values = MapValues(request.Values),
-                };
-                await _api
-                    .Umbraco.Management.Api.V1.Document[id]
-                    .PutAsync(body, cancellationToken: ct);
+                // Read the document verbatim and overlay the request onto it, rather than
+                // building a typed body. The Management API's PUT is replace-semantics, so every
+                // field the typed model does not carry - the template above all - would be
+                // deleted (#178), and every value the caller did not restate would be cleared
+                // (#179). Going through raw JSON keeps the fields we do not model and sidesteps
+                // Kiota's habit of omitting null complex properties. Same approach, and the same
+                // reasoning, as UpdateRawScalarsAsync / ADR 0005.
+                var path = $"umbraco/management/api/v1/document/{id}";
+                var document =
+                    await GetRawJsonAsync(path, ct) as JsonObject
+                    ?? throw new ApiException("The document body was not a JSON object.");
+
+                document["values"] = MergeValues(
+                    document["values"] as JsonArray,
+                    request.Values,
+                    replace
+                );
+                document["variants"] = MergeVariants(
+                    document["variants"] as JsonArray,
+                    request.Variants,
+                    replace
+                );
+
+                // Only touch the template when the caller asked for one. Omitting it means "leave
+                // it as it is", never "remove it" - see UpdateContentRequest.Template.
+                if (request.Template is { } template)
+                    document["template"] = await ResolveTemplateNodeAsync(template, ct);
+
+                await SendRawJsonAsync(Method.PUT, path, document, ct);
 
                 var hydrated = await GetContentByIdAsync(id, ct);
                 if (hydrated.IsSuccess && hydrated.Data is { } data)
                     return data;
                 return new ContentItemResponse { Id = id };
             }
+        );
+
+    /// <summary>
+    /// Overlays the requested values onto the document's current ones, matching on
+    /// (alias, culture, segment) - the triple that identifies a property value on a document.
+    /// A requested value replaces the matching entry or is appended when there is none.
+    /// </summary>
+    /// <param name="current">The document's current <c>values</c> array; null is treated as empty.</param>
+    /// <param name="requested">The values from the update request.</param>
+    /// <param name="replace">When true the requested values stand alone and the current ones are dropped.</param>
+    /// <returns>The merged array to write back.</returns>
+    private static JsonArray MergeValues(
+        JsonArray? current,
+        IEnumerable<ContentValue> requested,
+        bool replace
+    )
+    {
+        // editorAlias rides along on a read but is not part of the write contract, so it is
+        // stripped from entries we carry over rather than echoed back.
+        var merged = replace
+            ? []
+            : (current ?? []).Select(n => StripEditorAlias(n!.DeepClone())).ToList();
+
+        foreach (var value in requested)
+        {
+            var node = new JsonObject
+            {
+                ["alias"] = value.Alias,
+                ["culture"] = value.Culture,
+                ["segment"] = value.Segment,
+                ["value"] = JsonSerializer.SerializeToNode(value.Value),
+            };
+            var existing = merged.FindIndex(n =>
+                Key(n, "alias") == value.Alias
+                && Key(n, "culture") == value.Culture
+                && Key(n, "segment") == value.Segment
+            );
+            if (existing >= 0)
+                merged[existing] = node;
+            else
+                merged.Add(node);
+        }
+
+        return [.. merged];
+    }
+
+    /// <summary>
+    /// Overlays the requested variants onto the document's current ones, matching on
+    /// (culture, segment). A requested variant replaces the matching entry or is appended.
+    /// </summary>
+    /// <param name="current">The document's current <c>variants</c> array; null is treated as empty.</param>
+    /// <param name="requested">The variants from the update request.</param>
+    /// <param name="replace">When true the requested variants stand alone and the current ones are dropped.</param>
+    /// <returns>The merged array to write back.</returns>
+    private static JsonArray MergeVariants(
+        JsonArray? current,
+        IEnumerable<ContentVariant> requested,
+        bool replace
+    )
+    {
+        var merged = replace ? [] : (current ?? []).Select(n => n!.DeepClone()).ToList();
+
+        foreach (var variant in requested)
+        {
+            var node = new JsonObject
+            {
+                ["culture"] = variant.Culture,
+                ["segment"] = variant.Segment,
+                ["name"] = variant.Name,
+            };
+            var existing = merged.FindIndex(n =>
+                Key(n, "culture") == variant.Culture && Key(n, "segment") == variant.Segment
+            );
+            if (existing >= 0)
+                merged[existing] = node;
+            else
+                merged.Add(node);
+        }
+
+        return [.. merged];
+    }
+
+    /// <summary>Reads a string field off a JSON node, treating absent and null alike.</summary>
+    /// <param name="node">The node to read from.</param>
+    /// <param name="name">The field name.</param>
+    /// <returns>The field's value, or null when absent or JSON null.</returns>
+    private static string? Key(JsonNode? node, string name) => node?[name]?.GetValue<string>();
+
+    /// <summary>
+    /// Removes <c>editorAlias</c> from a value entry. It is present on the response model but not
+    /// the request model, so echoing it back on a PUT would send a field the API does not accept.
+    /// </summary>
+    /// <param name="node">A cloned value entry.</param>
+    /// <returns>The same node, without <c>editorAlias</c>.</returns>
+    private static JsonNode StripEditorAlias(JsonNode node)
+    {
+        if (node is JsonObject obj)
+            obj.Remove("editorAlias");
+        return node;
+    }
+
+    /// <summary>
+    /// Turns a template reference into the <c>{"id":"..."}</c> node the API expects, resolving an
+    /// alias to its id when no id was given (#162).
+    /// </summary>
+    /// <param name="template">The requested template, by id or alias.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The template node to write.</returns>
+    /// <exception cref="ApiException">The alias matched no template.</exception>
+    /// <summary>
+    /// Looks up a template's id from its alias via the template search endpoint, matching the
+    /// alias exactly (the search itself is a fuzzy contains). Shared by
+    /// <see cref="GetTemplateByAliasAsync"/> and the content write path's <c>--template</c>.
+    /// </summary>
+    /// <param name="alias">The template alias, e.g. <c>blogPost</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matching template's id.</returns>
+    /// <exception cref="ApiException">No template has that alias.</exception>
+    private async Task<Guid> ResolveTemplateIdAsync(string alias, CancellationToken ct)
+    {
+        var search = await _api.Umbraco.Management.Api.V1.Item.Template.Search.GetAsync(
+            c =>
+            {
+                c.QueryParameters.Query = alias;
+                c.QueryParameters.Take = 100;
+            },
+            ct
+        );
+        var match = (search?.Items ?? []).FirstOrDefault(t =>
+            string.Equals(t.Alias, alias, StringComparison.OrdinalIgnoreCase)
+        );
+        return match?.Id ?? throw NotFound($"No template found with alias '{alias}'.");
+    }
+
+    private async Task<JsonNode> ResolveTemplateNodeAsync(
+        ContentTemplateReference template,
+        CancellationToken ct
+    )
+    {
+        if (template.Id is { } id)
+            return new JsonObject { ["id"] = id.ToString() };
+
+        var resolved = await ResolveTemplateIdAsync(template, ct);
+        return new JsonObject { ["id"] = resolved.ToString() };
+    }
+
+    /// <summary>
+    /// Resolves a template reference to an id: the id when one is given, otherwise the alias
+    /// looked up. Shared by the content create and update paths.
+    /// </summary>
+    /// <param name="template">The requested template, by id or alias.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The template's id.</returns>
+    /// <exception cref="ApiException">Neither an id nor a resolvable alias was supplied.</exception>
+    private async Task<Guid> ResolveTemplateIdAsync(
+        ContentTemplateReference template,
+        CancellationToken ct
+    ) =>
+        template.Id
+        ?? await ResolveTemplateIdAsync(
+            template.Alias
+                ?? throw new ApiException("A template reference needs either an id or an alias."),
+            ct
         );
 
     /// <summary>
@@ -583,12 +773,21 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
     /// <summary>
     /// Publishes a content item via <c>PUT document/{id}/publish</c> (generated client, #79).
-    /// Each culture is sent as a publish schedule with no scheduled time (publish now); the
-    /// default <c>"*"</c> publishes all cultures (Umbraco's wildcard - there is no dedicated
-    /// enum for it).
+    /// <para>
+    /// Two things about this endpoint are not obvious, both established by testing against
+    /// 17.7.0 (#158). First, an empty <c>schedule</c> object is not "publish now" - Umbraco
+    /// answers <c>200</c> and publishes nothing - so the schedule is sent only when a time was
+    /// actually asked for. Second, <c>"*"</c> is <b>not</b> a wildcard: it is the invariant
+    /// culture, so on a document that varies by culture it is rejected with
+    /// <c>400 "Cannot publish invariant culture when the document varies by culture."</c>
+    /// That is why publishing "everything" reads the document first and enumerates its cultures
+    /// rather than relying on a wildcard that does not exist.
+    /// </para>
     /// </summary>
     /// <param name="id">The content item id.</param>
-    /// <param name="cultures">Cultures to publish; null/empty publishes all cultures (<c>"*"</c>).</param>
+    /// <param name="cultures">Cultures to publish; null/empty publishes every culture the document has.</param>
+    /// <param name="publishAt">When to publish; null publishes immediately.</param>
+    /// <param name="unpublishAt">When to take it down again; null leaves it published.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     public Task<UmbracoResponse<Empty>> PublishContentAsync(
@@ -602,19 +801,29 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
+                var requested = cultures?.Select(c => (string?)c).ToList();
+                var targets = requested is { Count: > 0 }
+                    ? requested
+                    : await DocumentCulturesAsync(id, ct);
+
+                // A schedule is only sent when one was asked for: an all-null schedule object is
+                // silently ignored by the server, which is the #158 no-op.
+                var schedule =
+                    publishAt is null && unpublishAt is null
+                        ? null
+                        : new Gen.ScheduleRequestModel
+                        {
+                            PublishTime = publishAt,
+                            UnpublishTime = unpublishAt,
+                        };
+
                 var body = new Gen.PublishDocumentRequestModel
                 {
-                    PublishSchedules = (cultures ?? ["*"])
+                    PublishSchedules = targets
                         .Select(c => new Gen.CultureAndScheduleRequestModel
                         {
                             Culture = c,
-                            // #90: a null time on either side means "now" for publish / "never" for
-                            // unpublish, so an all-null schedule is still an immediate publish.
-                            Schedule = new Gen.ScheduleRequestModel
-                            {
-                                PublishTime = publishAt,
-                                UnpublishTime = unpublishAt,
-                            },
+                            Schedule = schedule,
                         })
                         .ToList(),
                 };
@@ -624,6 +833,31 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return Empty.Value;
             }
         );
+
+    /// <summary>
+    /// The cultures to publish when the caller named none: every culture the document varies by,
+    /// or a single <c>null</c> culture when it is invariant. Reading the document is what makes
+    /// "publish all" work without a wildcard - see <see cref="PublishContentAsync"/>.
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The culture codes to publish; a single-element list containing null when invariant.</returns>
+    private async Task<List<string?>> DocumentCulturesAsync(Guid id, CancellationToken ct)
+    {
+        var document = await _api
+            .Umbraco.Management.Api.V1.Document[id]
+            .GetAsync(cancellationToken: ct);
+        var cultures = (document?.Variants ?? [])
+            .Select(v => v.Culture)
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct()
+            .ToList();
+
+        // An invariant document has a single variant with a null culture, and that null is what
+        // the publish body must carry - "*" would be wrong for a variant document and is merely
+        // redundant here.
+        return cultures.Count > 0 ? cultures : [null];
+    }
 
     /// <summary>
     /// Unpublishes a content item via <c>PUT document/{id}/unpublish</c> (generated client, #79).
@@ -2059,28 +2293,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                Guid id;
-                if (Guid.TryParse(aliasOrId, out var parsed))
-                {
-                    id = parsed;
-                }
-                else
-                {
-                    var search = await _api.Umbraco.Management.Api.V1.Item.Template.Search.GetAsync(
-                        c =>
-                        {
-                            c.QueryParameters.Query = aliasOrId;
-                            c.QueryParameters.Take = 100;
-                        },
-                        ct
-                    );
-                    var match = (search?.Items ?? []).FirstOrDefault(t =>
-                        string.Equals(t.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase)
-                    );
-                    if (match?.Id is not { } matchedId)
-                        throw NotFound($"No template found with alias '{aliasOrId}'.");
-                    id = matchedId;
-                }
+                var id = Guid.TryParse(aliasOrId, out var parsed)
+                    ? parsed
+                    : await ResolveTemplateIdAsync(aliasOrId, ct);
 
                 var t = await _api
                     .Umbraco.Management.Api.V1.Template[id]

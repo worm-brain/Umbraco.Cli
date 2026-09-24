@@ -265,29 +265,30 @@ public class ContentWriteClientTests
     }
 
     /// <summary>
-    /// Publishing with no cultures defaults to the <c>"*"</c> wildcard and PUTs to the publish
-    /// endpoint with a schedule entry.
+    /// Publishing PUTs to the publish endpoint. What the body must contain is covered in detail by
+    /// <see cref="ContentPublishWireTests"/> - the assertion that used to live here
+    /// (<c>Contains("*", body)</c>) passed against a body that published nothing, which is how
+    /// #158 shipped green for two releases.
     /// </summary>
     [Fact]
-    public async Task PublishContentAsync_DefaultsToAllCultures()
+    public async Task PublishContentAsync_PutsToThePublishEndpoint()
     {
         var id = Guid.NewGuid();
         var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
         var client = Client(handler);
 
-        var result = await client.PublishContentAsync(id, null, ct: CancellationToken.None);
+        var result = await client.PublishContentAsync(id, ["en-US"], ct: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var put = handler.RequestFor(r =>
-            r.Method == HttpMethod.Put && Has(r, $"document/{id}/publish")
+        Assert.NotNull(
+            handler.RequestFor(r => r.Method == HttpMethod.Put && Has(r, $"document/{id}/publish"))
         );
-        Assert.NotNull(put);
-        Assert.Contains("*", handler.BodyForFirst(r => Has(r, $"document/{id}/publish")));
     }
 
     /// <summary>
-    /// #90: a scheduled publish sends the publish and unpublish times on the per-culture schedule
-    /// (rather than the empty schedule that means "now / never").
+    /// #90: a scheduled publish sends the publish and unpublish times on the per-culture schedule.
+    /// (A schedule is only sent when one was asked for - an empty schedule object is the #158
+    /// no-op, not "now / never".)
     /// </summary>
     [Fact]
     public async Task PublishContentAsync_WithSchedule_SendsPublishAndUnpublishTimes()
@@ -418,7 +419,8 @@ public class ContentWriteClientTests
     }
 
     /// <summary>
-    /// Update PUTs the document then re-reads it, returning a hydrated payload.
+    /// Update reads the document, PUTs it, then re-reads it, returning a hydrated payload. The
+    /// merge behaviour that read enables is covered by <see cref="ContentUpdateMergeClientTests"/>.
     /// </summary>
     [Fact]
     public async Task UpdateContentAsync_PutsThenHydrates()
@@ -436,7 +438,7 @@ public class ContentWriteClientTests
         var result = await client.UpdateContentAsync(
             id,
             new UpdateContentRequest { Variants = [new ContentVariant { Name = "Renamed" }] },
-            CancellationToken.None
+            ct: CancellationToken.None
         );
 
         Assert.True(result.IsSuccess);

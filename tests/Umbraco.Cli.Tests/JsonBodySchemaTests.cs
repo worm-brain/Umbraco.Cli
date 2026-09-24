@@ -33,5 +33,7 @@ public class JsonBodySchemaTests
         var properties = schema!["properties"]!.AsObject();
         Assert.True(properties.ContainsKey("values"));
         Assert.True(properties.ContainsKey("variants"));
+        // #162: template is part of the update body, so --schema must advertise it.
+        Assert.True(properties.ContainsKey("template"));
     }
 }

@@ -10,12 +10,12 @@ using Umbraco.Cli.Infrastructure.Http;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// Help text is the only warning an agent gets before a destructive or lossy operation, so the
-/// safety-critical parts of it are pinned here rather than left to review. Two obligations:
-/// a command that can silently lose data must say so (#178/#179), and no command may advertise
-/// a capability the CLI does not have - the false claims on <c>content-types get</c> (#160) and
-/// <c>media get</c> (#172) are what sent a test agent down a dead end in the 2026-09-23 round
-/// (#187).
+/// Help text is the only description of a command's contract an agent gets before running it, so
+/// the parts that decide whether data survives are pinned here rather than left to review. Two
+/// obligations: the write semantics of <c>content update</c> must be stated, including how to opt
+/// into the destructive one (#178/#179); and no command may advertise a capability the CLI does
+/// not have - the false claims on <c>content-types get</c> (#160) and <c>media get</c> (#172) are
+/// what sent a test agent down a dead end in the 2026-09-23 round (#187).
 /// </summary>
 public class HelpSafetyWarningTests
 {
@@ -57,15 +57,15 @@ public class HelpSafetyWarningTests
         Assert.Single(noun.Subcommands, c => c.Name == verb).Description ?? "";
 
     [Fact]
-    public void ContentUpdateHelp_WarnsThatOmittedValuesAreClearedAndTheTemplateIsLost()
+    public void ContentUpdateHelp_StatesThatValuesAreMergedAndNamesTheReplaceOptOut()
     {
         var content = ContentCommand.Build(BuildExecutor());
 
         var help = DescriptionOf(content, "update");
 
-        Assert.Contains("FULL REPLACE", help);
-        Assert.Contains("CLEARED", help);
-        Assert.Contains("template", help);
+        Assert.Contains("MERGED", help);
+        Assert.Contains("--replace", help);
+        Assert.Contains("template is preserved", help);
     }
 
     [Fact]
