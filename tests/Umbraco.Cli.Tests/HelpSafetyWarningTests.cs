@@ -59,6 +59,23 @@ public class HelpSafetyWarningTests
         Assert.Single(noun.Subcommands, c => c.Name == verb).Description ?? "";
 
     [Fact]
+    public void DictionaryHelp_ExamplesUseFullCultureCodes()
+    {
+        // #210: "--values en=Home" always fails since #181 validates against the site's
+        // isoCodes (en-US). Covers the noun's examples, create's examples and the option text.
+        var dictionary = Umbraco.Cli.Commands.Dictionary.DictionaryCommand.Build(BuildExecutor());
+        var create = Assert.Single(dictionary.Subcommands, c => c.Name == "create");
+        var help = string.Join(
+            "\n",
+            dictionary.Description,
+            create.Description,
+            Assert.Single(create.Options, o => o.Name == "--values").Description
+        );
+
+        Assert.DoesNotMatch(@"--values [a-z]{2}=", help);
+    }
+
+    [Fact]
     public void ContentUpdateHelp_StatesThatValuesAreMergedAndNamesTheReplaceOptOut()
     {
         var content = ContentCommand.Build(BuildExecutor());

@@ -8,7 +8,7 @@ public static class DictionaryCommand
     {
         var cmd = new Command(
             "dictionary",
-            "Manage Umbraco dictionary items (translations for static text).\n\nExamples:\n  umbraco dictionary list\n  umbraco dictionary create --key \"Common.Search\" --values en=Search --values da=Søg\n  umbraco dictionary get Common.Search"
+            "Manage Umbraco dictionary items (translations for static text).\n\nExamples:\n  umbraco dictionary list\n  umbraco dictionary create --key \"Common.Search\" --values en-US=Search --values da-DK=Søg\n  umbraco dictionary get Common.Search"
         );
         cmd.Add(DictionaryListCommand.Build(executor));
         cmd.Add(DictionaryTreeCommand.Build(executor));
