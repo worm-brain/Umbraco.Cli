@@ -174,7 +174,7 @@ public record ContentItemResponse
     public string Name { get; init; } = "";
 
     [JsonPropertyName("contentType")]
-    public ContentTypeReference? ContentType { get; init; }
+    public ContentTypeRef? ContentType { get; init; }
 
     [JsonPropertyName("parent")]
     public ContentParentReference? Parent { get; init; }
@@ -190,9 +190,6 @@ public record ContentItemResponse
 
     [JsonPropertyName("updateDate")]
     public DateTimeOffset UpdateDate { get; init; }
-
-    [JsonPropertyName("properties")]
-    public Dictionary<string, object?>? Properties { get; init; }
 
     /// <summary>
     /// The item's property values (#168). Null when the item was read from a list or tree walk,
@@ -264,16 +261,30 @@ public record ContentVariantResponse
     public DateTimeOffset? PublishDate { get; init; }
 }
 
+/// <summary>
+/// A type reference on the <b>write</b> side: the caller supplies either an id or an alias, and
+/// the client resolves whichever is missing. Distinct from <see cref="ContentTypeRef"/>, which is
+/// what a read returns - there the alias may be genuinely unknown, here it may not.
+/// </summary>
 public record ContentTypeReference
 {
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
 
-    /// <summary>
-    /// The type's alias. Resolved from the type id, because the Management API's type reference
-    /// carries only an id (#163). Null rather than empty when it could not be resolved, so the
-    /// envelope omits it instead of showing a field that looks populated and is not.
-    /// </summary>
+    [JsonPropertyName("alias")]
+    public string Alias { get; init; } = "";
+}
+
+/// <summary>
+/// A type reference as a <b>read</b> returns it (#163). The Management API's reference carries
+/// only an id, so the alias is looked up; it is null rather than empty when that fails, so the
+/// envelope omits it instead of showing a field that looks populated and is not.
+/// </summary>
+public record ContentTypeRef
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
     [JsonPropertyName("alias")]
     public string? Alias { get; init; }
 }
@@ -470,7 +481,7 @@ public record MediaItemResponse
     public string Name { get; init; } = "";
 
     [JsonPropertyName("mediaType")]
-    public ContentTypeReference? MediaType { get; init; }
+    public ContentTypeRef? MediaType { get; init; }
 
     [JsonPropertyName("parent")]
     public ContentParentReference? Parent { get; init; }
@@ -480,9 +491,6 @@ public record MediaItemResponse
 
     [JsonPropertyName("updateDate")]
     public DateTimeOffset UpdateDate { get; init; }
-
-    [JsonPropertyName("properties")]
-    public Dictionary<string, object?>? Properties { get; init; }
 
     /// <summary>
     /// The item's property values (#172). This is where the file actually lives: Umbraco keeps
@@ -1015,7 +1023,7 @@ public record MemberResponse
     public string Name { get; init; } = "";
 
     [JsonPropertyName("memberType")]
-    public ContentTypeReference? MemberType { get; init; }
+    public ContentTypeRef? MemberType { get; init; }
 
     [JsonPropertyName("isApproved")]
     public bool IsApproved { get; init; }

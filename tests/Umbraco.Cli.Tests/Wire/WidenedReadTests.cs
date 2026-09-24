@@ -249,7 +249,10 @@ public class WidenedReadTests
                 }
                 """
             ),
-            ($"media-type/{typeId}", $$"""{ "id": "{{typeId}}", "alias": "Image" }""")
+            (
+                $"media-type/{typeId}",
+                $$"""{ "id": "{{typeId}}", "name": "Hero Banner", "alias": "heroBanner" }"""
+            )
         );
 
         var result = await Wire.Client(handler).GetMediaByIdAsync(id, CancellationToken.None);
@@ -260,7 +263,10 @@ public class WidenedReadTests
         Assert.Equal(1200, data.Values!.First().Value!.GetValue<int>());
         // The URL is not on the by-id body at all - it needs the separate urls endpoint.
         Assert.Equal("/media/abc/blog-1.jpg", Assert.Single(data.Urls!).Url);
-        Assert.Equal("Image", data.MediaType!.Alias);
+        // The NAME, deliberately, even though the field is called alias: `media upload
+        // --media-type` resolves media types by name, so returning the alias here would hand back
+        // a value the write side cannot accept whenever the two differ - as they do here.
+        Assert.Equal("Hero Banner", data.MediaType!.Alias);
     }
 
     [Fact]
@@ -281,5 +287,41 @@ public class WidenedReadTests
         Assert.True(result.IsSuccess);
         Assert.Equal("Blog Image", result.Data!.Name);
         Assert.Null(result.Data.Urls);
+    }
+
+    // ── the value converter's edges ───────────────────────────────────────────
+
+    [Fact]
+    public async Task GetContentByIdAsync_NullAndNestedValues_SurviveTheConversion()
+    {
+        var id = Guid.Parse("14141414-1414-1414-1414-141414141414");
+        var handler = Routed(
+            (
+                $"document/{id}",
+                $$"""
+                {
+                  "id": "{{id}}",
+                  "values": [
+                    { "alias": "empty", "value": null },
+                    { "alias": "rich", "value": { "markup": "<p>hi</p>", "blocks": null } },
+                    { "alias": "tags", "value": ["a", "b"] }
+                  ],
+                  "variants": []
+                }
+                """
+            )
+        );
+
+        var values = (
+            await Wire.Client(handler).GetContentByIdAsync(id, CancellationToken.None)
+        ).Data!.Values!.ToList();
+
+        // A null property value must come back as JSON null, not as the name of a Kiota type -
+        // no Untyped* type overrides ToString(), so stringifying one would put
+        // "Microsoft.Kiota...UntypedString" in the payload as if it were the value.
+        Assert.Null(values[0].Value);
+        Assert.Equal("<p>hi</p>", values[1].Value!["markup"]!.GetValue<string>());
+        Assert.Null(values[1].Value!["blocks"]);
+        Assert.Equal(["a", "b"], values[2].Value!.AsArray().Select(v => v!.GetValue<string>()));
     }
 }

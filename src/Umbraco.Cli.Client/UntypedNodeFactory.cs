@@ -136,16 +136,20 @@ public static class UntypedNodeFactory
             null or UntypedNull => null,
             UntypedObject o => ToJsonObject(o),
             UntypedArray a => new JsonArray([.. a.GetValue().Select(ToJsonNode)]),
-            UntypedString s when s.GetValue() is { } v => JsonValue.Create(v),
+            // No guard on the value: a null-valued string node is a JSON null, and guarding it
+            // would drop it into the fallback arm below, which cannot represent it.
+            UntypedString s => JsonValue.Create(s.GetValue()),
             UntypedBoolean b => JsonValue.Create(b.GetValue()),
             UntypedInteger i => JsonValue.Create(i.GetValue()),
             UntypedLong l => JsonValue.Create(l.GetValue()),
             UntypedDecimal m => JsonValue.Create(m.GetValue()),
             UntypedDouble d => JsonValue.Create(d.GetValue()),
             UntypedFloat f => JsonValue.Create(f.GetValue()),
-            // A node type the generator added since: fall back to its serialized form rather than
-            // dropping the value silently, which is the defect this method exists to fix.
-            _ => JsonValue.Create(node.ToString()),
+            // A node type the generator added since. There is nothing faithful to emit: no
+            // Untyped* type overrides ToString(), so stringifying it would put
+            // "Microsoft.Kiota.Abstractions.Serialization.UntypedX" in the payload as if it were
+            // the value. Null at least reads as "no value" rather than as a lie.
+            _ => null,
         };
 
     /// <summary>Converts an untyped object node into a <see cref="JsonObject"/>.</summary>

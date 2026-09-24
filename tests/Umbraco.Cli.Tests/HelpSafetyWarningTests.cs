@@ -80,8 +80,8 @@ public class HelpSafetyWarningTests
         // This claim was false for three releases (#160) and the help was corrected to drop it.
         // Phase 3 made it true, so the assertion inverts: the capability exists and must be
         // described. What matters either way is that the two agree.
-        Assert.Contains("properties", help);
-        Assert.Contains("property groups", help);
+        Assert.Contains("properties", help, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("property groups", help, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -92,7 +92,9 @@ public class HelpSafetyWarningTests
         var help = DescriptionOf(media, "get");
 
         // Same inversion as above, for #172.
-        Assert.Contains("URL", help);
-        Assert.Contains("umbracoWidth", help);
+        // Case-insensitive: this guard exists to stop the help and the behaviour drifting apart,
+        // so a lowercase rewording must not be what breaks it.
+        Assert.Contains("url", help, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("umbracoWidth", help, StringComparison.OrdinalIgnoreCase);
     }
 }
