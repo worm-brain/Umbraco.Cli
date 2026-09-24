@@ -68,21 +68,21 @@ Available on every command:
 Colour in human output is disabled when `NO_COLOR` is set (any value) or when stdout is not a
 TTY.
 
-### Paging applies to every `list` - and it is silent
+### Paging applies to every `list`
 
-`list` commands return at most `--take` items, **default 20**, and nothing in the output says
-whether more exist: there is no `total`, no `hasMore`, no warning in human output, and no
-`--all` ([#173](https://github.com/worm-brain/Umbraco.Cli/issues/173)). `umbraco data-types list`
-on a stock site returns 20 of 37, and the 17 it omits include Textstring and Richtext.
+`list` commands return at most `--take` items, **default 20**, and say so in `meta`:
 
-Until that is fixed, page explicitly and stop when a page comes back short:
-
-```bash
-umbraco data-types list --take 100                  # raise the cap
-umbraco data-types list --skip 100 --take 100       # then walk
+```json
+"meta": { "total": 37, "skip": 0, "take": 20, "hasMore": true }
 ```
 
-Treat a full page as "probably more", not "that is everything".
+In a terminal a truncated list also prints a hint to stderr. Page with `--skip`/`--take` until
+`hasMore` is false.
+
+`total` and `hasMore` are **omitted when the source cannot count** - an absent `hasMore` means
+"unknown", not "no", so do not read a missing `total` as a complete list. There is no `--all`
+yet ([#196](https://github.com/worm-brain/Umbraco.Cli/issues/196)); it is deliberately not
+faked with a large `--take`, which would be the same silent cap further out.
 
 ---
 

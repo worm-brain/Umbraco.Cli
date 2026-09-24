@@ -92,7 +92,12 @@ differs. The flow:
    (e.g. `"content.list"`), a lambda `(client, ct) => client.SomeApiCall(...)`, and a render
    strategy. Use the right helper:
    - `RunObjectAsync` - serialize the returned object (`WriteSuccess`).
-   - `RunTableAsync` - project the result into table rows (`headers` + a `rows` selector).
+   - `RunPagedAsync` / `RunCompleteListAsync` - a list of entities. Structured output is
+     serialized from the items themselves so it matches the matching `get`; the `headers` + `row`
+     projection is for the human table only. Never derive JSON keys from a column caption - that
+     is what produced `"published": "True"` against `get`'s `"isPublished": true` (#164).
+   - `RunTableAsync` - a computed row report with no DTO behind it (`content diff`,
+     `schema diff`). Its keys *are* derived from the captions, because there is nothing else.
    - `RunMessageAsync` - fixed success message (for delete/publish-style calls).
 
 4. **`CommandExecutor.RunAsync`** is the single place that: builds the `CommandContext` (via
