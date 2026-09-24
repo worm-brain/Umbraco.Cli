@@ -82,7 +82,6 @@ public class SchemaAuthoringTests
         var client = Wire.Client(handler);
 
         var example = await Umbraco.Cli.Commands.RawBodyCommand.ExampleAsync(
-            client,
             client.GetDocumentTypeIdsAsync,
             client.GetDocumentTypeRawAsync,
             "document types",
@@ -102,7 +101,6 @@ public class SchemaAuthoringTests
         var client = Wire.Client(handler);
 
         var example = await Umbraco.Cli.Commands.RawBodyCommand.ExampleAsync(
-            client,
             client.GetDocumentTypeIdsAsync,
             client.GetDocumentTypeRawAsync,
             "document types",

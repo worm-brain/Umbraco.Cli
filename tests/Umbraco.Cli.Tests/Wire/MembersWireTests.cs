@@ -127,6 +127,52 @@ public class MembersWireTests
         Assert.Equal("a@example.com", body["username"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// An update that does not mention the password must not carry a <c>newPassword</c> key at
+    /// all - not even a null one. The member PUT is a replace, and the review could not settle
+    /// from reading alone whether a null there would reset the password, so it is pinned here:
+    /// the field is absent unless a caller asked for it.
+    /// </summary>
+    [Fact]
+    public async Task UpdateMemberAsync_WithoutNewPassword_OmitsThePasswordField()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Existing(ExistingMember(id));
+
+        await Wire.Client(handler)
+            .UpdateMemberAsync(
+                id,
+                new UpdateMemberRequest { Name = "Renamed" },
+                CancellationToken.None
+            );
+
+        var body = handler.BodyOf(HttpMethod.Put, $"/member/{id}");
+        Assert.False(
+            body.AsObject().ContainsKey("newPassword"),
+            "members update must not touch the password unless --new-password was given."
+        );
+    }
+
+    /// <summary>And when one IS asked for, it reaches the wire verbatim.</summary>
+    [Fact]
+    public async Task UpdateMemberAsync_WithNewPassword_SendsIt()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Existing(ExistingMember(id));
+
+        await Wire.Client(handler)
+            .UpdateMemberAsync(
+                id,
+                new UpdateMemberRequest { NewPassword = "an-actual-passphrase" },
+                CancellationToken.None
+            );
+
+        Assert.Equal(
+            "an-actual-passphrase",
+            handler.BodyOf(HttpMethod.Put, $"/member/{id}")["newPassword"]!.GetValue<string>()
+        );
+    }
+
     [Fact]
     public async Task UpdateMemberAsync_NameOnly_KeepsTheCurrentEmail()
     {

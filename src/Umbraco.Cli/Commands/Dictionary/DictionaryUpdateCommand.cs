@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
@@ -44,14 +45,22 @@ public static class DictionaryUpdateCommand
             )
                 result.AddError("Supply --key and/or --values; there is nothing to update.");
         });
+        KeyValuePairs.Validate(
+            cmd,
+            valuesOpt,
+            "--values must be isoCode=translation, e.g. en-US=Home"
+        );
 
         cmd.SetAction(
             (parseResult, ct) =>
             {
-                var translations = (parseResult.GetValue(valuesOpt) ?? [])
-                    .Select(v => v.Split('=', 2))
-                    .Where(p => p.Length == 2)
-                    .Select(p => new DictionaryTranslation { IsoCode = p[0], Translation = p[1] });
+                var translations = KeyValuePairs
+                    .Parse(parseResult.GetValue(valuesOpt))
+                    .Select(p => new DictionaryTranslation
+                    {
+                        IsoCode = p.Key,
+                        Translation = p.Value,
+                    });
 
                 return executor.RunObjectAsync(
                     parseResult,

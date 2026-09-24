@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Members;
 
@@ -59,6 +60,7 @@ public static class MembersUpdateCommand
         cmd.Add(valueOpt);
         cmd.Add(passwordOpt);
         cmd.Add(unlockOpt);
+        KeyValuePairs.Validate(cmd, valueOpt, "--value must be alias=value, e.g. company=Acme");
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
@@ -76,11 +78,16 @@ public static class MembersUpdateCommand
                                 Groups = parseResult.GetValue(groupOpt) is { Length: > 0 } g
                                     ? g
                                     : null,
-                                Values = (parseResult.GetValue(valueOpt) ?? [])
-                                    .Select(v => v.Split('=', 2))
-                                    .Where(p => p.Length == 2)
-                                    .Select(p => new ContentValue { Alias = p[0], Value = p[1] })
-                                    .ToList(),
+                                Values =
+                                [
+                                    .. KeyValuePairs
+                                        .Parse(parseResult.GetValue(valueOpt))
+                                        .Select(p => new ContentValue
+                                        {
+                                            Alias = p.Key,
+                                            Value = p.Value,
+                                        }),
+                                ],
                                 NewPassword = parseResult.GetValue(passwordOpt),
                                 IsLockedOut = parseResult.GetValue(unlockOpt) ? false : null,
                             },

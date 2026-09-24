@@ -60,7 +60,6 @@ public static class DataTypesUpdateCommand
                         "data-types.update",
                         (client, c) =>
                             RawBodyCommand.ExampleAsync(
-                                client,
                                 client.GetDataTypeIdsAsync,
                                 client.GetDataTypeRawAsync,
                                 "data types",

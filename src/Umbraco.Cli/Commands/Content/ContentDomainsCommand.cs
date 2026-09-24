@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -86,9 +87,12 @@ public static class ContentDomainsCommand
             var domains = result.GetValue(domainOpt) ?? [];
             if (domains.Length == 0 && string.IsNullOrEmpty(result.GetValue(defaultOpt)))
                 result.AddError("Supply --domain and/or --default; there is nothing to set.");
-            if (domains.Any(d => !d.Contains('=')))
-                result.AddError("Each --domain must be host=isoCode, e.g. example.com/da=da-DK.");
         });
+        KeyValuePairs.Validate(
+            cmd,
+            domainOpt,
+            "--domain must be host=isoCode, e.g. example.com/da=da-DK"
+        );
 
         cmd.SetAction(
             (parseResult, ct) =>
@@ -98,9 +102,13 @@ public static class ContentDomainsCommand
                     async (client, c) =>
                     {
                         var id = parseResult.GetValue(idArg);
-                        var requested = (parseResult.GetValue(domainOpt) ?? [])
-                            .Select(d => d.Split('=', 2))
-                            .Select(p => new DomainBinding { DomainName = p[0], IsoCode = p[1] })
+                        var requested = KeyValuePairs
+                            .Parse(parseResult.GetValue(domainOpt))
+                            .Select(p => new DomainBinding
+                            {
+                                DomainName = p.Key,
+                                IsoCode = p.Value,
+                            })
                             .ToList();
 
                         // The PUT replaces the whole set, so read first and merge by hostname -

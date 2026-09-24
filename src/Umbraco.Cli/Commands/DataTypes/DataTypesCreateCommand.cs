@@ -62,7 +62,6 @@ public static class DataTypesCreateCommand
                         "data-types.create",
                         (client, c) =>
                             RawBodyCommand.ExampleAsync(
-                                client,
                                 client.GetDataTypeIdsAsync,
                                 client.GetDataTypeRawAsync,
                                 "data types",

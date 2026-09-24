@@ -261,11 +261,6 @@ public record ContentVariantResponse
     public DateTimeOffset? PublishDate { get; init; }
 }
 
-/// <summary>
-/// A type reference on the <b>write</b> side: the caller supplies either an id or an alias, and
-/// the client resolves whichever is missing. Distinct from <see cref="ContentTypeRef"/>, which is
-/// what a read returns - there the alias may be genuinely unknown, here it may not.
-/// </summary>
 /// <summary>A document's culture-and-hostname bindings (#180).</summary>
 public record DomainsResponse
 {
@@ -302,6 +297,11 @@ public record SetDomainsRequest
     public IEnumerable<DomainBinding> Domains { get; init; } = [];
 }
 
+/// <summary>
+/// A type reference on the <b>write</b> side: the caller supplies either an id or an alias, and
+/// the client resolves whichever is missing. Distinct from <see cref="ContentTypeRef"/>, which is
+/// what a read returns - there the alias may be genuinely unknown, here it may not.
+/// </summary>
 public record ContentTypeReference
 {
     [JsonPropertyName("id")]

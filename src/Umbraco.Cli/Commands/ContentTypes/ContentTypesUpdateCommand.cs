@@ -52,7 +52,6 @@ public static class ContentTypesUpdateCommand
                         "content-types.update",
                         (client, c) =>
                             RawBodyCommand.ExampleAsync(
-                                client,
                                 client.GetDocumentTypeIdsAsync,
                                 client.GetDocumentTypeRawAsync,
                                 "document types",

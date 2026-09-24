@@ -2683,7 +2683,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Groups = request.Groups is { } g
                         ? g.Select(x => (Guid?)x).ToList()
                         : (m.Groups ?? []).ToList(),
-                    NewPassword = request.NewPassword,
+                    // Only ever set deliberately. Kiota omits a null string from the body, so a
+                    // member's password survives an update that does not mention it - asserted
+                    // on the wire rather than assumed, because the cost of being wrong is
+                    // locking a member out of a live site.
+                    NewPassword = string.IsNullOrEmpty(request.NewPassword)
+                        ? null
+                        : request.NewPassword,
                     Values = values,
                     Variants = variants,
                 };

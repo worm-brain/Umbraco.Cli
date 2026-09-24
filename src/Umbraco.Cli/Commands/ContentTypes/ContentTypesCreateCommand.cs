@@ -69,7 +69,6 @@ public static class ContentTypesCreateCommand
                         "content-types.create",
                         (client, c) =>
                             RawBodyCommand.ExampleAsync(
-                                client,
                                 client.GetDocumentTypeIdsAsync,
                                 client.GetDocumentTypeRawAsync,
                                 "document types",

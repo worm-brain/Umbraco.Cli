@@ -693,6 +693,41 @@ public class CommandParseTests
         Assert.True(HasErrors(args), $"Expected parse errors for: {args}");
     }
 
+    // ── key=value options refuse what they used to silently drop ─────────────────
+    // Every repeatable pair option parsed with .Where(p => p.Length == 2), so a token with no
+    // "=" in it vanished and the command reported success having written nothing. These pin the
+    // refusal, and the message that names the offending token.
+
+    [Theory]
+    [InlineData("dictionary create --key Nav.Home --values en-US", "en-US")]
+    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --values Home", "Home")]
+    [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company", "company")]
+    [InlineData(
+        "content domains set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com",
+        "example.com"
+    )]
+    [InlineData("dictionary create --key Nav.Home --values =Home", "=Home")]
+    public void PairOption_WithoutAnEquals_IsRejectedAndNamesTheToken(string args, string token)
+    {
+        var error = Assert.Single(Parse(args).Errors, e => e.Message.Contains("Not understood"));
+
+        Assert.Contains(token, error.Message);
+    }
+
+    [Theory]
+    [InlineData("dictionary create --key Nav.Home --values en-US=Home")]
+    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --values da-DK=Hjem")]
+    [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company=Acme")]
+    // An empty value is legitimate - it is how a property is cleared.
+    [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company=")]
+    [InlineData(
+        "content domains set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com/da=da-DK"
+    )]
+    public void PairOption_WellFormed_Parses(string args)
+    {
+        Assert.False(HasErrors(args), $"Unexpected parse errors for: {args}");
+    }
+
     // ── Response-file tokens disabled (#115) ─────────────────────────────────────
     // An option value starting with '@' (common in Serilog log-viewer filters, e.g.
     // "@Level='Error'") must be taken literally, not as an "@file" response-file directive that

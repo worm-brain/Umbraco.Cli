@@ -30,7 +30,9 @@ public static class RawBodyCommand
     {
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) containing the full Management API body. "
-                + "Use --schema to print a real one from the instance as a starting point."
+                + "Use --schema to print a real one from the instance as a starting point.",
+            "Print an existing entity of this kind from the instance, as a worked example of the "
+                + "--json-body shape, and exit. Requires a host."
         );
         body.AddTo(cmd);
         return body;
@@ -40,14 +42,12 @@ public static class RawBodyCommand
     /// Reads an existing entity of this kind and returns it as a worked example for
     /// <c>--schema</c>.
     /// </summary>
-    /// <param name="client">The management client.</param>
     /// <param name="listIds">Lists the ids of this kind.</param>
     /// <param name="getRaw">Reads one verbatim by id.</param>
     /// <param name="kind">The noun, for the error when the instance has none.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An example body, or a failure explaining why there is none.</returns>
     public static async Task<UmbracoResponse<JsonNode>> ExampleAsync(
-        IUmbracoManagementClient client,
         Func<CancellationToken, Task<UmbracoResponse<IReadOnlyList<Guid>>>> listIds,
         Func<Guid, CancellationToken, Task<UmbracoResponse<JsonNode>>> getRaw,
         string kind,
@@ -69,6 +69,8 @@ public static class RawBodyCommand
                     + "the body against the Umbraco Management API reference."
             );
 
-        return await getRaw(found[0], ct);
+        // The lowest id, so the same instance prints the same example every run - "whatever the
+        // API returned first" is not reproducible, and --schema output gets diffed.
+        return await getRaw(found.Order().First(), ct);
     }
 }
