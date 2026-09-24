@@ -61,6 +61,28 @@ internal static class Wire
             .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, current)
             .When(_ => true, HttpStatusCode.OK, "");
 
+    /// <summary>
+    /// A handler that answers each request with the body of the first route whose path fragment
+    /// the request URI contains, falling back to 200 and an empty body.
+    /// </summary>
+    /// <param name="routes">Path fragment to response body, in precedence order.</param>
+    /// <returns>The handler.</returns>
+    public static RoutingHandler Routed(params (string Fragment, string Json)[] routes)
+    {
+        var handler = new RoutingHandler();
+        foreach (var (fragment, json) in routes)
+            handler.When(
+                r =>
+                    r.RequestUri!.AbsoluteUri.Contains(
+                        fragment,
+                        StringComparison.OrdinalIgnoreCase
+                    ),
+                HttpStatusCode.OK,
+                json
+            );
+        return handler.When(_ => true, HttpStatusCode.OK, "");
+    }
+
     /// <summary>Whether a recorded request's path ends with <paramref name="suffix"/>.</summary>
     /// <param name="request">The recorded request.</param>
     /// <param name="suffix">The path suffix, e.g. <c>/document/{id}/publish</c>.</param>

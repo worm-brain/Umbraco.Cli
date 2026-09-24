@@ -15,25 +15,6 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class WidenedReadTests
 {
-    /// <summary>Routes each GET path fragment to its own canned body.</summary>
-    /// <param name="routes">Path fragment to response body.</param>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Routed(params (string Fragment, string Json)[] routes)
-    {
-        var handler = new RoutingHandler();
-        foreach (var (fragment, json) in routes)
-            handler.When(
-                r =>
-                    r.RequestUri!.AbsoluteUri.Contains(
-                        fragment,
-                        StringComparison.OrdinalIgnoreCase
-                    ),
-                HttpStatusCode.OK,
-                json
-            );
-        return handler.When(_ => true, HttpStatusCode.OK, "");
-    }
-
     // ── #168 + #163: content ──────────────────────────────────────────────────
 
     [Fact]
@@ -42,7 +23,7 @@ public class WidenedReadTests
         var id = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var typeId = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var templateId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-        var handler = Routed(
+        var handler = Wire.Routed(
             (
                 $"document/{id}",
                 $$"""
@@ -86,7 +67,7 @@ public class WidenedReadTests
     {
         var id = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var typeId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-        var handler = Routed(
+        var handler = Wire.Routed(
             (
                 $"document/{id}",
                 $$"""{ "id": "{{id}}", "documentType": { "id": "{{typeId}}" }, "variants": [] }"""
@@ -135,7 +116,7 @@ public class WidenedReadTests
         var dataTypeId = Guid.Parse("55555555-5555-5555-5555-555555555555");
         var templateId = Guid.Parse("66666666-6666-6666-6666-666666666666");
         var containerId = Guid.Parse("77777777-7777-7777-7777-777777777777");
-        var handler = Routed(
+        var handler = Wire.Routed(
             (
                 "document-type",
                 $$"""
@@ -189,7 +170,7 @@ public class WidenedReadTests
     public async Task GetDataTypeByIdAsync_ReturnsTheEditorConfiguration()
     {
         var id = Guid.Parse("99999999-9999-9999-9999-999999999999");
-        var handler = Routed(
+        var handler = Wire.Routed(
             (
                 "data-type",
                 $$"""
@@ -227,7 +208,7 @@ public class WidenedReadTests
     {
         var id = Guid.Parse("12121212-1212-1212-1212-121212121212");
         var typeId = Guid.Parse("13131313-1313-1313-1313-131313131313");
-        var handler = Routed(
+        var handler = Wire.Routed(
             (
                 "media/urls",
                 $$"""
@@ -295,7 +276,7 @@ public class WidenedReadTests
     public async Task GetContentByIdAsync_NullAndNestedValues_SurviveTheConversion()
     {
         var id = Guid.Parse("14141414-1414-1414-1414-141414141414");
-        var handler = Routed(
+        var handler = Wire.Routed(
             (
                 $"document/{id}",
                 $$"""

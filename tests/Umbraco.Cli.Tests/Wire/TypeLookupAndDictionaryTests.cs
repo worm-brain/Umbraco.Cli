@@ -4,31 +4,14 @@ using Umbraco.Cli.Client;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// The #187 Phase 4 fixes. Three of the four were silent wrong answers: a filter that matched
-/// nothing, a create that reported translations as saved which Umbraco had discarded, and two
-/// <c>get</c> commands that rejected the very key their documentation told you to use.
+/// Reading a type by the key a human has (#159) and creating a dictionary item without lying
+/// about what was saved (#181), plus the member group filter (#184) and the language fallback
+/// (#183). Three of these were silent wrong answers: a filter that matched nothing, a create that
+/// reported translations Umbraco had discarded, and two <c>get</c> commands that rejected the key
+/// their own documentation told you to use.
 /// </summary>
-public class CheapWinsTests
+public class TypeLookupAndDictionaryTests
 {
-    /// <summary>Routes each path fragment to its own canned body.</summary>
-    /// <param name="routes">Path fragment to response body.</param>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Routed(params (string Fragment, string Json)[] routes)
-    {
-        var handler = new RoutingHandler();
-        foreach (var (fragment, json) in routes)
-            handler.When(
-                r =>
-                    r.RequestUri!.AbsoluteUri.Contains(
-                        fragment,
-                        StringComparison.OrdinalIgnoreCase
-                    ),
-                HttpStatusCode.OK,
-                json
-            );
-        return handler.When(_ => true, HttpStatusCode.OK, "");
-    }
-
     // ── #184: the group filter that matched nothing ───────────────────────────
 
     [Fact]
@@ -63,7 +46,7 @@ public class CheapWinsTests
     public async Task GetDocumentTypeAsync_Guid_ReadsItDirectlyWithoutSearching()
     {
         var id = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        var handler = Routed(
+        var handler = Wire.Routed(
             ($"document-type/{id}", $$"""{ "id": "{{id}}", "alias": "blogPost" }""")
         );
 
@@ -78,7 +61,7 @@ public class CheapWinsTests
     public async Task GetDataTypeAsync_Name_ResolvesItThenReads()
     {
         var id = Guid.Parse("22222222-2222-2222-2222-222222222222");
-        var handler = Routed(
+        var handler = Wire.Routed(
             (
                 "item/data-type/search",
                 $$"""{ "total": 1, "items": [ { "id": "{{id}}", "name": "Textstring" } ] }"""
@@ -101,7 +84,7 @@ public class CheapWinsTests
     [Fact]
     public async Task GetDataTypeAsync_UnknownName_FailsWithAUsableMessage()
     {
-        var handler = Routed(("item/data-type/search", """{ "total": 0, "items": [] }"""));
+        var handler = Wire.Routed(("item/data-type/search", """{ "total": 0, "items": [] }"""));
 
         var result = await Wire.Client(handler)
             .GetDataTypeAsync("NotARealDataType", CancellationToken.None);
@@ -118,7 +101,7 @@ public class CheapWinsTests
     [Fact]
     public async Task CreateDictionaryItemAsync_UnknownIsoCode_FailsInsteadOfReportingSuccess()
     {
-        var handler = Routed(
+        var handler = Wire.Routed(
             (
                 "/language",
                 """{ "total": 2, "items": [ { "isoCode": "en-US" }, { "isoCode": "da-DK" } ] }"""
@@ -149,7 +132,7 @@ public class CheapWinsTests
     [Fact]
     public async Task CreateDictionaryItemAsync_KnownIsoCodes_Proceeds()
     {
-        var handler = Routed(
+        var handler = Wire.Routed(
             (
                 "/language",
                 """{ "total": 2, "items": [ { "isoCode": "en-US" }, { "isoCode": "da-DK" } ] }"""
@@ -174,9 +157,9 @@ public class CheapWinsTests
     }
 
     [Fact]
-    public async Task CreateDictionaryItemAsync_InstanceReportsNoLanguages_DoesNotBlockTheCreate()
+    public async Task CreateDictionaryItemAsync_UnreadableLanguageList_RefusesRatherThanGuessing()
     {
-        var handler = Routed(("/language", """{ "total": 0, "items": [] }"""));
+        var handler = Wire.Routed(("/language", """{ "total": 0, "items": [] }"""));
 
         var result = await Wire.Client(handler)
             .CreateDictionaryItemAsync(
@@ -191,10 +174,12 @@ public class CheapWinsTests
                 CancellationToken.None
             );
 
-        // An instance that reports no languages is not evidence the codes are wrong, so the guard
-        // must not turn an unreadable language list into a blocked create.
-        Assert.True(result.IsSuccess, result.ErrorMessage);
-        handler.AssertRequested(HttpMethod.Post, "/dictionary");
+        // Umbraco always has at least one language, so an empty list means the read did not work.
+        // Treating that as "nothing to check" would quietly restore the silent-discard behaviour
+        // this guard exists to end, so it refuses and says why instead.
+        Assert.False(result.IsSuccess);
+        Assert.Contains("Could not read", result.ErrorMessage);
+        handler.AssertNoRequest(HttpMethod.Post, "/dictionary");
     }
 
     // ── #183: --fallback on create ────────────────────────────────────────────
@@ -219,5 +204,79 @@ public class CheapWinsTests
             "en-US",
             handler.BodyOf(HttpMethod.Post, "/language")["fallbackIsoCode"]!.GetValue<string>()
         );
+    }
+
+    [Fact]
+    public async Task CreateDictionaryItemAsync_ReturnsWhatTheInstanceStored_NotTheRequest()
+    {
+        var id = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var handler = Wire.Routed(
+            (
+                "/language",
+                """{ "total": 2, "items": [ { "isoCode": "en-US" }, { "isoCode": "da-DK" } ] }"""
+            ),
+            (
+                $"/dictionary/{id}",
+                $$"""
+                {
+                  "id": "{{id}}",
+                  "name": "Blog.ReadMore",
+                  "translations": [ { "isoCode": "en-US", "translation": "Read more" } ]
+                }
+                """
+            )
+        );
+
+        var result = await Wire.Client(handler)
+            .CreateDictionaryItemAsync(
+                new CreateDictionaryItemRequest
+                {
+                    Id = id,
+                    Name = "Blog.ReadMore",
+                    Translations =
+                    [
+                        new DictionaryTranslation { IsoCode = "en-US", Translation = "Read more" },
+                        new DictionaryTranslation { IsoCode = "da-DK", Translation = "Laes mere" },
+                    ],
+                },
+                CancellationToken.None
+            );
+
+        // The request named two translations; the instance kept one. The response must report the
+        // instance's answer - reporting the request back is the #181 bug.
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        var kept = Assert.Single(result.Data!.Translations!);
+        Assert.Equal("en-US", kept.IsoCode);
+    }
+
+    [Fact]
+    public async Task CreateDictionaryItemAsync_ReadBackFails_DoesNotFabricateTranslations()
+    {
+        var handler = new RoutingHandler()
+            .When(
+                r => r.RequestUri!.AbsoluteUri.Contains("/language"),
+                System.Net.HttpStatusCode.OK,
+                """{ "total": 1, "items": [ { "isoCode": "en-US" } ] }"""
+            )
+            .When(r => r.Method == HttpMethod.Get, System.Net.HttpStatusCode.NotFound, "")
+            .When(_ => true, System.Net.HttpStatusCode.OK, "");
+
+        var result = await Wire.Client(handler)
+            .CreateDictionaryItemAsync(
+                new CreateDictionaryItemRequest
+                {
+                    Name = "Blog.ReadMore",
+                    Translations =
+                    [
+                        new DictionaryTranslation { IsoCode = "en-US", Translation = "Read more" },
+                    ],
+                },
+                CancellationToken.None
+            );
+
+        // The write succeeded, so this is still a success - but with no translations rather than
+        // the request echoed back as though it had been confirmed.
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Null(result.Data!.Translations);
     }
 }
