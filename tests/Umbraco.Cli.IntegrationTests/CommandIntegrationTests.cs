@@ -5,17 +5,10 @@ namespace Umbraco.Cli.IntegrationTests;
 /// assert list/get/create/delete behaviour across the command surface. Skipped when no
 /// instance is reachable (see <see cref="LiveInstanceFixture"/>).
 /// </summary>
+/// <param name="live">Shared reachability fixture.</param>
 [Collection("Live")]
-public sealed class CommandIntegrationTests
+public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTestBase(live)
 {
-    private readonly LiveInstanceFixture _live;
-
-    /// <param name="live">Shared reachability fixture.</param>
-    public CommandIntegrationTests(LiveInstanceFixture live) => _live = live;
-
-    /// <summary>Skips the current test unless a live instance responded to the probe.</summary>
-    private void RequireLive() => Skip.IfNot(_live.IsReachable, _live.SkipReason);
-
     [SkippableFact]
     public void Whoami_ReturnsAuthenticatedIdentity()
     {
@@ -168,49 +161,15 @@ public sealed class CommandIntegrationTests
         // 400. Content create needs a document type that allows creation at the root, so make a
         // throwaway one (with a random alias, self-cleaned) rather than depend on the instance's
         // schema. Deleting the document type at the end also removes any content of that type.
-        var alias = "clitestContent" + Guid.NewGuid().ToString("N")[..8];
-        var docType = CliRunner.Run(
-            "content-types",
-            "create",
-            "--name",
-            alias,
-            "--alias",
-            alias,
-            "--allow-at-root"
-        );
-        Assert.True(docType.Ok, docType.Stderr);
-        var docTypeId = docType.Data().GetProperty("id").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(docTypeId));
+        // The create under test: before #134 this failed with HTTP 400 ("missing required
+        // properties including: 'template'"). ScratchDocument performs that create.
+        using var doc = ScratchDocument.Create("clitest 134 root");
 
-        string? contentId = null;
-        try
-        {
-            // The create under test: before #134 this failed with HTTP 400 ("missing required
-            // properties including: 'template'").
-            var create = CliRunner.Run(
-                "content",
-                "create",
-                "--content-type",
-                alias,
-                "--name",
-                "clitest 134 root"
-            );
-            Assert.True(create.Ok, create.Stderr);
-            contentId = create.Data().GetProperty("id").GetString();
-            Assert.False(string.IsNullOrWhiteSpace(contentId));
-
-            // Read it back: the create really persisted, and get round-trips the name.
-            var get = CliRunner.Run("content", "get", contentId!);
-            Assert.True(get.Ok, get.Stderr);
-            Assert.Equal(contentId, get.Data().GetProperty("id").GetString());
-            Assert.Equal("clitest 134 root", get.Data().GetProperty("name").GetString());
-        }
-        finally
-        {
-            if (contentId is not null)
-                CliRunner.Run("content", "delete", contentId, "--yes");
-            CliRunner.Run("content-types", "delete", docTypeId!, "--yes");
-        }
+        // Read it back: the create really persisted, and get round-trips the name.
+        var get = CliRunner.Run("content", "get", doc.Id);
+        Assert.True(get.Ok, get.Stderr);
+        Assert.Equal(doc.Id, get.Data().GetProperty("id").GetString());
+        Assert.Equal("clitest 134 root", get.Data().GetProperty("name").GetString());
     }
 
     [SkippableFact]

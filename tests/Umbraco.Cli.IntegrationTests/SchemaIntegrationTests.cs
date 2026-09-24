@@ -8,17 +8,10 @@ namespace Umbraco.Cli.IntegrationTests;
 /// creating or deleting real schema on a possibly-shared instance. Skipped when no instance is
 /// reachable (see <see cref="LiveInstanceFixture"/>).
 /// </summary>
+/// <param name="live">Shared reachability fixture.</param>
 [Collection("Live")]
-public sealed class SchemaIntegrationTests
+public sealed class SchemaIntegrationTests(LiveInstanceFixture live) : LiveTestBase(live)
 {
-    private readonly LiveInstanceFixture _live;
-
-    /// <param name="live">Shared reachability fixture.</param>
-    public SchemaIntegrationTests(LiveInstanceFixture live) => _live = live;
-
-    /// <summary>Skips the current test unless a live instance responded to the probe.</summary>
-    private void RequireLive() => Skip.IfNot(_live.IsReachable, _live.SkipReason);
-
     [SkippableFact]
     public void Export_WritesSnapshotFile()
     {
