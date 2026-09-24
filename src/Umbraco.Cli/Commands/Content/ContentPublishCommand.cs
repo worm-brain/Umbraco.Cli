@@ -47,7 +47,11 @@ public static class ContentPublishCommand
                             parseResult.GetValue(unpublishAtOpt),
                             c
                         ),
-                    "Content item published.",
+                    SuccessMessage(
+                        parseResult.GetValue(publishAtOpt),
+                        parseResult.GetValue(unpublishAtOpt),
+                        cultures
+                    ),
                     ct
                 );
             }
@@ -55,4 +59,39 @@ public static class ContentPublishCommand
 
         return cmd;
     }
+
+    /// <summary>
+    /// The success message for a publish, which says what actually happened. A scheduled
+    /// publish leaves the item as it was until the scheduled time, so "published" was untrue
+    /// (#239).
+    /// </summary>
+    /// <param name="publishAt">When the publish is scheduled for, or null to publish now.</param>
+    /// <param name="unpublishAt">When an unpublish is scheduled for, or null for none.</param>
+    /// <param name="cultures">The cultures named with <c>--cultures</c>, if any.</param>
+    /// <returns>The message.</returns>
+    private static string SuccessMessage(
+        DateTimeOffset? publishAt,
+        DateTimeOffset? unpublishAt,
+        string[]? cultures
+    )
+    {
+        var message = (publishAt, unpublishAt) switch
+        {
+            ({ } p, { } u) => $"Scheduled to publish at {Iso(p)} and unpublish at {Iso(u)}",
+            ({ } p, null) => $"Scheduled to publish at {Iso(p)}",
+            (null, { } u) => $"Content item published; scheduled to unpublish at {Iso(u)}",
+            _ => "Content item published",
+        };
+        var scope = cultures is { Length: > 0 } ? $" ({string.Join(", ", cultures)})" : "";
+        return $"{message}{scope}.";
+    }
+
+    /// <summary>Formats a time as UTC ISO 8601, e.g. <c>2026-01-01T09:00:00Z</c>.</summary>
+    /// <param name="time">The time to format.</param>
+    /// <returns>The formatted time.</returns>
+    private static string Iso(DateTimeOffset time) =>
+        time.UtcDateTime.ToString(
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            System.Globalization.CultureInfo.InvariantCulture
+        );
 }
