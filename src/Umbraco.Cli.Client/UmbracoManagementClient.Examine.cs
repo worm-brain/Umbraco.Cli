@@ -143,7 +143,10 @@ public sealed partial class UmbracoManagementClient
         new()
         {
             Name = i.Name ?? "",
-            HealthStatus = i.HealthStatus?.ToString(),
+            // HealthStatus is an object ({status, message}); ToString() on it printed the .NET
+            // type name (#243). Read the enum and the message out of it.
+            HealthStatus = i.HealthStatus?.Status?.ToString(),
+            HealthMessage = i.HealthStatus?.Message,
             DocumentCount = i.DocumentCount ?? 0,
             FieldCount = i.FieldCount ?? 0,
             CanRebuild = i.CanRebuild ?? false,
