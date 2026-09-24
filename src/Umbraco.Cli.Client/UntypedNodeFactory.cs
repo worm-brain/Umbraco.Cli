@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Kiota.Abstractions.Serialization;
 
 namespace Umbraco.Cli.Client;
@@ -115,5 +116,46 @@ public static class UntypedNodeFactory
             return new UntypedDecimal(m);
         // Out of decimal's range (e.g. very large exponents); double is the last resort.
         return new UntypedDouble(element.GetDouble());
+    }
+
+    /// <summary>
+    /// Converts an <see cref="UntypedNode"/> back into a <see cref="JsonNode"/>, the inverse of
+    /// <see cref="FromValue"/>.
+    /// <para>
+    /// Needed because property values arrive from the generated client as <c>UntypedNode</c> and,
+    /// until #187 Phase 3, were simply dropped rather than surfaced - so <c>content get</c> could
+    /// not show what a document actually held (#168), <c>data-types get</c> could not show a
+    /// dropdown's items (#170), and <c>media get</c> could not show a file's dimensions (#172).
+    /// </para>
+    /// </summary>
+    /// <param name="node">The node to convert; null yields a JSON null.</param>
+    /// <returns>The equivalent <see cref="JsonNode"/>, or null for a JSON null.</returns>
+    public static JsonNode? ToJsonNode(UntypedNode? node) =>
+        node switch
+        {
+            null or UntypedNull => null,
+            UntypedObject o => ToJsonObject(o),
+            UntypedArray a => new JsonArray([.. a.GetValue().Select(ToJsonNode)]),
+            UntypedString s when s.GetValue() is { } v => JsonValue.Create(v),
+            UntypedBoolean b => JsonValue.Create(b.GetValue()),
+            UntypedInteger i => JsonValue.Create(i.GetValue()),
+            UntypedLong l => JsonValue.Create(l.GetValue()),
+            UntypedDecimal m => JsonValue.Create(m.GetValue()),
+            UntypedDouble d => JsonValue.Create(d.GetValue()),
+            UntypedFloat f => JsonValue.Create(f.GetValue()),
+            // A node type the generator added since: fall back to its serialized form rather than
+            // dropping the value silently, which is the defect this method exists to fix.
+            _ => JsonValue.Create(node.ToString()),
+        };
+
+    /// <summary>Converts an untyped object node into a <see cref="JsonObject"/>.</summary>
+    /// <param name="node">The object node.</param>
+    /// <returns>The equivalent JSON object.</returns>
+    private static JsonObject ToJsonObject(UntypedObject node)
+    {
+        var result = new JsonObject();
+        foreach (var (key, value) in node.GetValue())
+            result[key] = ToJsonNode(value);
+        return result;
     }
 }

@@ -170,7 +170,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Id = d?.Id ?? id,
                     Name = variant?.Name ?? "",
                     ContentType = d?.DocumentType?.Id is { } dtId
-                        ? new ContentTypeReference { Id = dtId }
+                        ? new ContentTypeReference
+                        {
+                            Id = dtId,
+                            Alias = await DocumentTypeAliasAsync(dtId, ct),
+                        }
                         : null,
                     IsPublished = (d?.Variants ?? []).Any(v =>
                         v.State
@@ -179,6 +183,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     ),
                     CreateDate = variant?.CreateDate ?? default,
                     UpdateDate = variant?.UpdateDate ?? default,
+                    // #168: the whole document, not a summary of its first variant. Without these
+                    // a get -> edit -> update round-trip is impossible through the CLI alone.
+                    Values = MapValueResponses(d?.Values),
+                    Variants = MapVariantResponses(d?.Variants),
+                    Template = d?.Template?.Id is { } tplId
+                        ? new ContentTemplateReference { Id = tplId }
+                        : null,
                 };
             }
         );
@@ -188,6 +199,84 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// this client's lifetime so a second resolution does not re-walk the tree.
     /// </summary>
     private List<Guid>? _documentTypeLeafIds;
+
+    /// <summary>
+    /// Maps generated property values to the CLI-facing shape (#168/#172), converting each
+    /// <c>UntypedNode</c> back to JSON. Null in, null out: a list or tree walk carries no values,
+    /// and that is different from an item having none.
+    /// </summary>
+    /// <param name="values">The generated values, or null.</param>
+    /// <returns>The mapped values, or null.</returns>
+    private static List<ContentValueResponse>? MapValueResponses(
+        List<Gen.DocumentValueResponseModel>? values
+    ) =>
+        values
+            ?.Select(v => new ContentValueResponse
+            {
+                Alias = v.Alias ?? "",
+                Culture = v.Culture,
+                Segment = v.Segment,
+                EditorAlias = v.EditorAlias,
+                Value = UntypedNodeFactory.ToJsonNode(v.Value),
+            })
+            .ToList();
+
+    /// <summary>Maps generated variants to the CLI-facing shape (#168).</summary>
+    /// <param name="variants">The generated variants, or null.</param>
+    /// <returns>The mapped variants, or null.</returns>
+    private static List<ContentVariantResponse>? MapVariantResponses(
+        List<Gen.DocumentVariantResponseModel>? variants
+    ) =>
+        variants
+            ?.Select(v => new ContentVariantResponse
+            {
+                Culture = v.Culture,
+                Segment = v.Segment,
+                Name = v.Name ?? "",
+                State = v.State?.ToString(),
+                CreateDate = v.CreateDate,
+                UpdateDate = v.UpdateDate,
+                PublishDate = v.PublishDate,
+            })
+            .ToList();
+
+    /// <summary>Document-type id to alias, for #163. Filled in on first use, then reused.</summary>
+    private readonly Dictionary<Guid, string?> _documentTypeAliasById = [];
+
+    /// <summary>
+    /// Resolves a document type's alias from its id (#163).
+    /// <para>
+    /// The Management API's type reference on a document carries only an id, so the alias has to
+    /// be looked up. Previously the field was simply left as <c>""</c>, which read as "this type
+    /// has no alias" rather than "nobody asked". One read per distinct type, cached for the life
+    /// of the client, and a failure yields null so the field is omitted rather than faked.
+    /// </para>
+    /// </summary>
+    /// <param name="id">The document type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The alias, or null when it could not be read.</returns>
+    private async Task<string?> DocumentTypeAliasAsync(Guid id, CancellationToken ct)
+    {
+        if (_documentTypeAliasById.TryGetValue(id, out var cached))
+            return cached;
+
+        string? alias = null;
+        try
+        {
+            var dt = await _api
+                .Umbraco.Management.Api.V1.DocumentType[id]
+                .GetAsync(cancellationToken: ct);
+            alias = dt?.Alias;
+        }
+        catch (ApiException)
+        {
+            // A type that cannot be read (deleted, or no permission) must not fail the document
+            // read that only wanted its alias.
+        }
+
+        _documentTypeAliasById[id] = alias;
+        return alias;
+    }
 
     /// <summary>Document-type alias to id, filled in as candidates are read by-id.</summary>
     private readonly Dictionary<string, Guid> _documentTypeAliases = new(
@@ -1116,13 +1205,94 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Id = m?.Id ?? id,
                     Name = variant?.Name ?? "",
                     MediaType = m?.MediaType?.Id is { } mtId
-                        ? new ContentTypeReference { Id = mtId }
+                        ? new ContentTypeReference
+                        {
+                            Id = mtId,
+                            Alias = await MediaTypeAliasAsync(mtId, ct),
+                        }
                         : null,
                     CreateDate = variant?.CreateDate ?? default,
                     UpdateDate = variant?.UpdateDate ?? default,
+                    // #172: width, height, bytes and extension are all in values[]; they were
+                    // being fetched and thrown away on every read.
+                    Values = MapMediaValueResponses(m?.Values),
+                    Urls = await MediaUrlsAsync(id, ct),
                 };
             }
         );
+
+    /// <summary>Maps generated media values to the CLI-facing shape (#172).</summary>
+    /// <param name="values">The generated values, or null.</param>
+    /// <returns>The mapped values, or null.</returns>
+    private static List<ContentValueResponse>? MapMediaValueResponses(
+        List<Gen.MediaValueResponseModel>? values
+    ) =>
+        values
+            ?.Select(v => new ContentValueResponse
+            {
+                Alias = v.Alias ?? "",
+                Culture = v.Culture,
+                Segment = v.Segment,
+                EditorAlias = v.EditorAlias,
+                Value = UntypedNodeFactory.ToJsonNode(v.Value),
+            })
+            .ToList();
+
+    /// <summary>Media-type id to alias, for #163.</summary>
+    private readonly Dictionary<Guid, string?> _mediaTypeAliasById = [];
+
+    /// <summary>Resolves a media type's alias from its id (#163), cached for the client's life.</summary>
+    /// <param name="id">The media type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The alias, or null when it could not be read.</returns>
+    private async Task<string?> MediaTypeAliasAsync(Guid id, CancellationToken ct)
+    {
+        if (_mediaTypeAliasById.TryGetValue(id, out var cached))
+            return cached;
+
+        string? alias = null;
+        try
+        {
+            var mt = await _api
+                .Umbraco.Management.Api.V1.MediaType[id]
+                .GetAsync(cancellationToken: ct);
+            alias = mt?.Alias;
+        }
+        catch (ApiException)
+        {
+            // A type that cannot be read must not fail the media read that only wanted its alias.
+        }
+
+        _mediaTypeAliasById[id] = alias;
+        return alias;
+    }
+
+    /// <summary>
+    /// Reads a media item's public URLs (#172) via <c>GET media/urls</c>. The URL is not on the
+    /// by-id body, which is why <c>media get</c> could not show it despite its help saying so.
+    /// A failure yields null rather than failing the whole read.
+    /// </summary>
+    /// <param name="id">The media id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The URLs, or null when they could not be read.</returns>
+    private async Task<List<UrlInfo>?> MediaUrlsAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var urls = await _api.Umbraco.Management.Api.V1.Media.Urls.GetAsync(
+                c => c.QueryParameters.Id = [id],
+                ct
+            );
+            return (urls ?? [])
+                .SelectMany(u => u.UrlInfos ?? [])
+                .Select(u => new UrlInfo { Culture = u.Culture, Url = u.Url ?? "" })
+                .ToList();
+        }
+        catch (ApiException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>
     /// Resolves a media-type reference - a name (e.g. <c>Image</c>) or a GUID id - to its id.
@@ -1231,6 +1401,17 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
                 // The create response is empty; the id is the client-generated one and the name is
                 // echoed so the command reports a populated item rather than a blank one (#74).
+                // #172: the create response is empty, so this used to echo back a fabricated item
+                // carrying only the id and name the caller already had. Re-read instead, so the
+                // caller gets the URL, dimensions and size of what was actually stored.
+                //
+                // The re-read is best-effort in both directions: a failed read must not fail an
+                // upload that succeeded, and a read that comes back blank must not overwrite what
+                // we already know. So the supplied name stands in whenever the re-read has none
+                // (#74 - the returned item is never blanked).
+                var hydrated = await GetMediaByIdAsync(mediaId, ct);
+                if (hydrated.IsSuccess && hydrated.Data is { } stored)
+                    return string.IsNullOrEmpty(stored.Name) ? stored with { Name = name } : stored;
                 return new MediaItemResponse { Id = mediaId, Name = name };
             }
         );
@@ -1613,6 +1794,45 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Description = dt?.Description,
                     IsElement = dt?.IsElement ?? false,
                     AllowedAsRoot = dt?.AllowedAsRoot ?? false,
+                    Icon = dt?.Icon,
+                    VariesByCulture = dt?.VariesByCulture ?? false,
+                    VariesBySegment = dt?.VariesBySegment ?? false,
+                    // #160: the help text promised these for three releases while the mapping
+                    // dropped them, which is why authoring a property needed a schema round-trip.
+                    Properties = dt
+                        ?.Properties?.Select(p => new DocumentTypePropertyResponse
+                        {
+                            Id = p.Id,
+                            Alias = p.Alias ?? "",
+                            Name = p.Name ?? "",
+                            Description = p.Description,
+                            DataType = p.DataType?.Id,
+                            Container = p.Container?.Id,
+                            SortOrder = p.SortOrder ?? 0,
+                            VariesByCulture = p.VariesByCulture ?? false,
+                            VariesBySegment = p.VariesBySegment ?? false,
+                        })
+                        .ToList(),
+                    Containers = dt
+                        ?.Containers?.Select(c => new DocumentTypeContainerResponse
+                        {
+                            Id = c.Id,
+                            Name = c.Name ?? "",
+                            Type = c.Type,
+                            SortOrder = c.SortOrder ?? 0,
+                        })
+                        .ToList(),
+                    Compositions = dt
+                        ?.Compositions?.Select(c => c.DocumentType?.Id)
+                        .Where(g => g is not null)
+                        .Select(g => g!.Value)
+                        .ToList(),
+                    AllowedTemplates = dt
+                        ?.AllowedTemplates?.Select(t => t.Id)
+                        .Where(g => g is not null)
+                        .Select(g => g!.Value)
+                        .ToList(),
+                    DefaultTemplate = dt?.DefaultTemplate?.Id,
                 };
             }
         );
@@ -1797,6 +2017,14 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Name = dt?.Name ?? "",
                     EditorAlias = dt?.EditorAlias ?? "",
                     EditorUiAlias = dt?.EditorUiAlias,
+                    // #170: the editor configuration - a dropdown's items, a picker's filters.
+                    Values = dt
+                        ?.Values?.Select(v => new DataTypeValueResponse
+                        {
+                            Alias = v.Alias ?? "",
+                            Value = UntypedNodeFactory.ToJsonNode(v.Value),
+                        })
+                        .ToList(),
                 };
             }
         );
