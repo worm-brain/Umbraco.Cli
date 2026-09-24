@@ -16,13 +16,16 @@ Project-specific terms. Add entries as concepts are introduced.
   `src/Umbraco.Cli.Client/Generated`, produced from `spec/management.json` by
   `scripts/regen-client.ps1`.
 - **Schema (in the pipeline sense)** — the structural definitions of an Umbraco
-  site: document types, data types, and templates. Distinct from **content**
+  site: document types, media types, member types, data types, and templates. Distinct from
+  **content**
   (the documents/media authored against that schema). Schema export/diff/apply is
   ADR 0005; the parallel pipeline for content is ADR 0006. See
   [ADR 0005](adr/0005-schema-export-diff-apply.md).
 - **Snapshot** — a single JSON document produced by `schema export` holding the
-  verbatim Management-API bodies of every document type, data type, and template
-  (`{ schemaVersion, documentTypes[], dataTypes[], templates[] }`). The
+  verbatim Management-API bodies of every document type, media type, member type, data type
+  and template
+  (`{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[] }`).
+  The
   round-trippable, portable representation that `diff` and `apply` consume.
 - **Raw-JSON passthrough** — the snapshot fidelity decision: capture each
   entity's verbatim get-by-id body rather than a re-modelled projection, because

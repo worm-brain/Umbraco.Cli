@@ -302,11 +302,10 @@ rather than "no alias".
 
 Two escape hatches remain useful:
 
-1. **`umbraco schema export`** returns verbatim `GET /document-type/{id}`, `/data-type/{id}` and
-   `/template/{id}` bodies - full fidelity, no projection. This is the right way to read schema.
-   It covers **only those three**: member types and media types are not in the snapshot
-   ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)), so this escape hatch does not
-   reach them.
+1. **`umbraco schema export`** returns the verbatim get-by-id body of every document type,
+   media type, member type, data type and template - full fidelity, no projection. This is the
+   right way to read schema, and it now covers all five kinds
+   ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)).
 2. **A direct Management API call** for everything else, using the same credentials - see
    "Getting a token for the direct calls above" below.
 
@@ -378,9 +377,11 @@ umbraco content domains set "$ID" --default en-US \
   --domain example.com=en-US --domain example.com/da=da-DK
 ```
 
-Still needing a direct Management API call: **member types with properties** and **media types**,
-which the snapshot does not carry
-([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)).
+Member types with properties and media types are in the snapshot too
+([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)), so the round-trip above reaches them
+as well. Note the snapshot format is now **version 2**: a version-1 file exported by an older
+CLI is refused, because reading it would look like "this instance should have no media or member
+types" and `apply --prune` would act on that. Re-export.
 
 ### Getting a token for the direct calls above
 
@@ -469,8 +470,8 @@ umbraco content create --content-type blogPost --name "Hello" --id 3f2a...  # sa
 
 ### Move schema between environments
 
-Export document types, data types, and templates to a portable snapshot, diff it against a
-target, then apply. See [commands.md](commands.md#schema-export--diff--apply).
+Export every schema entity - document types, media types, member types, data types and
+templates - to a portable snapshot, diff it against a target, then apply. See [commands.md](commands.md#schema-export--diff--apply).
 
 ```bash
 umbraco schema export --out schema.json                 # from source

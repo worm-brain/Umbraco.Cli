@@ -816,6 +816,22 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>Canned raw bodies returned by <see cref="GetTemplateRawAsync"/>, keyed by id.</summary>
     public Dictionary<Guid, JsonNode> TemplateRaw { get; } = [];
 
+    /// <summary>
+    /// The ids <see cref="GetMediaTypeIdsAsync"/> enumerates (#186). Deliberately separate from
+    /// <see cref="MediaTypeRaw"/> so a test can enumerate an id whose body is missing - the
+    /// fail-fast case, which a keys-driven enumeration could never produce.
+    /// </summary>
+    public List<Guid> MediaTypeIds { get; } = [];
+
+    /// <summary>The ids <see cref="GetMemberTypeIdsAsync"/> enumerates (#186).</summary>
+    public List<Guid> MemberTypeIds { get; } = [];
+
+    /// <summary>Canned raw bodies returned by <see cref="GetMediaTypeRawAsync"/>, keyed by id (#186).</summary>
+    public Dictionary<Guid, JsonNode> MediaTypeRaw { get; } = [];
+
+    /// <summary>Canned raw bodies returned by <see cref="GetMemberTypeRawAsync"/>, keyed by id (#186).</summary>
+    public Dictionary<Guid, JsonNode> MemberTypeRaw { get; } = [];
+
     /// <summary>One recorded raw write: entity kind, target id (null = create), and body sent.</summary>
     public sealed record RawWrite(string Kind, Guid? Id, JsonNode Body);
 
@@ -849,6 +865,14 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         Task.FromResult(
             UmbracoResponse<IReadOnlyList<Guid>>.Success(TemplateList.Select(t => t.Id).ToList())
         );
+
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMediaTypeIdsAsync(
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(MediaTypeIds.ToList()));
+
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMemberTypeIdsAsync(
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(MemberTypeIds.ToList()));
 
     private static Task<UmbracoResponse<JsonNode>> Raw(Dictionary<Guid, JsonNode> store, Guid id) =>
         Task.FromResult(
@@ -910,6 +934,38 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         JsonNode body,
         CancellationToken ct = default
     ) => RecordWrite("template", id, body);
+
+    public Task<UmbracoResponse<JsonNode>> GetMediaTypeRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => Raw(MediaTypeRaw, id);
+
+    public Task<UmbracoResponse<JsonNode>> GetMemberTypeRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => Raw(MemberTypeRaw, id);
+
+    public Task<UmbracoResponse<Empty>> CreateMediaTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("mediaType", null, body);
+
+    public Task<UmbracoResponse<Empty>> UpdateMediaTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("mediaType", id, body);
+
+    public Task<UmbracoResponse<Empty>> CreateMemberTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("memberType", null, body);
+
+    public Task<UmbracoResponse<Empty>> UpdateMemberTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("memberType", id, body);
 
     // ── Content snapshot raw-JSON access (IContentSnapshotClient, #100) ─────────
     // Mirrors the schema harness: DocumentTree drives enumeration, DocumentRaw hands out canned

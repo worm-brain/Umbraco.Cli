@@ -4,13 +4,19 @@ using System.Text.Json.Serialization;
 namespace Umbraco.Cli.Commands.Schema;
 
 /// <summary>
-/// The three schema entity-kind tags (issue #68), shared by the diff engine, applier, and
-/// command output so the strings are defined once rather than re-declared per file.
+/// The five schema entity-kind tags (issue #68, extended by #186), shared by the diff engine,
+/// applier, and command output so the strings are defined once rather than re-declared per file.
 /// </summary>
 public static class SchemaKinds
 {
     /// <summary>Document type kind tag.</summary>
     public const string DocumentType = "documentType";
+
+    /// <summary>Media type kind tag (#186).</summary>
+    public const string MediaType = "mediaType";
+
+    /// <summary>Member type kind tag (#186).</summary>
+    public const string MemberType = "memberType";
 
     /// <summary>Data type kind tag.</summary>
     public const string DataType = "dataType";
@@ -46,7 +52,7 @@ public enum SchemaChangeKind
 /// the <see cref="DesiredBody"/> it also carries (but does not serialize) is what
 /// <c>apply</c> sends.
 /// </summary>
-/// <param name="Kind">The entity kind: <c>documentType</c>, <c>dataType</c>, or <c>template</c>.</param>
+/// <param name="Kind">The entity kind: <c>documentType</c>, <c>mediaType</c>, <c>memberType</c>, <c>dataType</c>, or <c>template</c>.</param>
 /// <param name="Change">How the entity differs.</param>
 /// <param name="Identity">The human identity (alias for doc types/templates, name for data types).</param>
 /// <param name="DesiredId">The entity id in the snapshot, or null for a <see cref="SchemaChangeKind.Removed"/> entity.</param>
@@ -97,15 +103,19 @@ public sealed record SchemaKindDiff(
 }
 
 /// <summary>
-/// The full schema diff across all three entity kinds (issue #68). Produced by
+/// The full schema diff across every entity kind (issue #68, extended by #186). Produced by
 /// <see cref="SchemaDiffEngine"/>, rendered by <c>schema diff</c>, and consumed by
 /// <c>schema apply</c>.
 /// </summary>
 /// <param name="DocumentTypes">Document-type differences.</param>
+/// <param name="MediaTypes">Media-type differences.</param>
+/// <param name="MemberTypes">Member-type differences.</param>
 /// <param name="DataTypes">Data-type differences.</param>
 /// <param name="Templates">Template differences.</param>
 public sealed record SchemaDiff(
     SchemaKindDiff DocumentTypes,
+    SchemaKindDiff MediaTypes,
+    SchemaKindDiff MemberTypes,
     SchemaKindDiff DataTypes,
     SchemaKindDiff Templates
 )
@@ -113,5 +123,9 @@ public sealed record SchemaDiff(
     /// <summary>Whether any kind has an actionable difference — i.e. apply would do something.</summary>
     [JsonIgnore]
     public bool HasChanges =>
-        DocumentTypes.HasChanges || DataTypes.HasChanges || Templates.HasChanges;
+        DocumentTypes.HasChanges
+        || MediaTypes.HasChanges
+        || MemberTypes.HasChanges
+        || DataTypes.HasChanges
+        || Templates.HasChanges;
 }

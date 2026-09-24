@@ -215,4 +215,61 @@ public class SchemaDiffEngineTests
         var diff = SchemaDiffEngine.Compare(new SchemaSnapshot(), new SchemaSnapshot());
         Assert.False(diff.HasChanges);
     }
+
+    /// <summary>
+    /// Media types and member types diff by <c>alias</c>, exactly as document types do (#186).
+    /// Before this they were absent from the snapshot entirely, so a changed media type was
+    /// invisible to <c>schema diff</c>.
+    /// </summary>
+    [Fact]
+    public void Compare_MediaTypeAndMemberType_AreDiffedByAlias()
+    {
+        var mediaId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var desired = new SchemaSnapshot
+        {
+            MediaTypes = [Entity(mediaId, "customImage", "Renamed Image")],
+            MemberTypes = [Entity(memberId, "subscriber", "Subscriber")],
+        };
+        var current = new SchemaSnapshot
+        {
+            MediaTypes = [Entity(mediaId, "customImage", "Custom Image")],
+            MemberTypes = [Entity(memberId, "subscriber", "Subscriber")],
+        };
+
+        var diff = SchemaDiffEngine.Compare(desired, current);
+
+        var changed = Assert.Single(diff.MediaTypes.Changed);
+        Assert.Equal("customImage", changed.Identity);
+        Assert.Equal(SchemaKinds.MediaType, changed.Kind);
+        // The identical member type is counted, not listed.
+        Assert.Empty(diff.MemberTypes.Changed);
+        Assert.Equal(1, diff.MemberTypes.Unchanged);
+    }
+
+    [Fact]
+    public void Compare_MemberTypeMissingLive_IsAnAddition()
+    {
+        var desired = new SchemaSnapshot
+        {
+            MemberTypes = [Entity(Guid.NewGuid(), "subscriber", "Subscriber")],
+        };
+
+        var diff = SchemaDiffEngine.Compare(desired, new SchemaSnapshot());
+
+        Assert.Equal("subscriber", Assert.Single(diff.MemberTypes.Added).Identity);
+    }
+
+    /// <summary>An entity body carrying an id, an alias and a name.</summary>
+    /// <param name="id">The entity id.</param>
+    /// <param name="alias">The alias it is matched on.</param>
+    /// <param name="name">The name, which is what differs between the two sides.</param>
+    /// <returns>The body.</returns>
+    private static JsonNode Entity(Guid id, string alias, string name) =>
+        new JsonObject
+        {
+            ["id"] = id.ToString(),
+            ["alias"] = alias,
+            ["name"] = name,
+        };
 }

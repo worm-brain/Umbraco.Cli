@@ -673,12 +673,12 @@ umbraco property-type is-used --content-type <id> --alias <alias>
 
 ## `schema` (export / diff / apply)
 
-Dump the site's **schema** - document types, data types, and templates - to a portable JSON
-snapshot, diff it against a live instance, and apply the difference. Complements uSync for CI
+Dump the site's **schema** - document types, media types, member types, data types and
+templates - to a portable JSON snapshot, diff it against a live instance, and apply the difference. Complements uSync for CI
 pipelines. (Issue #68; [ADR 0005](adr/0005-schema-export-diff-apply.md).)
 
 ```bash
-umbraco schema export --out schema.json                    # export all doc types, data types, templates
+umbraco schema export --out schema.json                    # export every schema entity
 umbraco schema diff schema.json                            # what differs (read-only; empty == in sync)
 umbraco schema export | umbraco schema diff -              # pipe an export straight into a diff
 umbraco schema apply schema.json --dry-run                 # preview the full apply plan
@@ -690,14 +690,19 @@ How it works:
 
 - **Fidelity** - the snapshot stores each entity's verbatim Management-API body, so nothing is
   lost (document-type properties/compositions, data-type configuration, template Razor). The
-  snapshot is `{ schemaVersion, documentTypes[], dataTypes[], templates[] }`.
+  snapshot is
+  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[] }`.
+  Media types and member types joined in **snapshot version 2**
+  ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)); a version-1 file is refused rather than read as "this instance
+  should have no media or member types", which `apply --prune` would act on. Re-export.
 - **Matching** - diff/apply pair a snapshot entity to a live one by **id first, then human key**
-  (alias for document types/templates, name for data types), so a snapshot is idempotent against
+  (alias for document, media and member types and templates, name for data types), so a
+  snapshot is idempotent against
   its own instance and portable to another. An id-only-vs-key match is flagged `idMismatch`.
 - **Safety** - `apply` respects the global guardrails: `--dry-run` previews and writes nothing,
   `--readonly` blocks it, and `--prune` requires confirmation / `--yes`. Writes run in dependency
-  order (data types -> templates -> document types, topologically sorted within each) and stop at
-  the first failure.
+  order (data types -> templates -> media types -> member types -> document types,
+  topologically sorted within each) and stop at the first failure; prune deletes in reverse.
 
 ## `content` (export / diff / apply)
 

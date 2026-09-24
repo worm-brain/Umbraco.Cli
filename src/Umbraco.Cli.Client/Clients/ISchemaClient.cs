@@ -113,6 +113,73 @@ public interface ISchemaClient
     /// <param name="body">The full template JSON body (including a client-supplied <c>id</c> and Razor <c>content</c>).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
+    /// <summary>
+    /// Enumerates every media type id by walking the media-type tree (#186). Folders are skipped
+    /// but descended into, as for document types.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every media type id, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMediaTypeIdsAsync(CancellationToken ct = default);
+
+    /// <summary>Enumerates every member type id by walking the member-type tree (#186).</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every member type id, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMemberTypeIdsAsync(
+        CancellationToken ct = default
+    );
+
+    /// <summary>Reads a media type's verbatim body (<c>GET /media-type/{id}</c>).</summary>
+    /// <param name="id">The media type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The raw body, or a mapped failure.</returns>
+    Task<UmbracoResponse<JsonNode>> GetMediaTypeRawAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Reads a member type's verbatim body (<c>GET /member-type/{id}</c>).</summary>
+    /// <param name="id">The member type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The raw body, or a mapped failure.</returns>
+    Task<UmbracoResponse<JsonNode>> GetMemberTypeRawAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Creates a media type from a verbatim body (<c>POST /media-type</c>).</summary>
+    /// <param name="body">The full media-type JSON body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> CreateMediaTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    );
+
+    /// <summary>Replaces a media type from a verbatim body (<c>PUT /media-type/{id}</c>).</summary>
+    /// <param name="id">The media type id.</param>
+    /// <param name="body">The full replacement body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> UpdateMediaTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    );
+
+    /// <summary>Creates a member type from a verbatim body (<c>POST /member-type</c>).</summary>
+    /// <param name="body">The full member-type JSON body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> CreateMemberTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    );
+
+    /// <summary>Replaces a member type from a verbatim body (<c>PUT /member-type/{id}</c>).</summary>
+    /// <param name="id">The member type id.</param>
+    /// <param name="body">The full replacement body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> UpdateMemberTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    );
+
     Task<UmbracoResponse<Empty>> CreateTemplateRawAsync(
         JsonNode body,
         CancellationToken ct = default

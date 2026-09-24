@@ -17,8 +17,8 @@ namespace Umbraco.Cli.Commands.Schema;
 public static class SchemaExporter
 {
     /// <summary>
-    /// Exports the full schema (document types, data types, templates) of the instance behind
-    /// <paramref name="client"/> into a snapshot.
+    /// Exports the full schema (document types, media types, member types, data types,
+    /// templates) of the instance behind <paramref name="client"/> into a snapshot.
     /// </summary>
     /// <param name="client">The authenticated management client.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -49,10 +49,28 @@ public static class SchemaExporter
         if (!templates.IsSuccess)
             return Fail(templates);
 
+        // #186: media types and member types were the one part of the schema the snapshot could
+        // not carry, so authoring either one meant a direct Management API call.
+        var mediaTypes = await CollectAsync(
+            () => client.GetMediaTypeIdsAsync(ct),
+            id => client.GetMediaTypeRawAsync(id, ct)
+        );
+        if (!mediaTypes.IsSuccess)
+            return Fail(mediaTypes);
+
+        var memberTypes = await CollectAsync(
+            () => client.GetMemberTypeIdsAsync(ct),
+            id => client.GetMemberTypeRawAsync(id, ct)
+        );
+        if (!memberTypes.IsSuccess)
+            return Fail(memberTypes);
+
         return UmbracoResponse<SchemaSnapshot>.Success(
             new SchemaSnapshot
             {
                 DocumentTypes = docTypes.Data!,
+                MediaTypes = mediaTypes.Data!,
+                MemberTypes = memberTypes.Data!,
                 DataTypes = dataTypes.Data!,
                 Templates = templates.Data!,
             }

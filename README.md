@@ -33,7 +33,8 @@ An AI agent that prefers calling a subprocess can drive it too (see the
 
 ## What this is
 
-- **Environment sync** - export document types, data types, and templates (and content
+- **Environment sync** - export document types, media types, member types, data types and
+  templates (and content
   subtrees) to a portable JSON snapshot, diff it against a live instance, and apply the
   difference. Drift detection and environment promotion for CI; complements uSync.
 - **Bulk operations** - publish, unpublish, or delete many items from a file or stdin, each
@@ -49,9 +50,8 @@ An AI agent that prefers calling a subprocess can drive it too (see the
   user groups, redirects, relations, Examine, and diagnostics (server, health, log viewer,
   models builder, manifest). Every command is in [docs/commands.md](docs/commands.md). Writes
   cover domains, media folders, member groups and passwords, dictionary updates, and authoring
-  document types and data types in full via `--json-body`. Still uncovered: **member types and
-  media types in the schema snapshot**
-  ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)). Reads return the full item.
+  document types and data types in full via `--json-body`, and the schema snapshot carries
+  every type kind including media types and member types. Reads return the full item.
 - **.NET-native and cross-platform** - Windows, macOS, Linux via .NET 9; no Node runtime.
 
 ---

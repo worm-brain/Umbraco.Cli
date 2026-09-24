@@ -60,6 +60,24 @@ public sealed partial class UmbracoManagementClient
             async () => await WalkTreeAsync(FetchTemplateTree, parent: null, ct)
         );
 
+    /// <inheritdoc />
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMediaTypeIdsAsync(
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync<IReadOnlyList<Guid>>(
+            ct,
+            async () => await WalkTreeAsync(FetchMediaTypeTree, parent: null, ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMemberTypeIdsAsync(
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync<IReadOnlyList<Guid>>(
+            ct,
+            async () => await WalkTreeAsync(FetchMemberTypeTree, parent: null, ct)
+        );
+
     /// <summary>
     /// Recursively enumerates a schema tree, returning the ids of every non-folder entity.
     /// Folders are not returned (they are not gettable as the entity) but are descended into;
@@ -157,6 +175,94 @@ public sealed partial class UmbracoManagementClient
             );
         else
             paged = await _api.Umbraco.Management.Api.V1.Tree.DataType.Children.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.ParentId = parent;
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+
+        var items = (paged?.Items ?? [])
+            .Select(i => new TreeNode(
+                i.Id ?? Guid.Empty,
+                i.IsFolder ?? false,
+                i.HasChildren ?? false
+            ))
+            .ToList();
+        return (items, (int)(paged?.Total ?? 0));
+    }
+
+    /// <summary>Fetches one page of the media-type tree (root when <paramref name="parent"/> is null).</summary>
+    /// <param name="parent">The parent folder id, or null for the tree root.</param>
+    /// <param name="skip">Items to skip.</param>
+    /// <param name="take">Page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The page's nodes and the total count.</returns>
+    private async Task<(List<TreeNode>, int)> FetchMediaTypeTree(
+        Guid? parent,
+        int skip,
+        int take,
+        CancellationToken ct
+    )
+    {
+        Gen.PagedMediaTypeTreeItemResponseModel? paged;
+        if (parent is null)
+            paged = await _api.Umbraco.Management.Api.V1.Tree.MediaType.Root.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+        else
+            paged = await _api.Umbraco.Management.Api.V1.Tree.MediaType.Children.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.ParentId = parent;
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+
+        var items = (paged?.Items ?? [])
+            .Select(i => new TreeNode(
+                i.Id ?? Guid.Empty,
+                i.IsFolder ?? false,
+                i.HasChildren ?? false
+            ))
+            .ToList();
+        return (items, (int)(paged?.Total ?? 0));
+    }
+
+    /// <summary>Fetches one page of the member-type tree (root when <paramref name="parent"/> is null).</summary>
+    /// <param name="parent">The parent folder id, or null for the tree root.</param>
+    /// <param name="skip">Items to skip.</param>
+    /// <param name="take">Page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The page's nodes and the total count.</returns>
+    private async Task<(List<TreeNode>, int)> FetchMemberTypeTree(
+        Guid? parent,
+        int skip,
+        int take,
+        CancellationToken ct
+    )
+    {
+        Gen.PagedMemberTypeTreeItemResponseModel? paged;
+        if (parent is null)
+            paged = await _api.Umbraco.Management.Api.V1.Tree.MemberType.Root.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+        else
+            paged = await _api.Umbraco.Management.Api.V1.Tree.MemberType.Children.GetAsync(
                 c =>
                 {
                     c.QueryParameters.ParentId = parent;
@@ -284,6 +390,75 @@ public sealed partial class UmbracoManagementClient
             ct,
             () =>
                 SendRawJsonAsync(Method.PUT, $"umbraco/management/api/v1/data-type/{id}", body, ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> GetMediaTypeRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => GetRawJsonAsync($"umbraco/management/api/v1/media-type/{id}", ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> GetMemberTypeRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => GetRawJsonAsync($"umbraco/management/api/v1/member-type/{id}", ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> CreateMediaTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => SendRawJsonAsync(Method.POST, "umbraco/management/api/v1/media-type", body, ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> UpdateMediaTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () =>
+                SendRawJsonAsync(Method.PUT, $"umbraco/management/api/v1/media-type/{id}", body, ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> CreateMemberTypeRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => SendRawJsonAsync(Method.POST, "umbraco/management/api/v1/member-type", body, ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> UpdateMemberTypeRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () =>
+                SendRawJsonAsync(
+                    Method.PUT,
+                    $"umbraco/management/api/v1/member-type/{id}",
+                    body,
+                    ct
+                )
         );
 
     /// <inheritdoc />
