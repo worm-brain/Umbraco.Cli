@@ -154,6 +154,14 @@ public class CommandParseTests
     [InlineData("content-types get blogPost")]
     [InlineData("data-types get Textstring")]
     [InlineData("languages create --culture da-DK --fallback en-US")]
+    // #161/#169: the schema verbs take a full body, and --schema needs no other argument.
+    [InlineData("content-types create --json-body t.json")]
+    [InlineData("content-types create --schema")]
+    [InlineData("content-types update blogPost --json-body t.json")]
+    [InlineData("content-types update --schema")]
+    [InlineData("data-types create --json-body d.json")]
+    [InlineData("data-types update Textstring --json-body d.json")]
+    [InlineData("data-types update --schema")]
     public void WriteCommand_ValidOrSchema_IsNotParseError(string args) =>
         Assert.False(HasErrors(args));
 

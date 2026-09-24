@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.DataTypes;
@@ -19,15 +20,14 @@ public static class DataTypesCreateCommand
             "create",
             "Create a data type (property editor configuration).\n\nExample:\n  umbraco data-types create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
         );
-        var nameOpt = new Option<string>("--name") { Required = true };
+        var body = RawBodyCommand.AddBodyOptions(cmd);
+        var nameOpt = new Option<string>("--name");
         var editorAliasOpt = new Option<string>("--editor-alias")
         {
-            Required = true,
             Description = "Backend property editor alias (e.g. Umbraco.TextBox).",
         };
         var editorUiAliasOpt = new Option<string>("--editor-ui-alias")
         {
-            Required = true,
             Description = "Backoffice editor UI alias (e.g. Umb.PropertyEditorUi.TextBox).",
         };
         var idOpt = new Option<Guid?>("--id")
@@ -38,9 +38,54 @@ public static class DataTypesCreateCommand
         cmd.Add(editorAliasOpt);
         cmd.Add(editorUiAliasOpt);
         cmd.Add(idOpt);
+
+        cmd.Validators.Add(result =>
+        {
+            if (body.SchemaRequested(result) || body.HasBody(result))
+                return;
+            if (
+                string.IsNullOrEmpty(result.GetValue(nameOpt))
+                || string.IsNullOrEmpty(result.GetValue(editorAliasOpt))
+                || string.IsNullOrEmpty(result.GetValue(editorUiAliasOpt))
+            )
+                result.AddError(
+                    "Supply --name, --editor-alias and --editor-ui-alias, or a full body with "
+                        + "--json-body. Run with --schema to print a real data type as a starting point."
+                );
+        });
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunObjectAsync(
+            {
+                if (body.SchemaRequested(parseResult))
+                    return executor.RunObjectAsync(
+                        parseResult,
+                        "data-types.create",
+                        (client, c) =>
+                            RawBodyCommand.ExampleAsync(
+                                client,
+                                client.GetDataTypeIdsAsync,
+                                client.GetDataTypeRawAsync,
+                                "data types",
+                                c
+                            ),
+                        ct
+                    );
+
+                if (body.HasBody(parseResult))
+                    return executor.RunMessageAsync(
+                        parseResult,
+                        "data-types.create",
+                        async (client, c) =>
+                            await client.CreateDataTypeRawAsync(
+                                JsonNode.Parse(await body.ReadAsync(parseResult, c))
+                                    ?? throw new InvalidOperationException("Invalid JSON body."),
+                                c
+                            ),
+                        "Data type created.",
+                        ct
+                    );
+
+                return executor.RunObjectAsync(
                     parseResult,
                     "data-types.create",
                     (client, c) =>
@@ -55,7 +100,8 @@ public static class DataTypesCreateCommand
                             c
                         ),
                     ct
-                )
+                );
+            }
         );
 
         return cmd;

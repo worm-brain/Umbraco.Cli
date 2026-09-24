@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.ContentTypes;
@@ -20,8 +21,9 @@ public static class ContentTypesCreateCommand
             "create",
             "Create a new document type with a given name and alias.\n\nExamples:\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
         );
-        var nameOpt = new Option<string>("--name") { Required = true };
-        var aliasOpt = new Option<string>("--alias") { Required = true };
+        var body = RawBodyCommand.AddBodyOptions(cmd);
+        var nameOpt = new Option<string>("--name");
+        var aliasOpt = new Option<string>("--alias");
         var descOpt = new Option<string?>("--description");
         var iconOpt = new Option<string>("--icon")
         {
@@ -41,9 +43,56 @@ public static class ContentTypesCreateCommand
         cmd.Add(isElementOpt);
         cmd.Add(allowRootOpt);
         cmd.Add(idOpt);
+
+        // --name/--alias are required only for the flag-built create; a --json-body carries them
+        // itself, and --schema builds nothing at all.
+        cmd.Validators.Add(result =>
+        {
+            if (body.SchemaRequested(result) || body.HasBody(result))
+                return;
+            if (
+                string.IsNullOrEmpty(result.GetValue(nameOpt))
+                || string.IsNullOrEmpty(result.GetValue(aliasOpt))
+            )
+                result.AddError(
+                    "Supply --name and --alias, or a full body with --json-body. "
+                        + "Run with --schema to print a real document type as a starting point."
+                );
+        });
+
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunObjectAsync(
+            {
+                if (body.SchemaRequested(parseResult))
+                    return executor.RunObjectAsync(
+                        parseResult,
+                        "content-types.create",
+                        (client, c) =>
+                            RawBodyCommand.ExampleAsync(
+                                client,
+                                client.GetDocumentTypeIdsAsync,
+                                client.GetDocumentTypeRawAsync,
+                                "document types",
+                                c
+                            ),
+                        ct
+                    );
+
+                if (body.HasBody(parseResult))
+                    return executor.RunMessageAsync(
+                        parseResult,
+                        "content-types.create",
+                        async (client, c) =>
+                            await client.CreateDocumentTypeRawAsync(
+                                JsonNode.Parse(await body.ReadAsync(parseResult, c))
+                                    ?? throw new InvalidOperationException("Invalid JSON body."),
+                                c
+                            ),
+                        "Document type created.",
+                        ct
+                    );
+
+                return executor.RunObjectAsync(
                     parseResult,
                     "content-types.create",
                     (client, c) =>
@@ -61,7 +110,8 @@ public static class ContentTypesCreateCommand
                             c
                         ),
                     ct
-                )
+                );
+            }
         );
 
         return cmd;

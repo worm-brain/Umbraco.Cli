@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.DataTypes;
@@ -19,7 +20,12 @@ public static class DataTypesUpdateCommand
             "update",
             "Update a data type by UUID. Omitted fields (and editor configuration) are preserved.\n\nExample:\n  umbraco data-types update 3f7a8b2e-... --name \"My Text\""
         );
-        var idArg = new Argument<Guid>("id") { Description = "Data type ID." };
+        var idArg = new Argument<string?>("id")
+        {
+            Description = "Data type name or UUID. Required unless --schema is used.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
+        var body = RawBodyCommand.AddBodyOptions(cmd);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var editorAliasOpt = new Option<string?>("--editor-alias")
         {
@@ -33,14 +39,82 @@ public static class DataTypesUpdateCommand
         cmd.Add(nameOpt);
         cmd.Add(editorAliasOpt);
         cmd.Add(editorUiAliasOpt);
+
+        cmd.Validators.Add(result =>
+        {
+            if (body.SchemaRequested(result))
+                return;
+            if (string.IsNullOrEmpty(result.GetValue(idArg)))
+                result.AddError(
+                    "Supply the data type name or id. "
+                        + "Run with --schema to print a real data type as a starting point."
+                );
+        });
+
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunMessageAsync(
+            {
+                if (body.SchemaRequested(parseResult))
+                    return executor.RunObjectAsync(
+                        parseResult,
+                        "data-types.update",
+                        (client, c) =>
+                            RawBodyCommand.ExampleAsync(
+                                client,
+                                client.GetDataTypeIdsAsync,
+                                client.GetDataTypeRawAsync,
+                                "data types",
+                                c
+                            ),
+                        ct
+                    );
+
+                if (body.HasBody(parseResult))
+                    return executor.RunMessageAsync(
+                        parseResult,
+                        "data-types.update",
+                        async (client, c) =>
+                        {
+                            var resolved = await client.GetDataTypeAsync(
+                                parseResult.GetValue(idArg)!,
+                                c
+                            );
+                            if (!resolved.IsSuccess)
+                                return UmbracoResponse<Empty>.Failure(
+                                    resolved.StatusCode,
+                                    resolved.ErrorMessage!,
+                                    resolved.Category
+                                );
+
+                            return await client.UpdateDataTypeRawAsync(
+                                resolved.Data!.Id,
+                                JsonNode.Parse(await body.ReadAsync(parseResult, c))
+                                    ?? throw new InvalidOperationException("Invalid JSON body."),
+                                c
+                            );
+                        },
+                        "Data type updated.",
+                        ct
+                    );
+
+                return executor.RunMessageAsync(
                     parseResult,
                     "data-types.update",
-                    (client, c) =>
-                        client.UpdateDataTypeAsync(
-                            parseResult.GetValue(idArg),
+                    async (client, c) =>
+                    {
+                        var resolved = await client.GetDataTypeAsync(
+                            parseResult.GetValue(idArg)!,
+                            c
+                        );
+                        if (!resolved.IsSuccess)
+                            return UmbracoResponse<Empty>.Failure(
+                                resolved.StatusCode,
+                                resolved.ErrorMessage!,
+                                resolved.Category
+                            );
+
+                        return await client.UpdateDataTypeAsync(
+                            resolved.Data!.Id,
                             new UpdateDataTypeRequest
                             {
                                 Name = parseResult.GetValue(nameOpt),
@@ -48,10 +122,12 @@ public static class DataTypesUpdateCommand
                                 EditorUiAlias = parseResult.GetValue(editorUiAliasOpt),
                             },
                             c
-                        ),
+                        );
+                    },
                     "Data type updated.",
                     ct
-                )
+                );
+            }
         );
 
         return cmd;
