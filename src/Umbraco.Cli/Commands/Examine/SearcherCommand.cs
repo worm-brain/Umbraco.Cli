@@ -28,7 +28,7 @@ public static class SearcherCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "searcher.list",
                     (client, c) =>
@@ -38,7 +38,9 @@ public static class SearcherCommand
                             c
                         ),
                     new[] { "Name" },
-                    data => (data?.Items ?? []).Select(s => new[] { s.Name }),
+                    s => new[] { s.Name },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );
@@ -59,7 +61,7 @@ public static class SearcherCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "searcher.query",
                     (client, c) =>
@@ -71,8 +73,9 @@ public static class SearcherCommand
                             c
                         ),
                     new[] { "Id", "Score" },
-                    data =>
-                        (data?.Items ?? []).Select(r => new[] { r.Id, r.Score.ToString("0.###") }),
+                    r => new[] { r.Id, r.Score.ToString("0.###") },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

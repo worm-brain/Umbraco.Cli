@@ -20,7 +20,7 @@ public static class MembersListCommand
         cmd.Add(takeOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "members.list",
                     (client, c) =>
@@ -31,11 +31,9 @@ public static class MembersListCommand
                             c
                         ),
                     ["ID", "Name", "Email", "Approved"],
-                    data =>
-                        data?.Items.Select(i =>
-                            new[] { i.Id.ToString(), i.Name, i.Email, i.IsApproved.ToString() }
-                        )
-                        ?? [],
+                    i => new[] { i.Id.ToString(), i.Name, i.Email, i.IsApproved.ToString() },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

@@ -54,12 +54,12 @@ public static class ServerCommand
         var cmd = new Command("troubleshooting", "List server troubleshooting items.");
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunCompleteListAsync(
                     parseResult,
                     "server.troubleshooting",
                     (client, c) => client.GetServerTroubleshootingAsync(c),
                     new[] { "Name", "Data" },
-                    data => (data ?? []).Select(i => new[] { i.Name, i.Data }),
+                    i => new[] { i.Name, i.Data },
                     ct
                 )
         );

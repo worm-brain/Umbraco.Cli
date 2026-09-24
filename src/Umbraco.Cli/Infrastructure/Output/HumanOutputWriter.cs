@@ -11,13 +11,17 @@ public sealed class HumanOutputWriter : IOutputWriter
     }
 
     public void WriteError(
-        int code,
+        int exitCode,
         string message,
+        int? httpStatus = null,
         string? category = null,
-        string? serverVersion = null
+        string? serverVersion = null,
+        string? commandName = null
     )
     {
-        AnsiConsole.MarkupLine($"[red]✗ Error {code}:[/] {Markup.Escape(message)}");
+        // The HTTP status is the more informative of the two when there is one, so it leads.
+        var shown = httpStatus ?? exitCode;
+        AnsiConsole.MarkupLine($"[red]✗ Error {shown}:[/] {Markup.Escape(message)}");
         // Show the server version when it is known (#152): it is the single most useful bit of
         // triage context on a failure - which server produced it. Category is left to the
         // structured (JSON) output; the human line stays terse.
@@ -25,6 +29,27 @@ public sealed class HumanOutputWriter : IOutputWriter
             AnsiConsole.MarkupLine($"[grey]  Umbraco server:[/] {Markup.Escape(serverVersion)}");
     }
 
+    /// <inheritdoc />
+    public void WriteList(
+        IReadOnlyList<object> items,
+        string[] headers,
+        IEnumerable<string[]> rows,
+        ListPaging paging,
+        string? commandName = null,
+        long? durationMs = null
+    )
+    {
+        WriteTable(headers, rows, commandName, durationMs);
+
+        // #173: a truncated list used to look identical to a complete one. Say so, on stderr so
+        // the table itself stays pipeable.
+        if (paging.HasMore is true && paging is { Total: { } total, Skip: { } skip })
+            Console.Error.WriteLine(
+                $"Showing {skip + items.Count} of {total}. Use --skip/--take to page, or --all."
+            );
+    }
+
+    /// <inheritdoc />
     public void WriteTable(
         string[] headers,
         IEnumerable<string[]> rows,

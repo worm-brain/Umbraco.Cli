@@ -45,7 +45,7 @@ public static class RedirectCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "redirect.list",
                     (client, c) =>
@@ -62,16 +62,10 @@ public static class RedirectCommand
                             );
                     },
                     new[] { "Id", "OriginalUrl", "DestinationUrl", "Culture" },
-                    data =>
-                        (data?.Items ?? []).Select(r =>
-                            new[]
-                            {
-                                r.Id.ToString(),
-                                r.OriginalUrl,
-                                r.DestinationUrl,
-                                r.Culture ?? "",
-                            }
-                        ),
+                    r =>
+                        new[] { r.Id.ToString(), r.OriginalUrl, r.DestinationUrl, r.Culture ?? "" },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

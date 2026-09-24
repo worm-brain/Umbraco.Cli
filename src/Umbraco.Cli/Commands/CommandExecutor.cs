@@ -154,11 +154,16 @@ public sealed class CommandExecutor
                         or FailureCategory.UnexpectedResponse
                     ? await ctx.Client.GetServerVersionAsync(ct)
                     : null;
+                // #177: exit code 1 and the server's status are different facts, so they go in
+                // different fields. StatusCode is 0 when the request never reached the server
+                // (unreachable/timeout), which is not a status - omit it rather than emit 0.
                 ctx.Output.WriteError(
-                    result.StatusCode,
+                    1,
                     message,
+                    result.StatusCode == 0 ? null : result.StatusCode,
                     result.Category.ToWire(),
-                    serverVersion
+                    serverVersion,
+                    ctx.CommandName
                 );
                 return 1;
             }
@@ -394,6 +399,190 @@ public sealed class CommandExecutor
         );
 
     /// <summary>Projects the result into table rows via <see cref="IOutputWriter.WriteTable"/>.</summary>
+    /// <summary>
+    /// Runs a list command (#164/#173): structured output is serialized from the items
+    /// themselves, the human table from <paramref name="headers"/> and <paramref name="row"/>,
+    /// and <c>meta</c> carries what the source can say about the rest of the data.
+    /// </summary>
+    /// <typeparam name="T">The client result type.</typeparam>
+    /// <typeparam name="TItem">The item type serialized to structured output.</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <param name="call">The client call.</param>
+    /// <param name="items">Selects the items from the result.</param>
+    /// <param name="headers">Human table column headers.</param>
+    /// <param name="row">Projects one item into human table cells.</param>
+    /// <param name="paging">What the result can say about totals and offsets.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The process exit code.</returns>
+    public Task<int> RunListAsync<T, TItem>(
+        ParseResult parseResult,
+        string commandName,
+        Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
+        Func<T?, IReadOnlyList<TItem>> items,
+        string[] headers,
+        Func<TItem, string[]> row,
+        Func<T?, ListPaging> paging,
+        CancellationToken ct
+    ) =>
+        RunAsync(
+            parseResult,
+            commandName,
+            call,
+            (ctx, data) =>
+            {
+                var list = items(data);
+                ctx.Output.WriteList(
+                    [.. list.Cast<object>()],
+                    headers,
+                    list.Select(row),
+                    paging(data),
+                    ctx.CommandName,
+                    ctx.Stopwatch.ElapsedMilliseconds
+                );
+            },
+            ct
+        );
+
+    /// <summary>
+    /// Runs a paged list command - the common case, where the client returns a
+    /// <see cref="PagedResponse{TItem}"/> and the caller knows its own skip/take.
+    /// </summary>
+    /// <typeparam name="TItem">The item type.</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <param name="call">The client call.</param>
+    /// <param name="headers">Human table column headers.</param>
+    /// <param name="row">Projects one item into human table cells.</param>
+    /// <param name="skip">The offset requested, for <c>meta.skip</c>.</param>
+    /// <param name="take">The page size requested, for <c>meta.take</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The process exit code.</returns>
+    public Task<int> RunPagedAsync<TItem>(
+        ParseResult parseResult,
+        string commandName,
+        Func<
+            IUmbracoManagementClient,
+            CancellationToken,
+            Task<UmbracoResponse<PagedResponse<TItem>>>
+        > call,
+        string[] headers,
+        Func<TItem, string[]> row,
+        int skip,
+        int take,
+        CancellationToken ct
+    ) =>
+        RunListAsync(
+            parseResult,
+            commandName,
+            call,
+            d => (d?.Items ?? []).ToList(),
+            headers,
+            row,
+            d => new ListPaging(d?.Total, skip, take),
+            ct
+        );
+
+    /// <summary>
+    /// Runs a list command whose source returns everything it has, so there is nothing to page.
+    /// </summary>
+    /// <typeparam name="TItem">The item type.</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <param name="call">The client call.</param>
+    /// <param name="headers">Human table column headers.</param>
+    /// <param name="row">Projects one item into human table cells.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The process exit code.</returns>
+    public Task<int> RunCompleteListAsync<TItem>(
+        ParseResult parseResult,
+        string commandName,
+        Func<
+            IUmbracoManagementClient,
+            CancellationToken,
+            Task<UmbracoResponse<IReadOnlyList<TItem>>>
+        > call,
+        string[] headers,
+        Func<TItem, string[]> row,
+        CancellationToken ct
+    ) => RunWholeListAsync(parseResult, commandName, call, d => d, headers, row, ct);
+
+    /// <summary>
+    /// <see cref="RunCompleteListAsync{TItem}(ParseResult, string, Func{IUmbracoManagementClient, CancellationToken, Task{UmbracoResponse{IReadOnlyList{TItem}}}}, string[], Func{TItem, string[]}, CancellationToken)"/>
+    /// for clients that return an <see cref="IEnumerable{T}"/> rather than a list.
+    /// </summary>
+    /// <typeparam name="TItem">The item type.</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <param name="call">The client call.</param>
+    /// <param name="headers">Human table column headers.</param>
+    /// <param name="row">Projects one item into human table cells.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The process exit code.</returns>
+    public Task<int> RunCompleteListAsync<TItem>(
+        ParseResult parseResult,
+        string commandName,
+        Func<
+            IUmbracoManagementClient,
+            CancellationToken,
+            Task<UmbracoResponse<IEnumerable<TItem>>>
+        > call,
+        string[] headers,
+        Func<TItem, string[]> row,
+        CancellationToken ct
+    ) => RunWholeListAsync(parseResult, commandName, call, d => d, headers, row, ct);
+
+    /// <summary>Shared core for the two complete-list overloads.</summary>
+    /// <typeparam name="T">The client result type.</typeparam>
+    /// <typeparam name="TItem">The item type.</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <param name="call">The client call.</param>
+    /// <param name="select">Selects the sequence from the result.</param>
+    /// <param name="headers">Human table column headers.</param>
+    /// <param name="row">Projects one item into human table cells.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The process exit code.</returns>
+    private Task<int> RunWholeListAsync<T, TItem>(
+        ParseResult parseResult,
+        string commandName,
+        Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
+        Func<T?, IEnumerable<TItem>?> select,
+        string[] headers,
+        Func<TItem, string[]> row,
+        CancellationToken ct
+    ) =>
+        RunListAsync(
+            parseResult,
+            commandName,
+            call,
+            d => select(d)?.ToList() ?? [],
+            headers,
+            row,
+            // Everything there is, so the count is the total and there is no more.
+            d => new ListPaging(select(d)?.Count() ?? 0, 0, select(d)?.Count() ?? 0),
+            ct
+        );
+
+    /// <summary>
+    /// Renders a computed row report as a table.
+    /// <para>
+    /// For a list of entities use <see cref="RunPagedAsync"/> or
+    /// <see cref="RunCompleteListAsync{TItem}(ParseResult, string, Func{IUmbracoManagementClient, CancellationToken, Task{UmbracoResponse{IReadOnlyList{TItem}}}}, string[], Func{TItem, string[]}, CancellationToken)"/>,
+    /// which serialize the DTOs so structured output matches the matching <c>get</c> (#164).
+    /// This remains for results that are <i>not</i> a list of entities - <c>content diff</c> and
+    /// <c>schema diff</c>, whose rows are computed from a comparison and have no DTO to serialize
+    /// - where deriving the keys from the captions is the only shape there is.
+    /// </para>
+    /// </summary>
+    /// <typeparam name="T">The client result type.</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <param name="call">The client call.</param>
+    /// <param name="headers">Column headers, camelCased into field keys by structured writers.</param>
+    /// <param name="rows">Projects the result into rows.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The process exit code.</returns>
     public Task<int> RunTableAsync<T>(
         ParseResult parseResult,
         string commandName,

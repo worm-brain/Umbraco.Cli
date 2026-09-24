@@ -31,7 +31,7 @@ public static class ContentListCommand
 
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "content.list",
                     (client, c) =>
@@ -45,10 +45,9 @@ public static class ContentListCommand
                     // only the type id (no alias), so the column was always blank (#75). Use
                     // 'content get <id>' for the full content type.
                     ["ID", "Name", "Published"],
-                    data =>
-                        (data?.Items ?? []).Select(i =>
-                            new[] { i.Id.ToString(), i.Name, i.IsPublished.ToString() }
-                        ),
+                    i => new[] { i.Id.ToString(), i.Name, i.IsPublished.ToString() },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

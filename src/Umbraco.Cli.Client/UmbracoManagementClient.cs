@@ -1644,57 +1644,57 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>The mapped type.</returns>
     private async Task<DocumentTypeResponse> ReadDocumentTypeAsync(Guid id, CancellationToken ct)
     {
-                var dt = await _api
-                    .Umbraco.Management.Api.V1.DocumentType[id]
-                    .GetAsync(cancellationToken: ct);
-                return new DocumentTypeResponse
+        var dt = await _api
+            .Umbraco.Management.Api.V1.DocumentType[id]
+            .GetAsync(cancellationToken: ct);
+        return new DocumentTypeResponse
+        {
+            Id = dt?.Id ?? id,
+            Name = dt?.Name ?? "",
+            Alias = dt?.Alias ?? "",
+            Description = dt?.Description,
+            IsElement = dt?.IsElement ?? false,
+            AllowedAsRoot = dt?.AllowedAsRoot ?? false,
+            Icon = dt?.Icon,
+            VariesByCulture = dt?.VariesByCulture ?? false,
+            VariesBySegment = dt?.VariesBySegment ?? false,
+            // #160: the help text promised these for three releases while the mapping
+            // dropped them, which is why authoring a property needed a schema round-trip.
+            Properties = dt
+                ?.Properties?.Select(p => new DocumentTypePropertyResponse
                 {
-                    Id = dt?.Id ?? id,
-                    Name = dt?.Name ?? "",
-                    Alias = dt?.Alias ?? "",
-                    Description = dt?.Description,
-                    IsElement = dt?.IsElement ?? false,
-                    AllowedAsRoot = dt?.AllowedAsRoot ?? false,
-                    Icon = dt?.Icon,
-                    VariesByCulture = dt?.VariesByCulture ?? false,
-                    VariesBySegment = dt?.VariesBySegment ?? false,
-                    // #160: the help text promised these for three releases while the mapping
-                    // dropped them, which is why authoring a property needed a schema round-trip.
-                    Properties = dt
-                        ?.Properties?.Select(p => new DocumentTypePropertyResponse
-                        {
-                            Id = p.Id,
-                            Alias = p.Alias ?? "",
-                            Name = p.Name ?? "",
-                            Description = p.Description,
-                            DataType = p.DataType?.Id,
-                            Container = p.Container?.Id,
-                            SortOrder = p.SortOrder ?? 0,
-                            VariesByCulture = p.VariesByCulture ?? false,
-                            VariesBySegment = p.VariesBySegment ?? false,
-                        })
-                        .ToList(),
-                    Containers = dt
-                        ?.Containers?.Select(c => new DocumentTypeContainerResponse
-                        {
-                            Id = c.Id,
-                            Name = c.Name ?? "",
-                            Type = c.Type,
-                            SortOrder = c.SortOrder ?? 0,
-                        })
-                        .ToList(),
-                    Compositions = dt
-                        ?.Compositions?.Select(c => c.DocumentType?.Id)
-                        .Where(g => g is not null)
-                        .Select(g => g!.Value)
-                        .ToList(),
-                    AllowedTemplates = dt
-                        ?.AllowedTemplates?.Select(t => t.Id)
-                        .Where(g => g is not null)
-                        .Select(g => g!.Value)
-                        .ToList(),
-                    DefaultTemplate = dt?.DefaultTemplate?.Id,
-                };
+                    Id = p.Id,
+                    Alias = p.Alias ?? "",
+                    Name = p.Name ?? "",
+                    Description = p.Description,
+                    DataType = p.DataType?.Id,
+                    Container = p.Container?.Id,
+                    SortOrder = p.SortOrder ?? 0,
+                    VariesByCulture = p.VariesByCulture ?? false,
+                    VariesBySegment = p.VariesBySegment ?? false,
+                })
+                .ToList(),
+            Containers = dt
+                ?.Containers?.Select(c => new DocumentTypeContainerResponse
+                {
+                    Id = c.Id,
+                    Name = c.Name ?? "",
+                    Type = c.Type,
+                    SortOrder = c.SortOrder ?? 0,
+                })
+                .ToList(),
+            Compositions = dt
+                ?.Compositions?.Select(c => c.DocumentType?.Id)
+                .Where(g => g is not null)
+                .Select(g => g!.Value)
+                .ToList(),
+            AllowedTemplates = dt
+                ?.AllowedTemplates?.Select(t => t.Id)
+                .Where(g => g is not null)
+                .Select(g => g!.Value)
+                .ToList(),
+            DefaultTemplate = dt?.DefaultTemplate?.Id,
+        };
     }
 
     /// <summary>
@@ -1845,11 +1845,27 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     },
                     ct
                 );
-                return new PagedResponse<DataTypeResponse>
+                // #176: the tree items carry only the editor UI alias, but editorAlias is what
+                // tells a caller a property's value shape (#174) - the reason the test round
+                // needed it. It is not on the tree, so the page is hydrated by id. Only the
+                // requested page, never the whole tree, so the cost is bounded by --take.
+                var page = all.Skip(skip).Take(take).ToList();
+                var hydrated = new List<DataTypeResponse>(page.Count);
+                foreach (var item in page)
                 {
-                    Total = all.Count,
-                    Items = all.Skip(skip).Take(take).ToList(),
-                };
+                    try
+                    {
+                        hydrated.Add(await ReadDataTypeAsync(item.Id, ct));
+                    }
+                    catch (ApiException)
+                    {
+                        // One unreadable data type must not fail the whole list; keep the tree's
+                        // view of it rather than dropping the row.
+                        hydrated.Add(item);
+                    }
+                }
+
+                return new PagedResponse<DataTypeResponse> { Total = all.Count, Items = hydrated };
             }
         );
 
@@ -1871,24 +1887,22 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>The mapped type.</returns>
     private async Task<DataTypeResponse> ReadDataTypeAsync(Guid id, CancellationToken ct)
     {
-                var dt = await _api
-                    .Umbraco.Management.Api.V1.DataType[id]
-                    .GetAsync(cancellationToken: ct);
-                return new DataTypeResponse
+        var dt = await _api.Umbraco.Management.Api.V1.DataType[id].GetAsync(cancellationToken: ct);
+        return new DataTypeResponse
+        {
+            Id = dt?.Id ?? id,
+            Name = dt?.Name ?? "",
+            EditorAlias = dt?.EditorAlias ?? "",
+            EditorUiAlias = dt?.EditorUiAlias,
+            // #170: the editor configuration - a dropdown's items, a picker's filters.
+            Values = dt
+                ?.Values?.Select(v => new DataTypeValueResponse
                 {
-                    Id = dt?.Id ?? id,
-                    Name = dt?.Name ?? "",
-                    EditorAlias = dt?.EditorAlias ?? "",
-                    EditorUiAlias = dt?.EditorUiAlias,
-                    // #170: the editor configuration - a dropdown's items, a picker's filters.
-                    Values = dt
-                        ?.Values?.Select(v => new DataTypeValueResponse
-                        {
-                            Alias = v.Alias ?? "",
-                            Value = UntypedNodeFactory.ToJsonNode(v.Value),
-                        })
-                        .ToList(),
-                };
+                    Alias = v.Alias ?? "",
+                    Value = UntypedNodeFactory.ToJsonNode(v.Value),
+                })
+                .ToList(),
+        };
     }
 
     /// <summary>

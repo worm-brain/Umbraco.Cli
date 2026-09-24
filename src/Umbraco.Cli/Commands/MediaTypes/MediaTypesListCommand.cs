@@ -20,7 +20,7 @@ public static class MediaTypesListCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "media-types.list",
                     (client, c) =>
@@ -30,9 +30,9 @@ public static class MediaTypesListCommand
                             c
                         ),
                     ["ID", "Name", "Icon"],
-                    data =>
-                        data?.Items.Select(i => new[] { i.Id.ToString(), i.Name, i.Icon ?? "" })
-                        ?? [],
+                    i => new[] { i.Id.ToString(), i.Name, i.Icon ?? "" },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

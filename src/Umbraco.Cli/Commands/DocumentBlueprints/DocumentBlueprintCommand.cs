@@ -48,7 +48,7 @@ public static class DocumentBlueprintCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "document-blueprint.list",
                     (client, c) =>
@@ -59,16 +59,16 @@ public static class DocumentBlueprintCommand
                             c
                         ),
                     new[] { "Id", "Name", "IsFolder", "HasChildren" },
-                    data =>
-                        (data?.Items ?? []).Select(b =>
-                            new[]
-                            {
-                                b.Id.ToString(),
-                                b.Name,
-                                b.IsFolder.ToString(),
-                                b.HasChildren.ToString(),
-                            }
-                        ),
+                    b =>
+                        new[]
+                        {
+                            b.Id.ToString(),
+                            b.Name,
+                            b.IsFolder.ToString(),
+                            b.HasChildren.ToString(),
+                        },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

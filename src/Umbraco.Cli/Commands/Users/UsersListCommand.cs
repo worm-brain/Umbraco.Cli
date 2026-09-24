@@ -13,7 +13,7 @@ public static class UsersListCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "users.list",
                     (client, c) =>
@@ -23,9 +23,9 @@ public static class UsersListCommand
                             c
                         ),
                     ["ID", "Name", "Email", "State"],
-                    data =>
-                        data?.Items.Select(i => new[] { i.Id.ToString(), i.Name, i.Email, i.State })
-                        ?? [],
+                    i => new[] { i.Id.ToString(), i.Name, i.Email, i.State },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

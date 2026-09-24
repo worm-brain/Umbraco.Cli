@@ -20,11 +20,13 @@ public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
 
     /// <inheritdoc />
     public void WriteError(
-        int code,
+        int exitCode,
         string message,
+        int? httpStatus = null,
         string? category = null,
-        string? serverVersion = null
-    ) => inner.WriteError(code, message, category, serverVersion);
+        string? serverVersion = null,
+        string? commandName = null
+    ) => inner.WriteError(exitCode, message, httpStatus, category, serverVersion, commandName);
 
     /// <inheritdoc />
     public void WriteTable(
@@ -33,6 +35,16 @@ public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
         string? commandName = null,
         long? durationMs = null
     ) => inner.WriteTable(headers, rows, commandName, durationMs);
+
+    /// <inheritdoc />
+    public void WriteList(
+        IReadOnlyList<object> items,
+        string[] headers,
+        IEnumerable<string[]> rows,
+        ListPaging paging,
+        string? commandName = null,
+        long? durationMs = null
+    ) => inner.WriteList(items, headers, rows, paging, commandName, durationMs);
 
     /// <inheritdoc />
     public void WriteMessage(string message, string? commandName = null, long? durationMs = null)

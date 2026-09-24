@@ -32,7 +32,7 @@ public static class MemberGroupsCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "member-groups.list",
                     (client, c) =>
@@ -42,7 +42,9 @@ public static class MemberGroupsCommand
                             c
                         ),
                     new[] { "Id", "Name" },
-                    data => (data?.Items ?? []).Select(g => new[] { g.Id.ToString(), g.Name }),
+                    g => new[] { g.Id.ToString(), g.Name },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

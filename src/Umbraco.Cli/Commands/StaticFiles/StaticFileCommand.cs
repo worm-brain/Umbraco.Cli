@@ -58,7 +58,7 @@ public static class StaticFileCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     $"{noun}.list",
                     (client, c) =>
@@ -70,10 +70,9 @@ public static class StaticFileCommand
                             c
                         ),
                     new[] { "Path", "Name", "Type" },
-                    data =>
-                        (data?.Items ?? []).Select(i =>
-                            new[] { i.Path, i.Name, i.IsFolder ? "folder" : "file" }
-                        ),
+                    i => new[] { i.Path, i.Name, i.IsFolder ? "folder" : "file" },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

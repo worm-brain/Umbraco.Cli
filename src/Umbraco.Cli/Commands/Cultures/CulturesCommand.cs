@@ -24,7 +24,7 @@ public static class CulturesCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "cultures.list",
                     (client, c) =>
@@ -34,7 +34,9 @@ public static class CulturesCommand
                             c
                         ),
                     new[] { "ISO Code", "English Name" },
-                    data => (data?.Items ?? []).Select(c => new[] { c.IsoCode, c.EnglishName }),
+                    c => new[] { c.IsoCode, c.EnglishName },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

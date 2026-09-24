@@ -34,7 +34,7 @@ public static class TagsCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "tags.list",
                     (client, c) =>
@@ -46,10 +46,9 @@ public static class TagsCommand
                             c
                         ),
                     new[] { "Text", "Group", "Nodes", "Id" },
-                    data =>
-                        (data?.Items ?? []).Select(t =>
-                            new[] { t.Text, t.Group, t.NodeCount.ToString(), t.Id.ToString() }
-                        ),
+                    t => new[] { t.Text, t.Group, t.NodeCount.ToString(), t.Id.ToString() },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

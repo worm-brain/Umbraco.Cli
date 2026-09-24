@@ -34,12 +34,12 @@ public static class ManifestCommand
         cmd.Add(scopeOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunCompleteListAsync(
                     parseResult,
                     "manifest.list",
                     (client, c) => client.GetManifestsAsync(parseResult.GetValue(scopeOpt), c),
                     new[] { "Id", "Name", "Version" },
-                    data => (data ?? []).Select(m => new[] { m.Id, m.Name, m.Version }),
+                    m => new[] { m.Id, m.Name, m.Version },
                     ct
                 )
         );

@@ -31,7 +31,7 @@ public static class HealthCommand
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "health.list",
                     (client, c) =>
@@ -41,7 +41,9 @@ public static class HealthCommand
                             c
                         ),
                     new[] { "Name" },
-                    data => (data?.Items ?? []).Select(g => new[] { g.Name }),
+                    g => new[] { g.Name },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );
