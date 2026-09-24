@@ -14,6 +14,7 @@ public static class DictionaryCommand
         cmd.Add(DictionaryTreeCommand.Build(executor));
         cmd.Add(DictionaryGetCommand.Build(executor));
         cmd.Add(DictionaryCreateCommand.Build(executor));
+        cmd.Add(DictionaryUpdateCommand.Build(executor));
         cmd.Add(DictionaryMoveCommand.Build(executor));
         cmd.Add(DictionaryDeleteCommand.Build(executor));
         return cmd;

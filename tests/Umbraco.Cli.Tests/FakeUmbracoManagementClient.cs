@@ -704,6 +704,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    public Task<UmbracoResponse<DictionaryItemResponse>> UpdateDictionaryItemAsync(
+        Guid id,
+        UpdateDictionaryItemRequest request,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<DictionaryItemResponse>.Success(
+                new DictionaryItemResponse { Id = id, Name = request.Name ?? "" }
+            )
+        );
+
     public Task<UmbracoResponse<Empty>> MoveDictionaryItemAsync(
         Guid id,
         Guid? targetId,

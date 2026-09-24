@@ -1245,6 +1245,22 @@ public record DictionaryTreeItem
     public ContentParentReference? Parent { get; init; }
 }
 
+/// <summary>
+/// A partial update to a dictionary item (#182). Translations are merged into the item's existing
+/// ones by ISO code, so supplying one language leaves the others alone - the PUT itself is a full
+/// replace, which is the shape that cost a test site its content in #179.
+/// </summary>
+public record UpdateDictionaryItemRequest
+{
+    /// <summary>New key/name, or null to keep the current one.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    /// <summary>Translations to set; any language not named keeps its current value.</summary>
+    [JsonPropertyName("translations")]
+    public IEnumerable<DictionaryTranslation> Translations { get; init; } = [];
+}
+
 public record CreateDictionaryItemRequest
 {
     /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
