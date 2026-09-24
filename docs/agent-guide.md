@@ -233,16 +233,27 @@ explicitly.
 
 ### Reading content back
 
-`content get`, `content-types get`, `data-types get`, `media get` and `members get` all return a
-narrow projection - core fields only. Property values, variants, templates, configuration, media
-URLs, member groups and document-type properties are **not** returned
-([#168](https://github.com/worm-brain/Umbraco.Cli/issues/168),
-[#160](https://github.com/worm-brain/Umbraco.Cli/issues/160),
-[#170](https://github.com/worm-brain/Umbraco.Cli/issues/170),
-[#172](https://github.com/worm-brain/Umbraco.Cli/issues/172),
-[#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)).
+The by-id reads now return what they fetch, so a `get -> edit -> update` round-trip works through
+the CLI alone:
 
-Two escape hatches, in order of preference:
+| Command | Returns |
+|---|---|
+| `content get` | `values` (with each value's `editorAlias`), every `variant` and its publication `state`, and `template` |
+| `media get` | `values` carrying `umbracoWidth`/`umbracoHeight`/`umbracoBytes`/`umbracoExtension`, plus `urls` per culture |
+| `content-types get` | `properties`, `containers` (the groups/tabs), `compositions`, `allowedTemplates`, `defaultTemplate` |
+| `data-types get` | `values` - the editor configuration, e.g. a dropdown's items |
+
+Two things are still narrow. **`members get`** does not return groups or property values
+([#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)), and **no `get` returns an item's
+parent** - placement is not on the Management API's by-id body; use `content tree`, whose rows
+carry `parentId`.
+
+Type references (`contentType`, `mediaType`) carry a resolved `alias`
+([#163](https://github.com/worm-brain/Umbraco.Cli/issues/163)). When it cannot be resolved the
+field is **omitted** rather than returned as an empty string, so treat its absence as "unknown"
+rather than "no alias".
+
+Two escape hatches remain useful:
 
 1. **`umbraco schema export`** returns verbatim `GET /document-type/{id}`, `/data-type/{id}` and
    `/template/{id}` bodies - full fidelity, no projection. This is the right way to read schema.

@@ -120,7 +120,7 @@ Run it first in any new environment. See [getting-started.md](getting-started.md
 umbraco content list [--parent <id>] [--skip <n>] [--take <n>]
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
-umbraco content get <id>                                   # core fields only - no values/variants/template (#168)
+umbraco content get <id>                                   # values, variants, template and state
 umbraco content create --content-type <alias> --name <name> [--json-body <file>] [--id <guid>] [--template <alias|id>]
 umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
@@ -177,7 +177,7 @@ Found in a hands-on test round against 17.7.0 and still open. Tracked in
 
 | What | Effect | Do this instead |
 |---|---|---|
-| `content get` returns **core fields only** ([#168](https://github.com/worm-brain/Umbraco.Cli/issues/168)) | No `values`, `variants`, `template` or `parent` | `GET /umbraco/management/api/v1/document/{id}` - though `content update` no longer needs you to read first |
+| `content get` does not return the item's **parent** ([#168](https://github.com/worm-brain/Umbraco.Cli/issues/168)) | Placement is not on the Management API's by-id body at all - it lives in the tree | `umbraco content tree`, whose rows carry `parentId` |
 
 A trap worth knowing when fixing templates in bulk: a change that touches **only** the template
 does not mark culture variants as having pending changes, so `publish-descendants` skips them as
@@ -284,7 +284,7 @@ umbraco document-blueprint folder delete <id>              # needs --yes non-int
 umbraco media list [--parent <id>]
 umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
-umbraco media get <id>                                     # no URL/dimensions/size yet (#172)
+umbraco media get <id>                                     # includes urls[] and file metadata in values[]
 umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>]  # staged via temporary-file
 umbraco media delete <id>                                  # permanent; needs --yes
 umbraco media trash <id>                                   # move to recycle bin (reversible)
@@ -307,7 +307,7 @@ umbraco media-types delete <id>                            # needs --yes non-int
 
 ```bash
 umbraco content-types list
-umbraco content-types get <id>                             # UUID only (#159); core fields only, no properties/groups (#160)
+umbraco content-types get <id>                             # UUID only (#159); includes properties, groups, templates
 umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
 umbraco content-types delete <id>                          # needs --yes non-interactively
 ```
@@ -316,7 +316,7 @@ umbraco content-types delete <id>                          # needs --yes non-int
 
 ```bash
 umbraco data-types list                                    # omits editorAlias (#176)
-umbraco data-types get <id>                                # UUID only (#159); no configuration values (#170)
+umbraco data-types get <id>                                # UUID only (#159); includes the editor configuration
 umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types update <id> --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types delete <id>                             # needs --yes non-interactively
