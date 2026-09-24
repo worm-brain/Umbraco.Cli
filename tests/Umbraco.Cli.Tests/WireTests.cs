@@ -34,9 +34,7 @@ public class WireTests
     {
         var handler = Any();
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            handler.BodyForFirst(_ => true)
-        );
+        var ex = Assert.Throws<InvalidOperationException>(() => handler.BodyForFirst(_ => true));
         Assert.Contains("No requests were made at all", ex.Message);
     }
 

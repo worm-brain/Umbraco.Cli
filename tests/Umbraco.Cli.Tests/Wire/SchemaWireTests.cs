@@ -156,7 +156,10 @@ public class SchemaWireTests
         Assert.Equal("Renamed", body["name"]!.GetValue<string>());
         Assert.Equal("Umbraco.DropDown.Flexible", body["editorAlias"]!.GetValue<string>());
         var items = Assert.Single(body["values"]!.AsArray());
-        Assert.Equal(["News", "Opinion"], items!["value"]!.AsArray().Select(v => v!.GetValue<string>()));
+        Assert.Equal(
+            ["News", "Opinion"],
+            items!["value"]!.AsArray().Select(v => v!.GetValue<string>())
+        );
     }
 
     [Fact]
@@ -167,7 +170,9 @@ public class SchemaWireTests
 
         await Wire.Client(handler).CopyDataTypeAsync(id, null, CancellationToken.None);
 
-        Assert.False(handler.BodyOf(HttpMethod.Post, $"/data-type/{id}/copy").ContainsKey("target"));
+        Assert.False(
+            handler.BodyOf(HttpMethod.Post, $"/data-type/{id}/copy").ContainsKey("target")
+        );
     }
 
     [Fact]
@@ -181,7 +186,9 @@ public class SchemaWireTests
 
         Assert.Equal(
             target.ToString(),
-            handler.BodyOf(HttpMethod.Put, $"/data-type/{id}/move")["target"]!["id"]!.GetValue<string>()
+            handler.BodyOf(HttpMethod.Put, $"/data-type/{id}/move")["target"]![
+                "id"
+            ]!.GetValue<string>()
         );
     }
 

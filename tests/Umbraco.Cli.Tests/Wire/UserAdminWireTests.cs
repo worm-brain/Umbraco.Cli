@@ -116,8 +116,7 @@ public class UserAdminWireTests
         var user = Guid.NewGuid();
         var handler = Blank();
 
-        await Wire.Client(handler)
-            .AddUsersToGroupAsync(group, [user], CancellationToken.None);
+        await Wire.Client(handler).AddUsersToGroupAsync(group, [user], CancellationToken.None);
 
         // The body is a bare array of {id}, not an object wrapping one.
         var body = handler.BodyNodeOf(HttpMethod.Post, $"/user-group/{group}/users").AsArray();
@@ -131,8 +130,7 @@ public class UserAdminWireTests
         var user = Guid.NewGuid();
         var handler = Blank();
 
-        await Wire.Client(handler)
-            .RemoveUsersFromGroupAsync(group, [user], CancellationToken.None);
+        await Wire.Client(handler).RemoveUsersFromGroupAsync(group, [user], CancellationToken.None);
 
         // A DELETE that carries a body: refactoring this to a bodiless overload would silently
         // remove nobody. The body is a bare array of {id}.
@@ -147,8 +145,7 @@ public class UserAdminWireTests
         var second = Guid.NewGuid();
         var handler = Blank();
 
-        await Wire.Client(handler)
-            .DeleteUserGroupsAsync([first, second], CancellationToken.None);
+        await Wire.Client(handler).DeleteUserGroupsAsync([first, second], CancellationToken.None);
 
         var body = handler.BodyOf(HttpMethod.Delete, "/user-group");
         Assert.Equal(2, body["userGroupIds"]!.AsArray().Count);

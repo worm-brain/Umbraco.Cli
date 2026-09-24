@@ -25,7 +25,9 @@ public class MembersWireTests
     /// </summary>
     /// <param name="id">The member id.</param>
     /// <returns>The JSON body.</returns>
-    private static readonly Guid SubscribersGroup = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid SubscribersGroup = Guid.Parse(
+        "11111111-1111-1111-1111-111111111111"
+    );
 
     /// <summary>The second group the stub member belongs to.</summary>
     private static readonly Guid EditorsGroup = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -35,18 +37,18 @@ public class MembersWireTests
     /// <returns>The JSON body.</returns>
     private static string ExistingMember(Guid id) =>
         $$"""
-        {
-          "id": "{{id}}",
-          "email": "a@example.com",
-          "username": "a@example.com",
-          "isApproved": true,
-          "isLockedOut": false,
-          "isTwoFactorEnabled": false,
-          "groups": ["11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222"],
-          "values": [ { "alias": "company", "culture": null, "segment": null, "value": "Acme" } ],
-          "variants": [ { "culture": null, "segment": null, "name": "Ann" } ]
-        }
-        """;
+            {
+              "id": "{{id}}",
+              "email": "a@example.com",
+              "username": "a@example.com",
+              "isApproved": true,
+              "isLockedOut": false,
+              "isTwoFactorEnabled": false,
+              "groups": ["11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222"],
+              "values": [ { "alias": "company", "culture": null, "segment": null, "value": "Acme" } ],
+              "variants": [ { "culture": null, "segment": null, "name": "Ann" } ]
+            }
+            """;
 
     // ── create ────────────────────────────────────────────────────────────────
 
@@ -94,7 +96,9 @@ public class MembersWireTests
             );
 
         // #42: the display name lives on variants[], not as a top-level field.
-        var variant = Assert.Single(handler.BodyOf(HttpMethod.Post, "/member")["variants"]!.AsArray());
+        var variant = Assert.Single(
+            handler.BodyOf(HttpMethod.Post, "/member")["variants"]!.AsArray()
+        );
         Assert.Equal("New Member", variant!["name"]!.GetValue<string>());
     }
 
@@ -109,7 +113,11 @@ public class MembersWireTests
             .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, ExistingMember(id));
 
         await Wire.Client(handler)
-            .UpdateMemberAsync(id, new UpdateMemberRequest { Name = "Renamed" }, CancellationToken.None);
+            .UpdateMemberAsync(
+                id,
+                new UpdateMemberRequest { Name = "Renamed" },
+                CancellationToken.None
+            );
 
         // The same failure mode as #178: this PUT replaces, so anything the client forgets to
         // re-send is deleted from the member.
@@ -119,7 +127,10 @@ public class MembersWireTests
             [SubscribersGroup.ToString(), EditorsGroup.ToString()],
             body["groups"]!.AsArray().Select(g => g!.GetValue<string>())
         );
-        Assert.Equal("Acme", Assert.Single(body["values"]!.AsArray())!["value"]!.GetValue<string>());
+        Assert.Equal(
+            "Acme",
+            Assert.Single(body["values"]!.AsArray())!["value"]!.GetValue<string>()
+        );
         Assert.Equal("a@example.com", body["username"]!.GetValue<string>());
     }
 
@@ -132,7 +143,11 @@ public class MembersWireTests
             .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, ExistingMember(id));
 
         await Wire.Client(handler)
-            .UpdateMemberAsync(id, new UpdateMemberRequest { Name = "Renamed" }, CancellationToken.None);
+            .UpdateMemberAsync(
+                id,
+                new UpdateMemberRequest { Name = "Renamed" },
+                CancellationToken.None
+            );
 
         Assert.Equal(
             "a@example.com",
@@ -149,9 +164,15 @@ public class MembersWireTests
             .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, ExistingMember(id));
 
         await Wire.Client(handler)
-            .UpdateMemberAsync(id, new UpdateMemberRequest { Name = "Renamed" }, CancellationToken.None);
+            .UpdateMemberAsync(
+                id,
+                new UpdateMemberRequest { Name = "Renamed" },
+                CancellationToken.None
+            );
 
-        var variant = Assert.Single(handler.BodyOf(HttpMethod.Put, $"/member/{id}")["variants"]!.AsArray());
+        var variant = Assert.Single(
+            handler.BodyOf(HttpMethod.Put, $"/member/{id}")["variants"]!.AsArray()
+        );
         Assert.Equal("Renamed", variant!["name"]!.GetValue<string>());
     }
 
@@ -172,7 +193,10 @@ public class MembersWireTests
 
         var body = handler.BodyOf(HttpMethod.Put, $"/member/{id}");
         Assert.False(body["isApproved"]!.GetValue<bool>());
-        Assert.Equal("Ann", Assert.Single(body["variants"]!.AsArray())!["name"]!.GetValue<string>());
+        Assert.Equal(
+            "Ann",
+            Assert.Single(body["variants"]!.AsArray())!["name"]!.GetValue<string>()
+        );
     }
 
     [Fact]

@@ -28,7 +28,8 @@ public class ContentWireTests
         var id = Guid.NewGuid();
         var handler = Blank();
 
-        await Wire.Client(handler).CreateContentAsync(
+        await Wire.Client(handler)
+            .CreateContentAsync(
                 new CreateContentRequest
                 {
                     Id = id,
@@ -52,7 +53,8 @@ public class ContentWireTests
     {
         var handler = Blank();
 
-        await Wire.Client(handler).CreateContentAsync(
+        await Wire.Client(handler)
+            .CreateContentAsync(
                 new CreateContentRequest
                 {
                     ContentType = new ContentTypeReference { Id = Guid.NewGuid() },
@@ -74,7 +76,8 @@ public class ContentWireTests
         var templateId = Guid.NewGuid();
         var handler = Blank();
 
-        await Wire.Client(handler).CreateContentAsync(
+        await Wire.Client(handler)
+            .CreateContentAsync(
                 new CreateContentRequest
                 {
                     ContentType = new ContentTypeReference { Id = Guid.NewGuid() },
@@ -95,7 +98,8 @@ public class ContentWireTests
     {
         var handler = Blank();
 
-        await Wire.Client(handler).CreateContentAsync(
+        await Wire.Client(handler)
+            .CreateContentAsync(
                 new CreateContentRequest
                 {
                     ContentType = new ContentTypeReference { Id = Guid.NewGuid() },
@@ -135,8 +139,9 @@ public class ContentWireTests
 
         await Wire.Client(handler).UnpublishContentAsync(id, ["da-DK"], CancellationToken.None);
 
-        var cultures = handler
-            .BodyOf(HttpMethod.Put, $"/document/{id}/unpublish")["cultures"]!.AsArray();
+        var cultures = handler.BodyOf(HttpMethod.Put, $"/document/{id}/unpublish")[
+            "cultures"
+        ]!.AsArray();
         Assert.Equal("da-DK", Assert.Single(cultures)!.GetValue<string>());
     }
 
@@ -148,15 +153,16 @@ public class ContentWireTests
         var id = Guid.NewGuid();
         var handler = Blank();
 
-        await Wire.Client(handler).PublishContentWithDescendantsAsync(id, ct: CancellationToken.None);
+        await Wire.Client(handler)
+            .PublishContentWithDescendantsAsync(id, ct: CancellationToken.None);
 
         // Deliberately different from `content publish`, which enumerates the document's cultures
         // because "*" is the invariant culture there and 400s on a varying document (#158). This
         // endpoint DOES accept "*", verified against 17.7.0 on both invariant and variant
         // documents during the 2026-09-23 round. Pinned so nobody "fixes" it by analogy.
-        var cultures = handler
-            .BodyOf(HttpMethod.Put, $"/document/{id}/publish-with-descendants")["cultures"]!
-            .AsArray();
+        var cultures = handler.BodyOf(HttpMethod.Put, $"/document/{id}/publish-with-descendants")[
+            "cultures"
+        ]!.AsArray();
         Assert.Equal("*", Assert.Single(cultures)!.GetValue<string>());
     }
 
@@ -166,7 +172,8 @@ public class ContentWireTests
         var id = Guid.NewGuid();
         var handler = Blank();
 
-        await Wire.Client(handler).PublishContentWithDescendantsAsync(
+        await Wire.Client(handler)
+            .PublishContentWithDescendantsAsync(
                 id,
                 ["en-US"],
                 includeUnpublishedDescendants: true,
@@ -191,8 +198,9 @@ public class ContentWireTests
 
         Assert.Equal(
             parent.ToString(),
-            handler.BodyOf(HttpMethod.Put, $"/document/{id}/move")["target"]!["id"]!
-                .GetValue<string>()
+            handler.BodyOf(HttpMethod.Put, $"/document/{id}/move")["target"]![
+                "id"
+            ]!.GetValue<string>()
         );
     }
 
@@ -220,8 +228,9 @@ public class ContentWireTests
 
         Assert.Equal(
             parent.ToString(),
-            handler.BodyOf(HttpMethod.Put, $"/recycle-bin/document/{id}/restore")["target"]!["id"]!
-                .GetValue<string>()
+            handler.BodyOf(HttpMethod.Put, $"/recycle-bin/document/{id}/restore")["target"]![
+                "id"
+            ]!.GetValue<string>()
         );
     }
 
@@ -277,7 +286,8 @@ public class ContentWireTests
         var versionId = Guid.NewGuid();
         var handler = Blank();
 
-        await Wire.Client(handler).RollbackDocumentVersionAsync(versionId, "da-DK", CancellationToken.None);
+        await Wire.Client(handler)
+            .RollbackDocumentVersionAsync(versionId, "da-DK", CancellationToken.None);
 
         Assert.Equal("da-DK", handler.QueryOf(HttpMethod.Post, "rollback")["culture"]);
     }
@@ -288,7 +298,8 @@ public class ContentWireTests
         var versionId = Guid.NewGuid();
         var handler = Blank();
 
-        await Wire.Client(handler).RollbackDocumentVersionAsync(versionId, null, CancellationToken.None);
+        await Wire.Client(handler)
+            .RollbackDocumentVersionAsync(versionId, null, CancellationToken.None);
 
         Assert.Null(handler.QueryOf(HttpMethod.Post, "rollback")["culture"]);
     }

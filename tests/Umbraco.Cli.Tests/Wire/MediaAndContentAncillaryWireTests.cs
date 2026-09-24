@@ -72,9 +72,9 @@ public class MediaAndContentAncillaryWireTests
         // The id staged in the multipart body must be the one the create references, or the item
         // is created pointing at nothing.
         var staged = handler.RawBodyOf(HttpMethod.Post, "/temporary-file");
-        var referenced = handler
-            .BodyOf(HttpMethod.Post, "/media")["values"]![0]!["value"]!["temporaryFileId"]!
-            .GetValue<string>();
+        var referenced = handler.BodyOf(HttpMethod.Post, "/media")["values"]![0]!["value"]![
+            "temporaryFileId"
+        ]!.GetValue<string>();
 
         Assert.Contains(referenced, staged);
     }
@@ -101,8 +101,9 @@ public class MediaAndContentAncillaryWireTests
 
         Assert.Equal(
             parent.ToString(),
-            handler.BodyOf(HttpMethod.Put, $"/recycle-bin/media/{id}/restore")["target"]!["id"]!
-                .GetValue<string>()
+            handler.BodyOf(HttpMethod.Put, $"/recycle-bin/media/{id}/restore")["target"]![
+                "id"
+            ]!.GetValue<string>()
         );
     }
 
@@ -161,9 +162,9 @@ public class MediaAndContentAncillaryWireTests
 
         // #181: the CLI reports these as saved even when Umbraco discards an unknown iso code.
         // What can be pinned here is that both actually leave the client.
-        var translations = handler
-            .BodyOf(HttpMethod.Post, "/dictionary")["translations"]!
-            .AsArray();
+        var translations = handler.BodyOf(HttpMethod.Post, "/dictionary")[
+            "translations"
+        ]!.AsArray();
         Assert.Equal(
             ["en-US", "da-DK"],
             translations.Select(t => t!["isoCode"]!.GetValue<string>())
@@ -192,7 +193,9 @@ public class MediaAndContentAncillaryWireTests
 
         await Wire.Client(handler).MoveDictionaryItemAsync(id, null, CancellationToken.None);
 
-        Assert.False(handler.BodyOf(HttpMethod.Put, $"/dictionary/{id}/move").ContainsKey("target"));
+        Assert.False(
+            handler.BodyOf(HttpMethod.Put, $"/dictionary/{id}/move").ContainsKey("target")
+        );
     }
 
     [Fact]
