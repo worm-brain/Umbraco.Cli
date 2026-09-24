@@ -325,7 +325,7 @@ echo '{"values":[{"alias":"title","culture":"da-DK","segment":null,"value":"Hej"
 item's wholesale, clearing anything absent. Use it when you are writing a document you already
 hold in full. The template survives `--replace` too; change it with `--template <alias|id>`.
 
-**Merging is not yet released** - it ships in the next alpha. On **0.1.0-alpha.10 and earlier**
+**Merging ships in 0.1.0-alpha.11.** On **0.1.0-alpha.10 and earlier**
 replace is the only behaviour, the template is cleared on every update, and `content get` cannot
 return the current values - so a safe read-modify-write is impossible with the CLI alone
 (#178/#179). On those versions, read the document from the Management API, send the complete body
