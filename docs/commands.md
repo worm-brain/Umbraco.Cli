@@ -477,8 +477,11 @@ umbraco member-groups delete <id>                          # needs --yes non-int
 ```bash
 umbraco users list
 umbraco users get <id|email>
-umbraco users invite --email <email> --name <name>
+umbraco users invite --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--message <text>]   # --group repeatable, at least one
 ```
+
+`users invite` needs SMTP configured on the site, because Umbraco emails the invitation; without it
+the invite is refused and no user is created. `--username` defaults to the email.
 
 ## `user-groups`
 
