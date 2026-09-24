@@ -114,7 +114,57 @@ temp-file id.
   working; the previously broken content-create-by-alias path is fixed and gains
   live round-trip coverage.
 - `_http` and its nine helpers are deleted once all #79 slices land (single PR,
-  commit per slice in ADR 0003's order); the client becomes fully generated.
+  commit per slice in ADR 0003's order); the client becomes fully generated **except** for the
+  raw-JSON passthrough of ADR 0005 §1 - schema, content export/apply, and (per the 2026-09-24
+  amendment below) `content update`.
 - Read migrations (doc-type/data-type by-id, user list + by-id, dictionary list +
   by-key, webhook list) must preserve their current JSON output contract - the
   integration assertions guard this (see the testing memory note).
+
+---
+
+## Amendment, 2026-09-24: `content update` leaves the typed write path (#178/#179)
+
+- Status: Accepted, amends the **Consequences** below (and ADR 0003's "the client is fully
+  generated") for **update only**
+- Issue: #178, #179 (found in the 2026-09-23 hands-on round, tracked under #187)
+
+### What changed
+
+`UpdateContentAsync` no longer builds a `Gen.UpdateDocumentRequestModel`. It reads the document
+verbatim with `GetRawJsonAsync`, overlays the request onto it, and PUTs the result - the
+raw-JSON passthrough of ADR 0005 §1, already used by `UpdateRawScalarsAsync` and the content
+export/apply pipeline (ADR 0006).
+
+### Why
+
+`PUT /document/{id}` is replace-semantics, not patch. A typed request body can only carry the
+fields the CLI models, so everything else was deleted on every update:
+
+- the document's **template**, which `UpdateContentRequest` did not carry at the time. Republishing then
+  404'd the page ("No physical template file was found..."). On a live 17.7.0 test site this hit
+  all 22 nodes.
+- every **property value the caller did not restate**, because the API treats an absent value as
+  a cleared one.
+
+Neither was reachable through the typed model without growing it to mirror the whole document -
+at which point it is the raw body with extra steps. This is the same conclusion ADR 0005 §1
+reached for schema, arrived at again from the other direction.
+
+### Scope and consequences
+
+- **Create is unchanged.** It still uses the typed `CreateDocumentBody`, because a create has no
+  prior state to preserve and Umbraco 17 requires the `template` key to be present (#134).
+- The request models gain a template (#162): `ContentTemplateReference` (id **or** alias) on both
+  `CreateContentRequest` and `UpdateContentRequest`, surfaced as `--template <alias|uuid>` on
+  `content create` and `content update`. On update, omitting it means "keep the current template",
+  never "remove it"; the flag overrides whatever the body carries.
+- `DocumentUpdateBody` holds the merge rules as a pure, synchronous type: values keyed on
+  (alias, culture, segment), variants on (culture, segment), every entry projected to the
+  request's own fields so read-only extras (`editorAlias`, `state`) are not echoed back.
+- **Merge is the default; `--replace` opts into the old wholesale behaviour** for values and
+  variants. The template survives either way - dropping it was never intended behaviour.
+- A variant that names no culture, sent against a document that varies by culture, is **rejected**
+  rather than appended: it identifies no variant, and Umbraco rejects the resulting mix anyway.
+- The read-then-write introduces a lost-update window with no concurrency control. Tracked as
+  #188, pending an answer on whether Umbraco 17 emits `ETag` / honours `If-Match`.

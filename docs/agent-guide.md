@@ -185,7 +185,8 @@ full auth story and profiles.
 - **Pipe request bodies via stdin** with `-`:
   ```bash
   cat body.json | umbraco content create --json-body -
-  echo '{ "values": [] }' | umbraco content update <id> --json-body -
+  echo '{"values":[{"alias":"title","culture":"en-US","value":"Hello"}]}' \
+    | umbraco content update <id> --json-body -
   ```
 - **Idempotent creates:** pass `--id <guid>` on any create. Umbraco 14+ honours a
   client-supplied id, so re-running a provisioning script does not create duplicates.
@@ -267,9 +268,11 @@ echo '{"values":[{"alias":"title","culture":"da-DK","segment":null,"value":"Hej"
 item's wholesale, clearing anything absent. Use it when you are writing a document you already
 hold in full. The template survives `--replace` too; change it with `--template <alias|id>`.
 
-Before alpha.7 replace was the only behaviour, and `content get` could not return the current
-values, so a safe read-modify-write was impossible with the CLI alone (#178/#179). On alpha.6,
-read the document from the Management API and send the complete body back.
+**Merging is not yet released** - it ships in the next alpha. On **0.1.0-alpha.10 and earlier**
+replace is the only behaviour, the template is cleared on every update, and `content get` cannot
+return the current values - so a safe read-modify-write is impossible with the CLI alone
+(#178/#179). On those versions, read the document from the Management API, send the complete body
+back, then re-set the template and republish.
 
 `--dry-run` prints the body the server will receive, which is the quickest way to confirm a merge
 did what you expected.

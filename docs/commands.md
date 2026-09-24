@@ -162,10 +162,13 @@ Pass **`--replace`** when you do want the body to stand alone: the item's values
 replaced wholesale and anything absent is cleared. The template still survives `--replace` - use
 `--template` to change it.
 
-This was the other way round before 0.1.0-alpha.7, which cost a test site its templates and every
-unlisted property value ([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178),
-[#179](https://github.com/worm-brain/Umbraco.Cli/issues/179)). If you are on alpha.6, either
-upgrade or send the complete document body every time.
+**Merging is new and not yet released** - it ships in the next alpha. On **0.1.0-alpha.10 and
+earlier** `update` is the other way round: it replaces values wholesale *and* silently clears the
+item's template, which 404s the page once republished
+([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178),
+[#179](https://github.com/worm-brain/Umbraco.Cli/issues/179)). On those versions, read the whole
+document from the Management API, send the complete body back, and re-set the template with a
+direct `PUT /umbraco/management/api/v1/document/{id}` afterwards.
 
 ### Known sharp edges on `content` (Umbraco 17.x)
 
@@ -236,9 +239,14 @@ A full value entry carries the property alias and, on a variant document, the cu
   "variants": [
     { "name": "Hello", "culture": "en-US", "segment": null },
     { "name": "Hej",   "culture": "da-DK", "segment": null }
-  ]
+  ],
+  "template": { "alias": "blogPost" }
 }
 ```
+
+`template` takes either an `alias` or an `id` (the id wins if both are given). Omit it on an
+update to keep the item's current template; on a create, omitting it uses the document type's
+default. The `--template` flag overrides whatever the body says.
 
 A property that does not itself vary by culture takes `culture: null` even on a document that
 does. If a value is rejected or silently ignored, read the document back from the Management API

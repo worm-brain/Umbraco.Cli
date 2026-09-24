@@ -669,11 +669,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// Unpublishes a content item via <c>PUT document/{id}/unpublish</c> (generated client, #79).
     /// The unpublish payload is a plain list of cultures (distinct from publish's schedule list).
     /// When no cultures are given the <c>cultures</c> field is omitted, which unpublishes the whole
-    /// document. This deliberately differs from <see cref="PublishContentAsync"/>: unpublish does
-    /// NOT accept publish's <c>"*"</c> wildcard as a culture, and sending <c>["*"]</c> against an
-    /// invariant document is rejected with HTTP 400 "Cannot publish a given culture when the
-    /// document is invariant." Omitting the field is the correct way to unpublish all cultures for
-    /// both invariant and variant documents (#149, found in alpha.8 acceptance testing).
+    /// document. Note that <c>"*"</c> is not a wildcard anywhere in this API - it is the invariant
+    /// culture (#158) - so it must not be used to mean "everything" here either: sending
+    /// <c>["*"]</c> against an invariant document is rejected with HTTP 400 "Cannot publish a given
+    /// culture when the document is invariant." Omitting the field is the correct way to unpublish
+    /// all cultures for both invariant and variant documents (#149, found in alpha.8 acceptance
+    /// testing). Publish reaches the same end differently, by enumerating the document's cultures -
+    /// see <see cref="PublishContentAsync"/>.
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">Specific cultures to unpublish; null/empty unpublishes the whole document.</param>
@@ -690,8 +692,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             {
                 var body = new Gen.UnpublishDocumentRequestModel
                 {
-                    // Null (not ["*"]): a null cultures list unpublishes the whole document. See the
-                    // summary - "*" is a publish-only wildcard and 400s on invariant content here.
+                    // Null (not ["*"]): a null cultures list unpublishes the whole document. See
+                    // the summary - "*" is the invariant culture, not a wildcard, and 400s here.
                     Cultures = cultures?.ToList(),
                 };
                 await _api

@@ -1,6 +1,7 @@
 # ADR 0003: Migrate the write path to the generated Kiota client
 
-- Status: Accepted
+- Status: Accepted; superseded in part by ADR 0004's 2026-09-24 amendment, which moves
+  `content update` off the generated write path onto the raw-JSON passthrough
 - Date: 2026-07-27
 - Issue: #50 (epic), folds in #74, splits out #79 (content writes + media upload)
 - Supersedes the "transitional hybrid" state described in ADR/notes for the alpha.2 generation work.

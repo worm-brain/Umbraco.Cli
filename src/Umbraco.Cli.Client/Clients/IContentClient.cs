@@ -49,7 +49,10 @@ public interface IContentClient
     /// unpublish is expressed here via <paramref name="unpublishAt"/> rather than on the unpublish verb.
     /// </summary>
     /// <param name="id">The content item id.</param>
-    /// <param name="cultures">Cultures to publish; null/empty publishes all (<c>"*"</c>).</param>
+    /// <param name="cultures">
+    /// Cultures to publish; null/empty reads the document and publishes every culture it varies
+    /// by. <c>"*"</c> is not a wildcard here - it is the invariant culture (#158).
+    /// </param>
     /// <param name="publishAt">When to publish; null publishes immediately.</param>
     /// <param name="unpublishAt">When to unpublish again; null leaves it published.</param>
     /// <param name="ct">Cancellation token.</param>
