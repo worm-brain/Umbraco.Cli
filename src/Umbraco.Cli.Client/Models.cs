@@ -1032,6 +1032,21 @@ public record MemberResponse
     [JsonPropertyName("isApproved")]
     public bool IsApproved { get; init; }
 
+    /// <summary>The login name. Often the email, but they are separate fields (#185).</summary>
+    [JsonPropertyName("username")]
+    public string? Username { get; init; }
+
+    /// <summary>
+    /// The groups this member belongs to, by id (#185). Member groups are referenced by id, not
+    /// name - worth knowing when filtering with <c>members list --group</c>, which takes a name.
+    /// </summary>
+    [JsonPropertyName("groups")]
+    public IEnumerable<Guid>? Groups { get; init; }
+
+    /// <summary>The member's custom property values (#185), in the same shape as content.</summary>
+    [JsonPropertyName("values")]
+    public IEnumerable<ContentValueResponse>? Values { get; init; }
+
     [JsonPropertyName("isLockedOut")]
     public bool IsLockedOut { get; init; }
 
@@ -1082,6 +1097,31 @@ public record UpdateMemberRequest
 
     /// <summary>New approved state, or null to keep the current one.</summary>
     public bool? IsApproved { get; init; }
+
+    /// <summary>New login name, or null to keep the current one (#185).</summary>
+    public string? Username { get; init; }
+
+    /// <summary>
+    /// Group ids to set, replacing the member's current groups. Null keeps them - the read-merge
+    /// below preserves whatever it does not replace (#185).
+    /// </summary>
+    public IEnumerable<Guid>? Groups { get; init; }
+
+    /// <summary>
+    /// Property values to set, merged into the member's existing ones by alias + culture +
+    /// segment. Null keeps them all.
+    /// </summary>
+    public IEnumerable<ContentValue>? Values { get; init; }
+
+    /// <summary>
+    /// A new password (#185). Set by an administrator, so no old password is required - the
+    /// generated model has an <c>OldPassword</c> field for self-service changes, which this
+    /// command does not cover.
+    /// </summary>
+    public string? NewPassword { get; init; }
+
+    /// <summary>New locked-out state; false unlocks a member locked out by failed logins.</summary>
+    public bool? IsLockedOut { get; init; }
 }
 
 // ── Member Types ─────────────────────────────────────────────────────────────

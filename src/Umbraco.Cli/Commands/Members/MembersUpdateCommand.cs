@@ -26,10 +26,39 @@ public static class MembersUpdateCommand
         {
             Description = "Set the member's approved state (--approved or --approved false).",
         };
+        var usernameOpt = new Option<string?>("--username")
+        {
+            Description = "New login name. Often the email, but they are separate fields.",
+        };
+        var groupOpt = new Option<Guid[]>("--group")
+        {
+            Description =
+                "Member group IDs. Repeatable, and REPLACES the member's groups - omit to leave them alone.",
+            AllowMultipleArgumentsPerToken = true,
+        };
+        var valueOpt = new Option<string[]>("--value")
+        {
+            Description =
+                "Property values as alias=value. Repeatable. Merged into the member's existing values.",
+            AllowMultipleArgumentsPerToken = true,
+        };
+        var passwordOpt = new Option<string?>("--new-password")
+        {
+            Description = "Set a new password. No current password is required (admin reset).",
+        };
+        var unlockOpt = new Option<bool>("--unlock")
+        {
+            Description = "Clear a lockout caused by failed logins.",
+        };
         cmd.Add(idArg);
         cmd.Add(emailOpt);
         cmd.Add(nameOpt);
         cmd.Add(approvedOpt);
+        cmd.Add(usernameOpt);
+        cmd.Add(groupOpt);
+        cmd.Add(valueOpt);
+        cmd.Add(passwordOpt);
+        cmd.Add(unlockOpt);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
@@ -43,6 +72,17 @@ public static class MembersUpdateCommand
                                 Email = parseResult.GetValue(emailOpt),
                                 Name = parseResult.GetValue(nameOpt),
                                 IsApproved = parseResult.GetValue(approvedOpt),
+                                Username = parseResult.GetValue(usernameOpt),
+                                Groups = parseResult.GetValue(groupOpt) is { Length: > 0 } g
+                                    ? g
+                                    : null,
+                                Values = (parseResult.GetValue(valueOpt) ?? [])
+                                    .Select(v => v.Split('=', 2))
+                                    .Where(p => p.Length == 2)
+                                    .Select(p => new ContentValue { Alias = p[0], Value = p[1] })
+                                    .ToList(),
+                                NewPassword = parseResult.GetValue(passwordOpt),
+                                IsLockedOut = parseResult.GetValue(unlockOpt) ? false : null,
                             },
                             c
                         ),

@@ -269,4 +269,100 @@ public class MembersWireTests
 
         handler.AssertRequested(HttpMethod.Delete, $"/member-type/{id}");
     }
+
+    // ── #185: the fields the CLI could not reach ──────────────────────────────
+
+    [Fact]
+    public async Task GetMemberByIdAsync_ReturnsGroupsValuesAndUsername()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Existing(ExistingMember(id));
+
+        var result = await Wire.Client(handler).GetMemberByIdAsync(id, CancellationToken.None);
+
+        // The read was as narrow as content's was before Phase 3 - these were being fetched and
+        // dropped at the mapping.
+        var data = result.Data!;
+        Assert.Equal([SubscribersGroup, EditorsGroup], data.Groups);
+        Assert.Equal("company", Assert.Single(data.Values!).Alias);
+        Assert.Equal("a@example.com", data.Username);
+    }
+
+    [Fact]
+    public async Task UpdateMemberAsync_Groups_ReplaceWholesale()
+    {
+        var id = Guid.NewGuid();
+        var newGroup = Guid.NewGuid();
+        var handler = Wire.Existing(ExistingMember(id));
+
+        await Wire.Client(handler)
+            .UpdateMemberAsync(
+                id,
+                new UpdateMemberRequest { Groups = [newGroup] },
+                CancellationToken.None
+            );
+
+        // A group list is the membership, not a patch - so this replaces rather than merges.
+        var groups = handler.BodyOf(HttpMethod.Put, $"/member/{id}")["groups"]!.AsArray();
+        Assert.Equal(newGroup.ToString(), Assert.Single(groups)!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task UpdateMemberAsync_Values_MergeRatherThanReplace()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Existing(ExistingMember(id));
+
+        await Wire.Client(handler)
+            .UpdateMemberAsync(
+                id,
+                new UpdateMemberRequest
+                {
+                    Values = [new ContentValue { Alias = "marketingOptIn", Value = true }],
+                },
+                CancellationToken.None
+            );
+
+        // Setting one property must not clear the others - #179's rule, one noun over.
+        var values = handler.BodyOf(HttpMethod.Put, $"/member/{id}")["values"]!.AsArray();
+        Assert.Equal(2, values.Count);
+        Assert.Contains(values, v => v!["alias"]!.GetValue<string>() == "company");
+    }
+
+    [Fact]
+    public async Task UpdateMemberAsync_NewPassword_IsSentWithoutAnOldOne()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Existing(ExistingMember(id));
+
+        await Wire.Client(handler)
+            .UpdateMemberAsync(
+                id,
+                new UpdateMemberRequest { NewPassword = "a-new-passphrase" },
+                CancellationToken.None
+            );
+
+        // An administrator reset, so there is no old password to supply.
+        var body = handler.BodyOf(HttpMethod.Put, $"/member/{id}");
+        Assert.Equal("a-new-passphrase", body["newPassword"]!.GetValue<string>());
+        Assert.False(body.ContainsKey("oldPassword"));
+    }
+
+    [Fact]
+    public async Task UpdateMemberAsync_WithoutGroupsOrValues_LeavesBothAlone()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Existing(ExistingMember(id));
+
+        await Wire.Client(handler)
+            .UpdateMemberAsync(
+                id,
+                new UpdateMemberRequest { Name = "Renamed" },
+                CancellationToken.None
+            );
+
+        var body = handler.BodyOf(HttpMethod.Put, $"/member/{id}");
+        Assert.Equal(2, body["groups"]!.AsArray().Count);
+        Assert.Single(body["values"]!.AsArray());
+    }
 }

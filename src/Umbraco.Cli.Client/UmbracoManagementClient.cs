@@ -1152,6 +1152,44 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
+    /// <inheritdoc />
+    public Task<UmbracoResponse<MediaItemResponse>> CreateMediaFolderAsync(
+        string name,
+        Guid? parentId = null,
+        Guid? id = null,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                // "Folder" is Umbraco's built-in folder media type, resolved by name like every
+                // other media type reference (see ResolveMediaTypeIdAsync).
+                var folderTypeId = await ResolveMediaTypeIdAsync("Folder", ct);
+                var folderId = id ?? Guid.NewGuid();
+
+                await _api.Umbraco.Management.Api.V1.Media.PostAsync(
+                    new Gen.CreateMediaRequestModel
+                    {
+                        Id = folderId,
+                        MediaType = new Gen.ReferenceByIdModel { Id = folderTypeId },
+                        Parent = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                        Variants = [new Gen.MediaVariantRequestModel { Name = name }],
+                        // A folder holds no file, so it carries no values at all.
+                        Values = [],
+                    },
+                    cancellationToken: ct
+                );
+
+                // The create response is empty; re-read so the caller gets the stored item rather
+                // than an echo of the request (#172's lesson).
+                var hydrated = await GetMediaByIdAsync(folderId, ct);
+                if (hydrated.IsSuccess && hydrated.Data is { } stored)
+                    return string.IsNullOrEmpty(stored.Name) ? stored with { Name = name } : stored;
+                return new MediaItemResponse { Id = folderId, Name = name };
+            }
+        );
+
     /// <summary>
     /// Resolves a media-type reference - a name (e.g. <c>Image</c>) or a GUID id - to its id.
     /// A value that parses as a GUID is used directly; otherwise it is treated as a media-type
@@ -2602,23 +2640,51 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 if (variants.Count == 0 && request.Name is not null)
                     variants.Add(new Gen.MemberVariantRequestModel { Name = request.Name });
 
+                // Values are merged by alias + culture + segment rather than replaced, so
+                // setting one property does not clear the rest (#179's rule, applied here too).
+                var values = (m.Values ?? [])
+                    .Select(v => new Gen.MemberValueModel
+                    {
+                        Alias = v.Alias,
+                        Culture = v.Culture,
+                        Segment = v.Segment,
+                        Value = v.Value,
+                    })
+                    .ToList();
+                foreach (var v in request.Values ?? [])
+                {
+                    var entry = new Gen.MemberValueModel
+                    {
+                        Alias = v.Alias,
+                        Culture = v.Culture,
+                        Segment = v.Segment,
+                        Value = UntypedNodeFactory.FromValue(v.Value),
+                    };
+                    var existing = values.FindIndex(e =>
+                        e.Alias == v.Alias && e.Culture == v.Culture && e.Segment == v.Segment
+                    );
+                    if (existing >= 0)
+                        values[existing] = entry;
+                    else
+                        values.Add(entry);
+                }
+
                 var body = new Gen.UpdateMemberRequestModel
                 {
                     Email = request.Email ?? m.Email ?? "",
-                    Username = m.Username ?? "",
+                    Username = request.Username ?? m.Username ?? "",
                     IsApproved = request.IsApproved ?? m.IsApproved ?? false,
-                    IsLockedOut = m.IsLockedOut ?? false,
+                    // Unlocking is a real operation; locking a member out by hand is not, so this
+                    // only ever goes false deliberately.
+                    IsLockedOut = request.IsLockedOut ?? m.IsLockedOut ?? false,
                     IsTwoFactorEnabled = m.IsTwoFactorEnabled ?? false,
-                    Groups = (m.Groups ?? []).ToList(),
-                    Values = (m.Values ?? [])
-                        .Select(v => new Gen.MemberValueModel
-                        {
-                            Alias = v.Alias,
-                            Culture = v.Culture,
-                            Segment = v.Segment,
-                            Value = v.Value,
-                        })
-                        .ToList(),
+                    // Groups replace wholesale when supplied - a group list is the membership,
+                    // not a patch - and are preserved untouched when they are not.
+                    Groups = request.Groups is { } g
+                        ? g.Select(x => (Guid?)x).ToList()
+                        : (m.Groups ?? []).ToList(),
+                    NewPassword = request.NewPassword,
+                    Values = values,
                     Variants = variants,
                 };
                 await _api
@@ -3537,6 +3603,19 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             IsApproved = item.IsApproved ?? false,
             IsLockedOut = item.IsLockedOut ?? false,
             CreateDate = variant?.CreateDate ?? default,
+            // #185: the read was as narrow as content's was before Phase 3 - groups and property
+            // values were being fetched and dropped at this mapping.
+            Username = item.Username,
+            Groups = (item.Groups ?? []).Where(g => g is not null).Select(g => g!.Value).ToList(),
+            Values = (item.Values ?? [])
+                .Select(v => new ContentValueResponse
+                {
+                    Alias = v.Alias ?? "",
+                    Culture = v.Culture,
+                    Segment = v.Segment,
+                    Value = UntypedNodeFactory.ToJsonNode(v.Value),
+                })
+                .ToList(),
         };
     }
 

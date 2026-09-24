@@ -39,6 +39,27 @@ public interface IMediaClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Creates a media folder (#171).
+    /// <para>
+    /// There is no folder endpoint for media - unlike data types and blueprints, which have real
+    /// ones. A media folder is an ordinary media item of the <c>Folder</c> media type with no
+    /// file, so this is a <c>POST /media</c>. (<c>media-type/folder</c> exists but organises
+    /// media <i>types</i>, which is a different noun and an easy trap.)
+    /// </para>
+    /// </summary>
+    /// <param name="name">The folder name.</param>
+    /// <param name="parentId">Parent folder id; null creates at the media root.</param>
+    /// <param name="id">Client-supplied id for an idempotent create; null generates one.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created folder, or a mapped failure.</returns>
+    Task<UmbracoResponse<MediaItemResponse>> CreateMediaFolderAsync(
+        string name,
+        Guid? parentId = null,
+        Guid? id = null,
+        CancellationToken ct = default
+    );
+
     Task<UmbracoResponse<Empty>> DeleteMediaAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Moves a media item to the recycle bin (issue #67). Reversible via <see cref="RestoreMediaAsync"/>.</summary>

@@ -293,6 +293,18 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    public Task<UmbracoResponse<MediaItemResponse>> CreateMediaFolderAsync(
+        string name,
+        Guid? parentId = null,
+        Guid? id = null,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<MediaItemResponse>.Success(
+                new MediaItemResponse { Id = id ?? Guid.NewGuid(), Name = name }
+            )
+        );
+
     public Task<UmbracoResponse<Empty>> DeleteMediaAsync(Guid id, CancellationToken ct = default) =>
         throw new NotImplementedException();
 
