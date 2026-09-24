@@ -1152,6 +1152,83 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
+    /// <inheritdoc />
+    public async Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeAsync(
+        string aliasOrId,
+        CancellationToken ct = default
+    )
+    {
+        // Resolution runs outside GuardedApiAsync's success path so a bad alias surfaces as the
+        // resolver's own 404 ("No document type found with alias ...") rather than a parse error.
+        var resolved = await GuardedApiAsync(
+            ct,
+            async () => await ResolveDocumentTypeIdAsync(aliasOrId, ct)
+        );
+        return resolved.IsSuccess
+            ? await GetDocumentTypeByIdAsync(resolved.Data, ct)
+            : UmbracoResponse<DocumentTypeResponse>.Failure(
+                resolved.StatusCode,
+                resolved.ErrorMessage!,
+                resolved.Category
+            );
+    }
+
+    /// <inheritdoc />
+    public async Task<UmbracoResponse<DataTypeResponse>> GetDataTypeAsync(
+        string nameOrId,
+        CancellationToken ct = default
+    )
+    {
+        var resolved = await GuardedApiAsync(
+            ct,
+            async () => await ResolveDataTypeIdAsync(nameOrId, ct)
+        );
+        return resolved.IsSuccess
+            ? await GetDataTypeByIdAsync(resolved.Data, ct)
+            : UmbracoResponse<DataTypeResponse>.Failure(
+                resolved.StatusCode,
+                resolved.ErrorMessage!,
+                resolved.Category
+            );
+    }
+
+    /// <summary>
+    /// Resolves a data-type reference - a name (e.g. <c>Textstring</c>) or a GUID id - to its id.
+    /// <para>
+    /// By name, not alias: a data type has no alias. Its <c>editorAlias</c> names the property
+    /// editor behind it (<c>Umbraco.TextBox</c>), which many data types can share, so it does not
+    /// identify one. This mirrors <see cref="ResolveMediaTypeIdAsync"/>, which is keyed the same
+    /// way for the same reason.
+    /// </para>
+    /// </summary>
+    /// <param name="nameOrId">The data type name or its id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The resolved data-type id.</returns>
+    /// <exception cref="ApiException">No data type matches the name (mapped to a 404).</exception>
+    private async Task<Guid> ResolveDataTypeIdAsync(string nameOrId, CancellationToken ct)
+    {
+        if (Guid.TryParse(nameOrId, out var parsed))
+            return parsed;
+
+        var search = await _api.Umbraco.Management.Api.V1.Item.DataType.Search.GetAsync(
+            c =>
+            {
+                c.QueryParameters.Query = nameOrId;
+                c.QueryParameters.Take = 100;
+            },
+            ct
+        );
+        var match = (search?.Items ?? []).FirstOrDefault(d =>
+            string.Equals(d.Name, nameOrId, StringComparison.OrdinalIgnoreCase)
+        );
+        if (match?.Id is not { } id)
+            throw NotFound(
+                $"No data type found with the name '{nameOrId}'. Use 'umbraco data-types list' "
+                    + "to find one, or pass a data type id."
+            );
+        return id;
+    }
+
     /// <summary>
     /// Resolves a media-type reference - a name (e.g. <c>Image</c>) or a GUID id - to its id.
     /// A value that parses as a GUID is used directly; otherwise it is treated as a media-type
@@ -2326,8 +2403,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     {
                         c.QueryParameters.Skip = skip;
                         c.QueryParameters.Take = take;
+                        // #184: MemberGroupName, not Filter. `filter` is the free-text search
+                        // over name and email, so filtering by group matched nothing and
+                        // returned an empty list with exit 0 - a silent wrong answer.
                         if (!string.IsNullOrEmpty(group))
-                            c.QueryParameters.Filter = group;
+                            c.QueryParameters.MemberGroupName = group;
                     },
                     ct
                 );
@@ -3061,6 +3141,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
+                await GuardDictionaryIsoCodesAsync(request.Translations, ct);
+
                 var id = request.Id ?? Guid.NewGuid();
                 var body = new Gen.CreateDictionaryItemRequestModel
                 {
@@ -3082,6 +3164,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     body,
                     cancellationToken: ct
                 );
+
+                // #181: this used to echo request.Translations, so a code Umbraco silently
+                // discarded still came back looking saved. Re-read and report what was kept.
+                // A failed read falls back to the echo rather than failing a create that worked.
+                var stored = await GetDictionaryItemByKeyAsync(request.Name, ct);
+                if (stored.IsSuccess && stored.Data is { } item)
+                    return item;
                 return new DictionaryItemResponse
                 {
                     Id = id,
@@ -3090,6 +3179,53 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 };
             }
         );
+
+    /// <summary>
+    /// Rejects translations whose ISO code is not a language on this instance (#181).
+    /// <para>
+    /// Umbraco accepts the create and silently drops those translations, so without this the
+    /// caller is told the item saved and only finds out later that it is empty. Deliberately does
+    /// not try to resolve a short code like <c>en</c> to <c>en-US</c>: on a site with both en-US
+    /// and en-GB that guess is a coin flip, and guessing is what produced this class of bug.
+    /// </para>
+    /// </summary>
+    /// <param name="translations">The requested translations.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <exception cref="ApiException">A code does not match any configured language (mapped to 400).</exception>
+    private async Task GuardDictionaryIsoCodesAsync(
+        IEnumerable<DictionaryTranslation> translations,
+        CancellationToken ct
+    )
+    {
+        var requested = translations.Select(t => t.IsoCode).Where(c => !string.IsNullOrEmpty(c));
+        if (!requested.Any())
+            return;
+
+        var languages = await _api.Umbraco.Management.Api.V1.Language.GetAsync(
+            c => c.QueryParameters.Take = 1000,
+            ct
+        );
+        var known = (languages?.Items ?? [])
+            .Select(l => l.IsoCode)
+            .Where(c => !string.IsNullOrEmpty(c))
+            .ToList();
+
+        // An instance that reports no languages at all is not evidence the codes are wrong.
+        if (known.Count == 0)
+            return;
+
+        var unknown = requested
+            .Where(c => !known.Any(k => string.Equals(k, c, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        if (unknown.Count > 0)
+            throw new ApiException(
+                $"This instance has no language with the ISO code {string.Join(", ", unknown.Select(u => $"'{u}'"))}. "
+                    + $"Umbraco would accept the request and discard those translations. Configured languages: {string.Join(", ", known)}."
+            )
+            {
+                ResponseStatusCode = 400,
+            };
+    }
 
     /// <summary>Deletes a dictionary item via <c>DELETE dictionary/{id}</c> (generated client, issue #59).</summary>
     /// <param name="id">The dictionary item id.</param>

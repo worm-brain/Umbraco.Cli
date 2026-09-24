@@ -448,6 +448,36 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => Page(DocumentTypeList, skip, take);
 
+    /// <summary>The alias or id passed to <see cref="GetDocumentTypeAsync"/>, for #159.</summary>
+    public string? LastDocumentTypeLookup { get; private set; }
+
+    public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeAsync(
+        string aliasOrId,
+        CancellationToken ct = default
+    )
+    {
+        LastDocumentTypeLookup = aliasOrId;
+        return Task.FromResult(
+            UmbracoResponse<DocumentTypeResponse>.Success(
+                new DocumentTypeResponse { Name = "Blog Post", Alias = "blogPost" }
+            )
+        );
+    }
+
+    /// <summary>The name or id passed to <see cref="GetDataTypeAsync"/>, for #159.</summary>
+    public string? LastDataTypeLookup { get; private set; }
+
+    public Task<UmbracoResponse<DataTypeResponse>> GetDataTypeAsync(
+        string nameOrId,
+        CancellationToken ct = default
+    )
+    {
+        LastDataTypeLookup = nameOrId;
+        return Task.FromResult(
+            UmbracoResponse<DataTypeResponse>.Success(new DataTypeResponse { Name = "Textstring" })
+        );
+    }
+
     public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default

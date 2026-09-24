@@ -150,6 +150,10 @@ public class CommandParseTests
         "content update 3f7a8b2e-1234-5678-abcd-ef0123456789 --json-body u.json --template blogPost"
     )]
     [InlineData("content create --content-type textPage --name About --template blogPost")]
+    // #159: these take a human key now, not only a UUID.
+    [InlineData("content-types get blogPost")]
+    [InlineData("data-types get Textstring")]
+    [InlineData("languages create --culture da-DK --fallback en-US")]
     public void WriteCommand_ValidOrSchema_IsNotParseError(string args) =>
         Assert.False(HasErrors(args));
 

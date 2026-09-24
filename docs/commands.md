@@ -307,7 +307,7 @@ umbraco media-types delete <id>                            # needs --yes non-int
 
 ```bash
 umbraco content-types list
-umbraco content-types get <id>                             # UUID only (#159); includes properties, groups, templates
+umbraco content-types get <alias|id>                       # includes properties, groups, templates
 umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
 umbraco content-types delete <id>                          # needs --yes non-interactively
 ```
@@ -316,7 +316,7 @@ umbraco content-types delete <id>                          # needs --yes non-int
 
 ```bash
 umbraco data-types list                                    # omits editorAlias (#176)
-umbraco data-types get <id>                                # UUID only (#159); includes the editor configuration
+umbraco data-types get <name|id>                           # by NAME (a data type has no alias); includes its configuration
 umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types update <id> --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types delete <id>                             # needs --yes non-interactively
@@ -336,7 +336,7 @@ umbraco data-types folder delete <id>                      # needs --yes non-int
 
 ```bash
 umbraco languages list
-umbraco languages create --culture <code> [--default]
+umbraco languages create --culture <code> [--default] [--mandatory] [--fallback <code>]
 umbraco languages update <iso-code> --name <name> [--default] [--mandatory] [--fallback <code>]
 umbraco languages delete <iso-code>                        # needs --yes non-interactively
 ```
@@ -354,7 +354,7 @@ umbraco templates delete <id>                              # needs --yes non-int
 ## `members`
 
 ```bash
-umbraco members list [--group <name>]                      # --group is sent as a free-text filter and never matches (#184)
+umbraco members list [--group <name>]                      # filters by member group
 umbraco members get <id>                                   # UUID only; no groups or property values (#185)
 umbraco members create --email <email> --name <name> --type <alias>
 umbraco members update <id> [--email <email>] [--name <name>] [--approved]
@@ -430,11 +430,14 @@ umbraco dictionary delete <id>                             # needs --yes non-int
 ```
 
 **Use full ISO codes in `--values`** (`en-US`, not `en`). Umbraco matches them against the
-site's configured languages and **silently discards** any it does not recognise, while the CLI
-echoes your request back as if it had been saved. Check the result with `dictionary get`, and
-use `umbraco languages list` to see the exact codes in use
-([#181](https://github.com/worm-brain/Umbraco.Cli/issues/181)). There is no `dictionary update`
-yet - correcting a translation means delete and recreate, which changes the id
+site's configured languages and silently discards any it does not recognise, so `create` now
+checks them first and **fails with the list of configured codes** rather than reporting a saved
+item that is actually empty ([#181](https://github.com/worm-brain/Umbraco.Cli/issues/181)). The
+response is also read back from the instance, so what you see is what was stored.
+
+Short codes are rejected rather than resolved: on a site with both `en-US` and `en-GB`, guessing
+which one `en` meant would be a coin flip. There is still no `dictionary update` - correcting a
+translation means delete and recreate, which changes the id
 ([#182](https://github.com/worm-brain/Umbraco.Cli/issues/182)).
 
 ## `webhooks`
