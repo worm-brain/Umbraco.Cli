@@ -8,7 +8,7 @@ public static class ContentTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a document type by UUID or alias, including its property groups.\n\nExamples:\n  umbraco content-types get textPage\n  umbraco content-types get 3f7a8b2e-..."
+            "Get a document type by UUID.\n\nReturns the type's core fields only: id, name, alias, description, isElement, allowedAsRoot. Properties, groups, templates, allowed children and compositions are NOT returned - use 'umbraco schema export' to read the full definition.\n\nAn alias is not accepted here yet; resolve it with 'umbraco content-types list' first.\n\nExample:\n  umbraco content-types get 3f7a8b2e-..."
         );
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);

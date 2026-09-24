@@ -8,7 +8,7 @@ public static class MediaGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a media item by its UUID, including URL and metadata.\n\nExample:\n  umbraco media get 3f7a8b2e-..."
+            "Get a media item by its UUID.\n\nReturns id, name, mediaType, createDate and updateDate. The file URL, dimensions, size and extension are NOT returned yet - read them from the Management API ('GET /umbraco/management/api/v1/media/{id}' for values, or '/media/urls?id=') until then.\n\nExample:\n  umbraco media get 3f7a8b2e-..."
         );
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);

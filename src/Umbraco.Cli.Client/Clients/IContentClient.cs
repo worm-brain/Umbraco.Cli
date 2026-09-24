@@ -20,9 +20,24 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Updates a document (#178/#179). The document is read verbatim first and the request is
+    /// overlaid onto it, so anything the request does not mention survives - including the
+    /// template, which the Management API's replace-semantics PUT would otherwise clear.
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="request">The values, variants and (optionally) template to write.</param>
+    /// <param name="replace">
+    /// When true, the request's values and variants replace the document's wholesale instead of
+    /// being merged into them. The template is still preserved unless the request sets one -
+    /// dropping it was never intended behaviour (#178).
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The updated content item, hydrated where possible, or a mapped failure.</returns>
     Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(
         Guid id,
         UpdateContentRequest request,
+        bool replace = false,
         CancellationToken ct = default
     );
 
@@ -34,7 +49,10 @@ public interface IContentClient
     /// unpublish is expressed here via <paramref name="unpublishAt"/> rather than on the unpublish verb.
     /// </summary>
     /// <param name="id">The content item id.</param>
-    /// <param name="cultures">Cultures to publish; null/empty publishes all (<c>"*"</c>).</param>
+    /// <param name="cultures">
+    /// Cultures to publish; null/empty reads the document and publishes every culture it varies
+    /// by. <c>"*"</c> is not a wildcard here - it is the invariant culture (#158).
+    /// </param>
     /// <param name="publishAt">When to publish; null publishes immediately.</param>
     /// <param name="unpublishAt">When to unpublish again; null leaves it published.</param>
     /// <param name="ct">Cancellation token.</param>

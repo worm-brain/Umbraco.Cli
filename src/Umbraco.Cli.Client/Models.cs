@@ -283,6 +283,14 @@ public record CreateContentRequest
 
     [JsonPropertyName("variants")]
     public IEnumerable<ContentVariant> Variants { get; init; } = [];
+
+    /// <summary>
+    /// The template to set on the new document (#162). Null means "use the document type's
+    /// default": Umbraco 17 requires the <c>template</c> key to be present on a create body and
+    /// treats an explicit null as the default, which is why it is always serialized (#134).
+    /// </summary>
+    [JsonPropertyName("template")]
+    public ContentTemplateReference? Template { get; init; }
 }
 
 public record UpdateContentRequest
@@ -292,6 +300,27 @@ public record UpdateContentRequest
 
     [JsonPropertyName("variants")]
     public IEnumerable<ContentVariant> Variants { get; init; } = [];
+
+    /// <summary>
+    /// The template to set on the document (#162). Null leaves the document's current template
+    /// alone - it is <b>not</b> a request to remove it, because omitting the field is how most
+    /// bodies are written and clearing a template makes the page 404 (#178).
+    /// </summary>
+    [JsonPropertyName("template")]
+    public ContentTemplateReference? Template { get; init; }
+}
+
+/// <summary>
+/// A reference to a template, by id or by alias (#162). Exactly one is needed; when both are
+/// given the id wins, because it needs no lookup.
+/// </summary>
+public record ContentTemplateReference
+{
+    [JsonPropertyName("id")]
+    public Guid? Id { get; init; }
+
+    [JsonPropertyName("alias")]
+    public string? Alias { get; init; }
 }
 
 public record ContentValue

@@ -460,7 +460,12 @@ follow-up read, not just the write's own success envelope.
 3. `content create --content-type clitestDocType --name "clitest Root" --id $CLITEST_CONTENT_ROOT` -> exit 0; `content get $CLITEST_CONTENT_ROOT` shows the name.
 4. `content create --content-type clitestDocType --name "clitest Child" --parent $CLITEST_CONTENT_ROOT --id $CLITEST_CONTENT_CHILD` -> exit 0; parent is the root.
 5. `content update $CLITEST_CONTENT_ROOT --json-body -` (change the name) -> exit 0; a `get` reflects the new name. **If the get shows the old value, that is `content.update.no-op`.**
-6. `content publish $CLITEST_CONTENT_ROOT` -> exit 0. `content unpublish $CLITEST_CONTENT_ROOT --yes` -> exit 0.
+5a. **Merge (#179).** Give the doc type a second property, set both, then `content update` naming only the first. Read the document back from the Management API (`GET /umbraco/management/api/v1/document/{id}`, since `content get` returns no values - #168). **The second property must still hold its value.** If it is empty, that is `content.update.clobbers-unlisted`.
+5b. **Template preservation (#178).** Confirm `template` is still set on that same read-back. **If it is null, that is `content.update.drops-template`** - the bug that 404'd every page in the 2026-09-23 round.
+5c. **Replace opt-out.** Repeat 5a with `--replace`; this time the second property *must* be cleared, and the template must *still* be set.
+5d. **Template flag (#162).** `content update $CLITEST_CONTENT_ROOT --json-body - --template <alias>` -> the read-back shows that template. An unknown alias must fail with a message naming it, not succeed silently.
+6. `content publish $CLITEST_CONTENT_ROOT` -> exit 0 **and the document actually reports published**. Check with `content get` (`isPublished: true`) or a Management API read of `variants[].state`. **Exit 0 alone is not a pass** - the #158 no-op returned exit 0 and `{"status":"success"}` while publishing nothing, for two releases. Then `content unpublish $CLITEST_CONTENT_ROOT --yes` -> exit 0, and confirm it is no longer published.
+6a. **Variant publish (#158).** On a culture-varying document, `content publish <id>` with no `--cultures` must publish *every* culture, not 400. `"*"` is not a wildcard - it is the invariant culture - so a regression here shows up as `400 "Cannot publish invariant culture when the document varies by culture."`
 7. `content versions $CLITEST_CONTENT_ROOT` lists >= 2; `content rollback <versionId>` -> exit 0.
 8. `content trash $CLITEST_CONTENT_CHILD` -> exit 0 (in bin); `content restore $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (back).
 9. `content copy $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (record the copy's id and delete it in teardown).

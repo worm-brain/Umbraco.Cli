@@ -145,6 +145,11 @@ public class CommandParseTests
     [InlineData("content create --schema")] // --schema bypasses the requirement
     [InlineData("content update 3f7a8b2e-1234-5678-abcd-ef0123456789 --json-body u.json")]
     [InlineData("content update --schema")] // --schema bypasses the requirement
+    [InlineData("content update 3f7a8b2e-1234-5678-abcd-ef0123456789 --json-body u.json --replace")]
+    [InlineData(
+        "content update 3f7a8b2e-1234-5678-abcd-ef0123456789 --json-body u.json --template blogPost"
+    )]
+    [InlineData("content create --content-type textPage --name About --template blogPost")]
     public void WriteCommand_ValidOrSchema_IsNotParseError(string args) =>
         Assert.False(HasErrors(args));
 

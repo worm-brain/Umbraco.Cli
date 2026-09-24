@@ -449,6 +449,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         : null,
                     Variants = MapVariants(request.Variants),
                     Values = MapValues(request.Values),
+                    // Null is meaningful here: Umbraco 17 reads an explicit null template as
+                    // "use the document type's default" (#134/#162), so only set it when asked.
+                    Template = request.Template is { } t
+                        ? new Gen.ReferenceByIdModel { Id = await ResolveTemplateIdAsync(t, ct) }
+                        : null,
                 };
                 await _api.Umbraco.Management.Api.V1.Document.PostAsync(
                     body,
@@ -494,38 +499,29 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     }
 
     /// <summary>
-    /// Updates a content item via <c>PUT document/{id}</c> (generated client, #79). The PUT
-    /// replaces the item's variants and property values, then the item is re-read so the
-    /// returned payload is hydrated (#74). A failed hydration read still returns success.
+    /// Looks up a template's id from its alias via the template search endpoint, matching the
+    /// alias exactly (the search itself is a fuzzy contains). Shared by
+    /// <see cref="GetTemplateByAliasAsync"/> and the content write path's <c>--template</c>.
     /// </summary>
-    /// <param name="id">The content item id.</param>
-    /// <param name="request">The variants and property values to write.</param>
+    /// <param name="alias">The template alias, e.g. <c>blogPost</c>.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The updated content item, hydrated where possible, or a mapped failure.</returns>
-    public Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(
-        Guid id,
-        UpdateContentRequest request,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
+    /// <returns>The matching template's id.</returns>
+    /// <exception cref="ApiException">No template has that alias.</exception>
+    private async Task<Guid> ResolveTemplateIdAsync(string alias, CancellationToken ct)
+    {
+        var search = await _api.Umbraco.Management.Api.V1.Item.Template.Search.GetAsync(
+            c =>
             {
-                var body = new Gen.UpdateDocumentRequestModel
-                {
-                    Variants = MapVariants(request.Variants),
-                    Values = MapValues(request.Values),
-                };
-                await _api
-                    .Umbraco.Management.Api.V1.Document[id]
-                    .PutAsync(body, cancellationToken: ct);
-
-                var hydrated = await GetContentByIdAsync(id, ct);
-                if (hydrated.IsSuccess && hydrated.Data is { } data)
-                    return data;
-                return new ContentItemResponse { Id = id };
-            }
+                c.QueryParameters.Query = alias;
+                c.QueryParameters.Take = 100;
+            },
+            ct
         );
+        var match = (search?.Items ?? []).FirstOrDefault(t =>
+            string.Equals(t.Alias, alias, StringComparison.OrdinalIgnoreCase)
+        );
+        return match?.Id ?? throw NotFound($"No template found with alias '{alias}'.");
+    }
 
     /// <summary>
     /// Maps command-facing variants to the generated document variant shape. Shared by the document
@@ -583,12 +579,21 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
     /// <summary>
     /// Publishes a content item via <c>PUT document/{id}/publish</c> (generated client, #79).
-    /// Each culture is sent as a publish schedule with no scheduled time (publish now); the
-    /// default <c>"*"</c> publishes all cultures (Umbraco's wildcard - there is no dedicated
-    /// enum for it).
+    /// <para>
+    /// Two things about this endpoint are not obvious, both established by testing against
+    /// 17.7.0 (#158). First, an empty <c>schedule</c> object is not "publish now" - Umbraco
+    /// answers <c>200</c> and publishes nothing - so the schedule is sent only when a time was
+    /// actually asked for. Second, <c>"*"</c> is <b>not</b> a wildcard: it is the invariant
+    /// culture, so on a document that varies by culture it is rejected with
+    /// <c>400 "Cannot publish invariant culture when the document varies by culture."</c>
+    /// That is why publishing "everything" reads the document first and enumerates its cultures
+    /// rather than relying on a wildcard that does not exist.
+    /// </para>
     /// </summary>
     /// <param name="id">The content item id.</param>
-    /// <param name="cultures">Cultures to publish; null/empty publishes all cultures (<c>"*"</c>).</param>
+    /// <param name="cultures">Cultures to publish; null/empty publishes every culture the document has.</param>
+    /// <param name="publishAt">When to publish; null publishes immediately.</param>
+    /// <param name="unpublishAt">When to take it down again; null leaves it published.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     public Task<UmbracoResponse<Empty>> PublishContentAsync(
@@ -602,19 +607,29 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
+                var requested = cultures?.Select(c => (string?)c).ToList();
+                var targets = requested is { Count: > 0 }
+                    ? requested
+                    : await DocumentCulturesAsync(id, ct);
+
+                // A schedule is only sent when one was asked for: an all-null schedule object is
+                // silently ignored by the server, which is the #158 no-op.
+                var schedule =
+                    publishAt is null && unpublishAt is null
+                        ? null
+                        : new Gen.ScheduleRequestModel
+                        {
+                            PublishTime = publishAt,
+                            UnpublishTime = unpublishAt,
+                        };
+
                 var body = new Gen.PublishDocumentRequestModel
                 {
-                    PublishSchedules = (cultures ?? ["*"])
+                    PublishSchedules = targets
                         .Select(c => new Gen.CultureAndScheduleRequestModel
                         {
                             Culture = c,
-                            // #90: a null time on either side means "now" for publish / "never" for
-                            // unpublish, so an all-null schedule is still an immediate publish.
-                            Schedule = new Gen.ScheduleRequestModel
-                            {
-                                PublishTime = publishAt,
-                                UnpublishTime = unpublishAt,
-                            },
+                            Schedule = schedule,
                         })
                         .ToList(),
                 };
@@ -626,14 +641,41 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
+    /// The cultures to publish when the caller named none: every culture the document varies by,
+    /// or a single <c>null</c> culture when it is invariant. Reading the document is what makes
+    /// "publish all" work without a wildcard - see <see cref="PublishContentAsync"/>.
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The culture codes to publish; a single-element list containing null when invariant.</returns>
+    private async Task<List<string?>> DocumentCulturesAsync(Guid id, CancellationToken ct)
+    {
+        var document = await _api
+            .Umbraco.Management.Api.V1.Document[id]
+            .GetAsync(cancellationToken: ct);
+        var cultures = (document?.Variants ?? [])
+            .Select(v => v.Culture)
+            .Where(c => !string.IsNullOrEmpty(c))
+            .Distinct()
+            .ToList();
+
+        // An invariant document has a single variant with a null culture, and that null is what
+        // the publish body must carry - "*" would be wrong for a variant document and is merely
+        // redundant here.
+        return cultures.Count > 0 ? cultures : [null];
+    }
+
+    /// <summary>
     /// Unpublishes a content item via <c>PUT document/{id}/unpublish</c> (generated client, #79).
     /// The unpublish payload is a plain list of cultures (distinct from publish's schedule list).
     /// When no cultures are given the <c>cultures</c> field is omitted, which unpublishes the whole
-    /// document. This deliberately differs from <see cref="PublishContentAsync"/>: unpublish does
-    /// NOT accept publish's <c>"*"</c> wildcard as a culture, and sending <c>["*"]</c> against an
-    /// invariant document is rejected with HTTP 400 "Cannot publish a given culture when the
-    /// document is invariant." Omitting the field is the correct way to unpublish all cultures for
-    /// both invariant and variant documents (#149, found in alpha.8 acceptance testing).
+    /// document. Note that <c>"*"</c> is not a wildcard anywhere in this API - it is the invariant
+    /// culture (#158) - so it must not be used to mean "everything" here either: sending
+    /// <c>["*"]</c> against an invariant document is rejected with HTTP 400 "Cannot publish a given
+    /// culture when the document is invariant." Omitting the field is the correct way to unpublish
+    /// all cultures for both invariant and variant documents (#149, found in alpha.8 acceptance
+    /// testing). Publish reaches the same end differently, by enumerating the document's cultures -
+    /// see <see cref="PublishContentAsync"/>.
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">Specific cultures to unpublish; null/empty unpublishes the whole document.</param>
@@ -650,8 +692,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             {
                 var body = new Gen.UnpublishDocumentRequestModel
                 {
-                    // Null (not ["*"]): a null cultures list unpublishes the whole document. See the
-                    // summary - "*" is a publish-only wildcard and 400s on invariant content here.
+                    // Null (not ["*"]): a null cultures list unpublishes the whole document. See
+                    // the summary - "*" is the invariant culture, not a wildcard, and 400s here.
                     Cultures = cultures?.ToList(),
                 };
                 await _api
@@ -2059,28 +2101,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                Guid id;
-                if (Guid.TryParse(aliasOrId, out var parsed))
-                {
-                    id = parsed;
-                }
-                else
-                {
-                    var search = await _api.Umbraco.Management.Api.V1.Item.Template.Search.GetAsync(
-                        c =>
-                        {
-                            c.QueryParameters.Query = aliasOrId;
-                            c.QueryParameters.Take = 100;
-                        },
-                        ct
-                    );
-                    var match = (search?.Items ?? []).FirstOrDefault(t =>
-                        string.Equals(t.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase)
-                    );
-                    if (match?.Id is not { } matchedId)
-                        throw NotFound($"No template found with alias '{aliasOrId}'.");
-                    id = matchedId;
-                }
+                var id = Guid.TryParse(aliasOrId, out var parsed)
+                    ? parsed
+                    : await ResolveTemplateIdAsync(aliasOrId, ct);
 
                 var t = await _api
                     .Umbraco.Management.Api.V1.Template[id]
