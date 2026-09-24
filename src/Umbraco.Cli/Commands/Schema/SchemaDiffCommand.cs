@@ -70,7 +70,16 @@ public static class SchemaDiffCommand
         if (diff is null)
             yield break;
 
-        foreach (var kind in new[] { diff.DocumentTypes, diff.DataTypes, diff.Templates })
+        foreach (
+            var kind in new[]
+            {
+                diff.DocumentTypes,
+                diff.MediaTypes,
+                diff.MemberTypes,
+                diff.DataTypes,
+                diff.Templates,
+            }
+        )
         {
             foreach (
                 var change in kind

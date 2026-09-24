@@ -36,6 +36,9 @@ public static class SchemaDiffEngine
                 desired.DocumentTypes,
                 current.DocumentTypes
             ),
+            // Media and member types carry an alias, exactly as document types do.
+            CompareKind(SchemaKinds.MediaType, "alias", desired.MediaTypes, current.MediaTypes),
+            CompareKind(SchemaKinds.MemberType, "alias", desired.MemberTypes, current.MemberTypes),
             CompareKind(SchemaKinds.DataType, "name", desired.DataTypes, current.DataTypes),
             CompareKind(SchemaKinds.Template, "alias", desired.Templates, current.Templates)
         );

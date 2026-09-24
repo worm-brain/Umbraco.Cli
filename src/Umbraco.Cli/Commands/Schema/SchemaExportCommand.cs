@@ -8,11 +8,15 @@ namespace Umbraco.Cli.Commands.Schema;
 /// rather than a bare message.
 /// </summary>
 /// <param name="DocumentTypes">Number of document types exported.</param>
+/// <param name="MediaTypes">Number of media types exported (#186).</param>
+/// <param name="MemberTypes">Number of member types exported (#186).</param>
 /// <param name="DataTypes">Number of data types exported.</param>
 /// <param name="Templates">Number of templates exported.</param>
 /// <param name="Path">The absolute path the snapshot was written to.</param>
 public sealed record SchemaExportSummary(
     int DocumentTypes,
+    int MediaTypes,
+    int MemberTypes,
     int DataTypes,
     int Templates,
     string Path
@@ -22,8 +26,8 @@ public sealed record SchemaExportSummary(
 public static class SchemaExportCommand
 {
     /// <summary>
-    /// Builds the <c>schema export</c> command: dumps every document type, data type, and
-    /// template to a portable snapshot. With no <c>--out</c> the snapshot is written to stdout
+    /// Builds the <c>schema export</c> command: dumps every document type, media type, member
+    /// type, data type, and template to a portable snapshot. With no <c>--out</c> the snapshot is written to stdout
     /// inside the normal success envelope (pipe/redirect friendly); with <c>--out &lt;file&gt;</c>
     /// the bare snapshot is written to that file and a count summary is emitted.
     /// </summary>
@@ -73,6 +77,8 @@ public static class SchemaExportCommand
                         ctx.Output.WriteSuccess(
                             new SchemaExportSummary(
                                 snapshot.DocumentTypes.Count,
+                                snapshot.MediaTypes.Count,
+                                snapshot.MemberTypes.Count,
                                 snapshot.DataTypes.Count,
                                 snapshot.Templates.Count,
                                 outFile.FullName

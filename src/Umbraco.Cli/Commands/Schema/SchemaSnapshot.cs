@@ -6,7 +6,8 @@ namespace Umbraco.Cli.Commands.Schema;
 
 /// <summary>
 /// A portable, round-trippable dump of an Umbraco instance's schema — every document type,
-/// data type, and template — as the **verbatim** Management-API JSON body of each entity
+/// media type, member type, data type, and template — as the **verbatim** Management-API JSON
+/// body of each entity
 /// (issue #68 / ADR 0005 §1, "raw-JSON passthrough"). Produced by <c>schema export</c> and
 /// consumed by <c>schema diff</c> / <c>schema apply</c>.
 ///
@@ -18,7 +19,7 @@ namespace Umbraco.Cli.Commands.Schema;
 public sealed class SchemaSnapshot
 {
     /// <summary>
-    /// The snapshot **layout** version (currently <c>"1"</c>). Independent of the CLI output
+    /// The snapshot **layout** version (currently <c>"2"</c>). Independent of the CLI output
     /// envelope's <c>meta.schemaVersion</c> — this versions the file format so a future
     /// breaking change to the snapshot shape can be detected by <c>diff</c>/<c>apply</c>.
     /// </summary>
@@ -26,11 +27,25 @@ public sealed class SchemaSnapshot
     public string SchemaVersion { get; init; } = CurrentVersion;
 
     /// <summary>The current snapshot layout version emitted by <c>schema export</c>.</summary>
-    public const string CurrentVersion = "1";
+    /// <remarks>
+    /// Bumped to <c>"2"</c> when media types and member types joined the snapshot (#186). A
+    /// version-1 file is <b>refused</b> rather than read as an empty-for-those-kinds snapshot:
+    /// <c>apply --prune</c> would diff the missing arrays as "delete every media type and member
+    /// type on the instance". Re-export instead.
+    /// </remarks>
+    public const string CurrentVersion = "2";
 
     /// <summary>Verbatim <c>GET /document-type/{id}</c> bodies, one per document type.</summary>
     [JsonPropertyName("documentTypes")]
     public List<JsonNode> DocumentTypes { get; init; } = [];
+
+    /// <summary>Verbatim <c>GET /media-type/{id}</c> bodies, one per media type (#186).</summary>
+    [JsonPropertyName("mediaTypes")]
+    public List<JsonNode> MediaTypes { get; init; } = [];
+
+    /// <summary>Verbatim <c>GET /member-type/{id}</c> bodies, one per member type (#186).</summary>
+    [JsonPropertyName("memberTypes")]
+    public List<JsonNode> MemberTypes { get; init; } = [];
 
     /// <summary>Verbatim <c>GET /data-type/{id}</c> bodies, one per data type.</summary>
     [JsonPropertyName("dataTypes")]
@@ -62,6 +77,8 @@ public sealed class SchemaSnapshot
     [
         "schemaVersion",
         "documentTypes",
+        "mediaTypes",
+        "memberTypes",
         "dataTypes",
         "templates",
     ];
@@ -103,7 +120,8 @@ public sealed class SchemaSnapshot
         if (root is not JsonObject obj || !SnapshotMembers.Any(obj.ContainsKey))
             throw new JsonException(
                 "Not a schema snapshot: expected a 'schemaVersion' and/or "
-                    + "documentTypes/dataTypes/templates arrays (produced by 'schema export')."
+                    + "documentTypes/mediaTypes/memberTypes/dataTypes/templates arrays "
+                    + "(produced by 'schema export')."
             );
 
         // Guard against a future snapshot format: refuse a version we do not understand rather

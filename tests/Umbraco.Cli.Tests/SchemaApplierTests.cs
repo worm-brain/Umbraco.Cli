@@ -29,8 +29,19 @@ public class SchemaApplierTests
     private static SchemaEntityChange Added(string kind, Guid id, JsonNode body) =>
         new(kind, SchemaChangeKind.Added, "x", id, null) { DesiredBody = body };
 
-    private static SchemaDiff DiffWith(SchemaKindDiff? docs = null, SchemaKindDiff? data = null) =>
-        new(docs ?? Empty(), data ?? Empty(), Empty());
+    private static SchemaDiff DiffWith(
+        SchemaKindDiff? docs = null,
+        SchemaKindDiff? data = null,
+        SchemaKindDiff? mediaTypes = null,
+        SchemaKindDiff? memberTypes = null
+    ) =>
+        new(
+            docs ?? Empty(),
+            mediaTypes ?? Empty(),
+            memberTypes ?? Empty(),
+            data ?? Empty(),
+            Empty()
+        );
 
     private static SchemaKindDiff Empty() => new([], [], [], [], 0);
 
@@ -224,7 +235,13 @@ public class SchemaApplierTests
         {
             DesiredBody = new JsonObject { ["id"] = snapshotId.ToString(), ["alias"] = "home" },
         };
-        var diff = new SchemaDiff(Empty(), Empty(), new SchemaKindDiff([], [change], [], [], 0));
+        var diff = new SchemaDiff(
+            Empty(),
+            Empty(),
+            Empty(),
+            Empty(),
+            new SchemaKindDiff([], [change], [], [], 0)
+        );
 
         await SchemaApplier.ApplyAsync(
             fake,
@@ -279,4 +296,92 @@ public class SchemaApplierTests
         Assert.Equal(400, result.StatusCode);
         Assert.Single(fake.RawWrites); // stopped after the first failed write, did not attempt the second
     }
+
+    /// <summary>
+    /// Media and member types are created after data types and templates but before document
+    /// types (#186): their properties reference data types, and a document type can allow a
+    /// media type as a picker's start node, so the referenced entity has to exist first.
+    /// </summary>
+    [Fact]
+    public async Task ApplyAsync_CreatesMediaAndMemberTypesBetweenTemplatesAndDocumentTypes()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var diff = DiffWith(
+            docs: new SchemaKindDiff(
+                [Added(SchemaKinds.DocumentType, Guid.NewGuid(), Doc(Guid.NewGuid(), "blogPost"))],
+                [],
+                [],
+                [],
+                0
+            ),
+            data: new SchemaKindDiff(
+                [Added(SchemaKinds.DataType, Guid.NewGuid(), Doc(Guid.NewGuid(), "slider"))],
+                [],
+                [],
+                [],
+                0
+            ),
+            mediaTypes: new SchemaKindDiff(
+                [Added(SchemaKinds.MediaType, Guid.NewGuid(), Doc(Guid.NewGuid(), "customImage"))],
+                [],
+                [],
+                [],
+                0
+            ),
+            memberTypes: new SchemaKindDiff(
+                [Added(SchemaKinds.MemberType, Guid.NewGuid(), Doc(Guid.NewGuid(), "subscriber"))],
+                [],
+                [],
+                [],
+                0
+            )
+        );
+
+        await SchemaApplier.ApplyAsync(
+            fake,
+            diff,
+            prune: false,
+            dryRun: false,
+            CancellationToken.None
+        );
+
+        Assert.Equal(
+            ["dataType", "mediaType", "memberType", "documentType"],
+            fake.RawWrites.Select(w => w.Kind)
+        );
+    }
+
+    /// <summary>
+    /// And prune deletes in the reverse order, so a document type that allows a media type goes
+    /// before the media type it depends on.
+    /// </summary>
+    [Fact]
+    public async Task ApplyAsync_Prune_DeletesDocumentTypesBeforeMemberAndMediaTypes()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var diff = DiffWith(
+            docs: new SchemaKindDiff([], [], [Removed(SchemaKinds.DocumentType)], [], 0),
+            mediaTypes: new SchemaKindDiff([], [], [Removed(SchemaKinds.MediaType)], [], 0),
+            memberTypes: new SchemaKindDiff([], [], [Removed(SchemaKinds.MemberType)], [], 0)
+        );
+
+        var result = await SchemaApplier.ApplyAsync(
+            fake,
+            diff,
+            prune: true,
+            dryRun: true,
+            CancellationToken.None
+        );
+
+        Assert.Equal(
+            [SchemaKinds.DocumentType, SchemaKinds.MemberType, SchemaKinds.MediaType],
+            result.Data!.Actions.Select(a => a.Kind)
+        );
+    }
+
+    /// <summary>A prune candidate of one kind, with a live id to delete.</summary>
+    /// <param name="kind">The entity kind.</param>
+    /// <returns>The change.</returns>
+    private static SchemaEntityChange Removed(string kind) =>
+        new(kind, SchemaChangeKind.Removed, "x", null, Guid.NewGuid());
 }

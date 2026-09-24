@@ -17,13 +17,17 @@ public sealed class JsonBodyOption
 
     /// <summary>Builds the option pair.</summary>
     /// <param name="bodyDescription">Help text for <c>--json-body</c> (varies per verb).</param>
-    public JsonBodyOption(string bodyDescription)
+    public JsonBodyOption(string bodyDescription, string? schemaDescription = null)
     {
         _body = new Option<string?>("--json-body") { Description = bodyDescription };
         _schema = new Option<bool>("--schema")
         {
+            // Per-consumer, because --schema does two different things: the typed commands print
+            // a local JSON Schema, while the raw schema verbs read a real entity off the instance
+            // and so need a host. One shared sentence could only be true for one of them.
             Description =
-                "Print the JSON Schema for the --json-body request and exit (no host/auth needed).",
+                schemaDescription
+                ?? "Print the JSON Schema for the --json-body request and exit (no host/auth needed).",
         };
     }
 

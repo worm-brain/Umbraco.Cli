@@ -99,6 +99,31 @@ public record UmbracoResponse<T>
         };
 
     /// <summary>
+    /// Re-wraps someone else's failure as this payload type, carrying the status, message and
+    /// category across unchanged. A command that has to read something before it can write - to
+    /// resolve an alias, say - must surface the read's own failure rather than inventing one, and
+    /// copying three fields by hand at each site is how one of them ends up dropping the category
+    /// and downgrading a "host unreachable" to a generic error.
+    /// </summary>
+    /// <typeparam name="TOther">The payload type of the failed response.</typeparam>
+    /// <param name="failed">The failed response to re-wrap.</param>
+    /// <returns>The same failure, typed as <see cref="UmbracoResponse{T}"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="failed"/> is not a failure.</exception>
+    public static UmbracoResponse<T> FailureFrom<TOther>(UmbracoResponse<TOther> failed) =>
+        failed.IsSuccess
+            ? throw new ArgumentException(
+                "Only a failed response can be re-wrapped as a failure.",
+                nameof(failed)
+            )
+            : new()
+            {
+                IsSuccess = false,
+                StatusCode = failed.StatusCode,
+                ErrorMessage = failed.ErrorMessage,
+                Category = failed.Category,
+            };
+
+    /// <summary>
     /// Best-effort category from a status code, for callers that do not pass one explicitly.
     /// A status of 0 (no response) defaults to <see cref="FailureCategory.Unreachable"/>; the
     /// timeout path sets <see cref="FailureCategory.Timeout"/> itself.
@@ -259,6 +284,42 @@ public record ContentVariantResponse
 
     [JsonPropertyName("publishDate")]
     public DateTimeOffset? PublishDate { get; init; }
+}
+
+/// <summary>A document's culture-and-hostname bindings (#180).</summary>
+public record DomainsResponse
+{
+    /// <summary>The culture served when no domain matches, or null for none.</summary>
+    [JsonPropertyName("defaultIsoCode")]
+    public string? DefaultIsoCode { get; init; }
+
+    [JsonPropertyName("domains")]
+    public IEnumerable<DomainBinding> Domains { get; init; } = [];
+}
+
+/// <summary>One hostname bound to one culture (#180).</summary>
+public record DomainBinding
+{
+    /// <summary>The hostname, optionally with a path, e.g. <c>example.com/da</c>.</summary>
+    [JsonPropertyName("domainName")]
+    public string DomainName { get; init; } = "";
+
+    [JsonPropertyName("isoCode")]
+    public string IsoCode { get; init; } = "";
+}
+
+/// <summary>
+/// The complete set of domains for a document (#180). The API's PUT replaces, so this is not a
+/// patch - `content domains set` reads the current set first so a caller can add one without
+/// restating the rest.
+/// </summary>
+public record SetDomainsRequest
+{
+    [JsonPropertyName("defaultIsoCode")]
+    public string? DefaultIsoCode { get; init; }
+
+    [JsonPropertyName("domains")]
+    public IEnumerable<DomainBinding> Domains { get; init; } = [];
 }
 
 /// <summary>
@@ -1032,6 +1093,21 @@ public record MemberResponse
     [JsonPropertyName("isApproved")]
     public bool IsApproved { get; init; }
 
+    /// <summary>The login name. Often the email, but they are separate fields (#185).</summary>
+    [JsonPropertyName("username")]
+    public string? Username { get; init; }
+
+    /// <summary>
+    /// The groups this member belongs to, by id (#185). Member groups are referenced by id, not
+    /// name - worth knowing when filtering with <c>members list --group</c>, which takes a name.
+    /// </summary>
+    [JsonPropertyName("groups")]
+    public IEnumerable<Guid>? Groups { get; init; }
+
+    /// <summary>The member's custom property values (#185), in the same shape as content.</summary>
+    [JsonPropertyName("values")]
+    public IEnumerable<ContentValueResponse>? Values { get; init; }
+
     [JsonPropertyName("isLockedOut")]
     public bool IsLockedOut { get; init; }
 
@@ -1082,6 +1158,31 @@ public record UpdateMemberRequest
 
     /// <summary>New approved state, or null to keep the current one.</summary>
     public bool? IsApproved { get; init; }
+
+    /// <summary>New login name, or null to keep the current one (#185).</summary>
+    public string? Username { get; init; }
+
+    /// <summary>
+    /// Group ids to set, replacing the member's current groups. Null keeps them - the read-merge
+    /// below preserves whatever it does not replace (#185).
+    /// </summary>
+    public IEnumerable<Guid>? Groups { get; init; }
+
+    /// <summary>
+    /// Property values to set, merged into the member's existing ones by alias + culture +
+    /// segment. Null keeps them all.
+    /// </summary>
+    public IEnumerable<ContentValue>? Values { get; init; }
+
+    /// <summary>
+    /// A new password (#185). Set by an administrator, so no old password is required - the
+    /// generated model has an <c>OldPassword</c> field for self-service changes, which this
+    /// command does not cover.
+    /// </summary>
+    public string? NewPassword { get; init; }
+
+    /// <summary>New locked-out state; false unlocks a member locked out by failed logins.</summary>
+    public bool? IsLockedOut { get; init; }
 }
 
 // ── Member Types ─────────────────────────────────────────────────────────────
@@ -1243,6 +1344,22 @@ public record DictionaryTreeItem
     /// <summary>The parent reference, or null at the dictionary root.</summary>
     [JsonPropertyName("parent")]
     public ContentParentReference? Parent { get; init; }
+}
+
+/// <summary>
+/// A partial update to a dictionary item (#182). Translations are merged into the item's existing
+/// ones by ISO code, so supplying one language leaves the others alone - the PUT itself is a full
+/// replace, which is the shape that cost a test site its content in #179.
+/// </summary>
+public record UpdateDictionaryItemRequest
+{
+    /// <summary>New key/name, or null to keep the current one.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    /// <summary>Translations to set; any language not named keeps its current value.</summary>
+    [JsonPropertyName("translations")]
+    public IEnumerable<DictionaryTranslation> Translations { get; init; } = [];
 }
 
 public record CreateDictionaryItemRequest

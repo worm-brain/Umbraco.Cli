@@ -505,7 +505,7 @@ The highest-value integration test: export -> diff -> apply round-trips.
 
 | ID | Command | Expect |
 |---|---|---|
-| T-F-01 | `umbraco schema export --out $RUN_DIR/schema.json` | exit 0; file is `{schemaVersion, documentTypes[], dataTypes[], templates[]}`. |
+| T-F-01 | `umbraco schema export --out $RUN_DIR/schema.json` | exit 0; file is `{schemaVersion: "2", documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[]}`; `mediaTypes` and `memberTypes` are non-empty on any stock install (#186). |
 | T-F-02 | `umbraco schema diff $RUN_DIR/schema.json` | exit 0; **empty diff** (a fresh export must be in sync with its source). A non-empty diff here is `pipeline.schema.export-diff-drift`. |
 | T-F-03 | `umbraco schema export | umbraco schema diff -` | same empty diff via stdin pipe. |
 | T-F-04 | `umbraco schema apply $RUN_DIR/schema.json --dry-run` | exit 0; a plan is printed; nothing changes (re-diff still empty). |

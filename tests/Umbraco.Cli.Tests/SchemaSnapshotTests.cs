@@ -39,13 +39,32 @@ public class SchemaSnapshotTests
         // and then `apply`s it; FromJson must unwrap the inner data object.
         var enveloped = """
             {"status":"success",
-             "data":{"schemaVersion":"1","documentTypes":[{"alias":"home"}],"dataTypes":[],"templates":[]},
+             "data":{"schemaVersion":"2","documentTypes":[{"alias":"home"}],"mediaTypes":[],"memberTypes":[],"dataTypes":[],"templates":[]},
              "meta":{"schemaVersion":"2"}}
             """;
 
         var snap = SchemaSnapshot.FromJson(enveloped);
 
         Assert.Equal("home", (string?)snap.DocumentTypes.Single()["alias"]);
+    }
+
+    /// <summary>
+    /// A version-1 snapshot predates media types and member types (#186), so reading it would
+    /// leave both arrays empty - and <c>apply --prune</c> reads an empty array as "the instance
+    /// should have none of these", i.e. delete every media type and member type. Refusing the
+    /// file and asking for a re-export is the only safe reading.
+    /// </summary>
+    [Fact]
+    public void FromJson_Version1Snapshot_IsRefusedRatherThanReadAsEmpty()
+    {
+        var v1 = """
+            {"schemaVersion":"1","documentTypes":[{"alias":"home"}],"dataTypes":[],"templates":[]}
+            """;
+
+        var error = Assert.ThrowsAny<JsonException>(() => SchemaSnapshot.FromJson(v1));
+
+        Assert.Contains("'1'", error.Message);
+        Assert.Contains("Re-export", error.Message);
     }
 
     [Fact]

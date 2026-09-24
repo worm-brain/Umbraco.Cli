@@ -47,6 +47,35 @@ public interface IDataTypeClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Updates a data type addressed by name or id (#159/#169). The name is resolved here rather
+    /// than in the command, so the lookup and the write are one operation to the caller.
+    /// </summary>
+    /// <param name="nameOrId">The data type name (e.g. <c>Textstring</c>) or its id.</param>
+    /// <param name="request">The replacement name + editor aliases.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
+        string nameOrId,
+        UpdateDataTypeRequest request,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Replaces a data type addressed by name or id with a verbatim body (#169), resolving the
+    /// name as <see cref="UpdateDataTypeAsync(string, UpdateDataTypeRequest, CancellationToken)"/>
+    /// does.
+    /// </summary>
+    /// <param name="nameOrId">The data type name or its id.</param>
+    /// <param name="body">The full replacement data-type JSON body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
+        string nameOrId,
+        System.Text.Json.Nodes.JsonNode body,
+        CancellationToken ct = default
+    );
+
     /// <summary>Deletes a data type by id (issue #59).</summary>
     /// <param name="id">The data type id.</param>
     /// <param name="ct">Cancellation token.</param>

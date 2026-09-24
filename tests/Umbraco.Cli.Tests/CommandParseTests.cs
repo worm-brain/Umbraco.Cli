@@ -154,6 +154,14 @@ public class CommandParseTests
     [InlineData("content-types get blogPost")]
     [InlineData("data-types get Textstring")]
     [InlineData("languages create --culture da-DK --fallback en-US")]
+    // #161/#169: the schema verbs take a full body, and --schema needs no other argument.
+    [InlineData("content-types create --json-body t.json")]
+    [InlineData("content-types create --schema")]
+    [InlineData("content-types update blogPost --json-body t.json")]
+    [InlineData("content-types update --schema")]
+    [InlineData("data-types create --json-body d.json")]
+    [InlineData("data-types update Textstring --json-body d.json")]
+    [InlineData("data-types update --schema")]
     public void WriteCommand_ValidOrSchema_IsNotParseError(string args) =>
         Assert.False(HasErrors(args));
 
@@ -683,6 +691,41 @@ public class CommandParseTests
     public void InvalidArgs_ProduceParseErrors(string args)
     {
         Assert.True(HasErrors(args), $"Expected parse errors for: {args}");
+    }
+
+    // ── key=value options refuse what they used to silently drop ─────────────────
+    // Every repeatable pair option parsed with .Where(p => p.Length == 2), so a token with no
+    // "=" in it vanished and the command reported success having written nothing. These pin the
+    // refusal, and the message that names the offending token.
+
+    [Theory]
+    [InlineData("dictionary create --key Nav.Home --values en-US", "en-US")]
+    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --values Home", "Home")]
+    [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company", "company")]
+    [InlineData(
+        "content domains set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com",
+        "example.com"
+    )]
+    [InlineData("dictionary create --key Nav.Home --values =Home", "=Home")]
+    public void PairOption_WithoutAnEquals_IsRejectedAndNamesTheToken(string args, string token)
+    {
+        var error = Assert.Single(Parse(args).Errors, e => e.Message.Contains("Not understood"));
+
+        Assert.Contains(token, error.Message);
+    }
+
+    [Theory]
+    [InlineData("dictionary create --key Nav.Home --values en-US=Home")]
+    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --values da-DK=Hjem")]
+    [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company=Acme")]
+    // An empty value is legitimate - it is how a property is cleared.
+    [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company=")]
+    [InlineData(
+        "content domains set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com/da=da-DK"
+    )]
+    public void PairOption_WellFormed_Parses(string args)
+    {
+        Assert.False(HasErrors(args), $"Unexpected parse errors for: {args}");
     }
 
     // ── Response-file tokens disabled (#115) ─────────────────────────────────────

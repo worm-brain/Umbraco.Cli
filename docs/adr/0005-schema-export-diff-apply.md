@@ -44,6 +44,11 @@ Other relevant facts:
 Ship `umbraco schema export`, `umbraco schema diff <file>`, and
 `umbraco schema apply <file>` for document types, data types, and templates.
 
+> **Amended (#186, snapshot version 2):** media types and member types are carried too, with
+> the same raw-JSON fidelity and the same alias matching as document types. A version-1
+> snapshot is refused on read rather than treated as having none of them, because
+> `apply --prune` would then delete every media type and member type on the instance.
+
 ### 1. Fidelity: raw-JSON passthrough
 
 Export the **verbatim Management-API JSON** of each entity (the full get-by-id
@@ -51,8 +56,10 @@ body), not a re-modelled projection. The snapshot is a single JSON document:
 
 ```jsonc
 {
-  "schemaVersion": "1",          // snapshot-format version, independent of the envelope's meta.schemaVersion
+  "schemaVersion": "2",          // snapshot-format version, independent of the envelope's meta.schemaVersion
   "documentTypes": [ { /* raw GET /document-type/{id} body */ } ],
+  "mediaTypes":    [ { /* raw GET /media-type/{id} body */ } ],   // #186
+  "memberTypes":   [ { /* raw GET /member-type/{id} body */ } ],  // #186
   "dataTypes":     [ { /* raw GET /data-type/{id} body */ } ],
   "templates":     [ { /* raw GET /template/{id} body */ } ]
 }

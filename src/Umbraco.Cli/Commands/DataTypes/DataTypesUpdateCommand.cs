@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.DataTypes;
@@ -19,7 +20,12 @@ public static class DataTypesUpdateCommand
             "update",
             "Update a data type by UUID. Omitted fields (and editor configuration) are preserved.\n\nExample:\n  umbraco data-types update 3f7a8b2e-... --name \"My Text\""
         );
-        var idArg = new Argument<Guid>("id") { Description = "Data type ID." };
+        var idArg = new Argument<string?>("id")
+        {
+            Description = "Data type name or UUID. Required unless --schema is used.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
+        var body = RawBodyCommand.AddBodyOptions(cmd);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var editorAliasOpt = new Option<string?>("--editor-alias")
         {
@@ -33,14 +39,53 @@ public static class DataTypesUpdateCommand
         cmd.Add(nameOpt);
         cmd.Add(editorAliasOpt);
         cmd.Add(editorUiAliasOpt);
+
+        cmd.Validators.Add(result =>
+        {
+            if (body.SchemaRequested(result))
+                return;
+            if (string.IsNullOrEmpty(result.GetValue(idArg)))
+                result.AddError(
+                    "Supply the data type name or id. "
+                        + "Run with --schema to print a real data type as a starting point."
+                );
+        });
+
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunMessageAsync(
+            {
+                if (body.SchemaRequested(parseResult))
+                    return RawBodyCommand.RunSchemaAsync(
+                        executor,
+                        parseResult,
+                        "data-types.update",
+                        client => client.GetDataTypeIdsAsync,
+                        client => client.GetDataTypeRawAsync,
+                        "data types",
+                        ct
+                    );
+
+                // Both branches address the type by name or id (#159); the client resolves.
+                if (body.HasBody(parseResult))
+                    return executor.RunMessageAsync(
+                        parseResult,
+                        "data-types.update",
+                        async (client, c) =>
+                            await client.UpdateDataTypeRawAsync(
+                                parseResult.GetValue(idArg)!,
+                                await RawBodyCommand.ReadBodyAsync(body, parseResult, c),
+                                c
+                            ),
+                        "Data type updated.",
+                        ct
+                    );
+
+                return executor.RunMessageAsync(
                     parseResult,
                     "data-types.update",
                     (client, c) =>
                         client.UpdateDataTypeAsync(
-                            parseResult.GetValue(idArg),
+                            parseResult.GetValue(idArg)!,
                             new UpdateDataTypeRequest
                             {
                                 Name = parseResult.GetValue(nameOpt),
@@ -51,7 +96,8 @@ public static class DataTypesUpdateCommand
                         ),
                     "Data type updated.",
                     ct
-                )
+                );
+            }
         );
 
         return cmd;

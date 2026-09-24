@@ -279,4 +279,117 @@ public class TypeLookupAndDictionaryTests
         Assert.True(result.IsSuccess, result.ErrorMessage);
         Assert.Null(result.Data!.Translations);
     }
+
+    // ── #182: update, which did not exist ─────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateDictionaryItemAsync_MergesByIsoCode_LeavingOtherLanguagesAlone()
+    {
+        var id = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var handler = Wire.Routed(
+            (
+                "/language",
+                """{ "total": 2, "items": [ { "isoCode": "en-US" }, { "isoCode": "da-DK" } ] }"""
+            ),
+            (
+                $"/dictionary/{id}",
+                $$"""
+                {
+                  "id": "{{id}}",
+                  "name": "Nav.Home",
+                  "translations": [
+                    { "isoCode": "en-US", "translation": "Home" },
+                    { "isoCode": "da-DK", "translation": "Hjem" }
+                  ]
+                }
+                """
+            )
+        );
+
+        await Wire.Client(handler)
+            .UpdateDictionaryItemAsync(
+                id,
+                new UpdateDictionaryItemRequest
+                {
+                    Translations =
+                    [
+                        new DictionaryTranslation { IsoCode = "da-DK", Translation = "Forside" },
+                    ],
+                },
+                CancellationToken.None
+            );
+
+        // The PUT replaces, so naming one language must not clear the rest - #179's shape, one
+        // noun over.
+        var sent = handler.BodyOf(HttpMethod.Put, $"/dictionary/{id}").AsObject();
+        var translations = sent["translations"]!.AsArray();
+        Assert.Equal(2, translations.Count);
+        Assert.Contains(
+            translations,
+            t =>
+                t!["isoCode"]!.GetValue<string>() == "en-US"
+                && t["translation"]!.GetValue<string>() == "Home"
+        );
+        Assert.Contains(
+            translations,
+            t =>
+                t!["isoCode"]!.GetValue<string>() == "da-DK"
+                && t["translation"]!.GetValue<string>() == "Forside"
+        );
+    }
+
+    [Fact]
+    public async Task UpdateDictionaryItemAsync_UnknownIsoCode_IsRefusedLikeCreate()
+    {
+        var id = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var handler = Wire.Routed(
+            ("/language", """{ "total": 1, "items": [ { "isoCode": "en-US" } ] }""")
+        );
+
+        var result = await Wire.Client(handler)
+            .UpdateDictionaryItemAsync(
+                id,
+                new UpdateDictionaryItemRequest
+                {
+                    Translations =
+                    [
+                        new DictionaryTranslation { IsoCode = "da", Translation = "Hjem" },
+                    ],
+                },
+                CancellationToken.None
+            );
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("'da'", result.ErrorMessage);
+        handler.AssertNoRequest(HttpMethod.Put, $"/dictionary/{id}");
+    }
+
+    [Fact]
+    public async Task UpdateDictionaryItemAsync_KeyOnly_KeepsEveryTranslation()
+    {
+        var id = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var handler = Wire.Routed(
+            (
+                $"/dictionary/{id}",
+                $$"""
+                {
+                  "id": "{{id}}",
+                  "name": "Nav.Home",
+                  "translations": [ { "isoCode": "en-US", "translation": "Home" } ]
+                }
+                """
+            )
+        );
+
+        await Wire.Client(handler)
+            .UpdateDictionaryItemAsync(
+                id,
+                new UpdateDictionaryItemRequest { Name = "Nav.HomePage" },
+                CancellationToken.None
+            );
+
+        var sent = handler.BodyOf(HttpMethod.Put, $"/dictionary/{id}");
+        Assert.Equal("Nav.HomePage", sent["name"]!.GetValue<string>());
+        Assert.Single(sent["translations"]!.AsArray());
+    }
 }

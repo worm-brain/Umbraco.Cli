@@ -101,6 +101,62 @@ public sealed partial class UmbracoManagementClient
             }
         );
 
+    /// <inheritdoc />
+    public Task<UmbracoResponse<DictionaryItemResponse>> UpdateDictionaryItemAsync(
+        Guid id,
+        UpdateDictionaryItemRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                // #181's lesson: check the codes before sending, because Umbraco accepts the
+                // request and silently discards translations whose language it does not know.
+                await GuardDictionaryIsoCodesAsync(request.Translations, ct);
+
+                var current =
+                    await _api
+                        .Umbraco.Management.Api.V1.Dictionary[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No dictionary item found with id '{id}'.");
+
+                // The PUT replaces, so merge by ISO code: naming one language must not clear the
+                // rest (#179's shape, one noun over).
+                var merged = MergeByKey.Upsert(
+                    (current.Translations ?? []).Select(t => new Gen.DictionaryItemTranslationModel
+                    {
+                        IsoCode = t.IsoCode,
+                        Translation = t.Translation,
+                    }),
+                    request.Translations.Select(t => new Gen.DictionaryItemTranslationModel
+                    {
+                        IsoCode = t.IsoCode,
+                        Translation = t.Translation,
+                    }),
+                    t => t.IsoCode ?? "",
+                    StringComparer.OrdinalIgnoreCase
+                );
+
+                await _api
+                    .Umbraco.Management.Api.V1.Dictionary[id]
+                    .PutAsync(
+                        new Gen.UpdateDictionaryItemRequestModel
+                        {
+                            Name = request.Name ?? current.Name ?? "",
+                            Translations = merged,
+                        },
+                        cancellationToken: ct
+                    );
+
+                // Report what the instance kept, not what was asked for (#181).
+                var stored = await ReadDictionaryItemAsync(id, ct);
+                return stored.IsSuccess && stored.Data is { } item
+                    ? item
+                    : new DictionaryItemResponse { Id = id, Name = request.Name ?? "" };
+            }
+        );
+
     /// <summary>
     /// Reads a dictionary item by id, for the post-create read-back (#181). By id rather than by
     /// name: the by-key read lists every item and string-matches, which is both wasteful and

@@ -41,6 +41,21 @@ public interface IDictionaryClient
     /// <param name="targetId">Target parent id; null moves the item to the dictionary root.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
+    /// <summary>
+    /// Updates a dictionary item (#182), merging the supplied translations into the item's
+    /// existing ones by ISO code. Correcting one language no longer means delete-and-recreate,
+    /// which changed the item's id.
+    /// </summary>
+    /// <param name="id">The dictionary item id.</param>
+    /// <param name="request">The name and translations to write.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The item as the instance holds it afterwards, or a mapped failure.</returns>
+    Task<UmbracoResponse<DictionaryItemResponse>> UpdateDictionaryItemAsync(
+        Guid id,
+        UpdateDictionaryItemRequest request,
+        CancellationToken ct = default
+    );
+
     Task<UmbracoResponse<Empty>> MoveDictionaryItemAsync(
         Guid id,
         Guid? targetId,

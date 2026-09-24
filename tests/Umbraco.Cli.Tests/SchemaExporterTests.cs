@@ -39,6 +39,43 @@ public class SchemaExporterTests
         Assert.Equal("home", (string?)snap.Templates.Single()["alias"]);
     }
 
+    /// <summary>
+    /// Media types and member types were the one part of the schema the snapshot could not carry
+    /// (#186), so authoring either one meant a direct Management API call. The export must now
+    /// collect them verbatim, as it does the other three kinds.
+    /// </summary>
+    [Fact]
+    public async Task ExportAsync_CarriesMediaTypesAndMemberTypes()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var mediaId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        fake.MediaTypeIds.Add(mediaId);
+        fake.MediaTypeRaw[mediaId] = Body(mediaId, "customImage");
+        fake.MemberTypeIds.Add(memberId);
+        fake.MemberTypeRaw[memberId] = Body(memberId, "subscriber");
+
+        var result = await SchemaExporter.ExportAsync(fake, CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal("customImage", (string?)result.Data!.MediaTypes.Single()["alias"]);
+        Assert.Equal("subscriber", (string?)result.Data!.MemberTypes.Single()["alias"]);
+    }
+
+    [Fact]
+    public async Task ExportAsync_FailsFast_WhenAMediaTypeReadFails()
+    {
+        // The same fail-fast rule as the other kinds: a partial snapshot would apply as if the
+        // unread media type had been deleted.
+        var fake = new FakeUmbracoManagementClient();
+        fake.MediaTypeIds.Add(Guid.NewGuid()); // enumerated, but no body configured -> 404
+
+        var result = await SchemaExporter.ExportAsync(fake, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(404, result.StatusCode);
+    }
+
     [Fact]
     public async Task ExportAsync_FailsFast_WhenAPerEntityReadFails()
     {

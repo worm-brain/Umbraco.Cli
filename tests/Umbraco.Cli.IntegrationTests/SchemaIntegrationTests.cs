@@ -23,8 +23,12 @@ public sealed class SchemaIntegrationTests(LiveInstanceFixture live) : LiveTestB
 
             Assert.True(result.Ok, result.Stderr);
             Assert.True(File.Exists(path));
-            // The summary reports the per-kind counts that were written.
+            // The summary reports the per-kind counts that were written. Media types and member
+            // types are asserted positive, not >= 0: every Umbraco install ships with some, so a
+            // zero here means the new enumeration (#186) found nothing, not that the site is bare.
             Assert.True(result.Data().GetProperty("documentTypes").GetInt32() >= 0);
+            Assert.True(result.Data().GetProperty("mediaTypes").GetInt32() > 0);
+            Assert.True(result.Data().GetProperty("memberTypes").GetInt32() > 0);
         }
         finally
         {

@@ -290,10 +290,10 @@ the CLI alone:
 | `content-types get` | `properties`, `containers` (the groups/tabs), `compositions`, `allowedTemplates`, `defaultTemplate` |
 | `data-types get` | `values` - the editor configuration, e.g. a dropdown's items |
 
-Two things are still narrow. **`members get`** does not return groups or property values
-([#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)), and **no `get` returns an item's
-parent** - placement is not on the Management API's by-id body; use `content tree`, whose rows
-carry `parentId`.
+`members get` returns the member's `groups` and `values` too
+([#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)). One thing is still narrow: **no
+`get` returns an item's parent** - placement is not on the Management API's by-id body; use
+`content tree`, whose rows carry `parentId`.
 
 Type references (`contentType`, `mediaType`) carry a resolved `alias`
 ([#163](https://github.com/worm-brain/Umbraco.Cli/issues/163)). When it cannot be resolved the
@@ -302,11 +302,10 @@ rather than "no alias".
 
 Two escape hatches remain useful:
 
-1. **`umbraco schema export`** returns verbatim `GET /document-type/{id}`, `/data-type/{id}` and
-   `/template/{id}` bodies - full fidelity, no projection. This is the right way to read schema.
-   It covers **only those three**: member types and media types are not in the snapshot
-   ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)), so this escape hatch does not
-   reach them.
+1. **`umbraco schema export`** returns the verbatim get-by-id body of every document type,
+   media type, member type, data type and template - full fidelity, no projection. This is the
+   right way to read schema, and it now covers all five kinds
+   ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)).
 2. **A direct Management API call** for everything else, using the same credentials - see
    "Getting a token for the direct calls above" below.
 
@@ -340,13 +339,25 @@ property editor expects.
 
 ### Authoring schema
 
-`content-types create`, `data-types create/update` and `member-types create/update` take a small
-set of scalar flags. They cannot set properties, groups, configuration, templates, allowed
-children, compositions or culture variance
+The scalar flags on `content-types create`, `data-types create/update` and
+`member-types create/update` cannot express properties, groups, editor configuration, templates,
+compositions or culture variance. **Pass the Management API body instead**
 ([#161](https://github.com/worm-brain/Umbraco.Cli/issues/161),
-[#169](https://github.com/worm-brain/Umbraco.Cli/issues/169)).
+[#169](https://github.com/worm-brain/Umbraco.Cli/issues/169)):
 
-The sanctioned route is the snapshot round-trip:
+```bash
+umbraco content-types get blogPost -o json | jq .data > t.json
+# ...edit t.json: add a property, a group, a template...
+umbraco content-types update blogPost --json-body t.json
+```
+
+`--json-body` is on `content-types create/update` and `data-types create/update`, and takes a
+file or `-` for stdin. It is a **full replace**, so send the whole body. Run any of them with
+`--schema` to print a real type off the instance as a worked example - a real one rather than a
+hand-written schema, so it cannot drift from what the API accepts (which is why it needs a host).
+
+The snapshot round-trip is still the right tool for a **set** of types, or for moving schema
+between environments:
 
 ```bash
 umbraco schema export --out schema.json     # full-fidelity bodies
@@ -355,20 +366,22 @@ umbraco schema apply schema.json --dry-run  # preview the plan
 umbraco schema apply schema.json
 ```
 
-Not yet covered by the snapshot, and needing a direct Management API call: **member types with
-properties** and **media types** ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)),
-**media folders** ([#171](https://github.com/worm-brain/Umbraco.Cli/issues/171)) and **domains /
-Culture and Hostnames** ([#180](https://github.com/worm-brain/Umbraco.Cli/issues/180)). Domains
-in particular are required for a multilingual site: without them Umbraco logs "The root node was
-published with multiple cultures, but no domains are configured" and the non-default culture is
-unreachable.
+**Media folders** and **domains** are CLI verbs now, not direct API calls:
 
 ```bash
-# route /da/ to the Danish variant
-curl -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  "$UMBRACO_HOST/umbraco/management/api/v1/document/$ID/domains" \
-  -d '{"defaultIsoCode":"en-US","domains":[{"domainName":"example.com","isoCode":"en-US"},{"domainName":"example.com/da","isoCode":"da-DK"}]}'
+umbraco media folder create --name Blog                     # id goes to media upload --parent
+
+# route /da/ to the Danish variant. Without domains, Umbraco logs "the root node was published
+# with multiple cultures, but no domains are configured" and serves nothing but the default.
+umbraco content domains set "$ID" --default en-US \
+  --domain example.com=en-US --domain example.com/da=da-DK
 ```
+
+Member types with properties and media types are in the snapshot too
+([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)), so the round-trip above reaches them
+as well. Note the snapshot format is now **version 2**: a version-1 file exported by an older
+CLI is refused, because reading it would look like "this instance should have no media or member
+types" and `apply --prune` would act on that. Re-export.
 
 ### Getting a token for the direct calls above
 
@@ -457,8 +470,8 @@ umbraco content create --content-type blogPost --name "Hello" --id 3f2a...  # sa
 
 ### Move schema between environments
 
-Export document types, data types, and templates to a portable snapshot, diff it against a
-target, then apply. See [commands.md](commands.md#schema-export--diff--apply).
+Export every schema entity - document types, media types, member types, data types and
+templates - to a portable snapshot, diff it against a target, then apply. See [commands.md](commands.md#schema-export--diff--apply).
 
 ```bash
 umbraco schema export --out schema.json                 # from source

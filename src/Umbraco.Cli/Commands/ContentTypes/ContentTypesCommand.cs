@@ -13,6 +13,7 @@ public static class ContentTypesCommand
         cmd.Add(ContentTypesListCommand.Build(executor));
         cmd.Add(ContentTypesGetCommand.Build(executor));
         cmd.Add(ContentTypesCreateCommand.Build(executor));
+        cmd.Add(ContentTypesUpdateCommand.Build(executor));
         cmd.Add(ContentTypesDeleteCommand.Build(executor));
         return cmd;
     }

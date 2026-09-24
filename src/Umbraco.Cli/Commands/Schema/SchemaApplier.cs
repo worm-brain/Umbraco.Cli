@@ -10,7 +10,7 @@ namespace Umbraco.Cli.Commands.Schema;
 /// exit code and message rather than a per-step <c>error</c> row, since apply is fail-fast.
 /// </summary>
 /// <param name="Operation">The step: <c>create</c>, <c>update</c>, or <c>delete</c>.</param>
-/// <param name="Kind">The entity kind: <c>documentType</c>, <c>dataType</c>, or <c>template</c>.</param>
+/// <param name="Kind">The entity kind: <c>documentType</c>, <c>mediaType</c>, <c>memberType</c>, <c>dataType</c>, or <c>template</c>.</param>
 /// <param name="Identity">The entity's human identity (alias/name).</param>
 /// <param name="Id">The entity id the step targets (the live id for update/delete; the new id for create).</param>
 /// <param name="Status">The step status: <c>planned</c> (dry run) or <c>success</c> (executed).</param>
@@ -50,12 +50,13 @@ public sealed record SchemaApplyResult(
 /// (issue #68 / ADR 0005 §4). It never computes a diff itself — the command feeds it one — so
 /// the ordering/execution logic is testable in isolation.
 ///
-/// Order respects cross-kind dependencies: creates/updates run data types -> templates ->
-/// document types (a document type's properties reference data types and its
-/// <c>allowedTemplates</c> reference templates). Within a kind, <b>creates</b> are topologically
+/// Order respects cross-kind dependencies: creates/updates run data types -> templates -> media
+/// types -> member types -> document types (every type's properties reference data types, and a
+/// document type's <c>allowedTemplates</c> reference templates). Within a kind, <b>creates</b> are topologically
 /// ordered so a referenced same-kind entity (a composition, or a template's master) is created
 /// before the entity that references it. Deletes (prune) run in the reverse cross-kind order
-/// (document types -> templates -> data types) in each kind's enumeration order — Umbraco
+/// (document types -> member types -> media types -> templates -> data types) in each kind's
+/// enumeration order — Umbraco
 /// rejects a delete that is still depended on, which fail-fast surfaces and a re-run resolves.
 /// Apply is **fail-fast**: the first failed write stops the run so a broken state is not piled
 /// onto.
@@ -149,7 +150,16 @@ public static class SchemaApplier
         var ops = new List<Op>();
 
         // Creates + updates, dependency order across kinds.
-        foreach (var kind in new[] { diff.DataTypes, diff.Templates, diff.DocumentTypes })
+        foreach (
+            var kind in new[]
+            {
+                diff.DataTypes,
+                diff.Templates,
+                diff.MediaTypes,
+                diff.MemberTypes,
+                diff.DocumentTypes,
+            }
+        )
         {
             foreach (var added in TopoOrder(kind.Added))
                 ops.Add(new Op("create", added));
@@ -164,7 +174,16 @@ public static class SchemaApplier
         // referenced, and a re-run (now that the referrer is gone) completes it.
         if (prune)
         {
-            foreach (var kind in new[] { diff.DocumentTypes, diff.Templates, diff.DataTypes })
+            foreach (
+                var kind in new[]
+                {
+                    diff.DocumentTypes,
+                    diff.MemberTypes,
+                    diff.MediaTypes,
+                    diff.Templates,
+                    diff.DataTypes,
+                }
+            )
             {
                 foreach (var removed in kind.Removed)
                     ops.Add(new Op("delete", removed));
@@ -301,6 +320,14 @@ public static class SchemaApplier
                 change.DesiredBody!,
                 ct
             ),
+            ("create", SchemaKinds.MediaType) => client.CreateMediaTypeRawAsync(
+                change.DesiredBody!,
+                ct
+            ),
+            ("create", SchemaKinds.MemberType) => client.CreateMemberTypeRawAsync(
+                change.DesiredBody!,
+                ct
+            ),
 
             ("update", SchemaKinds.DocumentType) => client.UpdateDocumentTypeRawAsync(
                 change.CurrentId!.Value,
@@ -317,6 +344,16 @@ public static class SchemaApplier
                 WithId(change.DesiredBody!, change.CurrentId!.Value),
                 ct
             ),
+            ("update", SchemaKinds.MediaType) => client.UpdateMediaTypeRawAsync(
+                change.CurrentId!.Value,
+                WithId(change.DesiredBody!, change.CurrentId!.Value),
+                ct
+            ),
+            ("update", SchemaKinds.MemberType) => client.UpdateMemberTypeRawAsync(
+                change.CurrentId!.Value,
+                WithId(change.DesiredBody!, change.CurrentId!.Value),
+                ct
+            ),
 
             ("delete", SchemaKinds.DocumentType) => client.DeleteDocumentTypeAsync(
                 change.CurrentId!.Value,
@@ -327,6 +364,14 @@ public static class SchemaApplier
                 ct
             ),
             ("delete", SchemaKinds.Template) => client.DeleteTemplateAsync(
+                change.CurrentId!.Value,
+                ct
+            ),
+            ("delete", SchemaKinds.MediaType) => client.DeleteMediaTypeAsync(
+                change.CurrentId!.Value,
+                ct
+            ),
+            ("delete", SchemaKinds.MemberType) => client.DeleteMemberTypeAsync(
                 change.CurrentId!.Value,
                 ct
             ),
