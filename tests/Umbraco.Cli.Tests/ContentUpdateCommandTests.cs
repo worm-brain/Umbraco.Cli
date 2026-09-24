@@ -131,6 +131,44 @@ public class ContentUpdateCommandTests
     }
 
     [Fact]
+    public async Task Update_TemplateWithoutBody_MergesAnEmptyRequestWithTheTemplate()
+    {
+        // #208: a template-only change used to need `echo '{}' | ... --json-body -`.
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(fake, $"content update {Id} --template blogPost", "");
+
+        Assert.Equal(0, exit);
+        var update = fake.LastUpdate!.Value;
+        Assert.Equal("blogPost", update.Request.Template!.Alias);
+        Assert.Empty(update.Request.Values);
+        Assert.False(update.Replace);
+    }
+
+    [Fact]
+    public async Task Update_ReplaceWithoutBody_IsRefusedBeforeAnyRequest()
+    {
+        // A replace with an empty body would clear every value on the item.
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(fake, $"content update {Id} --template blogPost --replace", "");
+
+        Assert.NotEqual(0, exit);
+        Assert.Null(fake.LastUpdate);
+    }
+
+    [Fact]
+    public async Task Update_NeitherBodyNorTemplate_IsRefused()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(fake, $"content update {Id}", "");
+
+        Assert.NotEqual(0, exit);
+        Assert.Null(fake.LastUpdate);
+    }
+
+    [Fact]
     public async Task Update_TemplateUuid_IsPassedAsAnId()
     {
         var fake = new FakeUmbracoManagementClient();

@@ -182,6 +182,10 @@ Pass **`--replace`** when you do want the body to stand alone: the item's values
 replaced wholesale and anything absent is cleared. The template still survives `--replace` - use
 `--template` to change it.
 
+To change only the template, pass `--template` on its own - no body is needed, and every value
+is left as it is: `umbraco content update <id> --template blogPost`. (`--replace` still needs a
+body, since an empty one would clear every value.)
+
 **Merging ships in 0.1.0-alpha.11.** On **0.1.0-alpha.10 and earlier** `update` is the other
 way round: it replaces values wholesale *and* silently clears the item's template, which 404s the
 page once republished
