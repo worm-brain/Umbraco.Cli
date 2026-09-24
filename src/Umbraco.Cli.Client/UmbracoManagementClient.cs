@@ -170,7 +170,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Id = d?.Id ?? id,
                     Name = variant?.Name ?? "",
                     ContentType = d?.DocumentType?.Id is { } dtId
-                        ? new ContentTypeReference { Id = dtId }
+                        ? new ContentTypeRef
+                        {
+                            Id = dtId,
+                            Alias = await DocumentTypeAliasAsync(dtId, ct),
+                        }
                         : null,
                     IsPublished = (d?.Variants ?? []).Any(v =>
                         v.State
@@ -179,6 +183,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     ),
                     CreateDate = variant?.CreateDate ?? default,
                     UpdateDate = variant?.UpdateDate ?? default,
+                    // #168: the whole document, not a summary of its first variant. Without these
+                    // a get -> edit -> update round-trip is impossible through the CLI alone.
+                    Values = MapValueResponses(d?.Values),
+                    Variants = MapVariantResponses(d?.Variants),
+                    Template = d?.Template?.Id is { } tplId
+                        ? new ContentTemplateReference { Id = tplId }
+                        : null,
                 };
             }
         );
@@ -1111,15 +1122,32 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     .Umbraco.Management.Api.V1.Media[id]
                     .GetAsync(cancellationToken: ct);
                 var variant = (m?.Variants ?? []).FirstOrDefault();
+
+                // The media type's name and the item's URLs are two independent follow-up reads.
+                // Started together rather than awaited inside the initializer below, where the
+                // ordering would be invisible and they would run one after the other.
+                var nameTask = m?.MediaType?.Id is { } typeId
+                    ? MediaTypeNameAsync(typeId, ct)
+                    : Task.FromResult<string?>(null);
+                var urlsTask = MediaUrlsAsync(id, ct);
+                await Task.WhenAll(nameTask, urlsTask);
+
                 return new MediaItemResponse
                 {
                     Id = m?.Id ?? id,
                     Name = variant?.Name ?? "",
+                    // The NAME, not the alias: `media upload --media-type` resolves media types
+                    // by name (see ResolveMediaTypeIdAsync), so emitting the alias here would hand
+                    // back a value the write side cannot accept whenever the two differ.
                     MediaType = m?.MediaType?.Id is { } mtId
-                        ? new ContentTypeReference { Id = mtId }
+                        ? new ContentTypeRef { Id = mtId, Alias = nameTask.Result }
                         : null,
                     CreateDate = variant?.CreateDate ?? default,
                     UpdateDate = variant?.UpdateDate ?? default,
+                    // #172: width, height, bytes and extension are all in values[]; they were
+                    // being fetched and thrown away on every read.
+                    Values = MapMediaValueResponses(m?.Values),
+                    Urls = urlsTask.Result,
                 };
             }
         );
@@ -1231,6 +1259,17 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
                 // The create response is empty; the id is the client-generated one and the name is
                 // echoed so the command reports a populated item rather than a blank one (#74).
+                // #172: the create response is empty, so this used to echo back a fabricated item
+                // carrying only the id and name the caller already had. Re-read instead, so the
+                // caller gets the URL, dimensions and size of what was actually stored.
+                //
+                // The re-read is best-effort in both directions: a failed read must not fail an
+                // upload that succeeded, and a read that comes back blank must not overwrite what
+                // we already know. So the supplied name stands in whenever the re-read has none
+                // (#74 - the returned item is never blanked).
+                var hydrated = await GetMediaByIdAsync(mediaId, ct);
+                if (hydrated.IsSuccess && hydrated.Data is { } stored)
+                    return string.IsNullOrEmpty(stored.Name) ? stored with { Name = name } : stored;
                 return new MediaItemResponse { Id = mediaId, Name = name };
             }
         );
@@ -1613,6 +1652,45 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Description = dt?.Description,
                     IsElement = dt?.IsElement ?? false,
                     AllowedAsRoot = dt?.AllowedAsRoot ?? false,
+                    Icon = dt?.Icon,
+                    VariesByCulture = dt?.VariesByCulture ?? false,
+                    VariesBySegment = dt?.VariesBySegment ?? false,
+                    // #160: the help text promised these for three releases while the mapping
+                    // dropped them, which is why authoring a property needed a schema round-trip.
+                    Properties = dt
+                        ?.Properties?.Select(p => new DocumentTypePropertyResponse
+                        {
+                            Id = p.Id,
+                            Alias = p.Alias ?? "",
+                            Name = p.Name ?? "",
+                            Description = p.Description,
+                            DataType = p.DataType?.Id,
+                            Container = p.Container?.Id,
+                            SortOrder = p.SortOrder ?? 0,
+                            VariesByCulture = p.VariesByCulture ?? false,
+                            VariesBySegment = p.VariesBySegment ?? false,
+                        })
+                        .ToList(),
+                    Containers = dt
+                        ?.Containers?.Select(c => new DocumentTypeContainerResponse
+                        {
+                            Id = c.Id,
+                            Name = c.Name ?? "",
+                            Type = c.Type,
+                            SortOrder = c.SortOrder ?? 0,
+                        })
+                        .ToList(),
+                    Compositions = dt
+                        ?.Compositions?.Select(c => c.DocumentType?.Id)
+                        .Where(g => g is not null)
+                        .Select(g => g!.Value)
+                        .ToList(),
+                    AllowedTemplates = dt
+                        ?.AllowedTemplates?.Select(t => t.Id)
+                        .Where(g => g is not null)
+                        .Select(g => g!.Value)
+                        .ToList(),
+                    DefaultTemplate = dt?.DefaultTemplate?.Id,
                 };
             }
         );
@@ -1797,6 +1875,14 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Name = dt?.Name ?? "",
                     EditorAlias = dt?.EditorAlias ?? "",
                     EditorUiAlias = dt?.EditorUiAlias,
+                    // #170: the editor configuration - a dropdown's items, a picker's filters.
+                    Values = dt
+                        ?.Values?.Select(v => new DataTypeValueResponse
+                        {
+                            Alias = v.Alias ?? "",
+                            Value = UntypedNodeFactory.ToJsonNode(v.Value),
+                        })
+                        .ToList(),
                 };
             }
         );
@@ -2432,7 +2518,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Id = id,
                     Email = request.Email,
                     Name = request.Name,
-                    MemberType = new ContentTypeReference { Id = memberTypeId },
+                    MemberType = new ContentTypeRef { Id = memberTypeId },
                     IsApproved = request.IsApproved,
                 };
             }
@@ -3319,7 +3405,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             Id = item.Id ?? Guid.Empty,
             Name = DocumentName(item),
             ContentType = item.DocumentType?.Id is { } dtId
-                ? new ContentTypeReference { Id = dtId }
+                ? new ContentTypeRef { Id = dtId }
                 : null,
             Parent = item.Parent?.Id is { } pId ? new ContentParentReference { Id = pId } : null,
             IsPublished = (item.Variants ?? []).Any(v =>
@@ -3338,9 +3424,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         {
             Id = item.Id ?? Guid.Empty,
             Name = (item.Variants ?? []).FirstOrDefault()?.Name ?? "",
-            MediaType = item.MediaType?.Id is { } mtId
-                ? new ContentTypeReference { Id = mtId }
-                : null,
+            MediaType = item.MediaType?.Id is { } mtId ? new ContentTypeRef { Id = mtId } : null,
             Parent = item.Parent?.Id is { } pId ? new ContentParentReference { Id = pId } : null,
             CreateDate = item.CreateDate ?? default,
         };
@@ -3356,9 +3440,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             Id = item.Id ?? Guid.Empty,
             Email = item.Email ?? "",
             Name = variant?.Name ?? "",
-            MemberType = item.MemberType?.Id is { } mtId
-                ? new ContentTypeReference { Id = mtId }
-                : null,
+            MemberType = item.MemberType?.Id is { } mtId ? new ContentTypeRef { Id = mtId } : null,
             IsApproved = item.IsApproved ?? false,
             IsLockedOut = item.IsLockedOut ?? false,
             CreateDate = variant?.CreateDate ?? default,

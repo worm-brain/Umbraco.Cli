@@ -384,7 +384,7 @@ public sealed partial class UmbracoManagementClient
             Id = item.Id ?? Guid.Empty,
             Name = (item.Variants ?? []).FirstOrDefault()?.Name ?? "",
             ContentType = item.DocumentType?.Id is { } dtId
-                ? new ContentTypeReference { Id = dtId }
+                ? new ContentTypeRef { Id = dtId }
                 : null,
             Parent = item.Parent?.Id is { } pId ? new ContentParentReference { Id = pId } : null,
             IsPublished = (item.Variants ?? []).Any(v =>
@@ -402,9 +402,7 @@ public sealed partial class UmbracoManagementClient
         {
             Id = item.Id ?? Guid.Empty,
             Name = (item.Variants ?? []).FirstOrDefault()?.Name ?? "",
-            MediaType = item.MediaType?.Id is { } mtId
-                ? new ContentTypeReference { Id = mtId }
-                : null,
+            MediaType = item.MediaType?.Id is { } mtId ? new ContentTypeRef { Id = mtId } : null,
             Parent = item.Parent?.Id is { } pId ? new ContentParentReference { Id = pId } : null,
         };
 

@@ -632,8 +632,9 @@ public class UmbracoManagementClientTests
     public async Task UploadMediaAsync_StagesToTemporaryFileThenCreatesMedia()
     {
         // #57: the upload must stage the bytes to temporary-file first, then create the media
-        // item (a media type id is passed, so no resolution request is made). The stub returns
-        // 201/empty for both; the client echoes the client-generated media id.
+        // item (a media type id is passed, so no resolution request is made). Since #172 it then
+        // re-reads the created item, so the caller gets its URL and file metadata rather than an
+        // echo of the request.
         var (client, handler) = ClientReturning("", HttpStatusCode.Created);
         using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
 
@@ -650,10 +651,11 @@ public class UmbracoManagementClientTests
         Assert.True(result.IsSuccess);
         Assert.NotEqual(Guid.Empty, result.Data!.Id);
         Assert.Equal("Logo", result.Data.Name);
-        // Two requests, in order: stage the file, then create the media item.
-        Assert.Equal(2, handler.Requests.Count);
+        // In order: stage the file, create the media item, then re-read it (#172) - the by-id
+        // body for the values, and media/urls for the public URL, which is not on that body.
         Assert.Contains("temporary-file", handler.Requests[0].AbsoluteUri);
         Assert.EndsWith("/umbraco/management/api/v1/media", handler.Requests[1].AbsolutePath);
+        Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith("/media/urls"));
     }
 
     [Fact]
@@ -971,11 +973,13 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task UploadMediaAsync_EmptyCreateBody_EchoesClientGeneratedIdAndName()
+    public async Task UploadMediaAsync_UnreadableCreatedItem_StillEchoesIdAndName()
     {
-        // #79: on the generated client the media create is a void POST (empty 201, and Kiota does
-        // not surface the Location header), so the returned id is the client-generated one and the
-        // name is echoed - the returned payload reflects the accepted request, not a re-read.
+        // #79/#172: the media create is a void POST (empty 201; Kiota does not surface the
+        // Location header), so the id is client-generated. Since #172 the client re-reads the
+        // created item to return its URL and file metadata - but a failed re-read must not fail
+        // the upload, which did succeed. This handler answers everything with an empty body, so
+        // the hydration finds nothing and the fabricated echo is the fallback.
         var handler = new StubHandler("", HttpStatusCode.Created);
         var client = new UmbracoManagementClient(
             new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") }

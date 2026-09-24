@@ -48,9 +48,10 @@ An AI agent that prefers calling a subprocess can drive it too (see the
   languages, templates, members, users, dictionary, webhooks, static files, tags, cultures,
   user groups, redirects, relations, Examine, and diagnostics (server, health, log viewer,
   models builder, manifest). Every command is in [docs/commands.md](docs/commands.md). Not yet
-  covered: domains, media folders, member type properties, data type configuration, and member
-  groups/passwords - see [#187](https://github.com/worm-brain/Umbraco.Cli/issues/187) for the
-  gaps and their workarounds.
+  covered, all on the **write** side: domains, media folders, member type properties, setting a
+  data type's configuration, authoring document type properties, and member groups/passwords -
+  see [#187](https://github.com/worm-brain/Umbraco.Cli/issues/187) for the gaps and their
+  workarounds. Reads return the full item.
 - **.NET-native and cross-platform** - Windows, macOS, Linux via .NET 9; no Node runtime.
 
 ---

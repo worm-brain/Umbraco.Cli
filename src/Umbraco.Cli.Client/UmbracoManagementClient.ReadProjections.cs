@@ -1,0 +1,190 @@
+using Microsoft.Kiota.Abstractions;
+using Gen = Umbraco.Cli.Client.Generated.Models;
+
+namespace Umbraco.Cli.Client;
+
+/// <summary>
+/// The by-id read projections (#187 Phase 3).
+/// <para>
+/// Each of these reads was fetching a rich body from the Management API and copying a handful of
+/// fields into a hand-written record, dropping the rest at the mapping step - a document's values
+/// (#168), a media item's file metadata and URL (#172), and every type reference's alias (#163).
+/// The mappers and the type-label caches that fix that live here rather than in the main partial,
+/// following the file-per-concern split the rest of the client already uses.
+/// </para>
+/// </summary>
+public sealed partial class UmbracoManagementClient
+{
+    /// <summary>
+    /// Maps generated property values to the CLI-facing shape (#168/#172), converting each
+    /// <c>UntypedNode</c> back to JSON. Null in, null out: a list or tree walk carries no values,
+    /// and that is different from an item having none.
+    /// </summary>
+    /// <param name="values">The generated values, or null.</param>
+    /// <returns>The mapped values, or null.</returns>
+    private static List<ContentValueResponse>? MapValueResponses(
+        List<Gen.DocumentValueResponseModel>? values
+    ) =>
+        values
+            ?.Select(v => new ContentValueResponse
+            {
+                Alias = v.Alias ?? "",
+                Culture = v.Culture,
+                Segment = v.Segment,
+                EditorAlias = v.EditorAlias,
+                Value = UntypedNodeFactory.ToJsonNode(v.Value),
+            })
+            .ToList();
+
+    /// <summary>Maps generated variants to the CLI-facing shape (#168).</summary>
+    /// <param name="variants">The generated variants, or null.</param>
+    /// <returns>The mapped variants, or null.</returns>
+    private static List<ContentVariantResponse>? MapVariantResponses(
+        List<Gen.DocumentVariantResponseModel>? variants
+    ) =>
+        variants
+            ?.Select(v => new ContentVariantResponse
+            {
+                Culture = v.Culture,
+                Segment = v.Segment,
+                Name = v.Name ?? "",
+                State = v.State?.ToString(),
+                CreateDate = v.CreateDate,
+                UpdateDate = v.UpdateDate,
+                PublishDate = v.PublishDate,
+            })
+            .ToList();
+
+    /// <summary>Document-type id to alias, for #163. Filled in on first use, then reused.</summary>
+    private readonly Dictionary<Guid, string> _documentTypeAliasById = [];
+
+    /// <summary>
+    /// Resolves a document type's alias from its id (#163).
+    /// <para>
+    /// The Management API's type reference on a document carries only an id, so the alias has to
+    /// be looked up. Previously the field was simply left as <c>""</c>, which read as "this type
+    /// has no alias" rather than "nobody asked". One read per distinct type, cached for the life
+    /// of the client, and a failure yields null so the field is omitted rather than faked.
+    /// </para>
+    /// </summary>
+    /// <param name="id">The document type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The alias, or null when it could not be read.</returns>
+    private Task<string?> DocumentTypeAliasAsync(Guid id, CancellationToken ct) =>
+        CachedTypeLabelAsync(
+            _documentTypeAliasById,
+            id,
+            async token =>
+                (
+                    await _api
+                        .Umbraco.Management.Api.V1.DocumentType[id]
+                        .GetAsync(cancellationToken: token)
+                )?.Alias,
+            ct
+        );
+
+    /// <summary>
+    /// Reads a label (alias or name) for a type id, caching it for the life of the client.
+    /// <para>
+    /// Only successes are cached. Caching a failure would mean one transient 503 during a bulk
+    /// run silently stripped the label from every later item for the rest of the process, which
+    /// is worse than re-asking.
+    /// </para>
+    /// </summary>
+    /// <param name="cache">The per-kind cache to read and fill.</param>
+    /// <param name="id">The type id.</param>
+    /// <param name="fetch">Reads the label from the API.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The label, or null when it could not be read.</returns>
+    private static async Task<string?> CachedTypeLabelAsync(
+        Dictionary<Guid, string> cache,
+        Guid id,
+        Func<CancellationToken, Task<string?>> fetch,
+        CancellationToken ct
+    )
+    {
+        if (cache.TryGetValue(id, out var cached))
+            return cached;
+
+        try
+        {
+            // A type that cannot be read (deleted, no permission, a blip) must not fail the read
+            // that only wanted its label.
+            if (await fetch(ct) is { } label)
+            {
+                cache[id] = label;
+                return label;
+            }
+        }
+        catch (ApiException) { }
+
+        return null;
+    }
+
+    /// <summary>Maps generated media values to the CLI-facing shape (#172).</summary>
+    /// <param name="values">The generated values, or null.</param>
+    /// <returns>The mapped values, or null.</returns>
+    private static List<ContentValueResponse>? MapMediaValueResponses(
+        List<Gen.MediaValueResponseModel>? values
+    ) =>
+        values
+            ?.Select(v => new ContentValueResponse
+            {
+                Alias = v.Alias ?? "",
+                Culture = v.Culture,
+                Segment = v.Segment,
+                EditorAlias = v.EditorAlias,
+                Value = UntypedNodeFactory.ToJsonNode(v.Value),
+            })
+            .ToList();
+
+    /// <summary>Media-type id to name, for #163.</summary>
+    private readonly Dictionary<Guid, string> _mediaTypeNameById = [];
+
+    /// <summary>
+    /// Resolves a media type's name from its id (#163), cached for the client's life. The name,
+    /// not the alias, because that is the vocabulary the write side accepts.
+    /// </summary>
+    /// <param name="id">The media type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The name, or null when it could not be read.</returns>
+    private Task<string?> MediaTypeNameAsync(Guid id, CancellationToken ct) =>
+        CachedTypeLabelAsync(
+            _mediaTypeNameById,
+            id,
+            async token =>
+                (
+                    await _api
+                        .Umbraco.Management.Api.V1.MediaType[id]
+                        .GetAsync(cancellationToken: token)
+                )?.Name,
+            ct
+        );
+
+    /// <summary>
+    /// Reads a media item's public URLs (#172) via <c>GET media/urls</c>. The URL is not on the
+    /// by-id body, which is why <c>media get</c> could not show it despite its help saying so.
+    /// A failure yields null rather than failing the whole read.
+    /// </summary>
+    /// <param name="id">The media id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The URLs, or null when they could not be read.</returns>
+    private async Task<List<UrlInfo>?> MediaUrlsAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var urls = await _api.Umbraco.Management.Api.V1.Media.Urls.GetAsync(
+                c => c.QueryParameters.Id = [id],
+                ct
+            );
+            return (urls ?? [])
+                .SelectMany(u => u.UrlInfos ?? [])
+                .Select(u => new UrlInfo { Culture = u.Culture, Url = u.Url ?? "" })
+                .ToList();
+        }
+        catch (ApiException)
+        {
+            return null;
+        }
+    }
+}

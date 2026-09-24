@@ -13,9 +13,11 @@ namespace Umbraco.Cli.Tests;
 /// Help text is the only description of a command's contract an agent gets before running it, so
 /// the parts that decide whether data survives are pinned here rather than left to review. Two
 /// obligations: the write semantics of <c>content update</c> must be stated, including how to opt
-/// into the destructive one (#178/#179); and no command may advertise a capability the CLI does
-/// not have - the false claims on <c>content-types get</c> (#160) and <c>media get</c> (#172) are
-/// what sent a test agent down a dead end in the 2026-09-23 round (#187).
+/// into the destructive one (#178/#179); and the help must agree with what the command actually
+/// does. The second one started as "must not advertise a capability the CLI lacks" - the false
+/// claims on <c>content-types get</c> (#160) and <c>media get</c> (#172) sent a test agent down a
+/// dead end in the 2026-09-23 round (#187). Phase 3 made both claims true, so these now assert the
+/// capability is described rather than absent; the point is that the two never drift apart.
 /// </summary>
 public class HelpSafetyWarningTests
 {
@@ -69,23 +71,30 @@ public class HelpSafetyWarningTests
     }
 
     [Fact]
-    public void ContentTypesGetHelp_DoesNotClaimToReturnPropertyGroups()
+    public void ContentTypesGetHelp_DescribesThePropertiesItNowReturns()
     {
         var contentTypes = ContentTypesCommand.Build(BuildExecutor());
 
         var help = DescriptionOf(contentTypes, "get");
 
-        Assert.DoesNotContain("including its property groups", help);
-        Assert.Contains("schema export", help);
+        // This claim was false for three releases (#160) and the help was corrected to drop it.
+        // Phase 3 made it true, so the assertion inverts: the capability exists and must be
+        // described. What matters either way is that the two agree.
+        Assert.Contains("properties", help, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("property groups", help, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void MediaGetHelp_DoesNotClaimToReturnTheUrl()
+    public void MediaGetHelp_DescribesTheUrlAndMetadataItNowReturns()
     {
         var media = MediaCommand.Build(BuildExecutor());
 
         var help = DescriptionOf(media, "get");
 
-        Assert.DoesNotContain("including URL and metadata", help);
+        // Same inversion as above, for #172.
+        // Case-insensitive: this guard exists to stop the help and the behaviour drifting apart,
+        // so a lowercase rewording must not be what breaks it.
+        Assert.Contains("url", help, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("umbracoWidth", help, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Umbraco.Cli.Client;
@@ -173,7 +174,7 @@ public record ContentItemResponse
     public string Name { get; init; } = "";
 
     [JsonPropertyName("contentType")]
-    public ContentTypeReference? ContentType { get; init; }
+    public ContentTypeRef? ContentType { get; init; }
 
     [JsonPropertyName("parent")]
     public ContentParentReference? Parent { get; init; }
@@ -190,10 +191,81 @@ public record ContentItemResponse
     [JsonPropertyName("updateDate")]
     public DateTimeOffset UpdateDate { get; init; }
 
-    [JsonPropertyName("properties")]
-    public Dictionary<string, object?>? Properties { get; init; }
+    /// <summary>
+    /// The item's property values (#168). Null when the item was read from a list or tree walk,
+    /// which does not carry them; an empty array means the item genuinely has none.
+    /// </summary>
+    [JsonPropertyName("values")]
+    public IEnumerable<ContentValueResponse>? Values { get; init; }
+
+    /// <summary>
+    /// Every variant, not just the first (#168). <see cref="Name"/> and the dates stay flattened
+    /// from the first variant for compatibility; this is where a multilingual item's other
+    /// cultures, and each culture's publication state, actually appear.
+    /// </summary>
+    [JsonPropertyName("variants")]
+    public IEnumerable<ContentVariantResponse>? Variants { get; init; }
+
+    /// <summary>The item's template (#168/#178). Null when it has none.</summary>
+    [JsonPropertyName("template")]
+    public ContentTemplateReference? Template { get; init; }
 }
 
+/// <summary>A property value as read back from a content or media item (#168/#172).</summary>
+public record ContentValueResponse
+{
+    [JsonPropertyName("alias")]
+    public string Alias { get; init; } = "";
+
+    [JsonPropertyName("culture")]
+    public string? Culture { get; init; }
+
+    [JsonPropertyName("segment")]
+    public string? Segment { get; init; }
+
+    /// <summary>
+    /// The backend editor behind this property, e.g. <c>Umbraco.MediaPicker3</c>. Present on a
+    /// read but not accepted on a write - it is what decides the value's shape (#174).
+    /// </summary>
+    [JsonPropertyName("editorAlias")]
+    public string? EditorAlias { get; init; }
+
+    /// <summary>The value, in whatever shape the editor uses.</summary>
+    [JsonPropertyName("value")]
+    public JsonNode? Value { get; init; }
+}
+
+/// <summary>One variant (culture/segment) of a content item, as read back (#168).</summary>
+public record ContentVariantResponse
+{
+    [JsonPropertyName("culture")]
+    public string? Culture { get; init; }
+
+    [JsonPropertyName("segment")]
+    public string? Segment { get; init; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    /// <summary>Publication state for this culture, e.g. <c>Published</c>, <c>Draft</c>.</summary>
+    [JsonPropertyName("state")]
+    public string? State { get; init; }
+
+    [JsonPropertyName("createDate")]
+    public DateTimeOffset? CreateDate { get; init; }
+
+    [JsonPropertyName("updateDate")]
+    public DateTimeOffset? UpdateDate { get; init; }
+
+    [JsonPropertyName("publishDate")]
+    public DateTimeOffset? PublishDate { get; init; }
+}
+
+/// <summary>
+/// A type reference on the <b>write</b> side: the caller supplies either an id or an alias, and
+/// the client resolves whichever is missing. Distinct from <see cref="ContentTypeRef"/>, which is
+/// what a read returns - there the alias may be genuinely unknown, here it may not.
+/// </summary>
 public record ContentTypeReference
 {
     [JsonPropertyName("id")]
@@ -201,6 +273,20 @@ public record ContentTypeReference
 
     [JsonPropertyName("alias")]
     public string Alias { get; init; } = "";
+}
+
+/// <summary>
+/// A type reference as a <b>read</b> returns it (#163). The Management API's reference carries
+/// only an id, so the alias is looked up; it is null rather than empty when that fails, so the
+/// envelope omits it instead of showing a field that looks populated and is not.
+/// </summary>
+public record ContentTypeRef
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("alias")]
+    public string? Alias { get; init; }
 }
 
 public record ContentParentReference
@@ -395,7 +481,7 @@ public record MediaItemResponse
     public string Name { get; init; } = "";
 
     [JsonPropertyName("mediaType")]
-    public ContentTypeReference? MediaType { get; init; }
+    public ContentTypeRef? MediaType { get; init; }
 
     [JsonPropertyName("parent")]
     public ContentParentReference? Parent { get; init; }
@@ -406,8 +492,20 @@ public record MediaItemResponse
     [JsonPropertyName("updateDate")]
     public DateTimeOffset UpdateDate { get; init; }
 
-    [JsonPropertyName("properties")]
-    public Dictionary<string, object?>? Properties { get; init; }
+    /// <summary>
+    /// The item's property values (#172). This is where the file actually lives: Umbraco keeps
+    /// <c>umbracoFile</c>, <c>umbracoWidth</c>, <c>umbracoHeight</c>, <c>umbracoBytes</c> and
+    /// <c>umbracoExtension</c> here, so dropping it hid every piece of file metadata.
+    /// </summary>
+    [JsonPropertyName("values")]
+    public IEnumerable<ContentValueResponse>? Values { get; init; }
+
+    /// <summary>
+    /// The item's public URLs, one per culture (#172). Read from a separate endpoint, so null
+    /// when it could not be reached rather than an empty list.
+    /// </summary>
+    [JsonPropertyName("urls")]
+    public IEnumerable<UrlInfo>? Urls { get; init; }
 }
 
 // ── Document Types ───────────────────────────────────────────────────────────
@@ -431,6 +529,90 @@ public record DocumentTypeResponse
 
     [JsonPropertyName("allowedAsRoot")]
     public bool AllowedAsRoot { get; init; }
+
+    /// <summary>The type's icon. Dropped before #160, though the media-type record always had it.</summary>
+    [JsonPropertyName("icon")]
+    public string? Icon { get; init; }
+
+    /// <summary>Whether documents of this type vary by culture (#161's read half).</summary>
+    [JsonPropertyName("variesByCulture")]
+    public bool VariesByCulture { get; init; }
+
+    [JsonPropertyName("variesBySegment")]
+    public bool VariesBySegment { get; init; }
+
+    /// <summary>
+    /// The type's properties (#160). The help text claimed these were returned for three
+    /// releases while they were being dropped in the mapping.
+    /// </summary>
+    [JsonPropertyName("properties")]
+    public IEnumerable<DocumentTypePropertyResponse>? Properties { get; init; }
+
+    /// <summary>The property groups/tabs the properties sit in (#160).</summary>
+    [JsonPropertyName("containers")]
+    public IEnumerable<DocumentTypeContainerResponse>? Containers { get; init; }
+
+    /// <summary>Types this one composes (#160).</summary>
+    [JsonPropertyName("compositions")]
+    public IEnumerable<Guid>? Compositions { get; init; }
+
+    /// <summary>Templates allowed on documents of this type (#160/#162).</summary>
+    [JsonPropertyName("allowedTemplates")]
+    public IEnumerable<Guid>? AllowedTemplates { get; init; }
+
+    /// <summary>The template applied when none is chosen (#162).</summary>
+    [JsonPropertyName("defaultTemplate")]
+    public Guid? DefaultTemplate { get; init; }
+}
+
+/// <summary>One property on a document type (#160).</summary>
+public record DocumentTypePropertyResponse
+{
+    [JsonPropertyName("id")]
+    public Guid? Id { get; init; }
+
+    [JsonPropertyName("alias")]
+    public string Alias { get; init; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    /// <summary>The data type behind this property - what decides its value shape (#174).</summary>
+    [JsonPropertyName("dataType")]
+    public Guid? DataType { get; init; }
+
+    /// <summary>The group/tab this property belongs to.</summary>
+    [JsonPropertyName("container")]
+    public Guid? Container { get; init; }
+
+    [JsonPropertyName("sortOrder")]
+    public int SortOrder { get; init; }
+
+    [JsonPropertyName("variesByCulture")]
+    public bool VariesByCulture { get; init; }
+
+    [JsonPropertyName("variesBySegment")]
+    public bool VariesBySegment { get; init; }
+}
+
+/// <summary>A property group or tab on a document type (#160).</summary>
+public record DocumentTypeContainerResponse
+{
+    [JsonPropertyName("id")]
+    public Guid? Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    /// <summary>Whether this is a tab or a group.</summary>
+    [JsonPropertyName("type")]
+    public string? Type { get; init; }
+
+    [JsonPropertyName("sortOrder")]
+    public int SortOrder { get; init; }
 }
 
 /// <summary>
@@ -655,6 +837,24 @@ public record DataTypeResponse
 
     [JsonPropertyName("editorUiAlias")]
     public string? EditorUiAlias { get; init; }
+
+    /// <summary>
+    /// The editor's configuration (#170): a dropdown's items, a picker's filters, an RTE's
+    /// toolbar. The write path already reads and merges these so an update cannot wipe them - this
+    /// simply stops the read from hiding them.
+    /// </summary>
+    [JsonPropertyName("values")]
+    public IEnumerable<DataTypeValueResponse>? Values { get; init; }
+}
+
+/// <summary>One configuration entry on a data type (#170).</summary>
+public record DataTypeValueResponse
+{
+    [JsonPropertyName("alias")]
+    public string Alias { get; init; } = "";
+
+    [JsonPropertyName("value")]
+    public JsonNode? Value { get; init; }
 }
 
 /// <summary>
@@ -823,7 +1023,7 @@ public record MemberResponse
     public string Name { get; init; } = "";
 
     [JsonPropertyName("memberType")]
-    public ContentTypeReference? MemberType { get; init; }
+    public ContentTypeRef? MemberType { get; init; }
 
     [JsonPropertyName("isApproved")]
     public bool IsApproved { get; init; }

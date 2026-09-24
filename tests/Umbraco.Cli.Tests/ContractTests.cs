@@ -52,6 +52,8 @@ public class ContractTests
         "POST /umbraco/management/api/v1/document-type",
         "DELETE /umbraco/management/api/v1/document-type/{id}",
         "POST /umbraco/management/api/v1/media",
+        // #172: the media URL is not on the by-id body, so `media get` reads it from here.
+        "GET /umbraco/management/api/v1/media/urls",
         "PUT /umbraco/management/api/v1/media/{id}/move-to-recycle-bin",
         "PUT /umbraco/management/api/v1/media/{id}/move",
         "DELETE /umbraco/management/api/v1/recycle-bin/media",
