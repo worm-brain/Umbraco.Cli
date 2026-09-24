@@ -36,7 +36,9 @@ public static class KeyValuePairs
                 .Where(v => v.Split('=', 2) is not [{ Length: > 0 }, _])
                 .ToArray();
             if (bad.Length > 0)
-                result.AddError($"Each {shape}. Not understood: {string.Join(", ", bad)}");
+                // Ends with a full stop: the parse-error reporter appends "Run '<cmd> --help' for
+                // usage." straight after, and without one the two sentences run together.
+                result.AddError($"Each {shape}. Not understood: {string.Join(", ", bad)}.");
         });
     }
 

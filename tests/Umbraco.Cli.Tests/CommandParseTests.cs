@@ -712,6 +712,9 @@ public class CommandParseTests
         var error = Assert.Single(Parse(args).Errors, e => e.Message.Contains("Not understood"));
 
         Assert.Contains(token, error.Message);
+        // The reporter appends "Run '<cmd> --help' for usage." directly after this message, so it
+        // has to end a sentence or the two run together.
+        Assert.EndsWith(".", error.Message);
     }
 
     [Theory]
