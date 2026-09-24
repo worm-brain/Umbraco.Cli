@@ -43,6 +43,30 @@ public interface IContentClient
 
     Task<UmbracoResponse<Empty>> DeleteContentAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>Reads a document's culture-and-hostname bindings (#180).</summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The document's domains, or a mapped failure.</returns>
+    Task<UmbracoResponse<DomainsResponse>> GetDomainsAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets a document's culture-and-hostname bindings (#180).
+    /// <para>
+    /// The PUT replaces, so <paramref name="request"/> is the complete set. Without domains, a
+    /// root published in several cultures is unreachable in all but the default one - Umbraco
+    /// logs "published with multiple cultures, but no domains are configured".
+    /// </para>
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="request">The complete set of domains and the default culture.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The domains as the instance holds them afterwards, or a mapped failure.</returns>
+    Task<UmbracoResponse<DomainsResponse>> SetDomainsAsync(
+        Guid id,
+        SetDomainsRequest request,
+        CancellationToken ct = default
+    );
+
     /// <summary>
     /// Publishes a document (issue #79), optionally scheduling when it goes live and/or comes down
     /// (issue #90). The schedule rides the publish request's per-culture schedule, so a scheduled

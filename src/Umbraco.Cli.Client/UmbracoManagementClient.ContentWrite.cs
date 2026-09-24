@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.Kiota.Abstractions;
+using Gen = Umbraco.Cli.Client.Generated.Models;
 
 namespace Umbraco.Cli.Client;
 
@@ -70,4 +71,81 @@ public sealed partial class UmbracoManagementClient
                 ?? throw new ApiException("A template reference needs either an id or an alias."),
             ct
         );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<DomainsResponse>> GetDomainsAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var d = await _api
+                    .Umbraco.Management.Api.V1.Document[id]
+                    .Domains.GetAsync(cancellationToken: ct);
+                return MapDomains(d?.DefaultIsoCode, d?.Domains);
+            }
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<DomainsResponse>> SetDomainsAsync(
+        Guid id,
+        SetDomainsRequest request,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                await _api
+                    .Umbraco.Management.Api.V1.Document[id]
+                    .Domains.PutAsync(
+                        new Gen.UpdateDomainsRequestModel
+                        {
+                            DefaultIsoCode = request.DefaultIsoCode,
+                            Domains =
+                            [
+                                .. request.Domains.Select(d => new Gen.DomainPresentationModel
+                                {
+                                    DomainName = d.DomainName,
+                                    IsoCode = d.IsoCode,
+                                }),
+                            ],
+                        },
+                        cancellationToken: ct
+                    );
+
+                // Report what the instance kept rather than echoing the request (#181's lesson).
+                var stored = await GetDomainsAsync(id, ct);
+                return stored.IsSuccess && stored.Data is { } d
+                    ? d
+                    : new DomainsResponse
+                    {
+                        DefaultIsoCode = request.DefaultIsoCode,
+                        Domains = request.Domains.ToList(),
+                    };
+            }
+        );
+
+    /// <summary>Maps the generated domains body to the CLI-facing shape.</summary>
+    /// <param name="defaultIsoCode">The default culture.</param>
+    /// <param name="domains">The bindings.</param>
+    /// <returns>The mapped response.</returns>
+    private static DomainsResponse MapDomains(
+        string? defaultIsoCode,
+        List<Gen.DomainPresentationModel>? domains
+    ) =>
+        new()
+        {
+            DefaultIsoCode = defaultIsoCode,
+            Domains =
+            [
+                .. (domains ?? []).Select(d => new DomainBinding
+                {
+                    DomainName = d.DomainName ?? "",
+                    IsoCode = d.IsoCode ?? "",
+                }),
+            ],
+        };
 }

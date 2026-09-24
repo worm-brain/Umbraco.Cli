@@ -266,6 +266,42 @@ public record ContentVariantResponse
 /// the client resolves whichever is missing. Distinct from <see cref="ContentTypeRef"/>, which is
 /// what a read returns - there the alias may be genuinely unknown, here it may not.
 /// </summary>
+/// <summary>A document's culture-and-hostname bindings (#180).</summary>
+public record DomainsResponse
+{
+    /// <summary>The culture served when no domain matches, or null for none.</summary>
+    [JsonPropertyName("defaultIsoCode")]
+    public string? DefaultIsoCode { get; init; }
+
+    [JsonPropertyName("domains")]
+    public IEnumerable<DomainBinding> Domains { get; init; } = [];
+}
+
+/// <summary>One hostname bound to one culture (#180).</summary>
+public record DomainBinding
+{
+    /// <summary>The hostname, optionally with a path, e.g. <c>example.com/da</c>.</summary>
+    [JsonPropertyName("domainName")]
+    public string DomainName { get; init; } = "";
+
+    [JsonPropertyName("isoCode")]
+    public string IsoCode { get; init; } = "";
+}
+
+/// <summary>
+/// The complete set of domains for a document (#180). The API's PUT replaces, so this is not a
+/// patch - `content domains set` reads the current set first so a caller can add one without
+/// restating the rest.
+/// </summary>
+public record SetDomainsRequest
+{
+    [JsonPropertyName("defaultIsoCode")]
+    public string? DefaultIsoCode { get; init; }
+
+    [JsonPropertyName("domains")]
+    public IEnumerable<DomainBinding> Domains { get; init; } = [];
+}
+
 public record ContentTypeReference
 {
     [JsonPropertyName("id")]

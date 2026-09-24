@@ -70,6 +70,32 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>Ids passed to <see cref="DeleteContentAsync"/> / <see cref="PublishContentAsync"/>, in order.</summary>
     public List<Guid> CalledIds { get; } = [];
 
+    public Task<UmbracoResponse<DomainsResponse>> GetDomainsAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<DomainsResponse>.Success(new DomainsResponse()));
+
+    /// <summary>The last domains written, for #180.</summary>
+    public SetDomainsRequest? LastDomains { get; private set; }
+
+    public Task<UmbracoResponse<DomainsResponse>> SetDomainsAsync(
+        Guid id,
+        SetDomainsRequest request,
+        CancellationToken ct = default
+    )
+    {
+        LastDomains = request;
+        return Task.FromResult(
+            UmbracoResponse<DomainsResponse>.Success(
+                new DomainsResponse
+                {
+                    DefaultIsoCode = request.DefaultIsoCode,
+                    Domains = request.Domains,
+                }
+            )
+        );
+    }
+
     public Task<UmbracoResponse<Empty>> DeleteContentAsync(Guid id, CancellationToken ct = default)
     {
         if (DeleteContentHandler is null)
