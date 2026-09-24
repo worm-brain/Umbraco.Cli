@@ -40,6 +40,110 @@ public class UserAdminWireTests
         Assert.Equal(group.ToString(), ids!["id"]!.GetValue<string>());
     }
 
+    private static readonly Guid Editors = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid Translators = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+    /// <summary>A user-group list with an "editor" (alias) and a "Translators" (name) group.</summary>
+    private const string TwoGroups = """
+        {"total":2,"items":[
+          {"id":"11111111-1111-1111-1111-111111111111","alias":"editor","name":"Editors"},
+          {"id":"22222222-2222-2222-2222-222222222222","alias":"translator","name":"Translators"}]}
+        """;
+
+    /// <summary>An invite for <c>new@example.com</c> naming the given group references.</summary>
+    private static InviteUserRequest InviteWithGroups(params string[] groups) =>
+        new()
+        {
+            Email = "new@example.com",
+            Name = "New User",
+            UserGroups = groups,
+        };
+
+    /// <summary>The group ids the invite body carries.</summary>
+    private static IEnumerable<string> SentGroupIds(RoutingHandler handler) =>
+        handler.BodyOf(HttpMethod.Post, "/user/invite")["userGroupIds"]!
+            .AsArray()
+            .Select(g => g!["id"]!.GetValue<string>());
+
+    [Fact]
+    public async Task InviteUserAsync_GroupAliasAndName_AreSentAsTheirIds()
+    {
+        // #215: groups can be named the way `user-groups list` shows them.
+        var handler = Wire.Routed(("/user-group", TwoGroups));
+
+        await Wire.Client(handler)
+            .InviteUserAsync(InviteWithGroups("editor", "Translators"), CancellationToken.None);
+
+        Assert.Equal([Editors.ToString(), Translators.ToString()], SentGroupIds(handler));
+    }
+
+    [Fact]
+    public async Task InviteUserAsync_GroupGuid_IsSentWithoutReadingTheGroups()
+    {
+        var handler = Wire.Blank();
+        var id = Guid.NewGuid();
+
+        await Wire.Client(handler)
+            .InviteUserAsync(InviteWithGroups(id.ToString()), CancellationToken.None);
+
+        handler.AssertNoRequest(HttpMethod.Get, "/user-group");
+        Assert.Equal([id.ToString()], SentGroupIds(handler));
+    }
+
+    [Fact]
+    public async Task InviteUserAsync_UnknownGroup_FailsAsNotFoundAndSendsNoInvite()
+    {
+        var handler = Wire.Routed(("/user-group", TwoGroups));
+
+        var result = await Wire.Client(handler)
+            .InviteUserAsync(InviteWithGroups("nosuchgroup"), CancellationToken.None);
+
+        Assert.Equal(404, result.StatusCode);
+        handler.AssertNoRequest(HttpMethod.Post, "/user/invite");
+    }
+
+    [Fact]
+    public async Task InviteUserAsync_GroupOnTheSecondPage_IsFound()
+    {
+        // Groups are read 100 at a time; "editor" is the 101st.
+        var filler = string.Join(
+            ",",
+            Enumerable
+                .Range(0, 100)
+                .Select(i =>
+                    $$"""{"id":"{{Guid.NewGuid()}}","alias":"group{{i}}","name":"Group {{i}}"}"""
+                )
+        );
+        var handler = Wire.Routed(
+            (
+                "skip=100",
+                $$"""{"total":101,"items":[{"id":"{{Editors}}","alias":"editor","name":"Editors"}]}"""
+            ),
+            ("/user-group", $$"""{"total":101,"items":[{{filler}}]}""")
+        );
+
+        await Wire.Client(handler)
+            .InviteUserAsync(InviteWithGroups("editor"), CancellationToken.None);
+
+        Assert.Equal([Editors.ToString()], SentGroupIds(handler));
+    }
+
+    [Fact]
+    public async Task InviteUserAsync_NoUserName_SendsTheEmailAsTheUserName()
+    {
+        // #215: with no userName, Umbraco refused every invite ("username must be the same as
+        // the email").
+        var handler = Wire.Blank();
+
+        await Wire.Client(handler)
+            .InviteUserAsync(InviteWithGroups(Guid.NewGuid().ToString()), CancellationToken.None);
+
+        Assert.Equal(
+            "new@example.com",
+            handler.BodyOf(HttpMethod.Post, "/user/invite")["userName"]!.GetValue<string>()
+        );
+    }
+
     [Fact]
     public async Task InviteUserAsync_NoMessage_OmitsIt()
     {

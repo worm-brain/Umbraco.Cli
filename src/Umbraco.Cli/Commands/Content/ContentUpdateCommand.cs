@@ -50,7 +50,7 @@ public static class ContentUpdateCommand
             // leaves every value as it is and only the template moves. --replace is the
             // exception - with no body it would clear every value - so it still needs one.
             var hasBody = body.HasBody(result);
-            var hasTemplate = result.GetValue(templateOpt) is { Length: > 0 };
+            var hasTemplate = TemplateValue(result.GetValue(templateOpt)) is not null;
             if (result.GetValue(idArg) is null || !(hasBody || hasTemplate))
                 result.AddError(
                     "Supply the content id and --json-body (or --template on its own). "
@@ -90,7 +90,7 @@ public static class ContentUpdateCommand
 
                         // --template wins over a template in the body, the way an explicit flag
                         // normally beats a file the caller may not have written.
-                        if (parseResult.GetValue(templateOpt) is { Length: > 0 } template)
+                        if (TemplateValue(parseResult.GetValue(templateOpt)) is { } template)
                             request = request with { Template = TemplateReference(template) };
 
                         return await client.UpdateContentAsync(
@@ -107,6 +107,14 @@ public static class ContentUpdateCommand
 
         return cmd;
     }
+
+    /// <summary>
+    /// The <c>--template</c> value, or null when it was not given. A blank value counts as not
+    /// given. One rule, shared by the validator and the action.
+    /// </summary>
+    /// <param name="raw">The raw option value.</param>
+    /// <returns>The template reference text, or null.</returns>
+    private static string? TemplateValue(string? raw) => raw is { Length: > 0 } ? raw : null;
 
     /// <summary>
     /// Reads a <c>--template</c> value as either a UUID or an alias, so callers can use whichever

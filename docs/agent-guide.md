@@ -108,7 +108,9 @@ a single `code` field before schemaVersion 3, which meant you could not act on i
 knowing which kind of failure you had.
 
 An error from an Umbraco API call also carries a `category` and, when the server responded, the
-`serverVersion` - so you can tell **whose** problem it is without a controlled experiment:
+`serverVersion`, so you can tell **whose** problem it is without a controlled experiment. A command
+line that does not parse carries a `category` too (`invalid_argument`, below), but no
+`serverVersion`, since nothing was sent:
 
 ```json
 {
@@ -122,13 +124,18 @@ An error from an Umbraco API call also carries a `category` and, when the server
 }
 ```
 
-`category` is one of: `unreachable` (no response - DNS/connection), `timeout`, `request_rejected`
-(a 4xx - usually bad input or the request itself), `server_error` (a 5xx or an undeclared status -
-a server-side fault), `unexpected_response` (the body did not match what the CLI expected, a
-likely version mismatch), or `invalid_argument` (the command line itself did not parse - a bad
-value, an unknown option or a missing argument - so nothing was sent). `serverVersion` is omitted when the server could not be reached
-(`unreachable`/`timeout`) or the version could not be determined. Policy errors that never hit the
-API (auth, `--readonly`, cancellation) carry neither field.
+For an API call, `category` is one of: `unreachable` (no response - DNS/connection), `timeout`,
+`request_rejected` (a 4xx - usually bad input or the request itself), `server_error` (a 5xx or an
+undeclared status - a server-side fault) or `unexpected_response` (the body did not match what the
+CLI expected, a likely version mismatch). `serverVersion` is omitted when the server could not be
+reached (`unreachable`/`timeout`) or the version could not be determined.
+
+`invalid_argument` means the command line itself did not parse - a value of the wrong type, an
+unknown option, a missing argument - so no request was made. It covers parse errors only for now.
+Input the CLI rejects after parsing is not categorised this way yet: a malformed `--json-body`
+carries no `category`, and an alias that matches nothing is a 404 `request_rejected`. Other policy
+errors that never hit the API (auth, `--readonly`,
+cancellation) carry neither field.
 
 A write command run with `--dry-run` uses a distinct status and does not touch the server:
 

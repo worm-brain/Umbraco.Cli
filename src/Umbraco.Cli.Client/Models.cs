@@ -1302,6 +1302,13 @@ public record InviteUserRequest
 
     [JsonPropertyName("userGroupIds")]
     public IEnumerable<ReferenceById> UserGroupIds { get; init; } = [];
+
+    /// <summary>
+    /// User groups by alias, name or id, as typed on the command line (#215). The client resolves
+    /// them and sends them with <see cref="UserGroupIds"/>; they are never sent as they stand.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<string> UserGroups { get; init; } = [];
 }
 
 public record ReferenceById

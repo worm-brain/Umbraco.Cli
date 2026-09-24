@@ -214,127 +214,35 @@ public class UserAdminCommandTests
     }
 
     // ── users invite (#215) ─────────────────────────────────────────────────────
-
-    private static readonly Guid EditorsId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid TranslatorsId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-
-    /// <summary>A fake that knows an "editor" group (alias) and a "Translators" group (name).</summary>
-    private static FakeUmbracoManagementClient FakeWithGroups()
-    {
-        var fake = new FakeUmbracoManagementClient();
-        fake.UserGroupList.Add(
-            new UserGroupResponse
-            {
-                Id = EditorsId,
-                Alias = "editor",
-                Name = "Editors",
-            }
-        );
-        fake.UserGroupList.Add(
-            new UserGroupResponse
-            {
-                Id = TranslatorsId,
-                Alias = "translator",
-                Name = "Translators",
-            }
-        );
-        return fake;
-    }
+    // The client resolves the group references and defaults the userName; see the invite wire
+    // tests. The command's job is to pass the options through and require a group.
 
     [Fact]
-    public async Task UsersInvite_GroupsByAliasAndName_SendsTheirIds()
+    public async Task UsersInvite_PassesGroupReferencesAndUserNameThrough()
     {
-        var fake = FakeWithGroups();
+        var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
 
         var exit = await Run(
             root,
-            $"{Auth} users invite --email a@example.com --name A --group editor --group Translators"
+            $"{Auth} users invite --email a@example.com --name A --group editor --group Translators --username alice"
         );
 
         Assert.Equal(0, exit);
-        Assert.Equal([EditorsId, TranslatorsId], fake.LastInvite!.UserGroupIds.Select(g => g.Id));
-    }
-
-    [Fact]
-    public async Task UsersInvite_NoUserName_DefaultsItToTheEmail()
-    {
-        // #215: with no userName, Umbraco refused every invite ("username must be the same as
-        // the email").
-        var fake = FakeWithGroups();
-        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
-
-        await Run(root, $"{Auth} users invite --email a@example.com --name A --group editor");
-
-        Assert.Equal("a@example.com", fake.LastInvite!.UserName);
-    }
-
-    [Fact]
-    public async Task UsersInvite_GroupGuid_IsSentAsIs()
-    {
-        var fake = new FakeUmbracoManagementClient();
-        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
-        var id = Guid.NewGuid();
-
-        await Run(root, $"{Auth} users invite --email a@example.com --name A --group {id}");
-
-        Assert.Equal(id, Assert.Single(fake.LastInvite!.UserGroupIds).Id);
-    }
-
-    [Fact]
-    public async Task UsersInvite_UnknownGroup_FailsWithoutSendingAnInvite()
-    {
-        var fake = FakeWithGroups();
-        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
-
-        var exit = await Run(
-            root,
-            $"{Auth} users invite --email a@example.com --name A --group nosuchgroup"
-        );
-
-        Assert.NotEqual(0, exit);
-        Assert.Null(fake.LastInvite);
+        Assert.Equal(["editor", "Translators"], fake.LastInvite!.UserGroups);
+        Assert.Equal("alice", fake.LastInvite.UserName);
     }
 
     [Fact]
     public async Task UsersInvite_NoGroup_IsRefusedAtParseTime()
     {
         // Umbraco needs at least one group, and an empty list was the old silent default.
-        var fake = FakeWithGroups();
+        var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
 
         var exit = await Run(root, $"{Auth} users invite --email a@example.com --name A");
 
         Assert.NotEqual(0, exit);
         Assert.Null(fake.LastInvite);
-    }
-
-    [Fact]
-    public async Task UsersInvite_GroupBeyondTheFirstPage_IsStillFound()
-    {
-        // The resolver reads groups 100 at a time; the wanted group is on the second page.
-        var fake = new FakeUmbracoManagementClient();
-        for (var i = 0; i < 100; i++)
-            fake.UserGroupList.Add(
-                new UserGroupResponse
-                {
-                    Id = Guid.NewGuid(),
-                    Alias = $"group{i}",
-                    Name = $"Group {i}",
-                }
-            );
-        fake.UserGroupList.Add(
-            new UserGroupResponse
-            {
-                Id = EditorsId,
-                Alias = "editor",
-                Name = "Editors",
-            }
-        );
-        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
-
-        await Run(root, $"{Auth} users invite --email a@example.com --name A --group editor");
-
-        Assert.Equal(EditorsId, Assert.Single(fake.LastInvite!.UserGroupIds).Id);
     }
 }

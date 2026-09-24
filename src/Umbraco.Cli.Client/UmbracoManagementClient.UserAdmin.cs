@@ -12,6 +12,81 @@ public sealed partial class UmbracoManagementClient
 {
     // ── User groups ────────────────────────────────────────────────────────────
 
+    /// <summary>How many user groups to read per page while resolving references.</summary>
+    private const int UserGroupPageSize = 100;
+
+    /// <summary>
+    /// Resolves user-group references - a GUID, an alias or a name - to ids, in the order given
+    /// (#215). A GUID is taken as an id as it stands; anything else is matched against every
+    /// group's alias and then its name, ignoring case. The group list is only read when there is
+    /// something to look up.
+    /// </summary>
+    /// <param name="references">The references.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The ids.</returns>
+    /// <exception cref="ApiException">A reference matched no group (a 404).</exception>
+    private async Task<IReadOnlyList<Guid>> ResolveUserGroupIdsAsync(
+        IReadOnlyList<string> references,
+        CancellationToken ct
+    )
+    {
+        List<Gen.UserGroupResponseModel>? groups = null;
+        var ids = new List<Guid>();
+        foreach (var reference in references)
+        {
+            if (Guid.TryParse(reference, out var id))
+            {
+                ids.Add(id);
+                continue;
+            }
+
+            groups ??= await ReadAllUserGroupsAsync(ct);
+            // Alias first, because it is the group's stable key; the name is a convenience.
+            var match =
+                groups.FirstOrDefault(g =>
+                    string.Equals(g.Alias, reference, StringComparison.OrdinalIgnoreCase)
+                )
+                ?? groups.FirstOrDefault(g =>
+                    string.Equals(g.Name, reference, StringComparison.OrdinalIgnoreCase)
+                );
+            ids.Add(
+                match?.Id
+                    ?? throw NotFound(
+                        $"No user group found with alias or name '{reference}'. "
+                            + "Run 'umbraco user-groups list' to see the groups."
+                    )
+            );
+        }
+        return ids;
+    }
+
+    /// <summary>Reads every user group, page by page.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>All the groups.</returns>
+    private async Task<List<Gen.UserGroupResponseModel>> ReadAllUserGroupsAsync(
+        CancellationToken ct
+    )
+    {
+        var all = new List<Gen.UserGroupResponseModel>();
+        while (true)
+        {
+            var page = await _api.Umbraco.Management.Api.V1.UserGroup.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = all.Count;
+                    c.QueryParameters.Take = UserGroupPageSize;
+                },
+                ct
+            );
+            var items = page?.Items ?? [];
+            all.AddRange(items);
+            // Stop on a short page as well as on the total, so a server that over-reports its
+            // total cannot loop forever.
+            if (items.Count < UserGroupPageSize || all.Count >= (page?.Total ?? 0))
+                return all;
+        }
+    }
+
     /// <inheritdoc />
     public Task<UmbracoResponse<PagedResponse<UserGroupResponse>>> GetUserGroupsAsync(
         int skip = 0,

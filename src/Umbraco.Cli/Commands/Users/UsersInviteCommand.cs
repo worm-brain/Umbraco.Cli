@@ -23,9 +23,8 @@ public static class UsersInviteCommand
         var emailOpt = new Option<string>("--email") { Required = true };
         var nameOpt = new Option<string>("--name") { Required = true };
         var msgOpt = new Option<string?>("--message");
-        // Umbraco refuses an invite whose userName differs from the email when it is configured
-        // to use emails as usernames (the default), and refuses one with no userName at all
-        // (#215). So default it to the email; --username is for sites configured otherwise.
+        // The client defaults the userName to the email, which Umbraco requires by default
+        // (#215); --username is for sites configured to allow a different one.
         var userNameOpt = new Option<string?>("--username")
         {
             Description = "The user's login name. Defaults to the email address.",
@@ -47,33 +46,23 @@ public static class UsersInviteCommand
             (parseResult, ct) =>
             {
                 var email = parseResult.GetValue(emailOpt)!;
+                // The client resolves the --group references and defaults the userName to
+                // the email, so any caller of InviteUserAsync gets both.
                 return executor.RunMessageAsync(
                     parseResult,
                     "users.invite",
-                    async (client, c) =>
-                    {
-                        var groups = await UserGroupReferences.ResolveAsync(
-                            client,
-                            parseResult.GetValue(groupOpt)!,
-                            c
-                        );
-                        if (!groups.IsSuccess)
-                            return UmbracoResponse<Empty>.FailureFrom(groups);
-
-                        return await client.InviteUserAsync(
+                    (client, c) =>
+                        client.InviteUserAsync(
                             new InviteUserRequest
                             {
                                 Email = email,
                                 Name = parseResult.GetValue(nameOpt)!,
-                                UserName = parseResult.GetValue(userNameOpt) ?? email,
+                                UserName = parseResult.GetValue(userNameOpt),
                                 Message = parseResult.GetValue(msgOpt),
-                                UserGroupIds = groups
-                                    .Data!.Select(id => new ReferenceById { Id = id })
-                                    .ToList(),
+                                UserGroups = parseResult.GetValue(groupOpt)!,
                             },
                             c
-                        );
-                    },
+                        ),
                     $"Invitation sent to {email}.",
                     ct
                 );
