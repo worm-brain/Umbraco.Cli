@@ -16,11 +16,6 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class MediaAndContentAncillaryWireTests
 {
-    /// <summary>Answers everything with 200 and an empty body.</summary>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Blank() =>
-        new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-
     // ── media ─────────────────────────────────────────────────────────────────
 
     /// <summary>Uploads a small file, passing the media type by id so no lookup is needed.</summary>
@@ -44,13 +39,13 @@ public class MediaAndContentAncillaryWireTests
     [Fact]
     public async Task UploadMediaAsync_StagesTheFileThenCreatesTheMediaItem()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await UploadAsync(handler);
 
         // Two requests, in order: stage the bytes, then create the item pointing at them.
         // Collapsing them into one would create a media item with no file.
-        handler.UriOf(HttpMethod.Post, "/temporary-file");
+        handler.AssertRequested(HttpMethod.Post, "/temporary-file");
         var body = handler.BodyOf(HttpMethod.Post, "/media");
         Assert.Equal(
             "Blog Image",
@@ -65,7 +60,7 @@ public class MediaAndContentAncillaryWireTests
     [Fact]
     public async Task UploadMediaAsync_LinksTheCreateToTheStagedTemporaryFile()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await UploadAsync(handler);
 
@@ -83,7 +78,7 @@ public class MediaAndContentAncillaryWireTests
     public async Task MoveMediaAsync_NoParent_SendsNoTargetObject()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).MoveMediaAsync(id, null, CancellationToken.None);
 
@@ -95,7 +90,7 @@ public class MediaAndContentAncillaryWireTests
     {
         var id = Guid.NewGuid();
         var parent = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).RestoreMediaAsync(id, parent, CancellationToken.None);
 
@@ -111,32 +106,32 @@ public class MediaAndContentAncillaryWireTests
     public async Task TrashMediaAsync_PutsToMoveToRecycleBin()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).TrashMediaAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Put, $"/media/{id}/move-to-recycle-bin");
+        handler.AssertRequested(HttpMethod.Put, $"/media/{id}/move-to-recycle-bin");
     }
 
     [Fact]
     public async Task DeleteMediaAsync_DeletesTheItem()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteMediaAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/media/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/media/{id}");
     }
 
     [Fact]
     public async Task EmptyMediaRecycleBinAsync_DeletesTheRecycleBinNotTheMediaTree()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).EmptyMediaRecycleBinAsync(CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, "/recycle-bin/media");
+        handler.AssertRequested(HttpMethod.Delete, "/recycle-bin/media");
     }
 
     // ── dictionary ────────────────────────────────────────────────────────────
@@ -144,7 +139,7 @@ public class MediaAndContentAncillaryWireTests
     [Fact]
     public async Task CreateDictionaryItemAsync_SendsEveryTranslation()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateDictionaryItemAsync(
@@ -174,7 +169,7 @@ public class MediaAndContentAncillaryWireTests
     [Fact]
     public async Task CreateDictionaryItemAsync_NoParent_OmitsIt()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateDictionaryItemAsync(
@@ -189,7 +184,7 @@ public class MediaAndContentAncillaryWireTests
     public async Task MoveDictionaryItemAsync_NoTarget_SendsNoTargetObject()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).MoveDictionaryItemAsync(id, null, CancellationToken.None);
 
@@ -202,11 +197,11 @@ public class MediaAndContentAncillaryWireTests
     public async Task DeleteDictionaryItemAsync_DeletesTheItem()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteDictionaryItemAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/dictionary/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/dictionary/{id}");
     }
 
     // ── webhooks ──────────────────────────────────────────────────────────────
@@ -214,7 +209,7 @@ public class MediaAndContentAncillaryWireTests
     [Fact]
     public async Task CreateWebhookAsync_SendsUrlEventsAndHeaders()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateWebhookAsync(
@@ -238,7 +233,7 @@ public class MediaAndContentAncillaryWireTests
     [Fact]
     public async Task CreateWebhookAsync_NoEvents_SendsAnEmptyArrayNotAMissingKey()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateWebhookAsync(
@@ -255,10 +250,10 @@ public class MediaAndContentAncillaryWireTests
     public async Task DeleteWebhookAsync_DeletesTheWebhook()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteWebhookAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/webhook/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/webhook/{id}");
     }
 }

@@ -12,12 +12,6 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class ContentUpdateMergeClientTests
 {
-    /// <summary>Builds a client whose HTTP calls are answered by <paramref name="handler"/>.</summary>
-    /// <param name="handler">The routing test double.</param>
-    /// <returns>A client bound to the handler.</returns>
-    private static UmbracoManagementClient Client(RoutingHandler handler) =>
-        new(new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") });
-
     /// <summary>
     /// A document body in the shape the Management API returns: two values on one culture, a
     /// template, and an <c>editorAlias</c> on each value (present on the response model, absent
@@ -68,10 +62,7 @@ public class ContentUpdateMergeClientTests
     private static string RawPutBody(RoutingHandler handler, Guid id) =>
         handler.BodyForFirst(r =>
             r.Method == HttpMethod.Put
-            && r.RequestUri!.AbsolutePath.EndsWith(
-                $"/document/{id}",
-                StringComparison.OrdinalIgnoreCase
-            )
+            && r.Uri.AbsolutePath.EndsWith($"/document/{id}", StringComparison.OrdinalIgnoreCase)
         );
 
     [Fact]
@@ -79,7 +70,7 @@ public class ContentUpdateMergeClientTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id, Guid.NewGuid());
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.UpdateContentAsync(
             id,
@@ -109,7 +100,7 @@ public class ContentUpdateMergeClientTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id, Guid.NewGuid());
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.UpdateContentAsync(
             id,
@@ -141,7 +132,7 @@ public class ContentUpdateMergeClientTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id, Guid.NewGuid());
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.UpdateContentAsync(
             id,
@@ -178,7 +169,7 @@ public class ContentUpdateMergeClientTests
         var id = Guid.NewGuid();
         var templateId = Guid.NewGuid();
         var handler = Handler(id, templateId);
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.UpdateContentAsync(
             id,
@@ -202,7 +193,7 @@ public class ContentUpdateMergeClientTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id, Guid.NewGuid());
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.UpdateContentAsync(
             id,
@@ -224,7 +215,7 @@ public class ContentUpdateMergeClientTests
         var id = Guid.NewGuid();
         var templateId = Guid.NewGuid();
         var handler = Handler(id, templateId);
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.UpdateContentAsync(
             id,
@@ -254,7 +245,7 @@ public class ContentUpdateMergeClientTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id, Guid.NewGuid());
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.UpdateContentAsync(
             id,
@@ -274,7 +265,7 @@ public class ContentUpdateMergeClientTests
         var id = Guid.NewGuid();
         var newTemplate = Guid.NewGuid();
         var handler = Handler(id, Guid.NewGuid());
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.UpdateContentAsync(
             id,

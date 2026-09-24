@@ -1467,9 +1467,7 @@ public class UmbracoManagementClientTests
         Assert.NotEqual(Guid.Empty, result.Data!.Id);
         Assert.Equal("m@example.com", result.Data.Email);
         Assert.Equal("M", result.Data.Name);
-        var postBody = handler.BodyForFirst(r =>
-            r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/member")
-        );
+        var postBody = handler.RawBodyOf(HttpMethod.Post, "/member");
         Assert.Contains(memberTypeId.ToString(), postBody);
         Assert.Contains("\"M\"", postBody); // name carried as a variant
     }

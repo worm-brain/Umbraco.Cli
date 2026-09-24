@@ -19,12 +19,6 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class ContentPublishWireTests
 {
-    /// <summary>Builds a client whose HTTP calls are answered by <paramref name="handler"/>.</summary>
-    /// <param name="handler">The routing test double.</param>
-    /// <returns>A client bound to the handler.</returns>
-    private static UmbracoManagementClient Client(RoutingHandler handler) =>
-        new(new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") });
-
     /// <summary>Routes the document GET to a body with the given variant cultures.</summary>
     /// <param name="id">The document id.</param>
     /// <param name="cultures">Variant cultures; empty means an invariant document.</param>
@@ -55,7 +49,7 @@ public class ContentPublishWireTests
     private static JsonArray Schedules(RoutingHandler handler) =>
         JsonNode.Parse(
             handler.BodyForFirst(r =>
-                r.RequestUri!.AbsoluteUri.Contains("/publish", StringComparison.OrdinalIgnoreCase)
+                r.Uri.AbsoluteUri.Contains("/publish", StringComparison.OrdinalIgnoreCase)
             )
         )!["publishSchedules"]!.AsArray();
 
@@ -64,7 +58,7 @@ public class ContentPublishWireTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id);
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.PublishContentAsync(id, ct: CancellationToken.None);
 
@@ -81,7 +75,7 @@ public class ContentPublishWireTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id);
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.PublishContentAsync(id, ct: CancellationToken.None);
 
@@ -94,7 +88,7 @@ public class ContentPublishWireTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id, "en-US", "da-DK");
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.PublishContentAsync(id, ct: CancellationToken.None);
 
@@ -108,7 +102,7 @@ public class ContentPublishWireTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id, "en-US", "da-DK");
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.PublishContentAsync(id, ["da-DK"], ct: CancellationToken.None);
 
@@ -121,11 +115,11 @@ public class ContentPublishWireTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id, "en-US");
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         await client.PublishContentAsync(id, ["en-US"], ct: CancellationToken.None);
 
-        Assert.DoesNotContain(handler.Requests, u => u.AbsolutePath.EndsWith($"/document/{id}"));
+        handler.AssertNoRequest(HttpMethod.Get, $"/document/{id}");
     }
 
     [Fact]
@@ -133,7 +127,7 @@ public class ContentPublishWireTests
     {
         var id = Guid.NewGuid();
         var handler = Handler(id, "en-US");
-        var client = Client(handler);
+        var client = Wire.Client(handler);
         var publishAt = DateTimeOffset.Parse("2026-01-01T09:00:00Z");
         var unpublishAt = DateTimeOffset.Parse("2026-02-01T18:30:00Z");
 

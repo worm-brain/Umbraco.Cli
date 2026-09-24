@@ -14,11 +14,6 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class ContentWireTests
 {
-    /// <summary>Answers everything with 200 and an empty body.</summary>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Blank() =>
-        new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-
     // ── create ────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -26,7 +21,7 @@ public class ContentWireTests
     {
         var docTypeId = Guid.NewGuid();
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateContentAsync(
@@ -51,7 +46,7 @@ public class ContentWireTests
     [Fact]
     public async Task CreateContentAsync_NoTemplate_StillWritesTheTemplateKeyAsNull()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateContentAsync(
@@ -74,7 +69,7 @@ public class ContentWireTests
     public async Task CreateContentAsync_WithTemplateId_SendsIt()
     {
         var templateId = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateContentAsync(
@@ -96,7 +91,7 @@ public class ContentWireTests
     [Fact]
     public async Task CreateContentAsync_NoParent_OmitsTheParentRatherThanSendingANullId()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateContentAsync(
@@ -121,7 +116,7 @@ public class ContentWireTests
     public async Task UnpublishContentAsync_NoCultures_OmitsTheCulturesField()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).UnpublishContentAsync(id, ct: CancellationToken.None);
 
@@ -135,7 +130,7 @@ public class ContentWireTests
     public async Task UnpublishContentAsync_WithCultures_SendsExactlyThose()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).UnpublishContentAsync(id, ["da-DK"], CancellationToken.None);
 
@@ -151,7 +146,7 @@ public class ContentWireTests
     public async Task PublishContentWithDescendantsAsync_NoCultures_SendsTheStarSentinel()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .PublishContentWithDescendantsAsync(id, ct: CancellationToken.None);
@@ -170,7 +165,7 @@ public class ContentWireTests
     public async Task PublishContentWithDescendantsAsync_SendsTheIncludeUnpublishedFlag()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .PublishContentWithDescendantsAsync(
@@ -192,7 +187,7 @@ public class ContentWireTests
     {
         var id = Guid.NewGuid();
         var parent = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).MoveContentAsync(id, parent, CancellationToken.None);
 
@@ -208,13 +203,15 @@ public class ContentWireTests
     public async Task MoveContentAsync_NoParent_SendsNoTargetObject()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).MoveContentAsync(id, null, CancellationToken.None);
 
         // Moving to the content root must OMIT target - not send {"target":{"id":null}}. Absent
         // and explicitly-null are different bytes, and only one of them means "the root".
         Assert.False(handler.BodyOf(HttpMethod.Put, $"/document/{id}/move").ContainsKey("target"));
+        // ...and it must not fall back to a second call against the root.
+        handler.AssertNoRequest(HttpMethod.Put, "/document/move");
     }
 
     [Fact]
@@ -222,7 +219,7 @@ public class ContentWireTests
     {
         var id = Guid.NewGuid();
         var parent = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).RestoreContentAsync(id, parent, CancellationToken.None);
 
@@ -238,7 +235,7 @@ public class ContentWireTests
     public async Task RestoreContentAsync_NoParent_SendsNoTargetObject()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).RestoreContentAsync(id, null, CancellationToken.None);
 
@@ -254,7 +251,7 @@ public class ContentWireTests
     {
         var id = Guid.NewGuid();
         var parent = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).CopyContentAsync(id, parent, true, true, CancellationToken.None);
 
@@ -268,7 +265,7 @@ public class ContentWireTests
     public async Task CopyContentAsync_DefaultFlags_SendsThemAsFalseNotOmitted()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).CopyContentAsync(id, null, ct: CancellationToken.None);
 
@@ -284,7 +281,7 @@ public class ContentWireTests
     public async Task RollbackDocumentVersionAsync_WithCulture_SendsItAsTheCultureParameter()
     {
         var versionId = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .RollbackDocumentVersionAsync(versionId, "da-DK", CancellationToken.None);
@@ -296,7 +293,7 @@ public class ContentWireTests
     public async Task RollbackDocumentVersionAsync_NoCulture_SendsNoCultureParameter()
     {
         var versionId = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .RollbackDocumentVersionAsync(versionId, null, CancellationToken.None);
@@ -310,31 +307,31 @@ public class ContentWireTests
     public async Task TrashContentAsync_PutsToMoveToRecycleBin()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).TrashContentAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Put, $"/document/{id}/move-to-recycle-bin");
+        handler.AssertRequested(HttpMethod.Put, $"/document/{id}/move-to-recycle-bin");
     }
 
     [Fact]
     public async Task DeleteContentAsync_DeletesTheDocument()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteContentAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/document/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/document/{id}");
     }
 
     [Fact]
     public async Task EmptyContentRecycleBinAsync_DeletesTheRecycleBinNotTheDocumentTree()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).EmptyContentRecycleBinAsync(CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, "/recycle-bin/document");
+        handler.AssertRequested(HttpMethod.Delete, "/recycle-bin/document");
     }
 }

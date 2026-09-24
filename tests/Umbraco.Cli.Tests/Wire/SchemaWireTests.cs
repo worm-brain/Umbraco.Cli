@@ -15,26 +15,13 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class SchemaWireTests
 {
-    /// <summary>Answers everything with 200 and an empty body.</summary>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Blank() =>
-        new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-
-    /// <summary>Routes GET to <paramref name="current"/> and accepts any write.</summary>
-    /// <param name="current">The body the GET returns.</param>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Existing(string current) =>
-        new RoutingHandler()
-            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, current)
-            .When(_ => true, HttpStatusCode.OK, "");
-
     // ── document types ────────────────────────────────────────────────────────
 
     [Fact]
     public async Task CreateDocumentTypeAsync_SendsIdNameAliasAndFlags()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateDocumentTypeAsync(
@@ -63,11 +50,11 @@ public class SchemaWireTests
     public async Task DeleteDocumentTypeAsync_DeletesTheType()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteDocumentTypeAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/document-type/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/document-type/{id}");
     }
 
     // ── media types ───────────────────────────────────────────────────────────
@@ -75,7 +62,7 @@ public class SchemaWireTests
     [Fact]
     public async Task CreateMediaTypeAsync_SendsNameAliasAndFlags()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateMediaTypeAsync(
@@ -97,11 +84,11 @@ public class SchemaWireTests
     public async Task DeleteMediaTypeAsync_DeletesTheType()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteMediaTypeAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/media-type/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/media-type/{id}");
     }
 
     // ── data types ────────────────────────────────────────────────────────────
@@ -109,7 +96,7 @@ public class SchemaWireTests
     [Fact]
     public async Task CreateDataTypeAsync_SendsNameAndBothEditorAliases()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateDataTypeAsync(
@@ -131,7 +118,7 @@ public class SchemaWireTests
     public async Task UpdateDataTypeAsync_NameOnly_KeepsTheEditorConfiguration()
     {
         var id = Guid.NewGuid();
-        var handler = Existing(
+        var handler = Wire.Existing(
             $$"""
             {
               "id": "{{id}}",
@@ -166,7 +153,7 @@ public class SchemaWireTests
     public async Task CopyDataTypeAsync_NoTarget_SendsNoTargetObject()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).CopyDataTypeAsync(id, null, CancellationToken.None);
 
@@ -180,7 +167,7 @@ public class SchemaWireTests
     {
         var id = Guid.NewGuid();
         var target = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).MoveDataTypeAsync(id, target, CancellationToken.None);
 
@@ -196,11 +183,11 @@ public class SchemaWireTests
     public async Task DeleteDataTypeAsync_DeletesTheType()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteDataTypeAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/data-type/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/data-type/{id}");
     }
 
     // ── languages ─────────────────────────────────────────────────────────────
@@ -208,7 +195,7 @@ public class SchemaWireTests
     [Fact]
     public async Task CreateLanguageAsync_SendsIsoCodeNameAndFlags()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateLanguageAsync(
@@ -232,7 +219,7 @@ public class SchemaWireTests
     [Fact]
     public async Task CreateLanguageAsync_NoFallback_OmitsIt()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateLanguageAsync(
@@ -246,7 +233,7 @@ public class SchemaWireTests
     [Fact]
     public async Task UpdateLanguageAsync_NameOnly_KeepsTheFallbackAndFlags()
     {
-        var handler = Existing(
+        var handler = Wire.Existing(
             """
             {
               "isoCode": "da-DK",
@@ -274,11 +261,11 @@ public class SchemaWireTests
     [Fact]
     public async Task DeleteLanguageAsync_UsesTheIsoCodeInThePath()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteLanguageAsync("da-DK", CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, "/language/da-DK");
+        handler.AssertRequested(HttpMethod.Delete, "/language/da-DK");
     }
 
     // ── templates ─────────────────────────────────────────────────────────────
@@ -286,7 +273,7 @@ public class SchemaWireTests
     [Fact]
     public async Task CreateTemplateAsync_SendsNameAliasAndContent()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateTemplateAsync(
@@ -308,7 +295,7 @@ public class SchemaWireTests
     public async Task UpdateTemplateAsync_ContentOnly_KeepsTheNameAndAlias()
     {
         var id = Guid.NewGuid();
-        var handler = Existing(
+        var handler = Wire.Existing(
             $$"""
             {
               "id": "{{id}}",
@@ -337,10 +324,10 @@ public class SchemaWireTests
     public async Task DeleteTemplateAsync_DeletesTheTemplate()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteTemplateAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/template/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/template/{id}");
     }
 }

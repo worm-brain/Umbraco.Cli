@@ -10,31 +10,26 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class WireTests
 {
-    /// <summary>A handler that answers everything with 200 and an empty body.</summary>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Any() =>
-        new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-
     [Fact]
     public async Task BodyForFirst_NoMatchingRequest_Throws()
     {
-        var handler = Any();
+        var handler = Wire.Blank();
         await Wire.Client(handler).DeleteContentAsync(Guid.NewGuid(), CancellationToken.None);
 
         // The hazard this replaces: returning "" here made every DoesNotContain assertion pass
         // against a request that was never made.
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<WireAssertionException>(() =>
             handler.BodyForFirst(r => Wire.PathEnds(r, "/nothing/like/this"))
         );
-        Assert.Contains("No recorded request matched", ex.Message);
+        Assert.Contains("none was sent", ex.Message);
     }
 
     [Fact]
     public void BodyForFirst_NoRequestsAtAll_SaysSo()
     {
-        var handler = Any();
+        var handler = Wire.Blank();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => handler.BodyForFirst(_ => true));
+        var ex = Assert.Throws<WireAssertionException>(() => handler.BodyForFirst(_ => true));
         Assert.Contains("No requests were made at all", ex.Message);
     }
 
@@ -42,13 +37,13 @@ public class WireTests
     public async Task BodyOf_WrongMethod_ThrowsAndNamesWhatWasSent()
     {
         var id = Guid.NewGuid();
-        var handler = Any();
+        var handler = Wire.Blank();
         await Wire.Client(handler).DeleteContentAsync(id, CancellationToken.None);
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<WireAssertionException>(() =>
             handler.BodyOf(HttpMethod.Put, $"/document/{id}")
         );
-        Assert.Contains("No PUT request", ex.Message);
+        Assert.Contains("PUT", ex.Message);
         Assert.Contains("document", ex.Message);
     }
 
@@ -56,7 +51,7 @@ public class WireTests
     public async Task BodyOf_MatchingRequest_ReturnsTheParsedBody()
     {
         var id = Guid.NewGuid();
-        var handler = Any();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).PublishContentAsync(id, ["en-US"], ct: CancellationToken.None);
 
@@ -68,10 +63,10 @@ public class WireTests
     public async Task AssertNoRequest_WhenOneWasMade_Throws()
     {
         var id = Guid.NewGuid();
-        var handler = Any();
+        var handler = Wire.Blank();
         await Wire.Client(handler).DeleteContentAsync(id, CancellationToken.None);
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<WireAssertionException>(() =>
             handler.AssertNoRequest(HttpMethod.Delete, $"/document/{id}")
         );
     }
@@ -79,7 +74,7 @@ public class WireTests
     [Fact]
     public async Task AssertNoRequest_WhenNoneWasMade_Passes()
     {
-        var handler = Any();
+        var handler = Wire.Blank();
         await Wire.Client(handler).DeleteContentAsync(Guid.NewGuid(), CancellationToken.None);
 
         handler.AssertNoRequest(HttpMethod.Put, "/document/never");
@@ -96,7 +91,7 @@ public class WireTests
 
         await Wire.Client(handler).GetContentAsync(null, 5, 10, CancellationToken.None);
 
-        var query = handler.QueryOf(HttpMethod.Get, "document");
+        var query = handler.QueryOf(HttpMethod.Get, "/tree/document/root");
         Assert.Equal("5", query["skip"]);
         Assert.Equal("10", query["take"]);
     }

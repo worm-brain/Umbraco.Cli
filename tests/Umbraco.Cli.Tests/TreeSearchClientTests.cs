@@ -15,8 +15,8 @@ public class TreeSearchClientTests
     private static UmbracoManagementClient Client(RoutingHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") });
 
-    private static bool Has(HttpRequestMessage r, string fragment) =>
-        r.RequestUri!.AbsoluteUri.Contains(fragment, StringComparison.OrdinalIgnoreCase);
+    private static bool Has(Recorded r, string fragment) =>
+        r.Uri.AbsoluteUri.Contains(fragment, StringComparison.OrdinalIgnoreCase);
 
     // ── Content tree ────────────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ public class TreeSearchClientTests
             HttpStatusCode.OK,
             """{"total":1,"items":[{"id":"3f7a8b2e-1234-5678-abcd-ef0123456789","hasChildren":true,"variants":[{"name":"Home"}]}]}"""
         );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.GetContentTreeAsync(null, maxDepth: 1, CancellationToken.None);
 
@@ -60,7 +60,7 @@ public class TreeSearchClientTests
                 HttpStatusCode.OK,
                 """{"total":1,"items":[{"id":"9c4d5e6f-1234-5678-abcd-ef0123456789","hasChildren":false,"variants":[{"name":"About"}]}]}"""
             );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.GetContentTreeAsync(null, maxDepth: 5, CancellationToken.None);
 
@@ -92,7 +92,7 @@ public class TreeSearchClientTests
             HttpStatusCode.OK,
             """{"total":1,"items":[{"id":"3f7a8b2e-1234-5678-abcd-ef0123456789","variants":[{"name":"About"}]}]}"""
         );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.FindContentByNameAsync(
             "Abo",
@@ -121,7 +121,7 @@ public class TreeSearchClientTests
                 HttpStatusCode.OK,
                 """{"total":1,"items":[{"id":"9c4d5e6f-1234-5678-abcd-ef0123456789","hasChildren":false,"variants":[{"name":"About"}]}]}"""
             );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.FindContentByPathAsync("Home/About", CancellationToken.None);
 
@@ -137,7 +137,7 @@ public class TreeSearchClientTests
             HttpStatusCode.OK,
             """{"total":1,"items":[{"id":"3f7a8b2e-1234-5678-abcd-ef0123456789","hasChildren":false,"variants":[{"name":"Home"}]}]}"""
         );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.FindContentByPathAsync("Nope", CancellationToken.None);
 
@@ -155,7 +155,7 @@ public class TreeSearchClientTests
             HttpStatusCode.OK,
             """{"total":1,"items":[{"id":"3f7a8b2e-1234-5678-abcd-ef0123456789","hasChildren":false,"variants":[{"name":"Images"}]}]}"""
         );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.GetMediaTreeAsync(null, maxDepth: 1, CancellationToken.None);
 
@@ -171,7 +171,7 @@ public class TreeSearchClientTests
             HttpStatusCode.OK,
             """{"total":1,"items":[{"id":"3f7a8b2e-1234-5678-abcd-ef0123456789","variants":[{"name":"logo"}]}]}"""
         );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.FindMediaByNameAsync("log", null, 0, 20, CancellationToken.None);
 
@@ -194,11 +194,18 @@ public class TreeSearchClientTests
                 HttpStatusCode.OK,
                 """{"total":1,"items":[{"id":"9c4d5e6f-1234-5678-abcd-ef0123456789","hasChildren":false,"variants":[{"name":"Logos"}]}]}"""
             );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.FindMediaByPathAsync("Images/Logos", CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Logos", Assert.Single(result.Data!).Name);
     }
+
+    /// <summary>Live-request overload used by route predicates.</summary>
+    /// <param name="r">The in-flight request.</param>
+    /// <param name="fragment">The URI fragment to look for.</param>
+    /// <returns>True when the absolute URI contains the fragment.</returns>
+    private static bool Has(HttpRequestMessage r, string fragment) =>
+        r.RequestUri!.AbsoluteUri.Contains(fragment, StringComparison.OrdinalIgnoreCase);
 }

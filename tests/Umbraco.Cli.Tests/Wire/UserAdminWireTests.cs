@@ -14,18 +14,13 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class UserAdminWireTests
 {
-    /// <summary>Answers everything with 200 and an empty body.</summary>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Blank() =>
-        new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-
     // ── invite ────────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task InviteUserAsync_SendsTheGroupIds()
     {
         var group = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .InviteUserAsync(
@@ -48,7 +43,7 @@ public class UserAdminWireTests
     [Fact]
     public async Task InviteUserAsync_NoMessage_OmitsIt()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .InviteUserAsync(
@@ -69,7 +64,7 @@ public class UserAdminWireTests
     [Fact]
     public async Task CreateUserGroupAsync_SendsAliasNameAndCollections()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateUserGroupAsync(
@@ -94,7 +89,7 @@ public class UserAdminWireTests
     [Fact]
     public async Task CreateUserGroupAsync_NoSections_SendsAnEmptyArrayNotAMissingKey()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateUserGroupAsync(
@@ -114,7 +109,7 @@ public class UserAdminWireTests
     {
         var group = Guid.NewGuid();
         var user = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).AddUsersToGroupAsync(group, [user], CancellationToken.None);
 
@@ -128,7 +123,7 @@ public class UserAdminWireTests
     {
         var group = Guid.NewGuid();
         var user = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).RemoveUsersFromGroupAsync(group, [user], CancellationToken.None);
 
@@ -143,7 +138,7 @@ public class UserAdminWireTests
     {
         var first = Guid.NewGuid();
         var second = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteUserGroupsAsync([first, second], CancellationToken.None);
 
@@ -155,11 +150,11 @@ public class UserAdminWireTests
     public async Task DeleteUserGroupAsync_DeletesTheGroup()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteUserGroupAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/user-group/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/user-group/{id}");
     }
 
     // ── user data ─────────────────────────────────────────────────────────────
@@ -167,7 +162,7 @@ public class UserAdminWireTests
     [Fact]
     public async Task CreateUserDataAsync_SendsGroupIdentifierAndValue()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateUserDataAsync(
@@ -190,7 +185,7 @@ public class UserAdminWireTests
     public async Task UpdateUserDataAsync_PutsToTheCollectionWithTheKeyInTheBody()
     {
         var key = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .UpdateUserDataAsync(

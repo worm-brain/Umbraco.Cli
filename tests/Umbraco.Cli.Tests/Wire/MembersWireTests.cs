@@ -14,11 +14,6 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class MembersWireTests
 {
-    /// <summary>Answers everything with 200 and an empty body.</summary>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Blank() =>
-        new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-
     /// <summary>
     /// A member as the API returns it: two groups, a custom property value, a username, and the
     /// lockout/2FA flags - all of which the update PUT has to carry back.
@@ -56,7 +51,7 @@ public class MembersWireTests
     public async Task CreateMemberAsync_SendsEmailNameMemberTypeAndPassword()
     {
         var typeId = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateMemberAsync(
@@ -81,7 +76,7 @@ public class MembersWireTests
     [Fact]
     public async Task CreateMemberAsync_CarriesTheNameOnAVariantNotOnlyAtTheTopLevel()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateMemberAsync(
@@ -108,9 +103,7 @@ public class MembersWireTests
     public async Task UpdateMemberAsync_NameOnly_KeepsGroupsAndPropertyValues()
     {
         var id = Guid.NewGuid();
-        var handler = new RoutingHandler()
-            .When(r => r.Method == HttpMethod.Put, HttpStatusCode.OK, "")
-            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, ExistingMember(id));
+        var handler = Wire.Existing(ExistingMember(id));
 
         await Wire.Client(handler)
             .UpdateMemberAsync(
@@ -138,9 +131,7 @@ public class MembersWireTests
     public async Task UpdateMemberAsync_NameOnly_KeepsTheCurrentEmail()
     {
         var id = Guid.NewGuid();
-        var handler = new RoutingHandler()
-            .When(r => r.Method == HttpMethod.Put, HttpStatusCode.OK, "")
-            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, ExistingMember(id));
+        var handler = Wire.Existing(ExistingMember(id));
 
         await Wire.Client(handler)
             .UpdateMemberAsync(
@@ -159,9 +150,7 @@ public class MembersWireTests
     public async Task UpdateMemberAsync_RenamesTheVariantRatherThanAddingOne()
     {
         var id = Guid.NewGuid();
-        var handler = new RoutingHandler()
-            .When(r => r.Method == HttpMethod.Put, HttpStatusCode.OK, "")
-            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, ExistingMember(id));
+        var handler = Wire.Existing(ExistingMember(id));
 
         await Wire.Client(handler)
             .UpdateMemberAsync(
@@ -180,9 +169,7 @@ public class MembersWireTests
     public async Task UpdateMemberAsync_ApprovedOnly_LeavesTheNameAlone()
     {
         var id = Guid.NewGuid();
-        var handler = new RoutingHandler()
-            .When(r => r.Method == HttpMethod.Put, HttpStatusCode.OK, "")
-            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, ExistingMember(id));
+        var handler = Wire.Existing(ExistingMember(id));
 
         await Wire.Client(handler)
             .UpdateMemberAsync(
@@ -209,7 +196,7 @@ public class MembersWireTests
 
         await Wire.Client(handler).DeleteMemberAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/member/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/member/{id}");
     }
 
     // ── member types ──────────────────────────────────────────────────────────
@@ -217,7 +204,7 @@ public class MembersWireTests
     [Fact]
     public async Task CreateMemberTypeAsync_SendsNameAliasAndIcon()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateMemberTypeAsync(
@@ -276,10 +263,10 @@ public class MembersWireTests
     public async Task DeleteMemberTypeAsync_DeletesTheType()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteMemberTypeAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/member-type/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/member-type/{id}");
     }
 }

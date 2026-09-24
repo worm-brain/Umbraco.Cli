@@ -4,10 +4,19 @@ using System.Text;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
+/// One request as it left the client: the method, the URI and the body, captured before the
+/// underlying <see cref="HttpRequestMessage"/> is disposed.
+/// </summary>
+/// <param name="Method">The HTTP method used.</param>
+/// <param name="Uri">The absolute request URI, including any query string.</param>
+/// <param name="Body">The request body, or null when the request carried none.</param>
+internal sealed record Recorded(HttpMethod Method, Uri Uri, string? Body);
+
+/// <summary>
 /// A test <see cref="HttpMessageHandler"/> that answers each request with the first matching
-/// canned response, and records every request URI + body. Unlike the single-body stub, this
-/// lets a multi-step client flow (e.g. alias search -> get-by-id -> post -> hydrate) return a
-/// distinct body per step so both the requests and the mapping can be asserted.
+/// canned response and records what was sent. Unlike a single-body stub, this lets a multi-step
+/// client flow (alias search -> get-by-id -> post -> hydrate) return a distinct body per step, so
+/// both the requests and the mapping can be asserted.
 /// </summary>
 internal sealed class RoutingHandler : HttpMessageHandler
 {
@@ -17,11 +26,14 @@ internal sealed class RoutingHandler : HttpMessageHandler
         string Json
     )> _routes = [];
 
+    /// <summary>Every request the client made, in order.</summary>
+    public List<Recorded> Recordings { get; } = [];
+
     /// <summary>Every request URI the client made, in order.</summary>
-    public List<Uri> Requests { get; } = [];
+    public IReadOnlyList<Uri> Requests => [.. Recordings.Select(r => r.Uri)];
 
     /// <summary>Each request's body text, in order (null for bodiless requests).</summary>
-    public List<string?> RequestBodies { get; } = [];
+    public IReadOnlyList<string?> RequestBodies => [.. Recordings.Select(r => r.Body)];
 
     /// <summary>
     /// Registers a route: the first registered route whose predicate matches a request wins.
@@ -40,47 +52,52 @@ internal sealed class RoutingHandler : HttpMessageHandler
         return this;
     }
 
-    /// <summary>Returns the first recorded request URI matching <paramref name="match"/>, or null.</summary>
-    /// <param name="match">Predicate over the recorded request URIs (by absolute URI string).</param>
-    /// <returns>The matching URI, or null.</returns>
-    public Uri? RequestFor(Func<HttpRequestMessage, bool> match)
-    {
-        var index = _matched.FindIndex(r => match(r));
-        return index >= 0 ? Requests[index] : null;
-    }
+    /// <summary>The first recorded request matching <paramref name="match"/>, or null.</summary>
+    /// <param name="match">Predicate over the recorded requests.</param>
+    /// <returns>The matching record, or null.</returns>
+    public Recorded? FirstMatching(Func<Recorded, bool> match) => Recordings.FirstOrDefault(match);
 
     /// <summary>
-    /// Returns the captured body of the first request matching <paramref name="match"/>.
+    /// The first recorded request matching <paramref name="match"/>, failing the test when there
+    /// is none.
     /// <para>
-    /// Throws when nothing matched rather than returning an empty string. Returning "" meant a
-    /// predicate with a typo'd path satisfied every <c>Assert.DoesNotContain</c> and any
-    /// "the body must not carry X" assertion silently passed against a request that was never
-    /// made - a false green in exactly the tests meant to catch #158-class bugs (#187 Phase 2).
-    /// A request that genuinely carried no body still returns "".
+    /// Every post-hoc lookup goes through here so that a predicate matching nothing fails loudly.
+    /// The earlier design returned an empty body instead, which quietly satisfied any
+    /// "the body must not contain X" assertion against a request that was never made - a false
+    /// green in exactly the tests meant to catch #158-class bugs (#187 Phase 2).
     /// </para>
     /// </summary>
     /// <param name="match">Predicate over the recorded requests.</param>
-    /// <returns>The body text; empty when the matched request had no body.</returns>
-    /// <exception cref="InvalidOperationException">No recorded request matched.</exception>
-    public string BodyForFirst(Func<HttpRequestMessage, bool> match)
-    {
-        var index = _matched.FindIndex(r => match(r));
-        if (index < 0)
-            throw new InvalidOperationException(
-                "No recorded request matched the predicate. "
-                    + (
-                        Requests.Count == 0
-                            ? "No requests were made at all."
-                            : "Requests made: "
-                                + string.Join(", ", Requests.Select(u => u.PathAndQuery))
-                    )
-            );
-        return RequestBodies[index] ?? "";
-    }
+    /// <param name="what">How to describe the expectation in the failure message.</param>
+    /// <returns>The matching record.</returns>
+    /// <exception cref="WireAssertionException">No recorded request matched.</exception>
+    public Recorded Require(Func<Recorded, bool> match, string what) =>
+        FirstMatching(match)
+        ?? throw new WireAssertionException(
+            $"Expected a request {what}, but none was sent. {Describe()}"
+        );
 
-    // The HttpRequestMessage is disposed after SendAsync, so a snapshot needed for later
-    // predicate matching (method + uri) is retained here alongside the URI/body lists.
-    private readonly List<HttpRequestMessage> _matched = [];
+    /// <summary>The URI of the first request matching <paramref name="match"/>, or null.</summary>
+    /// <param name="match">Predicate over the recorded requests.</param>
+    /// <returns>The matching URI, or null.</returns>
+    public Uri? RequestFor(Func<Recorded, bool> match) => FirstMatching(match)?.Uri;
+
+    /// <summary>
+    /// The body of the first request matching <paramref name="match"/>, failing when none did.
+    /// </summary>
+    /// <param name="match">Predicate over the recorded requests.</param>
+    /// <returns>The body text; empty when the matched request carried none.</returns>
+    /// <exception cref="WireAssertionException">No recorded request matched.</exception>
+    public string BodyForFirst(Func<Recorded, bool> match) =>
+        Require(match, "matching the predicate").Body ?? "";
+
+    /// <summary>Lists what was actually sent, so a missed match names the alternatives.</summary>
+    /// <returns>A human-readable list of the recorded requests.</returns>
+    public string Describe() =>
+        Recordings.Count == 0
+            ? "No requests were made at all."
+            : "Requests made: "
+                + string.Join(", ", Recordings.Select(r => $"{r.Method} {r.Uri.PathAndQuery}"));
 
     /// <inheritdoc />
     protected override Task<HttpResponseMessage> SendAsync(
@@ -88,15 +105,13 @@ internal sealed class RoutingHandler : HttpMessageHandler
         CancellationToken cancellationToken
     )
     {
-        Requests.Add(request.RequestUri!);
-        RequestBodies.Add(
-            request.Content is null
-                ? null
-                : request.Content.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult()
+        Recordings.Add(
+            new Recorded(
+                request.Method,
+                request.RequestUri!,
+                request.Content?.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult()
+            )
         );
-        // Retain a lightweight snapshot (method + uri) for post-hoc assertions; the original
-        // request is disposed once this returns.
-        _matched.Add(new HttpRequestMessage(request.Method, request.RequestUri));
 
         var route = _routes.FirstOrDefault(r => r.Match(request));
         var status = route.Match is null ? HttpStatusCode.OK : route.Status;

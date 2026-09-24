@@ -14,18 +14,13 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class PlatformWireTests
 {
-    /// <summary>Answers everything with 200 and an empty body.</summary>
-    /// <returns>The handler.</returns>
-    private static RoutingHandler Blank() =>
-        new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-
     // ── document blueprints ───────────────────────────────────────────────────
 
     [Fact]
     public async Task CreateDocumentBlueprintAsync_SendsDocumentTypeVariantsAndValues()
     {
         var typeId = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateDocumentBlueprintAsync(
@@ -54,7 +49,7 @@ public class PlatformWireTests
     public async Task CreateDocumentBlueprintFromDocumentAsync_SendsTheSourceDocument()
     {
         var document = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateDocumentBlueprintFromDocumentAsync(
@@ -71,7 +66,7 @@ public class PlatformWireTests
     public async Task MoveDocumentBlueprintAsync_NoTarget_SendsNoTargetObject()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).MoveDocumentBlueprintAsync(id, null, CancellationToken.None);
 
@@ -84,11 +79,11 @@ public class PlatformWireTests
     public async Task DeleteDocumentBlueprintAsync_DeletesTheBlueprint()
     {
         var id = Guid.NewGuid();
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteDocumentBlueprintAsync(id, CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, $"/document-blueprint/{id}");
+        handler.AssertRequested(HttpMethod.Delete, $"/document-blueprint/{id}");
     }
 
     // ── static files: one verb set, three kinds ───────────────────────────────
@@ -102,7 +97,7 @@ public class PlatformWireTests
         string slug
     )
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateStaticFileAsync(
@@ -126,7 +121,7 @@ public class PlatformWireTests
         string slug
     )
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .UpdateStaticFileAsync(
@@ -145,7 +140,7 @@ public class PlatformWireTests
     [Fact]
     public async Task CreateStaticFileAsync_NoParentPath_OmitsIt()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateStaticFileAsync(
@@ -160,12 +155,12 @@ public class PlatformWireTests
     [Fact]
     public async Task DeleteStaticFileAsync_DeletesByPath()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .DeleteStaticFileAsync(StaticFileKind.Stylesheet, "site.css", CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, "/stylesheet/site.css");
+        handler.AssertRequested(HttpMethod.Delete, "/stylesheet/site.css");
     }
 
     // ── diagnostics, Examine, redirects ───────────────────────────────────────
@@ -173,7 +168,7 @@ public class PlatformWireTests
     [Fact]
     public async Task CreateSavedLogSearchAsync_SendsNameAndQuery()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler)
             .CreateSavedLogSearchAsync("Errors", "@Level='Error'", CancellationToken.None);
@@ -186,31 +181,31 @@ public class PlatformWireTests
     [Fact]
     public async Task DeleteSavedLogSearchAsync_DeletesByName()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).DeleteSavedLogSearchAsync("Errors", CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Delete, "/saved-search/Errors");
+        handler.AssertRequested(HttpMethod.Delete, "/saved-search/Errors");
     }
 
     [Fact]
     public async Task RebuildIndexAsync_PostsToTheNamedIndex()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).RebuildIndexAsync("ExternalIndex", CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Post, "/indexer/ExternalIndex/rebuild");
+        handler.AssertRequested(HttpMethod.Post, "/indexer/ExternalIndex/rebuild");
     }
 
     [Fact]
     public async Task BuildModelsAsync_PostsToTheBuildEndpoint()
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).BuildModelsAsync(CancellationToken.None);
 
-        handler.UriOf(HttpMethod.Post, "/models-builder/build");
+        handler.AssertRequested(HttpMethod.Post, "/models-builder/build");
     }
 
     [Theory]
@@ -221,11 +216,14 @@ public class PlatformWireTests
         string expected
     )
     {
-        var handler = Blank();
+        var handler = Wire.Blank();
 
         await Wire.Client(handler).SetRedirectTrackingAsync(enabled, CancellationToken.None);
 
         // #184's shape: no body at all, so the parameter name and value are the whole contract.
-        Assert.Equal(expected, handler.QueryOf(HttpMethod.Post, "redirect")["status"]);
+        Assert.Equal(
+            expected,
+            handler.QueryOf(HttpMethod.Post, "/redirect-management/status")["status"]
+        );
     }
 }

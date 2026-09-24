@@ -13,12 +13,6 @@ namespace Umbraco.Cli.Tests;
 /// </summary>
 public class ContentWriteClientTests
 {
-    /// <summary>Builds a client whose HTTP calls are answered by <paramref name="handler"/>.</summary>
-    /// <param name="handler">The routing test double.</param>
-    /// <returns>A client bound to the handler.</returns>
-    private static UmbracoManagementClient Client(RoutingHandler handler) =>
-        new(new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") });
-
     /// <summary>
     /// A content create passes the document type by alias; the client must resolve it to an id
     /// (tree walk then by-id alias match), POST the document with the resolved id, and map property
@@ -49,7 +43,7 @@ public class ContentWriteClientTests
                 HttpStatusCode.OK,
                 """{"id":"00000000-0000-0000-0000-000000000000","variants":[{"name":"Home"}]}"""
             );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.CreateContentAsync(
             new CreateContentRequest
@@ -103,7 +97,7 @@ public class ContentWriteClientTests
                 HttpStatusCode.OK,
                 $$"""{"id":"{{suppliedId}}","variants":[{"name":"Home"}]}"""
             );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.CreateContentAsync(
             new CreateContentRequest
@@ -154,7 +148,7 @@ public class ContentWriteClientTests
                 HttpStatusCode.OK,
                 """{"id":"00000000-0000-0000-0000-000000000000","variants":[{"name":"C"}]}"""
             );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.CreateContentAsync(
             new CreateContentRequest
@@ -219,7 +213,7 @@ public class ContentWriteClientTests
                 HttpStatusCode.OK,
                 """{"id":"00000000-0000-0000-0000-000000000000","variants":[{"name":"Home"}]}"""
             );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.CreateContentAsync(
             new CreateContentRequest
@@ -248,7 +242,7 @@ public class ContentWriteClientTests
             HttpStatusCode.OK,
             """{"total":0,"items":[]}"""
         );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.CreateContentAsync(
             new CreateContentRequest
@@ -275,7 +269,7 @@ public class ContentWriteClientTests
     {
         var id = Guid.NewGuid();
         var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.PublishContentAsync(id, ["en-US"], ct: CancellationToken.None);
 
@@ -295,7 +289,7 @@ public class ContentWriteClientTests
     {
         var id = Guid.NewGuid();
         var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-        var client = Client(handler);
+        var client = Wire.Client(handler);
         var publishAt = DateTimeOffset.Parse("2026-01-01T09:00:00Z");
         var unpublishAt = DateTimeOffset.Parse("2026-02-01T18:30:00Z");
 
@@ -327,7 +321,7 @@ public class ContentWriteClientTests
             HttpStatusCode.OK,
             """{"taskId":"11111111-1111-1111-1111-111111111111","isComplete":false}"""
         );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.PublishContentWithDescendantsAsync(
             id,
@@ -357,7 +351,7 @@ public class ContentWriteClientTests
                 HttpStatusCode.OK,
                 """{"taskId":"11111111-1111-1111-1111-111111111111","isComplete":true}"""
             );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.PublishContentWithDescendantsAsync(
             id,
@@ -384,7 +378,7 @@ public class ContentWriteClientTests
     {
         var id = Guid.NewGuid();
         var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.UnpublishContentAsync(id, null, CancellationToken.None);
 
@@ -405,7 +399,7 @@ public class ContentWriteClientTests
     {
         var id = Guid.NewGuid();
         var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.UnpublishContentAsync(id, ["en-US"], CancellationToken.None);
 
@@ -433,7 +427,7 @@ public class ContentWriteClientTests
                 HttpStatusCode.OK,
                 """{"id":"00000000-0000-0000-0000-000000000000","variants":[{"name":"Renamed"}]}"""
             );
-        var client = Client(handler);
+        var client = Wire.Client(handler);
 
         var result = await client.UpdateContentAsync(
             id,
@@ -446,9 +440,23 @@ public class ContentWriteClientTests
         Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith($"/document/{id}"));
     }
 
+    private static bool Has(Recorded r, string fragment) =>
+        r.Uri.AbsoluteUri.Contains(fragment, StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasPath(Recorded r, string suffix) =>
+        r.Uri.AbsolutePath.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Live-request overload used by route predicates.</summary>
+    /// <param name="r">The in-flight request.</param>
+    /// <param name="fragment">The URI fragment to look for.</param>
+    /// <returns>True when the absolute URI contains the fragment.</returns>
     private static bool Has(HttpRequestMessage r, string fragment) =>
         r.RequestUri!.AbsoluteUri.Contains(fragment, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Live-request overload used by route predicates.</summary>
+    /// <param name="r">The in-flight request.</param>
+    /// <param name="suffix">The path suffix to look for.</param>
+    /// <returns>True when the path ends with the suffix.</returns>
     private static bool HasPath(HttpRequestMessage r, string suffix) =>
         r.RequestUri!.AbsolutePath.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
 }
