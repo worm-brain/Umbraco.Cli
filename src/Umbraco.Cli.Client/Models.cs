@@ -33,6 +33,12 @@ public enum FailureCategory
     /// an Umbraco version the generated client was not built against. Reserved here; populated by #154.
     /// </summary>
     UnexpectedResponse,
+
+    /// <summary>
+    /// The command line itself was invalid (an unparseable value, an unknown option, a missing
+    /// argument), so no request was sent (#203). Always the caller's to fix.
+    /// </summary>
+    InvalidArgument,
 }
 
 /// <summary>Wire-name mapping for <see cref="FailureCategory"/> (the string emitted in the JSON error envelope).</summary>
@@ -52,6 +58,7 @@ public static class FailureCategoryExtensions
             FailureCategory.RequestRejected => "request_rejected",
             FailureCategory.ServerError => "server_error",
             FailureCategory.UnexpectedResponse => "unexpected_response",
+            FailureCategory.InvalidArgument => "invalid_argument",
             _ => null,
         };
 }

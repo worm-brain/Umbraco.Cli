@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Help;
 using System.CommandLine.Parsing;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands;
 using Umbraco.Cli.Infrastructure.Output;
 
@@ -60,9 +61,12 @@ public static class ParseErrorReporter
         var usage = string.Join(" ", path.Skip(1));
         var command = string.Join(".", path.Skip(1));
 
+        // category lets a caller branch on "my command line was wrong" without parsing the
+        // message (#203), the same way API failures carry request_rejected / server_error.
         writer.WriteError(
             1,
             $"{message} Run 'umbraco {usage} --help' for usage.".Replace("  ", " "),
+            category: FailureCategory.InvalidArgument.ToWire(),
             commandName: string.IsNullOrEmpty(command) ? null : command
         );
         return 1;
