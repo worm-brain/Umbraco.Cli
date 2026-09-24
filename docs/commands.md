@@ -143,7 +143,27 @@ umbraco content apply <snapshot> [--prune] [--dry-run]     # reconcile; --prune 
 umbraco content bulk delete [--file ids.txt]               # permanent; needs --yes
 umbraco content bulk publish [--file ids.txt] [--cultures <csv>]
 umbraco content bulk unpublish [--file ids.txt] [--cultures <csv>]   # takes offline; needs --yes
+
+# domains sub-noun (Culture and Hostnames):
+umbraco content domains get <id>
+umbraco content domains set <id> [--default <iso>] [--domain host=iso ...] [--replace]   # merges by hostname unless --replace
 ```
+
+### Domains: a multilingual site is not reachable without them
+
+Publishing a document in several cultures does not make those cultures reachable. Umbraco needs
+a **domain binding** per culture, and without one it logs "the root node was published with
+multiple cultures, but no domains are configured" and serves nothing but the default
+([#180](https://github.com/worm-brain/Umbraco.Cli/issues/180)):
+
+```bash
+umbraco content domains set <root-id> --default en-US \
+  --domain example.com=en-US --domain example.com/da=da-DK
+```
+
+The API replaces the whole set, so `--domain` **merges** into what is already bound, matched on
+hostname. Pass `--replace` to set exactly what you name and drop the rest. Each binding must be
+`host=isoCode`; a value with no `=` is refused at parse time rather than silently dropped.
 
 ### How `content update` writes
 
@@ -292,7 +312,14 @@ umbraco media restore <id> [--parent <id>]
 umbraco media empty-recycle-bin                            # permanent; needs --yes
 umbraco media move <id> [--parent <id>]
 umbraco media sort [--parent <id>] --children <id> <id> ...   # reorder a parent folder's children
+
+# folder sub-noun (organise uploads):
+umbraco media folder create --name <name> [--parent <id>] [--id <guid>]
 ```
+
+A media folder is an ordinary media item of the **Folder** media type, so it moves, trashes and
+deletes with the usual `media` verbs, and its id is what `media upload --parent` takes
+([#171](https://github.com/worm-brain/Umbraco.Cli/issues/171)).
 
 ## `media-types`
 
@@ -309,8 +336,30 @@ umbraco media-types delete <id>                            # needs --yes non-int
 umbraco content-types list
 umbraco content-types get <alias|id>                       # includes properties, groups, templates
 umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
+umbraco content-types create --json-body <file>            # full Management API body: properties, groups, compositions
+umbraco content-types update <alias|id> --json-body <file> # full replace
+umbraco content-types create --schema                      # print a real document type as a worked example (needs a host)
 umbraco content-types delete <id>                          # needs --yes non-interactively
 ```
+
+### Authoring a document type with properties
+
+The flag-built `create` makes an empty type. Properties, groups, compositions, allowed templates
+and culture variance are too structured for flags, so they go in a full body
+([#161](https://github.com/worm-brain/Umbraco.Cli/issues/161)). Read one, edit it, write it back:
+
+```bash
+umbraco content-types get blogPost -o json | jq .data > t.json
+# ...edit t.json: add a property, a group, a template...
+umbraco content-types update blogPost --json-body t.json
+```
+
+`--schema` on these verbs prints **a real type off the instance** rather than a hand-written
+JSON Schema, so the example cannot drift from what the API actually accepts. That is why it
+needs a host, unlike `--schema` on `content create`.
+
+`update` is a full replace, so send the whole body - not a patch. Both verbs take the alias or
+the id.
 
 ## `data-types`
 
@@ -318,7 +367,10 @@ umbraco content-types delete <id>                          # needs --yes non-int
 umbraco data-types list                                    # includes editorAlias (one read per item)
 umbraco data-types get <name|id>                           # by NAME (a data type has no alias); includes its configuration
 umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
-umbraco data-types update <id> --name <name> --editor-alias <alias> --editor-ui-alias <alias>
+umbraco data-types create --json-body <file>               # full body, including the editor's `values` configuration
+umbraco data-types update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
+umbraco data-types update <name|id> --json-body <file>     # full replace, the only way to set `values`
+umbraco data-types create --schema                         # print a real data type as a worked example (needs a host)
 umbraco data-types delete <id>                             # needs --yes non-interactively
 umbraco data-types is-used <id>                            # whether any content type uses it
 umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
@@ -331,6 +383,29 @@ umbraco data-types folder create --name <name> [--parent <folder>] [--id <guid>]
 umbraco data-types folder update <id> --name <name>
 umbraco data-types folder delete <id>                      # needs --yes non-interactively
 ```
+
+### Configuring the editor (`values`)
+
+A data type's **`values`** array is its editor configuration - a dropdown's items, a numeric
+range, a media picker's start node. The flag-built verbs deliberately never exposed it (it is
+editor-specific, so there is no fixed set of flags for it), which meant configuring one needed a
+`schema export | jq | schema apply` round-trip through the whole instance
+([#169](https://github.com/worm-brain/Umbraco.Cli/issues/169)). Pass the body instead:
+
+```bash
+umbraco data-types create --json-body categories.json
+```
+
+```json
+{
+  "name": "Blog Categories",
+  "editorAlias": "Umbraco.DropDown.Flexible",
+  "editorUiAlias": "Umb.PropertyEditorUi.Dropdown",
+  "values": [{ "alias": "items", "value": ["News", "Opinion"] }]
+}
+```
+
+Both `update` forms take the **name** or the id, as `get` does.
 
 ## `languages`
 
@@ -355,11 +430,23 @@ umbraco templates delete <id>                              # needs --yes non-int
 
 ```bash
 umbraco members list [--group <name>]                      # filters by member group
-umbraco members get <id>                                   # UUID only; no groups or property values (#185)
+umbraco members get <id>                                   # UUID only; includes groups and property values
 umbraco members create --email <email> --name <name> --type <alias>
-umbraco members update <id> [--email <email>] [--name <name>] [--approved]
+umbraco members update <id> [--email <email>] [--name <name>] [--approved] [--username <name>] [--group <id> ...] [--value alias=value ...] [--new-password <pw>] [--unlock]
 umbraco members delete <id>                                # needs --yes non-interactively
 ```
+
+`update` merges: only the fields you name change, and property values are matched on
+alias + culture + segment, so setting one does not clear the rest. Two exceptions worth knowing:
+
+- **`--group` replaces.** A group list is the membership, not a patch. Omit it to leave groups
+  alone; pass every group the member should end up in.
+- **`--new-password` is only ever sent when you pass it.** An update that does not mention it
+  leaves the member's password untouched (no current password is needed - this is an admin
+  reset). `--unlock` clears a lockout from failed logins.
+
+`--value` takes `alias=value`; a value with no `=` is refused at parse time rather than silently
+dropped.
 
 ## `member-types`
 
@@ -425,6 +512,7 @@ umbraco dictionary list
 umbraco dictionary tree [--parent <id>]                    # browse the hierarchy: root, or children of --parent
 umbraco dictionary get <key>
 umbraco dictionary create --key <key> [--values en-US=Hello --values da-DK=Hej] [--parent <id>]   # --parent creates under an item
+umbraco dictionary update <id> [--key <key>] [--values en-US=Home ...]   # merges by ISO code
 umbraco dictionary move <id> [--target <id>]               # reparent; omit --target to move to the root
 umbraco dictionary delete <id>                             # needs --yes non-interactively
 ```
@@ -436,9 +524,12 @@ item that is actually empty ([#181](https://github.com/worm-brain/Umbraco.Cli/is
 response is also read back from the instance, so what you see is what was stored.
 
 Short codes are rejected rather than resolved: on a site with both `en-US` and `en-GB`, guessing
-which one `en` meant would be a coin flip. There is still no `dictionary update` - correcting a
-translation means delete and recreate, which changes the id
-([#182](https://github.com/worm-brain/Umbraco.Cli/issues/182)).
+which one `en` meant would be a coin flip.
+
+`update` merges translations **by ISO code**, so naming one language leaves the others alone,
+and it keeps the item's id - correcting a translation no longer means delete-and-recreate
+([#182](https://github.com/worm-brain/Umbraco.Cli/issues/182)). It applies the same ISO-code
+check as `create`.
 
 ## `webhooks`
 
