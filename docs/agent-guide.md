@@ -301,7 +301,19 @@ effect, or use the workaround.
 ### Publishing
 
 `content publish <id>` with no `--cultures` reads the document and publishes every culture it
-has. Name cultures explicitly to publish a subset.
+has. Name cultures explicitly to publish a subset. `content unpublish` (and `bulk unpublish`)
+works the same way: no `--cultures` unpublishes every culture of a variant document, and the
+whole of an invariant one.
+
+Other commands pick a sensible culture when you name none. `content create` and
+`document-blueprint create` use the default language when the document type varies by culture.
+`content versions` lists every culture's history, newest first, and tags each row with the
+`culture` to pass to `content rollback --culture`. Use `content version <version-id>` to read a
+version's values before rolling back. `document-blueprint from-document --name` renames every
+culture.
+
+`content restore <id>` puts the item back under the parent it was trashed from. Pass
+`--parent <id>` to choose another parent, or `--to-root` for the content root.
 
 Two things about the endpoint are worth knowing if you ever call it directly. An empty
 `schedule` object is not "publish now" - Umbraco answers `200` and publishes nothing. And `"*"`
