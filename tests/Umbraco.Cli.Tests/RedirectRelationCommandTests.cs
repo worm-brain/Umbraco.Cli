@@ -124,14 +124,28 @@ public class RedirectRelationCommandTests
     }
 
     [Fact]
-    public async Task RedirectTrackingEnable_NonInteractiveWithoutYes_Aborts()
+    public async Task RedirectTrackingEnable_NonInteractiveWithoutYes_Runs()
     {
+        // #249: enabling turns a protection on, so it needs no --yes.
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
         var exit = await Run(root, $"{Auth} redirect tracking enable");
 
-        Assert.Equal(2, exit); // site-wide toggle is confirmation-gated
+        Assert.Equal(0, exit);
+        Assert.Single(fake.RedirectTrackingSet);
+    }
+
+    [Fact]
+    public async Task RedirectTrackingDisable_NonInteractiveWithoutYes_Aborts()
+    {
+        // Disabling stops redirects being recorded site-wide, so it stays confirmation-gated.
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake);
+
+        var exit = await Run(root, $"{Auth} redirect tracking disable");
+
+        Assert.Equal(2, exit);
         Assert.Empty(fake.RedirectTrackingSet);
     }
 

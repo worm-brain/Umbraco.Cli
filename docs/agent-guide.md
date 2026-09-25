@@ -235,10 +235,14 @@ full auth story and profiles.
 ## 7. Running non-interactively (the rules that bite)
 
 - **Destructive commands refuse to run without a TTY unless you pass `--yes` / `-y`.** The
-  permanent `delete` commands, every `empty-recycle-bin`, and `unpublish` (which takes live
-  content offline) prompt for confirmation interactively and **abort with exit `2`** when piped
-  or scripted without `--yes`. The `umbraco commands` catalog marks each of these
-  `"destructive": true`, so you can know in advance which need `--yes`.
+  permanent `delete` commands, every `empty-recycle-bin`, `unpublish` (which takes live content
+  offline), `indexer rebuild`, `models-builder build` and `redirect tracking disable` prompt for
+  confirmation interactively and **abort with exit `2`** when piped or scripted without `--yes`.
+  The `umbraco commands` catalog marks each of these `"destructive": true`, read from the same
+  declaration the gate uses, so it cannot disagree with what actually asks. `content apply` and
+  `schema apply` are destructive only with `--prune`; the catalog says so with
+  `"destructiveWhen": "--prune"`. Reversible writes - `move`, `copy`, `publish`,
+  `redirect tracking enable` - never need `--yes`.
 - **Pipe request bodies via stdin** with `-`:
   ```bash
   cat body.json | umbraco content create --json-body -

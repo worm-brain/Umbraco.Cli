@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MediaTypes;
 
@@ -16,6 +17,9 @@ public static class MediaTypesDeleteCommand
         );
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete media type {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -23,8 +27,7 @@ public static class MediaTypesDeleteCommand
                     "media-types.delete",
                     (client, c) => client.DeleteMediaTypeAsync(parseResult.GetValue(idArg), c),
                     "Media type deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete media type {parseResult.GetValue(idArg)}? This cannot be undone."
+                    ct
                 )
         );
 

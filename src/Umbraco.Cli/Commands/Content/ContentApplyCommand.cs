@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -39,17 +40,20 @@ public static class ContentApplyCommand
         cmd.Add(snapshotArg);
         cmd.Add(pruneOpt);
 
+        // Prune can delete live content, so it is gated behind the confirmation prompt (skipped
+        // under --dry-run / --readonly by the executor). A non-prune apply only creates/updates
+        // and is not gated, which is why the prompt is null without --prune.
+        cmd.Destructive(
+            parseResult =>
+                parseResult.GetValue(pruneOpt)
+                    ? "This will DELETE live documents that are not present in the snapshot."
+                    : null,
+            when: pruneOpt.Name
+        );
         cmd.SetAction(
             (parseResult, ct) =>
             {
                 var prune = parseResult.GetValue(pruneOpt);
-                // Prune can delete live content, so gate it behind the confirmation prompt (skipped
-                // under --dry-run / --readonly by the executor). A non-prune apply only creates/
-                // updates and is not gated.
-                var confirmation = prune
-                    ? "This will DELETE live documents that are not present in the snapshot."
-                    : null;
-
                 return executor.RunContextualAsync(
                     parseResult,
                     "content.apply",
@@ -82,8 +86,7 @@ public static class ContentApplyCommand
                             ctx.CommandName,
                             ctx.Stopwatch.ElapsedMilliseconds
                         ),
-                    ct,
-                    confirmation
+                    ct
                 );
             }
         );

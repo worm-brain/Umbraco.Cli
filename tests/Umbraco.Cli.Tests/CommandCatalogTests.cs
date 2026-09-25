@@ -20,6 +20,7 @@ public class CommandCatalogTests
         var verb = new Command("delete", "remove an item");
         verb.Add(new Argument<Guid>("id") { Description = "the id" });
         verb.Add(new Option<bool>("--yes", new[] { "-y" }) { Description = "skip prompt" });
+        verb.Destructive(_ => "Delete it?");
         var create = new Command("create");
         create.Add(new Option<string>("--name") { Required = true });
         create.Add(new Option<string[]>("--tags"));
@@ -128,24 +129,43 @@ public class CommandCatalogTests
     }
 
     [Fact]
-    public void Describe_DestructiveVerbsAreAlsoMutating()
+    public void Describe_DeclaredDestructiveCommand_IsMutatingWhateverItsVerb()
     {
-        // #84 review fix: every gated ("destructive") verb must also be mutating
-        // (Destructive ⊆ Mutating), so an agent that gates writes on `mutating` never misses a
-        // gated one. Includes `unpublish`, which #82 gates as high-impact-reversible.
+        // #84: Destructive ⊆ Mutating, so an agent that gates writes on `mutating` never misses
+        // a gated one. Since #255 that holds for any declared command, not a list of verbs.
         var root = new RootCommand();
-        foreach (var verb in new[] { "delete", "empty-recycle-bin", "unpublish" })
-            root.Add(new Command(verb));
+        root.Add(new Command("regenerate").Destructive(_ => "Regenerate?"));
 
-        var nodes = CommandCatalog.Describe(root).Commands;
-        Assert.All(
-            nodes,
-            n =>
-            {
-                Assert.True(n.Destructive, $"{n.Name} should be gated (destructive)");
-                Assert.True(n.Mutating, $"{n.Name} gated verb must also be mutating");
-            }
-        );
+        var node = Assert.Single(CommandCatalog.Describe(root).Commands);
+
+        Assert.True(node.Destructive);
+        Assert.True(node.Mutating);
+    }
+
+    [Fact]
+    public void Describe_UndeclaredDeleteVerb_IsNotDestructive()
+    {
+        // #255: the catalog follows the declaration the executor gates on, not the verb name,
+        // so a command that is not gated is never reported as needing --yes.
+        var root = new RootCommand();
+        root.Add(new Command("delete"));
+
+        Assert.False(Assert.Single(CommandCatalog.Describe(root).Commands).Destructive);
+    }
+
+    [Fact]
+    public void Describe_ConditionallyDestructiveCommand_NamesTheOption()
+    {
+        // `apply` is only destructive with --prune: reporting destructive: true would say every
+        // apply needs --yes, which is untrue.
+        var root = new RootCommand();
+        root.Add(new Command("apply").Destructive(_ => null, when: "--prune"));
+
+        var node = Assert.Single(CommandCatalog.Describe(root).Commands);
+
+        Assert.False(node.Destructive);
+        Assert.Equal("--prune", node.DestructiveWhen);
+        Assert.True(node.Mutating);
     }
 
     [Fact]

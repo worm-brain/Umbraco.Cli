@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Diagnostics;
 
@@ -228,6 +229,7 @@ public static class LogViewerCommand
         var cmd = new Command("delete", "Delete a saved log search by name.");
         var nameArg = new Argument<string>("name") { Description = "Saved search name." };
         cmd.Add(nameArg);
+        cmd.Destructive(parseResult => $"Delete saved search '{parseResult.GetValue(nameArg)}'?");
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -236,8 +238,7 @@ public static class LogViewerCommand
                     (client, c) =>
                         client.DeleteSavedLogSearchAsync(parseResult.GetValue(nameArg)!, c),
                     "Saved search deleted.",
-                    ct,
-                    confirmationPrompt: $"Delete saved search '{parseResult.GetValue(nameArg)}'?"
+                    ct
                 )
         );
         return cmd;

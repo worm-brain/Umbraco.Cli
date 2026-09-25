@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -27,6 +28,9 @@ public static class ContentUnpublishCommand
         cmd.Add(idArg);
         cmd.Add(culturesOpt);
 
+        cmd.Destructive(parseResult =>
+            $"Unpublish content {parseResult.GetValue(idArg)}, taking it offline? Re-publish to restore."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
             {
@@ -41,8 +45,7 @@ public static class ContentUnpublishCommand
                             c
                         ),
                     "Content item unpublished.",
-                    ct,
-                    confirmationPrompt: $"Unpublish content {parseResult.GetValue(idArg)}, taking it offline? Re-publish to restore."
+                    ct
                 );
             }
         );

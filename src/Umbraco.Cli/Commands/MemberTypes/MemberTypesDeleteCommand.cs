@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MemberTypes;
 
@@ -16,6 +17,9 @@ public static class MemberTypesDeleteCommand
         );
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete member type {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -23,8 +27,7 @@ public static class MemberTypesDeleteCommand
                     "member-types.delete",
                     (client, c) => client.DeleteMemberTypeAsync(parseResult.GetValue(idArg), c),
                     "Member type deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete member type {parseResult.GetValue(idArg)}? This cannot be undone."
+                    ct
                 )
         );
 

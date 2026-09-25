@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
@@ -73,6 +74,7 @@ public static class DataTypesAdvancedCommands
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);
+        // Not destructive: a copy adds an item and removes nothing, so it needs no --yes (#247).
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -85,8 +87,7 @@ public static class DataTypesAdvancedCommands
                             c
                         ),
                     "Data type copied.",
-                    ct,
-                    confirmationPrompt: $"Copy data type {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
         return cmd;
@@ -105,6 +106,8 @@ public static class DataTypesAdvancedCommands
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);
+        // Not destructive: a move is reversible, like content/media/dictionary move, so it
+        // needs no --yes (#247).
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -117,8 +120,7 @@ public static class DataTypesAdvancedCommands
                             c
                         ),
                     "Data type moved.",
-                    ct,
-                    confirmationPrompt: $"Move data type {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
         return cmd;
@@ -228,6 +230,9 @@ public static class DataTypesAdvancedCommands
         var cmd = new Command("delete", "Delete a data-type folder by UUID.");
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete data-type folder {parseResult.GetValue(idArg)}?"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -235,8 +240,7 @@ public static class DataTypesAdvancedCommands
                     "data-types.folder.delete",
                     (client, c) => client.DeleteDataTypeFolderAsync(parseResult.GetValue(idArg), c),
                     "Folder deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete data-type folder {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
         return cmd;

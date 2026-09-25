@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.ContentTypes;
 
@@ -12,6 +13,9 @@ public static class ContentTypesDeleteCommand
         );
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete document type {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -19,8 +23,7 @@ public static class ContentTypesDeleteCommand
                     "content-types.delete",
                     (client, c) => client.DeleteDocumentTypeAsync(parseResult.GetValue(idArg), c),
                     "Document type deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete document type {parseResult.GetValue(idArg)}? This cannot be undone."
+                    ct
                 )
         );
 

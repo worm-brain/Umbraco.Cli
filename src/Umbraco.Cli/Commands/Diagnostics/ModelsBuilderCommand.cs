@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Diagnostics;
 
@@ -47,6 +48,9 @@ public static class ModelsBuilderCommand
             "build",
             "Regenerate the models (writes source files on the server)."
         );
+        cmd.Destructive(parseResult =>
+            "Regenerate models on the server (overwrites generated source files)?"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -54,8 +58,7 @@ public static class ModelsBuilderCommand
                     "models-builder.build",
                     (client, c) => client.BuildModelsAsync(c),
                     "Models build triggered.",
-                    ct,
-                    confirmationPrompt: "Regenerate models on the server (overwrites generated source files)?"
+                    ct
                 )
         );
         return cmd;

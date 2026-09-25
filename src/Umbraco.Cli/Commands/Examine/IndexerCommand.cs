@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Examine;
 
@@ -73,6 +74,9 @@ public static class IndexerCommand
         var cmd = new Command("rebuild", "Rebuild an index by name (expensive).");
         var nameArg = new Argument<string>("name") { Description = "Index name." };
         cmd.Add(nameArg);
+        cmd.Destructive(parseResult =>
+            $"Rebuild index '{parseResult.GetValue(nameArg)}'? This can be expensive."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -80,8 +84,7 @@ public static class IndexerCommand
                     "indexer.rebuild",
                     (client, c) => client.RebuildIndexAsync(parseResult.GetValue(nameArg)!, c),
                     "Index rebuild triggered.",
-                    ct,
-                    confirmationPrompt: $"Rebuild index '{parseResult.GetValue(nameArg)}'? This can be expensive."
+                    ct
                 )
         );
         return cmd;

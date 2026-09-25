@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
@@ -16,6 +17,9 @@ public static class DataTypesDeleteCommand
         );
         var idArg = new Argument<Guid>("id") { Description = "Data type ID." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete data type {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -23,8 +27,7 @@ public static class DataTypesDeleteCommand
                     "data-types.delete",
                     (client, c) => client.DeleteDataTypeAsync(parseResult.GetValue(idArg), c),
                     "Data type deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete data type {parseResult.GetValue(idArg)}? This cannot be undone."
+                    ct
                 )
         );
 

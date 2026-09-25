@@ -27,6 +27,7 @@ using Umbraco.Cli.Commands.UserData;
 using Umbraco.Cli.Commands.UserGroups;
 using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Commands.Webhooks;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 
 namespace Umbraco.Cli.Tests;
@@ -116,8 +117,79 @@ public class CommandParseTests
         root.Add(SearcherCommand.Build(executor));
         root.Add(ImagingCommand.Build(executor));
         root.Add(PropertyTypeCommand.Build(executor));
+        root.Add(Umbraco.Cli.Commands.Schema.SchemaCommand.Build(executor));
 
         return root;
+    }
+
+    /// <summary>Every leaf command in the tree, with its dotted path (e.g. <c>content.delete</c>).</summary>
+    private static IEnumerable<(string Path, Command Command)> Leaves(Command command, string path)
+    {
+        if (command.Subcommands.Count == 0)
+            yield return (path, command);
+        foreach (var sub in command.Subcommands)
+        foreach (var leaf in Leaves(sub, path.Length == 0 ? sub.Name : $"{path}.{sub.Name}"))
+            yield return leaf;
+    }
+
+    [Fact]
+    public void RealTree_AlwaysDestructiveCommands_AreExactlyTheIrreversibleAndHighImpactOnes()
+    {
+        // #255: the commands that need --yes, pinned. Adding or removing a gate is a
+        // deliberate change to this list. Copy/move (#247) and redirect tracking enable (#249)
+        // are absent on purpose.
+        string[] expected =
+        [
+            "content.bulk.delete",
+            "content.bulk.unpublish",
+            "content.delete",
+            "content.empty-recycle-bin",
+            "content.unpublish",
+            "content-types.delete",
+            "data-types.delete",
+            "data-types.folder.delete",
+            "dictionary.delete",
+            "document-blueprint.delete",
+            "document-blueprint.folder.delete",
+            "indexer.rebuild",
+            "languages.delete",
+            "log-viewer.saved-search.delete",
+            "media.delete",
+            "media.empty-recycle-bin",
+            "media-types.delete",
+            "member-groups.delete",
+            "member-types.delete",
+            "members.delete",
+            "models-builder.build",
+            "partial-view.delete",
+            "redirect.delete",
+            "redirect.tracking.disable",
+            "script.delete",
+            "stylesheet.delete",
+            "templates.delete",
+            "user-data.delete",
+            "user-groups.delete",
+            "user-groups.delete-many",
+            "webhooks.delete",
+        ];
+
+        var actual = Leaves(BuildRoot(), "")
+            .Where(l => CommandSafety.IsAlwaysDestructive(l.Command))
+            .Select(l => l.Path)
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(expected.Order(StringComparer.Ordinal), actual);
+    }
+
+    [Fact]
+    public void RealTree_ConditionallyDestructiveCommands_AreTheApplyPrunes()
+    {
+        var actual = Leaves(BuildRoot(), "")
+            .Where(l => CommandSafety.DestructiveWhen(l.Command) is not null)
+            .Select(l => $"{l.Path} {CommandSafety.DestructiveWhen(l.Command)}")
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(["content.apply --prune", "schema.apply --prune"], actual);
     }
 
     /// <summary>

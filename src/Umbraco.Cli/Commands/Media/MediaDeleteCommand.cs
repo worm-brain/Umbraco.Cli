@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -13,6 +14,9 @@ public static class MediaDeleteCommand
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);
 
+        cmd.Destructive(parseResult =>
+            $"Permanently delete media item {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -20,8 +24,7 @@ public static class MediaDeleteCommand
                     "media.delete",
                     (client, c) => client.DeleteMediaAsync(parseResult.GetValue(idArg), c),
                     "Media item deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete media item {parseResult.GetValue(idArg)}? This cannot be undone."
+                    ct
                 )
         );
 

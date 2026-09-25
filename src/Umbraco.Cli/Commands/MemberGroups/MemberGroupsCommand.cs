@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MemberGroups;
 
@@ -126,6 +127,9 @@ public static class MemberGroupsCommand
         var cmd = new Command("delete", "Delete a member group by UUID.");
         var idArg = new Argument<Guid>("id") { Description = "Member group ID." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete member group {parseResult.GetValue(idArg)}?"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -133,8 +137,7 @@ public static class MemberGroupsCommand
                     "member-groups.delete",
                     (client, c) => client.DeleteMemberGroupAsync(parseResult.GetValue(idArg), c),
                     "Member group deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete member group {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
         return cmd;

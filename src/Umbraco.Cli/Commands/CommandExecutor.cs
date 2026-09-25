@@ -45,19 +45,11 @@ public sealed class CommandExecutor
         string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         Action<CommandContext, T?> render,
-        CancellationToken ct,
-        string? confirmationPrompt = null
+        CancellationToken ct
     ) =>
         // The vast majority of commands are a single client call; expose the client-only shape
         // and delegate to the context-aware core below.
-        RunContextualAsync(
-            parseResult,
-            commandName,
-            (ctx, c) => call(ctx.Client, c),
-            render,
-            ct,
-            confirmationPrompt
-        );
+        RunContextualAsync(parseResult, commandName, (ctx, c) => call(ctx.Client, c), render, ct);
 
     /// <summary>
     /// Context-aware variant of <see cref="RunAsync{T}"/>: the operation receives the whole
@@ -74,15 +66,13 @@ public sealed class CommandExecutor
     /// <param name="call">The operation, receiving the built context.</param>
     /// <param name="render">Renders the payload on success.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <param name="confirmationPrompt">A destructive-op prompt, or null.</param>
     /// <returns>The process exit code.</returns>
     public async Task<int> RunContextualAsync<T>(
         ParseResult parseResult,
         string commandName,
         Func<CommandContext, CancellationToken, Task<UmbracoResponse<T>>> call,
         Action<CommandContext, T?> render,
-        CancellationToken ct,
-        string? confirmationPrompt = null
+        CancellationToken ct
     )
     {
         CommandContext ctx;
@@ -99,12 +89,13 @@ public sealed class CommandExecutor
             return 130;
         }
 
-        // Destructive-op gate (#70): a command that supplies a confirmation prompt must be
+        // Destructive-op gate (#70): a command declared destructive (CommandSafety, #255) must be
         // confirmed before it runs, unless --yes was given. Non-interactively (piped/scripted/
         // agent) we never prompt — we abort and require --yes, so a destructive op can never
         // happen silently. Skipped under --dry-run (the mutation is previewed, not sent) and
         // under --readonly (the write will be refused at the HTTP layer), so we never prompt to
         // confirm an operation that isn't going to execute anyway.
+        var confirmationPrompt = CommandSafety.PromptFor(parseResult);
         if (confirmationPrompt is not null && !ctx.AssumeYes && !ctx.DryRun && !ctx.ReadOnly)
         {
             if (!_confirmation.IsInteractive)
@@ -221,7 +212,6 @@ public sealed class CommandExecutor
     /// </param>
     /// <param name="callPerId">The client call to run for each parsed id.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <param name="confirmationPrompt">A batch confirmation prompt for a destructive bulk op, or null.</param>
     /// <returns>The process exit code.</returns>
     public async Task<int> RunBulkAsync(
         ParseResult parseResult,
@@ -233,8 +223,7 @@ public sealed class CommandExecutor
             CancellationToken,
             Task<UmbracoResponse<Empty>>
         > callPerId,
-        CancellationToken ct,
-        string? confirmationPrompt = null
+        CancellationToken ct
     )
     {
         CommandContext ctx;
@@ -295,7 +284,8 @@ public sealed class CommandExecutor
 
         // Destructive-op gate (#70), applied ONCE for the whole batch. Skipped under --dry-run
         // (previewed, not sent) and --readonly (refused at the HTTP layer) exactly as the
-        // single-op path does.
+        // single-op path does. The prompt comes from the command's CommandSafety declaration.
+        var confirmationPrompt = CommandSafety.PromptFor(parseResult);
         if (confirmationPrompt is not null && !ctx.AssumeYes && !ctx.DryRun && !ctx.ReadOnly)
         {
             if (!_confirmation.IsInteractive)
@@ -381,17 +371,23 @@ public sealed class CommandExecutor
         );
 
     /// <summary>
-    /// Writes a fixed success message via <see cref="IOutputWriter.WriteMessage"/>. Supply
-    /// <paramref name="confirmationPrompt"/> for a destructive command (delete): the user is
-    /// asked to confirm before it runs unless <c>--yes</c> is given (#70).
+    /// Writes a fixed success message via <see cref="IOutputWriter.WriteMessage"/>. A command
+    /// declared destructive with <see cref="CommandSafety.Destructive{TCommand}"/> is confirmed
+    /// before it runs unless <c>--yes</c> is given (#70, #255).
     /// </summary>
+    /// <typeparam name="T">The client call's payload type (discarded).</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <param name="call">The client call.</param>
+    /// <param name="successMessage">The message written on success.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The process exit code.</returns>
     public Task<int> RunMessageAsync<T>(
         ParseResult parseResult,
         string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         string successMessage,
-        CancellationToken ct,
-        string? confirmationPrompt = null
+        CancellationToken ct
     ) =>
         RunAsync(
             parseResult,
@@ -403,8 +399,7 @@ public sealed class CommandExecutor
                     ctx.CommandName,
                     ctx.Stopwatch.ElapsedMilliseconds
                 ),
-            ct,
-            confirmationPrompt
+            ct
         );
 
     /// <summary>Projects the result into table rows via <see cref="IOutputWriter.WriteTable"/>.</summary>

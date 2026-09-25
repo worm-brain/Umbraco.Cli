@@ -37,7 +37,8 @@ public sealed record CommandCatalogNode(
     IReadOnlyList<CommandCatalogNode> Commands,
     bool Mutating = false,
     bool Destructive = false,
-    bool AcceptsJsonBody = false
+    bool AcceptsJsonBody = false,
+    string? DestructiveWhen = null
 );
 
 /// <summary>A positional argument in the catalog.</summary>
@@ -85,8 +86,13 @@ public static class CommandCatalog
         // A leaf command (no sub-commands) is the thing that actually runs; only a leaf can be
         // mutating/destructive. Nouns (content, media, ...) just group verbs.
         var isLeaf = command.Subcommands.Count == 0;
-        var mutating = isLeaf && MutatingVerbs.Contains(command.Name);
-        var destructive = isLeaf && DestructiveVerbs.Contains(command.Name);
+        // Destructive comes from the command's own CommandSafety declaration - the same one the
+        // executor gates on - so "needs --yes" in the catalog cannot drift from the real gate
+        // (#255). A destructive command is always mutating, whatever its verb.
+        var destructive = isLeaf && CommandSafety.IsAlwaysDestructive(command);
+        var destructiveWhen = isLeaf ? CommandSafety.DestructiveWhen(command) : null;
+        var mutating =
+            isLeaf && (CommandSafety.IsDeclared(command) || MutatingVerbs.Contains(command.Name));
         var acceptsJsonBody = command.Options.Any(o => o.Name == "--json-body");
 
         return new CommandCatalogNode(
@@ -102,7 +108,8 @@ public static class CommandCatalog
             command.Subcommands.Select(Describe).ToList(),
             mutating,
             destructive,
-            acceptsJsonBody
+            acceptsJsonBody,
+            destructiveWhen
         );
     }
 
@@ -131,24 +138,14 @@ public static class CommandCatalog
         // schema apply writes (create/update, and delete under --prune) — #68. schema export
         // and diff are reads and are deliberately absent.
         "apply",
-    };
-
-    /// <summary>
-    /// Leaf verbs the executor gates behind a confirmation prompt / <c>--yes</c> (a subset of
-    /// <see cref="MutatingVerbs"/>). Covers irreversible ops (<c>delete</c>,
-    /// <c>empty-recycle-bin</c>) and the high-impact reversible <c>unpublish</c> (#82). Keep this
-    /// in lockstep with the commands that pass a <c>confirmationPrompt</c> so the catalog's
-    /// "needs --yes" signal stays truthful. Low-impact reversible writes (trash/move/copy/publish)
-    /// are excluded (#84).
-    /// </summary>
-    private static readonly HashSet<string> DestructiveVerbs = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "delete",
-        "empty-recycle-bin",
-        "unpublish",
-        // NOTE: `apply` is deliberately NOT here. A plain `schema apply` (create + update) is not
-        // gated, so classifying it as always-needs-`--yes` would be untruthful. Its destructive
-        // form is opt-in via `--prune`, whose gating is documented on that option (#68).
+        // Site-state switches and server-side jobs that write (#255).
+        "enable",
+        "disable",
+        "build",
+        "rebuild",
+        "delete-many",
+        "add-users",
+        "remove-users",
     };
 
     private static CommandCatalogArgument DescribeArgument(Argument argument) =>
