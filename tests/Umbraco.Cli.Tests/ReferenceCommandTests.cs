@@ -125,6 +125,34 @@ public class ReferenceCommandTests
     }
 
     [Fact]
+    public async Task UserGroupsGet_ByAlias_ReadsTheResolvedGroup()
+    {
+        // #217: user-groups get blogEditors was a GUID parse error.
+        var id = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.UserGroup, "blogEditors")] = id;
+        fake.UserGroupList.Add(new UserGroupResponse { Id = id, Alias = "blogEditors" });
+
+        var exit = await Run(fake, "user-groups get blogEditors");
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
+    public async Task UserGroupsCreate_WithAStartNode_PassesIt()
+    {
+        var blog = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient();
+
+        await Run(
+            fake,
+            $"user-groups create --alias blogEditors --name Blog --document-start-node {blog}"
+        );
+
+        Assert.Equal(blog, Assert.Single(fake.UserGroupsCreated).DocumentStartNode);
+    }
+
+    [Fact]
     public async Task TemplatesDelete_UnknownAlias_FailsWithoutDeleting()
     {
         var fake = new FakeUmbracoManagementClient();

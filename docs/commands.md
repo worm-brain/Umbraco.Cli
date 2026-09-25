@@ -489,13 +489,13 @@ the invite is refused and no user is created. `--username` defaults to the email
 
 ```bash
 umbraco user-groups list
-umbraco user-groups get <id>
-umbraco user-groups create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access] [--media-root-access] [--id <guid>]
-umbraco user-groups update <id> --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access] [--media-root-access]
-umbraco user-groups delete <id>                            # needs --yes non-interactively
-umbraco user-groups delete-many --ids <id>...              # bulk; needs --yes non-interactively
-umbraco user-groups add-users <id> --user <id>...          # --user repeatable
-umbraco user-groups remove-users <id> --user <id>...       # --user repeatable
+umbraco user-groups get <id|alias|name>
+umbraco user-groups create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--id <guid>]
+umbraco user-groups update <id|alias|name> --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>]
+umbraco user-groups delete <id|alias|name>                # needs --yes non-interactively
+umbraco user-groups delete-many --ids <id|alias|name>...  # bulk; needs --yes non-interactively
+umbraco user-groups add-users <id|alias|name> --user <id>...          # --user repeatable
+umbraco user-groups remove-users <id|alias|name> --user <id>...       # --user repeatable
 ```
 
 Granular per-node permissions are a deferred follow-up: `create`/`update` set the scalar and

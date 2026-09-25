@@ -541,6 +541,11 @@ public class CommandParseTests
     [InlineData("member-types delete siteMember")]
     [InlineData("content-types delete blogPost --force")]
     [InlineData("data-types delete \"Homepage Blocks\"")]
+    [InlineData("user-groups get blogEditors")] // #217
+    [InlineData("user-groups delete-many --ids blogEditors newsEditors")]
+    [InlineData(
+        "user-groups create --alias blogEditors --name \"Blog editors\" --document-start-node 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
     [InlineData("dictionary delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("dictionary tree")]
     [InlineData("dictionary tree --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
@@ -752,7 +757,9 @@ public class CommandParseTests
     [InlineData("member-types create --alias onlyAlias")] // missing required --name
     [InlineData("user-groups create --name NoAlias")] // missing required --alias
     [InlineData("user-groups create --alias noName")] // missing required --name
-    [InlineData("user-groups get not-a-uuid")]
+    [InlineData(
+        "user-groups update editors --alias editors --name Editors --document-root-access --document-start-node 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )] // #217: a start node and root access conflict
     [InlineData("user-groups delete-many")] // missing required --ids
     [InlineData("user-groups add-users 3f7a8b2e-1234-5678-abcd-ef0123456789")] // missing required --user
     [InlineData("user-data create --group g --identifier i")] // missing required --value

@@ -54,6 +54,14 @@ public record UserGroupResponse
     [JsonPropertyName("mediaRootAccess")]
     public bool MediaRootAccess { get; init; }
 
+    /// <summary>The content node the group's content tree starts at; null for none (#217).</summary>
+    [JsonPropertyName("documentStartNode")]
+    public Guid? DocumentStartNode { get; init; }
+
+    /// <summary>The media node the group's media tree starts at; null for none (#217).</summary>
+    [JsonPropertyName("mediaStartNode")]
+    public Guid? MediaStartNode { get; init; }
+
     /// <summary>Whether the group may be deleted (built-in groups cannot).</summary>
     [JsonPropertyName("isDeletable")]
     public bool IsDeletable { get; init; }
@@ -101,6 +109,14 @@ public record CreateUserGroupRequest
 
     /// <summary>Whether the group's media start node is the media tree root.</summary>
     public bool MediaRootAccess { get; init; }
+
+    /// <summary>The content node the group's content tree starts at; null for none (#217).</summary>
+    [JsonPropertyName("documentStartNode")]
+    public Guid? DocumentStartNode { get; init; }
+
+    /// <summary>The media node the group's media tree starts at; null for none (#217).</summary>
+    [JsonPropertyName("mediaStartNode")]
+    public Guid? MediaStartNode { get; init; }
 }
 
 /// <summary>
@@ -139,6 +155,14 @@ public record UpdateUserGroupRequest
 
     /// <summary>Whether the group's media start node is the media tree root.</summary>
     public bool MediaRootAccess { get; init; }
+
+    /// <summary>The content node the group's content tree starts at; null for none (#217).</summary>
+    [JsonPropertyName("documentStartNode")]
+    public Guid? DocumentStartNode { get; init; }
+
+    /// <summary>The media node the group's media tree starts at; null for none (#217).</summary>
+    [JsonPropertyName("mediaStartNode")]
+    public Guid? MediaStartNode { get; init; }
 }
 
 /// <summary>

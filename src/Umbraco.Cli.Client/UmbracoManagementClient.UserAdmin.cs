@@ -135,6 +135,8 @@ public sealed partial class UmbracoManagementClient
                         HasAccessToAllLanguages = request.HasAccessToAllLanguages,
                         DocumentRootAccess = request.DocumentRootAccess,
                         MediaRootAccess = request.MediaRootAccess,
+                        DocumentStartNode = Ref(request.DocumentStartNode),
+                        MediaStartNode = Ref(request.MediaStartNode),
                         // Granular per-node permissions are a deferred follow-up.
                         Permissions = [],
                     },
@@ -153,6 +155,8 @@ public sealed partial class UmbracoManagementClient
                     HasAccessToAllLanguages = request.HasAccessToAllLanguages,
                     DocumentRootAccess = request.DocumentRootAccess,
                     MediaRootAccess = request.MediaRootAccess,
+                    DocumentStartNode = request.DocumentStartNode,
+                    MediaStartNode = request.MediaStartNode,
                 };
             }
         );
@@ -182,6 +186,8 @@ public sealed partial class UmbracoManagementClient
                             HasAccessToAllLanguages = request.HasAccessToAllLanguages,
                             DocumentRootAccess = request.DocumentRootAccess,
                             MediaRootAccess = request.MediaRootAccess,
+                            DocumentStartNode = Ref(request.DocumentStartNode),
+                            MediaStartNode = Ref(request.MediaStartNode),
                             // Granular per-node permissions are a deferred follow-up.
                             Permissions = [],
                         },
@@ -268,6 +274,10 @@ public sealed partial class UmbracoManagementClient
             }
         );
 
+    /// <summary>A node reference for a start node, or null for none.</summary>
+    private static Gen.ReferenceByIdModel? Ref(Guid? id) =>
+        id is { } value ? new Gen.ReferenceByIdModel { Id = value } : null;
+
     /// <summary>Maps a generated user-group response model to the command-facing DTO.</summary>
     /// <param name="g">The generated model.</param>
     /// <returns>The mapped <see cref="UserGroupResponse"/>.</returns>
@@ -285,6 +295,8 @@ public sealed partial class UmbracoManagementClient
             HasAccessToAllLanguages = g.HasAccessToAllLanguages ?? false,
             DocumentRootAccess = g.DocumentRootAccess ?? false,
             MediaRootAccess = g.MediaRootAccess ?? false,
+            DocumentStartNode = g.DocumentStartNode?.Id,
+            MediaStartNode = g.MediaStartNode?.Id,
             IsDeletable = g.IsDeletable ?? false,
             AliasCanBeChanged = g.AliasCanBeChanged ?? false,
         };
