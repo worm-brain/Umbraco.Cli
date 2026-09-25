@@ -39,7 +39,6 @@ public static class ContentTypesDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content-types.delete",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

@@ -48,7 +48,6 @@ public static class LanguagesUpdateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "languages.update",
                     (client, c) =>
                         client.UpdateLanguageAsync(
                             parseResult.GetValue(isoArg)!,

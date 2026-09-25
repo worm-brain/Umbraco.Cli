@@ -121,7 +121,7 @@ public class SchemaAuthoringTests
         // The resolve failure is this call's failure - reporting anything else would have the
         // caller looking for a document type that was never touched.
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains("noSuchType", result.ErrorMessage);
         handler.AssertNoRequest(HttpMethod.Put, "/document-type");
     }
@@ -191,7 +191,7 @@ public class SchemaAuthoringTests
             );
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains("NotARealDataType", result.ErrorMessage);
         handler.AssertNoRequest(HttpMethod.Put, "/data-type");
     }

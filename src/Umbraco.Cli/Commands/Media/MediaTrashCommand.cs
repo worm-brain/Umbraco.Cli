@@ -23,7 +23,6 @@ public static class MediaTrashCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "media.trash",
                     (client, c) => client.TrashMediaAsync(parseResult.GetValue(idArg), c),
                     "Media moved to the recycle bin.",
                     ct

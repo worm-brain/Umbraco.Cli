@@ -25,7 +25,6 @@ public static class DictionaryDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "dictionary.delete",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

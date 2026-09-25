@@ -37,13 +37,11 @@ internal static class ReferenceMatch
         if (byName.Count > 0)
             return Single(kind, reference, byName);
 
-        throw new ApiException(
+        throw new UnresolvedReferenceException(
             $"No {kind.Noun()} found with the {kind.KeyName()} '{reference}'. Use "
-                + $"'umbraco {kind.ListCommand()}' to find one, or pass its id."
-        )
-        {
-            ResponseStatusCode = 404,
-        };
+                + $"'umbraco {kind.ListCommand()}' to find one, or pass its id.",
+            404
+        );
     }
 
     /// <summary>The one match, or a 409 naming every match so the caller can pick by id.</summary>
@@ -53,12 +51,10 @@ internal static class ReferenceMatch
             return matches[0].Id;
 
         var ids = string.Join(", ", matches.Select(m => $"{m.Id} ({m.Name ?? m.Alias})"));
-        throw new ApiException(
-            $"'{reference}' matches {matches.Count} {kind.Noun()}s: {ids}. Pass the id of the one you mean."
-        )
-        {
-            ResponseStatusCode = 409,
-        };
+        throw new UnresolvedReferenceException(
+            $"'{reference}' matches {matches.Count} {kind.Noun()}s: {ids}. Pass the id of the one you mean.",
+            409
+        );
     }
 
     private static List<ReferenceCandidate> Matching(

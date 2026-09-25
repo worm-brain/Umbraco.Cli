@@ -44,7 +44,6 @@ public static class ContentDomainsCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "content.domains.get",
                     (client, c) => client.GetDomainsAsync(parseResult.GetValue(idArg), c),
                     ct
                 )
@@ -99,7 +98,6 @@ public static class ContentDomainsCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "content.domains.set",
                     async (client, c) =>
                     {
                         var id = parseResult.GetValue(idArg);

@@ -91,14 +91,14 @@ public class UserAdminWireTests
     }
 
     [Fact]
-    public async Task InviteUserAsync_UnknownGroup_FailsAsNotFoundAndSendsNoInvite()
+    public async Task InviteUserAsync_UnknownGroup_IsInvalidArgumentAndSendsNoInvite()
     {
         var handler = Wire.Routed(("/user-group", TwoGroups));
 
         var result = await Wire.Client(handler)
             .InviteUserAsync(InviteWithGroups("nosuchgroup"), CancellationToken.None);
 
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         handler.AssertNoRequest(HttpMethod.Post, "/user/invite");
     }
 

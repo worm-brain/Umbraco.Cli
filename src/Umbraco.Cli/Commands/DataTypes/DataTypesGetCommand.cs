@@ -23,14 +23,7 @@ public static class DataTypesGetCommand
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
-                RawBodyCommand.RunGetAsync(
-                    executor,
-                    parseResult,
-                    "data-types.get",
-                    SchemaNoun.DataTypes,
-                    idArg,
-                    ct
-                )
+                RawBodyCommand.RunGetAsync(executor, parseResult, SchemaNoun.DataTypes, idArg, ct)
         );
 
         return cmd;

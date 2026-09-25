@@ -54,7 +54,6 @@ public static class ContentExportCommand
                 var root = parseResult.GetValue(rootOpt);
                 return executor.RunAsync(
                     parseResult,
-                    "content.export",
                     (client, c) => ContentExporter.ExportAsync(client, root, c),
                     (ctx, snapshot) =>
                     {

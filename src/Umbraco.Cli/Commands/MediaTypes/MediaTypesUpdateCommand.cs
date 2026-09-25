@@ -26,7 +26,6 @@ public static class MediaTypesUpdateCommand
                 RawBodyCommand.RunUpdateAsync(
                     executor,
                     parseResult,
-                    "media-types.update",
                     SchemaNoun.MediaTypes,
                     options,
                     "Media type updated.",

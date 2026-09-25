@@ -15,26 +15,19 @@ internal static class DiagnosticsVerb
     /// <param name="executor">The shared command executor.</param>
     /// <param name="name">The verb name.</param>
     /// <param name="description">The verb help text.</param>
-    /// <param name="commandName">The telemetry/command name (e.g. <c>server.status</c>).</param>
     /// <param name="call">The client call the verb delegates to.</param>
     /// <returns>The configured verb command.</returns>
     public static Command Object<T>(
         CommandExecutor executor,
         string name,
         string description,
-        string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call
     )
     {
         var cmd = new Command(name, description);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunObjectAsync(
-                    parseResult,
-                    commandName,
-                    (client, c) => call(client, c),
-                    ct
-                )
+                executor.RunObjectAsync(parseResult, (client, c) => call(client, c), ct)
         );
         return cmd;
     }

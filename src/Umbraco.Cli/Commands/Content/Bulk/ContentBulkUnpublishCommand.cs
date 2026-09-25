@@ -38,7 +38,6 @@ public static class ContentBulkUnpublishCommand
                 var effective = cultures?.Length > 0 ? cultures : null;
                 return executor.RunBulkAsync(
                     parseResult,
-                    "content.bulk.unpublish",
                     () => BulkIds.Read(parseResult.GetValue(fileOpt)),
                     (client, id, c) => client.UnpublishContentAsync(id, effective, c),
                     ct

@@ -52,12 +52,14 @@ public sealed partial class UmbracoManagementClient
     private async Task<Guid> IdOfAsync(EntityKind kind, string reference, CancellationToken ct)
     {
         var id = await ResolveIdAsync(kind, reference, ct);
-        return id.IsSuccess
-            ? id.Data
-            : throw new ApiException(id.ErrorMessage ?? $"No {kind.Noun()} '{reference}'.")
-            {
-                ResponseStatusCode = id.StatusCode,
-            };
+        if (id.IsSuccess)
+            return id.Data;
+        var message = id.ErrorMessage ?? $"No {kind.Noun()} '{reference}'.";
+        // Keep an unresolved reference distinguishable from a server failure, so the guard
+        // around the calling method reports it as invalid_argument too (#256).
+        throw id.Category == FailureCategory.InvalidArgument
+            ? new UnresolvedReferenceException(message, 404)
+            : new ApiException(message) { ResponseStatusCode = id.StatusCode };
     }
 
     /// <summary>Successful resolutions, by (kind, reference), for the client's life.</summary>

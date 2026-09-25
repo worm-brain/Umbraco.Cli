@@ -39,7 +39,6 @@ public static class UserGroupsCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "user-groups.list",
                     (client, skip, take, c) => client.GetUserGroupsAsync(skip, take, c),
                     new[] { "Id", "Alias", "Name", "Sections" },
                     g => new[] { g.Id.ToString(), g.Alias, g.Name, string.Join(",", g.Sections) },
@@ -63,7 +62,6 @@ public static class UserGroupsCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "user-groups.get",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -104,7 +102,6 @@ public static class UserGroupsCommand
                 var s = shared.ReadInto(parseResult);
                 return executor.RunObjectAsync(
                     parseResult,
-                    "user-groups.create",
                     (client, c) =>
                         client.CreateUserGroupAsync(
                             new CreateUserGroupRequest
@@ -156,7 +153,6 @@ public static class UserGroupsCommand
                 var s = shared.ReadInto(parseResult);
                 return executor.RunMessageAsync(
                     parseResult,
-                    "user-groups.update",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -203,7 +199,6 @@ public static class UserGroupsCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "user-groups.delete",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -235,7 +230,6 @@ public static class UserGroupsCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "user-groups.delete-many",
                     async (client, c) =>
                     {
                         // Resolve every reference before deleting any, so a typo deletes nothing.
@@ -269,7 +263,6 @@ public static class UserGroupsCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "user-groups.add-users",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -299,7 +292,6 @@ public static class UserGroupsCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "user-groups.remove-users",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

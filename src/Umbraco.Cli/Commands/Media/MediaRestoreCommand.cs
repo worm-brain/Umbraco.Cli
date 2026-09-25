@@ -25,7 +25,6 @@ public static class MediaRestoreCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "media.restore",
                     (client, c) =>
                         client.RestoreMediaAsync(
                             parseResult.GetValue(idArg),

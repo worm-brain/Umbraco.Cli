@@ -61,7 +61,6 @@ public static class StaticFileCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    $"{noun}.list",
                     (client, skip, take, c) =>
                         client.GetStaticFilesAsync(
                             kind,
@@ -90,7 +89,6 @@ public static class StaticFileCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    $"{noun}.get",
                     (client, c) =>
                         client.GetStaticFileAsync(kind, parseResult.GetValue(pathArg)!, c),
                     ct
@@ -120,7 +118,6 @@ public static class StaticFileCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    $"{noun}.create",
                     async (client, c) =>
                     {
                         var content = await FileContentInput.ReadAsync(
@@ -164,7 +161,6 @@ public static class StaticFileCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    $"{noun}.update",
                     async (client, c) =>
                     {
                         var content = await FileContentInput.ReadAsync(
@@ -211,7 +207,6 @@ public static class StaticFileCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    $"{noun}.delete",
                     (client, c) =>
                         client.DeleteStaticFileAsync(kind, parseResult.GetValue(pathArg)!, c),
                     $"{humanName} deleted.",

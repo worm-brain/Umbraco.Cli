@@ -23,14 +23,7 @@ public static class TemplatesGetCommand
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
-                RawBodyCommand.RunGetAsync(
-                    executor,
-                    parseResult,
-                    "templates.get",
-                    SchemaNoun.Templates,
-                    idArg,
-                    ct
-                )
+                RawBodyCommand.RunGetAsync(executor, parseResult, SchemaNoun.Templates, idArg, ct)
         );
 
         return cmd;

@@ -46,7 +46,6 @@ public static class ImagingCommand
             (parseResult, ct) =>
                 executor.RunCompleteListAsync(
                     parseResult,
-                    "imaging.resize-urls",
                     (client, c) =>
                         client.GetResizeUrlsAsync(
                             parseResult.GetValue(idOpt)!,

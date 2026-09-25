@@ -36,7 +36,6 @@ public static class TemplatesUpdateCommand
                 RawBodyCommand.RunUpdateAsync(
                     executor,
                     parseResult,
-                    "templates.update",
                     SchemaNoun.Templates,
                     options,
                     "Template updated.",

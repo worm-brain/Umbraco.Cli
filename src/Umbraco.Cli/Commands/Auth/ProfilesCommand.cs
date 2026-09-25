@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
@@ -45,7 +46,8 @@ public static class ProfilesCommand
                                 ? "*"
                                 : "",
                         }
-                    )
+                    ),
+                    CommandPath.Of(parseResult)
                 );
                 return Task.CompletedTask;
             }

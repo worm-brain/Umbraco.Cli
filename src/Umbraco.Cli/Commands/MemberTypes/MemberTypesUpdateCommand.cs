@@ -37,7 +37,6 @@ public static class MemberTypesUpdateCommand
                 RawBodyCommand.RunUpdateAsync(
                     executor,
                     parseResult,
-                    "member-types.update",
                     SchemaNoun.MemberTypes,
                     options,
                     "Member type updated.",

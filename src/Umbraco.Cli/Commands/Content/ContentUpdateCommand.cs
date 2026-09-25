@@ -74,7 +74,6 @@ public static class ContentUpdateCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "content.update",
                     async (client, c) =>
                     {
                         // The validator guarantees an id, and a body or a --template.
@@ -85,7 +84,7 @@ public static class ContentUpdateCommand
                         var request = body.HasBody(parseResult)
                             ? JsonSerializer.Deserialize<UpdateContentRequest>(
                                 await body.ReadAsync(parseResult, c)
-                            ) ?? throw new InvalidOperationException("Invalid JSON body.")
+                            ) ?? throw new InvalidInputException("Invalid JSON body.")
                             : new UpdateContentRequest();
 
                         // --template wins over a template in the body, the way an explicit flag

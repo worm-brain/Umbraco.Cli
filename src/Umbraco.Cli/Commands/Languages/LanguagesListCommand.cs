@@ -14,7 +14,6 @@ public static class LanguagesListCommand
             (parseResult, ct) =>
                 executor.RunCompleteListAsync(
                     parseResult,
-                    "languages.list",
                     (client, c) => client.GetLanguagesAsync(c),
                     ["ISO Code", "Name", "Default", "Mandatory"],
                     l =>

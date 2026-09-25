@@ -37,7 +37,6 @@ public static class ContentPublishCommand
                 var cultures = parseResult.GetValue(culturesOpt);
                 return executor.RunMessageAsync(
                     parseResult,
-                    "content.publish",
                     (client, c) =>
                         client.PublishContentAsync(
                             parseResult.GetValue(idArg),

@@ -34,7 +34,6 @@ public static class ContentTypesUpdateCommand
                 RawBodyCommand.RunUpdateAsync(
                     executor,
                     parseResult,
-                    "content-types.update",
                     SchemaNoun.DocumentTypes,
                     options,
                     "Document type updated.",

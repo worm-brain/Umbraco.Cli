@@ -53,7 +53,6 @@ public static class RawBodyCommand
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="idArg">The <c>&lt;id|alias&gt;</c> argument.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -61,14 +60,12 @@ public static class RawBodyCommand
     public static Task<int> RunGetAsync(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         ReferenceArgument idArg,
         CancellationToken ct
     ) =>
         executor.RunObjectAsync(
             parseResult,
-            commandName,
             (client, c) =>
                 idArg.WithResolvedAsync(
                     parseResult,
@@ -118,7 +115,6 @@ public static class RawBodyCommand
     /// <typeparam name="T">What the flag-built create returns.</typeparam>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="body">The body option handle, from <see cref="AddCreateOptions"/>.</param>
     /// <param name="idOpt">The <c>--id</c> option.</param>
@@ -128,7 +124,6 @@ public static class RawBodyCommand
     public static Task<int> RunCreateAsync<T>(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         JsonBodyOption body,
         Option<Guid?> idOpt,
@@ -137,12 +132,11 @@ public static class RawBodyCommand
     )
     {
         if (body.SchemaRequested(parseResult))
-            return RunSchemaAsync(executor, parseResult, commandName, noun, ct);
+            return RunSchemaAsync(executor, parseResult, noun, ct);
 
         if (body.HasBody(parseResult))
             return executor.RunObjectAsync(
                 parseResult,
-                commandName,
                 async (client, c) =>
                     await CreateAsync(
                         await ReadBodyAsync(body, parseResult, c),
@@ -153,7 +147,7 @@ public static class RawBodyCommand
                 ct
             );
 
-        return executor.RunObjectAsync(parseResult, commandName, flagCreate, ct);
+        return executor.RunObjectAsync(parseResult, flagCreate, ct);
     }
 
     // ── update ───────────────────────────────────────────────────────────────
@@ -223,7 +217,6 @@ public static class RawBodyCommand
     /// <typeparam name="T">What the flag-built update returns.</typeparam>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="options">The options from <see cref="AddUpdateOptions"/>.</param>
     /// <param name="message">The success message.</param>
@@ -233,7 +226,6 @@ public static class RawBodyCommand
     public static Task<int> RunUpdateAsync<T>(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         UpdateOptions options,
         string message,
@@ -247,7 +239,7 @@ public static class RawBodyCommand
     )
     {
         if (options.Body.SchemaRequested(parseResult))
-            return RunSchemaAsync(executor, parseResult, commandName, noun, ct);
+            return RunSchemaAsync(executor, parseResult, noun, ct);
 
         // The alias the rest of the noun accepts (#159) is resolved here, so a caller never has
         // to look an id up just to write back what they just read.
@@ -255,7 +247,6 @@ public static class RawBodyCommand
         if (options.Body.HasBody(parseResult) || flagUpdate is null)
             return executor.RunMessageAsync(
                 parseResult,
-                commandName,
                 async (client, c) =>
                 {
                     var json = await ReadBodyAsync(options.Body, parseResult, c);
@@ -279,7 +270,6 @@ public static class RawBodyCommand
 
         return executor.RunMessageAsync(
             parseResult,
-            commandName,
             (client, c) =>
                 client.WithResolvedAsync(noun.Kind, reference, id => flagUpdate(client, id, c), c),
             message,
@@ -290,7 +280,6 @@ public static class RawBodyCommand
     /// <summary>A shorthand for a schema <c>update</c> that has no flags of its own.</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="options">The options from <see cref="AddUpdateOptions"/>.</param>
     /// <param name="message">The success message.</param>
@@ -299,36 +288,26 @@ public static class RawBodyCommand
     public static Task<int> RunUpdateAsync(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         UpdateOptions options,
         string message,
         CancellationToken ct
-    ) =>
-        RunUpdateAsync<Empty>(executor, parseResult, commandName, noun, options, message, null, ct);
+    ) => RunUpdateAsync<Empty>(executor, parseResult, noun, options, message, null, ct);
 
     // ── --schema ─────────────────────────────────────────────────────────────
 
     /// <summary>Runs the <c>--schema</c> branch: prints a real item of this kind off the instance.</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The command's exit code.</returns>
     public static Task<int> RunSchemaAsync(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         CancellationToken ct
-    ) =>
-        executor.RunObjectAsync(
-            parseResult,
-            commandName,
-            (client, c) => ExampleAsync(client, noun, c),
-            ct
-        );
+    ) => executor.RunObjectAsync(parseResult, (client, c) => ExampleAsync(client, noun, c), ct);
 
     /// <summary>
     /// Reads an existing item of this kind and returns it as a worked example for
@@ -422,7 +401,7 @@ public static class RawBodyCommand
         CancellationToken ct
     ) =>
         JsonNode.Parse(await body.ReadAsync(parseResult, ct))
-        ?? throw new InvalidOperationException(
+        ?? throw new InvalidInputException(
             "--json-body did not contain a JSON object. Run with --schema to print a real one."
         );
 
@@ -449,7 +428,7 @@ public static class RawBodyCommand
     )
     {
         if (body is not JsonObject obj)
-            throw new InvalidOperationException(
+            throw new InvalidInputException(
                 "--json-body did not contain a JSON object. Run with --schema to print a real one."
             );
 
@@ -457,7 +436,7 @@ public static class RawBodyCommand
         {
             null => (Guid?)null,
             JsonValue v when v.TryGetValue<string>(out var s) && Guid.TryParse(s, out var g) => g,
-            var other => throw new InvalidOperationException(
+            var other => throw new InvalidInputException(
                 $"The --json-body id {other.ToJsonString()} is not a UUID."
             ),
         };
@@ -479,7 +458,7 @@ public static class RawBodyCommand
     /// <exception cref="InvalidOperationException">The two are both given and differ.</exception>
     internal static Guid? ReconcileId(Guid? flag, Guid? fromBody) =>
         flag is { } f && fromBody is { } b && f != b
-            ? throw new InvalidOperationException(
+            ? throw new InvalidInputException(
                 $"--id {f} does not match the id {b} in --json-body. Give one, or make them agree."
             )
             : flag ?? fromBody;

@@ -40,7 +40,6 @@ public static class MediaSortCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "media.sort",
                     async (client, c) =>
                     {
                         var parent = parseResult.GetValue(parentOpt);

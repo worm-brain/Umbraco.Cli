@@ -54,7 +54,6 @@ public static class LanguagesCreateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "languages.create",
                     (client, c) =>
                     {
                         var culture = parseResult.GetValue(cultureOpt)!;

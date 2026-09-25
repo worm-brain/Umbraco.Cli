@@ -69,11 +69,11 @@ public class ReferenceResolverWireTests
     }
 
     [Fact]
-    public async Task ResolveIdAsync_UnknownTemplate_Is404NamingTheListCommand()
+    public async Task ResolveIdAsync_UnknownTemplate_IsInvalidArgumentNamingTheListCommand()
     {
         var result = await Wire.Client(Templates()).ResolveIdAsync(EntityKind.Template, "nope");
 
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains("umbraco templates list", result.ErrorMessage);
     }
 
@@ -149,7 +149,7 @@ public class ReferenceResolverWireTests
 
         var result = await Wire.Client(handler).ResolveIdAsync(EntityKind.DataType, "Tags");
 
-        Assert.Equal(409, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains(a.ToString(), result.ErrorMessage);
         Assert.Contains(b.ToString(), result.ErrorMessage);
     }

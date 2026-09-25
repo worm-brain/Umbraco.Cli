@@ -25,7 +25,7 @@ public static class ContentCreateCommand
     internal static CreateContentRequest ReadCreateRequest(string json, Guid? id)
     {
         if (JsonNode.Parse(json) is not JsonObject obj)
-            throw new InvalidOperationException("--json-body did not contain a JSON object.");
+            throw new InvalidInputException("--json-body did not contain a JSON object.");
 
         // The Management API (and scaffold) shape names the type documentType; the CLI's names it
         // contentType. Only a body without the CLI key is translated, so nothing is overridden.
@@ -37,14 +37,14 @@ public static class ContentCreateCommand
         }
 
         if (obj["contentType"] is null)
-            throw new InvalidOperationException(
+            throw new InvalidInputException(
                 "--json-body names no document type: set \"contentType\": { \"alias\": \"...\" }, "
                     + "or pipe in 'document-blueprint scaffold', whose documentType is read as it."
             );
 
         var request =
             obj.Deserialize<CreateContentRequest>()
-            ?? throw new InvalidOperationException("Invalid JSON body.");
+            ?? throw new InvalidInputException("Invalid JSON body.");
 
         return request with
         {
@@ -140,7 +140,6 @@ public static class ContentCreateCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "content.create",
                     async (client, c) =>
                     {
                         CreateContentRequest request;

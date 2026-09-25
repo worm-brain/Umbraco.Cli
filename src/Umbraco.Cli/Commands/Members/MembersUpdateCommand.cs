@@ -63,7 +63,6 @@ public static class MembersUpdateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "members.update",
                     async (client, c) =>
                     {
                         // #212: --group took only GUIDs, although members list --group takes a

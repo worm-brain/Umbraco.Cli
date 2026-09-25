@@ -23,14 +23,7 @@ public static class MemberTypesGetCommand
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
-                RawBodyCommand.RunGetAsync(
-                    executor,
-                    parseResult,
-                    "member-types.get",
-                    SchemaNoun.MemberTypes,
-                    idArg,
-                    ct
-                )
+                RawBodyCommand.RunGetAsync(executor, parseResult, SchemaNoun.MemberTypes, idArg, ct)
         );
 
         return cmd;

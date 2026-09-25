@@ -70,7 +70,6 @@ public static class SchemaApplyCommand
                 var prune = parseResult.GetValue(pruneOpt);
                 return executor.RunContextualAsync(
                     parseResult,
-                    "schema.apply",
                     async (ctx, c) =>
                     {
                         var diff = await SchemaPipeline.DiffAgainstLiveAsync(

@@ -23,7 +23,6 @@ public static class ServerCommand
                 executor,
                 "status",
                 "Show the server's runtime status.",
-                "server.status",
                 (c, ct) => c.GetServerStatusAsync(ct)
             )
         );
@@ -32,7 +31,6 @@ public static class ServerCommand
                 executor,
                 "info",
                 "Show server version and runtime-mode information.",
-                "server.info",
                 (c, ct) => c.GetServerInformationAsync(ct)
             )
         );
@@ -41,7 +39,6 @@ public static class ServerCommand
                 executor,
                 "configuration",
                 "Show public server configuration flags.",
-                "server.configuration",
                 (c, ct) => c.GetServerConfigurationAsync(ct)
             )
         );
@@ -56,7 +53,6 @@ public static class ServerCommand
             (parseResult, ct) =>
                 executor.RunCompleteListAsync(
                     parseResult,
-                    "server.troubleshooting",
                     (client, c) => client.GetServerTroubleshootingAsync(c),
                     new[] { "Name", "Data" },
                     i => new[] { i.Name, i.Data },

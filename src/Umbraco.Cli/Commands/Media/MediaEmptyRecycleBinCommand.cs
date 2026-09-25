@@ -26,7 +26,6 @@ public static class MediaEmptyRecycleBinCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "media.empty-recycle-bin",
                     (client, c) => client.EmptyMediaRecycleBinAsync(c),
                     "Media recycle bin emptied.",
                     ct

@@ -87,13 +87,12 @@ public static class MediaUpdateCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "media.update",
                     async (client, c) =>
                     {
                         var request = body.HasBody(parseResult)
                             ? JsonSerializer.Deserialize<UpdateMediaRequest>(
                                 await body.ReadAsync(parseResult, c)
-                            ) ?? throw new InvalidOperationException("Invalid JSON body.")
+                            ) ?? throw new InvalidInputException("Invalid JSON body.")
                             : new UpdateMediaRequest();
 
                         // Flags win over the body, the way an explicit flag beats a file, and are

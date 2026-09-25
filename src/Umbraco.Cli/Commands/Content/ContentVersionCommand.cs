@@ -26,7 +26,6 @@ public static class ContentVersionCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "content.version",
                     (client, c) => client.GetDocumentVersionAsync(parseResult.GetValue(idArg), c),
                     ct
                 )

@@ -34,7 +34,6 @@ public static class HealthCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "health.list",
                     (client, skip, take, c) => client.GetHealthCheckGroupsAsync(skip, take, c),
                     new[] { "Name" },
                     g => new[] { g.Name },
@@ -55,7 +54,6 @@ public static class HealthCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "health.get",
                     (client, c) =>
                         client.GetHealthCheckGroupAsync(parseResult.GetValue(nameArg)!, c),
                     ct
@@ -74,7 +72,6 @@ public static class HealthCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "health.run",
                     (client, c) =>
                         client.RunHealthCheckGroupAsync(parseResult.GetValue(nameArg)!, c),
                     ct

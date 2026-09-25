@@ -43,7 +43,6 @@ public static class ContentPublishDescendantsCommand
                 // completion state, so a script can chain on --wait or poll the id itself (#90).
                 return executor.RunObjectAsync(
                     parseResult,
-                    "content.publish-descendants",
                     (client, c) =>
                         client.PublishContentWithDescendantsAsync(
                             parseResult.GetValue(idArg),

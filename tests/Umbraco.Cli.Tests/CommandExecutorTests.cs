@@ -51,7 +51,8 @@ public class CommandExecutorTests
         string args = "--host https://example.com --token tok --output json",
         Umbraco.Cli.Infrastructure.IConfirmationPrompt? confirmation = null,
         string? allowedCommands = null,
-        Umbraco.Cli.Infrastructure.Http.MutationInterceptState? mutationState = null
+        Umbraco.Cli.Infrastructure.Http.MutationInterceptState? mutationState = null,
+        string command = "content.get"
     )
     {
         var stub = new StubHttpClientFactory();
@@ -79,9 +80,18 @@ public class CommandExecutorTests
             confirmation ?? new FakeConfirmationPrompt { IsInteractive = false }
         );
 
+        // A real command path, because the executor derives meta.command and the allow-list
+        // name from the parse tree.
         var root = new RootCommand();
         global.AddTo(root);
-        return (executor, root.Parse(args));
+        Command parent = root;
+        foreach (var segment in command.Split('.'))
+        {
+            var child = new Command(segment);
+            parent.Add(child);
+            parent = child;
+        }
+        return (executor, root.Parse($"{command.Replace('.', ' ')} {args}"));
     }
 
     private static async Task<(string stdout, string stderr, int exit)> Capture(
@@ -122,7 +132,6 @@ public class CommandExecutorTests
         var (stdout, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                 CancellationToken.None
             )
@@ -147,7 +156,6 @@ public class CommandExecutorTests
         var (stdout, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                 CancellationToken.None
             )
@@ -181,7 +189,6 @@ public class CommandExecutorTests
         var (_, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                 CancellationToken.None
             )
@@ -212,7 +219,6 @@ public class CommandExecutorTests
         var (_, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                 CancellationToken.None
             )
@@ -239,7 +245,6 @@ public class CommandExecutorTests
         await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(id, ct),
                 CancellationToken.None
             )
@@ -256,8 +261,7 @@ public class CommandExecutorTests
         var (stdout, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync<ContentItemResponse>(
                 parse,
-                "content.create",
-                (c, ct) => throw new InvalidOperationException("Invalid JSON body."),
+                (c, ct) => throw new InvalidInputException("Invalid JSON body."),
                 CancellationToken.None
             )
         );
@@ -267,6 +271,7 @@ public class CommandExecutorTests
         using var doc = JsonDocument.Parse(stderr);
         Assert.Equal("error", doc.RootElement.GetProperty("status").GetString());
         Assert.Contains("Invalid JSON body", doc.RootElement.GetProperty("message").GetString());
+        Assert.Equal("invalid_argument", doc.RootElement.GetProperty("category").GetString());
     }
 
     [Fact]
@@ -279,7 +284,6 @@ public class CommandExecutorTests
         var (stdout, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync<ContentItemResponse>(
                 parse,
-                "content.create",
                 (c, ct) =>
                     throw new Umbraco.Cli.Infrastructure.Http.DryRunException(
                         "POST",
@@ -300,6 +304,14 @@ public class CommandExecutorTests
         Assert.Contains("document", request.GetProperty("url").GetString());
         // A valid-JSON body is embedded as nested JSON, not a string.
         Assert.Equal("x", request.GetProperty("body").GetProperty("name").GetString());
+        Assert.Equal(
+            "content.get",
+            JsonDocument
+                .Parse(stdout)
+                .RootElement.GetProperty("meta")
+                .GetProperty("command")
+                .GetString()
+        );
     }
 
     [Fact]
@@ -317,7 +329,6 @@ public class CommandExecutorTests
         var (_, stderr, exit) = await Capture(() =>
             executor.RunMessageAsync(
                 parse,
-                "content.delete",
                 (c, ct) =>
                 {
                     called = true;
@@ -331,6 +342,7 @@ public class CommandExecutorTests
         Assert.Equal(2, exit);
         Assert.False(called);
         Assert.Contains("--yes", stderr);
+        Assert.Equal("confirmation_required", CategoryIn(stderr));
     }
 
     [Fact]
@@ -349,7 +361,6 @@ public class CommandExecutorTests
         var (_, _, exit) = await Capture(() =>
             executor.RunMessageAsync(
                 parse,
-                "content.delete",
                 (c, ct) =>
                 {
                     called = true;
@@ -376,10 +387,9 @@ public class CommandExecutorTests
         );
         parse.CommandResult.Command.Destructive(_ => "Delete X?");
 
-        var (_, _, exit) = await Capture(() =>
+        var (_, stderr, exit) = await Capture(() =>
             executor.RunMessageAsync(
                 parse,
-                "content.delete",
                 (c, ct) =>
                 {
                     called = true;
@@ -392,6 +402,7 @@ public class CommandExecutorTests
 
         Assert.Equal(2, exit);
         Assert.False(called);
+        Assert.Equal("cancelled", CategoryIn(stderr));
     }
 
     [Fact]
@@ -408,7 +419,6 @@ public class CommandExecutorTests
         var (_, _, exit) = await Capture(() =>
             executor.RunMessageAsync(
                 parse,
-                "content.delete",
                 (c, ct) =>
                 {
                     called = true;
@@ -436,7 +446,6 @@ public class CommandExecutorTests
         var (_, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                 CancellationToken.None
             )
@@ -473,7 +482,6 @@ public class CommandExecutorTests
         var (_, _, exit) = await Capture(() =>
             executor.RunMessageAsync(
                 parse,
-                "content.delete",
                 (c, ct) =>
                 {
                     called = true;
@@ -499,7 +507,6 @@ public class CommandExecutorTests
         var (stdout, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync<ContentItemResponse>(
                 parse,
-                "content.create",
                 (c, ct) =>
                     throw new Umbraco.Cli.Infrastructure.Http.ReadOnlyModeException(
                         "POST",
@@ -514,6 +521,7 @@ public class CommandExecutorTests
         using var doc = JsonDocument.Parse(stderr);
         Assert.Equal("error", doc.RootElement.GetProperty("status").GetString());
         Assert.Contains("Read-only", doc.RootElement.GetProperty("message").GetString());
+        Assert.Equal("readonly", CategoryIn(stderr));
     }
 
     [Fact]
@@ -523,13 +531,13 @@ public class CommandExecutorTests
         var called = false;
         var (executor, parse) = Build(
             new FakeUmbracoManagementClient(),
-            allowedCommands: "content,media"
+            allowedCommands: "content,media",
+            command: "webhooks.list"
         );
 
         var (stdout, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "webhooks.list",
                 (c, ct) =>
                 {
                     called = true;
@@ -545,6 +553,7 @@ public class CommandExecutorTests
             "allow-list",
             JsonDocument.Parse(stderr).RootElement.GetProperty("message").GetString()
         );
+        Assert.Equal("not_allowed", CategoryIn(stderr));
     }
 
     [Fact]
@@ -562,7 +571,6 @@ public class CommandExecutorTests
         var (_, _, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                 CancellationToken.None
             )
@@ -579,13 +587,13 @@ public class CommandExecutorTests
         var called = false;
         var (executor, parse) = Build(
             new FakeUmbracoManagementClient(),
-            allowedCommands: "content"
+            allowedCommands: "content",
+            command: "auth.whoami"
         );
 
         var (_, _, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "auth.whoami",
                 (c, ct) =>
                 {
                     called = true;
@@ -616,13 +624,13 @@ public class CommandExecutorTests
         var (executor, parse) = Build(
             new FakeUmbracoManagementClient(),
             args: $"--host https://example.com --token tok --output json --config \"{bypassConfig}\"",
-            allowedCommands: "content"
+            allowedCommands: "content",
+            command: "webhooks.list"
         );
 
         var (_, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "webhooks.list",
                 (c, ct) =>
                 {
                     called = true;
@@ -658,13 +666,13 @@ public class CommandExecutorTests
         var (executor, parse) = Build(
             new FakeUmbracoManagementClient(),
             args: $"--host https://example.com --token tok --output json --config \"{attackerConfig}\" --profile ghost",
-            allowedCommands: "content"
+            allowedCommands: "content",
+            command: "webhooks.list"
         );
 
         var (_, _, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "webhooks.list",
                 (c, ct) =>
                 {
                     called = true;
@@ -689,7 +697,6 @@ public class CommandExecutorTests
         var (_, _, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) =>
                 {
                     called = true;
@@ -708,12 +715,15 @@ public class CommandExecutorTests
     {
         // Even under an explicit lockdown the auth group stays exempt, so the session can still
         // authenticate and be inspected (#83 L3).
-        var (executor, parse) = Build(new FakeUmbracoManagementClient(), allowedCommands: " ");
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            allowedCommands: " ",
+            command: "auth.whoami"
+        );
 
         var (_, _, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "auth.whoami",
                 (c, ct) =>
                     Task.FromResult(
                         UmbracoResponse<CurrentUserResponse>.Success(new CurrentUserResponse())
@@ -745,7 +755,6 @@ public class CommandExecutorTests
         await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                 CancellationToken.None
             )
@@ -774,7 +783,6 @@ public class CommandExecutorTests
         await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                 CancellationToken.None
             )
@@ -802,7 +810,6 @@ public class CommandExecutorTests
             await Capture(() =>
                 executor.RunObjectAsync(
                     parse,
-                    "content.get",
                     (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                     CancellationToken.None
                 )
@@ -836,7 +843,6 @@ public class CommandExecutorTests
         var (stdout, _, exit) = await Capture(() =>
             executor.RunBulkAsync(
                 parse,
-                "content.bulk.publish",
                 () => [id1.ToString(), id2.ToString()],
                 (c, id, ct) => c.PublishContentAsync(id, null, ct: ct),
                 CancellationToken.None
@@ -872,7 +878,6 @@ public class CommandExecutorTests
         var (stdout, _, exit) = await Capture(() =>
             executor.RunBulkAsync(
                 parse,
-                "content.bulk.publish",
                 () => [ok.ToString(), bad.ToString(), "not-a-guid"],
                 (c, id, ct) => c.PublishContentAsync(id, null, ct: ct),
                 CancellationToken.None
@@ -906,7 +911,6 @@ public class CommandExecutorTests
         var (stdout, _, _) = await Capture(() =>
             executor.RunBulkAsync(
                 parse,
-                "content.bulk.publish",
                 () => ids,
                 (c, id, ct) => c.PublishContentAsync(id, null, ct: ct),
                 CancellationToken.None
@@ -968,7 +972,6 @@ public class CommandExecutorTests
         var (stdout, _, exit) = await Capture(() =>
             executor.RunBulkAsync(
                 parse,
-                "content.bulk.publish",
                 () => [id.ToString()],
                 (c, i, ct) =>
                     throw new Umbraco.Cli.Infrastructure.Http.DryRunException(
@@ -1013,7 +1016,6 @@ public class CommandExecutorTests
         var (_, stderr, exit) = await Capture(() =>
             executor.RunBulkAsync(
                 parse,
-                "content.bulk.delete",
                 () => [Guid.NewGuid().ToString()],
                 (c, id, ct) => c.DeleteContentAsync(id, ct),
                 CancellationToken.None
@@ -1044,7 +1046,6 @@ public class CommandExecutorTests
         var (_, _, exit) = await Capture(() =>
             executor.RunBulkAsync(
                 parse,
-                "content.bulk.delete",
                 () => [Guid.NewGuid().ToString(), Guid.NewGuid().ToString()],
                 (c, id, ct) => c.DeleteContentAsync(id, ct),
                 CancellationToken.None
@@ -1076,7 +1077,6 @@ public class CommandExecutorTests
         var (_, stderr, exit) = await Capture(() =>
             executor.RunBulkAsync(
                 parse,
-                "content.bulk.delete",
                 () => [Guid.NewGuid().ToString()],
                 (c, id, ct) => c.DeleteContentAsync(id, ct),
                 CancellationToken.None
@@ -1103,7 +1103,6 @@ public class CommandExecutorTests
         var (_, _, exit) = await Capture(() =>
             executor.RunBulkAsync(
                 parse,
-                "content.bulk.unpublish",
                 () => [id1.ToString(), id2.ToString()],
                 (c, id, ct) => c.UnpublishContentAsync(id, null, ct),
                 CancellationToken.None
@@ -1115,7 +1114,7 @@ public class CommandExecutorTests
     }
 
     [Fact]
-    public async Task RunBulk_NoIds_ReturnsTwo()
+    public async Task RunBulk_NoIds_IsInvalidArgument()
     {
         // An empty id set is a usage error, not a silent no-op.
         var (executor, parse) = Build(new FakeUmbracoManagementClient());
@@ -1124,14 +1123,17 @@ public class CommandExecutorTests
         var (_, stderr, exit) = await Capture(() =>
             executor.RunBulkAsync(
                 parse,
-                "content.bulk.delete",
                 () => [],
                 (c, id, ct) => c.DeleteContentAsync(id, ct),
                 CancellationToken.None
             )
         );
 
-        Assert.Equal(2, exit);
+        Assert.Equal(1, exit);
+        Assert.Equal(
+            "invalid_argument",
+            JsonDocument.Parse(stderr).RootElement.GetProperty("category").GetString()
+        );
         Assert.Contains("No ids", stderr);
     }
 
@@ -1144,7 +1146,6 @@ public class CommandExecutorTests
         var (stdout, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync(
                 parse,
-                "content.get",
                 (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
                 CancellationToken.None
             )
@@ -1154,5 +1155,99 @@ public class CommandExecutorTests
         Assert.Empty(stdout);
         using var doc = JsonDocument.Parse(stderr);
         Assert.Equal("error", doc.RootElement.GetProperty("status").GetString());
+        Assert.Equal("not_authenticated", CategoryIn(stderr));
+    }
+
+    /// <summary>The <c>category</c> of the error envelope on stderr.</summary>
+    private static string? CategoryIn(string stderr) =>
+        JsonDocument.Parse(stderr).RootElement.GetProperty("category").GetString();
+
+    [Fact]
+    public async Task RunObject_Success_MetaCommandIsTheParsedCommandPath()
+    {
+        // meta.command comes from the command tree, so a renamed command can never report its
+        // old name.
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            command: "content.domain.get"
+        );
+
+        var (stdout, _, _) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) => Task.FromResult(UmbracoResponse<string>.Success("ok")),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(
+            "content.domain.get",
+            JsonDocument
+                .Parse(stdout)
+                .RootElement.GetProperty("meta")
+                .GetProperty("command")
+                .GetString()
+        );
+    }
+
+    [Fact]
+    public async Task RunObject_CallThrowsUnexpectedly_IsReportedAsInternal()
+    {
+        // A failure that is not the caller's input is a CLI bug, and the category says so.
+        var (executor, parse) = Build(new FakeUmbracoManagementClient());
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync<ContentItemResponse>(
+                parse,
+                (c, ct) => throw new NullReferenceException("boom"),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(1, exit);
+        Assert.Equal("internal", CategoryIn(stderr));
+    }
+
+    [Fact]
+    public async Task RunObject_CallRefuses_AbortsAsRefused()
+    {
+        // A pre-flight refusal (e.g. an in-use type without --force) is an abort, category refused.
+        var (executor, parse) = Build(new FakeUmbracoManagementClient());
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunObjectAsync<ContentItemResponse>(
+                parse,
+                (c, ct) => throw new SafetyRefusalException("In use. Pass --force."),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.Equal("refused", CategoryIn(stderr));
+    }
+
+    [Fact]
+    public async Task RunObject_ApiFailureWithNoCategory_IsClassifiedFromItsStatus()
+    {
+        // Every error carries a category, even when a client path forgot to set one.
+        var (executor, parse) = Build(new FakeUmbracoManagementClient());
+
+        var (_, stderr, _) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) =>
+                    Task.FromResult(
+                        new UmbracoResponse<string>
+                        {
+                            IsSuccess = false,
+                            StatusCode = 400,
+                            ErrorMessage = "Bad request.",
+                        }
+                    ),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal("request_rejected", CategoryIn(stderr));
     }
 }

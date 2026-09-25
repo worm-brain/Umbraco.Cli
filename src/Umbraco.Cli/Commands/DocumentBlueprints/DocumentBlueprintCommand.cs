@@ -50,7 +50,6 @@ public static class DocumentBlueprintCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "document-blueprint.list",
                     (client, skip, take, c) =>
                         client.GetDocumentBlueprintsAsync(
                             parseResult.GetValue(parentOpt),
@@ -84,7 +83,6 @@ public static class DocumentBlueprintCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.get",
                     (client, c) => client.GetDocumentBlueprintAsync(parseResult.GetValue(idArg), c),
                     ct
                 )
@@ -104,7 +102,6 @@ public static class DocumentBlueprintCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.scaffold",
                     (client, c) =>
                         client.ScaffoldDocumentBlueprintAsync(parseResult.GetValue(idArg), c),
                     ct
@@ -181,7 +178,6 @@ public static class DocumentBlueprintCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.create",
                     async (client, c) =>
                     {
                         CreateDocumentBlueprintRequest request;
@@ -190,7 +186,7 @@ public static class DocumentBlueprintCommand
                             var json = await body.ReadAsync(parseResult, c);
                             request =
                                 JsonSerializer.Deserialize<CreateDocumentBlueprintRequest>(json)
-                                ?? throw new InvalidOperationException("Invalid JSON body.");
+                                ?? throw new InvalidInputException("Invalid JSON body.");
                         }
                         else
                         {
@@ -291,7 +287,6 @@ public static class DocumentBlueprintCommand
 
                 return executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.update",
                     async (client, c) =>
                     {
                         UpdateDocumentBlueprintRequest request;
@@ -300,7 +295,7 @@ public static class DocumentBlueprintCommand
                             var json = await body.ReadAsync(parseResult, c);
                             request =
                                 JsonSerializer.Deserialize<UpdateDocumentBlueprintRequest>(json)
-                                ?? throw new InvalidOperationException("Invalid JSON body.");
+                                ?? throw new InvalidInputException("Invalid JSON body.");
                         }
                         else
                         {
@@ -344,7 +339,6 @@ public static class DocumentBlueprintCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.delete",
                     (client, c) =>
                         client.DeleteDocumentBlueprintAsync(parseResult.GetValue(idArg), c),
                     "Blueprint deleted.",
@@ -383,7 +377,6 @@ public static class DocumentBlueprintCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.from-document",
                     (client, c) =>
                         client.CreateDocumentBlueprintFromDocumentAsync(
                             new CreateBlueprintFromDocumentRequest
@@ -420,7 +413,6 @@ public static class DocumentBlueprintCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.move",
                     (client, c) =>
                         client.MoveDocumentBlueprintAsync(
                             parseResult.GetValue(idArg),

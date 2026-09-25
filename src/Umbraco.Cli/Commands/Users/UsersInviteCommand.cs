@@ -50,7 +50,6 @@ public static class UsersInviteCommand
                 // the email, so any caller of InviteUserAsync gets both.
                 return executor.RunMessageAsync(
                     parseResult,
-                    "users.invite",
                     (client, c) =>
                         client.InviteUserAsync(
                             new InviteUserRequest

@@ -64,7 +64,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "log-viewer.log",
                     (client, skip, take, c) =>
                         client.GetLogsAsync(
                             parseResult.GetValue(skipOpt),
@@ -94,7 +93,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "log-viewer.levels",
                     (client, skip, take, c) => client.GetLogLevelsAsync(skip, take, c),
                     new[] { "Name", "Level" },
                     l => new[] { l.Name, l.Level ?? "" },
@@ -117,7 +115,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "log-viewer.level-count",
                     (client, c) =>
                         client.GetLogLevelCountsAsync(
                             parseResult.GetValue(startOpt),
@@ -142,7 +139,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "log-viewer.message-templates",
                     (client, skip, take, c) =>
                         client.GetLogMessageTemplatesAsync(
                             parseResult.GetValue(skipOpt),
@@ -178,7 +174,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "log-viewer.saved-search.list",
                     (client, skip, take, c) => client.GetSavedLogSearchesAsync(skip, take, c),
                     new[] { "Name", "Query" },
                     s => new[] { s.Name, s.Query },
@@ -209,7 +204,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "log-viewer.saved-search.create",
                     (client, c) =>
                         client.CreateSavedLogSearchAsync(
                             parseResult.GetValue(nameOpt)!,
@@ -232,7 +226,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "log-viewer.saved-search.delete",
                     (client, c) =>
                         client.DeleteSavedLogSearchAsync(parseResult.GetValue(nameArg)!, c),
                     "Saved search deleted.",

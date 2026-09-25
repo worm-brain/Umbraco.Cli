@@ -17,7 +17,6 @@ public static class ContentGetCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "content.get",
                     (client, c) => client.GetContentByIdAsync(parseResult.GetValue(idArg), c),
                     ct
                 )

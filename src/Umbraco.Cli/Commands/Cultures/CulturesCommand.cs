@@ -26,7 +26,6 @@ public static class CulturesCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "cultures.list",
                     (client, skip, take, c) => client.GetCulturesAsync(skip, take, c),
                     new[] { "ISO Code", "English Name" },
                     c => new[] { c.IsoCode, c.EnglishName },

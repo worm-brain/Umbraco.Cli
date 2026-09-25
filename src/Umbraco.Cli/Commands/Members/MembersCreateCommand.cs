@@ -41,7 +41,6 @@ public static class MembersCreateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "members.create",
                     (client, c) =>
                         client.CreateMemberAsync(
                             new CreateMemberRequest

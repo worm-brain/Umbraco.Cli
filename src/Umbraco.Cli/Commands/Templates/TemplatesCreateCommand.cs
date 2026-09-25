@@ -38,7 +38,6 @@ public static class TemplatesCreateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "templates.create",
                     async (client, c) =>
                     {
                         // Prefer --content-file when given; else --content; else empty.

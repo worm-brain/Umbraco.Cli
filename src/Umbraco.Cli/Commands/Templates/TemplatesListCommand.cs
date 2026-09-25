@@ -15,7 +15,6 @@ public static class TemplatesListCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "templates.list",
                     (client, skip, take, c) => client.GetTemplatesAsync(skip, take, c),
                     ["ID", "Name", "Alias"],
                     i => new[] { i.Id.ToString(), i.Name, i.Alias },

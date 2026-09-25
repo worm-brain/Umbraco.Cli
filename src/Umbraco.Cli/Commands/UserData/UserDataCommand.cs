@@ -47,7 +47,6 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "user-data.list",
                     (client, skip, take, c) =>
                         client.GetUserDataAsync(
                             parseResult.GetValue(groupOpt),
@@ -75,7 +74,6 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "user-data.get",
                     (client, c) => client.GetUserDataByIdAsync(parseResult.GetValue(idArg), c),
                     ct
                 )
@@ -112,7 +110,6 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "user-data.create",
                     (client, c) =>
                         client.CreateUserDataAsync(
                             new CreateUserDataRequest
@@ -179,7 +176,6 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "user-data.update",
                     (client, c) =>
                         client.UpdateUserDataAsync(
                             new UpdateUserDataRequest
@@ -213,7 +209,6 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "user-data.delete",
                     (client, c) => client.DeleteUserDataAsync(parseResult.GetValue(idArg), c),
                     "User-data entry deleted.",
                     ct

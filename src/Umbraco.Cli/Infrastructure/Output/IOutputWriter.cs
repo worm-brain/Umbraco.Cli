@@ -1,3 +1,6 @@
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
+
 namespace Umbraco.Cli.Infrastructure.Output;
 
 public enum OutputFormat
@@ -46,9 +49,9 @@ public interface IOutputWriter
 
     /// <summary>
     /// Writes an error to stderr. <paramref name="category"/> and <paramref name="serverVersion"/>
-    /// annotate an API failure (#152) so a caller can tell whose problem it is and against which
-    /// server; both are optional and only the structured (JSON) writer emits them. Policy errors
-    /// (auth, read-only, cancellation) call this without them.
+    /// classify the failure (#152) so a caller can tell whose problem it is and against which
+    /// server. The category is required; the server version only applies to failures the
+    /// server responded to.
     /// <para>
     /// <paramref name="exitCode"/> and <paramref name="httpStatus"/> are deliberately separate
     /// (#177): one field used to carry whichever of the two applied, so a caller could not act on
@@ -56,18 +59,18 @@ public interface IOutputWriter
     /// </para>
     /// </summary>
     /// <param name="exitCode">The process exit code this failure produces.</param>
+    /// <param name="category">Why it failed. Required: every error carries a category (docs/conventions.md, section 7).</param>
     /// <param name="message">The human-readable error message.</param>
+    /// <param name="commandName">The dotted command name for <c>meta.command</c>; null only when no command was parsed.</param>
     /// <param name="httpStatus">The server's HTTP status, or null when the failure never reached it.</param>
-    /// <param name="category">The failure category wire name (e.g. <c>server_error</c>), or null.</param>
     /// <param name="serverVersion">The connected server's version, or null when unknown/not applicable.</param>
-    /// <param name="commandName">The dotted command name for <c>meta.command</c>, or null.</param>
     void WriteError(
-        int exitCode,
+        ExitCode exitCode,
+        FailureCategory category,
         string message,
+        string? commandName,
         int? httpStatus = null,
-        string? category = null,
-        string? serverVersion = null,
-        string? commandName = null
+        string? serverVersion = null
     );
 
     /// <summary>
@@ -136,7 +139,15 @@ public interface IOutputWriter
     /// <param name="method">The HTTP method that would be sent (e.g. <c>POST</c>).</param>
     /// <param name="url">The absolute request URL.</param>
     /// <param name="body">The request body, or null for a body-less request (e.g. DELETE).</param>
-    void WriteDryRun(string method, string url, string? body);
+    /// <param name="commandName">The dotted command name for <c>meta.command</c>.</param>
+    /// <param name="durationMs">The command duration for <c>meta.durationMs</c>, or null.</param>
+    void WriteDryRun(
+        string method,
+        string url,
+        string? body,
+        string? commandName,
+        long? durationMs = null
+    );
 
     /// <summary>
     /// Writes a bulk run's per-item results (#236). The structured writer sets the envelope

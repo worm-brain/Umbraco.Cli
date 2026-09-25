@@ -97,7 +97,6 @@ public static class ContentApplyCommand
                 var prune = parseResult.GetValue(pruneOpt);
                 return executor.RunContextualAsync(
                     parseResult,
-                    "content.apply",
                     async (ctx, c) =>
                     {
                         var diff = await ContentPipeline.DiffAgainstLiveAsync(

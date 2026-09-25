@@ -40,7 +40,6 @@ public static class MediaTreeCommand
 
                 return executor.RunCompleteListAsync(
                     parseResult,
-                    "media.tree",
                     (client, c) =>
                         client.GetMediaTreeAsync(parseResult.GetValue(parentOpt), maxDepth, c),
                     ["ID", "Name", "Parent ID", "Depth", "Has Children"],

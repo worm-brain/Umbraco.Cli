@@ -32,7 +32,6 @@ public static class ContentRollbackCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content.rollback",
                     (client, c) =>
                         client.RollbackDocumentVersionAsync(
                             parseResult.GetValue(versionIdArg),

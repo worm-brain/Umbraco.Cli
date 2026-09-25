@@ -47,7 +47,6 @@ public static class DataTypesCreateCommand
                 RawBodyCommand.RunCreateAsync(
                     executor,
                     parseResult,
-                    "data-types.create",
                     SchemaNoun.DataTypes,
                     body,
                     idOpt,

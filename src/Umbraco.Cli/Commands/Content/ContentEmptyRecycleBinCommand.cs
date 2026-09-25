@@ -26,7 +26,6 @@ public static class ContentEmptyRecycleBinCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content.empty-recycle-bin",
                     (client, c) => client.EmptyContentRecycleBinAsync(c),
                     "Content recycle bin emptied.",
                     ct

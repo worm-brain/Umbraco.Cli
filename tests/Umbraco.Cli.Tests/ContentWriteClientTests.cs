@@ -235,7 +235,7 @@ public class ContentWriteClientTests
     /// An alias that resolves to no document type returns a clean 404 and never POSTs a document.
     /// </summary>
     [Fact]
-    public async Task CreateContentAsync_UnknownAlias_Returns404AndDoesNotPost()
+    public async Task CreateContentAsync_UnknownAlias_IsInvalidArgumentAndDoesNotPost()
     {
         var handler = new RoutingHandler().When(
             r => r.Method == HttpMethod.Get && Has(r, "tree/document-type/root"),
@@ -254,7 +254,7 @@ public class ContentWriteClientTests
         );
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.DoesNotContain(handler.Requests, u => u.AbsolutePath.EndsWith("/document"));
     }
 

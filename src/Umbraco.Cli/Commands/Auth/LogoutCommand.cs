@@ -1,4 +1,6 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
@@ -35,15 +37,22 @@ public static class LogoutCommand
                 switch (store.Logout(profile))
                 {
                     case ConfigStore.LogoutOutcome.Removed:
-                        writer.WriteMessage($"Logged out. Credentials removed{where}.");
+                        writer.WriteMessage(
+                            $"Logged out. Credentials removed{where}.",
+                            CommandPath.Of(parseResult)
+                        );
                         break;
                     case ConfigStore.LogoutOutcome.CredentialsClearedAllowListKept:
                         writer.WriteMessage(
-                            $"Logged out. Credentials removed{where}; the command allow-list was preserved."
+                            $"Logged out. Credentials removed{where}; the command allow-list was preserved.",
+                            CommandPath.Of(parseResult)
                         );
                         break;
                     default:
-                        writer.WriteMessage("No stored credentials to remove.");
+                        writer.WriteMessage(
+                            "No stored credentials to remove.",
+                            CommandPath.Of(parseResult)
+                        );
                         break;
                 }
                 return Task.CompletedTask;

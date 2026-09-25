@@ -28,7 +28,6 @@ public static class ContentVersionsCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "content.versions",
                     (client, skip, take, c) =>
                         client.GetDocumentVersionsAsync(
                             parseResult.GetValue(idArg),

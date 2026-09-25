@@ -72,7 +72,6 @@ public static class MediaUploadCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "media.upload",
                     async (client, c) =>
                     {
                         var file = parseResult.GetValue(fileArg)!;

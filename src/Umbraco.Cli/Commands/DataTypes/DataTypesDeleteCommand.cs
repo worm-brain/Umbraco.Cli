@@ -38,7 +38,6 @@ public static class DataTypesDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "data-types.delete",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

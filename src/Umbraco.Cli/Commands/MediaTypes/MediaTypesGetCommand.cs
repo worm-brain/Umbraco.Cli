@@ -23,14 +23,7 @@ public static class MediaTypesGetCommand
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
-                RawBodyCommand.RunGetAsync(
-                    executor,
-                    parseResult,
-                    "media-types.get",
-                    SchemaNoun.MediaTypes,
-                    idArg,
-                    ct
-                )
+                RawBodyCommand.RunGetAsync(executor, parseResult, SchemaNoun.MediaTypes, idArg, ct)
         );
 
         return cmd;

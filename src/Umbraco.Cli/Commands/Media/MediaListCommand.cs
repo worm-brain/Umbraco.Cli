@@ -21,7 +21,6 @@ public static class MediaListCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "media.list",
                     (client, skip, take, c) =>
                         client.GetMediaAsync(parseResult.GetValue(parentOpt), skip, take, c),
                     // Media Type is intentionally omitted: the media-tree list items carry only

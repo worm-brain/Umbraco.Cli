@@ -42,7 +42,6 @@ public static class MemberTypesCreateCommand
                 RawBodyCommand.RunCreateAsync(
                     executor,
                     parseResult,
-                    "member-types.create",
                     SchemaNoun.MemberTypes,
                     body,
                     idOpt,

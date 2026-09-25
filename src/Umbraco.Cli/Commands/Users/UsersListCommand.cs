@@ -15,7 +15,6 @@ public static class UsersListCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "users.list",
                     (client, skip, take, c) => client.GetUsersAsync(skip, take, c),
                     ["ID", "Name", "Email", "State"],
                     i => new[] { i.Id.ToString(), i.Name, i.Email, i.State },

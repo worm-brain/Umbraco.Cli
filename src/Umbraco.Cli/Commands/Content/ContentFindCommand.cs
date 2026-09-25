@@ -49,7 +49,6 @@ public static class ContentFindCommand
                 if (!string.IsNullOrWhiteSpace(path))
                     return executor.RunCompleteListAsync(
                         parseResult,
-                        "content.find",
                         (client, c) => client.FindContentByPathAsync(path, c),
                         headers,
                         Row,
@@ -58,7 +57,6 @@ public static class ContentFindCommand
 
                 return executor.RunPagedAsync(
                     parseResult,
-                    "content.find",
                     (client, skip, take, c) =>
                         client.FindContentByNameAsync(
                             parseResult.GetValue(nameOpt)!,

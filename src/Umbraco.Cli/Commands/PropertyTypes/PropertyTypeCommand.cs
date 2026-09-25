@@ -45,7 +45,6 @@ public static class PropertyTypeCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "property-type.is-used",
                     (client, c) =>
                         contentTypeOpt.WithResolvedAsync(
                             parseResult,

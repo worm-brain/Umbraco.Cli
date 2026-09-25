@@ -64,7 +64,6 @@ public static class DictionaryUpdateCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "dictionary.update",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

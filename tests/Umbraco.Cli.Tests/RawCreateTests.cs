@@ -68,7 +68,7 @@ public class RawCreateTests
     {
         var recorder = new Recorder();
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var error = await Assert.ThrowsAsync<InvalidInputException>(() =>
             Create($$"""{"id":"{{BodyId}}"}""", FlagId, recorder)
         );
 

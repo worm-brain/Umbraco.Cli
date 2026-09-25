@@ -42,7 +42,6 @@ public static class ContentTreeCommand
 
                 return executor.RunCompleteListAsync(
                     parseResult,
-                    "content.tree",
                     (client, c) =>
                         client.GetContentTreeAsync(parseResult.GetValue(parentOpt), maxDepth, c),
                     ["ID", "Name", "Parent ID", "Depth", "Has Children"],

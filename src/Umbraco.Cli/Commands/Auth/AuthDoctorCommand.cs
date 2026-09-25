@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
@@ -65,7 +66,8 @@ public static class AuthDoctorCommand
 
                 writer.WriteTable(
                     ["Check", "Status", "Detail"],
-                    checks.Select(c => new[] { c.Check, c.Status, c.Detail })
+                    checks.Select(c => new[] { c.Check, c.Status, c.Detail }),
+                    CommandPath.Of(parseResult)
                 );
 
                 // Exit 1 when any check hard-failed so a script/agent can gate on it; warnings

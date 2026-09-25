@@ -39,7 +39,6 @@ public static class MemberTypesDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "member-types.delete",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

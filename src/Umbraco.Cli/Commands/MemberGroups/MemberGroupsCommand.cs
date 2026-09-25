@@ -35,7 +35,6 @@ public static class MemberGroupsCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "member-groups.list",
                     (client, skip, take, c) => client.GetMemberGroupsAsync(skip, take, c),
                     new[] { "Id", "Name" },
                     g => new[] { g.Id.ToString(), g.Name },
@@ -56,7 +55,6 @@ public static class MemberGroupsCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "member-groups.get",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -87,7 +85,6 @@ public static class MemberGroupsCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "member-groups.create",
                     (client, c) =>
                         client.CreateMemberGroupAsync(
                             new CreateMemberGroupRequest
@@ -114,7 +111,6 @@ public static class MemberGroupsCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "member-groups.update",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -149,7 +145,6 @@ public static class MemberGroupsCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "member-groups.delete",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

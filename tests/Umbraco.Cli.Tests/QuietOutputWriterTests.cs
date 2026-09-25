@@ -1,3 +1,5 @@
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Tests;
@@ -28,18 +30,18 @@ public class QuietOutputWriterTests
         public int? LastHttpStatus { get; private set; }
 
         public void WriteError(
-            int exitCode,
+            ExitCode exitCode,
+            FailureCategory category,
             string message,
+            string? commandName,
             int? httpStatus = null,
-            string? category = null,
-            string? serverVersion = null,
-            string? commandName = null
+            string? serverVersion = null
         )
         {
             ErrorCalled = true;
-            LastExitCode = exitCode;
+            LastExitCode = (int)exitCode;
             LastHttpStatus = httpStatus;
-            LastErrorCategory = category;
+            LastErrorCategory = category.ToWire();
             LastErrorServerVersion = serverVersion;
         }
 
@@ -87,7 +89,13 @@ public class QuietOutputWriterTests
             long? durationMs = null
         ) => LastBulk = results;
 
-        public void WriteDryRun(string method, string url, string? body) => DryRunCalled = true;
+        public void WriteDryRun(
+            string method,
+            string url,
+            string? body,
+            string? commandName,
+            long? durationMs = null
+        ) => DryRunCalled = true;
     }
 
     [Fact]
@@ -121,7 +129,14 @@ public class QuietOutputWriterTests
         var quiet = new QuietOutputWriter(inner);
 
         quiet.WriteSuccess(new { id = 1 });
-        quiet.WriteError(1, "boom", 500, "server_error", "17.3.5");
+        quiet.WriteError(
+            ExitCode.Failed,
+            FailureCategory.ServerError,
+            "boom",
+            "content.list",
+            500,
+            "17.3.5"
+        );
         quiet.WriteTable(
             ["Id"],
             [
@@ -130,7 +145,7 @@ public class QuietOutputWriterTests
             "content.list",
             7
         );
-        quiet.WriteDryRun("POST", "https://x", null);
+        quiet.WriteDryRun("POST", "https://x", null, "content.create");
 
         Assert.True(inner.SuccessCalled);
         Assert.True(inner.ErrorCalled);

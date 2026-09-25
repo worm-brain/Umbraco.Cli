@@ -25,7 +25,6 @@ public static class ContentMoveCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content.move",
                     (client, c) =>
                         client.MoveContentAsync(
                             parseResult.GetValue(idArg),

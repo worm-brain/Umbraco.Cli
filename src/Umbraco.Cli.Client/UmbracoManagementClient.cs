@@ -258,9 +258,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return candidateId;
         }
 
-        throw NotFound(
+        throw new UnresolvedReferenceException(
             $"No document type found with alias '{aliasOrId}'. Use 'umbraco content-types list' "
-                + "to find one, or pass a document type id."
+                + "to find one, or pass a document type id.",
+            404
         );
     }
 
@@ -2362,9 +2363,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return candidateId;
         }
 
-        throw NotFound(
+        throw new UnresolvedReferenceException(
             $"No member type found with alias '{aliasOrId}'. Use 'umbraco member-types list' "
-                + "to find one, or pass a member type id."
+                + "to find one, or pass a member type id.",
+            404
         );
     }
 
@@ -3256,6 +3258,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         try
         {
             return UmbracoResponse<T>.Success(await action());
+        }
+        catch (UnresolvedReferenceException ex)
+        {
+            // An alias/name the caller typed matched nothing (or too much): the input is wrong,
+            // not the request, so it is invalid_argument with no HTTP status (#256).
+            return UmbracoResponse<T>.Failure(0, ex.Message, FailureCategory.InvalidArgument);
         }
         catch (Gen.ProblemDetails pd)
         {

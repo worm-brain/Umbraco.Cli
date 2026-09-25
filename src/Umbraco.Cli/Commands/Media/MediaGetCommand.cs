@@ -17,7 +17,6 @@ public static class MediaGetCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "media.get",
                     (client, c) => client.GetMediaByIdAsync(parseResult.GetValue(idArg), c),
                     ct
                 )

@@ -36,7 +36,6 @@ public static class RelationCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "relation.list",
                     (client, skip, take, c) =>
                         client.GetRelationsByTypeAsync(
                             parseResult.GetValue(typeOpt),

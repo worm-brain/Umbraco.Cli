@@ -16,7 +16,6 @@ public static class UsersGetCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "users.get",
                     (client, c) => client.GetUserByIdAsync(parseResult.GetValue(idArg), c),
                     ct
                 )

@@ -51,7 +51,6 @@ public static class DictionaryCreateCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "dictionary.create",
                     (client, c) =>
                         parentOpt.WithResolvedOptionalAsync(
                             parseResult,

@@ -46,7 +46,6 @@ public static class MediaTypesCreateCommand
                 RawBodyCommand.RunCreateAsync(
                     executor,
                     parseResult,
-                    "media-types.create",
                     SchemaNoun.MediaTypes,
                     body,
                     idOpt,

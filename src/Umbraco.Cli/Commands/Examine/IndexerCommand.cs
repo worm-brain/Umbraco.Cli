@@ -33,7 +33,6 @@ public static class IndexerCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "indexer.list",
                     (client, skip, take, c) => client.GetIndexersAsync(skip, take, c),
                     new[] { "Name", "Health", "Documents", "CanRebuild" },
                     i =>
@@ -61,7 +60,6 @@ public static class IndexerCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "indexer.get",
                     (client, c) => client.GetIndexerAsync(parseResult.GetValue(nameArg)!, c),
                     ct
                 )
@@ -81,7 +79,6 @@ public static class IndexerCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "indexer.rebuild",
                     (client, c) => client.RebuildIndexAsync(parseResult.GetValue(nameArg)!, c),
                     "Index rebuild triggered.",
                     ct

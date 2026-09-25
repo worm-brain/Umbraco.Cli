@@ -33,7 +33,6 @@ public static class ContentListCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "content.list",
                     (client, skip, take, c) =>
                         client.GetContentAsync(parseResult.GetValue(parentOpt), skip, take, c),
                     // Content Type is intentionally omitted: the document-tree list items carry

@@ -21,7 +21,6 @@ public static class DataTypesListCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "data-types.list",
                     (client, skip, take, c) =>
                         client.GetDataTypesAsync(skip, take, parseResult.GetValue(parentOpt), c),
                     // #176: editorAlias is what decides a property's value shape (#174), so the

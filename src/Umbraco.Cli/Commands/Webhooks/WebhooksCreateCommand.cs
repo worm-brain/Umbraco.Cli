@@ -34,7 +34,6 @@ public static class WebhooksCreateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "webhooks.create",
                     (client, c) =>
                         client.CreateWebhookAsync(
                             new CreateWebhookRequest

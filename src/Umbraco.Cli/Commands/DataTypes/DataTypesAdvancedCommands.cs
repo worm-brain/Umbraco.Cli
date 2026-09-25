@@ -24,7 +24,6 @@ public static class DataTypesAdvancedCommands
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "data-types.is-used",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -57,7 +56,6 @@ public static class DataTypesAdvancedCommands
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "data-types.referenced-by",
                     (client, skip, take, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -115,7 +113,6 @@ public static class DataTypesAdvancedCommands
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "data-types.copy",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -148,7 +145,6 @@ public static class DataTypesAdvancedCommands
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "data-types.move",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -185,7 +181,6 @@ public static class DataTypesAdvancedCommands
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "data-types.folder.get",
                     (client, c) => client.GetDataTypeFolderAsync(parseResult.GetValue(idArg), c),
                     ct
                 )
@@ -216,7 +211,6 @@ public static class DataTypesAdvancedCommands
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "data-types.folder.create",
                     (client, c) =>
                         client.CreateDataTypeFolderAsync(
                             new CreateDataTypeFolderRequest
@@ -248,7 +242,6 @@ public static class DataTypesAdvancedCommands
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "data-types.folder.update",
                     (client, c) =>
                         client.UpdateDataTypeFolderAsync(
                             parseResult.GetValue(idArg),
@@ -274,7 +267,6 @@ public static class DataTypesAdvancedCommands
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "data-types.folder.delete",
                     (client, c) => client.DeleteDataTypeFolderAsync(parseResult.GetValue(idArg), c),
                     "Folder deleted.",
                     ct

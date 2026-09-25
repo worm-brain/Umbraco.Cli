@@ -659,7 +659,7 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task UploadMediaAsync_UnknownMediaTypeName_Returns404()
+    public async Task UploadMediaAsync_UnknownMediaTypeName_IsInvalidArgument()
     {
         // A media type name that matches nothing yields a clear 404 rather than staging a file
         // that can never be attached.
@@ -677,7 +677,7 @@ public class UmbracoManagementClientTests
         );
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
     }
 
     [Fact]
@@ -855,7 +855,7 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task UpdateTemplateAsync_MissingTemplate_Returns404()
+    public async Task UpdateTemplateAsync_MissingTemplate_IsInvalidArgument()
     {
         // The read step surfaces a clean 404 when the template does not exist.
         var (client, _) = ClientReturning("", HttpStatusCode.NotFound);
@@ -1209,7 +1209,7 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task GetDictionaryItemByKeyAsync_UnknownKey_Returns404()
+    public async Task GetDictionaryItemByKeyAsync_UnknownKey_IsInvalidArgument()
     {
         // Regression for #44: an unmatched key yields a clear 404, not a silent empty item.
         var (client, _) = ClientReturning("""{"total":0,"items":[]}""");
@@ -1217,7 +1217,7 @@ public class UmbracoManagementClientTests
         var result = await client.GetDictionaryItemByKeyAsync("Nope", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
     }
 
     [Fact]
@@ -1422,7 +1422,7 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task CreateMemberAsync_UnknownTypeAlias_Returns404()
+    public async Task CreateMemberAsync_UnknownTypeAlias_IsInvalidArgument()
     {
         // An unresolvable member-type alias yields a clean 404 and never POSTs a member.
         var handler = new RoutingHandler().When(
@@ -1445,7 +1445,7 @@ public class UmbracoManagementClientTests
         );
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.DoesNotContain(handler.Requests, u => u.AbsolutePath.EndsWith("/member"));
     }
 

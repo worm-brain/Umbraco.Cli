@@ -51,7 +51,6 @@ public static class ContentTypesCreateCommand
                 RawBodyCommand.RunCreateAsync(
                     executor,
                     parseResult,
-                    "content-types.create",
                     SchemaNoun.DocumentTypes,
                     body,
                     idOpt,

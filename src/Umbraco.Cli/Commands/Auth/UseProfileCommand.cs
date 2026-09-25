@@ -1,4 +1,6 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
@@ -39,12 +41,20 @@ public static class UseProfileCommand
 
                 if (store.SetDefaultProfile(name))
                 {
-                    writer.WriteMessage($"Default profile set to '{name}'.");
+                    writer.WriteMessage(
+                        $"Default profile set to '{name}'.",
+                        CommandPath.Of(parseResult)
+                    );
                     return Task.FromResult(0);
                 }
 
-                writer.WriteError(2, $"No profile named '{name}'. See 'umbraco auth profiles'.");
-                return Task.FromResult(2);
+                writer.WriteError(
+                    ExitCode.Failed,
+                    FailureCategory.InvalidArgument,
+                    $"No profile named '{name}'. See 'umbraco auth profiles'.",
+                    CommandPath.Of(parseResult)
+                );
+                return Task.FromResult((int)ExitCode.Failed);
             }
         );
 

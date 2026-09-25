@@ -36,7 +36,6 @@ public static class ContentUnpublishCommand
                 var cultures = parseResult.GetValue(culturesOpt);
                 return executor.RunMessageAsync(
                     parseResult,
-                    "content.unpublish",
                     (client, c) =>
                         client.UnpublishContentAsync(
                             parseResult.GetValue(idArg),

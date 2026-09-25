@@ -32,7 +32,6 @@ public static class BlueprintFolderCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.folder.get",
                     (client, c) => client.GetBlueprintFolderAsync(parseResult.GetValue(idArg), c),
                     ct
                 )
@@ -66,7 +65,6 @@ public static class BlueprintFolderCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.folder.create",
                     (client, c) =>
                         client.CreateBlueprintFolderAsync(
                             new CreateBlueprintFolderRequest
@@ -100,7 +98,6 @@ public static class BlueprintFolderCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.folder.update",
                     (client, c) =>
                         client.UpdateBlueprintFolderAsync(
                             parseResult.GetValue(idArg),
@@ -126,7 +123,6 @@ public static class BlueprintFolderCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.folder.delete",
                     (client, c) =>
                         client.DeleteBlueprintFolderAsync(parseResult.GetValue(idArg), c),
                     "Folder deleted.",

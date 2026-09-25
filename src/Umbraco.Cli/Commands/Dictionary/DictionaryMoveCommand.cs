@@ -28,7 +28,6 @@ public static class DictionaryMoveCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "dictionary.move",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

@@ -39,7 +39,6 @@ public static class ContentCopyCommand
                 // every other create verb.
                 executor.RunObjectAsync(
                     parseResult,
-                    "content.copy",
                     (client, c) =>
                         client.CopyContentAsync(
                             parseResult.GetValue(idArg),

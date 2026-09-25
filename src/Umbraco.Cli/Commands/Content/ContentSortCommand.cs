@@ -41,7 +41,6 @@ public static class ContentSortCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content.sort",
                     async (client, c) =>
                     {
                         var parent = parseResult.GetValue(parentOpt);

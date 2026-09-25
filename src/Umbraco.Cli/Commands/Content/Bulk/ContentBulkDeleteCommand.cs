@@ -31,7 +31,6 @@ public static class ContentBulkDeleteCommand
             (parseResult, ct) =>
                 executor.RunBulkAsync(
                     parseResult,
-                    "content.bulk.delete",
                     () => BulkIds.Read(parseResult.GetValue(fileOpt)),
                     (client, id, c) => client.DeleteContentAsync(id, c),
                     ct

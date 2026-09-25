@@ -49,7 +49,6 @@ public static class MediaFindCommand
                 if (!string.IsNullOrWhiteSpace(path))
                     return executor.RunCompleteListAsync(
                         parseResult,
-                        "media.find",
                         (client, c) => client.FindMediaByPathAsync(path, c),
                         headers,
                         Row,
@@ -58,7 +57,6 @@ public static class MediaFindCommand
 
                 return executor.RunPagedAsync(
                     parseResult,
-                    "media.find",
                     (client, skip, take, c) =>
                         client.FindMediaByNameAsync(
                             parseResult.GetValue(nameOpt)!,

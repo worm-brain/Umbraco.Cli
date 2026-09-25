@@ -25,7 +25,6 @@ public static class TemplatesDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "templates.delete",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

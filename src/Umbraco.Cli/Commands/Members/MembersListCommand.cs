@@ -22,7 +22,6 @@ public static class MembersListCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "members.list",
                     (client, skip, take, c) =>
                         client.GetMembersAsync(parseResult.GetValue(groupOpt), skip, take, c),
                     ["ID", "Name", "Email", "Approved"],

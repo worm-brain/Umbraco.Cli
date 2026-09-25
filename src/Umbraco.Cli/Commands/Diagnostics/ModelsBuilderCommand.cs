@@ -25,7 +25,6 @@ public static class ModelsBuilderCommand
                 executor,
                 "dashboard",
                 "Show the models-builder dashboard status.",
-                "models-builder.dashboard",
                 (c, ct) => c.GetModelsBuilderDashboardAsync(ct)
             )
         );
@@ -34,7 +33,6 @@ public static class ModelsBuilderCommand
                 executor,
                 "status",
                 "Show whether the generated models are out of date.",
-                "models-builder.status",
                 (c, ct) => c.GetModelsBuilderStatusAsync(ct)
             )
         );
@@ -55,7 +53,6 @@ public static class ModelsBuilderCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "models-builder.build",
                     (client, c) => client.BuildModelsAsync(c),
                     "Models build triggered.",
                     ct

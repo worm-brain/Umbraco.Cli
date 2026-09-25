@@ -26,7 +26,6 @@ public static class DictionaryTreeCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "dictionary.tree",
                     (client, skip, take, c) =>
                         parentOpt.WithResolvedOptionalAsync(
                             parseResult,

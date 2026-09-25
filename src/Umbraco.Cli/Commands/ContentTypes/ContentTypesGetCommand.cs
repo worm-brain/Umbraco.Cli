@@ -26,7 +26,6 @@ public static class ContentTypesGetCommand
                 RawBodyCommand.RunGetAsync(
                     executor,
                     parseResult,
-                    "content-types.get",
                     SchemaNoun.DocumentTypes,
                     idArg,
                     ct

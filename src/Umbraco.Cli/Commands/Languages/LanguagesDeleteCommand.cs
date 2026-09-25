@@ -23,7 +23,6 @@ public static class LanguagesDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "languages.delete",
                     (client, c) => client.DeleteLanguageAsync(parseResult.GetValue(isoArg)!, c),
                     "Language removed.",
                     ct

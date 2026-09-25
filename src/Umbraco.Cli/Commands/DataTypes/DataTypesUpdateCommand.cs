@@ -38,7 +38,6 @@ public static class DataTypesUpdateCommand
                 RawBodyCommand.RunUpdateAsync(
                     executor,
                     parseResult,
-                    "data-types.update",
                     SchemaNoun.DataTypes,
                     options,
                     "Data type updated.",

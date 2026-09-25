@@ -45,7 +45,6 @@ public static class ContentRestoreCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content.restore",
                     (client, c) =>
                         client.RestoreContentAsync(
                             parseResult.GetValue(idArg),

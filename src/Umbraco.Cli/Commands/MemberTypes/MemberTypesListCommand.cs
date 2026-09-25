@@ -22,7 +22,6 @@ public static class MemberTypesListCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "member-types.list",
                     (client, skip, take, c) => client.GetMemberTypesAsync(skip, take, c),
                     ["ID", "Name", "Icon"],
                     i => new[] { i.Id.ToString(), i.Name, i.Icon ?? "" },

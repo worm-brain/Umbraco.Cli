@@ -51,7 +51,6 @@ public static class MediaFolderCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "media.folder.create",
                     (client, c) =>
                         client.CreateMediaFolderAsync(
                             parseResult.GetValue(nameOpt)!,

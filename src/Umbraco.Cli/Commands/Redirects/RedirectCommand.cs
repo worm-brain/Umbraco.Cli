@@ -48,7 +48,6 @@ public static class RedirectCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "redirect.list",
                     (client, skip, take, c) =>
                     {
                         return parseResult.GetValue(contentOpt) is { } key
@@ -78,7 +77,6 @@ public static class RedirectCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "redirect.status",
                     (client, c) => client.GetRedirectStatusAsync(c),
                     ct
                 )
@@ -96,7 +94,6 @@ public static class RedirectCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "redirect.delete",
                     (client, c) => client.DeleteRedirectAsync(parseResult.GetValue(idArg), c),
                     "Redirect deleted.",
                     ct
@@ -129,7 +126,6 @@ public static class RedirectCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    $"redirect.tracking.{verb}",
                     (client, c) => client.SetRedirectTrackingAsync(enabled, c),
                     $"URL-redirect tracking {(enabled ? "enabled" : "disabled")}.",
                     ct

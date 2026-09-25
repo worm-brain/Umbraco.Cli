@@ -32,7 +32,6 @@ public static class ContentBulkPublishCommand
                 var effective = cultures?.Length > 0 ? cultures : null;
                 return executor.RunBulkAsync(
                     parseResult,
-                    "content.bulk.publish",
                     () => BulkIds.Read(parseResult.GetValue(fileOpt)),
                     (client, id, c) => client.PublishContentAsync(id, effective, ct: c),
                     ct

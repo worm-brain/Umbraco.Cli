@@ -19,7 +19,6 @@ public static class DictionaryGetCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "dictionary.get",
                     (client, c) =>
                         client.GetDictionaryItemByKeyAsync(parseResult.GetValue(keyArg)!, c),
                     ct

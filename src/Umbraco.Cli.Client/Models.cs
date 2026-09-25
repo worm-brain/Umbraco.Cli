@@ -6,8 +6,10 @@ namespace Umbraco.Cli.Client;
 // ── Envelope ─────────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Why a client call failed, classified by <em>where</em> the failure was caught rather than
-/// guessed from the HTTP status (#152). The status code alone is a poor fault signal - a 400 can
+/// Why a command failed: the one set of <c>category</c> values in the error envelope
+/// (docs/conventions.md, section 7). The client sets the request categories, classified by
+/// <em>where</em> the failure was caught rather than guessed from the HTTP status (#152); the CLI
+/// sets the policy ones (not authenticated, allow-list, read-only, confirmation, refusal). The status code alone is a poor fault signal - a 400 can
 /// be the CLI's fault (a malformed request, e.g. #149) and a 500 can be the server's fault
 /// (e.g. #150) - so this gives a caller a machine-readable answer to "whose problem is this?".
 /// </summary>
@@ -39,6 +41,27 @@ public enum FailureCategory
     /// argument), so no request was sent (#203). Always the caller's to fix.
     /// </summary>
     InvalidArgument,
+
+    /// <summary>No host is configured, no credentials are stored, or authentication failed.</summary>
+    NotAuthenticated,
+
+    /// <summary>The command is not in the allow-list.</summary>
+    NotAllowed,
+
+    /// <summary>A write was blocked by <c>--readonly</c> / <c>UMBRACO_READONLY</c>.</summary>
+    ReadOnly,
+
+    /// <summary>A destructive command was run non-interactively without <c>--yes</c>.</summary>
+    ConfirmationRequired,
+
+    /// <summary>A pre-flight check refused the run (e.g. deleting an in-use type without <c>--force</c>).</summary>
+    Refused,
+
+    /// <summary>The caller declined the confirmation prompt.</summary>
+    Cancelled,
+
+    /// <summary>An unexpected error inside the CLI: a bug to report, not the caller's input.</summary>
+    Internal,
 }
 
 /// <summary>Wire-name mapping for <see cref="FailureCategory"/> (the string emitted in the JSON error envelope).</summary>
@@ -59,6 +82,13 @@ public static class FailureCategoryExtensions
             FailureCategory.ServerError => "server_error",
             FailureCategory.UnexpectedResponse => "unexpected_response",
             FailureCategory.InvalidArgument => "invalid_argument",
+            FailureCategory.NotAuthenticated => "not_authenticated",
+            FailureCategory.NotAllowed => "not_allowed",
+            FailureCategory.ReadOnly => "readonly",
+            FailureCategory.ConfirmationRequired => "confirmation_required",
+            FailureCategory.Refused => "refused",
+            FailureCategory.Cancelled => "cancelled",
+            FailureCategory.Internal => "internal",
             _ => null,
         };
 }

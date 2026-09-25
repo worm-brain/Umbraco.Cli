@@ -25,7 +25,6 @@ public static class MediaMoveCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "media.move",
                     (client, c) =>
                         client.MoveMediaAsync(
                             parseResult.GetValue(idArg),

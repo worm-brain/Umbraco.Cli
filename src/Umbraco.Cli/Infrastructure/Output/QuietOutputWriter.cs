@@ -1,3 +1,6 @@
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
+
 namespace Umbraco.Cli.Infrastructure.Output;
 
 /// <summary>
@@ -20,13 +23,13 @@ public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
 
     /// <inheritdoc />
     public void WriteError(
-        int exitCode,
+        ExitCode exitCode,
+        FailureCategory category,
         string message,
+        string? commandName,
         int? httpStatus = null,
-        string? category = null,
-        string? serverVersion = null,
-        string? commandName = null
-    ) => inner.WriteError(exitCode, message, httpStatus, category, serverVersion, commandName);
+        string? serverVersion = null
+    ) => inner.WriteError(exitCode, category, message, commandName, httpStatus, serverVersion);
 
     /// <inheritdoc />
     public void WriteTable(
@@ -53,8 +56,13 @@ public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
     }
 
     /// <inheritdoc />
-    public void WriteDryRun(string method, string url, string? body) =>
-        inner.WriteDryRun(method, url, body);
+    public void WriteDryRun(
+        string method,
+        string url,
+        string? body,
+        string? commandName,
+        long? durationMs = null
+    ) => inner.WriteDryRun(method, url, body, commandName, durationMs);
 
     /// <inheritdoc />
     public void WriteBulk(

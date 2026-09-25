@@ -96,7 +96,8 @@ public sealed record BulkSummary(int Succeeded, int Failed, int DryRun)
         : "success";
 
     /// <summary>The process exit code: <c>1</c> when any item failed, <c>0</c> otherwise.</summary>
-    public int ExitCode => Failed > 0 ? 1 : 0;
+    public int ExitCode =>
+        (int)(Failed > 0 ? Infrastructure.ExitCode.Failed : Infrastructure.ExitCode.Success);
 }
 
 /// <summary>Reads a captured request body for display in a dry-run preview.</summary>

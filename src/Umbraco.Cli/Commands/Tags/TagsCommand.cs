@@ -36,7 +36,6 @@ public static class TagsCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "tags.list",
                     (client, skip, take, c) =>
                         client.GetTagsAsync(
                             parseResult.GetValue(groupOpt),
