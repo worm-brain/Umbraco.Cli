@@ -31,6 +31,7 @@ public static class SchemaKinds
 /// entity the pipeline refuses to touch (e.g. an ambiguous data-type name), carrying a
 /// <see cref="SchemaEntityChange.Note"/> explaining why.
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<SchemaChangeKind>))]
 public enum SchemaChangeKind
 {
     /// <summary>Present in the snapshot, absent from the live instance — will be created.</summary>
@@ -63,16 +64,28 @@ public enum SchemaChangeKind
 /// snapshot's. Informational.
 /// </param>
 /// <param name="Note">A human explanation for a <see cref="SchemaChangeKind.Skipped"/> entity, else null.</param>
+/// <remarks>
+/// Serialized as it is (#229): <c>idMismatch</c> is a boolean, and an absent id or note is an
+/// explicit null rather than <c>""</c>, so every row has the same fields.
+/// </remarks>
 public sealed record SchemaEntityChange(
     string Kind,
     SchemaChangeKind Change,
     string Identity,
-    Guid? DesiredId,
-    Guid? CurrentId,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] Guid? DesiredId,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] Guid? CurrentId,
     bool IdMismatch = false,
-    string? Note = null
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? Note = null
 )
 {
+    /// <summary>
+    /// For a changed entity, the paths at which the snapshot body differs from the live one
+    /// (<see cref="JsonPathDiff"/>, #229), e.g. <c>properties.title.validation.mandatory</c>. Null
+    /// for an added, removed or skipped entity. Always serialized.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public IReadOnlyList<string>? Changes { get; init; }
+
     /// <summary>
     /// The snapshot body to create/update with. Not serialized into the <c>diff</c> output
     /// (bodies would bloat it) — it exists so <c>apply</c> can derive its writes from the same

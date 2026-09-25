@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
+using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -137,10 +138,14 @@ public static class ContentApplyCommand
                         // ctx.DryRun is honoured inside the applier so the *whole* plan is previewed.
                         return await ContentApplier.ApplyAsync(ctx.Client, diff.Data!, options, c);
                     },
+                    // #229: the action records themselves, so structured output carries real nulls
+                    // and a cultures array rather than caption-keyed strings.
                     (ctx, result) =>
-                        ctx.Output.WriteTable(
+                        ctx.Output.WriteList(
+                            [.. result?.Actions ?? []],
                             new[] { "Operation", "Id", "Cultures", "Status" },
                             Rows(result),
+                            new ListPaging(result?.Actions.Count ?? 0, 0, null),
                             ctx.CommandName,
                             ctx.Stopwatch.ElapsedMilliseconds
                         ),

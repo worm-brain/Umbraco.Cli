@@ -603,45 +603,4 @@ public sealed class CommandExecutor
             _ => ListPaging.Unknown,
             ct
         );
-
-    /// <summary>
-    /// Renders a computed row report as a table.
-    /// <para>
-    /// For a list of entities use <see cref="RunPagedAsync"/> or
-    /// <see cref="RunCompleteListAsync{TItem}(ParseResult, string, Func{IUmbracoManagementClient, CancellationToken, Task{UmbracoResponse{IReadOnlyList{TItem}}}}, string[], Func{TItem, string[]}, CancellationToken)"/>,
-    /// which serialize the DTOs so structured output matches the matching <c>get</c> (#164).
-    /// This remains for results that are <i>not</i> a list of entities - <c>content diff</c> and
-    /// <c>schema diff</c>, whose rows are computed from a comparison and have no DTO to serialize
-    /// - where deriving the keys from the captions is the only shape there is.
-    /// </para>
-    /// </summary>
-    /// <typeparam name="T">The client result type.</typeparam>
-    /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
-    /// <param name="call">The client call.</param>
-    /// <param name="headers">Column headers, camelCased into field keys by structured writers.</param>
-    /// <param name="rows">Projects the result into rows.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The process exit code.</returns>
-    public Task<int> RunTableAsync<T>(
-        ParseResult parseResult,
-        string commandName,
-        Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
-        string[] headers,
-        Func<T?, IEnumerable<string[]>> rows,
-        CancellationToken ct
-    ) =>
-        RunAsync(
-            parseResult,
-            commandName,
-            call,
-            (ctx, data) =>
-                ctx.Output.WriteTable(
-                    headers,
-                    rows(data),
-                    ctx.CommandName,
-                    ctx.Stopwatch.ElapsedMilliseconds
-                ),
-            ct
-        );
 }

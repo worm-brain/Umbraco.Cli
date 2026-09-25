@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -30,7 +31,7 @@ public static class ContentDiffCommand
 
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunListAsync(
                     parseResult,
                     "content.diff",
                     (client, c) =>
@@ -39,8 +40,17 @@ public static class ContentDiffCommand
                             parseResult.GetValue(snapshotArg)!,
                             c
                         ),
-                    new[] { "Change", "Id", "Parent" },
-                    diff => Flatten(diff),
+                    Rows,
+                    new[] { "Change", "Id", "Parent", "Changes" },
+                    change =>
+                        [
+                            change.Change.ToString(),
+                            change.Id.ToString(),
+                            change.Parent?.ToString() ?? "",
+                            string.Join(", ", change.Changes ?? []),
+                        ],
+                    // A diff is complete by construction, so it can say so.
+                    diff => new ListPaging(Rows(diff).Count, 0, null),
                     ct
                 )
         );
@@ -49,27 +59,15 @@ public static class ContentDiffCommand
     }
 
     /// <summary>
-    /// Flattens a diff into one table row per reported change - added, changed, removed, and drifted
-    /// (advisory placement drift); unchanged documents are omitted to keep the output lean. In JSON
-    /// mode each row becomes an object keyed by the camelCased headers.
+    /// One row per reported change - added, changed, removed, and drifted (advisory placement
+    /// drift); unchanged documents are omitted to keep the output lean. Structured output
+    /// serializes the <see cref="ContentDocumentChange"/> records themselves (#229), so empty
+    /// fields are null rather than <c>""</c> and each row carries its <c>changes</c>.
     /// </summary>
     /// <param name="diff">The computed diff, or null on an (unexpected) empty result.</param>
     /// <returns>The rows, one per change.</returns>
-    private static IEnumerable<string[]> Flatten(ContentDiff? diff)
-    {
-        if (diff is null)
-            yield break;
-
-        foreach (
-            var change in diff.Added.Concat(diff.Changed).Concat(diff.Removed).Concat(diff.Drifted)
-        )
-        {
-            yield return
-            [
-                change.Change.ToString(),
-                change.Id.ToString(),
-                change.Parent?.ToString() ?? "",
-            ];
-        }
-    }
+    private static IReadOnlyList<ContentDocumentChange> Rows(ContentDiff? diff) =>
+        diff is null
+            ? []
+            : [.. diff.Added.Concat(diff.Changed).Concat(diff.Removed).Concat(diff.Drifted)];
 }

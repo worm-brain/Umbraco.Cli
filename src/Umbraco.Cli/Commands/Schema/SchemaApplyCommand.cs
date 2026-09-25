@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
+using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Schema;
 
@@ -97,10 +98,13 @@ public static class SchemaApplyCommand
                             c
                         );
                     },
+                    // #229: the action records themselves, so structured output carries real nulls.
                     (ctx, result) =>
-                        ctx.Output.WriteTable(
+                        ctx.Output.WriteList(
+                            [.. result?.Actions ?? []],
                             new[] { "Operation", "Kind", "Identity", "Id", "Status" },
                             Rows(result),
+                            new ListPaging(result?.Actions.Count ?? 0, 0, null),
                             ctx.CommandName,
                             ctx.Stopwatch.ElapsedMilliseconds
                         ),

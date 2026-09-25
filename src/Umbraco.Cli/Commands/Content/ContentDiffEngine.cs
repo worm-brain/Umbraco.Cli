@@ -52,10 +52,11 @@ public static class ContentDiffEngine
             matchedLiveIds.Add(d.Id);
             // Normalised on both sides at compare time, not at export, so a snapshot written by an
             // older CLI (verbatim bodies) still compares clean (#224).
-            var bodyDiffers = !JsonNode.DeepEquals(
+            var bodyChanges = JsonPathDiff.Paths(
                 ContentBodyNormaliser.Normalise(d.Body),
                 ContentBodyNormaliser.Normalise(live.Body)
             );
+            var bodyDiffers = bodyChanges.Count > 0;
             var parentDiffers = d.Parent != live.Parent;
             // State is compared on the verbatim bodies (the normaliser drops it), so a state-only
             // difference is a publish step with no update (#223).
@@ -73,6 +74,7 @@ public static class ContentDiffEngine
                         BodyChanged = bodyDiffers,
                         State = state,
                         Order = order,
+                        Changes = [.. bodyChanges, .. StateChanges(state)],
                     }
                 );
             }
@@ -80,7 +82,12 @@ public static class ContentDiffEngine
             {
                 // Body identical, only placement differs. Advisory: reported but never applied (an
                 // update would be a no-op that leaves the drift, so it must not enter the plan).
-                drifted.Add(new ContentDocumentChange(ContentChangeKind.Drifted, d.Id, d.Parent));
+                drifted.Add(
+                    new ContentDocumentChange(ContentChangeKind.Drifted, d.Id, d.Parent)
+                    {
+                        Changes = ["parent"],
+                    }
+                );
             }
             else
             {
@@ -103,6 +110,14 @@ public static class ContentDiffEngine
             LiveParents = currentById.ToDictionary(kv => kv.Key, kv => kv.Value.Parent),
         };
     }
+
+    /// <summary>The <c>changes</c> entries for a document's publish/unpublish steps (#229).</summary>
+    /// <param name="state">The state steps.</param>
+    /// <returns><c>state[culture]</c> per culture, or <c>state</c> for an invariant document.</returns>
+    private static IEnumerable<string> StateChanges(ContentPublishState.Steps state) =>
+        state
+            .Publish.Concat(state.Unpublish)
+            .Select(culture => culture is null ? "state" : $"state[{culture}]");
 
     /// <summary>Reads <c>documentType.id</c> from a document body, or null when it is absent.</summary>
     /// <param name="body">The verbatim document body.</param>

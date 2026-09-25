@@ -96,8 +96,9 @@ differs. The flow:
      serialized from the items themselves so it matches the matching `get`; the `headers` + `row`
      projection is for the human table only. Never derive JSON keys from a column caption - that
      is what produced `"published": "True"` against `get`'s `"isPublished": true` (#164).
-   - `RunTableAsync` - a computed row report with no DTO behind it (`content diff`,
-     `schema diff`). Its keys *are* derived from the captions, because there is nothing else.
+   - `RunListAsync` - the general form, for a list that is not the client's own list type:
+     `content diff` and `schema diff` serialize their change records through it (#229), so a
+     computed report still gets real types rather than caption-keyed strings.
    - `RunMessageAsync` - fixed success message (for delete/publish-style calls).
 
 4. **`CommandExecutor.RunAsync`** is the single place that: builds the `CommandContext` (via

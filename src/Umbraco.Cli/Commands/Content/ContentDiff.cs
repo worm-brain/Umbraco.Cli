@@ -3,7 +3,8 @@ using System.Text.Json.Serialization;
 
 namespace Umbraco.Cli.Commands.Content;
 
-/// <summary>How a document in the desired snapshot relates to the live instance.</summary>
+/// <summary>How a document in the desired snapshot relates to the live instance. Serialized by name (#229).</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ContentChangeKind>))]
 public enum ContentChangeKind
 {
     /// <summary>In the snapshot, absent live - apply creates it (with its snapshot id and parent).</summary>
@@ -35,9 +36,22 @@ public enum ContentChangeKind
 /// </summary>
 /// <param name="Change">The kind of change.</param>
 /// <param name="Id">The document id the change targets.</param>
-/// <param name="Parent">The desired parent id (for a create); null at the content root.</param>
-public sealed record ContentDocumentChange(ContentChangeKind Change, Guid Id, Guid? Parent = null)
+/// <param name="Parent">The desired parent id; null at the content root and for a removed document. Always serialized, as null when empty (#229).</param>
+public sealed record ContentDocumentChange(
+    ContentChangeKind Change,
+    Guid Id,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] Guid? Parent = null
+)
 {
+    /// <summary>
+    /// What differs, as paths into the normalised body (<see cref="JsonPathDiff"/>), plus
+    /// <c>state[culture]</c> (<c>state</c> when invariant) for each culture apply publishes or
+    /// unpublishes, and <c>parent</c> for a drift (#229). Null for an added or removed document,
+    /// where the whole document is the change. Always serialized.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public IReadOnlyList<string>? Changes { get; init; }
+
     /// <summary>
     /// The desired document body carried through to apply for a create/update. Not serialized into
     /// the diff output (which is a summary), only used by <see cref="ContentApplier"/>.

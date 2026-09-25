@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Schema;
 
@@ -31,7 +32,7 @@ public static class SchemaDiffCommand
 
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunListAsync(
                     parseResult,
                     "schema.diff",
                     (client, c) =>
@@ -40,6 +41,7 @@ public static class SchemaDiffCommand
                             parseResult.GetValue(snapshotArg)!,
                             c
                         ),
+                    Rows,
                     new[]
                     {
                         "Kind",
@@ -49,8 +51,21 @@ public static class SchemaDiffCommand
                         "Current Id",
                         "Id Mismatch",
                         "Note",
+                        "Changes",
                     },
-                    diff => Flatten(diff),
+                    change =>
+                        [
+                            change.Kind,
+                            change.Change.ToString(),
+                            change.Identity,
+                            change.DesiredId?.ToString() ?? "",
+                            change.CurrentId?.ToString() ?? "",
+                            change.IdMismatch ? "yes" : "",
+                            change.Note ?? "",
+                            string.Join(", ", change.Changes ?? []),
+                        ],
+                    // A diff is complete by construction, so it can say so.
+                    diff => new ListPaging(Rows(diff).Count, 0, null),
                     ct
                 )
         );
@@ -59,46 +74,26 @@ public static class SchemaDiffCommand
     }
 
     /// <summary>
-    /// Flattens a diff into one table row per actionable change (added, changed, removed,
-    /// skipped) across all three kinds; unchanged entities are omitted to keep the output lean.
-    /// In JSON mode each row becomes an object keyed by the camelCased headers.
+    /// One row per actionable change (added, changed, removed, skipped) across all five kinds;
+    /// unchanged entities are omitted to keep the output lean. Structured output serializes the
+    /// <see cref="SchemaEntityChange"/> records themselves (#229).
     /// </summary>
     /// <param name="diff">The computed diff, or null on an (unexpected) empty result.</param>
     /// <returns>The rows, one per change.</returns>
-    private static IEnumerable<string[]> Flatten(SchemaDiff? diff)
-    {
-        if (diff is null)
-            yield break;
-
-        foreach (
-            var kind in new[]
-            {
-                diff.DocumentTypes,
-                diff.MediaTypes,
-                diff.MemberTypes,
-                diff.DataTypes,
-                diff.Templates,
-            }
-        )
-        {
-            foreach (
-                var change in kind
-                    .Added.Concat(kind.Changed)
-                    .Concat(kind.Removed)
-                    .Concat(kind.Skipped)
-            )
-            {
-                yield return
-                [
-                    change.Kind,
-                    change.Change.ToString(),
-                    change.Identity,
-                    change.DesiredId?.ToString() ?? "",
-                    change.CurrentId?.ToString() ?? "",
-                    change.IdMismatch ? "yes" : "",
-                    change.Note ?? "",
-                ];
-            }
-        }
-    }
+    private static IReadOnlyList<SchemaEntityChange> Rows(SchemaDiff? diff) =>
+        diff is null
+            ? []
+            :
+            [
+                .. new[]
+                {
+                    diff.DocumentTypes,
+                    diff.MediaTypes,
+                    diff.MemberTypes,
+                    diff.DataTypes,
+                    diff.Templates,
+                }.SelectMany(kind =>
+                    kind.Added.Concat(kind.Changed).Concat(kind.Removed).Concat(kind.Skipped)
+                ),
+            ];
 }

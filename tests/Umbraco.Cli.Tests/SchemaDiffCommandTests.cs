@@ -113,6 +113,38 @@ public class SchemaDiffCommandTests
     }
 
     [Fact]
+    public async Task Diff_ChangedEntity_IsATypedRowNamingTheChange()
+    {
+        // #229: a boolean idMismatch, a null note, and the changed field by name.
+        var id = Guid.NewGuid();
+        var path = WriteSnapshot(id, "blogPost", "Blog Post");
+        var fake = new FakeUmbracoManagementClient();
+        fake.DocumentTypeList.Add(new DocumentTypeResponse { Id = id, Alias = "blogPost" });
+        fake.DocumentTypeRaw[id] = JsonNode.Parse(
+            $$"""{"id":"{{id}}","alias":"blogPost","name":"Blog"}"""
+        )!;
+
+        try
+        {
+            var (stdout, _) = await Run(
+                BuildRoot(fake),
+                $"--host https://x --token t --output json schema diff {path}"
+            );
+
+            using var doc = JsonDocument.Parse(stdout);
+            var row = Assert.Single(doc.RootElement.GetProperty("data").EnumerateArray());
+            Assert.Equal(
+                $$"""{"kind":"documentType","change":"Changed","identity":"blogPost","desiredId":"{{id}}","currentId":"{{id}}","idMismatch":false,"note":null,"changes":["name"]}""",
+                JsonSerializer.Serialize(row)
+            );
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public async Task Diff_InstanceMatchesSnapshot_ReportsNoChanges()
     {
         var id = Guid.NewGuid();

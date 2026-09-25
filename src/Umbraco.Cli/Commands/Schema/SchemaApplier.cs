@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.Schema;
@@ -18,7 +19,7 @@ public sealed record SchemaAction(
     string Operation,
     string Kind,
     string Identity,
-    Guid? Id,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] Guid? Id,
     string Status
 );
 

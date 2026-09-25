@@ -157,10 +157,11 @@ public static class SchemaDiffEngine
 
     /// <summary>
     /// Classifies a matched desired/live pair as Changed (bodies differ) or Unchanged. A change
-    /// carries the desired body (for apply) and the live id (the update target). Body comparison
-    /// uses <see cref="JsonNode.DeepEquals(JsonNode?, JsonNode?)"/> — order-insensitive for
-    /// object members, order-sensitive for arrays — so two <c>GET</c> bodies of the same
-    /// unchanged entity compare equal regardless of the field order the server emitted.
+    /// carries the desired body (for apply), the live id (the update target) and the paths that
+    /// differ. <see cref="JsonPathDiff"/> is empty exactly when the bodies are
+    /// <see cref="JsonNode.DeepEquals(JsonNode?, JsonNode?)"/> — order-insensitive for object
+    /// members, order-sensitive for arrays — so two <c>GET</c> bodies of the same unchanged entity
+    /// compare equal regardless of the field order the server emitted.
     /// </summary>
     /// <param name="kind">The entity-kind tag.</param>
     /// <param name="desired">The desired-side entry.</param>
@@ -177,7 +178,8 @@ public static class SchemaDiffEngine
         ref int unchanged
     )
     {
-        if (JsonNode.DeepEquals(desired.Body, current.Body))
+        var changes = JsonPathDiff.Paths(desired.Body, current.Body);
+        if (changes.Count == 0)
         {
             unchanged++;
             return;
@@ -194,6 +196,7 @@ public static class SchemaDiffEngine
             )
             {
                 DesiredBody = desired.Body,
+                Changes = changes,
             }
         );
     }

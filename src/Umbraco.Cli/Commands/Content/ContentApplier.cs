@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.Content;
@@ -17,7 +18,9 @@ public sealed record ContentAction(string Operation, Guid Id, string Status)
     /// <summary>
     /// For a publish or unpublish of a culture-variant document, the cultures it acts on. Null for
     /// every other step, and for an invariant document (the call covers the whole document).
+    /// Always serialized, as null when empty (#229).
     /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public IReadOnlyList<string>? Cultures { get; init; }
 }
 
