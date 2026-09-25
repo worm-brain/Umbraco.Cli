@@ -137,4 +137,77 @@ public class ContentPublishWireTests
         Assert.Contains("2026-01-01", schedule["publishTime"]!.GetValue<string>());
         Assert.Contains("2026-02-01", schedule["unpublishTime"]!.GetValue<string>());
     }
+
+    // ── unpublish mirrors publish (#235) ──────────────────────────────────────
+
+    /// <summary>Returns the captured unpublish PUT body, parsed.</summary>
+    /// <param name="handler">The handler that captured the exchange.</param>
+    /// <returns>The body object.</returns>
+    private static JsonObject UnpublishBody(RoutingHandler handler) =>
+        JsonNode
+            .Parse(
+                handler.BodyForFirst(r =>
+                    r.Uri.AbsoluteUri.Contains("/unpublish", StringComparison.OrdinalIgnoreCase)
+                )
+            )!
+            .AsObject();
+
+    [Fact]
+    public async Task UnpublishContentAsync_VariantDocumentWithNoCulturesNamed_ListsItsCultures()
+    {
+        var id = Guid.NewGuid();
+        var handler = Handler(id, "en-US", "da-DK");
+        var client = Wire.Client(handler);
+
+        var result = await client.UnpublishContentAsync(id, ct: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var cultures = UnpublishBody(handler)["cultures"]!
+            .AsArray()
+            .Select(c => c!.GetValue<string>())
+            .ToList();
+        Assert.Equal(["en-US", "da-DK"], cultures);
+    }
+
+    [Fact]
+    public async Task UnpublishContentAsync_InvariantDocumentWithNoCulturesNamed_OmitsTheField()
+    {
+        var id = Guid.NewGuid();
+        var handler = Handler(id);
+        var client = Wire.Client(handler);
+
+        await client.UnpublishContentAsync(id, ct: CancellationToken.None);
+
+        Assert.False(
+            UnpublishBody(handler).ContainsKey("cultures"),
+            "An invariant document is unpublished whole by omitting cultures (#149)."
+        );
+    }
+
+    [Fact]
+    public async Task UnpublishContentAsync_ExplicitCultures_DoesNotReadTheDocument()
+    {
+        var id = Guid.NewGuid();
+        var handler = Handler(id, "en-US");
+        var client = Wire.Client(handler);
+
+        await client.UnpublishContentAsync(id, ["en-US"], CancellationToken.None);
+
+        handler.AssertNoRequest(HttpMethod.Get, $"/document/{id}");
+    }
+
+    [Fact]
+    public async Task UnpublishContentAsync_DocumentReadFails_ReturnsTheFailureWithoutUnpublishing()
+    {
+        var id = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.NotFound, "")
+            .When(r => r.Method == HttpMethod.Put, HttpStatusCode.OK, "");
+        var client = Wire.Client(handler);
+
+        var result = await client.UnpublishContentAsync(id, ct: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        handler.AssertNoRequest(HttpMethod.Put, $"/document/{id}/unpublish");
+    }
 }

@@ -620,44 +620,19 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// The cultures to publish when the caller named none: every culture the document varies by,
-    /// or a single <c>null</c> culture when it is invariant. Reading the document is what makes
-    /// "publish all" work without a wildcard - see <see cref="PublishContentAsync"/>.
-    /// </summary>
-    /// <param name="id">The document id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The culture codes to publish; a single-element list containing null when invariant.</returns>
-    private async Task<List<string?>> DocumentCulturesAsync(Guid id, CancellationToken ct)
-    {
-        var document = await _api
-            .Umbraco.Management.Api.V1.Document[id]
-            .GetAsync(cancellationToken: ct);
-        var cultures = (document?.Variants ?? [])
-            .Select(v => v.Culture)
-            .Where(c => !string.IsNullOrEmpty(c))
-            .Distinct()
-            .ToList();
-
-        // An invariant document has a single variant with a null culture, and that null is what
-        // the publish body must carry - "*" would be wrong for a variant document and is merely
-        // redundant here.
-        return cultures.Count > 0 ? cultures : [null];
-    }
-
-    /// <summary>
     /// Unpublishes a content item via <c>PUT document/{id}/unpublish</c> (generated client, #79).
     /// The unpublish payload is a plain list of cultures (distinct from publish's schedule list).
-    /// When no cultures are given the <c>cultures</c> field is omitted, which unpublishes the whole
-    /// document. Note that <c>"*"</c> is not a wildcard anywhere in this API - it is the invariant
-    /// culture (#158) - so it must not be used to mean "everything" here either: sending
-    /// <c>["*"]</c> against an invariant document is rejected with HTTP 400 "Cannot publish a given
-    /// culture when the document is invariant." Omitting the field is the correct way to unpublish
-    /// all cultures for both invariant and variant documents (#149, found in alpha.8 acceptance
-    /// testing). Publish reaches the same end differently, by enumerating the document's cultures -
-    /// see <see cref="PublishContentAsync"/>.
+    /// <para>
+    /// When no cultures are given, the document is read and the call mirrors publish (#235): a
+    /// document that varies by culture gets every culture it has listed, because Umbraco 17.7
+    /// rejects a culture-less body on it with <c>400 "Cannot publish invariant culture when the
+    /// document varies by culture."</c>. An invariant document gets the <c>cultures</c> field
+    /// omitted, which is how it is unpublished whole (#149). <c>"*"</c> is never sent: it is the
+    /// invariant culture, not a wildcard (#158).
+    /// </para>
     /// </summary>
     /// <param name="id">The content item id.</param>
-    /// <param name="cultures">Specific cultures to unpublish; null/empty unpublishes the whole document.</param>
+    /// <param name="cultures">Specific cultures to unpublish; null/empty unpublishes every culture the document has.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     public Task<UmbracoResponse<Empty>> UnpublishContentAsync(
@@ -669,12 +644,16 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var body = new Gen.UnpublishDocumentRequestModel
+                var requested = cultures?.ToList();
+                if (requested is not { Count: > 0 })
                 {
-                    // Null (not ["*"]): a null cultures list unpublishes the whole document. See
-                    // the summary - "*" is the invariant culture, not a wildcard, and 400s here.
-                    Cultures = cultures?.ToList(),
-                };
+                    // Nothing named: a variant document needs its cultures listed, an invariant
+                    // one needs the field omitted ([null] from the helper means invariant).
+                    var targets = await DocumentCulturesAsync(id, ct);
+                    requested = targets[0] is null ? null : targets.Select(c => c!).ToList();
+                }
+
+                var body = new Gen.UnpublishDocumentRequestModel { Cultures = requested };
                 await _api
                     .Umbraco.Management.Api.V1.Document[id]
                     .Unpublish.PutAsync(body, cancellationToken: ct);
