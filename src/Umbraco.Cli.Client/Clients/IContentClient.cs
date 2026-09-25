@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 namespace Umbraco.Cli.Client;
 
 /// <summary>Document (content) CRUD plus publish/unpublish.</summary>
@@ -95,9 +97,12 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
-    /// <summary>Lists the version history of a document (issue #58).</summary>
+    /// <summary>
+    /// Lists the version history of a document (issue #58). With no culture, a document that
+    /// varies by culture is listed across every culture it has, each row tagged (#209).
+    /// </summary>
     /// <param name="documentId">The document whose versions to list.</param>
-    /// <param name="culture">Culture to filter versions by; null for the invariant/default.</param>
+    /// <param name="culture">Culture to list versions for; null lists every culture the document has.</param>
     /// <param name="skip">Number of items to skip (paging).</param>
     /// <param name="take">Maximum number of items to return.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -107,6 +112,15 @@ public interface IContentClient
         string? culture = null,
         int skip = 0,
         int take = 20,
+        CancellationToken ct = default
+    );
+
+    /// <summary>Reads one version of a document, values included, as raw JSON (#209).</summary>
+    /// <param name="versionId">The version id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The version body, or a mapped failure.</returns>
+    Task<UmbracoResponse<JsonNode>> GetDocumentVersionAsync(
+        Guid versionId,
         CancellationToken ct = default
     );
 
@@ -127,14 +141,17 @@ public interface IContentClient
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> TrashContentAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Restores a document from the recycle bin (issue #67).</summary>
+    /// <summary>
+    /// Restores a document from the recycle bin (issue #67). With no parent it goes back under the
+    /// parent it was trashed from (#230).
+    /// </summary>
     /// <param name="id">The trashed document id.</param>
-    /// <param name="parentId">Target parent to restore under; null restores to the root.</param>
+    /// <param name="target">Where to restore to; null means <see cref="RestoreTarget.Original"/>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> RestoreContentAsync(
         Guid id,
-        Guid? parentId = null,
+        RestoreTarget? target = null,
         CancellationToken ct = default
     );
 

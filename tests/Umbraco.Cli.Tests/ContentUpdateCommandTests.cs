@@ -85,6 +85,60 @@ public class ContentUpdateCommandTests
 
     private static readonly Guid Id = Guid.Parse("3f7a8b2e-1234-5678-abcd-ef0123456789");
 
+    // content restore shares this harness too (#230).
+
+    [Fact]
+    public async Task Restore_ToRoot_AsksTheClientForTheRoot()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        await RunAsync(fake, $"content restore {Id} --to-root", "{}");
+
+        Assert.Equal((Id, RestoreTarget.Root), fake.LastRestore);
+    }
+
+    [Fact]
+    public async Task Restore_ParentAndToRoot_IsRefusedBeforeTheClientIsCalled()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(
+            fake,
+            $"content restore {Id} --parent {Guid.NewGuid()} --to-root",
+            "{}"
+        );
+
+        Assert.NotEqual(0, exit);
+        Assert.Null(fake.LastRestore);
+    }
+
+    // content create shares this harness: --culture (#228) is a flag on the same noun.
+
+    [Fact]
+    public async Task Create_WithCulture_PutsItOnTheVariant()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(
+            fake,
+            "content create --content-type blogPost --name Post --culture da-DK",
+            "{}"
+        );
+
+        Assert.Equal(0, exit);
+        Assert.Equal("da-DK", Assert.Single(fake.LastCreate!.Variants).Culture);
+    }
+
+    [Fact]
+    public async Task Create_WithoutCulture_LeavesItForTheClientToDefault()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        await RunAsync(fake, "content create --content-type blogPost --name Post", "{}");
+
+        Assert.Null(Assert.Single(fake.LastCreate!.Variants).Culture);
+    }
+
     [Fact]
     public async Task Update_WithoutReplace_AsksTheClientToMerge()
     {

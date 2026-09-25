@@ -322,6 +322,7 @@ public class CommandParseTests
             "publish",
             "unpublish",
             "versions",
+            "version",
             "rollback",
             "trash",
             "restore",
@@ -458,12 +459,14 @@ public class CommandParseTests
     [InlineData("content unpublish 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content versions 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content versions 3f7a8b2e-1234-5678-abcd-ef0123456789 --culture en-US")]
+    [InlineData("content version 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content rollback 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content trash 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content restore 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData(
         "content restore 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 1a2b3c4d-1234-5678-abcd-ef0123456789"
     )]
+    [InlineData("content restore 3f7a8b2e-1234-5678-abcd-ef0123456789 --to-root")]
     [InlineData("content empty-recycle-bin")]
     [InlineData(
         "content move 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 1a2b3c4d-1234-5678-abcd-ef0123456789"

@@ -54,10 +54,25 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>The request of the last <see cref="CreateContentAsync"/> call (#228).</summary>
+    public CreateContentRequest? LastCreate { get; private set; }
+
+    /// <summary>Records the request and answers with a bare item carrying its id.</summary>
+    /// <param name="request">The create request.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A success carrying the request's id.</returns>
     public Task<UmbracoResponse<ContentItemResponse>> CreateContentAsync(
         CreateContentRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastCreate = request;
+        return Task.FromResult(
+            UmbracoResponse<ContentItemResponse>.Success(
+                new ContentItemResponse { Id = request.Id ?? Guid.NewGuid() }
+            )
+        );
+    }
 
     /// <summary>The (id, request, replace) of the last <see cref="UpdateContentAsync"/> call (#178/#179).</summary>
     public (Guid Id, UpdateContentRequest Request, bool Replace)? LastUpdate { get; private set; }
@@ -167,11 +182,23 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The (id, target) of the last <see cref="RestoreContentAsync"/> call (#230).</summary>
+    public (Guid Id, RestoreTarget? Target)? LastRestore { get; private set; }
+
+    /// <summary>Records the call and answers with a bare success.</summary>
+    /// <param name="id">The trashed document id.</param>
+    /// <param name="target">The requested target.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A bare success.</returns>
     public Task<UmbracoResponse<Empty>> RestoreContentAsync(
         Guid id,
-        Guid? parentId = null,
+        RestoreTarget? target = null,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastRestore = (id, target);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<Empty>> EmptyContentRecycleBinAsync(
         CancellationToken ct = default
@@ -312,6 +339,26 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         int take = 20,
         CancellationToken ct = default
     ) => throw new NotImplementedException();
+
+    /// <summary>Body returned by <see cref="GetDocumentVersionAsync"/>; the version ids read are in <see cref="CalledIds"/>.</summary>
+    public JsonNode? DocumentVersionBody { get; set; }
+
+    /// <summary>Returns <see cref="DocumentVersionBody"/>, or a 404 when unset.</summary>
+    /// <param name="versionId">The version id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The configured body, or a 404.</returns>
+    public Task<UmbracoResponse<JsonNode>> GetDocumentVersionAsync(
+        Guid versionId,
+        CancellationToken ct = default
+    )
+    {
+        CalledIds.Add(versionId);
+        return Task.FromResult(
+            DocumentVersionBody is { } body
+                ? UmbracoResponse<JsonNode>.Success(body)
+                : UmbracoResponse<JsonNode>.Failure(404, "Version not found.")
+        );
+    }
 
     public Task<UmbracoResponse<Empty>> RollbackDocumentVersionAsync(
         Guid versionId,

@@ -12,12 +12,14 @@ public static class ContentVersionsCommand
     {
         var cmd = new Command(
             "versions",
-            "List the version history of a content item.\n\nExamples:\n  umbraco content versions 3f7a8b2e-...\n  umbraco content versions 3f7a8b2e-... --culture en-US"
+            "List the version history of a content item. A culture-variant item is listed across all "
+                + "its cultures, each row tagged with its culture, unless --culture is given.\n\nExamples:\n  umbraco content versions 3f7a8b2e-...\n  umbraco content versions 3f7a8b2e-... --culture en-US"
         );
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         var cultureOpt = new Option<string?>("--culture")
         {
-            Description = "ISO culture code to filter versions by (e.g. en-US).",
+            Description =
+                "ISO culture code to list versions for (e.g. en-US). Lists every culture if omitted.",
         };
         cmd.Add(idArg);
         cmd.Add(cultureOpt);
@@ -35,11 +37,12 @@ public static class ContentVersionsCommand
                             take,
                             c
                         ),
-                    ["Version ID", "Date", "Draft", "Published"],
+                    ["Version ID", "Culture", "Date", "Draft", "Published"],
                     v =>
                         new[]
                         {
                             v.Id.ToString(),
+                            v.Culture ?? "",
                             v.VersionDate.ToString("u"),
                             v.IsCurrentDraftVersion ? "yes" : "",
                             v.IsCurrentPublishedVersion ? "yes" : "",

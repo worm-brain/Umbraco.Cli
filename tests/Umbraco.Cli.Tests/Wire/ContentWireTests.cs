@@ -221,7 +221,8 @@ public class ContentWireTests
         var parent = Guid.NewGuid();
         var handler = Wire.Blank();
 
-        await Wire.Client(handler).RestoreContentAsync(id, parent, CancellationToken.None);
+        await Wire.Client(handler)
+            .RestoreContentAsync(id, RestoreTarget.Under(parent), CancellationToken.None);
 
         Assert.Equal(
             parent.ToString(),
@@ -232,17 +233,89 @@ public class ContentWireTests
     }
 
     [Fact]
-    public async Task RestoreContentAsync_NoParent_SendsNoTargetObject()
+    public async Task RestoreContentAsync_ToRoot_SendsNoTargetObject()
     {
         var id = Guid.NewGuid();
         var handler = Wire.Blank();
 
-        await Wire.Client(handler).RestoreContentAsync(id, null, CancellationToken.None);
+        await Wire.Client(handler)
+            .RestoreContentAsync(id, RestoreTarget.Root, CancellationToken.None);
 
         Assert.False(
             handler
                 .BodyOf(HttpMethod.Put, $"/recycle-bin/document/{id}/restore")
                 .ContainsKey("target")
+        );
+    }
+
+    [Fact]
+    public async Task RestoreContentAsync_NoParent_RestoresUnderTheOriginalParent()
+    {
+        var id = Guid.NewGuid();
+        var original = Guid.NewGuid();
+        var handler = Wire.Routed(("/original-parent", $$"""{ "id": "{{original}}" }"""));
+
+        await Wire.Client(handler).RestoreContentAsync(id, ct: CancellationToken.None);
+
+        Assert.Equal(
+            original.ToString(),
+            handler.BodyOf(HttpMethod.Put, $"/recycle-bin/document/{id}/restore")["target"]![
+                "id"
+            ]!.GetValue<string>()
+        );
+    }
+
+    [Fact]
+    public async Task RestoreContentAsync_NoParentAndOriginallyAtTheRoot_SendsNoTargetObject()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Routed(("/original-parent", "null"));
+
+        await Wire.Client(handler).RestoreContentAsync(id, ct: CancellationToken.None);
+
+        Assert.False(
+            handler
+                .BodyOf(HttpMethod.Put, $"/recycle-bin/document/{id}/restore")
+                .ContainsKey("target")
+        );
+    }
+
+    [Fact]
+    public async Task RestoreContentAsync_WithParent_DoesNotAskForTheOriginalParent()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Blank();
+
+        await Wire.Client(handler)
+            .RestoreContentAsync(id, RestoreTarget.Under(Guid.NewGuid()), CancellationToken.None);
+
+        handler.AssertNoRequest(HttpMethod.Get, $"/recycle-bin/document/{id}/original-parent");
+    }
+
+    [Fact]
+    public async Task RestoreContentAsync_RejectedAtTheTarget_SaysWhereItWasGoing()
+    {
+        var id = Guid.NewGuid();
+        var original = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.RequestUri!.AbsolutePath.EndsWith("/original-parent"),
+                HttpStatusCode.OK,
+                $$"""{ "id": "{{original}}" }"""
+            )
+            .When(
+                _ => true,
+                HttpStatusCode.BadRequest,
+                """{ "title": "The attempted operation was not permitted", "status": 400 }"""
+            );
+
+        var result = await Wire.Client(handler).RestoreContentAsync(id, ct: CancellationToken.None);
+
+        Assert.Equal(
+            $"Umbraco would not restore {id} under {original} (its original parent): "
+                + "The attempted operation was not permitted. Its document type may not be allowed "
+                + "there; pass --parent <id> to restore it somewhere else.",
+            result.ErrorMessage
         );
     }
 
