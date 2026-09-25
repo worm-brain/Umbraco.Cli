@@ -445,7 +445,11 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<Empty>> DeleteMediaTypeAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        SchemaDeletedIds.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     // ── Schema list + delete (configurable for the export/diff/apply tests, #68) ──
     // The three schema list methods page over these backing lists (one page returns every
@@ -682,7 +686,22 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<Empty>> DeleteMemberTypeAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        SchemaDeletedIds.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>How many members each member type has; absent means none (#253).</summary>
+    public Dictionary<Guid, int> MemberCountsByType { get; } = [];
+
+    public Task<UmbracoResponse<int>> CountMembersOfTypeAsync(
+        Guid memberTypeId,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<int>.Success(MemberCountsByType.GetValueOrDefault(memberTypeId))
+        );
 
     public Task<UmbracoResponse<PagedResponse<UserResponse>>> GetUsersAsync(
         int skip = 0,
@@ -2042,10 +2061,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>Recorded data-type folder deletes.</summary>
     public List<Guid> DataTypeFoldersDeleted { get; } = [];
 
+    /// <summary>
+    /// Data types that report as in use, each with the property references
+    /// <c>referenced-by</c> returns for it (document type name, property name) (#246).
+    /// </summary>
+    public Dictionary<Guid, List<(string DocumentType, string Property)>> UsedDataTypes { get; } =
+    [];
+
     public Task<UmbracoResponse<bool>> IsDataTypeUsedAsync(Guid id, CancellationToken ct = default)
     {
         DataTypeIsUsedQueried.Add(id);
-        return Task.FromResult(UmbracoResponse<bool>.Success(false));
+        return Task.FromResult(UmbracoResponse<bool>.Success(UsedDataTypes.ContainsKey(id)));
     }
 
     public Task<UmbracoResponse<JsonNode>> GetDataTypeReferencedByRawAsync(
@@ -2053,12 +2079,26 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         int skip = 0,
         int take = 100,
         CancellationToken ct = default
-    ) =>
-        Task.FromResult(
+    )
+    {
+        // The Management API's shape: {total, items: [{$type, documentType: {name, ...}, name}]}.
+        var references = UsedDataTypes.GetValueOrDefault(id) ?? [];
+        var items = new JsonArray();
+        foreach (var (documentType, property) in references)
+            items.Add(
+                new JsonObject
+                {
+                    ["$type"] = "DocumentTypePropertyTypeReferenceResponseModel",
+                    ["documentType"] = new JsonObject { ["name"] = documentType },
+                    ["name"] = property,
+                }
+            );
+        return Task.FromResult(
             UmbracoResponse<JsonNode>.Success(
-                new JsonObject { ["total"] = 0, ["items"] = new JsonArray() }
+                new JsonObject { ["total"] = references.Count, ["items"] = items }
             )
         );
+    }
 
     public Task<UmbracoResponse<Empty>> CopyDataTypeAsync(
         Guid id,

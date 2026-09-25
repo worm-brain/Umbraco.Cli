@@ -13,10 +13,19 @@ public static class DataTypesDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a data type by UUID.\n\nExample:\n  umbraco data-types delete 3f7a8b2e-..."
+            "Delete a data type by UUID.\n\n"
+                + "A data type that is in use is refused unless --force is given: Umbraco deletes "
+                + "every property that uses it, and all the values in those properties, with it.\n\n"
+                + "Example:\n  umbraco data-types delete 3f7a8b2e-... --yes"
         );
         var idArg = new Argument<Guid>("id") { Description = "Data type ID." };
+        var forceOpt = new Option<bool>(InUseGuard.ForceOption)
+        {
+            Description =
+                "Delete even though the data type is in use, removing the properties that use it and their values.",
+        };
         cmd.Add(idArg);
+        cmd.Add(forceOpt);
         cmd.Destructive(parseResult =>
             $"Permanently delete data type {parseResult.GetValue(idArg)}? This cannot be undone."
         );
@@ -25,7 +34,16 @@ public static class DataTypesDeleteCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "data-types.delete",
-                    (client, c) => client.DeleteDataTypeAsync(parseResult.GetValue(idArg), c),
+                    async (client, c) =>
+                    {
+                        // #246: check before deleting - Umbraco cascades an in-use delete.
+                        var id = parseResult.GetValue(idArg);
+                        InUseGuard.Refuse(
+                            await InUseGuard.DataTypeAsync(client, id, c),
+                            parseResult.GetValue(forceOpt)
+                        );
+                        return await client.DeleteDataTypeAsync(id, c);
+                    },
                     "Data type deleted.",
                     ct
                 )

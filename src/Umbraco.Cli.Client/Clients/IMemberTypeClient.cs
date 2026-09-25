@@ -52,4 +52,16 @@ public interface IMemberTypeClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> DeleteMemberTypeAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Counts the members of a member type (<c>GET filter/member?memberTypeId</c>). Used before a
+    /// member-type delete, which Umbraco carries out by deleting every member of the type (#253).
+    /// </summary>
+    /// <param name="memberTypeId">The member type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The number of members of that type, or a mapped failure.</returns>
+    Task<UmbracoResponse<int>> CountMembersOfTypeAsync(
+        Guid memberTypeId,
+        CancellationToken ct = default
+    );
 }

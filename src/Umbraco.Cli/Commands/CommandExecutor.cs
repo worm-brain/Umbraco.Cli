@@ -182,6 +182,13 @@ public sealed class CommandExecutor
             );
             return 2;
         }
+        catch (SafetyRefusalException refused)
+        {
+            // The command checked and refused (e.g. deleting an in-use type without --force).
+            // Nothing was changed, so it is an abort (2), like a missing --yes (#246).
+            ctx.Output.WriteError(2, refused.Message, commandName: ctx.CommandName);
+            return 2;
+        }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             return 130; // 128 + SIGINT — distinct from a config abort (2)
