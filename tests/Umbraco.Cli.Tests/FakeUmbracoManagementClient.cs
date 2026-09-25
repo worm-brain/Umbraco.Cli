@@ -583,9 +583,6 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
-    /// <summary>The name or id passed to <see cref="GetDataTypeAsync"/>, for #159.</summary>
-    public string? LastDataTypeLookup { get; private set; }
-
     public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
