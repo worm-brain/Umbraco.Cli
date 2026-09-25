@@ -2434,12 +2434,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return new PagedResponse<MemberResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
-                    Items =
-                    [
-                        .. await Task.WhenAll(
-                            (paged?.Items ?? []).Select(i => LabelMemberAsync(MapMember(i), ct))
-                        ),
-                    ],
+                    Items = await LabelMembersAsync(
+                        [.. (paged?.Items ?? []).Select(MapMember)],
+                        ct
+                    ),
                 };
             }
         );

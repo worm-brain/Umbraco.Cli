@@ -346,6 +346,31 @@ public class MembersWireTests
     }
 
     [Fact]
+    public async Task GetMembersAsync_APage_ReadsTheGroupListOnce()
+    {
+        // A page used to label every member at once, each seeing an empty cache, so the group list
+        // was fetched once per member - and the label caches were written from several tasks.
+        var members = string.Join(
+            ",",
+            Enumerable.Range(0, 3).Select(_ => ExistingMember(Guid.NewGuid()))
+        );
+        var handler = Wire.Routed(
+            (
+                "tree/member-group/root",
+                $$"""{"total":1,"items":[{"id":"{{SubscribersGroup}}","name":"Subscribers"}]}"""
+            ),
+            ("member", $$"""{"total":3,"items":[{{members}}]}""")
+        );
+
+        await Wire.Client(handler).GetMembersAsync(ct: CancellationToken.None);
+
+        Assert.Single(
+            handler.Recordings,
+            r => r.Uri.AbsolutePath.EndsWith("/tree/member-group/root")
+        );
+    }
+
+    [Fact]
     public async Task GetMemberByIdAsync_ReturnsGroupsValuesAndUsername()
     {
         var id = Guid.NewGuid();

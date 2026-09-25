@@ -142,25 +142,26 @@ public sealed partial class UmbracoManagementClient
     private readonly Dictionary<Guid, string> _memberTypeAliasById = [];
 
     /// <summary>
-    /// Fills in what a member read carries only as ids (#212): the member type's alias, as
-    /// content reads already do (#163), and each group's name. Both come from caches that cost one
-    /// read per distinct type and one group list per client, so a whole page is cheap. A label that
-    /// cannot be read is left null rather than failing the member read.
+    /// Fills in what member reads carry only as ids (#212): each member type's alias, as content
+    /// reads already do (#163), and each group's name. The labels are read <b>once for the whole
+    /// batch</b> - one group list, one alias read per distinct member type, one after another - and
+    /// then applied, so a page of members neither repeats reads nor touches the caches from
+    /// several tasks at once. A label that cannot be read is left null rather than failing the read.
     /// </summary>
-    /// <param name="member">The mapped member.</param>
+    /// <param name="members">The mapped members.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The member with its labels.</returns>
-    private async Task<MemberResponse> LabelMemberAsync(MemberResponse member, CancellationToken ct)
+    /// <returns>The members with their labels, in the same order.</returns>
+    private async Task<List<MemberResponse>> LabelMembersAsync(
+        IReadOnlyList<MemberResponse> members,
+        CancellationToken ct
+    )
     {
-        var type = member.MemberType is { } mt
-            ? mt with
-            {
-                Alias = await MemberTypeAliasAsync(mt.Id, ct),
-            }
-            : null;
+        var aliases = new Dictionary<Guid, string?>();
+        foreach (var typeId in members.Select(m => m.MemberType?.Id).OfType<Guid>().Distinct())
+            aliases[typeId] = await MemberTypeAliasAsync(typeId, ct);
 
         List<ReferenceCandidate>? groups = null;
-        if (member.Groups?.Any() == true)
+        if (members.Any(m => m.Groups?.Any() == true))
         {
             try
             {
@@ -172,19 +173,38 @@ public sealed partial class UmbracoManagementClient
             }
         }
 
-        return member with
-        {
-            MemberType = type,
-            Groups = member
-                .Groups?.Select(g =>
-                    g with
-                    {
-                        Name = groups?.FirstOrDefault(c => c.Id == g.Id)?.Name,
-                    }
-                )
-                .ToList(),
-        };
+        return
+        [
+            .. members.Select(member =>
+                member with
+                {
+                    MemberType = member.MemberType is { } mt
+                        ? mt with
+                        {
+                            Alias = aliases.GetValueOrDefault(mt.Id),
+                        }
+                        : null,
+                    Groups = member
+                        .Groups?.Select(g =>
+                            g with
+                            {
+                                Name = groups?.FirstOrDefault(c => c.Id == g.Id)?.Name,
+                            }
+                        )
+                        .ToList(),
+                }
+            ),
+        ];
     }
+
+    /// <summary>Labels one member; see <see cref="LabelMembersAsync"/>.</summary>
+    /// <param name="member">The mapped member.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The member with its labels.</returns>
+    private async Task<MemberResponse> LabelMemberAsync(
+        MemberResponse member,
+        CancellationToken ct
+    ) => (await LabelMembersAsync([member], ct))[0];
 
     /// <summary>Resolves a member type's alias from its id (#212), cached for the client's life.</summary>
     /// <param name="id">The member type id.</param>
