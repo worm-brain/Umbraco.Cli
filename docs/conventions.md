@@ -148,7 +148,7 @@ Each exception is deliberate or tracked; don't copy it.
   yet).
 - `property-type is-used` is a top-level noun with one verb and no `list`/`get`.
 - Deletes that cascade without a `--force` guard (templates, languages, member groups, user
-  groups, dictionary items) - tracked in the issue that owns the rule in 5.2.
+  groups, dictionary items) - tracked in #269.
 
 ## Changelog
 
