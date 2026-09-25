@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.ContentTypes;
@@ -8,8 +9,8 @@ public static class ContentTypesDeleteCommand
 {
     /// <summary>
     /// Builds the <c>content-types delete</c> command: destructive, gated by confirmation, and
-    /// refused without <c>--force</c> because Umbraco deletes every document of the type with it
-    /// and cannot say how many there are (#253).
+    /// refused before confirmation unless <c>--force</c>, because Umbraco deletes every document
+    /// of the type with it and cannot say how many there are (#253).
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
@@ -23,12 +24,13 @@ public static class ContentTypesDeleteCommand
                 + "Example:\n  umbraco content-types delete 3f7a8b2e-... --force --yes"
         );
         var idArg = new Argument<Guid>("id");
-        var forceOpt = new Option<bool>(InUseGuard.ForceOption)
-        {
-            Description = "Delete the document type and every document of that type.",
-        };
         cmd.Add(idArg);
-        cmd.Add(forceOpt);
+        InUseGuard.Protect(
+            cmd,
+            SchemaKinds.DocumentType,
+            idArg,
+            "Delete the document type and every document of that type."
+        );
         cmd.Destructive(parseResult =>
             $"Permanently delete document type {parseResult.GetValue(idArg)}? This cannot be undone."
         );
@@ -37,15 +39,7 @@ public static class ContentTypesDeleteCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "content-types.delete",
-                    (client, c) =>
-                    {
-                        var id = parseResult.GetValue(idArg);
-                        InUseGuard.Refuse(
-                            InUseGuard.DocumentType(id),
-                            parseResult.GetValue(forceOpt)
-                        );
-                        return client.DeleteDocumentTypeAsync(id, c);
-                    },
+                    (client, c) => client.DeleteDocumentTypeAsync(parseResult.GetValue(idArg), c),
                     "Document type deleted.",
                     ct
                 )

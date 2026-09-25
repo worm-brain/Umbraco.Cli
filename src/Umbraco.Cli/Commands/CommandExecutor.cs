@@ -85,6 +85,24 @@ public sealed class CommandExecutor
         // happen silently. Skipped under --dry-run (the mutation is previewed, not sent) and
         // under --readonly (the write will be refused at the HTTP layer), so we never prompt to
         // confirm an operation that isn't going to execute anyway.
+        // Pre-flight refusal (#246, #253): e.g. deleting a type that content still uses. Checked
+        // before the confirmation prompt, so nobody confirms a delete only to have it refused. It
+        // also applies under --dry-run: the refusal is exactly what a real run would do.
+        string? refusal;
+        try
+        {
+            refusal = await CommandSafety.RefusalFor(parseResult, ctx.Client, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return 130;
+        }
+        if (refusal is not null)
+        {
+            ctx.Output.WriteError(2, refusal, commandName: ctx.CommandName);
+            return 2;
+        }
+
         var confirmationPrompt = CommandSafety.PromptFor(parseResult);
         if (confirmationPrompt is not null && !ctx.AssumeYes && !ctx.DryRun && !ctx.ReadOnly)
         {

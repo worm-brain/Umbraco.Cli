@@ -37,10 +37,21 @@ public class TypeDeleteGuardTests
         public bool Confirm(string message) => false;
     }
 
+    /// <summary>An interactive prompt that says yes, and records whether it was asked.</summary>
+    private sealed class RecordingYes : IConfirmationPrompt
+    {
+        public bool Asked { get; private set; }
+
+        public bool IsInteractive => true;
+
+        public bool Confirm(string message) => Asked = true;
+    }
+
     /// <summary>Runs a command line against <paramref name="fake"/>, returning its exit code and stderr.</summary>
     private static async Task<(int Exit, string Stderr)> Run(
         FakeUmbracoManagementClient fake,
-        string args
+        string args,
+        IConfirmationPrompt? prompt = null
     )
     {
         var stub = new StubHttpClientFactory();
@@ -53,7 +64,7 @@ public class TypeDeleteGuardTests
             new FakeClientFactory(fake),
             new MutationInterceptState()
         );
-        var executor = new CommandExecutor(factory, new NonInteractive());
+        var executor = new CommandExecutor(factory, prompt ?? new NonInteractive());
         var root = new RootCommand();
         global.AddTo(root);
         root.Add(DataTypesCommand.Build(executor));
@@ -109,6 +120,45 @@ public class TypeDeleteGuardTests
             .GetString();
         Assert.Contains("Blog Post > Categories", message);
         Assert.Contains("--force", message);
+    }
+
+    [Fact]
+    public async Task DataTypesDelete_InUse_IsRefusedBeforeTheUserIsAskedToConfirm()
+    {
+        // Review finding: the check ran after the prompt, so a user confirmed a delete that was
+        // then refused.
+        var fake = new FakeUmbracoManagementClient();
+        fake.UsedDataTypes[TypeId] = [("Blog Post", "Categories")];
+        var prompt = new RecordingYes();
+
+        var (exit, _) = await Run(fake, $"data-types delete {TypeId}", prompt);
+
+        Assert.Equal(2, exit);
+        Assert.False(prompt.Asked);
+    }
+
+    [Fact]
+    public async Task DataTypesDelete_NotInUse_AsksToConfirmAndDeletes()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var prompt = new RecordingYes();
+
+        var (exit, _) = await Run(fake, $"data-types delete {TypeId}", prompt);
+
+        Assert.Equal(0, exit);
+        Assert.True(prompt.Asked);
+    }
+
+    [Fact]
+    public async Task DataTypesDelete_InUseUnderDryRun_IsRefusedAsARealRunWouldBe()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.UsedDataTypes[TypeId] = [("Blog Post", "Categories")];
+
+        var (exit, _) = await Run(fake, $"--dry-run data-types delete {TypeId}");
+
+        Assert.Equal(2, exit);
+        Assert.Empty(fake.SchemaDeletedIds);
     }
 
     [Fact]

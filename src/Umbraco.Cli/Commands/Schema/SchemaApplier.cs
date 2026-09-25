@@ -152,15 +152,13 @@ public static class SchemaApplier
         var blocked = new Dictionary<Op, string>();
         foreach (var op in plan.Where(o => o.Operation == "delete"))
         {
-            var id = op.Change.CurrentId!.Value;
-            var reason = op.Change.Kind switch
-            {
-                SchemaKinds.DataType => await InUseGuard.DataTypeAsync(client, id, ct),
-                SchemaKinds.MemberType => await InUseGuard.MemberTypeAsync(client, id, ct),
-                SchemaKinds.DocumentType => InUseGuard.DocumentType(id),
-                SchemaKinds.MediaType => InUseGuard.MediaType(id),
-                _ => null,
-            };
+            // The same check the single deletes run, so a prune and a delete agree.
+            var reason = await InUseGuard.ReasonAsync(
+                client,
+                op.Change.Kind,
+                op.Change.CurrentId!.Value,
+                ct
+            );
             if (reason is not null)
                 blocked[op] = reason;
         }

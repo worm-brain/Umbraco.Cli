@@ -82,6 +82,46 @@ public static class CommandSafety
     public static string? DestructiveWhen(Command command) =>
         Declarations.TryGetValue(command, out var d) ? d.When : null;
 
+    // Pre-flight checks that can refuse a run before it is confirmed (#246, #253). Kept apart
+    // from the prompts: a check reads the server, a prompt does not.
+    private static readonly ConditionalWeakTable<
+        Command,
+        Func<ParseResult, Client.IUmbracoManagementClient, CancellationToken, Task<string?>>
+    > Refusals = new();
+
+    /// <summary>
+    /// Registers a check the executor runs after connecting and <b>before</b> the confirmation
+    /// prompt. A non-null result refuses the run (exit 2) with that message, so a caller is never
+    /// asked to confirm something that would then be refused.
+    /// </summary>
+    /// <typeparam name="TCommand">The command type, returned for chaining.</typeparam>
+    /// <param name="command">The leaf command.</param>
+    /// <param name="check">Returns why the run is refused, or null to let it proceed.</param>
+    /// <returns>The same command.</returns>
+    public static TCommand RefuseWhen<TCommand>(
+        this TCommand command,
+        Func<ParseResult, Client.IUmbracoManagementClient, CancellationToken, Task<string?>> check
+    )
+        where TCommand : Command
+    {
+        Refusals.AddOrUpdate(command, check);
+        return command;
+    }
+
+    /// <summary>Runs the parsed command's pre-flight check, if it has one.</summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="client">The client the check reads with.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Why the run is refused, or null.</returns>
+    public static Task<string?> RefusalFor(
+        ParseResult parseResult,
+        Client.IUmbracoManagementClient client,
+        CancellationToken ct
+    ) =>
+        Refusals.TryGetValue(parseResult.CommandResult.Command, out var check)
+            ? check(parseResult, client, ct)
+            : Task.FromResult<string?>(null);
+
     /// <summary>
     /// The confirmation prompt for the command that was parsed, or null when that command is not
     /// destructive (or this invocation of it is not).

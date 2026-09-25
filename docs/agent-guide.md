@@ -251,6 +251,12 @@ full auth story and profiles.
   `schema apply` are destructive only with `--prune`; the catalog says so with
   `"destructiveWhen": "--prune"`. Reversible writes - `move`, `copy`, `publish`,
   `redirect tracking enable` - never need `--yes`.
+- **Deleting a type that content uses needs `--force` as well as `--yes`.** `data-types delete`
+  (while in use), `member-types delete` (while it has members), and every `content-types` /
+  `media-types delete` (Umbraco cannot count their items) are refused with exit `2` unless
+  `--force` is given - checked **before** any confirmation prompt, and under `--dry-run` too,
+  since a refusal is what a real run would do. `schema apply --prune` applies the same check to
+  every type it would delete; its `--dry-run` plan marks those steps `needs --force`.
 - **Pipe request bodies via stdin** with `-`:
   ```bash
   cat body.json | umbraco content create --json-body -
