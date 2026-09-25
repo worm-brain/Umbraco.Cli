@@ -544,3 +544,22 @@ This changes `--yes` requirements on 5 commands.
 9. **Hidden aliases and deprecations.** Not needed yet, but D1 option A's hidden plural aliases will need a `deprecatedAliases` field so the catalog stays canonical.
 10. **Command aliases** (System.CommandLine `Command.Aliases`) are not emitted at all today.
 11. **`meta.command` value per command.** It is hand-typed in source and could differ from the path. A snapshot test asserting `meta.command == dotted path` for every leaf would pin it down before the renames.
+
+---
+
+## Decisions taken (2026-09-25)
+
+The maintainer accepted the recommendation on all eight. These are the inputs to `docs/conventions.md` and the batch.
+
+| # | Decision |
+|---|---|
+| D1 | **Singular nouns** everywhere (`media-type`, `user`, `template`, `language`, sub-noun `domain`...). Hidden plural aliases for one release; allow-list entries migrated or accepted in both forms (ADR 0007). |
+| D2 | **Keep `content`; types are `document-type`.** `content-types` becomes `document-type`, `--content-type` becomes `--document-type`. `document-blueprint` stays. |
+| D3 | **Multi-value options are singular and repeatable**: `--culture`, `--event`, `--id`, `--value`; `content/media sort --children` becomes `--order`. |
+| D4 | **Default `--take` is 100** on every paged command, from one constant in `PagingOptions`. |
+| D5 | **`--schema` means JSON Schema (offline) everywhere**; the live-entity example moves to a new `--example` on `content-types`/`data-types` create/update. |
+| D6 | **Variadic positionals** when ids are known up front (`user-groups delete <id>...`, `imaging resize-urls <id>...`); `delete-many` is removed; `content bulk` stays for stdin/file with per-item results. |
+| D7 | **Exit codes stay 0/1/2/130.** One `ExitCode` enum; every error carries a `category` (add `not_authenticated`, `not_allowed`, `confirmation_required`, `readonly`, `refused`, `cancelled`, `invalid_input`, `internal`). |
+| D8 | **Gate on loss or offline only**: `--replace` becomes `destructiveWhen` on `content update`, `document-blueprint update`, `content domains set`; `models-builder build` and `indexer rebuild` are ungated. |
+
+I3 (writes reported as reads) was fixed separately in d3f7c83.
