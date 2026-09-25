@@ -72,25 +72,47 @@ public static class SchemaApplier
     /// <param name="prune">When true, delete live entities the snapshot matched nothing to.</param>
     /// <param name="dryRun">When true, compute the plan and write nothing.</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <param name="force">When true, prune types even though content still uses them (#252).</param>
     /// <returns>The apply result, or the first write failure.</returns>
+    /// <exception cref="SafetyRefusalException">
+    /// A real (not dry-run) prune would delete a type still in use, and <paramref name="force"/> is false.
+    /// Nothing has been applied.
+    /// </exception>
     public static async Task<UmbracoResponse<SchemaApplyResult>> ApplyAsync(
         IUmbracoManagementClient client,
         SchemaDiff diff,
         bool prune,
         bool dryRun,
-        CancellationToken ct
+        CancellationToken ct,
+        bool force = false
     )
     {
         var plan = BuildPlan(diff, prune);
 
+        // #252: a pruned type that is still in use takes content with it (Umbraco cascades the
+        // delete). Check every planned delete before the first write, so a refusal applies
+        // nothing at all rather than stopping halfway.
+        var blocked = force ? [] : await InUseDeletesAsync(client, plan, ct);
+
         if (dryRun)
         {
-            // Preview only: report every step as "planned" and touch nothing.
-            var planned = plan.Select(op => op.ToAction("planned")).ToList();
+            // Preview only: report every step as "planned" and touch nothing. An in-use delete is
+            // marked so the preview shows what a real run would refuse.
+            var planned = plan.Select(op =>
+                    op.ToAction(blocked.ContainsKey(op) ? "needs --force" : "planned")
+                )
+                .ToList();
             return UmbracoResponse<SchemaApplyResult>.Success(
                 new SchemaApplyResult(DryRun: true, Pruned: prune, planned)
             );
         }
+
+        if (blocked.Count > 0)
+            throw new SafetyRefusalException(
+                $"Refusing to prune {blocked.Count} type(s) still in use: "
+                    + string.Join(" ", blocked.Values)
+                    + $" Nothing was applied. Re-run with {InUseGuard.ForceOption} to prune them anyway."
+            );
 
         // Execute in order, stopping at the first failure (fail-fast) so a dependency error does
         // not cascade. Steps already done are reported in the failure message.
@@ -114,6 +136,38 @@ public static class SchemaApplier
         return UmbracoResponse<SchemaApplyResult>.Success(
             new SchemaApplyResult(DryRun: false, Pruned: prune, done)
         );
+    }
+
+    /// <summary>
+    /// The planned deletes that would take content with them, each with the reason (#252).
+    /// Templates are not checked: deleting one leaves its content in place.
+    /// </summary>
+    /// <param name="client">The client to check with.</param>
+    /// <param name="plan">The ordered plan.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The blocked operations and why, in plan order.</returns>
+    private static async Task<Dictionary<Op, string>> InUseDeletesAsync(
+        IUmbracoManagementClient client,
+        IReadOnlyList<Op> plan,
+        CancellationToken ct
+    )
+    {
+        var blocked = new Dictionary<Op, string>();
+        foreach (var op in plan.Where(o => o.Operation == "delete"))
+        {
+            var id = op.Change.CurrentId!.Value;
+            var reason = op.Change.Kind switch
+            {
+                SchemaKinds.DataType => await InUseGuard.DataTypeAsync(client, id, ct),
+                SchemaKinds.MemberType => await InUseGuard.MemberTypeAsync(client, id, ct),
+                SchemaKinds.DocumentType => InUseGuard.DocumentType(id),
+                SchemaKinds.MediaType => InUseGuard.MediaType(id),
+                _ => null,
+            };
+            if (reason is not null)
+                blocked[op] = reason;
+        }
+        return blocked;
     }
 
     /// <summary>A single planned operation: the change plus which verb to run for it.</summary>

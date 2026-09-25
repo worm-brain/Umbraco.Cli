@@ -142,10 +142,37 @@ public class SchemaApplyCommandTests
     }
 
     [Fact]
-    public async Task Apply_Prune_WithYes_DeletesLiveOnlyEntity()
+    public async Task Apply_PruneWithForceAndYes_DeletesLiveOnlyEntity()
     {
         var liveId = Guid.NewGuid();
         // Snapshot contains a DIFFERENT doc type, so the live "legacy" one is a prune candidate.
+        // A document type always needs --force: its documents go with it (#252).
+        var path = WriteSnapshot(Guid.NewGuid(), "keep");
+        var fake = InstanceWith(liveId, "legacy");
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: false));
+
+        try
+        {
+            var exit = await Run(
+                root,
+                $"--host https://x --token t --output json schema apply {path} --prune --force --yes"
+            );
+
+            Assert.Equal(0, exit);
+            Assert.Contains(liveId, fake.SchemaDeletedIds);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Apply_PruneOfADocumentTypeWithoutForce_IsRefusedAndAppliesNothing()
+    {
+        // #252: pruning a document type deletes its documents. Refused before the first write,
+        // so the create for "keep" is not applied either.
+        var liveId = Guid.NewGuid();
         var path = WriteSnapshot(Guid.NewGuid(), "keep");
         var fake = InstanceWith(liveId, "legacy");
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: false));
@@ -157,11 +184,40 @@ public class SchemaApplyCommandTests
                 $"--host https://x --token t --output json schema apply {path} --prune --yes"
             );
 
-            Assert.Equal(0, exit);
-            Assert.Contains(liveId, fake.SchemaDeletedIds);
+            Assert.Equal(2, exit);
+            Assert.Empty(fake.SchemaDeletedIds);
+            Assert.Empty(fake.RawWrites);
         }
         finally
         {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Apply_PruneDryRun_MarksTheInUseDeleteInsteadOfRefusing()
+    {
+        var liveId = Guid.NewGuid();
+        var path = WriteSnapshot(Guid.NewGuid(), "keep");
+        var fake = InstanceWith(liveId, "legacy");
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: false));
+        var sw = new StringWriter();
+        var orig = Console.Out;
+        Console.SetOut(sw);
+
+        try
+        {
+            var exit = await root.Parse(
+                    $"--host https://x --token t --output json --dry-run schema apply {path} --prune"
+                )
+                .InvokeAsync();
+
+            Assert.Equal(0, exit);
+            Assert.Contains("needs --force", sw.ToString());
+        }
+        finally
+        {
+            Console.SetOut(orig);
             File.Delete(path);
         }
     }

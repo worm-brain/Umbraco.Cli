@@ -34,11 +34,19 @@ public static class SchemaApplyCommand
         var pruneOpt = new Option<bool>("--prune")
         {
             Description =
-                "Also DELETE live document types, data types, and templates that the snapshot "
-                + "does not contain. Destructive: requires --yes when non-interactive.",
+                "Also DELETE live document, media and member types, data types and templates that "
+                + "the snapshot does not contain. Destructive: requires --yes when non-interactive. "
+                + "A type still in use is refused unless --force is given.",
+        };
+        var forceOpt = new Option<bool>(InUseGuard.ForceOption)
+        {
+            Description =
+                "With --prune, delete types even though content still uses them. Umbraco deletes "
+                + "that content with them.",
         };
         cmd.Add(snapshotArg);
         cmd.Add(pruneOpt);
+        cmd.Add(forceOpt);
 
         // Prune can delete live schema, so it is gated behind the confirmation prompt (skipped
         // under --dry-run / --readonly by the executor). A non-prune apply only creates/updates
@@ -78,7 +86,8 @@ public static class SchemaApplyCommand
                             diff.Data!,
                             prune,
                             ctx.DryRun,
-                            c
+                            c,
+                            force: parseResult.GetValue(forceOpt)
                         );
                     },
                     (ctx, result) =>

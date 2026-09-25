@@ -695,10 +695,15 @@ umbraco schema export | umbraco schema diff -              # pipe an export stra
 umbraco schema apply schema.json --dry-run                 # preview the full apply plan
 umbraco schema apply schema.json                           # reconcile (create + update; never deletes by default)
 umbraco schema apply schema.json --prune --yes             # also delete live entities absent from the snapshot
+umbraco schema apply schema.json --prune --force --yes     # ...even types still in use (their content goes with them)
 ```
 
 How it works:
 
+- **In-use prunes are refused** - before the first write, `--prune` checks every type it would
+  delete. A data type still in use, a member type with members, and any document or media type
+  (Umbraco cannot say how many items use one) are refused unless `--force` is given, and then
+  nothing at all is applied. `--dry-run` shows those deletes as `needs --force`.
 - **Fidelity** - the snapshot stores each entity's verbatim Management-API body, so nothing is
   lost (document-type properties/compositions, data-type configuration, template Razor). The
   snapshot is
