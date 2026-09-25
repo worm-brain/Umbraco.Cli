@@ -147,15 +147,16 @@ public class CoverageFinaleCommandTests
     }
 
     [Fact]
-    public async Task DataTypesCopy_NonInteractiveWithoutYes_Aborts()
+    public async Task DataTypesCopy_NonInteractiveWithoutYes_Runs()
     {
+        // #247: a copy removes nothing, so it is not destructive and needs no --yes.
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
         var exit = await Run(root, $"{Auth} data-types copy {Guid.NewGuid()}");
 
-        Assert.Equal(2, exit);
-        Assert.Empty(fake.DataTypesCopied);
+        Assert.Equal(0, exit);
+        Assert.Single(fake.DataTypesCopied);
     }
 
     [Fact]

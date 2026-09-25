@@ -40,8 +40,7 @@ public class ContentApplierTests
         var result = await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: true,
-            dryRun: true,
+            new ContentApplyOptions(Prune: true, DryRun: true),
             CancellationToken.None
         );
 
@@ -62,8 +61,7 @@ public class ContentApplierTests
         await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new ContentApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -81,8 +79,7 @@ public class ContentApplierTests
         await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new ContentApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -99,8 +96,7 @@ public class ContentApplierTests
         var result = await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new ContentApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -121,12 +117,111 @@ public class ContentApplierTests
         await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: true,
-            dryRun: false,
+            new ContentApplyOptions(Prune: true, DryRun: false),
             CancellationToken.None
         );
 
         Assert.Equal(new[] { c, b, a }, fake.CalledIds);
+    }
+
+    // ── prune exclusions (#225) ───────────────────────────────────────────────
+    // A staging site: Contact (in the snapshot) holds two form submissions created on staging,
+    // and Blog (in the snapshot) holds a staging-only post. All three are prune candidates.
+
+    private static readonly Guid Contact = Guid.NewGuid();
+    private static readonly Guid Blog = Guid.NewGuid();
+    private static readonly Guid Submission1 = Guid.NewGuid();
+    private static readonly Guid Submission2 = Guid.NewGuid();
+    private static readonly Guid StagingPost = Guid.NewGuid();
+    private static readonly Guid SubmissionType = Guid.NewGuid();
+    private static readonly Guid BlogPostType = Guid.NewGuid();
+
+    private static ContentDocumentChange RemovedOfType(Guid id, Guid type) =>
+        new(ContentChangeKind.Removed, id) { DocumentTypeId = type };
+
+    private static ContentDiff StagingDiff() =>
+        Diff(
+            removed:
+            [
+                RemovedOfType(Submission1, SubmissionType),
+                RemovedOfType(Submission2, SubmissionType),
+                RemovedOfType(StagingPost, BlogPostType),
+            ]
+        ) with
+        {
+            LiveParents = new Dictionary<Guid, Guid?>
+            {
+                [Contact] = null,
+                [Blog] = null,
+                [Submission1] = Contact,
+                [Submission2] = Contact,
+                [StagingPost] = Blog,
+            },
+        };
+
+    private static async Task<IReadOnlyList<Guid>> PrunedWith(
+        ContentDiff diff,
+        PruneExclusions exclude
+    )
+    {
+        var fake = new FakeUmbracoManagementClient { DeleteContentHandler = _ => Ok() };
+        await ContentApplier.ApplyAsync(
+            fake,
+            diff,
+            new ContentApplyOptions(Prune: true, DryRun: false) { Exclude = exclude },
+            CancellationToken.None
+        );
+        return fake.CalledIds;
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PruneExcludingAType_KeepsEveryDocumentOfThatType()
+    {
+        var deleted = await PrunedWith(
+            StagingDiff(),
+            new PruneExclusions(new HashSet<Guid> { SubmissionType }, new HashSet<Guid>())
+        );
+
+        Assert.Equal([StagingPost], deleted);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PruneExcludingARoot_KeepsItsSubtreeThroughAnAncestorInTheSnapshot()
+    {
+        // Contact itself is not a prune candidate; its children are found through the live
+        // parent map, not the removed list.
+        var deleted = await PrunedWith(
+            StagingDiff(),
+            new PruneExclusions(new HashSet<Guid>(), new HashSet<Guid> { Contact })
+        );
+
+        Assert.Equal([StagingPost], deleted);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PruneOfAParentWithAnExcludedChild_KeepsTheParentToo()
+    {
+        // Deleting a document deletes its descendants, so a removed folder holding an excluded
+        // submission must stay, or the delete would cascade onto the submission.
+        var folder = Guid.NewGuid();
+        var submission = Guid.NewGuid();
+        var diff = Diff(
+            removed:
+            [
+                RemovedOfType(folder, Guid.NewGuid()),
+                RemovedOfType(submission, SubmissionType),
+            ]
+        ) with
+        {
+            LiveParents = new Dictionary<Guid, Guid?> { [folder] = null, [submission] = folder },
+        };
+
+        var deleted = await PrunedWith(
+            diff,
+            new PruneExclusions(new HashSet<Guid> { SubmissionType }, new HashSet<Guid>())
+        );
+
+        Assert.Empty(deleted);
     }
 
     [Fact]
@@ -141,8 +236,7 @@ public class ContentApplierTests
         var result = await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new ContentApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 

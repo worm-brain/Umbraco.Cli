@@ -79,6 +79,14 @@ public class QuietOutputWriterTests
             long? durationMs = null
         ) => MessageCalled = true;
 
+        public IReadOnlyList<BulkItemResult>? LastBulk { get; private set; }
+
+        public void WriteBulk(
+            IReadOnlyList<BulkItemResult> results,
+            string? commandName = null,
+            long? durationMs = null
+        ) => LastBulk = results;
+
         public void WriteDryRun(string method, string url, string? body) => DryRunCalled = true;
     }
 
@@ -91,6 +99,19 @@ public class QuietOutputWriterTests
         quiet.WriteMessage("Deleted.");
 
         Assert.False(inner.MessageCalled);
+    }
+
+    [Fact]
+    public void WriteBulk_PassesTheResultsToTheInnerWriter()
+    {
+        // Review finding on #236: without this, --quiet fell back to WriteSuccess and reported
+        // every bulk run as "success" again.
+        var inner = new RecordingWriter();
+        var results = new[] { new BulkItemResult("x", BulkItemStatus.Error, "boom") };
+
+        new QuietOutputWriter(inner).WriteBulk(results);
+
+        Assert.Same(results, inner.LastBulk);
     }
 
     [Fact]

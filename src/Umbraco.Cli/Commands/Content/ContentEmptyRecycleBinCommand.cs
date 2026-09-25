@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -18,6 +19,9 @@ public static class ContentEmptyRecycleBinCommand
             "empty-recycle-bin",
             "Permanently delete all content items in the recycle bin.\n\nExample:\n  umbraco content empty-recycle-bin --yes"
         );
+        cmd.Destructive(parseResult =>
+            "Permanently delete ALL items in the content recycle bin? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -25,8 +29,7 @@ public static class ContentEmptyRecycleBinCommand
                     "content.empty-recycle-bin",
                     (client, c) => client.EmptyContentRecycleBinAsync(c),
                     "Content recycle bin emptied.",
-                    ct,
-                    confirmationPrompt: "Permanently delete ALL items in the content recycle bin? This cannot be undone."
+                    ct
                 )
         );
 

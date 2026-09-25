@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
 
@@ -16,6 +17,9 @@ public static class TemplatesDeleteCommand
         );
         var idArg = new Argument<Guid>("id") { Description = "Template ID." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete template {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -23,8 +27,7 @@ public static class TemplatesDeleteCommand
                     "templates.delete",
                     (client, c) => client.DeleteTemplateAsync(parseResult.GetValue(idArg), c),
                     "Template deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete template {parseResult.GetValue(idArg)}? This cannot be undone."
+                    ct
                 )
         );
 

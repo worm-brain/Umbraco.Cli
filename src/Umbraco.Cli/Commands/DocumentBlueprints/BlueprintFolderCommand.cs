@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DocumentBlueprints;
 
@@ -118,6 +119,9 @@ public static class BlueprintFolderCommand
         var cmd = new Command("delete", "Delete a blueprint folder by UUID.");
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete blueprint folder {parseResult.GetValue(idArg)}?"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -126,8 +130,7 @@ public static class BlueprintFolderCommand
                     (client, c) =>
                         client.DeleteBlueprintFolderAsync(parseResult.GetValue(idArg), c),
                     "Folder deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete blueprint folder {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
         return cmd;

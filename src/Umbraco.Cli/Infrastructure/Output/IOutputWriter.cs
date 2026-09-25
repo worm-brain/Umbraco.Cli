@@ -129,4 +129,23 @@ public interface IOutputWriter
     /// <param name="url">The absolute request URL.</param>
     /// <param name="body">The request body, or null for a body-less request (e.g. DELETE).</param>
     void WriteDryRun(string method, string url, string? body);
+
+    /// <summary>
+    /// Writes a bulk run's per-item results (#236). The structured writer sets the envelope
+    /// status from the outcomes (<c>success</c> / <c>partial</c> / <c>error</c> / <c>dry-run</c>)
+    /// and adds <c>meta.summary</c>; by default the results are written like any other payload.
+    /// Written to stdout whatever the outcome: it is a report on every item, not one error.
+    /// <para>
+    /// No default body: a wrapper (e.g. <c>--quiet</c>) that fell back to
+    /// <see cref="WriteSuccess{T}"/> silently reported every bulk run as <c>success</c> again.
+    /// </para>
+    /// </summary>
+    /// <param name="results">The per-item results, in input order.</param>
+    /// <param name="commandName">The dotted command name for <c>meta.command</c>, or null.</param>
+    /// <param name="durationMs">How long the run took, or null.</param>
+    void WriteBulk(
+        IReadOnlyList<BulkItemResult> results,
+        string? commandName = null,
+        long? durationMs = null
+    );
 }

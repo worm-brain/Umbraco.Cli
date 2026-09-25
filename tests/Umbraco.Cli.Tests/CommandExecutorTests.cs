@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 
 namespace Umbraco.Cli.Tests;
@@ -311,6 +312,7 @@ public class CommandExecutorTests
             new FakeUmbracoManagementClient(),
             confirmation: new FakeConfirmationPrompt { IsInteractive = false }
         );
+        parse.CommandResult.Command.Destructive(_ => "Delete X?");
 
         var (_, stderr, exit) = await Capture(() =>
             executor.RunMessageAsync(
@@ -322,8 +324,7 @@ public class CommandExecutorTests
                     return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
                 },
                 "Deleted.",
-                CancellationToken.None,
-                confirmationPrompt: "Delete X?"
+                CancellationToken.None
             )
         );
 
@@ -343,6 +344,7 @@ public class CommandExecutorTests
             args: "--host https://example.com --token tok --output json --yes",
             confirmation: prompt
         );
+        parse.CommandResult.Command.Destructive(_ => "Delete X?");
 
         var (_, _, exit) = await Capture(() =>
             executor.RunMessageAsync(
@@ -354,8 +356,7 @@ public class CommandExecutorTests
                     return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
                 },
                 "Deleted.",
-                CancellationToken.None,
-                confirmationPrompt: "Delete X?"
+                CancellationToken.None
             )
         );
 
@@ -373,6 +374,7 @@ public class CommandExecutorTests
             new FakeUmbracoManagementClient(),
             confirmation: new FakeConfirmationPrompt { IsInteractive = true, Answer = false }
         );
+        parse.CommandResult.Command.Destructive(_ => "Delete X?");
 
         var (_, _, exit) = await Capture(() =>
             executor.RunMessageAsync(
@@ -384,8 +386,7 @@ public class CommandExecutorTests
                     return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
                 },
                 "Deleted.",
-                CancellationToken.None,
-                confirmationPrompt: "Delete X?"
+                CancellationToken.None
             )
         );
 
@@ -402,6 +403,7 @@ public class CommandExecutorTests
             new FakeUmbracoManagementClient(),
             confirmation: new FakeConfirmationPrompt { IsInteractive = true, Answer = true }
         );
+        parse.CommandResult.Command.Destructive(_ => "Delete X?");
 
         var (_, _, exit) = await Capture(() =>
             executor.RunMessageAsync(
@@ -413,8 +415,7 @@ public class CommandExecutorTests
                     return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
                 },
                 "Deleted.",
-                CancellationToken.None,
-                confirmationPrompt: "Delete X?"
+                CancellationToken.None
             )
         );
 
@@ -467,6 +468,7 @@ public class CommandExecutorTests
             args: "--host https://example.com --token tok --output json --dry-run",
             confirmation: prompt
         );
+        parse.CommandResult.Command.Destructive(_ => "Delete X?");
 
         var (_, _, exit) = await Capture(() =>
             executor.RunMessageAsync(
@@ -478,8 +480,7 @@ public class CommandExecutorTests
                     return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
                 },
                 "Deleted.",
-                CancellationToken.None,
-                confirmationPrompt: "Delete X?"
+                CancellationToken.None
             )
         );
 
@@ -887,6 +888,113 @@ public class CommandExecutorTests
         Assert.Equal("not-a-guid", data[2].GetProperty("id").GetString());
     }
 
+    /// <summary>Runs a bulk publish over <paramref name="ids"/>, failing the ids in <paramref name="failing"/>.</summary>
+    private static async Task<JsonElement> BulkEnvelope(
+        IReadOnlyList<string> ids,
+        IReadOnlySet<Guid> failing,
+        string args = "--host https://example.com --token tok --output json"
+    )
+    {
+        var client = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = id =>
+                failing.Contains(id)
+                    ? UmbracoResponse<Empty>.Failure(404, "Not found")
+                    : UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+        var (executor, parse) = Build(client, args);
+        var (stdout, _, _) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                "content.bulk.publish",
+                () => ids,
+                (c, id, ct) => c.PublishContentAsync(id, null, ct: ct),
+                CancellationToken.None
+            )
+        );
+        return JsonDocument.Parse(stdout).RootElement.Clone();
+    }
+
+    [Fact]
+    public async Task RunBulk_AllSucceed_StatusIsSuccess()
+    {
+        var envelope = await BulkEnvelope([Guid.NewGuid().ToString()], new HashSet<Guid>());
+
+        Assert.Equal("success", envelope.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task RunBulk_SomeFailed_StatusIsPartialWithASummary()
+    {
+        // #236: the envelope said "success" while the exit code said 1.
+        var ok = Guid.NewGuid();
+        var bad = Guid.NewGuid();
+
+        var envelope = await BulkEnvelope(
+            [ok.ToString(), bad.ToString()],
+            new HashSet<Guid> { bad }
+        );
+
+        Assert.Equal("partial", envelope.GetProperty("status").GetString());
+        var summary = envelope.GetProperty("meta").GetProperty("summary");
+        Assert.Equal(1, summary.GetProperty("succeeded").GetInt32());
+        Assert.Equal(1, summary.GetProperty("failed").GetInt32());
+    }
+
+    [Fact]
+    public async Task RunBulk_AllFailed_StatusIsError()
+    {
+        var bad = Guid.NewGuid();
+
+        var envelope = await BulkEnvelope(
+            [bad.ToString(), "not-a-guid"],
+            new HashSet<Guid> { bad }
+        );
+
+        Assert.Equal("error", envelope.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task RunBulk_DryRun_EachItemCarriesTheRequestItWouldSend()
+    {
+        // #236: a bulk dry run showed only {id, status}, so it could not be checked.
+        var client = new FakeUmbracoManagementClient();
+        var (executor, parse) = Build(
+            client,
+            "--host https://example.com --token tok --output json --dry-run"
+        );
+        var id = Guid.NewGuid();
+
+        var (stdout, _, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                "content.bulk.publish",
+                () => [id.ToString()],
+                (c, i, ct) =>
+                    throw new Umbraco.Cli.Infrastructure.Http.DryRunException(
+                        "PUT",
+                        $"https://example.com/umbraco/management/api/v1/document/{i}/publish",
+                        """{"publishSchedules":[{"culture":"en-US"}]}"""
+                    ),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(0, exit);
+        var root = JsonDocument.Parse(stdout).RootElement;
+        Assert.Equal("dry-run", root.GetProperty("status").GetString());
+        var request = root.GetProperty("data")[0].GetProperty("request");
+        Assert.Equal("PUT", request.GetProperty("method").GetString());
+        Assert.Equal(
+            "en-US",
+            request
+                .GetProperty("body")
+                .GetProperty("publishSchedules")[0]
+                .GetProperty("culture")
+                .GetString()
+        );
+    }
+
     [Fact]
     public async Task RunBulk_DestructiveNonInteractiveWithoutYes_AbortsAndDoesNotCall()
     {
@@ -900,6 +1008,7 @@ public class CommandExecutorTests
             client,
             confirmation: new FakeConfirmationPrompt { IsInteractive = false }
         );
+        parse.CommandResult.Command.Destructive(_ => "Delete all?");
 
         var (_, stderr, exit) = await Capture(() =>
             executor.RunBulkAsync(
@@ -907,8 +1016,7 @@ public class CommandExecutorTests
                 "content.bulk.delete",
                 () => [Guid.NewGuid().ToString()],
                 (c, id, ct) => c.DeleteContentAsync(id, ct),
-                CancellationToken.None,
-                confirmationPrompt: "Delete all?"
+                CancellationToken.None
             )
         );
 
@@ -931,6 +1039,7 @@ public class CommandExecutorTests
             args: "--host https://example.com --token tok --output json --yes",
             confirmation: prompt
         );
+        parse.CommandResult.Command.Destructive(_ => "Delete all?");
 
         var (_, _, exit) = await Capture(() =>
             executor.RunBulkAsync(
@@ -938,8 +1047,7 @@ public class CommandExecutorTests
                 "content.bulk.delete",
                 () => [Guid.NewGuid().ToString(), Guid.NewGuid().ToString()],
                 (c, id, ct) => c.DeleteContentAsync(id, ct),
-                CancellationToken.None,
-                confirmationPrompt: "Delete all?"
+                CancellationToken.None
             )
         );
 
@@ -963,6 +1071,7 @@ public class CommandExecutorTests
             args: "--host https://example.com --token tok --output json --readonly --yes",
             mutationState: state
         );
+        parse.CommandResult.Command.Destructive(_ => "Delete all?");
 
         var (_, stderr, exit) = await Capture(() =>
             executor.RunBulkAsync(
@@ -970,8 +1079,7 @@ public class CommandExecutorTests
                 "content.bulk.delete",
                 () => [Guid.NewGuid().ToString()],
                 (c, id, ct) => c.DeleteContentAsync(id, ct),
-                CancellationToken.None,
-                confirmationPrompt: "Delete all?"
+                CancellationToken.None
             )
         );
 
@@ -1011,6 +1119,7 @@ public class CommandExecutorTests
     {
         // An empty id set is a usage error, not a silent no-op.
         var (executor, parse) = Build(new FakeUmbracoManagementClient());
+        parse.CommandResult.Command.Destructive(_ => "Delete all?");
 
         var (_, stderr, exit) = await Capture(() =>
             executor.RunBulkAsync(
@@ -1018,8 +1127,7 @@ public class CommandExecutorTests
                 "content.bulk.delete",
                 () => [],
                 (c, id, ct) => c.DeleteContentAsync(id, ct),
-                CancellationToken.None,
-                confirmationPrompt: "Delete all?"
+                CancellationToken.None
             )
         );
 

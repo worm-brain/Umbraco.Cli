@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content.Bulk;
 
@@ -28,6 +29,9 @@ public static class ContentBulkUnpublishCommand
         };
         cmd.Add(fileOpt);
         cmd.Add(culturesOpt);
+        cmd.Destructive(parseResult =>
+            "Unpublish the supplied content items, taking them offline? Re-publish to restore."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
             {
@@ -38,8 +42,7 @@ public static class ContentBulkUnpublishCommand
                     "content.bulk.unpublish",
                     () => BulkIds.Read(parseResult.GetValue(fileOpt)),
                     (client, id, c) => client.UnpublishContentAsync(id, effective, c),
-                    ct,
-                    confirmationPrompt: "Unpublish the supplied content items, taking them offline? Re-publish to restore."
+                    ct
                 );
             }
         );

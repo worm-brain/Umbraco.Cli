@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -18,6 +19,9 @@ public static class MediaEmptyRecycleBinCommand
             "empty-recycle-bin",
             "Permanently delete all media items in the recycle bin.\n\nExample:\n  umbraco media empty-recycle-bin --yes"
         );
+        cmd.Destructive(parseResult =>
+            "Permanently delete ALL items in the media recycle bin? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -25,8 +29,7 @@ public static class MediaEmptyRecycleBinCommand
                     "media.empty-recycle-bin",
                     (client, c) => client.EmptyMediaRecycleBinAsync(c),
                     "Media recycle bin emptied.",
-                    ct,
-                    confirmationPrompt: "Permanently delete ALL items in the media recycle bin? This cannot be undone."
+                    ct
                 )
         );
 

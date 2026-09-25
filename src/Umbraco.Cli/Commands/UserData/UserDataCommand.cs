@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.UserData;
 
@@ -183,6 +184,9 @@ public static class UserDataCommand
         var cmd = new Command("delete", "Delete a user-data entry by key.");
         var idArg = new Argument<Guid>("key") { Description = "Entry key." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete user-data entry {parseResult.GetValue(idArg)}?"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -190,8 +194,7 @@ public static class UserDataCommand
                     "user-data.delete",
                     (client, c) => client.DeleteUserDataAsync(parseResult.GetValue(idArg), c),
                     "User-data entry deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete user-data entry {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
         return cmd;

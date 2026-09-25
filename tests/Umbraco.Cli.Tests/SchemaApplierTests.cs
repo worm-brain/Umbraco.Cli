@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.Schema;
 
 namespace Umbraco.Cli.Tests;
@@ -62,8 +63,7 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: true,
+            new SchemaApplyOptions(Prune: false, DryRun: true),
             CancellationToken.None
         );
 
@@ -101,8 +101,7 @@ public class SchemaApplierTests
         await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -135,8 +134,7 @@ public class SchemaApplierTests
         await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -170,8 +168,7 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -204,16 +201,67 @@ public class SchemaApplierTests
             )
         );
 
+        // force: a document type always needs it (#252); this test is about the delete running.
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: true,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: true, DryRun: false, Force: true),
             CancellationToken.None
         );
 
         Assert.True(result.IsSuccess);
         Assert.Equal(removedId, Assert.Single(fake.SchemaDeletedIds));
+    }
+
+    /// <summary>A diff that removes one data type.</summary>
+    private static SchemaDiff RemovesDataType(Guid id) =>
+        DiffWith(
+            data: new SchemaKindDiff(
+                [],
+                [],
+                Removed:
+                [
+                    new SchemaEntityChange("dataType", SchemaChangeKind.Removed, "old", null, id),
+                ],
+                [],
+                0
+            )
+        );
+
+    [Fact]
+    public async Task ApplyAsync_PruneOfAnInUseDataType_IsRefusedBeforeAnyWrite()
+    {
+        // #252: pruning an in-use data type deletes its properties and their values.
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        fake.UsedDataTypes[id] = [("Blog Post", "Categories")];
+
+        await Assert.ThrowsAsync<SafetyRefusalException>(() =>
+            SchemaApplier.ApplyAsync(
+                fake,
+                RemovesDataType(id),
+                new SchemaApplyOptions(Prune: true, DryRun: false),
+                CancellationToken.None
+            )
+        );
+        Assert.Empty(fake.SchemaDeletedIds);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PruneOfAnUnusedDataType_DeletesWithoutForce()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+
+        var result = await SchemaApplier.ApplyAsync(
+            fake,
+            RemovesDataType(id),
+            new SchemaApplyOptions(Prune: true, DryRun: false),
+            CancellationToken.None
+        );
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(id, Assert.Single(fake.SchemaDeletedIds));
     }
 
     [Fact]
@@ -246,8 +294,7 @@ public class SchemaApplierTests
         await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -287,8 +334,7 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -340,8 +386,7 @@ public class SchemaApplierTests
         await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -368,8 +413,7 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: true,
-            dryRun: true,
+            new SchemaApplyOptions(Prune: true, DryRun: true),
             CancellationToken.None
         );
 

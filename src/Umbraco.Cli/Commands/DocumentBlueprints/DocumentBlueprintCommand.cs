@@ -303,6 +303,9 @@ public static class DocumentBlueprintCommand
         var cmd = new Command("delete", "Delete a blueprint by UUID.");
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete blueprint {parseResult.GetValue(idArg)}?"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -311,8 +314,7 @@ public static class DocumentBlueprintCommand
                     (client, c) =>
                         client.DeleteDocumentBlueprintAsync(parseResult.GetValue(idArg), c),
                     "Blueprint deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete blueprint {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
         return cmd;

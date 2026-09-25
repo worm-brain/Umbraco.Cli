@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content.Bulk;
 
@@ -23,6 +24,9 @@ public static class ContentBulkDeleteCommand
             Description = "File of ids (one per line). Reads stdin when omitted.",
         };
         cmd.Add(fileOpt);
+        cmd.Destructive(parseResult =>
+            "Permanently delete the supplied content items? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunBulkAsync(
@@ -30,8 +34,7 @@ public static class ContentBulkDeleteCommand
                     "content.bulk.delete",
                     () => BulkIds.Read(parseResult.GetValue(fileOpt)),
                     (client, id, c) => client.DeleteContentAsync(id, c),
-                    ct,
-                    confirmationPrompt: "Permanently delete the supplied content items? This cannot be undone."
+                    ct
                 )
         );
 

@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.UserGroups;
 
@@ -176,6 +177,9 @@ public static class UserGroupsCommand
         var cmd = new Command("delete", "Delete a user group by UUID.");
         var idArg = new Argument<Guid>("id") { Description = "User group ID." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete user group {parseResult.GetValue(idArg)}?"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -183,8 +187,7 @@ public static class UserGroupsCommand
                     "user-groups.delete",
                     (client, c) => client.DeleteUserGroupAsync(parseResult.GetValue(idArg), c),
                     "User group deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete user group {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
         return cmd;
@@ -203,6 +206,9 @@ public static class UserGroupsCommand
             Description = "The user group IDs to delete.",
         };
         cmd.Add(idsOpt);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete {parseResult.GetValue(idsOpt)!.Length} user group(s)?"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -210,8 +216,7 @@ public static class UserGroupsCommand
                     "user-groups.delete-many",
                     (client, c) => client.DeleteUserGroupsAsync(parseResult.GetValue(idsOpt)!, c),
                     "User groups deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete {parseResult.GetValue(idsOpt)!.Length} user group(s)?"
+                    ct
                 )
         );
         return cmd;

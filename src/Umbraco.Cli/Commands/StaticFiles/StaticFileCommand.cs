@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.StaticFiles;
 
@@ -203,6 +204,9 @@ public static class StaticFileCommand
         var cmd = new Command("delete", $"Delete a {noun} by path.");
         var pathArg = new Argument<string>("path") { Description = "The file path." };
         cmd.Add(pathArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete {noun} '{parseResult.GetValue(pathArg)}'? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -211,8 +215,7 @@ public static class StaticFileCommand
                     (client, c) =>
                         client.DeleteStaticFileAsync(kind, parseResult.GetValue(pathArg)!, c),
                     $"{humanName} deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete {noun} '{parseResult.GetValue(pathArg)}'? This cannot be undone."
+                    ct
                 )
         );
         return cmd;

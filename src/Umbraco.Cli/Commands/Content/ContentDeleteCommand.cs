@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -13,6 +14,9 @@ public static class ContentDeleteCommand
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         cmd.Add(idArg);
 
+        cmd.Destructive(parseResult =>
+            $"Permanently delete content item {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -20,8 +24,7 @@ public static class ContentDeleteCommand
                     "content.delete",
                     (client, c) => client.DeleteContentAsync(parseResult.GetValue(idArg), c),
                     "Content item deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete content item {parseResult.GetValue(idArg)}? This cannot be undone."
+                    ct
                 )
         );
 

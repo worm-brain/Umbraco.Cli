@@ -137,7 +137,7 @@ umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   #
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
 umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
 umbraco content diff <snapshot>                            # diff a snapshot vs live (read-only)
-umbraco content apply <snapshot> [--prune] [--dry-run]     # reconcile; --prune deletes, needs --yes
+umbraco content apply <snapshot> [--prune [--exclude-type <alias|id>]... [--exclude-root <id>]...] [--dry-run]   # reconcile; --prune deletes, needs --yes
 
 # Bulk ops over many ids (from --file or stdin), with a per-item results array:
 umbraco content bulk delete [--file ids.txt]               # permanent; needs --yes
@@ -331,7 +331,7 @@ deletes with the usual `media` verbs, and its id is what `media upload --parent`
 umbraco media-types list
 umbraco media-types get <id>
 umbraco media-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root]
-umbraco media-types delete <id>                            # needs --yes non-interactively
+umbraco media-types delete <id> --force                    # deletes every media item of the type too; --force always required, plus --yes non-interactively
 ```
 
 ## `content-types`
@@ -343,7 +343,7 @@ umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--i
 umbraco content-types create --json-body <file>            # full Management API body: properties, groups, compositions
 umbraco content-types update <alias|id> --json-body <file> # full replace
 umbraco content-types create --schema                      # print a real document type as a worked example (needs a host)
-umbraco content-types delete <id>                          # needs --yes non-interactively
+umbraco content-types delete <id> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
 ```
 
 ### Authoring a document type with properties
@@ -375,11 +375,11 @@ umbraco data-types create --json-body <file>               # full body, includin
 umbraco data-types update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
 umbraco data-types update <name|id> --json-body <file>     # full replace, the only way to set `values`
 umbraco data-types create --schema                         # print a real data type as a worked example (needs a host)
-umbraco data-types delete <id>                             # needs --yes non-interactively
+umbraco data-types delete <id> [--force]                   # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-types is-used <id>                            # whether any content type uses it
 umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
-umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root; needs --yes
-umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root; needs --yes
+umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root
+umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root
 
 # folder sub-noun (organise data types in the tree):
 umbraco data-types folder get <id>
@@ -459,7 +459,7 @@ umbraco member-types list
 umbraco member-types get <id>
 umbraco member-types create --name <name> --alias <alias> [--icon <alias>]
 umbraco member-types update <id> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
-umbraco member-types delete <id>                           # needs --yes non-interactively
+umbraco member-types delete <id> [--force]                 # refused while it has members unless --force (deletes them); --yes non-interactively
 ```
 
 ## `member-groups`
@@ -643,9 +643,13 @@ umbraco manifest list [--scope All|Public|Private]         # default: All
 umbraco redirect list [--content <key>] [--filter <s>] [--skip <n>] [--take <n>]   # --content lists redirects to that document
 umbraco redirect status                                    # whether automatic URL-redirect tracking is enabled
 umbraco redirect delete <id>                               # needs --yes non-interactively
-umbraco redirect tracking enable                           # site-wide toggle; needs --yes non-interactively
+umbraco redirect tracking enable                           # site-wide toggle
 umbraco redirect tracking disable                          # site-wide toggle; needs --yes non-interactively
 ```
+
+Both toggles re-read the status afterwards and fail if it did not change. On Umbraco 17 the API
+accepts the request and can leave tracking as it was, because it is set by configuration
+(`Umbraco:CMS:WebRouting:DisableRedirectUrlTracking` in appsettings, then restart).
 
 ## `relation-type` / `relation` (read-only)
 
@@ -691,10 +695,15 @@ umbraco schema export | umbraco schema diff -              # pipe an export stra
 umbraco schema apply schema.json --dry-run                 # preview the full apply plan
 umbraco schema apply schema.json                           # reconcile (create + update; never deletes by default)
 umbraco schema apply schema.json --prune --yes             # also delete live entities absent from the snapshot
+umbraco schema apply schema.json --prune --force --yes     # ...even types still in use (their content goes with them)
 ```
 
 How it works:
 
+- **In-use prunes are refused** - before the first write, `--prune` checks every type it would
+  delete. A data type still in use, a member type with members, and any document or media type
+  (Umbraco cannot say how many items use one) are refused unless `--force` is given, and then
+  nothing at all is applied. `--dry-run` shows those deletes as `needs --force`.
 - **Fidelity** - the snapshot stores each entity's verbatim Management-API body, so nothing is
   lost (document-type properties/compositions, data-type configuration, template Razor). The
   snapshot is
@@ -724,6 +733,7 @@ umbraco content diff content.json                          # read-only
 umbraco content apply content.json --dry-run               # preview the whole plan
 umbraco content apply content.json                         # create + update
 umbraco content apply content.json --prune --yes           # also delete what the snapshot omits
+umbraco content apply content.json --prune --exclude-type contactSubmission --exclude-root <id> --yes
 ```
 
 - **Full fidelity** - each document is stored as its verbatim Management-API body (all variants,
@@ -736,6 +746,11 @@ umbraco content apply content.json --prune --yes           # also delete what th
 - **Scope-safe prune** - the snapshot records its export `root`, and diff/apply compare against
   the same live scope, so a subtree snapshot's `--prune` can never delete documents outside the
   subtree.
+- **Prune a subtree, not the whole site** - a whole-tree `--prune` also deletes everything created
+  on the target since the export: form submissions, editors' drafts. Export with `--root` to
+  prune one subtree, and use `--exclude-type <alias|id>` / `--exclude-root <id>` (both repeatable)
+  to leave content alone. An excluded document's removed ancestors are kept too, because deleting
+  a document deletes everything under it. Run `--dry-run` first.
 - **Safety** - `apply` respects the global guardrails; it creates/updates by default and requires
   **both** `--prune` and `--yes` to delete. Creates run parent-first, deletes deepest-first, and
   the run stops at the first failure.

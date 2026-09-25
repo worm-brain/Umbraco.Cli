@@ -186,3 +186,11 @@ committed independently:
 - Content export/diff/apply, cross-version verification, and a `diff --exit-code`
   CI gate are out of scope here and tracked as follow-ups. Content export/diff/apply
   is now implemented as a parallel pipeline in [ADR 0006](0006-content-export-diff-apply.md).
+
+## Later note (2026-09-25, #255)
+
+The `DestructiveVerbs` set named above has been removed. A command is now declared destructive
+on the command itself (`CommandSafety`), and both the `--yes` gate and the catalog read that
+declaration. `apply` declares itself destructive only with `--prune` (`destructiveWhen: "--prune"`
+in the catalog), which is the behaviour the Decision section intended. `--readonly` never keyed
+off either set; it blocks writes at the HTTP layer.

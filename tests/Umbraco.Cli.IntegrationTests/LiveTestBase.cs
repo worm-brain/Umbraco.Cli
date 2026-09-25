@@ -103,7 +103,7 @@ public sealed class ScratchDocument : IDisposable
         }
         catch
         {
-            CliRunner.Run("content-types", "delete", typeId, "--yes");
+            CliRunner.Run("content-types", "delete", typeId, "--force", "--yes");
             throw;
         }
     }
@@ -143,7 +143,7 @@ public sealed class ScratchDocument : IDisposable
     public void Dispose()
     {
         CliRunner.Run("content", "delete", Id, "--yes");
-        CliRunner.Run("content-types", "delete", DocumentTypeId, "--yes");
+        CliRunner.Run("content-types", "delete", DocumentTypeId, "--force", "--yes");
     }
 }
 

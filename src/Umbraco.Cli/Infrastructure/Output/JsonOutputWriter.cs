@@ -28,9 +28,11 @@ public sealed class JsonOutputWriter : IOutputWriter
     /// types now match the matching `get` exactly (#164) - booleans are booleans, `published`
     /// became `isPublished`; the error envelope moved `schemaVersion` into `meta` and split the
     /// overloaded `code` into `exitCode` + `httpStatus` (#177); and the `--dry-run` payload moved
-    /// from `request` to `data` (#165).
+    /// from `request` to `data` (#165); "4" a bulk run's `status` follows its outcomes - `partial`
+    /// when some items failed, `error` when all did, `dry-run` when previewed - instead of always
+    /// `success`, with counts in `meta.summary` and each dry-run item's request on the item (#236).
     /// </summary>
-    public const string SchemaVersion = "3";
+    public const string SchemaVersion = "4";
 
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -157,23 +159,47 @@ public sealed class JsonOutputWriter : IOutputWriter
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
+    /// <inheritdoc />
+    public void WriteBulk(
+        IReadOnlyList<BulkItemResult> results,
+        string? commandName = null,
+        long? durationMs = null
+    )
+    {
+        object? payload = _fields is null
+            ? results
+            : OutputShaping.Project(JsonSerializer.SerializeToNode(results, Options), _fields);
+        var summary = BulkSummary.Of(results);
+
+        // #236: the status follows the outcomes, so it no longer says "success" while the exit
+        // code says 1. meta.summary gives the counts without walking data.
+        var envelope = new
+        {
+            status = summary.Status,
+            data = payload,
+            meta = new
+            {
+                command = commandName,
+                durationMs,
+                timestamp = DateTimeOffset.UtcNow,
+                schemaVersion = SchemaVersion,
+                summary = new
+                {
+                    succeeded = summary.Succeeded,
+                    failed = summary.Failed,
+                    dryRun = summary.DryRun,
+                },
+            },
+        };
+        Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
+    }
+
     public void WriteDryRun(string method, string url, string? body)
     {
         // Embed the body as parsed JSON when it is valid JSON so the preview nests cleanly
         // for agents; otherwise fall back to the raw string. A dry run is a successful
         // preview, so it goes to stdout with a distinct "dry-run" status.
-        object? parsedBody = null;
-        if (!string.IsNullOrWhiteSpace(body))
-        {
-            try
-            {
-                parsedBody = JsonSerializer.Deserialize<JsonElement>(body!);
-            }
-            catch (JsonException)
-            {
-                parsedBody = body;
-            }
-        }
+        var parsedBody = JsonBody.Parse(body);
 
         // #165: under `data`, like every other success envelope. It used to be `request`, which
         // was the one documented exception to "the payload always lives under .data".

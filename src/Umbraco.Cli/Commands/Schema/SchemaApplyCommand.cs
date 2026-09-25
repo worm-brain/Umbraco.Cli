@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Schema;
 
@@ -33,24 +34,40 @@ public static class SchemaApplyCommand
         var pruneOpt = new Option<bool>("--prune")
         {
             Description =
-                "Also DELETE live document types, data types, and templates that the snapshot "
-                + "does not contain. Destructive: requires --yes when non-interactive.",
+                "Also DELETE live document, media and member types, data types and templates that "
+                + "the snapshot does not contain. Destructive: requires --yes when non-interactive. "
+                + "A type still in use is refused unless --force is given.",
+        };
+        var forceOpt = new Option<bool>(InUseGuard.ForceOption)
+        {
+            Description =
+                "With --prune, delete types even though content still uses them. Umbraco deletes "
+                + "that content with them.",
         };
         cmd.Add(snapshotArg);
         cmd.Add(pruneOpt);
+        cmd.Add(forceOpt);
+        // --force only overrides the prune's in-use check. Without --prune it would be silently
+        // ignored, which reads as "this apply is forced"; refuse it instead.
+        cmd.Validators.Add(result =>
+        {
+            if (result.GetValue(forceOpt) && !result.GetValue(pruneOpt))
+                result.AddError($"{forceOpt.Name} only applies with {pruneOpt.Name}.");
+        });
 
+        // Prune can delete live schema, so it is gated behind the confirmation prompt (skipped
+        // under --dry-run / --readonly by the executor). A non-prune apply only creates/updates
+        // and is not gated, which is why the prompt is null without --prune.
+        cmd.DestructiveWith(
+            pruneOpt,
+            _ =>
+                "This will DELETE live document, media and member types, data types and "
+                + "templates that are not present in the snapshot."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
             {
                 var prune = parseResult.GetValue(pruneOpt);
-                // Prune can delete live schema, so gate it behind the confirmation prompt (skipped
-                // under --dry-run / --readonly by the executor). A non-prune apply only creates/
-                // updates and is not gated.
-                var confirmation = prune
-                    ? "This will DELETE live document types, data types, and templates that are "
-                        + "not present in the snapshot."
-                    : null;
-
                 return executor.RunContextualAsync(
                     parseResult,
                     "schema.apply",
@@ -72,8 +89,11 @@ public static class SchemaApplyCommand
                         return await SchemaApplier.ApplyAsync(
                             ctx.Client,
                             diff.Data!,
-                            prune,
-                            ctx.DryRun,
+                            new SchemaApplyOptions(
+                                prune,
+                                ctx.DryRun,
+                                Force: parseResult.GetValue(forceOpt)
+                            ),
                             c
                         );
                     },
@@ -84,8 +104,7 @@ public static class SchemaApplyCommand
                             ctx.CommandName,
                             ctx.Stopwatch.ElapsedMilliseconds
                         ),
-                    ct,
-                    confirmation
+                    ct
                 );
             }
         );

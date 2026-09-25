@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
 
@@ -12,6 +13,7 @@ public static class WebhooksDeleteCommand
         );
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);
+        cmd.Destructive(parseResult => $"Delete webhook {parseResult.GetValue(idArg)}?");
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -19,8 +21,7 @@ public static class WebhooksDeleteCommand
                     "webhooks.delete",
                     (client, c) => client.DeleteWebhookAsync(parseResult.GetValue(idArg), c),
                     "Webhook deleted.",
-                    ct,
-                    confirmationPrompt: $"Delete webhook {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
 

@@ -71,12 +71,25 @@ public static class ContentDiffEngine
             }
         }
 
-        // Any live document the snapshot never mentioned is a prune candidate.
+        // Any live document the snapshot never mentioned is a prune candidate. It keeps its type
+        // so a prune can exclude whole types (#225).
         var removed = current
             .Documents.Where(c => !matchedLiveIds.Contains(c.Id))
-            .Select(c => new ContentDocumentChange(ContentChangeKind.Removed, c.Id))
+            .Select(c => new ContentDocumentChange(ContentChangeKind.Removed, c.Id)
+            {
+                DocumentTypeId = DocumentTypeIdOf(c.Body),
+            })
             .ToList();
 
-        return new ContentDiff(added, changed, removed, drifted, unchanged);
+        return new ContentDiff(added, changed, removed, drifted, unchanged)
+        {
+            LiveParents = currentById.ToDictionary(kv => kv.Key, kv => kv.Value.Parent),
+        };
     }
+
+    /// <summary>Reads <c>documentType.id</c> from a document body, or null when it is absent.</summary>
+    /// <param name="body">The verbatim document body.</param>
+    /// <returns>The document type id, or null.</returns>
+    private static Guid? DocumentTypeIdOf(JsonNode? body) =>
+        Guid.TryParse(body?["documentType"]?["id"]?.GetValue<string>(), out var id) ? id : null;
 }

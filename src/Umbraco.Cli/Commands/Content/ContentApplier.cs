@@ -71,24 +71,23 @@ public static class ContentApplier
         };
 
     /// <summary>
-    /// Applies <paramref name="diff"/> to the live instance, or (when <paramref name="dryRun"/>)
+    /// Applies <paramref name="diff"/> to the live instance, or (under a dry run)
     /// returns the plan without writing anything.
     /// </summary>
     /// <param name="client">The management client.</param>
     /// <param name="diff">The diff to apply (already computed against the live instance).</param>
-    /// <param name="prune">When true, delete live documents the snapshot matched nothing to.</param>
-    /// <param name="dryRun">When true, compute the plan and write nothing.</param>
+    /// <param name="options">Whether to prune (and what to leave alone), and whether to write.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The apply result, or the first write failure.</returns>
     public static async Task<UmbracoResponse<ContentApplyResult>> ApplyAsync(
         IUmbracoManagementClient client,
         ContentDiff diff,
-        bool prune,
-        bool dryRun,
+        ContentApplyOptions options,
         CancellationToken ct
     )
     {
-        var plan = BuildPlan(diff, prune);
+        var (prune, dryRun) = options;
+        var plan = BuildPlan(diff, prune, options.Exclude);
 
         if (dryRun)
         {
@@ -128,8 +127,13 @@ public static class ContentApplier
     /// </summary>
     /// <param name="diff">The diff to plan.</param>
     /// <param name="prune">Whether to include deletes.</param>
+    /// <param name="exclude">Documents the deletes must leave alone.</param>
     /// <returns>The ordered changes to execute.</returns>
-    private static List<ContentDocumentChange> BuildPlan(ContentDiff diff, bool prune)
+    private static List<ContentDocumentChange> BuildPlan(
+        ContentDiff diff,
+        bool prune,
+        PruneExclusions exclude
+    )
     {
         // Creates preserve the snapshot's pre-order (parent before child); nothing to topo-sort.
         var plan = new List<ContentDocumentChange>(diff.Added);
@@ -140,11 +144,60 @@ public static class ContentApplier
         // issue (a re-run completes once the blocker is gone).
         if (prune)
         {
+            var kept = KeptByExclusions(diff, exclude);
             for (var i = diff.Removed.Count - 1; i >= 0; i--)
-                plan.Add(diff.Removed[i]);
+                if (!kept.Contains(diff.Removed[i].Id))
+                    plan.Add(diff.Removed[i]);
         }
 
         return plan;
+    }
+
+    /// <summary>
+    /// The removed documents a prune must keep (#225): those of an excluded type, those at or
+    /// under an excluded root, and every removed ancestor of either - Umbraco deletes a document's
+    /// descendants with it, so deleting the parent would take the excluded child anyway.
+    /// </summary>
+    /// <param name="diff">The diff, with the live parent map.</param>
+    /// <param name="exclude">The exclusions.</param>
+    /// <returns>The ids of removed documents to keep.</returns>
+    private static HashSet<Guid> KeptByExclusions(ContentDiff diff, PruneExclusions exclude)
+    {
+        var kept = new HashSet<Guid>();
+        if (exclude.IsEmpty)
+            return kept;
+
+        var removedIds = diff.Removed.Select(r => r.Id).ToHashSet();
+        foreach (var removed in diff.Removed)
+        {
+            var excluded =
+                removed.DocumentTypeId is { } type && exclude.DocumentTypeIds.Contains(type)
+                || Lineage(removed.Id, diff.LiveParents).Any(exclude.Roots.Contains);
+            if (!excluded)
+                continue;
+
+            // Keep it, and every removed ancestor, so no delete cascades down onto it.
+            foreach (var id in Lineage(removed.Id, diff.LiveParents))
+                if (removedIds.Contains(id))
+                    kept.Add(id);
+        }
+        return kept;
+    }
+
+    /// <summary>A document id followed by its ancestors' ids, nearest first.</summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="parents">Every live document's parent.</param>
+    /// <returns>The id and its ancestors.</returns>
+    private static IEnumerable<Guid> Lineage(Guid id, IReadOnlyDictionary<Guid, Guid?> parents)
+    {
+        // The guard stops a cycle in a malformed snapshot from looping forever.
+        var seen = new HashSet<Guid>();
+        for (
+            Guid? current = id;
+            current is { } c && seen.Add(c);
+            current = parents.GetValueOrDefault(c)
+        )
+            yield return c;
     }
 
     /// <summary>Runs a single change against the client, dispatched on its kind.</summary>

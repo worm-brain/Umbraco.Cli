@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Redirects;
 
@@ -90,6 +91,7 @@ public static class RedirectCommand
         var cmd = new Command("delete", "Delete a redirect by UUID.");
         var idArg = new Argument<Guid>("id") { Description = "Redirect ID." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult => $"Delete redirect {parseResult.GetValue(idArg)}?");
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -97,8 +99,7 @@ public static class RedirectCommand
                     "redirect.delete",
                     (client, c) => client.DeleteRedirectAsync(parseResult.GetValue(idArg), c),
                     "Redirect deleted.",
-                    ct,
-                    confirmationPrompt: $"Delete redirect {parseResult.GetValue(idArg)}?"
+                    ct
                 )
         );
         return cmd;
@@ -120,6 +121,10 @@ public static class RedirectCommand
     private static Command BuildTrackingToggle(CommandExecutor executor, string verb, bool enabled)
     {
         var cmd = new Command(verb, $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking.");
+        // Only disabling is gated: it stops Umbraco recording redirects site-wide, so moved pages
+        // start to 404. Enabling turns a protection on and needs no --yes (#249).
+        if (!enabled)
+            cmd.Destructive(_ => "Disable URL-redirect tracking site-wide?");
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -127,8 +132,7 @@ public static class RedirectCommand
                     $"redirect.tracking.{verb}",
                     (client, c) => client.SetRedirectTrackingAsync(enabled, c),
                     $"URL-redirect tracking {(enabled ? "enabled" : "disabled")}.",
-                    ct,
-                    confirmationPrompt: $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking site-wide?"
+                    ct
                 )
         );
         return cmd;

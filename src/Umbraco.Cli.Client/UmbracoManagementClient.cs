@@ -2942,6 +2942,28 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
+    /// <inheritdoc />
+    public Task<UmbracoResponse<int>> CountMembersOfTypeAsync(
+        Guid memberTypeId,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                // One item is enough: only the page's total is read.
+                var paged = await _api.Umbraco.Management.Api.V1.Filter.Member.GetAsync(
+                    c =>
+                    {
+                        c.QueryParameters.MemberTypeId = memberTypeId;
+                        c.QueryParameters.Take = 1;
+                    },
+                    ct
+                );
+                return (int)(paged?.Total ?? 0);
+            }
+        );
+
     // ── Users ─────────────────────────────────────────────────────────────────
 
     /// <summary>Maps a generated user model onto the command-facing <see cref="UserResponse"/>.</summary>

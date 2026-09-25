@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
@@ -16,6 +17,9 @@ public static class DictionaryDeleteCommand
         );
         var idArg = new Argument<Guid>("id") { Description = "Dictionary item ID." };
         cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete dictionary item {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
@@ -23,8 +27,7 @@ public static class DictionaryDeleteCommand
                     "dictionary.delete",
                     (client, c) => client.DeleteDictionaryItemAsync(parseResult.GetValue(idArg), c),
                     "Dictionary item deleted.",
-                    ct,
-                    confirmationPrompt: $"Permanently delete dictionary item {parseResult.GetValue(idArg)}? This cannot be undone."
+                    ct
                 )
         );
 

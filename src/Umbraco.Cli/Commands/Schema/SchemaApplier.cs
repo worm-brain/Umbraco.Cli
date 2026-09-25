@@ -64,33 +64,52 @@ public sealed record SchemaApplyResult(
 public static class SchemaApplier
 {
     /// <summary>
-    /// Applies <paramref name="diff"/> to the live instance, or (when <paramref name="dryRun"/>)
-    /// returns the plan without writing anything.
+    /// Applies <paramref name="diff"/> to the live instance, or (under
+    /// <see cref="SchemaApplyOptions.DryRun"/>) returns the plan without writing anything.
     /// </summary>
     /// <param name="client">The management client.</param>
     /// <param name="diff">The diff to apply (already computed against the live instance).</param>
-    /// <param name="prune">When true, delete live entities the snapshot matched nothing to.</param>
-    /// <param name="dryRun">When true, compute the plan and write nothing.</param>
+    /// <param name="options">Whether to prune, whether to write, and whether to force in-use prunes.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The apply result, or the first write failure.</returns>
+    /// <exception cref="SafetyRefusalException">
+    /// A real (not dry-run) prune would delete a type still in use, and
+    /// <see cref="SchemaApplyOptions.Force"/> is false. Nothing has been applied.
+    /// </exception>
     public static async Task<UmbracoResponse<SchemaApplyResult>> ApplyAsync(
         IUmbracoManagementClient client,
         SchemaDiff diff,
-        bool prune,
-        bool dryRun,
+        SchemaApplyOptions options,
         CancellationToken ct
     )
     {
+        var (prune, dryRun, force) = options;
         var plan = BuildPlan(diff, prune);
+
+        // #252: a pruned type that is still in use takes content with it (Umbraco cascades the
+        // delete). Check every planned delete before the first write, so a refusal applies
+        // nothing at all rather than stopping halfway.
+        var blocked = force ? [] : await InUseDeletesAsync(client, plan, ct);
 
         if (dryRun)
         {
-            // Preview only: report every step as "planned" and touch nothing.
-            var planned = plan.Select(op => op.ToAction("planned")).ToList();
+            // Preview only: report every step as "planned" and touch nothing. An in-use delete is
+            // marked so the preview shows what a real run would refuse.
+            var planned = plan.Select(op =>
+                    op.ToAction(blocked.ContainsKey(op) ? "needs --force" : "planned")
+                )
+                .ToList();
             return UmbracoResponse<SchemaApplyResult>.Success(
                 new SchemaApplyResult(DryRun: true, Pruned: prune, planned)
             );
         }
+
+        if (blocked.Count > 0)
+            throw new SafetyRefusalException(
+                $"Refusing to prune {blocked.Count} type(s) still in use: "
+                    + string.Join(" ", blocked.Values)
+                    + $" Nothing was applied. Re-run with {InUseGuard.ForceOption} to prune them anyway."
+            );
 
         // Execute in order, stopping at the first failure (fail-fast) so a dependency error does
         // not cascade. Steps already done are reported in the failure message.
@@ -114,6 +133,36 @@ public static class SchemaApplier
         return UmbracoResponse<SchemaApplyResult>.Success(
             new SchemaApplyResult(DryRun: false, Pruned: prune, done)
         );
+    }
+
+    /// <summary>
+    /// The planned deletes that would take content with them, each with the reason (#252).
+    /// Templates are not checked: deleting one leaves its content in place.
+    /// </summary>
+    /// <param name="client">The client to check with.</param>
+    /// <param name="plan">The ordered plan.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The blocked operations and why, in plan order.</returns>
+    private static async Task<Dictionary<Op, string>> InUseDeletesAsync(
+        IUmbracoManagementClient client,
+        IReadOnlyList<Op> plan,
+        CancellationToken ct
+    )
+    {
+        var blocked = new Dictionary<Op, string>();
+        foreach (var op in plan.Where(o => o.Operation == "delete"))
+        {
+            // The same check the single deletes run, so a prune and a delete agree.
+            var reason = await InUseGuard.ReasonAsync(
+                client,
+                op.Change.Kind,
+                op.Change.CurrentId!.Value,
+                ct
+            );
+            if (reason is not null)
+                blocked[op] = reason;
+        }
+        return blocked;
     }
 
     /// <summary>A single planned operation: the change plus which verb to run for it.</summary>
