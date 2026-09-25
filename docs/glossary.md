@@ -57,5 +57,5 @@ Project-specific terms. Add entries as concepts are introduced.
   `--yes` (ADR 0005 §4); content, being riskier, requires **both** `--prune` and
   `--yes` (ADR 0006 §4).
 - **Snapshot format version** — the `schemaVersion` field *inside* a snapshot
-  document (currently `"1"`), versioning the snapshot layout. Independent of the
+  document (currently `"2"`), versioning the snapshot layout. Independent of the
   output envelope's `meta.schemaVersion` (the CLI's JSON contract version).

@@ -133,7 +133,7 @@ umbraco content restore <id> [--parent <id>]               # restore from recycl
 umbraco content empty-recycle-bin                          # permanent; needs --yes
 umbraco content move <id> [--parent <id>]
 umbraco content sort [--parent <id>] --children <id> <id> ...   # reorder a parent's children (order given = sort order)
-umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # does not yet return the new node's id (#175)
+umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # returns the copy, with its new id
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
 umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
 umbraco content diff <snapshot>                            # diff a snapshot vs live (read-only)
@@ -733,7 +733,8 @@ umbraco content export --out content.json                  # whole content tree
 umbraco content export --root <id> --out subtree.json      # a subtree (root included)
 umbraco content diff content.json                          # read-only
 umbraco content apply content.json --dry-run               # preview the whole plan
-umbraco content apply content.json                         # create + update
+umbraco content apply content.json                         # create + update + publish state
+umbraco content apply content.json --no-state              # bodies only; leave publishing alone
 umbraco content apply content.json --prune --yes           # also delete what the snapshot omits
 umbraco content apply content.json --prune --exclude-type contactSubmission --exclude-root <id> --yes
 ```
@@ -761,9 +762,10 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
   prune one subtree, and use `--exclude-type <alias|id>` / `--exclude-root <id>` (both repeatable)
   to leave content alone. An excluded document's removed ancestors are kept too, because deleting
   a document deletes everything under it. Run `--dry-run` first.
-- **Safety** - `apply` respects the global guardrails; it creates/updates by default and requires
-  **both** `--prune` and `--yes` to delete. Creates run parent-first, deletes deepest-first, and
-  the run stops at the first failure.
+- **Safety** - `apply` respects the global guardrails; it creates, updates and publishes/unpublishes by
+  default and requires **both** `--prune` and `--yes` to delete. Creates run parent-first, then
+  updates, then unpublishes (deepest-first) and publishes (parent-first), then deletes
+  deepest-first, and the run stops at the first failure.
 - **Out of scope** - property-value references (to media/other content by GUID) are not
   rewritten, so referenced items must already exist in the target; and apply does not move
   existing documents (a placement drift is reported by `diff` as `Drifted` but not applied).

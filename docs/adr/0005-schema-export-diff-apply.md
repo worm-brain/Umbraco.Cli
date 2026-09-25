@@ -150,7 +150,7 @@ three kinds.)
 - `export` writes the snapshot to stdout (default) or to a path via `--out`;
   `diff` and `apply` take the snapshot file as a positional argument, or `-` /
   stdin.
-- `diff` output follows the repo's list idiom (`RunListAsync` since #229, which
+- `diff` output follows the repo's list idiom (`RunReportAsync` since #229, which
   serializes the change records): a **flat row per
   actionable change** — `kind, change, identity, desiredId, currentId, idMismatch,
   note, changes` — rendered as a table for humans and, in JSON mode, an array of those row

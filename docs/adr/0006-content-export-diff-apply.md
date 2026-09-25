@@ -46,11 +46,11 @@ snapshot's own scope.
 
 ### 4. Prune is double-gated; moves are out of scope
 
-Deleting live content is more dangerous than deleting schema, so `content apply` creates/updates by
-default and requires **both** `--prune` and `--yes` to delete (schema's model gates prune on `--yes`
+Deleting live content is more dangerous than deleting schema, so `content apply` creates/updates (and,
+since #223, applies publish state - see the amendment below) by default and requires **both** `--prune` and `--yes` to delete (schema's model gates prune on `--yes`
 alone). Deletes run deepest-first (reverse pre-order) so a parent is not removed while it still has
 children. Apply replaces document bodies and creates new documents in place; it does **not**
-re-parent existing documents - a placement drift is surfaced by `diff` (a `parentDrift` flag) but a
+re-parent existing documents - a placement drift is surfaced by `diff` (a `Drifted` row) but a
 move is deliberately out of scope for this pass.
 
 ## Consequences
