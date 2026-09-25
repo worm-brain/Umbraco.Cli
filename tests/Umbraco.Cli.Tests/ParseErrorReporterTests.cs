@@ -68,6 +68,20 @@ public class ParseErrorReporterTests
     }
 
     [Fact]
+    public void Report_UnparseableValue_CategorisesAsInvalidArgument()
+    {
+        // #203: API errors carry a category; a usage error had none, so agents had to parse
+        // the message to tell "my command was wrong" from a server fault.
+        var (root, options) = BuildRoot();
+        var parsed = root.Parse("content get notAGuid --output json");
+
+        var stderr = CaptureErr(() => ParseErrorReporter.Report(parsed, options));
+
+        var envelope = JsonDocument.Parse(stderr).RootElement;
+        Assert.Equal("invalid_argument", envelope.GetProperty("category").GetString());
+    }
+
+    [Fact]
     public void Report_MessageSaysHowToGetUsage()
     {
         var (root, options) = BuildRoot();

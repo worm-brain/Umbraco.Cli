@@ -8,17 +8,57 @@ namespace Umbraco.Cli.Client;
 /// </summary>
 public sealed class UmbracoAuthService
 {
+    /// <summary>The largest refresh margin, for tokens with a long lifetime.</summary>
+    private static readonly TimeSpan MaxRefreshMargin = TimeSpan.FromSeconds(60);
+
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly TimeProvider _time;
     private string? _cachedToken;
-    private DateTimeOffset _tokenExpiry = DateTimeOffset.MinValue;
+
+    // When the cached token stops being reused. Worked out once, when the token arrives, so the
+    // margin can be sized against that token's own lifetime (#251).
+    private DateTimeOffset _refreshAt = DateTimeOffset.MinValue;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    public UmbracoAuthService(IHttpClientFactory httpClientFactory)
+    /// <summary>Creates the service.</summary>
+    /// <param name="httpClientFactory">Creates the client used for the token request.</param>
+    /// <param name="timeProvider">The clock; <see cref="TimeProvider.System"/> when omitted. Tests pass a fake.</param>
+    public UmbracoAuthService(
+        IHttpClientFactory httpClientFactory,
+        TimeProvider? timeProvider = null
+    )
     {
         _httpClientFactory = httpClientFactory;
+        _time = timeProvider ?? TimeProvider.System;
     }
 
-    /// <summary>Returns a valid bearer token, fetching/refreshing as needed.</summary>
+    /// <summary>
+    /// How long before expiry a token is refreshed: a tenth of its lifetime, capped at
+    /// <see cref="MaxRefreshMargin"/>.
+    /// <para>
+    /// A fixed margin breaks on short-lived tokens. Umbraco issues client-credentials tokens
+    /// for 299 s, and the old fixed five-minute margin was longer than that, so every token
+    /// was already "stale" when it arrived and every request re-authenticated (#251).
+    /// </para>
+    /// </summary>
+    /// <param name="lifetime">The token's lifetime (<c>expires_in</c>).</param>
+    /// <returns>The margin, always shorter than <paramref name="lifetime"/> when it is positive.</returns>
+    private static TimeSpan RefreshMargin(TimeSpan lifetime)
+    {
+        var tenth = lifetime / 10;
+        return tenth < MaxRefreshMargin ? tenth : MaxRefreshMargin;
+    }
+
+    /// <summary>
+    /// Returns a valid bearer token. A cached token is reused until shortly before it expires
+    /// (see <see cref="RefreshMargin"/>); after that a new one is requested.
+    /// </summary>
+    /// <param name="host">The Umbraco base URL.</param>
+    /// <param name="clientId">The API user's client id.</param>
+    /// <param name="clientSecret">The API user's client secret.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The bearer token.</returns>
+    /// <exception cref="UmbracoAuthException">The token request failed, timed out, could not reach the host, or returned an unreadable body.</exception>
     public async Task<string> GetTokenAsync(
         string host,
         string clientId,
@@ -29,7 +69,7 @@ public sealed class UmbracoAuthService
         await _lock.WaitAsync(ct);
         try
         {
-            if (_cachedToken is not null && DateTimeOffset.UtcNow < _tokenExpiry.AddMinutes(-5))
+            if (_cachedToken is not null && _time.GetUtcNow() < _refreshAt)
                 return _cachedToken;
 
             var http = _httpClientFactory.CreateClient();
@@ -69,8 +109,9 @@ public sealed class UmbracoAuthService
                     await response.Content.ReadFromJsonAsync<TokenResponse>(ct)
                     ?? throw new UmbracoAuthException(0, "Empty token response");
 
+                var lifetime = TimeSpan.FromSeconds(token.ExpiresIn);
                 _cachedToken = token.AccessToken;
-                _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(token.ExpiresIn);
+                _refreshAt = _time.GetUtcNow() + lifetime - RefreshMargin(lifetime);
                 return _cachedToken;
             }
             catch (HttpRequestException ex)
@@ -106,13 +147,14 @@ public sealed class UmbracoAuthService
         }
     }
 
+    /// <summary>Drops the cached token, so the next <see cref="GetTokenAsync"/> requests a new one.</summary>
     public void Invalidate()
     {
         _lock.Wait();
         try
         {
             _cachedToken = null;
-            _tokenExpiry = DateTimeOffset.MinValue;
+            _refreshAt = DateTimeOffset.MinValue;
         }
         finally
         {

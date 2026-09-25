@@ -695,10 +695,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The last invite request sent, or null if none was.</summary>
+    public InviteUserRequest? LastInvite { get; private set; }
+
     public Task<UmbracoResponse<Empty>> InviteUserAsync(
         InviteUserRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastInvite = request;
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<DictionaryItemResponse>>> GetDictionaryItemsAsync(
         int skip = 0,

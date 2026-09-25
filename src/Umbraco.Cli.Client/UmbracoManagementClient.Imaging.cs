@@ -31,8 +31,12 @@ public sealed partial class UmbracoManagementClient
                             c.QueryParameters.Height = h;
                         if (mode is { } m)
                             c.QueryParameters.Mode = ToGenCropMode(m);
+                        // Umbraco wants the format as a file extension (".webp"); a bare "webp"
+                        // gets an empty 400 (#245). Add the dot when it is missing.
                         if (!string.IsNullOrEmpty(format))
-                            c.QueryParameters.Format = format;
+                            c.QueryParameters.Format = format.StartsWith('.')
+                                ? format
+                                : "." + format;
                     },
                     ct
                 );

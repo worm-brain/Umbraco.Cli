@@ -3,6 +3,7 @@ using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.UserData;
 using Umbraco.Cli.Commands.UserGroups;
+using Umbraco.Cli.Commands.Users;
 using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Http;
@@ -55,6 +56,7 @@ public class UserAdminCommandTests
         global.AddTo(root);
         root.Add(UserGroupsCommand.Build(executor));
         root.Add(UserDataCommand.Build(executor));
+        root.Add(UsersCommand.Build(executor));
         return root;
     }
 
@@ -209,5 +211,38 @@ public class UserAdminCommandTests
 
         Assert.Equal(2, exit);
         Assert.Empty(fake.UserDataDeleted);
+    }
+
+    // ── users invite (#215) ─────────────────────────────────────────────────────
+    // The client resolves the group references and defaults the userName; see the invite wire
+    // tests. The command's job is to pass the options through and require a group.
+
+    [Fact]
+    public async Task UsersInvite_PassesGroupReferencesAndUserNameThrough()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(
+            root,
+            $"{Auth} users invite --email a@example.com --name A --group editor --group Translators --username alice"
+        );
+
+        Assert.Equal(0, exit);
+        Assert.Equal(["editor", "Translators"], fake.LastInvite!.UserGroups);
+        Assert.Equal("alice", fake.LastInvite.UserName);
+    }
+
+    [Fact]
+    public async Task UsersInvite_NoGroup_IsRefusedAtParseTime()
+    {
+        // Umbraco needs at least one group, and an empty list was the old silent default.
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(root, $"{Auth} users invite --email a@example.com --name A");
+
+        Assert.NotEqual(0, exit);
+        Assert.Null(fake.LastInvite);
     }
 }

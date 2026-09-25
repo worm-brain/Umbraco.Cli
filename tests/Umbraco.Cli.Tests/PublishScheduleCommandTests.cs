@@ -68,7 +68,65 @@ public class PublishScheduleCommandTests
         }
     }
 
+    /// <summary>Runs the command and returns the <c>message</c> of its JSON success envelope.</summary>
+    private static async Task<string?> MessageOf(string args)
+    {
+        var root = BuildRoot(
+            new FakeUmbracoManagementClient
+            {
+                PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+            }
+        );
+        var sw = new StringWriter();
+        var orig = Console.Out;
+        Console.SetOut(sw);
+        try
+        {
+            await root.Parse(args).InvokeAsync();
+        }
+        finally
+        {
+            Console.SetOut(orig);
+        }
+        return System
+            .Text.Json.JsonDocument.Parse(sw.ToString())
+            .RootElement.GetProperty("message")
+            .GetString();
+    }
+
     private const string Auth = "--host https://x --token t --output json";
+
+    [Fact]
+    public async Task Publish_WithoutSchedule_SaysPublished()
+    {
+        var message = await MessageOf($"{Auth} content publish {Guid.NewGuid()}");
+
+        Assert.Equal("Content item published.", message);
+    }
+
+    [Fact]
+    public async Task Publish_WithPublishAt_SaysScheduledNotPublished()
+    {
+        // #239: a scheduled publish said "Content item published." while the item stayed a draft.
+        var message = await MessageOf(
+            $"{Auth} content publish {Guid.NewGuid()} --publish-at 2026-01-01T09:00:00Z --cultures en-US da-DK"
+        );
+
+        Assert.Equal("Scheduled to publish at 2026-01-01T09:00:00Z (en-US, da-DK).", message);
+    }
+
+    [Fact]
+    public async Task Publish_WithOnlyUnpublishAt_SaysPublishedAndNamesTheUnpublishTime()
+    {
+        var message = await MessageOf(
+            $"{Auth} content publish {Guid.NewGuid()} --unpublish-at 2026-02-01T18:30:00Z"
+        );
+
+        Assert.Equal(
+            "Content item published; scheduled to unpublish at 2026-02-01T18:30:00Z.",
+            message
+        );
+    }
 
     [Fact]
     public async Task Publish_WithSchedule_ThreadsPublishAndUnpublishTimes()

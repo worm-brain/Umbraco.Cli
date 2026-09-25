@@ -64,6 +64,31 @@ public class CoverageFinaleClientTests
     }
 
     [Fact]
+    public async Task GetIndexersAsync_HealthStatusObject_MapsStatusName()
+    {
+        // #243: the API sends healthStatus as an object; the CLI printed its .NET type name.
+        var (client, _) = ClientReturning(
+            """{"total":1,"items":[{"name":"ExternalIndex","healthStatus":{"status":"Healthy","message":null}}]}"""
+        );
+
+        var result = await client.GetIndexersAsync(0, 100, CancellationToken.None);
+
+        Assert.Equal("Healthy", Assert.Single(result.Data!.Items).HealthStatus);
+    }
+
+    [Fact]
+    public async Task GetIndexersAsync_UnhealthyIndex_MapsTheMessage()
+    {
+        var (client, _) = ClientReturning(
+            """{"total":1,"items":[{"name":"ExternalIndex","healthStatus":{"status":"Unhealthy","message":"Index is corrupt"}}]}"""
+        );
+
+        var result = await client.GetIndexersAsync(0, 100, CancellationToken.None);
+
+        Assert.Equal("Index is corrupt", Assert.Single(result.Data!.Items).HealthMessage);
+    }
+
+    [Fact]
     public async Task RebuildIndexAsync_PostsToRebuildEndpoint()
     {
         var (client, handler) = ClientReturning("");
@@ -118,6 +143,26 @@ public class CoverageFinaleClientTests
         Assert.Contains("mode=Crop", handler.LastUri.AbsoluteUri);
         var m = Assert.Single(result.Data!);
         Assert.Equal(id, m.Id);
+    }
+
+    [Theory]
+    [InlineData("webp")]
+    [InlineData(".webp")]
+    public async Task GetResizeUrlsAsync_Format_IsSentWithOneLeadingDot(string format)
+    {
+        // #245: Umbraco answers a bare "webp" with an empty 400; it wants ".webp".
+        var (client, handler) = ClientReturning("[]");
+
+        await client.GetResizeUrlsAsync(
+            [Guid.NewGuid()],
+            width: 300,
+            height: null,
+            mode: null,
+            format: format,
+            CancellationToken.None
+        );
+
+        Assert.Contains("format=.webp&", handler.LastUri!.Query + "&");
     }
 
     // ── Data-type advanced ───────────────────────────────────────────────────────

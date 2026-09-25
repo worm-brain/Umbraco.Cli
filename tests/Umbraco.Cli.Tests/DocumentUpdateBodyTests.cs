@@ -104,6 +104,25 @@ public class DocumentUpdateBodyTests
     }
 
     [Fact]
+    public void Merge_EmptyRequest_KeepsEveryValueAndVariant()
+    {
+        // `content update <id> --template x` sends an empty request (#208), so an empty merge
+        // must change nothing but what the caller named.
+        var document = Document();
+
+        DocumentUpdateBody.Merge(document, [], []);
+
+        Assert.Equal(
+            "Hello",
+            Assert.Single(document["values"]!.AsArray())!["value"]!.GetValue<string>()
+        );
+        Assert.Equal(
+            "Hello",
+            Assert.Single(document["variants"]!.AsArray())!["name"]!.GetValue<string>()
+        );
+    }
+
+    [Fact]
     public void Merge_ResponseOnlyFields_AreNotEchoedBack()
     {
         var document = Document();

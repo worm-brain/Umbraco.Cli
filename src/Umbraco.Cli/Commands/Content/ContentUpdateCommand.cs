@@ -11,7 +11,7 @@ public static class ContentUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update an existing content item from a JSON body file.\n\nValues and variants in the body are MERGED into the item, matched on alias + culture + segment: anything you leave out keeps its current value, and the item's template is preserved. Pass --replace for the old behaviour, where the body's values and variants replace the item's wholesale.\n\nExamples:\n  umbraco content update 3f7a8b2e-... --json-body ./update.json\n  umbraco content update 3f7a8b2e-... --json-body ./full.json --replace\n  umbraco content update 3f7a8b2e-... --json-body ./update.json --template blogPost"
+            "Update an existing content item from a JSON body file.\n\nValues and variants in the body are MERGED into the item, matched on alias + culture + segment: anything you leave out keeps its current value, and the item's template is preserved. Pass --replace for the old behaviour, where the body's values and variants replace the item's wholesale.\n\nExamples:\n  umbraco content update 3f7a8b2e-... --json-body ./update.json\n  umbraco content update 3f7a8b2e-... --json-body ./full.json --replace\n  umbraco content update 3f7a8b2e-... --json-body ./update.json --template blogPost\n  umbraco content update 3f7a8b2e-... --template blogPost"
         );
         // id and --json-body are optional at the PARSE level only so that `--schema` can
         // describe the body without them. A nullable id makes "omitted" (null) unambiguous
@@ -46,10 +46,19 @@ public static class ContentUpdateCommand
         {
             if (body.SchemaRequested(result))
                 return;
-            if (result.GetValue(idArg) is null || !body.HasBody(result))
+            // A --template change needs no body (#208): the update merges, so an empty body
+            // leaves every value as it is and only the template moves. --replace is the
+            // exception - with no body it would clear every value - so it still needs one.
+            var hasBody = body.HasBody(result);
+            var hasTemplate = TemplateValue(result.GetValue(templateOpt)) is not null;
+            if (result.GetValue(idArg) is null || !(hasBody || hasTemplate))
                 result.AddError(
-                    "Supply the content id and --json-body. "
+                    "Supply the content id and --json-body (or --template on its own). "
                         + "Run with --schema to see the JSON body shape."
+                );
+            else if (result.GetValue(replaceOpt) && !hasBody)
+                result.AddError(
+                    "--replace needs --json-body: with no body it would clear every value."
                 );
         });
 
@@ -68,17 +77,20 @@ public static class ContentUpdateCommand
                     "content.update",
                     async (client, c) =>
                     {
-                        // The validator guarantees both are present here.
+                        // The validator guarantees an id, and a body or a --template.
                         var id = parseResult.GetValue(idArg)!.Value;
 
-                        var json = await body.ReadAsync(parseResult, c);
-                        var request =
-                            JsonSerializer.Deserialize<UpdateContentRequest>(json)
-                            ?? throw new InvalidOperationException("Invalid JSON body.");
+                        // No body means a template-only change: an empty request merges as
+                        // "change nothing", so only the --template below takes effect.
+                        var request = body.HasBody(parseResult)
+                            ? JsonSerializer.Deserialize<UpdateContentRequest>(
+                                await body.ReadAsync(parseResult, c)
+                            ) ?? throw new InvalidOperationException("Invalid JSON body.")
+                            : new UpdateContentRequest();
 
                         // --template wins over a template in the body, the way an explicit flag
                         // normally beats a file the caller may not have written.
-                        if (parseResult.GetValue(templateOpt) is { Length: > 0 } template)
+                        if (TemplateValue(parseResult.GetValue(templateOpt)) is { } template)
                             request = request with { Template = TemplateReference(template) };
 
                         return await client.UpdateContentAsync(
@@ -95,6 +107,14 @@ public static class ContentUpdateCommand
 
         return cmd;
     }
+
+    /// <summary>
+    /// The <c>--template</c> value, or null when it was not given. A blank value counts as not
+    /// given. One rule, shared by the validator and the action.
+    /// </summary>
+    /// <param name="raw">The raw option value.</param>
+    /// <returns>The template reference text, or null.</returns>
+    private static string? TemplateValue(string? raw) => raw is { Length: > 0 } ? raw : null;
 
     /// <summary>
     /// Reads a <c>--template</c> value as either a UUID or an alias, so callers can use whichever

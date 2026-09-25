@@ -38,7 +38,8 @@ public static class ImagingCommand
         };
         var formatOpt = new Option<string?>("--format")
         {
-            Description = "Output format (e.g. webp, jpg).",
+            Description =
+                "Output format as a file extension (e.g. webp or .webp, jpg). The leading dot is added if missing.",
         };
         cmd.Add(idOpt);
         cmd.Add(widthOpt);

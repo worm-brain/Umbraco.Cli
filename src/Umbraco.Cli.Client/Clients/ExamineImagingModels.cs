@@ -15,6 +15,10 @@ public record IndexResponse
     [JsonPropertyName("healthStatus")]
     public string? HealthStatus { get; init; }
 
+    /// <summary>Umbraco's explanation of the health status, when it gives one (usually only when unhealthy).</summary>
+    [JsonPropertyName("healthMessage")]
+    public string? HealthMessage { get; init; }
+
     /// <summary>The number of documents in the index.</summary>
     [JsonPropertyName("documentCount")]
     public long DocumentCount { get; init; }

@@ -3011,9 +3011,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// Invites a user via <c>POST user/invite</c> (generated client). The endpoint sends the
     /// invitation email and returns no body, so an empty success response is returned.
     /// </summary>
-    /// <param name="request">The invite details (email, name, user groups).</param>
+    /// <param name="request">
+    /// The invite details. Groups can be given as ids (<see cref="InviteUserRequest.UserGroupIds"/>)
+    /// or as alias, name or id references (<see cref="InviteUserRequest.UserGroups"/>); both are sent.
+    /// </param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
+    /// <returns>An empty success response, or a mapped failure (a 404 when a group reference matches no group).</returns>
     public Task<UmbracoResponse<Empty>> InviteUserAsync(
         InviteUserRequest request,
         CancellationToken ct = default
@@ -3022,14 +3025,19 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
+                var groupIds = request
+                    .UserGroupIds.Select(g => g.Id)
+                    .Concat(await ResolveUserGroupIdsAsync(request.UserGroups, ct));
                 var body = new Gen.InviteUserRequestModel
                 {
                     Email = request.Email,
                     Name = request.Name,
-                    UserName = request.UserName,
+                    // Umbraco refuses an invite with no userName, and by default one whose
+                    // userName differs from the email (#215), so the email is the default.
+                    UserName = request.UserName ?? request.Email,
                     Message = request.Message,
-                    UserGroupIds = request
-                        .UserGroupIds.Select(g => new Gen.ReferenceByIdModel { Id = g.Id })
+                    UserGroupIds = groupIds
+                        .Select(id => new Gen.ReferenceByIdModel { Id = id })
                         .ToList(),
                 };
                 await _api.Umbraco.Management.Api.V1.User.Invite.PostAsync(

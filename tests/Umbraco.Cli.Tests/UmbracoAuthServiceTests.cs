@@ -5,7 +5,7 @@ namespace Umbraco.Cli.Tests;
 /// <summary>
 /// Tests that the token fetch converts transport failures into <see cref="UmbracoAuthException"/>
 /// rather than letting a raw <see cref="HttpRequestException"/> escape and crash the process
-/// (issue #81).
+/// (issue #81), and that a cached token is reused for most of its lifetime (#251).
 /// </summary>
 public class UmbracoAuthServiceTests
 {
@@ -44,6 +44,98 @@ public class UmbracoAuthServiceTests
             cts.Cancel();
             throw new OperationCanceledException(cts.Token);
         }
+    }
+
+    /// <summary>Issues a token with the given lifetime on every request, and counts the requests.</summary>
+    private sealed class CountingTokenHandler(int expiresIn) : HttpMessageHandler
+    {
+        public int Requests { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken ct
+        )
+        {
+            Requests++;
+            var body =
+                $$"""{"access_token":"token-{{Requests}}","expires_in":{{expiresIn}},"token_type":"Bearer"}""";
+            return Task.FromResult(
+                new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        body,
+                        System.Text.Encoding.UTF8,
+                        "application/json"
+                    ),
+                }
+            );
+        }
+    }
+
+    /// <summary>A clock the test moves by hand.</summary>
+    private sealed class ManualClock : TimeProvider
+    {
+        private DateTimeOffset _now = new(2026, 9, 24, 12, 0, 0, TimeSpan.Zero);
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public void Advance(TimeSpan by) => _now += by;
+    }
+
+    /// <summary>
+    /// Asks for a token, moves the clock on, asks again, and returns how many token requests went
+    /// out in total.
+    /// </summary>
+    private static async Task<int> TokenRequestsAfter(int expiresIn, TimeSpan elapsed)
+    {
+        var handler = new CountingTokenHandler(expiresIn);
+        var clock = new ManualClock();
+        var service = new UmbracoAuthService(
+            new SingleClientFactory(new HttpClient(handler)),
+            clock
+        );
+
+        await service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None);
+        clock.Advance(elapsed);
+        await service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None);
+
+        return handler.Requests;
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_UmbracoLifetimeWellBeforeExpiry_ReusesCachedToken()
+    {
+        // #251: Umbraco issues 299 s tokens. The old fixed five-minute margin was longer than
+        // that, so the token was never reused and every request re-authenticated.
+        var requests = await TokenRequestsAfter(expiresIn: 299, TimeSpan.FromSeconds(200));
+
+        Assert.Equal(1, requests);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_UmbracoLifetimeInsideRefreshMargin_RequestsNewToken()
+    {
+        // A 299 s token's margin is a tenth of its lifetime (29.9 s), so at 280 s it is refreshed.
+        var requests = await TokenRequestsAfter(expiresIn: 299, TimeSpan.FromSeconds(280));
+
+        Assert.Equal(2, requests);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_LongLifetimeWithinOneMinuteOfExpiry_RequestsNewToken()
+    {
+        // The margin is capped at 60 s, so an hour-long token is refreshed in its last minute.
+        var requests = await TokenRequestsAfter(expiresIn: 3600, TimeSpan.FromSeconds(3550));
+
+        Assert.Equal(2, requests);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_LongLifetimeBeforeTheLastMinute_ReusesCachedToken()
+    {
+        var requests = await TokenRequestsAfter(expiresIn: 3600, TimeSpan.FromSeconds(3500));
+
+        Assert.Equal(1, requests);
     }
 
     private static UmbracoAuthService ServiceThatThrows(Exception ex) =>
