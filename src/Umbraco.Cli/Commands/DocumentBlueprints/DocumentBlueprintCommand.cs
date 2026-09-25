@@ -364,7 +364,7 @@ public static class DocumentBlueprintCommand
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
-            Description = "Name for the new blueprint.",
+            Description = "Name for the new blueprint, applied to every culture it has.",
         };
         var parentOpt = new Option<Guid?>("--parent")
         {

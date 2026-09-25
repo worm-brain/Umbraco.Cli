@@ -132,6 +132,13 @@ public sealed partial class UmbracoManagementClient
         );
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Umbraco 17.7 honours only part of the from-document request (#240): it creates the blueprint
+    /// at the root whatever <c>parent</c> says, and names only the default-language variant, leaving
+    /// the others with the source document's names. So after the create the blueprint is moved under
+    /// the requested parent and every variant is renamed, and the result carries the name at the top
+    /// level (a blueprint body has names only on its variants).
+    /// </remarks>
     public Task<UmbracoResponse<JsonNode>> CreateDocumentBlueprintFromDocumentAsync(
         CreateBlueprintFromDocumentRequest request,
         CancellationToken ct = default
@@ -154,9 +161,64 @@ public sealed partial class UmbracoManagementClient
                     body,
                     cancellationToken: ct
                 );
-                return await HydrateBlueprintAsync(id, ct);
+
+                // The parent in the body is ignored, so put the blueprint where it was asked to go.
+                // The blueprint body has no parent to check first; a move to where it already is
+                // is harmless.
+                if (request.Parent is { } parent)
+                    await _api
+                        .Umbraco.Management.Api.V1.DocumentBlueprint[id]
+                        .Move.PutAsync(
+                            new Gen.MoveDocumentBlueprintRequestModel
+                            {
+                                Target = new Gen.ReferenceByIdModel { Id = parent.Id },
+                            },
+                            cancellationToken: ct
+                        );
+
+                await RenameEveryVariantAsync(id, request.Name, ct);
+
+                var hydrated = await HydrateBlueprintAsync(id, ct);
+                if (hydrated is JsonObject result && request.Name is { Length: > 0 } name)
+                    result["name"] = name;
+                return hydrated;
             }
         );
+
+    /// <summary>
+    /// Gives every variant of a blueprint the same name (#240), in one merged PUT. Nothing is sent
+    /// when every variant already has the name, which is the invariant case after a from-document
+    /// create.
+    /// </summary>
+    /// <param name="id">The blueprint id.</param>
+    /// <param name="name">The name to apply; nothing is done when it is empty.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when the blueprint is renamed.</returns>
+    private async Task RenameEveryVariantAsync(Guid id, string? name, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(name))
+            return;
+
+        var path = $"{BlueprintPath}/{id}";
+        if (await GetRawJsonAsync(path, ct) is not JsonObject blueprint)
+            return;
+
+        var stale = (blueprint["variants"] as JsonArray ?? [])
+            .OfType<JsonObject>()
+            .Where(v => v["name"]?.GetValue<string?>() != name)
+            .Select(v => new ContentVariant
+            {
+                Culture = v["culture"]?.GetValue<string?>(),
+                Segment = v["segment"]?.GetValue<string?>(),
+                Name = name,
+            })
+            .ToList();
+        if (stale.Count == 0)
+            return;
+
+        DocumentUpdateBody.Merge(blueprint, [], stale, replace: false);
+        await SendRawJsonAsync(Method.PUT, path, blueprint, ct);
+    }
 
     // ── Mutate ───────────────────────────────────────────────────────────────────
 
