@@ -441,6 +441,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 // Honour a client-supplied id for an idempotent create (#140); generate one
                 // otherwise. Either way the id is known, so the empty 201 body can be hydrated.
                 var id = request.Id ?? Guid.NewGuid();
+
+                // A variant that names no culture gets the default language when the type
+                // varies by culture (#228); an invariant type keeps the null culture.
+                var variants = MapVariants(request.Variants);
+                await DefaultVariantCulturesAsync(variants, documentTypeId, ct);
+
                 // CreateDocumentBody (not the raw generated model) so that `template` is
                 // always serialized: Umbraco 17+ requires the property to be present on a
                 // document-create body, but Kiota omits a null complex property. See #134.
@@ -451,7 +457,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Parent = request.Parent is { } p
                         ? new Gen.ReferenceByIdModel { Id = p.Id }
                         : null,
-                    Variants = MapVariants(request.Variants),
+                    Variants = variants,
                     Values = MapValues(request.Values),
                     // Null is meaningful here: Umbraco 17 reads an explicit null template as
                     // "use the document type's default" (#134/#162), so only set it when asked.

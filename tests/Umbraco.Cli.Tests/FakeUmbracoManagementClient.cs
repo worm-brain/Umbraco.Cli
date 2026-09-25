@@ -54,10 +54,25 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>The request of the last <see cref="CreateContentAsync"/> call (#228).</summary>
+    public CreateContentRequest? LastCreate { get; private set; }
+
+    /// <summary>Records the request and answers with a bare item carrying its id.</summary>
+    /// <param name="request">The create request.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A success carrying the request's id.</returns>
     public Task<UmbracoResponse<ContentItemResponse>> CreateContentAsync(
         CreateContentRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastCreate = request;
+        return Task.FromResult(
+            UmbracoResponse<ContentItemResponse>.Success(
+                new ContentItemResponse { Id = request.Id ?? Guid.NewGuid() }
+            )
+        );
+    }
 
     /// <summary>The (id, request, replace) of the last <see cref="UpdateContentAsync"/> call (#178/#179).</summary>
     public (Guid Id, UpdateContentRequest Request, bool Replace)? LastUpdate { get; private set; }

@@ -90,6 +90,37 @@ public class DocumentBlueprintCommandTests
     }
 
     [Fact]
+    public async Task Create_WithCulture_PutsItOnTheVariant()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake);
+
+        await Run(
+            root,
+            $"{Auth} document-blueprint create --document-type textPage --name Starter --culture da-DK"
+        );
+
+        Assert.Equal(
+            "da-DK",
+            Assert.Single(Assert.Single(fake.BlueprintsCreated).Variants).Culture
+        );
+    }
+
+    [Fact]
+    public async Task Create_WithoutCulture_LeavesItForTheClientToDefault()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake);
+
+        await Run(
+            root,
+            $"{Auth} document-blueprint create --document-type textPage --name Starter"
+        );
+
+        Assert.Null(Assert.Single(Assert.Single(fake.BlueprintsCreated).Variants).Culture);
+    }
+
+    [Fact]
     public async Task Create_WithJsonBody_DeserializesValues()
     {
         var fake = new FakeUmbracoManagementClient();

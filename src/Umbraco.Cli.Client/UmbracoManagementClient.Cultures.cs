@@ -114,4 +114,38 @@ public sealed partial class UmbracoManagementClient
         foreach (var variant in variants.Where(v => string.IsNullOrEmpty(v.Culture)))
             variant.Culture = culture;
     }
+
+    /// <summary>
+    /// The update-side twin of <see cref="DefaultVariantCulturesAsync"/>: gives culture-less
+    /// requested variants the default language when the existing item varies by culture and has a
+    /// variant in that language (#228, blueprint <c>update --name</c>). Anything else is returned
+    /// as it is, so <see cref="DocumentUpdateBody"/>'s guard can still refuse an ambiguous rename
+    /// with the item's cultures listed.
+    /// </summary>
+    /// <param name="current">The item's current <c>variants</c> array, as read.</param>
+    /// <param name="requested">The variants from the request.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The requested variants, with the default culture filled in where it applies.</returns>
+    private async Task<List<ContentVariant>> DefaultExistingVariantCulturesAsync(
+        System.Text.Json.Nodes.JsonArray? current,
+        IEnumerable<ContentVariant> requested,
+        CancellationToken ct
+    )
+    {
+        var variants = requested.ToList();
+        if (variants.All(v => !string.IsNullOrEmpty(v.Culture)))
+            return variants;
+
+        var cultures = CulturesOf((current ?? []).Select(v => v?["culture"]?.GetValue<string?>()));
+        if (cultures[0] is null)
+            return variants;
+
+        var fallback = await DefaultCultureAsync(ct);
+        if (fallback is null || !cultures.Contains(fallback, StringComparer.OrdinalIgnoreCase))
+            return variants;
+
+        return variants
+            .Select(v => string.IsNullOrEmpty(v.Culture) ? v with { Culture = fallback } : v)
+            .ToList();
+    }
 }

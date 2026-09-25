@@ -143,11 +143,18 @@ public static class DocumentBlueprintCommand
         {
             Description = "Optional client-supplied UUID for an idempotent create (#86).",
         };
+        var cultureOpt = new Option<string?>("--culture")
+        {
+            Description =
+                "Culture of the name (e.g. en-US). Omitted, a type that varies by culture gets the "
+                + "default language and an invariant type gets none.",
+        };
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
         body.AddTo(cmd);
         cmd.Add(idOpt);
+        cmd.Add(cultureOpt);
 
         cmd.Validators.Add(result =>
         {
@@ -198,7 +205,14 @@ public static class DocumentBlueprintCommand
                                 Parent = parentId.HasValue
                                     ? new ContentParentReference { Id = parentId.Value }
                                     : null,
-                                Variants = [new ContentVariant { Name = name }],
+                                Variants =
+                                [
+                                    new ContentVariant
+                                    {
+                                        Name = name,
+                                        Culture = parseResult.GetValue(cultureOpt),
+                                    },
+                                ],
                             };
                         }
 
@@ -228,9 +242,13 @@ public static class DocumentBlueprintCommand
         };
         var nameOpt = new Option<string>("--name")
         {
+            Description = "New display name. Required unless --json-body or --schema is used.",
+        };
+        var updateCultureOpt = new Option<string?>("--culture")
+        {
             Description =
-                "New display name (sets a single invariant variant). "
-                + "Required unless --json-body or --schema is used.",
+                "Culture of the new name (e.g. en-US). Omitted, a blueprint that varies by "
+                + "culture renames its default-language variant.",
         };
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) with the update body; merged into the blueprint unless --replace (overrides --name)."
@@ -244,6 +262,7 @@ public static class DocumentBlueprintCommand
         };
         cmd.Add(idArg);
         cmd.Add(nameOpt);
+        cmd.Add(updateCultureOpt);
         cmd.Add(replaceOpt);
         body.AddTo(cmd);
 
@@ -289,7 +308,11 @@ public static class DocumentBlueprintCommand
                             {
                                 Variants =
                                 [
-                                    new ContentVariant { Name = parseResult.GetValue(nameOpt)! },
+                                    new ContentVariant
+                                    {
+                                        Name = parseResult.GetValue(nameOpt)!,
+                                        Culture = parseResult.GetValue(updateCultureOpt),
+                                    },
                                 ],
                             };
                         }

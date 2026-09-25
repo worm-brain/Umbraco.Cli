@@ -85,6 +85,33 @@ public class ContentUpdateCommandTests
 
     private static readonly Guid Id = Guid.Parse("3f7a8b2e-1234-5678-abcd-ef0123456789");
 
+    // content create shares this harness: --culture (#228) is a flag on the same noun.
+
+    [Fact]
+    public async Task Create_WithCulture_PutsItOnTheVariant()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(
+            fake,
+            "content create --content-type blogPost --name Post --culture da-DK",
+            "{}"
+        );
+
+        Assert.Equal(0, exit);
+        Assert.Equal("da-DK", Assert.Single(fake.LastCreate!.Variants).Culture);
+    }
+
+    [Fact]
+    public async Task Create_WithoutCulture_LeavesItForTheClientToDefault()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        await RunAsync(fake, "content create --content-type blogPost --name Post", "{}");
+
+        Assert.Null(Assert.Single(fake.LastCreate!.Variants).Culture);
+    }
+
     [Fact]
     public async Task Update_WithoutReplace_AsksTheClientToMerge()
     {

@@ -11,7 +11,7 @@ public static class ContentCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --content-type textPage --name \"About\"\n  umbraco content create --content-type textPage --name \"Child\" --parent <id>\n  umbraco content create --content-type blogPost --name \"Post\" --json-body ./body.json"
+            "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --content-type textPage --name \"About\"\n  umbraco content create --content-type textPage --name \"Child\" --parent <id>\n  umbraco content create --content-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --content-type blogPost --name \"Post\" --json-body ./body.json"
         );
         // Not marked Required at parse level: a create can be driven by --content-type + --name
         // OR by --json-body OR short-circuited by --schema. The conditional requirement is
@@ -37,6 +37,14 @@ public static class ContentCreateCommand
         {
             Description = "Optional client-supplied UUID for an idempotent create (#86).",
         };
+        // #228: without a culture a flags-only create on a variant type was rejected with
+        // "variance did not match". The client fills in the default language when this is unset.
+        var cultureOpt = new Option<string?>("--culture")
+        {
+            Description =
+                "Culture of the name (e.g. en-US). Omitted, a type that varies by culture gets the "
+                + "default language and an invariant type gets none.",
+        };
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) containing the full create request body "
                 + "(overrides other flags)."
@@ -50,6 +58,7 @@ public static class ContentCreateCommand
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
         cmd.Add(idOpt);
+        cmd.Add(cultureOpt);
         cmd.Add(templateOpt);
         body.AddTo(cmd);
 
@@ -107,7 +116,14 @@ public static class ContentCreateCommand
                                 Parent = parentId.HasValue
                                     ? new ContentParentReference { Id = parentId.Value }
                                     : null,
-                                Variants = [new ContentVariant { Name = name }],
+                                Variants =
+                                [
+                                    new ContentVariant
+                                    {
+                                        Name = name,
+                                        Culture = parseResult.GetValue(cultureOpt),
+                                    },
+                                ],
                             };
                         }
 

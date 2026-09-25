@@ -107,6 +107,12 @@ public sealed partial class UmbracoManagementClient
                 var documentTypeId = await IdOfAsync(EntityKind.DocumentType, reference, ct);
 
                 var id = request.Id ?? Guid.NewGuid();
+
+                // As for content create (#228): a culture-less variant on a type that varies by
+                // culture gets the default language.
+                var variants = MapVariants(request.Variants);
+                await DefaultVariantCulturesAsync(variants, documentTypeId, ct);
+
                 var body = new Gen.CreateDocumentBlueprintRequestModel
                 {
                     Id = id,
@@ -114,7 +120,7 @@ public sealed partial class UmbracoManagementClient
                     Parent = request.Parent is { } p
                         ? new Gen.ReferenceByIdModel { Id = p.Id }
                         : null,
-                    Variants = MapVariants(request.Variants),
+                    Variants = variants,
                     Values = MapValues(request.Values),
                 };
                 await _api.Umbraco.Management.Api.V1.DocumentBlueprint.PostAsync(
@@ -175,7 +181,14 @@ public sealed partial class UmbracoManagementClient
                 var blueprint =
                     await GetRawJsonAsync(path, ct) as JsonObject
                     ?? throw new ApiException("The blueprint body was not a JSON object.");
-                DocumentUpdateBody.Merge(blueprint, request.Values, request.Variants, replace);
+                // A culture-less rename on a variant blueprint means the default language
+                // (#228); the merge's guard still refuses it when that language is missing.
+                var variants = await DefaultExistingVariantCulturesAsync(
+                    blueprint["variants"] as JsonArray,
+                    request.Variants,
+                    ct
+                );
+                DocumentUpdateBody.Merge(blueprint, request.Values, variants, replace);
                 await SendRawJsonAsync(Method.PUT, path, blueprint, ct);
                 return Empty.Value;
             }
