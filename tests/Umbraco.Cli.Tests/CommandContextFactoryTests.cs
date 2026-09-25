@@ -89,7 +89,7 @@ public class CommandContextFactoryTests
     {
         var (state, endpoint) = await CreateWith("--output json");
 
-        var fresh = await state.Refresh!(CancellationToken.None);
+        var fresh = await state.RenewAsync("t1", CancellationToken.None);
 
         Assert.Equal(("t2", 2), (fresh, endpoint.Requests));
     }
@@ -99,6 +99,6 @@ public class CommandContextFactoryTests
     {
         var (state, _) = await CreateWith("--token given --output json");
 
-        Assert.Null(state.Refresh);
+        Assert.False(state.CanRenew);
     }
 }

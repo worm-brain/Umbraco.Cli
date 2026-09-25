@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands;
 
 namespace Umbraco.Cli.Infrastructure.Config;
 
@@ -53,9 +52,7 @@ public sealed class FileTokenCache : ITokenCache
     /// </summary>
     /// <returns>The cache, or null for none.</returns>
     public static ITokenCache? FromEnvironment() =>
-        CommandContextFactory.IsTruthy(Environment.GetEnvironmentVariable("UMBRACO_NO_TOKEN_CACHE"))
-            ? null
-            : new FileTokenCache();
+        EnvironmentFlags.IsOn("UMBRACO_NO_TOKEN_CACHE") ? null : new FileTokenCache();
 
     /// <inheritdoc />
     public CachedToken? Read(string key) => Load().GetValueOrDefault(key);

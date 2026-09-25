@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Net.Http.Headers;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Http;
 using Umbraco.Cli.Infrastructure.Output;
@@ -121,7 +122,7 @@ public sealed class CommandContextFactory
         {
             bearerToken = tokenOverride;
             // A --token is the caller's; there is nothing to renew it with.
-            _tokenRefresh.Reset(null);
+            _tokenRefresh.Reset(bearerToken, null);
         }
         else
         {
@@ -151,11 +152,14 @@ public sealed class CommandContextFactory
             // A cached token can be rejected before it expires (#248): drop it and exchange the
             // credentials again, from the HTTP pipeline, for the one request that got the 401.
             var (clientId, clientSecret) = (config.ClientId!, config.ClientSecret!);
-            _tokenRefresh.Reset(c =>
-            {
-                _authService.Invalidate(host, clientId, clientSecret);
-                return _authService.GetTokenAsync(host, clientId, clientSecret, c);
-            });
+            _tokenRefresh.Reset(
+                bearerToken,
+                c =>
+                {
+                    _authService.Invalidate(host, clientId, clientSecret);
+                    return _authService.GetTokenAsync(host, clientId, clientSecret, c);
+                }
+            );
         }
 
         // Set the interception policy for this invocation (after auth, so the OAuth token
@@ -219,24 +223,7 @@ public sealed class CommandContextFactory
     /// <param name="parseResult">The parsed command line.</param>
     /// <returns>True when writes should be blocked.</returns>
     private bool IsReadOnly(ParseResult parseResult) =>
-        parseResult.GetValue(_globalOptions.ReadOnly)
-        || IsTruthy(Environment.GetEnvironmentVariable("UMBRACO_READONLY"));
-
-    /// <summary>Whether an environment-variable value should be read as "on" (1/true/yes).</summary>
-    /// <param name="value">The raw environment value.</param>
-    /// <returns>True for a truthy value.</returns>
-    internal static bool IsTruthy(string? value)
-    {
-        // Trim so a stray trailing space (easy to introduce in a Windows `set VAR=1 `) does not
-        // silently disable the guardrail.
-        var v = value?.Trim();
-        return !string.IsNullOrEmpty(v)
-            && (
-                v == "1"
-                || v.Equals("true", StringComparison.OrdinalIgnoreCase)
-                || v.Equals("yes", StringComparison.OrdinalIgnoreCase)
-            );
-    }
+        parseResult.GetValue(_globalOptions.ReadOnly) || EnvironmentFlags.IsOn("UMBRACO_READONLY");
 
     /// <summary>
     /// Enforces the command allow-list (#69) for <paramref name="commandName"/>, aborting with exit

@@ -46,11 +46,14 @@ public class TokenRefreshHandlerTests
     private static TokenRefreshState Refreshing(string to, Action? onRefresh = null)
     {
         var state = new TokenRefreshState();
-        state.Reset(_ =>
-        {
-            onRefresh?.Invoke();
-            return Task.FromResult(to);
-        });
+        state.Reset(
+            "stale",
+            _ =>
+            {
+                onRefresh?.Invoke();
+                return Task.FromResult(to);
+            }
+        );
         return state;
     }
 
@@ -100,7 +103,7 @@ public class TokenRefreshHandlerTests
     {
         var server = new Server(validToken: "fresh");
         var state = new TokenRefreshState();
-        state.Reset(null);
+        state.Reset("stale", null);
 
         var response = await Client(server, state).GetAsync("doc");
 
@@ -115,7 +118,7 @@ public class TokenRefreshHandlerTests
     {
         var server = new Server(validToken: "fresh");
         var state = new TokenRefreshState();
-        state.Reset(_ => throw new UmbracoAuthException(401, "invalid_client"));
+        state.Reset("stale", _ => throw new UmbracoAuthException(401, "invalid_client"));
 
         var response = await Client(server, state).GetAsync("doc");
 
