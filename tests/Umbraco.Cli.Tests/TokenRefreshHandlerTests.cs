@@ -98,6 +98,54 @@ public class TokenRefreshHandlerTests
         );
     }
 
+    /// <summary>A stream that can be read once, front to back, like a request body built on the fly.</summary>
+    private sealed class OneShotStream(byte[] bytes) : MemoryStream(bytes)
+    {
+        public override bool CanSeek => false;
+    }
+
+    /// <summary>The production order: token refresh outermost, then the dry-run/read-only interceptor.</summary>
+    private static HttpClient Pipeline(Server server, MutationInterceptPolicy policy) =>
+        new(
+            new TokenRefreshHandler(Refreshing("fresh"))
+            {
+                InnerHandler = new MutationInterceptorHandler(
+                    new MutationInterceptState { Policy = policy }
+                )
+                {
+                    InnerHandler = server,
+                },
+            }
+        )
+        {
+            BaseAddress = new Uri("https://x/"),
+        };
+
+    [Fact]
+    public async Task Send_OneShotStreamBody_IsResentWhole()
+    {
+        // The raw JSON writes send a stream body (Kiota SetStreamContent). A retry must not send
+        // an empty or truncated body.
+        var server = new Server(validToken: "fresh");
+        var content = new StreamContent(new OneShotStream("""{"id":"x"}"""u8.ToArray()));
+
+        await Pipeline(server, MutationInterceptPolicy.Execute).PutAsync("document/x", content);
+
+        Assert.Equal([("stale", """{"id":"x"}"""), ("fresh", """{"id":"x"}""")], server.Attempts);
+    }
+
+    [Fact]
+    public async Task Send_ReadOnly_StillBlocksTheWriteBeforeAnyAttempt()
+    {
+        var server = new Server(validToken: "fresh");
+
+        await Assert.ThrowsAsync<ReadOnlyModeException>(() =>
+            Pipeline(server, MutationInterceptPolicy.Block)
+                .PostAsync("document", new StringContent("{}"))
+        );
+        Assert.Empty(server.Attempts);
+    }
+
     [Fact]
     public async Task Send_TokenGivenWithTokenFlag_IsNotRefreshed()
     {
