@@ -168,6 +168,12 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
   tree, so it stays in sync automatically. When you change a command's options or help, the
   catalog updates for free - but the hand-written [`docs/commands.md`](docs/commands.md) does
   not, so update it in the same PR.
+- The whole surface is also committed as [`docs/surface.json`](docs/surface.json) (the same
+  catalog, built from `CliRoot`), and `SurfaceSnapshotTests` fails when it is stale. Read it to
+  see how comparable commands already do something before adding or changing one. After an
+  intended surface change, regenerate it with
+  `UPDATE_SURFACE=1 dotnet test tests/Umbraco.Cli.Tests --filter SurfaceSnapshotTests` and
+  commit it with the change. New top-level nouns are registered in `Commands/CliRoot.cs`.
 
 ## Domain glossary and decisions
 
