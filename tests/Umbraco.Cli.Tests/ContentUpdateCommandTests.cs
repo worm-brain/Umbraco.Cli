@@ -85,6 +85,33 @@ public class ContentUpdateCommandTests
 
     private static readonly Guid Id = Guid.Parse("3f7a8b2e-1234-5678-abcd-ef0123456789");
 
+    // content restore shares this harness too (#230).
+
+    [Fact]
+    public async Task Restore_ToRoot_AsksTheClientForTheRoot()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        await RunAsync(fake, $"content restore {Id} --to-root", "{}");
+
+        Assert.Equal((Id, (Guid?)null, true), fake.LastRestore);
+    }
+
+    [Fact]
+    public async Task Restore_ParentAndToRoot_IsRefusedBeforeTheClientIsCalled()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(
+            fake,
+            $"content restore {Id} --parent {Guid.NewGuid()} --to-root",
+            "{}"
+        );
+
+        Assert.NotEqual(0, exit);
+        Assert.Null(fake.LastRestore);
+    }
+
     // content create shares this harness: --culture (#228) is a flag on the same noun.
 
     [Fact]

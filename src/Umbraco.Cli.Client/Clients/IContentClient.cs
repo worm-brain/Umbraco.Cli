@@ -141,14 +141,19 @@ public interface IContentClient
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> TrashContentAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Restores a document from the recycle bin (issue #67).</summary>
+    /// <summary>
+    /// Restores a document from the recycle bin (issue #67). With no parent it goes back under the
+    /// parent it was trashed from (#230).
+    /// </summary>
     /// <param name="id">The trashed document id.</param>
-    /// <param name="parentId">Target parent to restore under; null restores to the root.</param>
+    /// <param name="parentId">Parent to restore under; null restores to the original parent.</param>
+    /// <param name="toRoot">Restore to the content root, whatever the original parent was.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> RestoreContentAsync(
         Guid id,
         Guid? parentId = null,
+        bool toRoot = false,
         CancellationToken ct = default
     );
 

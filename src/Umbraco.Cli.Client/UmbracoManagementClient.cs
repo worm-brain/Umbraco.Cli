@@ -839,28 +839,56 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
     /// <summary>
     /// Restores a document from the recycle bin via <c>PUT recycle-bin/document/{id}/restore</c>
-    /// (issue #67). The target parent is optional; null restores to the content root.
+    /// (issue #67).
+    /// <para>
+    /// With no parent named, the document goes back where it came from, as the backoffice does
+    /// (#230): <c>GET recycle-bin/document/{id}/original-parent</c> answers the parent, or nothing
+    /// when it was at the root. Restoring to the root by default put a <c>blogPost</c> where it is
+    /// not allowed, and Umbraco's 400 ("not permitted, likely due to a permission/configuration
+    /// mismatch") did not say why, so a rejected restore is reworded to name where it was going.
+    /// </para>
     /// </summary>
     /// <param name="id">The trashed document id.</param>
-    /// <param name="parentId">Target parent to restore under; null restores to the root.</param>
+    /// <param name="parentId">Parent to restore under; null restores to the original parent.</param>
+    /// <param name="toRoot">Restore to the content root, whatever the original parent was.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     public Task<UmbracoResponse<Empty>> RestoreContentAsync(
         Guid id,
         Guid? parentId = null,
+        bool toRoot = false,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
             ct,
             async () =>
             {
-                var body = new Gen.MoveMediaRequestModel
+                var bin = _api.Umbraco.Management.Api.V1.RecycleBin.Document[id];
+                var original = parentId is null && !toRoot;
+                var target = original
+                    ? (await bin.OriginalParent.GetAsync(cancellationToken: ct))?.Id
+                    : parentId;
+
+                try
                 {
-                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
-                };
-                await _api
-                    .Umbraco.Management.Api.V1.RecycleBin.Document[id]
-                    .Restore.PutAsync(body, cancellationToken: ct);
+                    await bin.Restore.PutAsync(
+                        new Gen.MoveMediaRequestModel
+                        {
+                            Target = target is { } t ? new Gen.ReferenceByIdModel { Id = t } : null,
+                        },
+                        cancellationToken: ct
+                    );
+                }
+                catch (ApiException ex) when (StatusOf(ex) == 400)
+                {
+                    var where = target is { } t
+                        ? $"under {t}" + (original ? " (its original parent)" : "")
+                        : "at the content root" + (original ? " (where it was)" : "");
+                    throw BadRequest(
+                        $"Umbraco would not restore {id} {where}: {ProblemText(ex)} "
+                            + "Its document type may not be allowed there; pass --parent <id> to restore it somewhere else."
+                    );
+                }
                 return Empty.Value;
             }
         );
@@ -3602,6 +3630,25 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>An <see cref="ApiException"/> with status 404.</returns>
     private static ApiException NotFound(string message) =>
         new(message) { ResponseStatusCode = 404 };
+
+    /// <summary>The HTTP status of a generated-client exception, reading a problem body's own status when the response's is unset.</summary>
+    /// <param name="ex">The exception.</param>
+    /// <returns>The status code, or 0 when unknown.</returns>
+    private static int StatusOf(ApiException ex) =>
+        ex.ResponseStatusCode != 0 ? ex.ResponseStatusCode
+        : ex is Gen.ProblemDetails pd ? pd.Status ?? 0
+        : 0;
+
+    /// <summary>The readable part of a generated-client exception: a problem body's detail or title, else its message.</summary>
+    /// <param name="ex">The exception.</param>
+    /// <returns>The text, trimmed of a trailing full stop so it can be embedded in a sentence.</returns>
+    private static string ProblemText(ApiException ex)
+    {
+        var text = ex is Gen.ProblemDetails pd
+            ? (!string.IsNullOrWhiteSpace(pd.Detail) ? pd.Detail : pd.Title) ?? ex.Message
+            : ex.Message;
+        return text.TrimEnd('.') + ".";
+    }
 
     /// <summary>Builds a 400 for a request this client refuses to send.</summary>
     /// <param name="message">What is wrong, and what the caller can do about it.</param>
