@@ -36,7 +36,7 @@ public sealed partial class UmbracoManagementClient
                 if (request.Template is { } template)
                     document["template"] = new JsonObject
                     {
-                        ["id"] = (await ResolveTemplateIdAsync(template, ct)).ToString(),
+                        ["id"] = (await TemplateIdAsync(template, ct)).ToString(),
                     };
 
                 await SendRawJsonAsync(Method.PUT, path, document, ct);
@@ -61,12 +61,13 @@ public sealed partial class UmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The template's id.</returns>
     /// <exception cref="ApiException">Neither an id nor a resolvable alias was supplied.</exception>
-    private async Task<Guid> ResolveTemplateIdAsync(
+    private async Task<Guid> TemplateIdAsync(
         ContentTemplateReference template,
         CancellationToken ct
     ) =>
         template.Id
-        ?? await ResolveTemplateIdAsync(
+        ?? await IdOfAsync(
+            EntityKind.Template,
             template.Alias
                 ?? throw new ApiException("A template reference needs either an id or an alias."),
             ct

@@ -32,11 +32,7 @@ public sealed partial class UmbracoManagementClient
     {
         var ids = new List<Guid>();
         foreach (var reference in references)
-            ids.Add(
-                Guid.TryParse(reference, out var id)
-                    ? id
-                    : await ResolveUserGroupIdAsync(reference, ct)
-            );
+            ids.Add(await IdOfAsync(EntityKind.UserGroup, reference, ct));
         return ids;
     }
 

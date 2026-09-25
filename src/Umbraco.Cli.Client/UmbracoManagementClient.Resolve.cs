@@ -38,6 +38,28 @@ public sealed partial class UmbracoManagementClient
         return ResolveUncachedAsync(kind, reference, ct);
     }
 
+    /// <summary>
+    /// <see cref="ResolveIdAsync"/> for the client's own methods that take a reference (a
+    /// document type on create, a template, an upload's media type): the same single GUID check
+    /// and lookup, with a failure raised as the <see cref="ApiException"/> their
+    /// <see cref="GuardedApiAsync{T}"/> maps.
+    /// </summary>
+    /// <param name="kind">What kind of item the reference names.</param>
+    /// <param name="reference">An id, alias, name or key.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The id.</returns>
+    /// <exception cref="ApiException">The reference did not resolve.</exception>
+    private async Task<Guid> IdOfAsync(EntityKind kind, string reference, CancellationToken ct)
+    {
+        var id = await ResolveIdAsync(kind, reference, ct);
+        return id.IsSuccess
+            ? id.Data
+            : throw new ApiException(id.ErrorMessage ?? $"No {kind.Noun()} '{reference}'.")
+            {
+                ResponseStatusCode = id.StatusCode,
+            };
+    }
+
     /// <summary>Successful resolutions, by (kind, reference), for the client's life.</summary>
     private readonly Dictionary<(EntityKind, string), Guid> _resolved = [];
 
@@ -52,14 +74,14 @@ public sealed partial class UmbracoManagementClient
             () =>
                 kind switch
                 {
-                    EntityKind.Template => ResolveTemplateIdAsync(reference, ct),
-                    EntityKind.DocumentType => ResolveDocumentTypeIdAsync(reference, ct),
-                    EntityKind.MediaType => ResolveMediaTypeIdAsync(reference, ct),
-                    EntityKind.MemberType => ResolveMemberTypeIdAsync(reference, ct),
-                    EntityKind.DataType => ResolveDataTypeIdAsync(reference, ct),
-                    EntityKind.UserGroup => ResolveUserGroupIdAsync(reference, ct),
-                    EntityKind.MemberGroup => ResolveMemberGroupIdAsync(reference, ct),
-                    EntityKind.DictionaryItem => ResolveDictionaryIdAsync(reference, ct),
+                    EntityKind.Template => FindTemplateIdAsync(reference, ct),
+                    EntityKind.DocumentType => FindDocumentTypeIdAsync(reference, ct),
+                    EntityKind.MediaType => FindMediaTypeIdAsync(reference, ct),
+                    EntityKind.MemberType => FindMemberTypeIdAsync(reference, ct),
+                    EntityKind.DataType => FindDataTypeIdAsync(reference, ct),
+                    EntityKind.UserGroup => FindUserGroupIdAsync(reference, ct),
+                    EntityKind.MemberGroup => FindMemberGroupIdAsync(reference, ct),
+                    EntityKind.DictionaryItem => FindDictionaryIdAsync(reference, ct),
                     _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
                 }
         );
@@ -77,15 +99,8 @@ public sealed partial class UmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The template id.</returns>
     /// <exception cref="ApiException">No match (404) or an ambiguous name (409).</exception>
-    private async Task<Guid> ResolveTemplateIdAsync(string reference, CancellationToken ct) =>
-        // Internal callers (content --template) pass ids straight through too.
-        Guid.TryParse(reference, out var id)
-            ? id
-            : ReferenceMatch.Pick(
-                EntityKind.Template,
-                reference,
-                await TemplateCandidatesAsync(ct)
-            );
+    private async Task<Guid> FindTemplateIdAsync(string reference, CancellationToken ct) =>
+        ReferenceMatch.Pick(EntityKind.Template, reference, await TemplateCandidatesAsync(ct));
 
     /// <summary>Every template, with its alias: a tree walk, then batched item reads.</summary>
     private async Task<List<ReferenceCandidate>> TemplateCandidatesAsync(CancellationToken ct)
@@ -166,15 +181,8 @@ public sealed partial class UmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The media type id.</returns>
     /// <exception cref="ApiException">No match (404) or an ambiguous name (409).</exception>
-    private async Task<Guid> ResolveMediaTypeIdAsync(string reference, CancellationToken ct) =>
-        // Internal callers (upload --media-type) pass ids straight through too.
-        Guid.TryParse(reference, out var id)
-            ? id
-            : ReferenceMatch.Pick(
-                EntityKind.MediaType,
-                reference,
-                await MediaTypeCandidatesAsync(ct)
-            );
+    private async Task<Guid> FindMediaTypeIdAsync(string reference, CancellationToken ct) =>
+        ReferenceMatch.Pick(EntityKind.MediaType, reference, await MediaTypeCandidatesAsync(ct));
 
     /// <summary>
     /// Every media type, with its alias. Neither the tree nor the item models carry the alias, so
@@ -284,7 +292,7 @@ public sealed partial class UmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The user group id.</returns>
     /// <exception cref="ApiException">No match (404) or an ambiguous name (409).</exception>
-    private async Task<Guid> ResolveUserGroupIdAsync(string reference, CancellationToken ct) =>
+    private async Task<Guid> FindUserGroupIdAsync(string reference, CancellationToken ct) =>
         ReferenceMatch.Pick(
             EntityKind.UserGroup,
             reference,
@@ -298,7 +306,7 @@ public sealed partial class UmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The member group id.</returns>
     /// <exception cref="ApiException">No match (404) or an ambiguous name (409).</exception>
-    private async Task<Guid> ResolveMemberGroupIdAsync(string reference, CancellationToken ct) =>
+    private async Task<Guid> FindMemberGroupIdAsync(string reference, CancellationToken ct) =>
         ReferenceMatch.Pick(
             EntityKind.MemberGroup,
             reference,
@@ -328,7 +336,7 @@ public sealed partial class UmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The dictionary item id.</returns>
     /// <exception cref="ApiException">No match (404) or an ambiguous key (409).</exception>
-    private async Task<Guid> ResolveDictionaryIdAsync(string reference, CancellationToken ct)
+    private async Task<Guid> FindDictionaryIdAsync(string reference, CancellationToken ct)
     {
         _dictionaryCandidates ??= await ReadAllPagesAsync(async (skip, take) => (
                     await _api.Umbraco.Management.Api.V1.Dictionary.GetAsync(

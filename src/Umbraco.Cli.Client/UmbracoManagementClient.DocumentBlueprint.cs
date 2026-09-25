@@ -104,7 +104,7 @@ public sealed partial class UmbracoManagementClient
                     request.DocumentType.Id != Guid.Empty
                         ? request.DocumentType.Id.ToString()
                         : request.DocumentType.Alias;
-                var documentTypeId = await ResolveDocumentTypeIdAsync(reference, ct);
+                var documentTypeId = await IdOfAsync(EntityKind.DocumentType, reference, ct);
 
                 var id = request.Id ?? Guid.NewGuid();
                 var body = new Gen.CreateDocumentBlueprintRequestModel

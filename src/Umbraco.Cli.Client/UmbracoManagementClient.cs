@@ -230,11 +230,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved document-type id.</returns>
     /// <exception cref="ApiException">No document type matches the alias (mapped to a 404).</exception>
-    private async Task<Guid> ResolveDocumentTypeIdAsync(string aliasOrId, CancellationToken ct)
+    private async Task<Guid> FindDocumentTypeIdAsync(string aliasOrId, CancellationToken ct)
     {
-        if (Guid.TryParse(aliasOrId, out var parsed))
-            return parsed;
-
         // Already resolved (or seen while resolving something else) on this client instance.
         if (_documentTypeAliases.TryGetValue(aliasOrId, out var cached))
             return cached;
@@ -443,7 +440,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     request.ContentType.Id != Guid.Empty
                         ? request.ContentType.Id.ToString()
                         : request.ContentType.Alias;
-                var documentTypeId = await ResolveDocumentTypeIdAsync(reference, ct);
+                var documentTypeId = await IdOfAsync(EntityKind.DocumentType, reference, ct);
 
                 // Honour a client-supplied id for an idempotent create (#140); generate one
                 // otherwise. Either way the id is known, so the empty 201 body can be hydrated.
@@ -463,7 +460,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     // Null is meaningful here: Umbraco 17 reads an explicit null template as
                     // "use the document type's default" (#134/#162), so only set it when asked.
                     Template = request.Template is { } t
-                        ? new Gen.ReferenceByIdModel { Id = await ResolveTemplateIdAsync(t, ct) }
+                        ? new Gen.ReferenceByIdModel { Id = await TemplateIdAsync(t, ct) }
                         : null,
                 };
                 await _api.Umbraco.Management.Api.V1.Document.PostAsync(
@@ -1198,8 +1195,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             async () =>
             {
                 // "Folder" is Umbraco's built-in folder media type, resolved by name like every
-                // other media type reference (see ResolveMediaTypeIdAsync).
-                var folderTypeId = await ResolveMediaTypeIdAsync("Folder", ct);
+                // other media type reference (the shared resolver takes an alias or a name).
+                var folderTypeId = await IdOfAsync(EntityKind.MediaType, "Folder", ct);
                 var folderId = id ?? Guid.NewGuid();
 
                 await _api.Umbraco.Management.Api.V1.Media.PostAsync(
@@ -1263,7 +1260,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             async () =>
             {
                 // Step 1: resolve the media type to an id (GUID passthrough, else name search).
-                var mediaTypeId = await ResolveMediaTypeIdAsync(mediaType, ct);
+                var mediaTypeId = await IdOfAsync(EntityKind.MediaType, mediaType, ct);
 
                 // Step 2: stage the file bytes to the temporary-file endpoint (multipart form with
                 // a client-generated "Id" part and the "File" part). The Kiota MultipartBody needs
@@ -2284,9 +2281,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var id = Guid.TryParse(aliasOrId, out var parsed)
-                    ? parsed
-                    : await ResolveTemplateIdAsync(aliasOrId, ct);
+                var id = await IdOfAsync(EntityKind.Template, aliasOrId, ct);
 
                 var t = await _api
                     .Umbraco.Management.Api.V1.Template[id]
@@ -2481,7 +2476,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
     /// <summary>
     /// Resolves a member-type reference - an alias or a GUID id - to its id, mirroring
-    /// <see cref="ResolveDocumentTypeIdAsync"/>: a GUID is used directly, otherwise the member-type
+    /// <see cref="FindDocumentTypeIdAsync"/>: a GUID is used directly, otherwise the member-type
     /// tree is walked and each candidate read by-id to compare its alias. As with document types
     /// the item search is deliberately avoided - it indexes names, not aliases. See ADR 0004.
     /// </summary>
@@ -2489,11 +2484,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved member-type id.</returns>
     /// <exception cref="ApiException">No member type matches the alias (mapped to a 404).</exception>
-    private async Task<Guid> ResolveMemberTypeIdAsync(string aliasOrId, CancellationToken ct)
+    private async Task<Guid> FindMemberTypeIdAsync(string aliasOrId, CancellationToken ct)
     {
-        if (Guid.TryParse(aliasOrId, out var parsed))
-            return parsed;
-
         if (_memberTypeAliases.TryGetValue(aliasOrId, out var cached))
             return cached;
 
@@ -2593,7 +2585,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     request.MemberType.Id != Guid.Empty
                         ? request.MemberType.Id.ToString()
                         : request.MemberType.Alias;
-                var memberTypeId = await ResolveMemberTypeIdAsync(reference, ct);
+                var memberTypeId = await IdOfAsync(EntityKind.MemberType, reference, ct);
 
                 var id = request.Id ?? Guid.NewGuid();
                 var body = new Gen.CreateMemberRequestModel
