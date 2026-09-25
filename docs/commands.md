@@ -680,8 +680,8 @@ umbraco indexer list [--skip <n>] [--take <n>]             # Examine indexes, wi
 umbraco indexer get <name>
 umbraco indexer rebuild <name>                             # expensive (POST, --readonly-blocked); needs --yes
 
-umbraco searcher list [--skip <n>] [--take <n>]
-umbraco searcher query <name> --term <term> [--skip <n>] [--take <n>]
+umbraco searcher list [--skip <n>] [--take <n>]            # registered multi-searchers; often empty (Umbraco 17)
+umbraco searcher query <index|searcher> --term <term> [--skip <n>] [--take <n>]   # e.g. ExternalIndex; an index's searcherName is mapped to the index
 ```
 
 ## `imaging` (read-only)

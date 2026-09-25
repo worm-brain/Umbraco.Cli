@@ -24,7 +24,12 @@ public static class SearcherCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List the Examine searchers.");
+        var cmd = new Command(
+            "list",
+            "List the registered Examine multi-searchers.\n\n"
+                + "This is often empty (it is on Umbraco 17): every index can still be queried by its "
+                + "name - see 'umbraco indexer list'."
+        );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
             (parseResult, ct) =>
@@ -44,8 +49,18 @@ public static class SearcherCommand
 
     private static Command BuildQuery(CommandExecutor executor)
     {
-        var cmd = new Command("query", "Query a searcher for a term.");
-        var nameArg = new Argument<string>("name") { Description = "Searcher name." };
+        var cmd = new Command(
+            "query",
+            "Query a searcher, or an index, for a term.\n\n"
+                + "Give an index name from 'umbraco indexer list' (e.g. ExternalIndex), or its "
+                + "searcherName (ExternalSearcher), which is mapped to the index when Umbraco does "
+                + "not register it as a searcher.\n\n"
+                + "Example:\n  umbraco searcher query ExternalIndex --term Docker"
+        );
+        var nameArg = new Argument<string>("name")
+        {
+            Description = "An index name, or a searcher name.",
+        };
         var termOpt = new Option<string>("--term")
         {
             Required = true,
