@@ -307,34 +307,36 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     }
 
     /// <summary>
-    /// Walks a Management-API tree breadth-first and returns the ids of every non-folder item.
-    /// Used by the alias resolvers, which must consider types nested inside folders - the tree
-    /// root alone omits them.
+    /// Walks a Management-API tree breadth-first: the one walker behind every "all the types" read
+    /// and resolver. For each node, <c>Descend</c> says whether to page through its children (a
+    /// folder; a master template) and <c>Include</c> whether it is part of the result (a type, not
+    /// a folder). Paged 100 at a time, each parent visited once, and stopped at 10,000 results as
+    /// a backstop against a pathological or cyclic tree.
     /// </summary>
-    /// <param name="fetchPage">Fetches a page: (parent folder id or null for root, skip, take, ct).</param>
+    /// <typeparam name="T">The mapped item type.</typeparam>
+    /// <param name="fetchPage">Fetches a page for a parent (null = the root): (parent, skip, take, ct).</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The ids of all non-folder items in the tree.</returns>
-    private static async Task<List<Guid>> CollectTreeLeafIdsAsync(
+    /// <returns>Every included item, in breadth-first order.</returns>
+    private static async Task<List<T>> CollectTreeAsync<T>(
         Func<
             Guid?,
             int,
             int,
             CancellationToken,
-            Task<IReadOnlyList<(Guid Id, bool IsFolder)>>
+            Task<IReadOnlyList<(Guid Id, bool Descend, bool Include, T Item)>>
         > fetchPage,
         CancellationToken ct
     )
     {
         const int pageSize = 100;
-        // Backstop against a pathological (or cyclic) tree: stop rather than loop forever.
-        const int maxLeaves = 10_000;
+        const int maxResults = 10_000;
 
-        var leaves = new List<Guid>();
+        var results = new List<T>();
         var pending = new Queue<Guid?>();
         pending.Enqueue(null); // null == the tree root level
-        var seenFolders = new HashSet<Guid>();
+        var seenParents = new HashSet<Guid>();
 
-        while (pending.Count > 0 && leaves.Count < maxLeaves)
+        while (pending.Count > 0 && results.Count < maxResults)
         {
             var parentId = pending.Dequeue();
             for (var skip = 0; ; )
@@ -343,11 +345,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 if (page.Count == 0)
                     break;
 
-                foreach (var (id, isFolder) in page)
+                foreach (var (id, descend, include, item) in page)
                 {
-                    if (!isFolder)
-                        leaves.Add(id);
-                    else if (seenFolders.Add(id))
+                    if (include)
+                        results.Add(item);
+                    if (descend && seenParents.Add(id))
                         pending.Enqueue(id);
                 }
 
@@ -358,20 +360,19 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         }
 
-        return leaves;
+        return results;
     }
 
     /// <summary>
-    /// Walks a Management-API tree breadth-first and returns the projected non-folder items (#97).
-    /// Like <see cref="CollectTreeLeafIdsAsync"/> but keeps a mapped item per leaf, so a <c>list</c>
-    /// can enumerate every real type - including those nested inside folders, which the tree root
-    /// omits - and skip the folder containers, whose ids 404 on <c>get</c>.
+    /// <see cref="CollectTreeAsync{T}"/> for a folder tree (#97): folders are descended into and
+    /// left out, so a <c>list</c> gets every real type - including those nested inside folders,
+    /// which the tree root omits - and never a folder container, whose id 404s on <c>get</c>.
     /// </summary>
     /// <typeparam name="T">The mapped item type.</typeparam>
     /// <param name="fetchPage">Fetches a page as <c>(id, isFolder, mappedItem)</c> for a parent folder (null = root).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Every non-folder item in the tree, in breadth-first order.</returns>
-    private static async Task<List<T>> CollectTreeLeavesAsync<T>(
+    private static Task<List<T>> CollectTreeLeavesAsync<T>(
         Func<
             Guid?,
             int,
@@ -380,41 +381,36 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             Task<IReadOnlyList<(Guid Id, bool IsFolder, T Item)>>
         > fetchPage,
         CancellationToken ct
-    )
-    {
-        const int pageSize = 100;
-        const int maxLeaves = 10_000;
+    ) =>
+        CollectTreeAsync<T>(
+            async (parent, skip, take, c) =>
+                [
+                    .. (await fetchPage(parent, skip, take, c)).Select(i =>
+                        (i.Id, i.IsFolder, !i.IsFolder, i.Item)
+                    ),
+                ],
+            ct
+        );
 
-        var leaves = new List<T>();
-        var pending = new Queue<Guid?>();
-        pending.Enqueue(null); // null == the tree root level
-        var seenFolders = new HashSet<Guid>();
-
-        while (pending.Count > 0 && leaves.Count < maxLeaves)
-        {
-            var parentId = pending.Dequeue();
-            for (var skip = 0; ; )
-            {
-                var page = await fetchPage(parentId, skip, pageSize, ct);
-                if (page.Count == 0)
-                    break;
-
-                foreach (var (id, isFolder, item) in page)
-                {
-                    if (!isFolder)
-                        leaves.Add(item);
-                    else if (seenFolders.Add(id))
-                        pending.Enqueue(id); // descend into the folder
-                }
-
-                if (page.Count < pageSize)
-                    break;
-                skip += page.Count;
-            }
-        }
-
-        return leaves;
-    }
+    /// <summary>The ids of every non-folder item in a folder tree, for the alias resolvers.</summary>
+    /// <param name="fetchPage">Fetches a page: (parent folder id or null for root, skip, take, ct).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The ids of all non-folder items in the tree.</returns>
+    private static Task<List<Guid>> CollectTreeLeafIdsAsync(
+        Func<
+            Guid?,
+            int,
+            int,
+            CancellationToken,
+            Task<IReadOnlyList<(Guid Id, bool IsFolder)>>
+        > fetchPage,
+        CancellationToken ct
+    ) =>
+        CollectTreeLeavesAsync<Guid>(
+            async (parent, skip, take, c) =>
+                [.. (await fetchPage(parent, skip, take, c)).Select(i => (i.Id, i.IsFolder, i.Id))],
+            ct
+        );
 
     /// <summary>
     /// Creates a content item via <c>POST document</c> (generated client, #79). The document
@@ -1498,6 +1494,60 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         i.Id!.Value,
                         i.IsFolder ?? false,
                         new MediaTypeResponse
+                        {
+                            Id = i.Id!.Value,
+                            Name = i.Name ?? "",
+                            Icon = i.Icon,
+                        }
+                    )
+                ),
+        ];
+    }
+
+    /// <summary>
+    /// Fetches one page of the member-type tree as <c>(id, isFolder, item)</c>: the root level
+    /// when <paramref name="parentId"/> is null, otherwise the children of that folder.
+    /// </summary>
+    /// <param name="parentId">The parent folder id, or null for the tree root.</param>
+    /// <param name="s">Items to skip.</param>
+    /// <param name="t">Page size.</param>
+    /// <param name="c">Cancellation token.</param>
+    /// <returns>The page.</returns>
+    private async Task<
+        IReadOnlyList<(Guid Id, bool IsFolder, MemberTypeResponse Item)>
+    > FetchMemberTypeTreeAsync(Guid? parentId, int s, int t, CancellationToken c)
+    {
+        var items = parentId is null
+            ? (
+                await _api.Umbraco.Management.Api.V1.Tree.MemberType.Root.GetAsync(
+                    q =>
+                    {
+                        q.QueryParameters.Skip = s;
+                        q.QueryParameters.Take = t;
+                    },
+                    c
+                )
+            )?.Items
+            : (
+                await _api.Umbraco.Management.Api.V1.Tree.MemberType.Children.GetAsync(
+                    q =>
+                    {
+                        q.QueryParameters.ParentId = parentId;
+                        q.QueryParameters.Skip = s;
+                        q.QueryParameters.Take = t;
+                    },
+                    c
+                )
+            )?.Items;
+        return
+        [
+            .. (items ?? [])
+                .Where(i => i.Id is not null)
+                .Select(i =>
+                    (
+                        i.Id!.Value,
+                        i.IsFolder ?? false,
+                        new MemberTypeResponse
                         {
                             Id = i.Id!.Value,
                             Name = i.Name ?? "",

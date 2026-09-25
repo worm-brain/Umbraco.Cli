@@ -109,48 +109,39 @@ public sealed partial class UmbracoManagementClient
             return _templateCandidates;
 
         // Templates nest under their master template, so every node with children is descended
-        // into, not only folders.
-        var nodes = new List<(Guid Id, string? Name)>();
-        var pending = new Queue<Guid?>();
-        pending.Enqueue(null);
-        var seen = new HashSet<Guid>();
-        while (pending.Count > 0)
-        {
-            var parent = pending.Dequeue();
-            for (var skip = 0; ; )
+        // into (not only folders), and every node is a template.
+        var nodes = await CollectTreeAsync<(Guid Id, string? Name)>(
+            async (parent, skip, take, c) =>
             {
                 var page = parent is null
                     ? await _api.Umbraco.Management.Api.V1.Tree.Template.Root.GetAsync(
-                        c =>
+                        q =>
                         {
-                            c.QueryParameters.Skip = skip;
-                            c.QueryParameters.Take = 100;
+                            q.QueryParameters.Skip = skip;
+                            q.QueryParameters.Take = take;
                         },
-                        ct
+                        c
                     )
                     : await _api.Umbraco.Management.Api.V1.Tree.Template.Children.GetAsync(
-                        c =>
+                        q =>
                         {
-                            c.QueryParameters.ParentId = parent;
-                            c.QueryParameters.Skip = skip;
-                            c.QueryParameters.Take = 100;
+                            q.QueryParameters.ParentId = parent;
+                            q.QueryParameters.Skip = skip;
+                            q.QueryParameters.Take = take;
                         },
-                        ct
+                        c
                     );
-                var items = page?.Items ?? [];
-                foreach (var item in items)
-                {
-                    if (item.Id is not { } id || !seen.Add(id))
-                        continue;
-                    nodes.Add((id, item.Name));
-                    if (item.HasChildren == true)
-                        pending.Enqueue(id);
-                }
-                if (items.Count < 100)
-                    break;
-                skip += items.Count;
-            }
-        }
+                return
+                [
+                    .. (page?.Items ?? [])
+                        .Where(t => t.Id is not null)
+                        .Select(t =>
+                            (t.Id!.Value, t.HasChildren == true, true, (t.Id!.Value, t.Name))
+                        ),
+                ];
+            },
+            ct
+        );
 
         var aliases = new Dictionary<Guid, string?>();
         foreach (var batch in nodes.Chunk(TemplateItemBatch))
@@ -201,90 +192,97 @@ public sealed partial class UmbracoManagementClient
     /// Every media type (folders excluded, nested types included) with its alias, read once per
     /// client. Shared by the resolver and <c>media-types list</c> (#221).
     /// </summary>
-    private async Task<List<MediaTypeResponse>> MediaTypesWithAliasAsync(CancellationToken ct)
-    {
-        if (_mediaTypes is not null)
-            return _mediaTypes;
-
-        var types = await CollectTreeLeavesAsync(FetchMediaTypeTreeAsync, ct);
-        var withAlias = new List<MediaTypeResponse>();
-        foreach (var type in types)
-        {
-            var full = await _api
-                .Umbraco.Management.Api.V1.MediaType[type.Id]
-                .GetAsync(cancellationToken: ct);
-            withAlias.Add(type with { Alias = full?.Alias ?? "" });
-            if (full?.Alias is { } alias)
-                _mediaTypeAliasById[type.Id] = alias;
-        }
-        return _mediaTypes = withAlias;
-    }
+    private async Task<List<MediaTypeResponse>> MediaTypesWithAliasAsync(CancellationToken ct) =>
+        _mediaTypes ??= await TypesWithAliasAsync(
+            FetchMediaTypeTreeAsync,
+            async (id, c) =>
+                (
+                    await _api
+                        .Umbraco.Management.Api.V1.MediaType[id]
+                        .GetAsync(cancellationToken: c)
+                )?.Alias,
+            (type, alias) => type with { Alias = alias },
+            t => t.Id,
+            _mediaTypeAliasById,
+            ct
+        );
 
     /// <summary>
     /// Every member type (folders excluded, nested types included) with its alias, read once per
     /// client, for <c>member-types list</c> (#213). The list read the tree root only before, so a
     /// type inside a folder was missing, and the alias was always <c>""</c>.
     /// </summary>
-    private async Task<List<MemberTypeResponse>> MemberTypesWithAliasAsync(CancellationToken ct)
-    {
-        if (_memberTypes is not null)
-            return _memberTypes;
-
-        var types = await CollectTreeLeavesAsync<MemberTypeResponse>(
-            async (parentId, skip, take, c) =>
-            {
-                var items = parentId is null
-                    ? (
-                        await _api.Umbraco.Management.Api.V1.Tree.MemberType.Root.GetAsync(
-                            q =>
-                            {
-                                q.QueryParameters.Skip = skip;
-                                q.QueryParameters.Take = take;
-                            },
-                            c
-                        )
-                    )?.Items
-                    : (
-                        await _api.Umbraco.Management.Api.V1.Tree.MemberType.Children.GetAsync(
-                            q =>
-                            {
-                                q.QueryParameters.ParentId = parentId;
-                                q.QueryParameters.Skip = skip;
-                                q.QueryParameters.Take = take;
-                            },
-                            c
-                        )
-                    )?.Items;
-                return
-                [
-                    .. (items ?? [])
-                        .Where(i => i.Id is not null)
-                        .Select(i =>
-                            (
-                                i.Id!.Value,
-                                i.IsFolder ?? false,
-                                new MemberTypeResponse
-                                {
-                                    Id = i.Id!.Value,
-                                    Name = i.Name ?? "",
-                                    Icon = i.Icon,
-                                }
-                            )
-                        ),
-                ];
-            },
+    private async Task<List<MemberTypeResponse>> MemberTypesWithAliasAsync(CancellationToken ct) =>
+        _memberTypes ??= await TypesWithAliasAsync(
+            FetchMemberTypeTreeAsync,
+            async (id, c) =>
+                (
+                    await _api
+                        .Umbraco.Management.Api.V1.MemberType[id]
+                        .GetAsync(cancellationToken: c)
+                )?.Alias,
+            (type, alias) => type with { Alias = alias },
+            t => t.Id,
+            _memberTypeAliasById,
             ct
         );
 
-        var withAlias = new List<MemberTypeResponse>();
-        foreach (var type in types)
+    // Enough to overlap the by-id reads without hammering the server.
+    private const int AliasReadConcurrency = 4;
+
+    /// <summary>
+    /// A type tree's every type with its alias. Neither the tree nor the item models carry the
+    /// alias, so each type costs one by-id read; they run a few at a time, and the results are
+    /// gathered before anything is written, so the alias cache is filled from one thread.
+    /// </summary>
+    /// <typeparam name="T">The type's response model.</typeparam>
+    /// <param name="fetchTree">Fetches a page of the type tree.</param>
+    /// <param name="readAlias">Reads one type's alias by id.</param>
+    /// <param name="withAlias">Copies a type with its alias set.</param>
+    /// <param name="idOf">The type's id.</param>
+    /// <param name="aliasCache">The id-to-alias cache the read projections use, filled here too.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every type, with its alias ("" when it could not be read).</returns>
+    private static async Task<List<T>> TypesWithAliasAsync<T>(
+        Func<
+            Guid?,
+            int,
+            int,
+            CancellationToken,
+            Task<IReadOnlyList<(Guid Id, bool IsFolder, T Item)>>
+        > fetchTree,
+        Func<Guid, CancellationToken, Task<string?>> readAlias,
+        Func<T, string, T> withAlias,
+        Func<T, Guid> idOf,
+        Dictionary<Guid, string> aliasCache,
+        CancellationToken ct
+    )
+    {
+        var types = await CollectTreeLeavesAsync(fetchTree, ct);
+        using var gate = new SemaphoreSlim(AliasReadConcurrency);
+        var aliases = await Task.WhenAll(
+            types.Select(async type =>
+            {
+                await gate.WaitAsync(ct);
+                try
+                {
+                    return await readAlias(idOf(type), ct);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            })
+        );
+
+        var result = new List<T>(types.Count);
+        for (var i = 0; i < types.Count; i++)
         {
-            var full = await _api
-                .Umbraco.Management.Api.V1.MemberType[type.Id]
-                .GetAsync(cancellationToken: ct);
-            withAlias.Add(type with { Alias = full?.Alias ?? "" });
+            result.Add(withAlias(types[i], aliases[i] ?? ""));
+            if (aliases[i] is { } alias)
+                aliasCache[idOf(types[i])] = alias;
         }
-        return _memberTypes = withAlias;
+        return result;
     }
 
     /// <summary>Resolves a user group alias or name (#217).</summary>
