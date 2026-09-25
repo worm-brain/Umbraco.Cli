@@ -2194,4 +2194,31 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         LastPropertyTypeUsedQuery = (contentTypeId, propertyAlias);
         return Task.FromResult(UmbracoResponse<bool>.Success(true));
     }
+
+    // ── references (#250 Phase 3) ─────────────────────────────────────────────
+
+    /// <summary>
+    /// What each (kind, alias/name/key) resolves to. A GUID always resolves to itself, as in the
+    /// real client; anything not listed here is a 404.
+    /// </summary>
+    public Dictionary<(EntityKind Kind, string Reference), Guid> References { get; } = [];
+
+    /// <summary>Every non-GUID reference resolved, in order.</summary>
+    public List<(EntityKind Kind, string Reference)> Resolved { get; } = [];
+
+    public Task<UmbracoResponse<Guid>> ResolveIdAsync(
+        EntityKind kind,
+        string reference,
+        CancellationToken ct = default
+    )
+    {
+        if (Guid.TryParse(reference, out var id))
+            return Task.FromResult(UmbracoResponse<Guid>.Success(id));
+        Resolved.Add((kind, reference));
+        return Task.FromResult(
+            References.TryGetValue((kind, reference), out var found)
+                ? UmbracoResponse<Guid>.Success(found)
+                : UmbracoResponse<Guid>.Failure(404, $"No {kind} '{reference}'.")
+        );
+    }
 }

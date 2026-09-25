@@ -30,33 +30,13 @@ public sealed partial class UmbracoManagementClient
         CancellationToken ct
     )
     {
-        List<Gen.UserGroupResponseModel>? groups = null;
         var ids = new List<Guid>();
         foreach (var reference in references)
-        {
-            if (Guid.TryParse(reference, out var id))
-            {
-                ids.Add(id);
-                continue;
-            }
-
-            groups ??= await ReadAllUserGroupsAsync(ct);
-            // Alias first, because it is the group's stable key; the name is a convenience.
-            var match =
-                groups.FirstOrDefault(g =>
-                    string.Equals(g.Alias, reference, StringComparison.OrdinalIgnoreCase)
-                )
-                ?? groups.FirstOrDefault(g =>
-                    string.Equals(g.Name, reference, StringComparison.OrdinalIgnoreCase)
-                );
             ids.Add(
-                match?.Id
-                    ?? throw NotFound(
-                        $"No user group found with alias or name '{reference}'. "
-                            + "Run 'umbraco user-groups list' to see the groups."
-                    )
+                Guid.TryParse(reference, out var id)
+                    ? id
+                    : await ResolveUserGroupIdAsync(reference, ct)
             );
-        }
         return ids;
     }
 

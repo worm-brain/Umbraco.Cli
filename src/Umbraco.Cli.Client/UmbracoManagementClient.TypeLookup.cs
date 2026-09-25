@@ -113,9 +113,12 @@ public sealed partial class UmbracoManagementClient
     /// <param name="nameOrId">The data type name or its id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved data-type id.</returns>
-    /// <exception cref="ApiException">No data type matches the name (mapped to a 404).</exception>
+    /// <exception cref="ApiException">No data type matches the name (404), or several do (409).</exception>
     private async Task<Guid> ResolveDataTypeIdAsync(string nameOrId, CancellationToken ct)
     {
+        if (Guid.TryParse(nameOrId, out var parsed))
+            return parsed;
+
         var search = await _api.Umbraco.Management.Api.V1.Item.DataType.Search.GetAsync(
             c =>
             {
@@ -124,13 +127,13 @@ public sealed partial class UmbracoManagementClient
             },
             ct
         );
-        var match = (search?.Items ?? []).FirstOrDefault(d =>
-            string.Equals(d.Name, nameOrId, StringComparison.OrdinalIgnoreCase)
+        // Two data types can share a name; that is refused rather than guessed (#250 Phase 3).
+        return ReferenceMatch.Pick(
+            EntityKind.DataType,
+            nameOrId,
+            (search?.Items ?? [])
+                .Where(d => d.Id is not null)
+                .Select(d => new ReferenceCandidate(d.Id!.Value, null, d.Name))
         );
-        return match?.Id
-            ?? throw NotFound(
-                $"No data type found with the name '{nameOrId}'. Use 'umbraco data-types list' "
-                    + "to find one, or pass a data type id."
-            );
     }
 }

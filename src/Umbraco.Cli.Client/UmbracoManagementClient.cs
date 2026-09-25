@@ -510,31 +510,6 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     }
 
     /// <summary>
-    /// Looks up a template's id from its alias via the template search endpoint, matching the
-    /// alias exactly (the search itself is a fuzzy contains). Shared by
-    /// <see cref="GetTemplateByAliasAsync"/> and the content write path's <c>--template</c>.
-    /// </summary>
-    /// <param name="alias">The template alias, e.g. <c>blogPost</c>.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The matching template's id.</returns>
-    /// <exception cref="ApiException">No template has that alias.</exception>
-    private async Task<Guid> ResolveTemplateIdAsync(string alias, CancellationToken ct)
-    {
-        var search = await _api.Umbraco.Management.Api.V1.Item.Template.Search.GetAsync(
-            c =>
-            {
-                c.QueryParameters.Query = alias;
-                c.QueryParameters.Take = 100;
-            },
-            ct
-        );
-        var match = (search?.Items ?? []).FirstOrDefault(t =>
-            string.Equals(t.Alias, alias, StringComparison.OrdinalIgnoreCase)
-        );
-        return match?.Id ?? throw NotFound($"No template found with alias '{alias}'.");
-    }
-
-    /// <summary>
     /// Maps command-facing variants to the generated document variant shape. Shared by the document
     /// (content) and document-blueprint write paths, which use the same variant contract.
     /// </summary>
@@ -1251,42 +1226,6 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// Resolves a media-type reference - a name (e.g. <c>Image</c>) or a GUID id - to its id.
-    /// A value that parses as a GUID is used directly; otherwise it is treated as a media-type
-    /// name and matched (case-insensitively) against the media-type item search. Media types are
-    /// addressed by name here (not alias) because that is the established contract and the search
-    /// item model exposes the name directly (Umbraco's built-in media types are "Image", "File",
-    /// "Folder", ...).
-    /// </summary>
-    /// <param name="mediaType">The media-type name or id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The resolved media-type id.</returns>
-    /// <exception cref="ApiException">No media type matches the name (mapped to a 404).</exception>
-    private async Task<Guid> ResolveMediaTypeIdAsync(string mediaType, CancellationToken ct)
-    {
-        if (Guid.TryParse(mediaType, out var parsed))
-            return parsed;
-
-        var search = await _api.Umbraco.Management.Api.V1.Item.MediaType.Search.GetAsync(
-            c =>
-            {
-                c.QueryParameters.Query = mediaType;
-                c.QueryParameters.Take = 100;
-            },
-            ct
-        );
-        var match = (search?.Items ?? []).FirstOrDefault(m =>
-            string.Equals(m.Name, mediaType, StringComparison.OrdinalIgnoreCase)
-        );
-        if (match?.Id is not { } id)
-            throw NotFound(
-                $"No media type found with the name '{mediaType}'. Use 'umbraco media-types list' "
-                    + "to find one, or pass a media type id."
-            );
-        return id;
-    }
-
-    /// <summary>
     /// Uploads a file as a media item via the Umbraco 14+ two-step flow (generated client, #79):
     /// stage the bytes to <c>temporary-file</c> (multipart), then create the media item as JSON
     /// referencing that staged file's id in the <c>umbracoFile</c> property value. Staging
@@ -1510,51 +1449,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             {
                 // #97: walk the media-type tree keeping only real types (folders excluded, nested
                 // types included), then page client-side. Mirrors GetDocumentTypesAsync.
-                var all = await CollectTreeLeavesAsync<MediaTypeResponse>(
-                    async (parentId, s, t, c) =>
-                    {
-                        var items = parentId is null
-                            ? (
-                                await _api.Umbraco.Management.Api.V1.Tree.MediaType.Root.GetAsync(
-                                    q =>
-                                    {
-                                        q.QueryParameters.Skip = s;
-                                        q.QueryParameters.Take = t;
-                                    },
-                                    c
-                                )
-                            )?.Items
-                            : (
-                                await _api.Umbraco.Management.Api.V1.Tree.MediaType.Children.GetAsync(
-                                    q =>
-                                    {
-                                        q.QueryParameters.ParentId = parentId;
-                                        q.QueryParameters.Skip = s;
-                                        q.QueryParameters.Take = t;
-                                    },
-                                    c
-                                )
-                            )?.Items;
-                        return
-                        [
-                            .. (items ?? [])
-                                .Where(i => i.Id is not null)
-                                .Select(i =>
-                                    (
-                                        i.Id!.Value,
-                                        i.IsFolder ?? false,
-                                        new MediaTypeResponse
-                                        {
-                                            Id = i.Id!.Value,
-                                            Name = i.Name ?? "",
-                                            Icon = i.Icon,
-                                        }
-                                    )
-                                ),
-                        ];
-                    },
-                    ct
-                );
+                var all = await CollectTreeLeavesAsync(FetchMediaTypeTreeAsync, ct);
                 return new PagedResponse<MediaTypeResponse>
                 {
                     Total = all.Count,
@@ -1562,6 +1457,60 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 };
             }
         );
+
+    /// <summary>
+    /// Fetches one page of the media-type tree as <c>(id, isFolder, item)</c>: the root level when
+    /// <paramref name="parentId"/> is null, otherwise the children of that folder.
+    /// </summary>
+    /// <param name="parentId">The parent folder id, or null for the tree root.</param>
+    /// <param name="s">Items to skip.</param>
+    /// <param name="t">Page size.</param>
+    /// <param name="c">Cancellation token.</param>
+    /// <returns>The page.</returns>
+    private async Task<
+        IReadOnlyList<(Guid Id, bool IsFolder, MediaTypeResponse Item)>
+    > FetchMediaTypeTreeAsync(Guid? parentId, int s, int t, CancellationToken c)
+    {
+        var items = parentId is null
+            ? (
+                await _api.Umbraco.Management.Api.V1.Tree.MediaType.Root.GetAsync(
+                    q =>
+                    {
+                        q.QueryParameters.Skip = s;
+                        q.QueryParameters.Take = t;
+                    },
+                    c
+                )
+            )?.Items
+            : (
+                await _api.Umbraco.Management.Api.V1.Tree.MediaType.Children.GetAsync(
+                    q =>
+                    {
+                        q.QueryParameters.ParentId = parentId;
+                        q.QueryParameters.Skip = s;
+                        q.QueryParameters.Take = t;
+                    },
+                    c
+                )
+            )?.Items;
+        return
+        [
+            .. (items ?? [])
+                .Where(i => i.Id is not null)
+                .Select(i =>
+                    (
+                        i.Id!.Value,
+                        i.IsFolder ?? false,
+                        new MediaTypeResponse
+                        {
+                            Id = i.Id!.Value,
+                            Name = i.Name ?? "",
+                            Icon = i.Icon,
+                        }
+                    )
+                ),
+        ];
+    }
 
     /// <summary>Gets a single media type by id (issue #55). Reads <c>GET /media-type/{id}</c>.</summary>
     /// <param name="id">The media type id.</param>
@@ -3219,26 +3168,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     )
     {
-        if (!Guid.TryParse(keyOrId, out var id))
-        {
-            // Resolve the human key to an id via the list (items expose id + name).
-            var list = await GetDictionaryItemsAsync(0, 1000, ct);
-            if (!list.IsSuccess)
-                return UmbracoResponse<DictionaryItemResponse>.Failure(
-                    list.StatusCode,
-                    list.ErrorMessage ?? "Could not list dictionary items."
-                );
-
-            var match = (list.Data?.Items ?? []).FirstOrDefault(d =>
-                string.Equals(d.Name, keyOrId, StringComparison.OrdinalIgnoreCase)
-            );
-            if (match is null)
-                return UmbracoResponse<DictionaryItemResponse>.Failure(
-                    404,
-                    $"No dictionary item found with key '{keyOrId}'."
-                );
-            id = match.Id;
-        }
+        // #211: the shared resolver reads every page (this used to stop at 1,000 items).
+        var resolved = await ResolveIdAsync(EntityKind.DictionaryItem, keyOrId, ct);
+        if (!resolved.IsSuccess)
+            return UmbracoResponse<DictionaryItemResponse>.FailureFrom(resolved);
+        var id = resolved.Data;
 
         return await GuardedApiAsync(
             ct,
