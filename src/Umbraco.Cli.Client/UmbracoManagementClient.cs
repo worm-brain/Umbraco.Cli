@@ -2434,7 +2434,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return new PagedResponse<MemberResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? []).Select(MapMember).ToList(),
+                    Items =
+                    [
+                        .. await Task.WhenAll(
+                            (paged?.Items ?? []).Select(i => LabelMemberAsync(MapMember(i), ct))
+                        ),
+                    ],
                 };
             }
         );
@@ -2457,7 +2462,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 var m = await _api
                     .Umbraco.Management.Api.V1.Member[id]
                     .GetAsync(cancellationToken: ct);
-                return m is null ? new MemberResponse { Id = id } : MapMember(m);
+                return m is null
+                    ? new MemberResponse { Id = id }
+                    : await LabelMemberAsync(MapMember(m), ct);
             }
         );
 
@@ -2709,7 +2716,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     .PutAsync(body, cancellationToken: ct);
 
                 // Echo the merged member (the PUT returns no body).
-                var mapped = MapMember(m);
+                var mapped = await LabelMemberAsync(MapMember(m), ct);
                 return mapped with
                 {
                     Email = request.Email ?? mapped.Email,
@@ -3625,7 +3632,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             // #185: the read was as narrow as content's was before Phase 3 - groups and property
             // values were being fetched and dropped at this mapping.
             Username = item.Username,
-            Groups = (item.Groups ?? []).Where(g => g is not null).Select(g => g!.Value).ToList(),
+            Groups = (item.Groups ?? [])
+                .Where(g => g is not null)
+                .Select(g => new MemberGroupRef { Id = g!.Value })
+                .ToList(),
             Values = (item.Values ?? [])
                 .Select(v => new ContentValueResponse
                 {

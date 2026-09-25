@@ -153,6 +153,30 @@ public class ReferenceCommandTests
     }
 
     [Fact]
+    public async Task MembersUpdate_GroupByName_SendsTheResolvedIds()
+    {
+        // #212: members update --group Subscribers was a GUID parse error.
+        var subscribers = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.MemberGroup, "Subscribers")] = subscribers;
+
+        var exit = await Run(fake, $"members update {Guid.NewGuid()} --group Subscribers");
+
+        Assert.Equal(0, exit);
+        Assert.Equal([subscribers], fake.LastMemberUpdate!.Value.Request.Groups!);
+    }
+
+    [Fact]
+    public async Task MembersUpdate_UnknownGroup_UpdatesNothing()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await Run(fake, $"members update {Guid.NewGuid()} --group Nope");
+
+        Assert.Equal((1, false), (exit, fake.LastMemberUpdate.HasValue));
+    }
+
+    [Fact]
     public async Task TemplatesDelete_UnknownAlias_FailsWithoutDeleting()
     {
         var fake = new FakeUmbracoManagementClient();

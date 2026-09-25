@@ -668,11 +668,20 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The (id, request) of the last member update.</summary>
+    public (Guid Id, UpdateMemberRequest Request)? LastMemberUpdate { get; private set; }
+
     public Task<UmbracoResponse<MemberResponse>> UpdateMemberAsync(
         Guid id,
         UpdateMemberRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastMemberUpdate = (id, request);
+        return Task.FromResult(
+            UmbracoResponse<MemberResponse>.Success(new MemberResponse { Id = id })
+        );
+    }
 
     public Task<UmbracoResponse<Empty>> DeleteMemberAsync(
         Guid id,

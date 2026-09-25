@@ -34,7 +34,9 @@ public sealed class JsonOutputWriter : IOutputWriter
     /// "5" the diff and apply reports (`content diff`, `schema diff`, `content apply`,
     /// `schema apply`) are serialized from their records instead of caption-keyed strings -
     /// `idMismatch` is a boolean, an empty id/parent/note is null rather than `""`, rows carry a
-    /// `changes` list and `meta.total`, and `content apply` rows carry `cultures` (#229).
+    /// `changes` list and `meta.total`, and `content apply` rows carry `cultures` (#229); and a
+    /// member's `groups` are `{id, name}` objects instead of bare ids (#212). Both changed before
+    /// "5" was released, so they share it.
     /// </summary>
     public const string SchemaVersion = "5";
 

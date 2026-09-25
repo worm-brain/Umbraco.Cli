@@ -161,8 +161,8 @@ schemaVersion 3, the one exception to that rule.
 - An absent `meta` field means **unknown**, never a default. A list with no `total` is one whose
   source could not count, not one that is complete.
 
-**What changed in schemaVersion 5**, if you are moving from `"4"`: only the **diff and apply**
-reports (`content diff`, `schema diff`, `content apply`, `schema apply`).
+**What changed in schemaVersion 5**, if you are moving from `"4"`: the **diff and apply**
+reports (`content diff`, `schema diff`, `content apply`, `schema apply`), and a member's `groups`.
 
 | Before | Now |
 |---|---|
@@ -171,6 +171,7 @@ reports (`content diff`, `schema diff`, `content apply`, `schema apply`).
 | no way to tell what a `Changed` row changed | `"changes": ["values.title[en-US]", "state[da-DK]"]` (null for added/removed rows) |
 | no `meta.total` | `meta.total`, `skip: 0`, `hasMore: false` (a diff is complete) |
 | `content apply` rows `{operation, id, status}` | also `cultures` (for a publish/unpublish of a variant document), and the operations `publish`/`unpublish` |
+| `members get`/`list` `"groups": ["<id>"]` | `"groups": [{"id": "<id>", "name": "Subscribers"}]`, and `memberType.alias` is filled |
 
 **What changed in schemaVersion 4**, if you are moving from `"3"`: only the **bulk** envelope.
 

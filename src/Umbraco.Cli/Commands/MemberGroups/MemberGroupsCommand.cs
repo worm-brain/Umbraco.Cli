@@ -49,15 +49,21 @@ public static class MemberGroupsCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a member group by UUID.");
-        var idArg = new Argument<Guid>("id") { Description = "Member group ID." };
+        var cmd = new Command("get", "Get a member group by id or name.");
+        var idArg = Reference.Argument(EntityKind.MemberGroup);
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
                     "member-groups.get",
-                    (client, c) => client.GetMemberGroupByIdAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client.WithResolvedAsync(
+                            EntityKind.MemberGroup,
+                            parseResult.GetValue(idArg)!,
+                            id => client.GetMemberGroupByIdAsync(id, c),
+                            c
+                        ),
                     ct
                 )
         );
@@ -99,8 +105,8 @@ public static class MemberGroupsCommand
 
     private static Command BuildUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Rename a member group by UUID.");
-        var idArg = new Argument<Guid>("id") { Description = "Member group ID." };
+        var cmd = new Command("update", "Rename a member group by id or name.");
+        var idArg = Reference.Argument(EntityKind.MemberGroup);
         var nameOpt = new Option<string>("--name") { Required = true, Description = "New name." };
         cmd.Add(idArg);
         cmd.Add(nameOpt);
@@ -110,9 +116,18 @@ public static class MemberGroupsCommand
                     parseResult,
                     "member-groups.update",
                     (client, c) =>
-                        client.UpdateMemberGroupAsync(
-                            parseResult.GetValue(idArg),
-                            new UpdateMemberGroupRequest { Name = parseResult.GetValue(nameOpt)! },
+                        client.WithResolvedAsync(
+                            EntityKind.MemberGroup,
+                            parseResult.GetValue(idArg)!,
+                            id =>
+                                client.UpdateMemberGroupAsync(
+                                    id,
+                                    new UpdateMemberGroupRequest
+                                    {
+                                        Name = parseResult.GetValue(nameOpt)!,
+                                    },
+                                    c
+                                ),
                             c
                         ),
                     "Member group updated.",
@@ -124,8 +139,8 @@ public static class MemberGroupsCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a member group by UUID.");
-        var idArg = new Argument<Guid>("id") { Description = "Member group ID." };
+        var cmd = new Command("delete", "Delete a member group by id or name.");
+        var idArg = Reference.Argument(EntityKind.MemberGroup);
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
             $"Permanently delete member group {parseResult.GetValue(idArg)}?"
@@ -135,7 +150,13 @@ public static class MemberGroupsCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "member-groups.delete",
-                    (client, c) => client.DeleteMemberGroupAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client.WithResolvedAsync(
+                            EntityKind.MemberGroup,
+                            parseResult.GetValue(idArg)!,
+                            id => client.DeleteMemberGroupAsync(id, c),
+                            c
+                        ),
                     "Member group deleted.",
                     ct
                 )

@@ -279,8 +279,17 @@ public sealed partial class UmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The member group id.</returns>
     /// <exception cref="ApiException">No match (404) or an ambiguous name (409).</exception>
-    private async Task<Guid> ResolveMemberGroupIdAsync(string reference, CancellationToken ct)
-    {
+    private async Task<Guid> ResolveMemberGroupIdAsync(string reference, CancellationToken ct) =>
+        ReferenceMatch.Pick(
+            EntityKind.MemberGroup,
+            reference,
+            await MemberGroupCandidatesAsync(ct)
+        );
+
+    /// <summary>Every member group, read once per client (the resolver and member labels, #212).</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The groups as candidates (names; member groups have no alias).</returns>
+    private async Task<List<ReferenceCandidate>> MemberGroupCandidatesAsync(CancellationToken ct) =>
         _memberGroupCandidates ??= await ReadAllPagesAsync(async (skip, take) => (
                     await _api.Umbraco.Management.Api.V1.Tree.MemberGroup.Root.GetAsync(
                         c =>
@@ -291,8 +300,6 @@ public sealed partial class UmbracoManagementClient
                         ct
                     )
                 )?.Items?.Where(i => i.Id is not null).Select(i => new ReferenceCandidate(i.Id!.Value, null, i.Name)).ToList() ?? []);
-        return ReferenceMatch.Pick(EntityKind.MemberGroup, reference, _memberGroupCandidates);
-    }
 
     /// <summary>
     /// Resolves a dictionary key (#211). Every page of the dictionary is read: the old lookup read

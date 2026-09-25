@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Tests;
@@ -319,6 +320,32 @@ public class MembersWireTests
     // ── #185: the fields the CLI could not reach ──────────────────────────────
 
     [Fact]
+    public async Task GetMemberByIdAsync_NamesItsGroupsAndMemberType()
+    {
+        // #212: groups were bare ids and memberType had no alias, so a script could not tell a
+        // member's groups apart without a lookup per id.
+        var id = Guid.NewGuid();
+        var typeId = Guid.NewGuid();
+        var member = JsonNode.Parse(ExistingMember(id))!;
+        member["memberType"] = new JsonObject { ["id"] = typeId.ToString() };
+        var handler = Wire.Routed(
+            (
+                "tree/member-group/root",
+                $$"""{"total":2,"items":[{"id":"{{SubscribersGroup}}","name":"Subscribers"},{"id":"{{EditorsGroup}}","name":"Editors"}]}"""
+            ),
+            ($"member-type/{typeId}", $$"""{"id":"{{typeId}}","alias":"siteMember"}"""),
+            ($"member/{id}", member.ToJsonString())
+        );
+
+        var data = (
+            await Wire.Client(handler).GetMemberByIdAsync(id, CancellationToken.None)
+        ).Data!;
+
+        Assert.Equal(["Subscribers", "Editors"], data.Groups!.Select(g => g.Name));
+        Assert.Equal("siteMember", data.MemberType!.Alias);
+    }
+
+    [Fact]
     public async Task GetMemberByIdAsync_ReturnsGroupsValuesAndUsername()
     {
         var id = Guid.NewGuid();
@@ -329,7 +356,7 @@ public class MembersWireTests
         // The read was as narrow as content's was before Phase 3 - these were being fetched and
         // dropped at the mapping.
         var data = result.Data!;
-        Assert.Equal([SubscribersGroup, EditorsGroup], data.Groups);
+        Assert.Equal([SubscribersGroup, EditorsGroup], data.Groups!.Select(g => g.Id));
         Assert.Equal("company", Assert.Single(data.Values!).Alias);
         Assert.Equal("a@example.com", data.Username);
     }

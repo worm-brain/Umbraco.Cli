@@ -438,7 +438,7 @@ umbraco templates delete <id|alias>                        # needs --yes non-int
 umbraco members list [--group <name>]                      # filters by member group
 umbraco members get <id>                                   # UUID only; includes groups and property values
 umbraco members create --email <email> --name <name> --type <alias>
-umbraco members update <id> [--email <email>] [--name <name>] [--approved] [--username <name>] [--group <id> ...] [--value alias=value ...] [--new-password <pw>] [--unlock]
+umbraco members update <id> [--email <email>] [--name <name>] [--approved] [--username <name>] [--group <name|id> ...] [--value alias=value ...] [--new-password <pw>] [--unlock]
 umbraco members delete <id>                                # needs --yes non-interactively
 ```
 
@@ -468,10 +468,10 @@ umbraco member-types delete <id|alias> [--force]               # refused while i
 
 ```bash
 umbraco member-groups list
-umbraco member-groups get <id>
+umbraco member-groups get <id|name>
 umbraco member-groups create --name <name>
-umbraco member-groups update <id> --name <name>
-umbraco member-groups delete <id>                          # needs --yes non-interactively
+umbraco member-groups update <id|name> --name <name>
+umbraco member-groups delete <id|name>                     # needs --yes non-interactively
 ```
 
 ## `users`

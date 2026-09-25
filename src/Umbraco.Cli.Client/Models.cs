@@ -1105,11 +1105,11 @@ public record MemberResponse
     public string? Username { get; init; }
 
     /// <summary>
-    /// The groups this member belongs to, by id (#185). Member groups are referenced by id, not
-    /// name - worth knowing when filtering with <c>members list --group</c>, which takes a name.
+    /// The groups this member belongs to (#185), each with its name (#212) - the name is what
+    /// <c>members list --group</c> and <c>members update --group</c> take.
     /// </summary>
     [JsonPropertyName("groups")]
-    public IEnumerable<Guid>? Groups { get; init; }
+    public IEnumerable<MemberGroupRef>? Groups { get; init; }
 
     /// <summary>The member's custom property values (#185), in the same shape as content.</summary>
     [JsonPropertyName("values")]
@@ -1120,6 +1120,18 @@ public record MemberResponse
 
     [JsonPropertyName("createDate")]
     public DateTimeOffset CreateDate { get; init; }
+}
+
+/// <summary>A member's group: its id and, when it could be read, its name (#212).</summary>
+public record MemberGroupRef
+{
+    /// <summary>The member group id.</summary>
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    /// <summary>The group name, or null when the group list could not be read.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
 }
 
 public record CreateMemberRequest
