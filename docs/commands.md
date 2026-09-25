@@ -137,7 +137,7 @@ umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   #
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
 umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
 umbraco content diff <snapshot>                            # diff a snapshot vs live (read-only)
-umbraco content apply <snapshot> [--prune] [--dry-run]     # reconcile; --prune deletes, needs --yes
+umbraco content apply <snapshot> [--prune [--exclude-type <alias|id>]... [--exclude-root <id>]...] [--dry-run]   # reconcile; --prune deletes, needs --yes
 
 # Bulk ops over many ids (from --file or stdin), with a per-item results array:
 umbraco content bulk delete [--file ids.txt]               # permanent; needs --yes
@@ -733,6 +733,7 @@ umbraco content diff content.json                          # read-only
 umbraco content apply content.json --dry-run               # preview the whole plan
 umbraco content apply content.json                         # create + update
 umbraco content apply content.json --prune --yes           # also delete what the snapshot omits
+umbraco content apply content.json --prune --exclude-type contactSubmission --exclude-root <id> --yes
 ```
 
 - **Full fidelity** - each document is stored as its verbatim Management-API body (all variants,
@@ -745,6 +746,11 @@ umbraco content apply content.json --prune --yes           # also delete what th
 - **Scope-safe prune** - the snapshot records its export `root`, and diff/apply compare against
   the same live scope, so a subtree snapshot's `--prune` can never delete documents outside the
   subtree.
+- **Prune a subtree, not the whole site** - a whole-tree `--prune` also deletes everything created
+  on the target since the export: form submissions, editors' drafts. Export with `--root` to
+  prune one subtree, and use `--exclude-type <alias|id>` / `--exclude-root <id>` (both repeatable)
+  to leave content alone. An excluded document's removed ancestors are kept too, because deleting
+  a document deletes everything under it. Run `--dry-run` first.
 - **Safety** - `apply` respects the global guardrails; it creates/updates by default and requires
   **both** `--prune` and `--yes` to delete. Creates run parent-first, deletes deepest-first, and
   the run stops at the first failure.

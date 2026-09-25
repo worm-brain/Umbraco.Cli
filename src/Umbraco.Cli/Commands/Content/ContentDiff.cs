@@ -41,6 +41,13 @@ public sealed record ContentDocumentChange(ContentChangeKind Change, Guid Id, Gu
     /// </summary>
     [JsonIgnore]
     public JsonNode? DesiredBody { get; init; }
+
+    /// <summary>
+    /// For a removed document, its live document type id, so a prune can leave whole types alone
+    /// (<c>--exclude-type</c>, #225). Not serialized into the diff output.
+    /// </summary>
+    [JsonIgnore]
+    public Guid? DocumentTypeId { get; init; }
 }
 
 /// <summary>
@@ -66,4 +73,13 @@ public sealed record ContentDiff(
     /// count - apply cannot act on it, so a diff that is only drift is "no changes to apply".
     /// </summary>
     public bool HasChanges => Added.Count > 0 || Changed.Count > 0 || Removed.Count > 0;
+
+    /// <summary>
+    /// Every live document's parent (null at the root), so a prune can tell whether a removed
+    /// document sits under an excluded subtree through ancestors the snapshot does contain
+    /// (<c>--exclude-root</c>, #225). Not serialized into the diff output.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<Guid, Guid?> LiveParents { get; init; } =
+        new Dictionary<Guid, Guid?>();
 }

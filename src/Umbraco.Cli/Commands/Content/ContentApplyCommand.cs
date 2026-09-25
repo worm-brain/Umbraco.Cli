@@ -25,7 +25,11 @@ public static class ContentApplyCommand
                 + "Examples:\n"
                 + "  umbraco content apply content.json --dry-run\n"
                 + "  umbraco content apply content.json\n"
-                + "  umbraco content apply content.json --prune --yes"
+                + "  umbraco content apply content.json --prune --yes\n"
+                + "  umbraco content apply content.json --prune --exclude-type contactSubmission --yes\n\n"
+                + "A whole-tree prune also deletes whatever was created on the target since the "
+                + "export - form submissions, editors' drafts. Export with --root to prune one "
+                + "subtree, or leave content alone with --exclude-type / --exclude-root."
         );
         var snapshotArg = new Argument<string>("snapshot")
         {
@@ -37,16 +41,35 @@ public static class ContentApplyCommand
                 "Also DELETE live documents (within the snapshot's scope) that the snapshot does "
                 + "not contain. Destructive: requires --yes when non-interactive.",
         };
+        // #225: a prune deletes everything the snapshot omits, including content created on the
+        // target (form submissions). These leave chosen types and subtrees alone.
+        var excludeTypeOpt = new Option<string[]>("--exclude-type")
+        {
+            Description =
+                "With --prune, never delete documents of this document type (alias or id). Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+        };
+        var excludeRootOpt = new Option<Guid[]>("--exclude-root")
+        {
+            Description =
+                "With --prune, never delete this document or anything under it (id). Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+        };
         cmd.Add(snapshotArg);
         cmd.Add(pruneOpt);
+        cmd.Add(excludeTypeOpt);
+        cmd.Add(excludeRootOpt);
 
         // Prune can delete live content, so it is gated behind the confirmation prompt (skipped
         // under --dry-run / --readonly by the executor). A non-prune apply only creates/updates
-        // and is not gated, which is why the prompt is null without --prune.
+        // and is not gated, which is why the prompt is null without --prune. The prompt says what
+        // is easy to miss: content created on the target goes too.
         cmd.Destructive(
             parseResult =>
                 parseResult.GetValue(pruneOpt)
-                    ? "This will DELETE live documents that are not present in the snapshot."
+                    ? "This will DELETE live documents that are not present in the snapshot, "
+                        + "including any created on this instance since the export (form "
+                        + "submissions, drafts). Run with --dry-run first to see them."
                     : null,
             when: pruneOpt.Name
         );
@@ -70,13 +93,23 @@ public static class ContentApplyCommand
                                 diff.ErrorMessage!
                             );
 
+                        var exclude = await ResolveExclusionsAsync(
+                            ctx.Client,
+                            parseResult.GetValue(excludeTypeOpt) ?? [],
+                            parseResult.GetValue(excludeRootOpt) ?? [],
+                            c
+                        );
+                        if (!exclude.IsSuccess)
+                            return UmbracoResponse<ContentApplyResult>.FailureFrom(exclude);
+
                         // ctx.DryRun is honoured inside the applier so the *whole* plan is previewed.
                         return await ContentApplier.ApplyAsync(
                             ctx.Client,
                             diff.Data!,
                             prune,
                             ctx.DryRun,
-                            c
+                            c,
+                            exclude.Data
                         );
                     },
                     (ctx, result) =>
@@ -92,6 +125,34 @@ public static class ContentApplyCommand
         );
 
         return cmd;
+    }
+
+    /// <summary>
+    /// Resolves the <c>--exclude-type</c> references (alias or id) to document type ids (#225).
+    /// </summary>
+    /// <param name="client">The client to resolve aliases with.</param>
+    /// <param name="types">The document type references.</param>
+    /// <param name="roots">The excluded root ids.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The exclusions, or the failure of the first reference that did not resolve.</returns>
+    private static async Task<UmbracoResponse<PruneExclusions>> ResolveExclusionsAsync(
+        IUmbracoManagementClient client,
+        IReadOnlyList<string> types,
+        IReadOnlyList<Guid> roots,
+        CancellationToken ct
+    )
+    {
+        var typeIds = new HashSet<Guid>();
+        foreach (var type in types)
+        {
+            var resolved = await client.GetDocumentTypeAsync(type, ct);
+            if (!resolved.IsSuccess)
+                return UmbracoResponse<PruneExclusions>.FailureFrom(resolved);
+            typeIds.Add(resolved.Data!.Id);
+        }
+        return UmbracoResponse<PruneExclusions>.Success(
+            new PruneExclusions(typeIds, roots.ToHashSet())
+        );
     }
 
     /// <summary>Projects the apply result's steps into table rows (one per create/update/delete).</summary>

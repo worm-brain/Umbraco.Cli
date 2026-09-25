@@ -50,6 +50,26 @@ public class ContentDiffEngineTests
     }
 
     [Fact]
+    public void Compare_RemovedDocument_CarriesItsDocumentTypeAndLiveParent()
+    {
+        // #225: a prune can only exclude types and subtrees if the diff keeps them.
+        var id = Guid.NewGuid();
+        var parent = Guid.NewGuid();
+        var type = Guid.NewGuid();
+        var live = new ContentNode
+        {
+            Id = id,
+            Parent = parent,
+            Body = JsonNode.Parse($$$"""{"id":"{{{id}}}","documentType":{"id":"{{{type}}}"}}""")!,
+        };
+
+        var diff = ContentDiffEngine.Compare(Snap(), Snap(live));
+
+        Assert.Equal(type, Assert.Single(diff.Removed).DocumentTypeId);
+        Assert.Equal(parent, diff.LiveParents[id]);
+    }
+
+    [Fact]
     public void Compare_SameIdDifferentBody_IsChanged()
     {
         var id = Guid.NewGuid();
