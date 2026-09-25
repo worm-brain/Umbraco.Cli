@@ -1329,6 +1329,65 @@
           "acceptsJsonBody": false
         },
         {
+          "name": "update",
+          "description": "Update a media item's property values and name. They are MERGED into the item, matched on alias + culture + segment: anything you leave out, the uploaded file included, keeps its current value. --replace sends the body's values and variants as the whole set.\n\nExamples:\n  umbraco media update 3f7a8b2e-... --value summary=\"Forms for new members\" --value pageCount=4\n  umbraco media update 3f7a8b2e-... --name \"Membership forms\"\n  umbraco media update 3f7a8b2e-... --json-body ./media.json",
+          "arguments": [
+            {
+              "name": "id",
+              "description": "Media item ID. Required unless --schema is used.",
+              "type": "guid",
+              "required": false,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New display name.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--value",
+              "aliases": [],
+              "description": "Property values as alias=value, e.g. summary=\"...\". Repeatable.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--replace",
+              "aliases": [],
+              "description": "Replace the item's values and variants with the body's instead of merging into them. Anything absent from the body is cleared - the uploaded file included.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) with values and variants to merge; --name and --value are applied on top of it.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--schema",
+              "aliases": [],
+              "description": "Print the JSON Schema for the --json-body request and exit (no host/auth needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": true
+        },
+        {
           "name": "folder",
           "description": "Create media folders to organise uploads.",
           "arguments": [],
@@ -1558,7 +1617,7 @@
         },
         {
           "name": "get",
-          "description": "Get a media type by id or alias, including its alias and description.\n\nExample:\n  umbraco media-types get brochure",
+          "description": "Get a media type by id or alias: the full Management API body, with its properties, groups and allowed child types. The output is a valid 'update --json-body'.\n\nExample:\n  umbraco media-types get brochure",
           "arguments": [
             {
               "name": "id",
@@ -1580,17 +1639,33 @@
           "arguments": [],
           "options": [
             {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--schema",
+              "aliases": [],
+              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
               "name": "--name",
               "aliases": [],
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             },
             {
               "name": "--alias",
               "aliases": [],
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             },
             {
@@ -1625,7 +1700,7 @@
             {
               "name": "--id",
               "aliases": [],
-              "description": "Optional client-supplied UUID for an idempotent create (#86).",
+              "description": "Optional client-supplied UUID for an idempotent create (#86). With --json-body it fills the body's id, and must match it if the body has one.",
               "type": "guid",
               "required": false,
               "hasDefault": false
@@ -1634,7 +1709,50 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": true
+        },
+        {
+          "name": "update",
+          "description": "Update a media type from a Management API body - its properties, groups, allowed child types and icon. The body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type.\n\nExamples:\n  umbraco media-types get brochure -o json | jq .data > mt.json\n  # ...edit mt.json...\n  umbraco media-types update brochure --json-body mt.json\n  umbraco media-types update --schema",
+          "arguments": [
+            {
+              "name": "id",
+              "description": "The media type's id, or its alias or name. Required unless --schema is used.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--schema",
+              "aliases": [],
+              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--replace",
+              "aliases": [],
+              "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": true
         },
         {
           "name": "delete",
@@ -1701,11 +1819,11 @@
         },
         {
           "name": "get",
-          "description": "Get a document type by alias or UUID, including its properties, property groups, allowed templates and compositions.\n\nExamples:\n  umbraco content-types get blogPost\n  umbraco content-types get 3f7a8b2e-...",
+          "description": "Get a document type by alias or UUID: the full Management API body, with its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco content-types get blogPost\n  umbraco content-types get blogPost -o json | jq .data > t.json",
           "arguments": [
             {
               "name": "id",
-              "description": "Document type alias (e.g. blogPost) or UUID.",
+              "description": "The document type's id, or its alias.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -1719,7 +1837,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new document type with a given name and alias.\n\nExamples:\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home",
+          "description": "Create a new document type, from flags or from a full Management API body (--json-body). --schema prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco content-types create --schema -o json | jq .data > t.json\n  umbraco content-types create --json-body t.json\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home",
           "arguments": [],
           "options": [
             {
@@ -1797,11 +1915,11 @@
         },
         {
           "name": "update",
-          "description": "Update a document type from a full Management API body - its properties, groups, compositions, allowed templates and culture variance.\n\nThe body replaces the type, so read it first and edit what you get:\n\nExamples:\n  umbraco content-types get blogPost -o json | jq .data > t.json\n  # ...edit t.json...\n  umbraco content-types update blogPost --json-body t.json\n  umbraco content-types update --schema",
+          "description": "Update a document type from a Management API body - its properties, groups, compositions, allowed templates and culture variance.\n\nThe body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type. Read it with get, edit, write it back:\n\nExamples:\n  umbraco content-types get blogPost -o json | jq .data > t.json\n  # ...edit t.json...\n  umbraco content-types update blogPost --json-body t.json\n  umbraco content-types update --schema",
           "arguments": [
             {
               "name": "id",
-              "description": "Document type alias or UUID. Required unless --schema is used.",
+              "description": "The document type's id, or its alias. Required unless --schema is used.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1820,6 +1938,14 @@
               "name": "--schema",
               "aliases": [],
               "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--replace",
+              "aliases": [],
+              "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -1886,6 +2012,14 @@
               "type": "int",
               "required": false,
               "hasDefault": true
+            },
+            {
+              "name": "--parent",
+              "aliases": [],
+              "description": "List only the data types directly inside this folder (its UUID).",
+              "type": "guid",
+              "required": false,
+              "hasDefault": false
             }
           ],
           "commands": [],
@@ -1895,11 +2029,11 @@
         },
         {
           "name": "get",
-          "description": "Get a data type by name or UUID, including its editor configuration.\n\nA data type has no alias - 'editorAlias' names the property editor behind it, which many data types share - so the human-facing key is its name.\n\nExamples:\n  umbraco data-types get Textstring\n  umbraco data-types get 3f7a8b2e-...",
+          "description": "Get a data type by name or UUID: the full Management API body, including its editor configuration. The output is a valid 'update --json-body'.\n\nA data type has no alias - 'editorAlias' names the property editor behind it, which many data types share - so the human-facing key is its name.\n\nExamples:\n  umbraco data-types get Textstring\n  umbraco data-types get 3f7a8b2e-...",
           "arguments": [
             {
               "name": "id",
-              "description": "Data type name (e.g. Textstring) or UUID.",
+              "description": "The data type's id, or its name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -1971,11 +2105,11 @@
         },
         {
           "name": "update",
-          "description": "Update a data type by name or id. Omitted fields (and editor configuration) are preserved.\n\nExample:\n  umbraco data-types update Textstring --name \"My Text\"",
+          "description": "Update a data type by name or id. Omitted fields (and editor configuration) are preserved. With --json-body, the body's top-level keys are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco data-types update Textstring --name \"My Text\"\n  umbraco data-types update Textstring --json-body dt.json",
           "arguments": [
             {
               "name": "id",
-              "description": "Data type name or UUID. Required unless --schema is used.",
+              "description": "The data type's id, or its name. Required unless --schema is used.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1994,6 +2128,14 @@
               "name": "--schema",
               "aliases": [],
               "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--replace",
+              "aliases": [],
+              "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -2075,7 +2217,7 @@
         },
         {
           "name": "referenced-by",
-          "description": "List what references a data type (raw JSON; the references are a mixed set of kinds).",
+          "description": "List what references a data type: the properties that use it, and the items holding values in it. Each row's 'kind' says what it is (e.g. documentTypePropertyType).\n\nExample:\n  umbraco data-types referenced-by Textstring",
           "arguments": [
             {
               "name": "id",
@@ -2452,11 +2594,11 @@
         },
         {
           "name": "get",
-          "description": "Get a template by its alias or id, including the view file content.\n\nExample:\n  umbraco templates get master\n  umbraco templates get 1a2b3c4d-.....",
+          "description": "Get a template by its alias or id, including the view file content.\n\nExamples:\n  umbraco templates get master\n  umbraco templates get master -o json | jq -r .data.content",
           "arguments": [
             {
               "name": "alias",
-              "description": "Template alias (e.g. master) or id (GUID).",
+              "description": "The template's id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -2519,17 +2661,41 @@
         },
         {
           "name": "update",
-          "description": "Update a Razor view template by id or alias. Omitted fields are preserved.\n\nExample:\n  umbraco templates update blogPost --content-file ./blog-post.cshtml",
+          "description": "Update a Razor view template by id or alias. Omitted fields are preserved. With --json-body, the body's top-level keys (as 'templates get' prints them) are merged into the template; --replace sends it as the whole template.\n\nExamples:\n  umbraco templates update blogPost --content-file ./blog-post.cshtml\n  umbraco templates get blogPost -o json | jq .data > t.json\n  umbraco templates update blogPost --json-body t.json",
           "arguments": [
             {
               "name": "id",
-              "description": "The template's id, or its alias or name.",
+              "description": "The template's id, or its alias or name. Required unless --schema is used.",
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             }
           ],
           "options": [
+            {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--schema",
+              "aliases": [],
+              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--replace",
+              "aliases": [],
+              "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
             {
               "name": "--name",
               "aliases": [],
@@ -2566,7 +2732,7 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": true
         },
         {
           "name": "delete",
@@ -2833,7 +2999,7 @@
         },
         {
           "name": "get",
-          "description": "Get a member type by id or alias, including its alias and description.\n\nExample:\n  umbraco member-types get siteMember",
+          "description": "Get a member type by id or alias: the full Management API body, with its properties and groups. The output is a valid 'update --json-body'.\n\nExample:\n  umbraco member-types get siteMember",
           "arguments": [
             {
               "name": "id",
@@ -2855,17 +3021,33 @@
           "arguments": [],
           "options": [
             {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--schema",
+              "aliases": [],
+              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
               "name": "--name",
               "aliases": [],
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             },
             {
               "name": "--alias",
               "aliases": [],
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             },
             {
@@ -2886,7 +3068,7 @@
             {
               "name": "--id",
               "aliases": [],
-              "description": "Optional client-supplied UUID for an idempotent create (#86).",
+              "description": "Optional client-supplied UUID for an idempotent create (#86). With --json-body it fills the body's id, and must match it if the body has one.",
               "type": "guid",
               "required": false,
               "hasDefault": false
@@ -2895,21 +3077,45 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": true
         },
         {
           "name": "update",
-          "description": "Update a member type by id or alias. Omitted fields (and the type's properties) are preserved.\n\nExample:\n  umbraco member-types update siteMember --name \"Author\" --icon icon-user",
+          "description": "Update a member type by id or alias. Omitted fields (and the type's properties) are preserved. With --json-body, the body's top-level keys (properties and containers included) are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco member-types update siteMember --name \"Author\" --icon icon-user\n  umbraco member-types get siteMember -o json | jq .data > mt.json\n  umbraco member-types update siteMember --json-body mt.json",
           "arguments": [
             {
               "name": "id",
-              "description": "The member type's id, or its alias.",
+              "description": "The member type's id, or its alias. Required unless --schema is used.",
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             }
           ],
           "options": [
+            {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--schema",
+              "aliases": [],
+              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--replace",
+              "aliases": [],
+              "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
             {
               "name": "--name",
               "aliases": [],
@@ -2946,7 +3152,7 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": true
         },
         {
           "name": "delete",

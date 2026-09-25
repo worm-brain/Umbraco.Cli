@@ -168,12 +168,39 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
   tree, so it stays in sync automatically. When you change a command's options or help, the
   catalog updates for free - but the hand-written [`docs/commands.md`](docs/commands.md) does
   not, so update it in the same PR.
-- The whole surface is also committed as [`docs/surface.json`](docs/surface.json) (the same
-  catalog, built from `CliRoot`), and `SurfaceSnapshotTests` fails when it is stale. Read it to
-  see how comparable commands already do something before adding or changing one. After an
-  intended surface change, regenerate it with
-  `UPDATE_SURFACE=1 dotnet test tests/Umbraco.Cli.Tests --filter SurfaceSnapshotTests` and
-  commit it with the change. New top-level nouns are registered in `Commands/CliRoot.cs`.
+- New top-level nouns are registered in `Commands/CliRoot.cs`, the one place the tree is
+  assembled.
+
+## CLI surface consistency
+
+The public surface (nouns, verbs, arguments, options, output, error categories, exit codes) must
+be consistent. Consistency and the best design for the user outrank any single earlier decision.
+
+Sources of truth, in order:
+
+1. [`docs/conventions.md`](docs/conventions.md) - the design rules.
+2. [`docs/surface.json`](docs/surface.json) - the current surface, generated from the command
+   tree. `SurfaceSnapshotTests` fails when it is stale; regenerate it with
+   `UPDATE_SURFACE=1 dotnet test tests/Umbraco.Cli.Tests --filter SurfaceSnapshotTests` and commit
+   it with the change, so every surface change is one reviewable diff.
+3. ADRs, plans and issue bodies - history and rationale, not requirements. An issue's plan is a
+   snapshot of intent from when it was written.
+
+Rules:
+
+- **Before adding or changing anything on the surface**, read `conventions.md` and find how
+  comparable commands already do it in `surface.json`. Match them.
+- **If an ADR, plan or issue conflicts with the conventions**, or would make the surface
+  inconsistent, don't silently follow it or silently ignore it: name it, say what is outdated,
+  and propose the alternative.
+- **If doing it properly means changing other commands too**, propose the cross-cutting change and
+  list every affected command. No one-off exceptions. Alpha: breaking is fine, inconsistent is not.
+- **Bug fixes stay local.** File any cross-cutting surface problem you notice as a GitHub issue
+  labelled `api-consistency` and mention it in your summary, rather than widening the fix.
+- **You may propose a convention change; only the maintainer accepts one.** An accepted change
+  goes in the `conventions.md` changelog with its date and a one-line reason.
+- **When asking the maintainer a design question**, first summarise the relevant current surface
+  and conventions, and how each option compares to existing commands.
 
 ## Domain glossary and decisions
 
