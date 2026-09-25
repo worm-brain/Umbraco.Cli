@@ -146,14 +146,12 @@ public interface IContentClient
     /// parent it was trashed from (#230).
     /// </summary>
     /// <param name="id">The trashed document id.</param>
-    /// <param name="parentId">Parent to restore under; null restores to the original parent.</param>
-    /// <param name="toRoot">Restore to the content root, whatever the original parent was.</param>
+    /// <param name="target">Where to restore to; null means <see cref="RestoreTarget.Original"/>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> RestoreContentAsync(
         Guid id,
-        Guid? parentId = null,
-        bool toRoot = false,
+        RestoreTarget? target = null,
         CancellationToken ct = default
     );
 

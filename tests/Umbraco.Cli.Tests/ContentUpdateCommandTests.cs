@@ -94,7 +94,7 @@ public class ContentUpdateCommandTests
 
         await RunAsync(fake, $"content restore {Id} --to-root", "{}");
 
-        Assert.Equal((Id, (Guid?)null, true), fake.LastRestore);
+        Assert.Equal((Id, RestoreTarget.Root), fake.LastRestore);
     }
 
     [Fact]

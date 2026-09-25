@@ -221,7 +221,8 @@ public class ContentWireTests
         var parent = Guid.NewGuid();
         var handler = Wire.Blank();
 
-        await Wire.Client(handler).RestoreContentAsync(id, parent, ct: CancellationToken.None);
+        await Wire.Client(handler)
+            .RestoreContentAsync(id, RestoreTarget.Under(parent), CancellationToken.None);
 
         Assert.Equal(
             parent.ToString(),
@@ -238,7 +239,7 @@ public class ContentWireTests
         var handler = Wire.Blank();
 
         await Wire.Client(handler)
-            .RestoreContentAsync(id, null, toRoot: true, ct: CancellationToken.None);
+            .RestoreContentAsync(id, RestoreTarget.Root, CancellationToken.None);
 
         Assert.False(
             handler
@@ -286,7 +287,7 @@ public class ContentWireTests
         var handler = Wire.Blank();
 
         await Wire.Client(handler)
-            .RestoreContentAsync(id, Guid.NewGuid(), ct: CancellationToken.None);
+            .RestoreContentAsync(id, RestoreTarget.Under(Guid.NewGuid()), CancellationToken.None);
 
         handler.AssertNoRequest(HttpMethod.Get, $"/recycle-bin/document/{id}/original-parent");
     }

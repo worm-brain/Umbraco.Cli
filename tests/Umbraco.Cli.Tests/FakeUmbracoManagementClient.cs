@@ -182,23 +182,21 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    /// <summary>The (id, parentId, toRoot) of the last <see cref="RestoreContentAsync"/> call (#230).</summary>
-    public (Guid Id, Guid? ParentId, bool ToRoot)? LastRestore { get; private set; }
+    /// <summary>The (id, target) of the last <see cref="RestoreContentAsync"/> call (#230).</summary>
+    public (Guid Id, RestoreTarget? Target)? LastRestore { get; private set; }
 
     /// <summary>Records the call and answers with a bare success.</summary>
     /// <param name="id">The trashed document id.</param>
-    /// <param name="parentId">The requested parent.</param>
-    /// <param name="toRoot">Whether the root was forced.</param>
+    /// <param name="target">The requested target.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A bare success.</returns>
     public Task<UmbracoResponse<Empty>> RestoreContentAsync(
         Guid id,
-        Guid? parentId = null,
-        bool toRoot = false,
+        RestoreTarget? target = null,
         CancellationToken ct = default
     )
     {
-        LastRestore = (id, parentId, toRoot);
+        LastRestore = (id, target);
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
 

@@ -110,8 +110,12 @@ public sealed partial class UmbracoManagementClient
 
                 // As for content create (#228): a culture-less variant on a type that varies by
                 // culture gets the default language.
-                var variants = MapVariants(request.Variants);
-                await DefaultVariantCulturesAsync(variants, documentTypeId, ct);
+                var variants = NeedsCulture(request.Variants)
+                    ? WithCulture(
+                        request.Variants,
+                        await DocumentTypeCultureAsync(documentTypeId, ct)
+                    )
+                    : request.Variants;
 
                 var body = new Gen.CreateDocumentBlueprintRequestModel
                 {
@@ -120,7 +124,7 @@ public sealed partial class UmbracoManagementClient
                     Parent = request.Parent is { } p
                         ? new Gen.ReferenceByIdModel { Id = p.Id }
                         : null,
-                    Variants = variants,
+                    Variants = MapVariants(variants),
                     Values = MapValues(request.Values),
                 };
                 await _api.Umbraco.Management.Api.V1.DocumentBlueprint.PostAsync(
@@ -162,21 +166,41 @@ public sealed partial class UmbracoManagementClient
                     cancellationToken: ct
                 );
 
-                // The parent in the body is ignored, so put the blueprint where it was asked to go.
-                // The blueprint body has no parent to check first; a move to where it already is
-                // is harmless.
-                if (request.Parent is { } parent)
-                    await _api
-                        .Umbraco.Management.Api.V1.DocumentBlueprint[id]
-                        .Move.PutAsync(
-                            new Gen.MoveDocumentBlueprintRequestModel
-                            {
-                                Target = new Gen.ReferenceByIdModel { Id = parent.Id },
-                            },
-                            cancellationToken: ct
-                        );
+                // The blueprint now exists, so a failure from here on must say so and name it:
+                // otherwise a retry without --id makes a second one.
+                var step = "";
+                try
+                {
+                    // The parent in the body is ignored, so put the blueprint where it was asked
+                    // to go. The blueprint body has no parent to check first, so it always moves.
+                    if (request.Parent is { } parent)
+                    {
+                        step = $"was left at the root: moving it under {parent.Id} failed";
+                        await _api
+                            .Umbraco.Management.Api.V1.DocumentBlueprint[id]
+                            .Move.PutAsync(
+                                new Gen.MoveDocumentBlueprintRequestModel
+                                {
+                                    Target = new Gen.ReferenceByIdModel { Id = parent.Id },
+                                },
+                                cancellationToken: ct
+                            );
+                    }
 
-                await RenameEveryVariantAsync(id, request.Name, ct);
+                    step = "kept the source document's names: renaming its variants failed";
+                    await RenameEveryVariantAsync(id, request.Name, ct);
+                }
+                catch (ApiException ex)
+                {
+                    var (status, message) = Describe(ex);
+                    throw new ApiException(
+                        $"Blueprint {id} was created, but {step}: {message.TrimEnd('.')}. "
+                            + "Fix it with 'document-blueprint move' or 'document-blueprint update'."
+                    )
+                    {
+                        ResponseStatusCode = status,
+                    };
+                }
 
                 var hydrated = await HydrateBlueprintAsync(id, ct);
                 if (hydrated is JsonObject result && request.Name is { Length: > 0 } name)
@@ -245,11 +269,12 @@ public sealed partial class UmbracoManagementClient
                     ?? throw new ApiException("The blueprint body was not a JSON object.");
                 // A culture-less rename on a variant blueprint means the default language
                 // (#228); the merge's guard still refuses it when that language is missing.
-                var variants = await DefaultExistingVariantCulturesAsync(
-                    blueprint["variants"] as JsonArray,
-                    request.Variants,
-                    ct
-                );
+                var variants = NeedsCulture(request.Variants)
+                    ? WithCulture(
+                        request.Variants,
+                        await ExistingItemCultureAsync(blueprint["variants"] as JsonArray, ct)
+                    )
+                    : [.. request.Variants];
                 DocumentUpdateBody.Merge(blueprint, request.Values, variants, replace);
                 await SendRawJsonAsync(Method.PUT, path, blueprint, ct);
                 return Empty.Value;

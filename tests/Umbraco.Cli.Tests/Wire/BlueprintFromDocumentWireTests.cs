@@ -114,7 +114,7 @@ public class BlueprintFromDocumentWireTests
     }
 
     [Fact]
-    public async Task CreateDocumentBlueprintFromDocumentAsync_MoveRejected_ReturnsTheFailure()
+    public async Task CreateDocumentBlueprintFromDocumentAsync_MoveRejected_FailsNamingTheCreatedBlueprint()
     {
         var handler = Handler(moveStatus: HttpStatusCode.BadRequest);
 
@@ -122,5 +122,9 @@ public class BlueprintFromDocumentWireTests
             .CreateDocumentBlueprintFromDocumentAsync(Request(), CancellationToken.None);
 
         Assert.Equal(400, result.StatusCode);
+        Assert.StartsWith(
+            $"Blueprint {Id} was created, but was left at the root",
+            result.ErrorMessage
+        );
     }
 }

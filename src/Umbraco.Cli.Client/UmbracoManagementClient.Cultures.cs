@@ -1,67 +1,84 @@
+using System.Text.Json.Nodes;
 using Gen = Umbraco.Cli.Client.Generated.Models;
 
 namespace Umbraco.Cli.Client;
 
 /// <summary>
-/// Culture-aware defaults shared by the document write paths (#250 Phase 4). Umbraco has no
-/// "every culture" wildcard - <c>"*"</c> is the invariant culture (#158) - so a call that names no
-/// culture has to work out the right cultures itself. There are two twins here: one reads a
-/// <b>document</b> (for publish, unpublish, versions and blueprint renames, where the document
-/// already exists) and one reads a <b>document type</b> (for creates, where it does not).
+/// Culture-aware defaults shared by the document paths (#250 Phase 4). Umbraco has no "every
+/// culture" wildcard - <c>"*"</c> is the invariant culture (#158) - so a call that names no culture
+/// has to work out the right cultures itself. Each resolver here answers "which culture(s)?" from
+/// one source: a <b>document</b> (publish, unpublish, versions, where the item exists), a
+/// <b>document type</b> (creates, where it does not), or an item's <b>current variants</b> (an
+/// update that has already read the item). <see cref="WithCulture"/> is the one fill step.
 /// </summary>
 public sealed partial class UmbracoManagementClient
 {
-    /// <summary>The instance's default language ISO code, read once per client.</summary>
-    private string? _defaultCulture;
+    /// <summary>The instance's languages, read once per client (only a non-empty answer is kept).</summary>
+    private List<Gen.LanguageResponseModel>? _languages;
 
     /// <summary>
-    /// The cultures a document varies by, or a single <c>null</c> culture when it is invariant.
-    /// Reading the document is what makes "all cultures" work without a wildcard - see
-    /// <see cref="PublishContentAsync"/> and <see cref="UnpublishContentAsync"/>.
+    /// The instance's languages, cached for the life of the client so a batch (dictionary creates,
+    /// bulk content creates) pays for the lookup once.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The languages, or null when the list could not be read.</returns>
+    private async Task<List<Gen.LanguageResponseModel>?> LanguagesAsync(CancellationToken ct)
+    {
+        if (_languages is not null)
+            return _languages;
+
+        var page = await _api.Umbraco.Management.Api.V1.Language.GetAsync(
+            c => c.QueryParameters.Take = 1000,
+            ct
+        );
+        var languages = (page?.Items ?? [])
+            .Where(l => !string.IsNullOrWhiteSpace(l.IsoCode))
+            .ToList();
+
+        // Umbraco always has at least one language, so an empty list means the read did not work.
+        // Only a real answer is cached.
+        if (languages.Count == 0)
+            return null;
+
+        _languages = languages;
+        return languages;
+    }
+
+    /// <summary>The ISO codes of every language on the instance (see <see cref="LanguagesAsync"/>).</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The codes, or null when the language list could not be read.</returns>
+    private async Task<HashSet<string>?> KnownIsoCodesAsync(CancellationToken ct) =>
+        (await LanguagesAsync(ct))
+            ?.Select(l => l.IsoCode!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The instance's default language (the one flagged <c>isDefault</c>).</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The default ISO code, or null when none is flagged or the list could not be read.</returns>
+    private async Task<string?> DefaultCultureAsync(CancellationToken ct) =>
+        (await LanguagesAsync(ct))?.FirstOrDefault(l => l.IsDefault == true)?.IsoCode;
+
+    /// <summary>
+    /// The cultures a document varies by; empty when it is invariant. Reading the document is what
+    /// makes "all cultures" work without a wildcard - see <see cref="PublishContentAsync"/> and
+    /// <see cref="UnpublishContentAsync"/>.
     /// </summary>
     /// <param name="id">The document id.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The culture codes; a single-element list containing null when invariant.</returns>
-    private async Task<List<string?>> DocumentCulturesAsync(Guid id, CancellationToken ct)
+    /// <returns>The distinct culture codes; empty when the document is invariant.</returns>
+    private async Task<List<string>> DocumentCulturesAsync(Guid id, CancellationToken ct)
     {
         var document = await _api
             .Umbraco.Management.Api.V1.Document[id]
             .GetAsync(cancellationToken: ct);
-        return CulturesOf((document?.Variants ?? []).Select(v => v.Culture));
+        return NamedCultures((document?.Variants ?? []).Select(v => v.Culture));
     }
 
-    /// <summary>
-    /// Reduces variant cultures to the distinct named ones, or a single <c>null</c> when there are
-    /// none (an invariant item has one variant with a null culture).
-    /// </summary>
+    /// <summary>The distinct non-empty cultures; empty for an invariant item (one null-culture variant).</summary>
     /// <param name="cultures">The culture of each variant.</param>
-    /// <returns>The distinct cultures, or <c>[null]</c> when invariant.</returns>
-    internal static List<string?> CulturesOf(IEnumerable<string?> cultures)
-    {
-        var named = cultures.Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
-        return named.Count > 0 ? named : [null];
-    }
-
-    /// <summary>
-    /// The instance's default language (the one flagged <c>isDefault</c>), cached for the life of
-    /// the client so a bulk run pays for the lookup once.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The default ISO code, or null when no language is flagged as the default.</returns>
-    private async Task<string?> DefaultCultureAsync(CancellationToken ct)
-    {
-        if (_defaultCulture is not null)
-            return _defaultCulture;
-
-        var languages = await _api.Umbraco.Management.Api.V1.Language.GetAsync(
-            c => c.QueryParameters.Take = 1000,
-            ct
-        );
-        _defaultCulture = (languages?.Items ?? [])
-            .FirstOrDefault(l => l.IsDefault == true)
-            ?.IsoCode;
-        return _defaultCulture;
-    }
+    /// <returns>The distinct named cultures.</returns>
+    private static List<string> NamedCultures(IEnumerable<string?> cultures) =>
+        cultures.Where(c => !string.IsNullOrEmpty(c)).Select(c => c!).Distinct().ToList();
 
     /// <summary>
     /// The culture a create should use when the caller named none: null for a document type that
@@ -90,62 +107,54 @@ public sealed partial class UmbracoManagementClient
     }
 
     /// <summary>
-    /// Gives every culture-less variant the type's default culture when the type varies (#228). A
-    /// variant that already names a culture is left alone, and nothing is read when every variant
-    /// names one, so an explicit <c>--culture</c> or a full <c>--json-body</c> costs no extra call.
-    /// </summary>
-    /// <param name="variants">The variants about to be sent; updated in place.</param>
-    /// <param name="documentTypeId">The document type the item is being created from.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A task that completes when the variants are updated.</returns>
-    private async Task DefaultVariantCulturesAsync(
-        List<Gen.DocumentVariantRequestModel> variants,
-        Guid documentTypeId,
-        CancellationToken ct
-    )
-    {
-        if (variants.All(v => !string.IsNullOrEmpty(v.Culture)))
-            return;
-
-        var culture = await DocumentTypeCultureAsync(documentTypeId, ct);
-        if (culture is null)
-            return;
-
-        foreach (var variant in variants.Where(v => string.IsNullOrEmpty(v.Culture)))
-            variant.Culture = culture;
-    }
-
-    /// <summary>
-    /// The update-side twin of <see cref="DefaultVariantCulturesAsync"/>: gives culture-less
-    /// requested variants the default language when the existing item varies by culture and has a
-    /// variant in that language (#228, blueprint <c>update --name</c>). Anything else is returned
-    /// as it is, so <see cref="DocumentUpdateBody"/>'s guard can still refuse an ambiguous rename
-    /// with the item's cultures listed.
+    /// The culture an update of an existing item should give a culture-less variant (#228,
+    /// blueprint <c>update --name</c>): the default language, when the item varies by culture and
+    /// has a variant in it. Null otherwise, which leaves the variant as it is so
+    /// <see cref="DocumentUpdateBody"/>'s guard can still refuse an ambiguous rename with the item's
+    /// cultures listed.
     /// </summary>
     /// <param name="current">The item's current <c>variants</c> array, as read.</param>
-    /// <param name="requested">The variants from the request.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The requested variants, with the default culture filled in where it applies.</returns>
-    private async Task<List<ContentVariant>> DefaultExistingVariantCulturesAsync(
-        System.Text.Json.Nodes.JsonArray? current,
-        IEnumerable<ContentVariant> requested,
-        CancellationToken ct
-    )
+    /// <returns>The culture to use, or null.</returns>
+    private async Task<string?> ExistingItemCultureAsync(JsonArray? current, CancellationToken ct)
     {
-        var variants = requested.ToList();
-        if (variants.All(v => !string.IsNullOrEmpty(v.Culture)))
-            return variants;
-
-        var cultures = CulturesOf((current ?? []).Select(v => v?["culture"]?.GetValue<string?>()));
-        if (cultures[0] is null)
-            return variants;
+        var cultures = NamedCultures(
+            (current ?? []).Select(v => v?["culture"]?.GetValue<string?>())
+        );
+        if (cultures.Count == 0)
+            return null;
 
         var fallback = await DefaultCultureAsync(ct);
-        if (fallback is null || !cultures.Contains(fallback, StringComparer.OrdinalIgnoreCase))
-            return variants;
-
-        return variants
-            .Select(v => string.IsNullOrEmpty(v.Culture) ? v with { Culture = fallback } : v)
-            .ToList();
+        return fallback is not null && cultures.Contains(fallback, StringComparer.OrdinalIgnoreCase)
+            ? fallback
+            : null;
     }
+
+    /// <summary>Whether any variant names no culture, i.e. whether a resolver needs to be asked at all.</summary>
+    /// <param name="variants">The requested variants.</param>
+    /// <returns>True when at least one variant has no culture.</returns>
+    private static bool NeedsCulture(IEnumerable<ContentVariant> variants) =>
+        variants.Any(v => string.IsNullOrEmpty(v.Culture));
+
+    /// <summary>
+    /// Gives every culture-less variant <paramref name="culture"/>; variants that name one, and
+    /// every variant when <paramref name="culture"/> is null, are returned unchanged.
+    /// </summary>
+    /// <param name="variants">The requested variants.</param>
+    /// <param name="culture">The culture to fill in, or null to fill nothing.</param>
+    /// <returns>The variants, with the culture filled in.</returns>
+    private static List<ContentVariant> WithCulture(
+        IEnumerable<ContentVariant> variants,
+        string? culture
+    ) =>
+        variants
+            .Select(v =>
+                culture is not null && string.IsNullOrEmpty(v.Culture)
+                    ? v with
+                    {
+                        Culture = culture,
+                    }
+                    : v
+            )
+            .ToList();
 }

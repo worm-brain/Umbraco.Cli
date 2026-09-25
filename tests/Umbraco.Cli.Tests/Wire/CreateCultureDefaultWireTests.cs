@@ -62,6 +62,21 @@ public class CreateCultureDefaultWireTests
     }
 
     [Fact]
+    public async Task CreateContentAsync_TwoCreatesOnOneClient_ReadTheLanguagesOnce()
+    {
+        var handler = TypeHandler(variesByCulture: true);
+        var client = Wire.Client(handler);
+
+        await client.CreateContentAsync(ContentRequest(), CancellationToken.None);
+        await client.CreateContentAsync(ContentRequest(), CancellationToken.None);
+
+        Assert.Single(
+            handler.Recordings,
+            r => r.Uri.AbsolutePath.EndsWith("/language", StringComparison.Ordinal)
+        );
+    }
+
+    [Fact]
     public async Task CreateContentAsync_InvariantTypeWithNoCulture_SendsANullCulture()
     {
         var handler = TypeHandler(variesByCulture: false);

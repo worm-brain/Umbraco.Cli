@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
@@ -48,8 +49,10 @@ public static class ContentRestoreCommand
                     (client, c) =>
                         client.RestoreContentAsync(
                             parseResult.GetValue(idArg),
-                            parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(toRootOpt),
+                            parseResult.GetValue(parentOpt) is { } parent
+                                    ? RestoreTarget.Under(parent)
+                                : parseResult.GetValue(toRootOpt) ? RestoreTarget.Root
+                                : RestoreTarget.Original,
                             c
                         ),
                     "Content restored from the recycle bin.",

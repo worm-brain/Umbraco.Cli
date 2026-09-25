@@ -443,9 +443,14 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 var id = request.Id ?? Guid.NewGuid();
 
                 // A variant that names no culture gets the default language when the type
-                // varies by culture (#228); an invariant type keeps the null culture.
-                var variants = MapVariants(request.Variants);
-                await DefaultVariantCulturesAsync(variants, documentTypeId, ct);
+                // varies by culture (#228); an invariant type keeps the null culture. The type is
+                // read only when a variant needs it.
+                var variants = NeedsCulture(request.Variants)
+                    ? WithCulture(
+                        request.Variants,
+                        await DocumentTypeCultureAsync(documentTypeId, ct)
+                    )
+                    : request.Variants;
 
                 // CreateDocumentBody (not the raw generated model) so that `template` is
                 // always serialized: Umbraco 17+ requires the property to be present on a
@@ -457,7 +462,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Parent = request.Parent is { } p
                         ? new Gen.ReferenceByIdModel { Id = p.Id }
                         : null,
-                    Variants = variants,
+                    Variants = MapVariants(variants),
                     Values = MapValues(request.Values),
                     // Null is meaningful here: Umbraco 17 reads an explicit null template as
                     // "use the document type's default" (#134/#162), so only set it when asked.
@@ -592,10 +597,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var requested = cultures?.Select(c => (string?)c).ToList();
-                var targets = requested is { Count: > 0 }
-                    ? requested
-                    : await DocumentCulturesAsync(id, ct);
+                // Nothing named: every culture the document has, or the single null culture of
+                // an invariant document (which is what the publish body must carry).
+                List<string?> targets =
+                    cultures?.ToList() is { Count: > 0 } requested ? [.. requested]
+                    : (await DocumentCulturesAsync(id, ct)) is { Count: > 0 } named ? [.. named]
+                    : [null];
 
                 // A schedule is only sent when one was asked for: an all-null schedule object is
                 // silently ignored by the server, which is the #158 no-op.
@@ -654,9 +661,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 if (requested is not { Count: > 0 })
                 {
                     // Nothing named: a variant document needs its cultures listed, an invariant
-                    // one needs the field omitted ([null] from the helper means invariant).
-                    var targets = await DocumentCulturesAsync(id, ct);
-                    requested = targets[0] is null ? null : targets.Select(c => c!).ToList();
+                    // one (no named cultures) needs the field omitted.
+                    var named = await DocumentCulturesAsync(id, ct);
+                    requested = named.Count > 0 ? named : null;
                 }
 
                 var body = new Gen.UnpublishDocumentRequestModel { Cultures = requested };
@@ -667,248 +674,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    // ── Document Versions ──────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Lists a document's version history via <c>GET document-version?documentId=</c>
-    /// (generated client, issue #58).
-    /// <para>
-    /// Umbraco returns no versions for a document that varies by culture unless a culture is
-    /// passed (#209), which read as "no history". So when no culture is named the document is
-    /// read first: an invariant one gets the single unfiltered query, a variant one gets a query
-    /// per culture and the results are merged newest first. Every row carries the culture it was
-    /// listed under (null when invariant), which is also the <c>--culture</c> that
-    /// <c>content rollback</c> needs for that version.
-    /// </para>
-    /// </summary>
-    /// <param name="documentId">The document whose versions to list.</param>
-    /// <param name="culture">Culture to list versions for; null lists every culture the document has.</param>
-    /// <param name="skip">Number of items to skip (paging, over the merged list).</param>
-    /// <param name="take">Maximum number of items to return.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>A paged list of versions mapped to <see cref="DocumentVersionResponse"/>.</returns>
-    public Task<UmbracoResponse<PagedResponse<DocumentVersionResponse>>> GetDocumentVersionsAsync(
-        Guid documentId,
-        string? culture = null,
-        int skip = 0,
-        int take = 20,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                List<string?> cultures = !string.IsNullOrEmpty(culture)
-                    ? [culture]
-                    : await DocumentCulturesAsync(documentId, ct);
-
-                // One culture (named, or the invariant null) pages on the server as before.
-                if (cultures.Count == 1)
-                    return await VersionsPageAsync(documentId, cultures[0], skip, take, ct);
-
-                // Several: the merged page can draw on the first skip+take rows of any culture,
-                // so read that many of each, merge, then cut the requested page out of the merge.
-                var pages = new List<PagedResponse<DocumentVersionResponse>>();
-                foreach (var c in cultures)
-                    pages.Add(await VersionsPageAsync(documentId, c, 0, skip + take, ct));
-
-                return new PagedResponse<DocumentVersionResponse>
-                {
-                    Total = pages.Sum(p => p.Total),
-                    Items = pages
-                        .SelectMany(p => p.Items)
-                        .OrderByDescending(v => v.VersionDate)
-                        .Skip(skip)
-                        .Take(take)
-                        .ToList(),
-                };
-            }
-        );
-
-    /// <summary>One culture's page of a document's versions, each row tagged with that culture.</summary>
-    /// <param name="documentId">The document whose versions to list.</param>
-    /// <param name="culture">The culture to filter by; null for an invariant document.</param>
-    /// <param name="skip">Number of items to skip.</param>
-    /// <param name="take">Maximum number of items to return.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The page.</returns>
-    private async Task<PagedResponse<DocumentVersionResponse>> VersionsPageAsync(
-        Guid documentId,
-        string? culture,
-        int skip,
-        int take,
-        CancellationToken ct
-    )
-    {
-        var paged = await _api.Umbraco.Management.Api.V1.DocumentVersion.GetAsync(
-            c =>
-            {
-                c.QueryParameters.DocumentId = documentId;
-                c.QueryParameters.Skip = skip;
-                c.QueryParameters.Take = take;
-                if (!string.IsNullOrEmpty(culture))
-                    c.QueryParameters.Culture = culture;
-            },
-            ct
-        );
-        return new PagedResponse<DocumentVersionResponse>
-        {
-            Total = (int)(paged?.Total ?? 0),
-            Items = (paged?.Items ?? [])
-                .Select(v => new DocumentVersionResponse
-                {
-                    Id = v.Id ?? Guid.Empty,
-                    Culture = culture,
-                    VersionDate = v.VersionDate ?? default,
-                    IsCurrentDraftVersion = v.IsCurrentDraftVersion ?? false,
-                    IsCurrentPublishedVersion = v.IsCurrentPublishedVersion ?? false,
-                    PreventCleanup = v.PreventCleanup ?? false,
-                })
-                .ToList(),
-        };
-    }
-
-    /// <summary>
-    /// Reads one version of a document, with its values, via <c>GET document-version/{id}</c>
-    /// (#209). The body is returned raw so every property value survives, which is what a
-    /// diff before <c>content rollback</c> needs.
-    /// </summary>
-    /// <param name="versionId">The version id, from <see cref="GetDocumentVersionsAsync"/>.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The version body as JSON, or a mapped failure.</returns>
-    public Task<UmbracoResponse<JsonNode>> GetDocumentVersionAsync(
-        Guid versionId,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            () => GetRawJsonAsync($"umbraco/management/api/v1/document-version/{versionId}", ct)
-        );
-
-    /// <summary>
-    /// Rolls a document back to a previous version via <c>POST document-version/{id}/rollback</c>
-    /// (generated client, issue #58). The endpoint returns no body.
-    /// </summary>
-    /// <param name="versionId">The id of the version to roll back to.</param>
-    /// <param name="culture">Culture to roll back; null for the invariant/default.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> RollbackDocumentVersionAsync(
-        Guid versionId,
-        string? culture = null,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                await _api
-                    .Umbraco.Management.Api.V1.DocumentVersion[versionId]
-                    .Rollback.PostAsync(
-                        c =>
-                        {
-                            if (!string.IsNullOrEmpty(culture))
-                                c.QueryParameters.Culture = culture;
-                        },
-                        ct
-                    );
-                return Empty.Value;
-            }
-        );
-
     // ── Content workflow (recycle bin, move/copy, publish descendants) ─────────
-
-    /// <summary>Moves a document to the recycle bin via <c>PUT document/{id}/move-to-recycle-bin</c> (issue #67).</summary>
-    /// <param name="id">The document id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> TrashContentAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                await _api
-                    .Umbraco.Management.Api.V1.Document[id]
-                    .MoveToRecycleBin.PutAsync(cancellationToken: ct);
-                return Empty.Value;
-            }
-        );
-
-    /// <summary>
-    /// Restores a document from the recycle bin via <c>PUT recycle-bin/document/{id}/restore</c>
-    /// (issue #67).
-    /// <para>
-    /// With no parent named, the document goes back where it came from, as the backoffice does
-    /// (#230): <c>GET recycle-bin/document/{id}/original-parent</c> answers the parent, or nothing
-    /// when it was at the root. Restoring to the root by default put a <c>blogPost</c> where it is
-    /// not allowed, and Umbraco's 400 ("not permitted, likely due to a permission/configuration
-    /// mismatch") did not say why, so a rejected restore is reworded to name where it was going.
-    /// </para>
-    /// </summary>
-    /// <param name="id">The trashed document id.</param>
-    /// <param name="parentId">Parent to restore under; null restores to the original parent.</param>
-    /// <param name="toRoot">Restore to the content root, whatever the original parent was.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> RestoreContentAsync(
-        Guid id,
-        Guid? parentId = null,
-        bool toRoot = false,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var bin = _api.Umbraco.Management.Api.V1.RecycleBin.Document[id];
-                var original = parentId is null && !toRoot;
-                var target = original
-                    ? (await bin.OriginalParent.GetAsync(cancellationToken: ct))?.Id
-                    : parentId;
-
-                try
-                {
-                    await bin.Restore.PutAsync(
-                        new Gen.MoveMediaRequestModel
-                        {
-                            Target = target is { } t ? new Gen.ReferenceByIdModel { Id = t } : null,
-                        },
-                        cancellationToken: ct
-                    );
-                }
-                catch (ApiException ex) when (StatusOf(ex) == 400)
-                {
-                    var where = target is { } t
-                        ? $"under {t}" + (original ? " (its original parent)" : "")
-                        : "at the content root" + (original ? " (where it was)" : "");
-                    throw BadRequest(
-                        $"Umbraco would not restore {id} {where}: {ProblemText(ex)} "
-                            + "Its document type may not be allowed there; pass --parent <id> to restore it somewhere else."
-                    );
-                }
-                return Empty.Value;
-            }
-        );
-
-    /// <summary>Empties the content recycle bin via <c>DELETE recycle-bin/document</c> (issue #67). Irreversible.</summary>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> EmptyContentRecycleBinAsync(
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                await _api.Umbraco.Management.Api.V1.RecycleBin.Document.DeleteAsync(
-                    cancellationToken: ct
-                );
-                return Empty.Value;
-            }
-        );
 
     /// <summary>
     /// Moves a document under a new parent via <c>PUT document/{id}/move</c> (issue #67). A null
@@ -3562,16 +3328,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             // for RFC-9110 error bodies, but its Message is the useless base default
             // ("Exception of type '...ProblemDetails' was thrown."). Build a readable
             // message from the real fields so 404s and other errors are legible (#48).
-            var status = pd.ResponseStatusCode != 0 ? pd.ResponseStatusCode : pd.Status ?? 0;
-            var baseMessage =
-                !string.IsNullOrWhiteSpace(pd.Detail) ? pd.Detail!
-                : !string.IsNullOrWhiteSpace(pd.Title) ? pd.Title!
-                : $"Error {status}";
-            // Append the field-level "errors" map (e.g. "isoCode: Required") so a rejected
-            // write tells the user WHICH field failed (#48). The generated ProblemDetails has
-            // no typed property for it; it lands in AdditionalData as an UntypedNode.
-            var fieldErrors = FormatProblemDetailsErrors(pd);
-            var message = fieldErrors is null ? baseMessage : $"{baseMessage} ({fieldErrors})";
+            var (status, message) = Describe(pd);
             // A declared error body: a 5xx is a server-side problem, anything else the server
             // rejecting the request (#152).
             return UmbracoResponse<T>.Failure(status, message, CategoryFor(status));
@@ -3579,11 +3336,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         catch (ApiException ex)
         {
             // ResponseStatusCode is 0 when Kiota never got an HTTP response.
-            return UmbracoResponse<T>.Failure(
-                ex.ResponseStatusCode,
-                DescribeApiException(ex),
-                CategoryFor(ex.ResponseStatusCode)
-            );
+            var (status, message) = Describe(ex);
+            return UmbracoResponse<T>.Failure(status, message, CategoryFor(status));
         }
         catch (HttpRequestException ex)
         {
@@ -3631,23 +3385,32 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     private static ApiException NotFound(string message) =>
         new(message) { ResponseStatusCode = 404 };
 
-    /// <summary>The HTTP status of a generated-client exception, reading a problem body's own status when the response's is unset.</summary>
-    /// <param name="ex">The exception.</param>
-    /// <returns>The status code, or 0 when unknown.</returns>
-    private static int StatusOf(ApiException ex) =>
-        ex.ResponseStatusCode != 0 ? ex.ResponseStatusCode
-        : ex is Gen.ProblemDetails pd ? pd.Status ?? 0
-        : 0;
-
-    /// <summary>The readable part of a generated-client exception: a problem body's detail or title, else its message.</summary>
-    /// <param name="ex">The exception.</param>
-    /// <returns>The text, trimmed of a trailing full stop so it can be embedded in a sentence.</returns>
-    private static string ProblemText(ApiException ex)
+    /// <summary>
+    /// The status and a readable message for an exception from the generated client - the one
+    /// place both are worked out, so <see cref="GuardedApiAsync{T}"/> and any call that rewords an
+    /// error agree. Kiota throws the generated <see cref="Gen.ProblemDetails"/> (which derives from
+    /// <see cref="ApiException"/>) for RFC-9110 error bodies, but its Message is the useless base
+    /// default ("Exception of type '...ProblemDetails' was thrown."), so the message is built from
+    /// its detail or title, with the field-level "errors" map appended (e.g. "isoCode: Required")
+    /// so a rejected write says WHICH field failed (#48). Any other exception goes through
+    /// <see cref="DescribeApiException"/>.
+    /// </summary>
+    /// <param name="ex">The exception thrown by the generated client.</param>
+    /// <returns>The HTTP status (0 when no response arrived) and the message.</returns>
+    private static (int Status, string Message) Describe(ApiException ex)
     {
-        var text = ex is Gen.ProblemDetails pd
-            ? (!string.IsNullOrWhiteSpace(pd.Detail) ? pd.Detail : pd.Title) ?? ex.Message
-            : ex.Message;
-        return text.TrimEnd('.') + ".";
+        if (ex is not Gen.ProblemDetails pd)
+            return (ex.ResponseStatusCode, DescribeApiException(ex));
+
+        var status = pd.ResponseStatusCode != 0 ? pd.ResponseStatusCode : pd.Status ?? 0;
+        var baseMessage =
+            !string.IsNullOrWhiteSpace(pd.Detail) ? pd.Detail!
+            : !string.IsNullOrWhiteSpace(pd.Title) ? pd.Title!
+            : $"Error {status}";
+        // The generated ProblemDetails has no typed property for "errors"; it lands in
+        // AdditionalData as an UntypedNode.
+        var fieldErrors = FormatProblemDetailsErrors(pd);
+        return (status, fieldErrors is null ? baseMessage : $"{baseMessage} ({fieldErrors})");
     }
 
     /// <summary>Builds a 400 for a request this client refuses to send.</summary>
@@ -3655,38 +3418,6 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>An exception <see cref="GuardedApiAsync{T}"/> maps to a rejected request.</returns>
     private static ApiException BadRequest(string message) =>
         new(message) { ResponseStatusCode = 400 };
-
-    /// <summary>The instance's configured language ISO codes, read once per client.</summary>
-    private HashSet<string>? _knownIsoCodes;
-
-    /// <summary>
-    /// The ISO codes of every language on the instance, cached for the life of the client so a
-    /// batch of dictionary creates pays for the lookup once.
-    /// </summary>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The codes, or null when the language list could not be read.</returns>
-    private async Task<HashSet<string>?> KnownIsoCodesAsync(CancellationToken ct)
-    {
-        if (_knownIsoCodes is not null)
-            return _knownIsoCodes;
-
-        var languages = await _api.Umbraco.Management.Api.V1.Language.GetAsync(
-            c => c.QueryParameters.Take = 1000,
-            ct
-        );
-        var codes = (languages?.Items ?? [])
-            .Select(l => l.IsoCode)
-            .Where(c => !string.IsNullOrWhiteSpace(c))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase)!;
-
-        // Umbraco always has at least one language, so an empty list means the read did not work.
-        // Only a real answer is cached.
-        if (codes.Count == 0)
-            return null;
-
-        _knownIsoCodes = codes;
-        return codes;
-    }
 
     /// <summary>
     /// Produces a legible message for a Kiota <see cref="ApiException"/>. When the server returns
