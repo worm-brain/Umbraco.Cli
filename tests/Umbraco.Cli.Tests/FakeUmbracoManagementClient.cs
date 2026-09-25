@@ -123,10 +123,14 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         if (PublishContentHandler is null)
             throw new NotImplementedException();
         CalledIds.Add(id);
+        StateCalls.Add(("publish", id, cultures?.ToList()));
         return Task.FromResult(PublishContentHandler(id));
     }
 
     public Func<Guid, UmbracoResponse<Empty>>? UnpublishContentHandler { get; set; }
+
+    /// <summary>Every publish/unpublish call in order, with the cultures it named (null = all/invariant).</summary>
+    public List<(string Operation, Guid Id, List<string>? Cultures)> StateCalls { get; } = [];
 
     public Task<UmbracoResponse<Empty>> UnpublishContentAsync(
         Guid id,
@@ -137,6 +141,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         if (UnpublishContentHandler is null)
             throw new NotImplementedException();
         CalledIds.Add(id);
+        StateCalls.Add(("unpublish", id, cultures?.ToList()));
         return Task.FromResult(UnpublishContentHandler(id));
     }
 
@@ -309,6 +314,9 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The (id, values) of the last upload (#226, #220).</summary>
+    public (Guid? Id, IReadOnlyList<MediaValue>? Values)? LastUpload { get; private set; }
+
     public Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(
         Guid? parentId,
         string name,
@@ -316,8 +324,18 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         string fileName,
         string contentType,
         string mediaType,
+        Guid? id = null,
+        IReadOnlyList<MediaValue>? values = null,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastUpload = (id, values);
+        return Task.FromResult(
+            UmbracoResponse<MediaItemResponse>.Success(
+                new MediaItemResponse { Id = id ?? Guid.NewGuid(), Name = name }
+            )
+        );
+    }
 
     public Task<UmbracoResponse<MediaItemResponse>> CreateMediaFolderAsync(
         string name,
@@ -2100,14 +2118,16 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
-    public Task<UmbracoResponse<Empty>> CopyDataTypeAsync(
+    public Task<UmbracoResponse<DataTypeResponse>> CopyDataTypeAsync(
         Guid id,
         Guid? targetId,
         CancellationToken ct = default
     )
     {
         DataTypesCopied.Add((id, targetId));
-        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+        return Task.FromResult(
+            UmbracoResponse<DataTypeResponse>.Success(new DataTypeResponse { Id = Guid.NewGuid() })
+        );
     }
 
     public Task<UmbracoResponse<Empty>> MoveDataTypeAsync(

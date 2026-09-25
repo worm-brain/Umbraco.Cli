@@ -21,6 +21,14 @@ public readonly record struct ListPaging(int? Total, int? Skip, int? Take)
     public static ListPaging Unknown => new(null, null, null);
 
     /// <summary>
+    /// A list that is complete by construction - a computed report such as a diff - so it can say
+    /// so: <c>total</c> is its count and <c>hasMore</c> is false.
+    /// </summary>
+    /// <param name="count">How many items the list has.</param>
+    /// <returns>The paging.</returns>
+    public static ListPaging Complete(int count) => new(count, 0, null);
+
+    /// <summary>
     /// Whether more items exist beyond this page, given how many it actually returned. Null when
     /// <see cref="Total"/> is unknown, since "probably not" is exactly the guess that hides a
     /// truncated list. Counts delivered items rather than the requested page size, so a short or

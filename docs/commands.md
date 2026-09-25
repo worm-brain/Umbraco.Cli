@@ -133,11 +133,11 @@ umbraco content restore <id> [--parent <id>]               # restore from recycl
 umbraco content empty-recycle-bin                          # permanent; needs --yes
 umbraco content move <id> [--parent <id>]
 umbraco content sort [--parent <id>] --children <id> <id> ...   # reorder a parent's children (order given = sort order)
-umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # does not yet return the new node's id (#175)
+umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # returns the copy, with its new id
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
 umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
 umbraco content diff <snapshot>                            # diff a snapshot vs live (read-only)
-umbraco content apply <snapshot> [--prune [--exclude-type <alias|id>]... [--exclude-root <id>]...] [--dry-run]   # reconcile; --prune deletes, needs --yes
+umbraco content apply <snapshot> [--no-state] [--prune [--exclude-type <alias|id>]... [--exclude-root <id>]...] [--dry-run]   # reconcile bodies + publish state; --prune deletes, needs --yes
 
 # Bulk ops over many ids (from --file or stdin), with a per-item results array:
 umbraco content bulk delete [--file ids.txt]               # permanent; needs --yes
@@ -309,7 +309,9 @@ umbraco media list [--parent <id>]
 umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco media get <id>                                     # includes urls[] and file metadata in values[]
-umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>]  # staged via temporary-file
+umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>] [--id <guid>] [--value alias=value]...  # staged via temporary-file
+# --id keeps the item's GUID across instances (content references media by id);
+# --value sets other properties, e.g. a custom media type's required fields
 umbraco media delete <id>                                  # permanent; needs --yes
 umbraco media trash <id>                                   # move to recycle bin (reversible)
 umbraco media restore <id> [--parent <id>]
@@ -340,7 +342,7 @@ umbraco media-types delete <id> --force                    # deletes every media
 umbraco content-types list
 umbraco content-types get <alias|id>                       # includes properties, groups, templates
 umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
-umbraco content-types create --json-body <file>            # full Management API body: properties, groups, compositions
+umbraco content-types create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns {id, name, alias}
 umbraco content-types update <alias|id> --json-body <file> # full replace
 umbraco content-types create --schema                      # print a real document type as a worked example (needs a host)
 umbraco content-types delete <id> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
@@ -371,14 +373,14 @@ the id.
 umbraco data-types list                                    # includes editorAlias (one read per item)
 umbraco data-types get <name|id>                           # by NAME (a data type has no alias); includes its configuration
 umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
-umbraco data-types create --json-body <file>               # full body, including the editor's `values` configuration
+umbraco data-types create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns {id, name}
 umbraco data-types update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
 umbraco data-types update <name|id> --json-body <file>     # full replace, the only way to set `values`
 umbraco data-types create --schema                         # print a real data type as a worked example (needs a host)
 umbraco data-types delete <id> [--force]                   # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-types is-used <id>                            # whether any content type uses it
 umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
-umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root
+umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root; returns the copy
 umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root
 
 # folder sub-noun (organise data types in the tree):
@@ -731,7 +733,8 @@ umbraco content export --out content.json                  # whole content tree
 umbraco content export --root <id> --out subtree.json      # a subtree (root included)
 umbraco content diff content.json                          # read-only
 umbraco content apply content.json --dry-run               # preview the whole plan
-umbraco content apply content.json                         # create + update
+umbraco content apply content.json                         # create + update + publish state
+umbraco content apply content.json --no-state              # bodies only; leave publishing alone
 umbraco content apply content.json --prune --yes           # also delete what the snapshot omits
 umbraco content apply content.json --prune --exclude-type contactSubmission --exclude-root <id> --yes
 ```
@@ -740,6 +743,14 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
   all property values). A document's raw body does not carry its parent, so placement is recorded
   separately: `{ contentVersion, root, documents[] }` where each entry is `{ id, parent, body }`,
   in tree pre-order (parents before children).
+- **Content, not instance history** - diff and apply compare a normalised body: the per-variant
+  `createDate`, `updateDate`, `publishDate`, scheduled dates, `flags` and `state`, and the
+  top-level `isTrashed` and `flags`, are ignored, and `values`/`variants` are compared in a fixed
+  order. The same content on two instances is `Unchanged`, and a second `apply` does nothing.
+- **Publish state** - apply publishes each culture the snapshot has published (`Published` or
+  `PublishedPendingChanges`) and unpublishes live cultures the snapshot has not, parents first.
+  A difference in publish state alone is a `Changed` row that apply publishes or unpublishes
+  without an update. `--no-state` turns this off.
 - **Identity** - documents are matched by **GUID only** (they have no stable natural key). Apply
   recreates a document with its snapshot GUID (Umbraco 14+ honours a client-supplied id), so the
   same content has the same identity in every environment.
@@ -751,9 +762,10 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
   prune one subtree, and use `--exclude-type <alias|id>` / `--exclude-root <id>` (both repeatable)
   to leave content alone. An excluded document's removed ancestors are kept too, because deleting
   a document deletes everything under it. Run `--dry-run` first.
-- **Safety** - `apply` respects the global guardrails; it creates/updates by default and requires
-  **both** `--prune` and `--yes` to delete. Creates run parent-first, deletes deepest-first, and
-  the run stops at the first failure.
+- **Safety** - `apply` respects the global guardrails; it creates, updates and publishes/unpublishes by
+  default and requires **both** `--prune` and `--yes` to delete. Creates run parent-first, then
+  updates, then unpublishes (deepest-first) and publishes (parent-first), then deletes
+  deepest-first, and the run stops at the first failure.
 - **Out of scope** - property-value references (to media/other content by GUID) are not
   rewritten, so referenced items must already exist in the target; and apply does not move
   existing documents (a placement drift is reported by `diff` as `Drifted` but not applied).

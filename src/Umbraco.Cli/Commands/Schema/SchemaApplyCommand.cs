@@ -97,12 +97,13 @@ public static class SchemaApplyCommand
                             c
                         );
                     },
+                    // #229: the action records themselves, so structured output carries real nulls.
                     (ctx, result) =>
-                        ctx.Output.WriteTable(
+                        CommandExecutor.WriteReport(
+                            ctx,
+                            result?.Actions ?? [],
                             new[] { "Operation", "Kind", "Identity", "Id", "Status" },
-                            Rows(result),
-                            ctx.CommandName,
-                            ctx.Stopwatch.ElapsedMilliseconds
+                            a => [a.Operation, a.Kind, a.Identity, a.Id?.ToString() ?? "", a.Status]
                         ),
                     ct
                 );
@@ -110,16 +111,5 @@ public static class SchemaApplyCommand
         );
 
         return cmd;
-    }
-
-    /// <summary>Projects the apply result's steps into table rows (one per create/update/delete).</summary>
-    /// <param name="result">The apply result, or null on an unexpected empty payload.</param>
-    /// <returns>The rows.</returns>
-    private static IEnumerable<string[]> Rows(SchemaApplyResult? result)
-    {
-        if (result is null)
-            yield break;
-        foreach (var a in result.Actions)
-            yield return [a.Operation, a.Kind, a.Identity, a.Id?.ToString() ?? "", a.Status];
     }
 }

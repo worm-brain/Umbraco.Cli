@@ -187,9 +187,10 @@ public class CoverageFinaleClientTests
         var target = Guid.NewGuid();
         var (client, handler) = ClientReturning("");
 
-        var result = await client.CopyDataTypeAsync(id, target, CancellationToken.None);
+        // The stub sends no Location, so the result is the no-id failure; this pins the request.
+        // Reading the new id is covered by CopyLocationClientTests.
+        await client.CopyDataTypeAsync(id, target, CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
         Assert.Equal(HttpMethod.Post, handler.LastMethod);
         Assert.EndsWith($"/data-type/{id}/copy", handler.LastUri!.AbsolutePath);
         Assert.Contains(target.ToString(), handler.LastBody);

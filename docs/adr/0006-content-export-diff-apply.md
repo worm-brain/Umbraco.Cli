@@ -46,11 +46,11 @@ snapshot's own scope.
 
 ### 4. Prune is double-gated; moves are out of scope
 
-Deleting live content is more dangerous than deleting schema, so `content apply` creates/updates by
-default and requires **both** `--prune` and `--yes` to delete (schema's model gates prune on `--yes`
+Deleting live content is more dangerous than deleting schema, so `content apply` creates/updates (and,
+since #223, applies publish state - see the amendment below) by default and requires **both** `--prune` and `--yes` to delete (schema's model gates prune on `--yes`
 alone). Deletes run deepest-first (reverse pre-order) so a parent is not removed while it still has
 children. Apply replaces document bodies and creates new documents in place; it does **not**
-re-parent existing documents - a placement drift is surfaced by `diff` (a `parentDrift` flag) but a
+re-parent existing documents - a placement drift is surfaced by `diff` (a `Drifted` row) but a
 move is deliberately out of scope for this pass.
 
 ## Consequences
@@ -66,3 +66,9 @@ move is deliberately out of scope for this pass.
   schema ones (response variants carry state/dates the request may not accept), so this is a real
   risk. The pipeline's mechanics are unit-tested; live round-trip fidelity is tracked as a follow-up
   and belongs in the deferred integration harness (#51/#77).
+- **Amended (#224, #223):** the snapshot still stores verbatim bodies, but diff and apply work on
+  a normalised body (per-variant dates, flags and state, and top-level `isTrashed`/`flags`
+  removed; `values`/`variants` sorted), because a verbatim comparison reported every document as
+  changed on any other instance. Publish state is compared separately and applied by default:
+  apply publishes the cultures the snapshot has published and unpublishes the rest, parents
+  first (`--no-state` opts out).

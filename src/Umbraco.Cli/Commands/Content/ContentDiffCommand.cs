@@ -30,7 +30,7 @@ public static class ContentDiffCommand
 
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunTableAsync(
+                executor.RunReportAsync(
                     parseResult,
                     "content.diff",
                     (client, c) =>
@@ -39,37 +39,19 @@ public static class ContentDiffCommand
                             parseResult.GetValue(snapshotArg)!,
                             c
                         ),
-                    new[] { "Change", "Id", "Parent" },
-                    diff => Flatten(diff),
+                    diff => diff?.Rows ?? [],
+                    new[] { "Change", "Id", "Parent", "Changes" },
+                    change =>
+                        [
+                            change.Change.ToString(),
+                            change.Id.ToString(),
+                            change.Parent?.ToString() ?? "",
+                            string.Join(", ", change.Changes ?? []),
+                        ],
                     ct
                 )
         );
 
         return cmd;
-    }
-
-    /// <summary>
-    /// Flattens a diff into one table row per reported change - added, changed, removed, and drifted
-    /// (advisory placement drift); unchanged documents are omitted to keep the output lean. In JSON
-    /// mode each row becomes an object keyed by the camelCased headers.
-    /// </summary>
-    /// <param name="diff">The computed diff, or null on an (unexpected) empty result.</param>
-    /// <returns>The rows, one per change.</returns>
-    private static IEnumerable<string[]> Flatten(ContentDiff? diff)
-    {
-        if (diff is null)
-            yield break;
-
-        foreach (
-            var change in diff.Added.Concat(diff.Changed).Concat(diff.Removed).Concat(diff.Drifted)
-        )
-        {
-            yield return
-            [
-                change.Change.ToString(),
-                change.Id.ToString(),
-                change.Parent?.ToString() ?? "",
-            ];
-        }
     }
 }

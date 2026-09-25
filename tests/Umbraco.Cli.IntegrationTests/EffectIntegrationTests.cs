@@ -135,6 +135,51 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
     }
 
     [SkippableFact]
+    public void Apply_RestoresPublishStateThenDiffAndASecondApplyFindNothing()
+    {
+        RequireLive();
+
+        // #223 + #224 on one instance: the snapshot has the document published; it is then
+        // unpublished live, so apply must publish it back. After that the instance matches the
+        // snapshot, so diff must be empty and a second apply must do nothing - before the
+        // normaliser both reported every document as changed. (The cross-instance version of
+        // this needs a second instance, which the harness cannot provision yet, #77.)
+        using var doc = ScratchDocument.Create("clitest promotion effect");
+        Assert.True(CliRunner.Run("content", "publish", doc.Id).Ok, "fixture publish failed");
+        var snapshot = Path.Combine(Path.GetTempPath(), $"clitest-{Guid.NewGuid():N}.json");
+        try
+        {
+            var export = CliRunner.Run("content", "export", "--root", doc.Id, "--out", snapshot);
+            Assert.True(export.Ok, export.Stderr);
+            var unpublish = CliRunner.Run("content", "unpublish", doc.Id, "--yes");
+            Assert.True(unpublish.Ok, unpublish.Stderr);
+
+            var apply = CliRunner.Run("content", "apply", snapshot);
+            Assert.True(apply.Ok, apply.Stderr);
+            Assert.True(
+                doc.IsPublished(),
+                "content apply did not restore the publish state (#223)."
+            );
+
+            var diff = CliRunner.Run("content", "diff", snapshot);
+            Assert.True(diff.Ok, diff.Stderr);
+            Assert.Equal(0, Data(diff).GetArrayLength());
+
+            var again = CliRunner.Run("content", "apply", snapshot);
+            Assert.True(again.Ok, again.Stderr);
+            Assert.Equal(0, Data(again).GetArrayLength());
+        }
+        finally
+        {
+            File.Delete(snapshot);
+        }
+    }
+
+    /// <summary>The <c>data</c> array of a command's JSON envelope.</summary>
+    private static JsonElement Data(CliResult result) =>
+        JsonDocument.Parse(result.Stdout).RootElement.GetProperty("data");
+
+    [SkippableFact]
     public void Update_ThenExport_RenamesWithoutAddingAVariant()
     {
         RequireLive();

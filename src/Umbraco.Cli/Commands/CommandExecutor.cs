@@ -422,7 +422,6 @@ public sealed class CommandExecutor
             ct
         );
 
-    /// <summary>Projects the result into table rows via <see cref="IOutputWriter.WriteTable"/>.</summary>
     /// <summary>
     /// Runs a list command (#164/#173): structured output is serialized from the items
     /// themselves, the human table from <paramref name="headers"/> and <paramref name="row"/>,
@@ -455,28 +454,89 @@ public sealed class CommandExecutor
             call,
             (ctx, data) =>
             {
-                var list = items(data);
-
-                // The human table's cells and its captions are declared separately, so nothing
-                // but this checks they line up. A mismatch would silently shift every column.
-                var cells = list.Select(row).ToList();
-                if (cells.FirstOrDefault() is { } first && first.Length != headers.Length)
-                    throw new InvalidOperationException(
-                        $"{commandName} declares {headers.Length} column(s) but produced "
-                            + $"{first.Length} cell(s) per row."
-                    );
-
-                ctx.Output.WriteList(
-                    [.. list.Cast<object>()],
-                    headers,
-                    cells,
-                    paging(data),
-                    ctx.CommandName,
-                    ctx.Stopwatch.ElapsedMilliseconds
-                );
+                WriteRows(ctx, items(data), headers, row, paging(data));
             },
             ct
         );
+
+    /// <summary>
+    /// Runs a computed report whose rows are records, not the client's own list - <c>content
+    /// diff</c> and <c>schema diff</c> (#229). The rows are serialized as they are, like any list,
+    /// and the report is complete by construction, so <c>meta</c> says so
+    /// (<see cref="ListPaging.Complete"/>).
+    /// </summary>
+    /// <typeparam name="T">The client result type.</typeparam>
+    /// <typeparam name="TItem">The row type serialized to structured output.</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <param name="call">The client call.</param>
+    /// <param name="items">Selects the rows from the result.</param>
+    /// <param name="headers">Human table column headers.</param>
+    /// <param name="row">Projects one row into human table cells.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The process exit code.</returns>
+    public Task<int> RunReportAsync<T, TItem>(
+        ParseResult parseResult,
+        string commandName,
+        Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
+        Func<T?, IReadOnlyList<TItem>> items,
+        string[] headers,
+        Func<TItem, string[]> row,
+        CancellationToken ct
+    ) =>
+        RunAsync(
+            parseResult,
+            commandName,
+            call,
+            (ctx, data) => WriteReport(ctx, items(data), headers, row),
+            ct
+        );
+
+    /// <summary>
+    /// Writes a complete computed report, for a command that renders inside its own
+    /// <see cref="RunContextualAsync{T}"/> (<c>content apply</c>, <c>schema apply</c>).
+    /// </summary>
+    /// <typeparam name="TItem">The row type serialized to structured output.</typeparam>
+    /// <param name="ctx">The command context.</param>
+    /// <param name="items">The rows.</param>
+    /// <param name="headers">Human table column headers.</param>
+    /// <param name="row">Projects one row into human table cells.</param>
+    /// <exception cref="InvalidOperationException">The cells do not match the headers.</exception>
+    public static void WriteReport<TItem>(
+        CommandContext ctx,
+        IReadOnlyList<TItem> items,
+        string[] headers,
+        Func<TItem, string[]> row
+    ) => WriteRows(ctx, items, headers, row, ListPaging.Complete(items.Count));
+
+    /// <summary>Writes a list: the items to structured output, the cells to the human table.</summary>
+    /// <exception cref="InvalidOperationException">The cells do not match the headers.</exception>
+    private static void WriteRows<TItem>(
+        CommandContext ctx,
+        IReadOnlyList<TItem> items,
+        string[] headers,
+        Func<TItem, string[]> row,
+        ListPaging paging
+    )
+    {
+        // The human table's cells and its captions are declared separately, so nothing but this
+        // checks they line up. A mismatch would silently shift every column.
+        var cells = items.Select(row).ToList();
+        if (cells.FirstOrDefault() is { } first && first.Length != headers.Length)
+            throw new InvalidOperationException(
+                $"{ctx.CommandName} declares {headers.Length} column(s) but produced "
+                    + $"{first.Length} cell(s) per row."
+            );
+
+        ctx.Output.WriteList(
+            [.. items.Cast<object>()],
+            headers,
+            cells,
+            paging,
+            ctx.CommandName,
+            ctx.Stopwatch.ElapsedMilliseconds
+        );
+    }
 
     /// <summary>
     /// Runs a paged list command - the common case, where the client returns a
@@ -601,47 +661,6 @@ public sealed class CommandExecutor
             // capped it is not something the response says, and claiming otherwise is the same
             // silent-completeness assertion #173 exists to end.
             _ => ListPaging.Unknown,
-            ct
-        );
-
-    /// <summary>
-    /// Renders a computed row report as a table.
-    /// <para>
-    /// For a list of entities use <see cref="RunPagedAsync"/> or
-    /// <see cref="RunCompleteListAsync{TItem}(ParseResult, string, Func{IUmbracoManagementClient, CancellationToken, Task{UmbracoResponse{IReadOnlyList{TItem}}}}, string[], Func{TItem, string[]}, CancellationToken)"/>,
-    /// which serialize the DTOs so structured output matches the matching <c>get</c> (#164).
-    /// This remains for results that are <i>not</i> a list of entities - <c>content diff</c> and
-    /// <c>schema diff</c>, whose rows are computed from a comparison and have no DTO to serialize
-    /// - where deriving the keys from the captions is the only shape there is.
-    /// </para>
-    /// </summary>
-    /// <typeparam name="T">The client result type.</typeparam>
-    /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
-    /// <param name="call">The client call.</param>
-    /// <param name="headers">Column headers, camelCased into field keys by structured writers.</param>
-    /// <param name="rows">Projects the result into rows.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The process exit code.</returns>
-    public Task<int> RunTableAsync<T>(
-        ParseResult parseResult,
-        string commandName,
-        Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
-        string[] headers,
-        Func<T?, IEnumerable<string[]>> rows,
-        CancellationToken ct
-    ) =>
-        RunAsync(
-            parseResult,
-            commandName,
-            call,
-            (ctx, data) =>
-                ctx.Output.WriteTable(
-                    headers,
-                    rows(data),
-                    ctx.CommandName,
-                    ctx.Stopwatch.ElapsedMilliseconds
-                ),
             ct
         );
 }

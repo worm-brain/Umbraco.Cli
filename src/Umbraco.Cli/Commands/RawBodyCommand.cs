@@ -92,6 +92,62 @@ public static class RawBodyCommand
         );
 
     /// <summary>
+    /// Creates an item from a <c>--json-body</c> and reports its id (#204, #218). The create
+    /// endpoints return no body, so the id is settled <b>before</b> the POST and written into the
+    /// body (Umbraco 14+ honours a client-supplied id): <c>--id</c> when given, else the body's own
+    /// <c>id</c>, else a new one. Deciding it up front, rather than reading the <c>Location</c>
+    /// header afterwards, is also what makes <c>--id</c> work with a body at all.
+    /// </summary>
+    /// <param name="body">The parsed body; its <c>id</c> is set in place.</param>
+    /// <param name="id">The <c>--id</c> value, or null.</param>
+    /// <param name="create">The raw create call.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created item's id, name and alias, or the create's failure.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// The body is not a JSON object, its <c>id</c> is not a UUID, or it differs from <c>--id</c>.
+    /// </exception>
+    public static async Task<UmbracoResponse<RawCreated>> CreateAsync(
+        JsonNode body,
+        Guid? id,
+        Func<JsonNode, CancellationToken, Task<UmbracoResponse<Empty>>> create,
+        CancellationToken ct
+    )
+    {
+        if (body is not JsonObject obj)
+            throw new InvalidOperationException(
+                "--json-body did not contain a JSON object. Run with --schema to print a real one."
+            );
+
+        var bodyId = obj["id"] switch
+        {
+            null => (Guid?)null,
+            JsonValue v when v.TryGetValue<string>(out var s) && Guid.TryParse(s, out var g) => g,
+            var other => throw new InvalidOperationException(
+                $"The --json-body id {other.ToJsonString()} is not a UUID."
+            ),
+        };
+        // Two different ids is a contradiction; picking either would create the item somewhere
+        // the caller did not expect.
+        if (id is { } flag && bodyId is { } fromBody && flag != fromBody)
+            throw new InvalidOperationException(
+                $"--id {flag} does not match the id {fromBody} in --json-body. Give one, or make them agree."
+            );
+
+        var resolved = id ?? bodyId ?? Guid.NewGuid();
+        obj["id"] = resolved.ToString();
+
+        var created = await create(obj, ct);
+        return created.IsSuccess
+            ? UmbracoResponse<RawCreated>.Success(
+                new RawCreated(resolved, Text(obj, "name"), Text(obj, "alias"))
+            )
+            : UmbracoResponse<RawCreated>.FailureFrom(created);
+    }
+
+    private static string? Text(JsonObject obj, string name) =>
+        obj[name] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+
+    /// <summary>
     /// Reads an existing entity of this kind and returns it as a worked example for
     /// <c>--schema</c>.
     /// </summary>

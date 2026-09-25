@@ -45,29 +45,24 @@ public sealed partial class UmbracoManagementClient
         );
 
     /// <inheritdoc />
-    public Task<UmbracoResponse<Empty>> CopyDataTypeAsync(
+    public Task<UmbracoResponse<DataTypeResponse>> CopyDataTypeAsync(
         Guid id,
         Guid? targetId,
         CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                await _api
-                    .Umbraco.Management.Api.V1.DataType[id]
-                    .Copy.PostAsync(
-                        new Gen.CopyDataTypeRequestModel
-                        {
-                            Target = targetId is { } t
-                                ? new Gen.ReferenceByIdModel { Id = t }
-                                : null,
-                        },
-                        cancellationToken: ct
-                    );
-                return Empty.Value;
-            }
+    )
+    {
+        var body = new Gen.CopyDataTypeRequestModel
+        {
+            Target = targetId is { } t ? new Gen.ReferenceByIdModel { Id = t } : null,
+        };
+        return CopyViaLocationAsync(
+            config => _api.Umbraco.Management.Api.V1.DataType[id].Copy.PostAsync(body, config, ct),
+            newId => GetDataTypeByIdAsync(newId, ct),
+            newId => new DataTypeResponse { Id = newId },
+            "data type",
+            ct
         );
+    }
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> MoveDataTypeAsync(

@@ -1,4 +1,6 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -16,7 +18,7 @@ public static class MediaUploadCommand
     {
         var cmd = new Command(
             "upload",
-            "Upload a local file as a media item (staged via temporary-file for large files).\n\nExamples:\n  umbraco media upload ./logo.png\n  umbraco media upload ./big-video.mp4 --media-type File --name \"Promo\"\n  umbraco media upload ./photo.jpg --parent 3f7a8b2e-..."
+            "Upload a local file as a media item (staged via temporary-file for large files).\n\nExamples:\n  umbraco media upload ./logo.png\n  umbraco media upload ./big-video.mp4 --media-type File --name \"Promo\"\n  umbraco media upload ./photo.jpg --parent 3f7a8b2e-...\n  umbraco media upload ./report.pdf --media-type brochure --id 3f7a8b2e-... --value title=\"Annual report\""
         );
         var fileArg = new Argument<FileInfo>("file") { Description = "Local file to upload." };
         var parentOpt = new Option<Guid?>("--parent")
@@ -33,10 +35,38 @@ public static class MediaUploadCommand
             Description =
                 "Media type to create the item as: a media type id (GUID) or name (e.g. Image, File). Defaults to Image.",
         };
+        var idOpt = new Option<Guid?>("--id")
+        {
+            Description =
+                "UUID to create the item with, so it keeps the same id on every instance (content "
+                + "references media by id). Omit to generate one.",
+        };
+        var valueOpt = new Option<string[]>("--value")
+        {
+            Description =
+                "Property values as alias=value, e.g. title=\"Annual report\". Repeatable. Needed "
+                + "for a media type with required fields.",
+            AllowMultipleArgumentsPerToken = true,
+        };
         cmd.Add(fileArg);
         cmd.Add(parentOpt);
         cmd.Add(nameOpt);
         cmd.Add(mediaTypeOpt);
+        cmd.Add(idOpt);
+        cmd.Add(valueOpt);
+        KeyValuePairs.Validate(cmd, valueOpt, "--value must be alias=value, e.g. title=Brochure");
+        // The file itself is umbracoFile; a second value for it would replace the upload.
+        cmd.Validators.Add(result =>
+        {
+            if (
+                KeyValuePairs
+                    .Parse(result.GetValue(valueOpt))
+                    .Any(p =>
+                        string.Equals(p.Key, "umbracoFile", StringComparison.OrdinalIgnoreCase)
+                    )
+            )
+                result.AddError("--value cannot set umbracoFile: that is the uploaded file.");
+        });
 
         cmd.SetAction(
             (parseResult, ct) =>
@@ -57,6 +87,12 @@ public static class MediaUploadCommand
                             file.Name,
                             mimeType,
                             parseResult.GetValue(mediaTypeOpt)!,
+                            parseResult.GetValue(idOpt),
+                            [
+                                .. KeyValuePairs
+                                    .Parse(parseResult.GetValue(valueOpt))
+                                    .Select(p => new MediaValue { Alias = p.Key, Value = p.Value }),
+                            ],
                             c
                         );
                     },

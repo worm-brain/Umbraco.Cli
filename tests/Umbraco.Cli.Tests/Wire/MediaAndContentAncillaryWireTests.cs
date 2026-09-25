@@ -32,8 +32,40 @@ public class MediaAndContentAncillaryWireTests
                 "blog-1.jpg",
                 "image/jpeg",
                 Guid.NewGuid().ToString(),
+                ct: CancellationToken.None
+            );
+    }
+
+    [Fact]
+    public async Task UploadMediaAsync_WithIdAndValues_CreatesTheItemWithThem()
+    {
+        // #226: the id survives a promotion; #220: a type with required fields can be uploaded to.
+        var handler = Wire.Blank();
+        var id = Guid.NewGuid();
+        using var bytes = new MemoryStream(Encoding.UTF8.GetBytes("%PDF"));
+
+        await Wire.Client(handler)
+            .UploadMediaAsync(
+                null,
+                "Membership",
+                bytes,
+                "membership.pdf",
+                "application/pdf",
+                Guid.NewGuid().ToString(),
+                id,
+                [new MediaValue { Alias = "title", Value = "Membership and forms" }],
                 CancellationToken.None
             );
+
+        var body = handler.BodyOf(HttpMethod.Post, "/media");
+        Assert.Equal(
+            (id.ToString(), "title", "Membership and forms"),
+            (
+                (string?)body["id"],
+                (string?)body["values"]![1]!["alias"],
+                (string?)body["values"]![1]!["value"]
+            )
+        );
     }
 
     [Fact]

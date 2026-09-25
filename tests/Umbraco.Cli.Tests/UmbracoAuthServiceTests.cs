@@ -205,4 +205,107 @@ public class UmbracoAuthServiceTests
             service.GetTokenAsync("https://x", "client", "secret", cts.Token)
         );
     }
+
+    // ── the persistent cache (#248) ──────────────────────────────────────────
+    // Each CLI run is a new process, modelled here as a new service over a shared cache.
+
+    /// <summary>An in-memory stand-in for the token file, shared between "processes".</summary>
+    private sealed class MemoryTokenCache : ITokenCache
+    {
+        public Dictionary<string, CachedToken> Entries { get; } = [];
+
+        public CachedToken? Read(string key) => Entries.GetValueOrDefault(key);
+
+        public void Write(string key, CachedToken token) => Entries[key] = token;
+
+        public void Remove(string key) => Entries.Remove(key);
+    }
+
+    private static UmbracoAuthService Process(
+        CountingTokenHandler handler,
+        ITokenCache cache,
+        TimeProvider? clock = null
+    ) => new(new SingleClientFactory(new HttpClient(handler)), clock, cache);
+
+    [Fact]
+    public async Task GetTokenAsync_SecondProcess_ReusesTheCachedToken()
+    {
+        var handler = new CountingTokenHandler(299);
+        var cache = new MemoryTokenCache();
+
+        await Process(handler, cache).GetTokenAsync("https://x", "client", "secret");
+        var token = await Process(handler, cache).GetTokenAsync("https://x", "client", "secret");
+
+        Assert.Equal(("token-1", 1), (token, handler.Requests));
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_DifferentSecret_DoesNotReuseTheCachedToken()
+    {
+        // A mistyped or rotated secret must authenticate (and fail) like it would with no cache.
+        var handler = new CountingTokenHandler(299);
+        var cache = new MemoryTokenCache();
+
+        await Process(handler, cache).GetTokenAsync("https://x", "client", "secret");
+        await Process(handler, cache).GetTokenAsync("https://x", "client", "other-secret");
+
+        Assert.Equal(2, handler.Requests);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_CachedTokenPastItsRefreshTime_IsNotReused()
+    {
+        var handler = new CountingTokenHandler(299);
+        var cache = new MemoryTokenCache();
+        var clock = new ManualClock();
+
+        await Process(handler, cache, clock).GetTokenAsync("https://x", "client", "secret");
+        clock.Advance(TimeSpan.FromSeconds(290));
+        await Process(handler, cache, clock).GetTokenAsync("https://x", "client", "secret");
+
+        Assert.Equal(2, handler.Requests);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_Fresh_ExchangesTheCredentialsDespiteACachedToken()
+    {
+        var handler = new CountingTokenHandler(299);
+        var cache = new MemoryTokenCache();
+        await Process(handler, cache).GetTokenAsync("https://x", "client", "secret");
+
+        await Process(handler, cache)
+            .GetTokenAsync("https://x", "client", "secret", CancellationToken.None, fresh: true);
+
+        Assert.Equal(2, handler.Requests);
+    }
+
+    [Fact]
+    public async Task Invalidate_RemovesTheTokenFromThePersistentCache()
+    {
+        var handler = new CountingTokenHandler(299);
+        var cache = new MemoryTokenCache();
+        var service = Process(handler, cache);
+        await service.GetTokenAsync("https://x", "client", "secret");
+
+        service.Invalidate("https://x", "client", "secret");
+
+        Assert.Empty(cache.Entries);
+    }
+
+    [Fact]
+    public void CacheKey_DoesNotContainTheSecret()
+    {
+        var key = UmbracoAuthService.CacheKey("https://X/", "client", "s3cr3t-value");
+
+        Assert.DoesNotContain("s3cr3t-value", key);
+    }
+
+    [Fact]
+    public void CacheKey_SameHostWithOrWithoutTrailingSlash_IsTheSameKey()
+    {
+        Assert.Equal(
+            UmbracoAuthService.CacheKey("https://site.test", "c", "s"),
+            UmbracoAuthService.CacheKey("https://SITE.test/", "c", "s")
+        );
+    }
 }

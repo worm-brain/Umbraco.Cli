@@ -75,9 +75,10 @@ public static class DataTypesAdvancedCommands
         cmd.Add(idArg);
         cmd.Add(targetOpt);
         // Not destructive: a copy adds an item and removes nothing, so it needs no --yes (#247).
+        // It returns the copy, so a script can chain to the new id (#247).
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunMessageAsync(
+                executor.RunObjectAsync(
                     parseResult,
                     "data-types.copy",
                     (client, c) =>
@@ -86,7 +87,6 @@ public static class DataTypesAdvancedCommands
                             parseResult.GetValue(targetOpt),
                             c
                         ),
-                    "Data type copied.",
                     ct
                 )
         );

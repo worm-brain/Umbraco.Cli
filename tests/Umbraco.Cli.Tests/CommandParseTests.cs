@@ -510,6 +510,9 @@ public class CommandParseTests
     [InlineData("media upload ./logo.png")] // --parent optional (#57)
     [InlineData("media upload ./big.mp4 --media-type File --name Promo")]
     [InlineData("media upload ./p.jpg --parent 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData(
+        "media upload ./b.pdf --media-type brochure --id 3f7a8b2e-1234-5678-abcd-ef0123456789 --value title=Brochure --value pages=12"
+    )] // #226, #220
     [InlineData("media-types list")]
     [InlineData("media-types get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("media-types create --name \"Custom Image\" --alias customImage")]
@@ -780,6 +783,16 @@ public class CommandParseTests
         Assert.True(HasErrors(args), $"Expected parse errors for: {args}");
     }
 
+    [Fact]
+    public void MediaUpload_ValueForUmbracoFile_IsRejected()
+    {
+        // The file is umbracoFile; a --value for it would replace the upload (#220).
+        Assert.Contains(
+            Parse("media upload ./b.pdf --value umbracoFile=x").Errors,
+            e => e.Message.Contains("umbracoFile")
+        );
+    }
+
     // ── key=value options refuse what they used to silently drop ─────────────────
     // Every repeatable pair option parsed with .Where(p => p.Length == 2), so a token with no
     // "=" in it vanished and the command reported success having written nothing. These pin the
@@ -789,6 +802,7 @@ public class CommandParseTests
     [InlineData("dictionary create --key Nav.Home --values en-US", "en-US")]
     [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --values Home", "Home")]
     [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company", "company")]
+    [InlineData("media upload ./b.pdf --value title", "title")]
     [InlineData(
         "content domains set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com",
         "example.com"

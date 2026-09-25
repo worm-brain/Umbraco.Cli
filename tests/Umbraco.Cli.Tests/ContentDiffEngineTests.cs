@@ -117,4 +117,85 @@ public class ContentDiffEngineTests
         Assert.Empty(diff.Changed);
         Assert.False(diff.HasChanges); // apply cannot converge drift, so nothing to do
     }
+
+    [Fact]
+    public void Compare_OnlyPublishStateDiffers_IsAStateOnlyChange()
+    {
+        // #223: published on the source, a draft on the target, same content.
+        var id = Guid.NewGuid();
+        ContentNode In(string state) =>
+            new()
+            {
+                Id = id,
+                Body = JsonNode.Parse(
+                    $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"Home","state":"{{state}}"}]}"""
+                )!,
+            };
+
+        var diff = ContentDiffEngine.Compare(Snap(In("Published")), Snap(In("Draft")));
+
+        var changed = Assert.Single(diff.Changed);
+        Assert.False(changed.BodyChanged, "the body is the same");
+        Assert.Same(PublishScope.WholeDocument, changed.State.Publish);
+    }
+
+    [Fact]
+    public void Compare_AddedPublishedDocument_CarriesItsPublishStep()
+    {
+        var id = Guid.NewGuid();
+        var doc = new ContentNode
+        {
+            Id = id,
+            Body = JsonNode.Parse(
+                $$"""{"id":"{{id}}","variants":[{"culture":"en-US","state":"Published"}]}"""
+            )!,
+        };
+
+        var diff = ContentDiffEngine.Compare(Snap(doc), Snap());
+
+        Assert.Equal(["en-US"], Assert.Single(diff.Added).State.Publish!.Cultures!);
+    }
+
+    [Fact]
+    public void Compare_ChangedDocument_CarriesTheNormalisedBodyForApply()
+    {
+        // #224: the body apply sends is the one the diff compared, without the source's dates.
+        var id = Guid.NewGuid();
+        var desired = new ContentNode
+        {
+            Id = id,
+            Body = JsonNode.Parse(
+                $$"""{"id":"{{id}}","isTrashed":false,"variants":[{"culture":null,"name":"New","updateDate":"2026-09-01T00:00:00Z"}]}"""
+            )!,
+        };
+
+        var diff = ContentDiffEngine.Compare(Snap(desired), Snap(Doc(id, null, "Old")));
+
+        Assert.Equal(
+            $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"New"}]}""",
+            Assert.Single(diff.Changed).DesiredBody!.ToJsonString()
+        );
+    }
+
+    [Fact]
+    public void Compare_OnlyInstanceDatesDiffer_IsUnchanged()
+    {
+        // #224: the same document on two instances always has different dates; that is not a change.
+        var id = Guid.NewGuid();
+        ContentNode At(string date) =>
+            new()
+            {
+                Id = id,
+                Body = JsonNode.Parse(
+                    $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"Home","updateDate":"{{date}}"}]}"""
+                )!,
+            };
+
+        var diff = ContentDiffEngine.Compare(
+            Snap(At("2026-09-01T00:00:00Z")),
+            Snap(At("2026-09-24T00:00:00Z"))
+        );
+
+        Assert.Equal(1, diff.Unchanged);
+    }
 }

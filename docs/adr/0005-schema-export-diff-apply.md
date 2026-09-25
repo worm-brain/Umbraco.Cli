@@ -150,9 +150,10 @@ three kinds.)
 - `export` writes the snapshot to stdout (default) or to a path via `--out`;
   `diff` and `apply` take the snapshot file as a positional argument, or `-` /
   stdin.
-- `diff` output follows the repo's list idiom (`RunTableAsync`): a **flat row per
+- `diff` output follows the repo's list idiom (`RunReportAsync` since #229, which
+  serializes the change records): a **flat row per
   actionable change** — `kind, change, identity, desiredId, currentId, idMismatch,
-  note` — rendered as a table for humans and, in JSON mode, an array of those row
+  note, changes` — rendered as a table for humans and, in JSON mode, an array of those row
   objects for agents. Unchanged entities are omitted, so an **empty array means no
   drift** (the CI signal). Exit code is 0; a non-empty diff is data, not an error.
   (A future `--exit-code` flag could make drift a non-zero exit; a nested

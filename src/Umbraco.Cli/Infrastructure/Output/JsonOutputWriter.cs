@@ -30,9 +30,13 @@ public sealed class JsonOutputWriter : IOutputWriter
     /// overloaded `code` into `exitCode` + `httpStatus` (#177); and the `--dry-run` payload moved
     /// from `request` to `data` (#165); "4" a bulk run's `status` follows its outcomes - `partial`
     /// when some items failed, `error` when all did, `dry-run` when previewed - instead of always
-    /// `success`, with counts in `meta.summary` and each dry-run item's request on the item (#236).
+    /// `success`, with counts in `meta.summary` and each dry-run item's request on the item (#236);
+    /// "5" the diff and apply reports (`content diff`, `schema diff`, `content apply`,
+    /// `schema apply`) are serialized from their records instead of caption-keyed strings -
+    /// `idMismatch` is a boolean, an empty id/parent/note is null rather than `""`, rows carry a
+    /// `changes` list and `meta.total`, and `content apply` rows carry `cultures` (#229).
     /// </summary>
-    public const string SchemaVersion = "4";
+    public const string SchemaVersion = "5";
 
     private static readonly JsonSerializerOptions Options = new()
     {

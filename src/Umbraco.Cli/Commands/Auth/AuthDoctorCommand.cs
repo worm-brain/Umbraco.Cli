@@ -222,11 +222,13 @@ public static class AuthDoctorCommand
         {
             try
             {
+                // Fresh: a cached token would pass this check without exercising the exchange.
                 bearer = await authService.GetTokenAsync(
                     host,
                     config.ClientId!,
                     config.ClientSecret!,
-                    ct
+                    ct,
+                    fresh: true
                 );
                 checks.Add(new DoctorCheck("Authentication", "pass", "Obtained an access token."));
             }

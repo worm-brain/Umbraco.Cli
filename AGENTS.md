@@ -96,8 +96,11 @@ differs. The flow:
      serialized from the items themselves so it matches the matching `get`; the `headers` + `row`
      projection is for the human table only. Never derive JSON keys from a column caption - that
      is what produced `"published": "True"` against `get`'s `"isPublished": true` (#164).
-   - `RunTableAsync` - a computed row report with no DTO behind it (`content diff`,
-     `schema diff`). Its keys *are* derived from the captions, because there is nothing else.
+   - `RunListAsync` - the general form, for a list that is not the client's own list type.
+   - `RunReportAsync` - a computed report that is complete by construction (`content diff`,
+     `schema diff`, #229): the row records are serialized as they are, so it still gets real
+     types rather than caption-keyed strings, and `meta` says `hasMore: false`. The apply
+     commands write the same way through `CommandExecutor.WriteReport`.
    - `RunMessageAsync` - fixed success message (for delete/publish-style calls).
 
 4. **`CommandExecutor.RunAsync`** is the single place that: builds the `CommandContext` (via
@@ -129,7 +132,10 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
 - **`UmbracoResponse<T>`** is the uniform envelope (`IsSuccess`, `Data`, `StatusCode`,
   `ErrorMessage`) returned by every client method - never throws for HTTP-level errors.
 - **`UmbracoAuthService`** fetches and caches the client-credentials token (thread-safe,
-  refreshes 5 min before expiry).
+  refreshes at a tenth of the token's lifetime, at most 60 s, before expiry), keyed by host,
+  client id and a secret fingerprint. The CLI gives it a `FileTokenCache` so tokens outlive the
+  process (#248; off with `UMBRACO_NO_TOKEN_CACHE=1`), and `TokenRefreshHandler` retries a
+  request once with a new token on a 401.
 - The generated client is produced by Kiota from `spec/management.json` and checked in, so
   building needs no live Umbraco instance. Regenerate with `./scripts/regen-client.ps1` (and
   refresh the spec first with `./scripts/fetch-spec.ps1` if needed).

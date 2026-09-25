@@ -912,70 +912,130 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     )
     {
-        // Guarded copy: POST the copy and resolve the new id from the 201 Location header.
+        var body = new Gen.CopyDocumentRequestModel
+        {
+            Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+            IncludeDescendants = includeDescendants,
+            RelateToOriginal = relateToOriginal,
+        };
+        return await CopyViaLocationAsync(
+            config => _api.Umbraco.Management.Api.V1.Document[id].Copy.PostAsync(body, config, ct),
+            newId => GetContentByIdAsync(newId, ct),
+            newId => new ContentItemResponse { Id = newId },
+            "document",
+            ct
+        );
+    }
+
+    /// <summary>
+    /// The shared shape of a copy (#91, #247): the server assigns the copy's id and returns it only
+    /// in the <c>201</c> <c>Location</c> header, which the generated methods throw away, so a
+    /// <see cref="NativeResponseHandler"/> captures the raw response. A 201 with no usable
+    /// <c>Location</c> is reported as a failure rather than a silent empty-id success, since the
+    /// point of a copy's output is the new id. The new item is then re-read for a full result; a
+    /// failed read still reports success with the id (the copy itself succeeded).
+    /// </summary>
+    /// <typeparam name="T">The copied item's response type.</typeparam>
+    /// <param name="post">Sends the copy, applying the given request configuration.</param>
+    /// <param name="hydrate">Re-reads the new item by id.</param>
+    /// <param name="fromId">The id-only result when the re-read fails.</param>
+    /// <param name="noun">The item kind, for the no-Location message.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The copy, or a mapped failure.</returns>
+    private static async Task<UmbracoResponse<T>> CopyViaLocationAsync<T>(
+        Func<Action<RequestConfiguration<DefaultQueryParameters>>, Task> post,
+        Func<Guid, Task<UmbracoResponse<T>>> hydrate,
+        Func<Guid, T> fromId,
+        string noun,
+        CancellationToken ct
+    )
+    {
         var copied = await GuardedApiAsync<Guid?>(
             ct,
             async () =>
             {
-                var body = new Gen.CopyDocumentRequestModel
-                {
-                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
-                    IncludeDescendants = includeDescendants,
-                    RelateToOriginal = relateToOriginal,
-                };
-                // The generated Copy endpoint throws the response away; attach a native response
-                // handler so we can read the 201 Location header - the only place the new id appears.
                 var capture = new NativeResponseHandler();
-                await _api
-                    .Umbraco.Management.Api.V1.Document[id]
-                    .Copy.PostAsync(
-                        body,
-                        config =>
-                            config.Options.Add(
-                                new ResponseHandlerOption { ResponseHandler = capture }
-                            ),
-                        ct
-                    );
-                return ExtractIdFromLocation(capture);
+                await post(config =>
+                    config.Options.Add(new ResponseHandlerOption { ResponseHandler = capture })
+                );
+                return await CreatedIdAsync(capture, ct);
             }
         );
 
         if (!copied.IsSuccess)
-            return UmbracoResponse<ContentItemResponse>.Failure(
-                copied.StatusCode,
-                copied.ErrorMessage ?? "The copy request failed."
-            );
-
-        // #91: the whole point of copy is to surface the new id. If the server returned 201 but no
-        // usable Location, report it explicitly rather than as a silent empty-id success.
+            return UmbracoResponse<T>.FailureFrom(copied);
         if (copied.Data is not { } newId)
-            return UmbracoResponse<ContentItemResponse>.Failure(
+            return UmbracoResponse<T>.Failure(
                 502,
-                "The document was copied but the server did not return the new id (no Location header)."
+                $"The {noun} was copied but the server did not return the new id (no Location header)."
             );
 
-        // Best-effort hydration: re-read the new node for a full item. A failed read still reports
-        // success carrying the id we resolved (the copy itself succeeded).
-        var hydrated = await GetContentByIdAsync(newId, ct);
+        var hydrated = await hydrate(newId);
         return hydrated is { IsSuccess: true, Data: { } data }
-            ? UmbracoResponse<ContentItemResponse>.Success(data)
-            : UmbracoResponse<ContentItemResponse>.Success(new ContentItemResponse { Id = newId });
+            ? UmbracoResponse<T>.Success(data)
+            : UmbracoResponse<T>.Success(fromId(newId));
     }
 
     /// <summary>
     /// Reads the new resource id from a captured <c>201</c> response's <c>Location</c> header (issue
     /// #91): the id is the last path segment. Returns null when there is no location or it is not a GUID.
+    /// <para>
+    /// Attaching a <see cref="NativeResponseHandler"/> makes Kiota hand the response over as it is,
+    /// <b>skipping its error mapping</b>, so a rejected request would otherwise come back as "created,
+    /// but no Location". A non-success status is therefore raised here as the
+    /// <see cref="ApiException"/> the error mapping would have raised, carrying the status and the
+    /// problem-details <c>detail</c>/<c>title</c>, for <see cref="GuardedApiAsync{T}"/> to map.
+    /// </para>
     /// </summary>
     /// <param name="capture">The native response handler that captured the raw HTTP response.</param>
-    /// <returns>The new document id, or null when it cannot be read.</returns>
-    private static Guid? ExtractIdFromLocation(NativeResponseHandler capture)
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The new resource id, or null when it cannot be read.</returns>
+    /// <exception cref="ApiException">The response was not a success.</exception>
+    private static async Task<Guid?> CreatedIdAsync(
+        NativeResponseHandler capture,
+        CancellationToken ct
+    )
     {
         if (capture.Value is not HttpResponseMessage response)
             return null;
+        if (!response.IsSuccessStatusCode)
+            throw new ApiException(await ProblemMessageAsync(response, ct))
+            {
+                ResponseStatusCode = (int)response.StatusCode,
+            };
         var lastSegment = response
             .Headers.Location?.OriginalString.Split('/', StringSplitOptions.RemoveEmptyEntries)
             .LastOrDefault();
         return Guid.TryParse(lastSegment, out var parsed) ? parsed : null;
+    }
+
+    /// <summary>
+    /// The <c>detail</c> (else <c>title</c>) of a problem-details error body, or an empty string when
+    /// the body has neither - <see cref="DescribeApiException"/> turns an empty message into a
+    /// readable one for the status.
+    /// </summary>
+    /// <param name="response">The failed response.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The server's message, or an empty string.</returns>
+    private static async Task<string> ProblemMessageAsync(
+        HttpResponseMessage response,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            var body = JsonNode.Parse(await response.Content.ReadAsStringAsync(ct));
+            return (string?)body?["detail"] ?? (string?)body?["title"] ?? "";
+        }
+        catch (JsonException)
+        {
+            return "";
+        }
+        catch (InvalidOperationException)
+        {
+            // A detail/title that is not a string.
+            return "";
+        }
     }
 
     /// <summary>How often <c>--wait</c> polls the publish-with-descendants task (issue #90).</summary>
@@ -1245,6 +1305,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="fileName">The original file name (used for the staged file part).</param>
     /// <param name="contentType">The file's MIME type.</param>
     /// <param name="mediaType">The media type to create the item as: a media type id (GUID) or name (e.g. "Image").</param>
+    /// <param name="id">The id to create the item with (#226); null generates one.</param>
+    /// <param name="values">Property values to set besides the file (#220), sent after <c>umbracoFile</c>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The created media item (id + echoed name), or a mapped failure.</returns>
     public Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(
@@ -1254,6 +1316,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         string fileName,
         string contentType,
         string mediaType,
+        Guid? id = null,
+        IReadOnlyList<MediaValue>? values = null,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -1277,7 +1341,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
                 // Step 3: create the media item, pointing umbracoFile at the staged temp file. The
                 // value shape ({ temporaryFileId }) maps to an UntypedNode like any property value.
-                var mediaId = Guid.NewGuid();
+                // A caller-supplied id keeps the item's GUID the same on every instance, which is
+                // what content referencing it by GUID needs to survive a promotion (#226).
+                var mediaId = id ?? Guid.NewGuid();
                 var body = new Gen.CreateMediaRequestModel
                 {
                     Id = mediaId,
@@ -1291,6 +1357,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                             Alias = "umbracoFile",
                             Value = UntypedNodeFactory.FromValue(new { temporaryFileId }),
                         },
+                        // #220: a media type with required fields cannot be uploaded to without
+                        // them, and there is no media update to set them afterwards.
+                        .. (values ?? []).Select(v => new Gen.MediaValueModel
+                        {
+                            Alias = v.Alias,
+                            Culture = v.Culture,
+                            Segment = v.Segment,
+                            Value = UntypedNodeFactory.FromValue(v.Value),
+                        }),
                     ],
                 };
                 await _api.Umbraco.Management.Api.V1.Media.PostAsync(body, cancellationToken: ct);

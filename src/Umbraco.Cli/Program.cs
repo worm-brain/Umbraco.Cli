@@ -60,16 +60,31 @@ services.AddHttpClient();
 // to the auth (default) client, so the OAuth token exchange is never intercepted.
 services.AddSingleton<MutationInterceptState>();
 services.AddTransient<MutationInterceptorHandler>();
-services.AddHttpClient("umbraco").AddHttpMessageHandler<MutationInterceptorHandler>();
+
+// 401 recovery (#248): outermost, so a retried request goes through the rest of the pipeline
+// (and --verbose logs both attempts). Not on the auth (default) client: the token exchange is
+// what it calls.
+services.AddSingleton<TokenRefreshState>();
+services.AddTransient<TokenRefreshHandler>();
+services
+    .AddHttpClient("umbraco")
+    .AddHttpMessageHandler<TokenRefreshHandler>()
+    .AddHttpMessageHandler<MutationInterceptorHandler>();
 
 // A second named client that logs request/response to stderr; selected by --verbose.
 services.AddTransient<VerboseHttpHandler>();
 services
     .AddHttpClient("umbraco-verbose")
+    .AddHttpMessageHandler<TokenRefreshHandler>()
     .AddHttpMessageHandler<VerboseHttpHandler>()
     .AddHttpMessageHandler<MutationInterceptorHandler>();
 services.AddSingleton<ConfigStore>();
-services.AddSingleton<UmbracoAuthService>();
+
+// Tokens outlive the process in a per-user file unless UMBRACO_NO_TOKEN_CACHE is set (#248).
+services.AddSingleton(sp => new UmbracoAuthService(
+    sp.GetRequiredService<IHttpClientFactory>(),
+    cache: FileTokenCache.FromEnvironment()
+));
 services.AddSingleton<GlobalOptions>();
 services.AddSingleton<IUmbracoManagementClientFactory, UmbracoManagementClientFactory>();
 services.AddSingleton(sp => new CommandContextFactory(
@@ -78,7 +93,8 @@ services.AddSingleton(sp => new CommandContextFactory(
     sp.GetRequiredService<IHttpClientFactory>(),
     sp.GetRequiredService<GlobalOptions>(),
     sp.GetRequiredService<IUmbracoManagementClientFactory>(),
-    sp.GetRequiredService<MutationInterceptState>()
+    sp.GetRequiredService<MutationInterceptState>(),
+    sp.GetRequiredService<TokenRefreshState>()
 ));
 services.AddSingleton<IConfirmationPrompt, ConsoleConfirmationPrompt>();
 services.AddSingleton(sp => new CommandExecutor(

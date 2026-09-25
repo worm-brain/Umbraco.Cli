@@ -21,15 +21,25 @@ public class ContentApplierTests
         new(ContentChangeKind.Changed, id)
         {
             DesiredBody = JsonNode.Parse($$"""{"id":"{{id}}","name":"Y"}""")!,
+            BodyChanged = true,
         };
+
+    /// <summary>State steps that publish the named cultures.</summary>
+    private static ContentPublishState.Steps Publishes(params string[] cultures) =>
+        new(new PublishScope(cultures), null);
+
+    /// <summary>State steps that unpublish the named cultures.</summary>
+    private static ContentPublishState.Steps Unpublishes(params string[] cultures) =>
+        new(null, new PublishScope(cultures));
 
     private static ContentDocumentChange Removed(Guid id) => new(ContentChangeKind.Removed, id);
 
+    /// <summary>A diff whose documents are in the order given: added, then changed, then removed.</summary>
     private static ContentDiff Diff(
         IReadOnlyList<ContentDocumentChange>? added = null,
         IReadOnlyList<ContentDocumentChange>? changed = null,
         IReadOnlyList<ContentDocumentChange>? removed = null
-    ) => new(added ?? [], changed ?? [], removed ?? [], [], 0);
+    ) => new([.. added ?? [], .. changed ?? [], .. removed ?? []], 0);
 
     [Fact]
     public async Task ApplyAsync_DryRun_WritesNothingAndPlansEveryStep()
@@ -85,6 +95,26 @@ public class ContentApplierTests
 
         var write = Assert.Single(fake.RawWrites);
         Assert.True(write.Body is JsonObject o && o["parent"] is null);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_Update_SendsTheDiffsBodyAsItIs()
+    {
+        // #224: the diff stores the normalised body; apply must send exactly what was compared.
+        var fake = new FakeUmbracoManagementClient();
+        var change = Changed(Guid.NewGuid());
+
+        await ContentApplier.ApplyAsync(
+            fake,
+            Diff(changed: [change]),
+            new ContentApplyOptions(Prune: false, DryRun: false),
+            CancellationToken.None
+        );
+
+        Assert.Equal(
+            change.DesiredBody!.ToJsonString(),
+            Assert.Single(fake.RawWrites).Body!.ToJsonString()
+        );
     }
 
     [Fact]
@@ -242,6 +272,137 @@ public class ContentApplierTests
 
         Assert.False(result.IsSuccess);
         Assert.Single(fake.RawWrites); // stopped after the first failing write
+    }
+
+    // ── publish state (#223) ──────────────────────────────────────────────────
+
+    private static FakeUmbracoManagementClient StateFake() =>
+        new() { PublishContentHandler = _ => Ok(), UnpublishContentHandler = _ => Ok() };
+
+    private static ContentApplyOptions Apply(bool state = true) =>
+        new(Prune: false, DryRun: false) { State = state };
+
+    [Fact]
+    public async Task ApplyAsync_PublishesParentsBeforeChildrenAcrossCreatesAndUpdates()
+    {
+        // The parent exists on the target (an update) and the child is new (a create): the
+        // create runs first, but the parent must still be published before the child.
+        var fake = StateFake();
+        Guid parent = Guid.NewGuid(),
+            child = Guid.NewGuid();
+        // The diff lists documents in snapshot pre-order, so the parent comes first even though
+        // it is a change and the child an addition.
+        var diff = new ContentDiff(
+            [
+                Changed(parent) with
+                {
+                    State = Publishes("en-US"),
+                },
+                Added(child, parent) with
+                {
+                    State = Publishes("en-US"),
+                },
+            ],
+            0
+        );
+
+        await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
+
+        Assert.Equal([parent, child], fake.StateCalls.Select(c => c.Id));
+    }
+
+    [Fact]
+    public async Task ApplyAsync_StateOnlyChange_PublishesWithoutAnUpdate()
+    {
+        var fake = StateFake();
+        var id = Guid.NewGuid();
+        var diff = Diff(
+            changed: [Changed(id) with { BodyChanged = false, State = Publishes("da-DK") }]
+        );
+
+        var result = await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
+
+        Assert.Empty(fake.RawWrites);
+        var call = Assert.Single(fake.StateCalls);
+        Assert.Equal(("publish", id), (call.Operation, call.Id));
+        Assert.Equal(["da-DK"], call.Cultures!);
+        Assert.Equal(1, result.Data!.Published);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_InvariantDocument_PublishesTheWholeDocument()
+    {
+        var fake = StateFake();
+        var id = Guid.NewGuid();
+        var diff = Diff(
+            added: [Added(id, null) with { State = new(PublishScope.WholeDocument, null) }]
+        );
+
+        var result = await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
+
+        Assert.Null(Assert.Single(fake.StateCalls).Cultures);
+        Assert.Null(
+            result.Data!.Actions.Single(a => a.Operation == ContentOperation.Publish).Cultures
+        );
+    }
+
+    [Fact]
+    public async Task ApplyAsync_CultureNotPublishedInSnapshot_IsUnpublished()
+    {
+        var fake = StateFake();
+        var id = Guid.NewGuid();
+        var diff = Diff(
+            changed: [Changed(id) with { BodyChanged = false, State = Unpublishes("da-DK") }]
+        );
+
+        await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
+
+        var call = Assert.Single(fake.StateCalls);
+        Assert.Equal(("unpublish", id), (call.Operation, call.Id));
+        Assert.Equal(["da-DK"], call.Cultures!);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_NoState_LeavesPublishStateAlone()
+    {
+        var fake = StateFake();
+        var diff = Diff(
+            added: [Added(Guid.NewGuid(), null) with { State = Publishes("en-US") }],
+            changed:
+            [
+                Changed(Guid.NewGuid()) with
+                {
+                    BodyChanged = false,
+                    State = Unpublishes("da-DK"),
+                },
+            ]
+        );
+
+        var result = await ContentApplier.ApplyAsync(
+            fake,
+            diff,
+            Apply(state: false),
+            CancellationToken.None
+        );
+
+        Assert.Empty(fake.StateCalls);
+        Assert.Equal([ContentOperation.Create], result.Data!.Actions.Select(a => a.Operation));
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PublishFailure_NamesThePublishStep()
+    {
+        var fake = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = _ =>
+                UmbracoResponse<Empty>.Failure(400, "parent not published"),
+        };
+        var id = Guid.NewGuid();
+        var diff = Diff(added: [Added(id, null) with { State = Publishes("en-US") }]);
+
+        var result = await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
+
+        Assert.StartsWith($"Apply failed on publish document '{id}'", result.ErrorMessage);
     }
 
     private static UmbracoResponse<Empty> Ok() => UmbracoResponse<Empty>.Success(Empty.Value);
