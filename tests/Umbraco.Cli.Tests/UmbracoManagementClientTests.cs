@@ -676,7 +676,7 @@ public class UmbracoManagementClientTests
             "photo.jpg",
             "image/jpeg",
             "Image",
-            CancellationToken.None
+            ct: CancellationToken.None
         );
 
         Assert.True(result.IsSuccess);
@@ -698,7 +698,7 @@ public class UmbracoManagementClientTests
             "x.bin",
             "application/octet-stream",
             "NoSuchType",
-            CancellationToken.None
+            ct: CancellationToken.None
         );
 
         Assert.False(result.IsSuccess);
@@ -993,7 +993,7 @@ public class UmbracoManagementClientTests
             "logo.png",
             "image/png",
             Guid.NewGuid().ToString(),
-            CancellationToken.None
+            ct: CancellationToken.None
         );
 
         Assert.True(result.IsSuccess);

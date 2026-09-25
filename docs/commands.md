@@ -309,7 +309,9 @@ umbraco media list [--parent <id>]
 umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco media get <id>                                     # includes urls[] and file metadata in values[]
-umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>]  # staged via temporary-file
+umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>] [--id <guid>] [--value alias=value]...  # staged via temporary-file
+# --id keeps the item's GUID across instances (content references media by id);
+# --value sets other properties, e.g. a custom media type's required fields
 umbraco media delete <id>                                  # permanent; needs --yes
 umbraco media trash <id>                                   # move to recycle bin (reversible)
 umbraco media restore <id> [--parent <id>]

@@ -27,6 +27,8 @@ public interface IMediaClient
     /// <param name="fileName">The original file name (used for the staged file part).</param>
     /// <param name="contentType">The file's MIME type.</param>
     /// <param name="mediaType">The media type to create the item as: a media type id (GUID) or a media type name (e.g. "Image").</param>
+    /// <param name="id">The id to create the item with, so it keeps its GUID across instances (#226); null generates one.</param>
+    /// <param name="values">Property values to set besides the file (#220); must not include <c>umbracoFile</c>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The created media item (with its id), or a mapped failure.</returns>
     Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(
@@ -36,6 +38,8 @@ public interface IMediaClient
         string fileName,
         string contentType,
         string mediaType,
+        Guid? id = null,
+        IReadOnlyList<MediaValue>? values = null,
         CancellationToken ct = default
     );
 

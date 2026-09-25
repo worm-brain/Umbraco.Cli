@@ -1291,6 +1291,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="fileName">The original file name (used for the staged file part).</param>
     /// <param name="contentType">The file's MIME type.</param>
     /// <param name="mediaType">The media type to create the item as: a media type id (GUID) or name (e.g. "Image").</param>
+    /// <param name="id">The id to create the item with (#226); null generates one.</param>
+    /// <param name="values">Property values to set besides the file (#220), sent after <c>umbracoFile</c>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The created media item (id + echoed name), or a mapped failure.</returns>
     public Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(
@@ -1300,6 +1302,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         string fileName,
         string contentType,
         string mediaType,
+        Guid? id = null,
+        IReadOnlyList<MediaValue>? values = null,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -1323,7 +1327,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
                 // Step 3: create the media item, pointing umbracoFile at the staged temp file. The
                 // value shape ({ temporaryFileId }) maps to an UntypedNode like any property value.
-                var mediaId = Guid.NewGuid();
+                // A caller-supplied id keeps the item's GUID the same on every instance, which is
+                // what content referencing it by GUID needs to survive a promotion (#226).
+                var mediaId = id ?? Guid.NewGuid();
                 var body = new Gen.CreateMediaRequestModel
                 {
                     Id = mediaId,
@@ -1337,6 +1343,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                             Alias = "umbracoFile",
                             Value = UntypedNodeFactory.FromValue(new { temporaryFileId }),
                         },
+                        // #220: a media type with required fields cannot be uploaded to without
+                        // them, and there is no media update to set them afterwards.
+                        .. (values ?? []).Select(v => new Gen.MediaValueModel
+                        {
+                            Alias = v.Alias,
+                            Culture = v.Culture,
+                            Segment = v.Segment,
+                            Value = UntypedNodeFactory.FromValue(v.Value),
+                        }),
                     ],
                 };
                 await _api.Umbraco.Management.Api.V1.Media.PostAsync(body, cancellationToken: ct);

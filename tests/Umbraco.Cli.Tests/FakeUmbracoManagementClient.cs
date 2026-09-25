@@ -314,6 +314,9 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The (id, values) of the last upload (#226, #220).</summary>
+    public (Guid? Id, IReadOnlyList<MediaValue>? Values)? LastUpload { get; private set; }
+
     public Task<UmbracoResponse<MediaItemResponse>> UploadMediaAsync(
         Guid? parentId,
         string name,
@@ -321,8 +324,18 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         string fileName,
         string contentType,
         string mediaType,
+        Guid? id = null,
+        IReadOnlyList<MediaValue>? values = null,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastUpload = (id, values);
+        return Task.FromResult(
+            UmbracoResponse<MediaItemResponse>.Success(
+                new MediaItemResponse { Id = id ?? Guid.NewGuid(), Name = name }
+            )
+        );
+    }
 
     public Task<UmbracoResponse<MediaItemResponse>> CreateMediaFolderAsync(
         string name,
