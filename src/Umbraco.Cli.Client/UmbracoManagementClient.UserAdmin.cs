@@ -30,33 +30,9 @@ public sealed partial class UmbracoManagementClient
         CancellationToken ct
     )
     {
-        List<Gen.UserGroupResponseModel>? groups = null;
         var ids = new List<Guid>();
         foreach (var reference in references)
-        {
-            if (Guid.TryParse(reference, out var id))
-            {
-                ids.Add(id);
-                continue;
-            }
-
-            groups ??= await ReadAllUserGroupsAsync(ct);
-            // Alias first, because it is the group's stable key; the name is a convenience.
-            var match =
-                groups.FirstOrDefault(g =>
-                    string.Equals(g.Alias, reference, StringComparison.OrdinalIgnoreCase)
-                )
-                ?? groups.FirstOrDefault(g =>
-                    string.Equals(g.Name, reference, StringComparison.OrdinalIgnoreCase)
-                );
-            ids.Add(
-                match?.Id
-                    ?? throw NotFound(
-                        $"No user group found with alias or name '{reference}'. "
-                            + "Run 'umbraco user-groups list' to see the groups."
-                    )
-            );
-        }
+            ids.Add(await IdOfAsync(EntityKind.UserGroup, reference, ct));
         return ids;
     }
 
@@ -155,6 +131,8 @@ public sealed partial class UmbracoManagementClient
                         HasAccessToAllLanguages = request.HasAccessToAllLanguages,
                         DocumentRootAccess = request.DocumentRootAccess,
                         MediaRootAccess = request.MediaRootAccess,
+                        DocumentStartNode = Ref(request.DocumentStartNode),
+                        MediaStartNode = Ref(request.MediaStartNode),
                         // Granular per-node permissions are a deferred follow-up.
                         Permissions = [],
                     },
@@ -173,6 +151,8 @@ public sealed partial class UmbracoManagementClient
                     HasAccessToAllLanguages = request.HasAccessToAllLanguages,
                     DocumentRootAccess = request.DocumentRootAccess,
                     MediaRootAccess = request.MediaRootAccess,
+                    DocumentStartNode = request.DocumentStartNode,
+                    MediaStartNode = request.MediaStartNode,
                 };
             }
         );
@@ -202,6 +182,8 @@ public sealed partial class UmbracoManagementClient
                             HasAccessToAllLanguages = request.HasAccessToAllLanguages,
                             DocumentRootAccess = request.DocumentRootAccess,
                             MediaRootAccess = request.MediaRootAccess,
+                            DocumentStartNode = Ref(request.DocumentStartNode),
+                            MediaStartNode = Ref(request.MediaStartNode),
                             // Granular per-node permissions are a deferred follow-up.
                             Permissions = [],
                         },
@@ -288,6 +270,10 @@ public sealed partial class UmbracoManagementClient
             }
         );
 
+    /// <summary>A node reference for a start node, or null for none.</summary>
+    private static Gen.ReferenceByIdModel? Ref(Guid? id) =>
+        id is { } value ? new Gen.ReferenceByIdModel { Id = value } : null;
+
     /// <summary>Maps a generated user-group response model to the command-facing DTO.</summary>
     /// <param name="g">The generated model.</param>
     /// <returns>The mapped <see cref="UserGroupResponse"/>.</returns>
@@ -305,6 +291,8 @@ public sealed partial class UmbracoManagementClient
             HasAccessToAllLanguages = g.HasAccessToAllLanguages ?? false,
             DocumentRootAccess = g.DocumentRootAccess ?? false,
             MediaRootAccess = g.MediaRootAccess ?? false,
+            DocumentStartNode = g.DocumentStartNode?.Id,
+            MediaStartNode = g.MediaStartNode?.Id,
             IsDeletable = g.IsDeletable ?? false,
             AliasCanBeChanged = g.AliasCanBeChanged ?? false,
         };

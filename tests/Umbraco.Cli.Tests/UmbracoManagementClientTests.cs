@@ -659,31 +659,6 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task UploadMediaAsync_ResolvesMediaTypeByName()
-    {
-        // #57: a non-GUID --media-type is resolved via the media-type item search endpoint,
-        // matching on name. The first request must be that search.
-        var mediaTypeId = Guid.NewGuid();
-        var (client, handler) = ClientReturning(
-            $$"""{"total":1,"items":[{"id":"{{mediaTypeId}}","name":"Image"}]}"""
-        );
-        using var stream = new MemoryStream(new byte[] { 1 });
-
-        var result = await client.UploadMediaAsync(
-            Guid.Empty,
-            "Photo",
-            stream,
-            "photo.jpg",
-            "image/jpeg",
-            "Image",
-            ct: CancellationToken.None
-        );
-
-        Assert.True(result.IsSuccess);
-        Assert.Contains("item/media-type/search", handler.Requests[0].AbsoluteUri);
-    }
-
-    [Fact]
     public async Task UploadMediaAsync_UnknownMediaTypeName_Returns404()
     {
         // A media type name that matches nothing yields a clear 404 rather than staging a file

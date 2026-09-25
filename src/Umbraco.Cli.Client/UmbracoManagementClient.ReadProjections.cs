@@ -138,26 +138,110 @@ public sealed partial class UmbracoManagementClient
             })
             .ToList();
 
-    /// <summary>Media-type id to name, for #163.</summary>
-    private readonly Dictionary<Guid, string> _mediaTypeNameById = [];
+    /// <summary>Member-type id to alias, for #212.</summary>
+    private readonly Dictionary<Guid, string> _memberTypeAliasById = [];
 
     /// <summary>
-    /// Resolves a media type's name from its id (#163), cached for the client's life. The name,
-    /// not the alias, because that is the vocabulary the write side accepts.
+    /// Fills in what member reads carry only as ids (#212): each member type's alias, as content
+    /// reads already do (#163), and each group's name. The labels are read <b>once for the whole
+    /// batch</b> - one group list, one alias read per distinct member type, one after another - and
+    /// then applied, so a page of members neither repeats reads nor touches the caches from
+    /// several tasks at once. A label that cannot be read is left null rather than failing the read.
+    /// </summary>
+    /// <param name="members">The mapped members.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The members with their labels, in the same order.</returns>
+    private async Task<List<MemberResponse>> LabelMembersAsync(
+        IReadOnlyList<MemberResponse> members,
+        CancellationToken ct
+    )
+    {
+        var aliases = new Dictionary<Guid, string?>();
+        foreach (var typeId in members.Select(m => m.MemberType?.Id).OfType<Guid>().Distinct())
+            aliases[typeId] = await MemberTypeAliasAsync(typeId, ct);
+
+        List<ReferenceCandidate>? groups = null;
+        if (members.Any(m => m.Groups?.Any() == true))
+        {
+            try
+            {
+                groups = await MemberGroupCandidatesAsync(ct);
+            }
+            catch (Exception ex) when (ex is ApiException or HttpRequestException)
+            {
+                // The ids are still right; only the names are missing.
+            }
+        }
+
+        return
+        [
+            .. members.Select(member =>
+                member with
+                {
+                    MemberType = member.MemberType is { } mt
+                        ? mt with
+                        {
+                            Alias = aliases.GetValueOrDefault(mt.Id),
+                        }
+                        : null,
+                    Groups = member
+                        .Groups?.Select(g =>
+                            g with
+                            {
+                                Name = groups?.FirstOrDefault(c => c.Id == g.Id)?.Name,
+                            }
+                        )
+                        .ToList(),
+                }
+            ),
+        ];
+    }
+
+    /// <summary>Labels one member; see <see cref="LabelMembersAsync"/>.</summary>
+    /// <param name="member">The mapped member.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The member with its labels.</returns>
+    private async Task<MemberResponse> LabelMemberAsync(
+        MemberResponse member,
+        CancellationToken ct
+    ) => (await LabelMembersAsync([member], ct))[0];
+
+    /// <summary>Resolves a member type's alias from its id (#212), cached for the client's life.</summary>
+    /// <param name="id">The member type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The alias, or null when it could not be read.</returns>
+    private Task<string?> MemberTypeAliasAsync(Guid id, CancellationToken ct) =>
+        CachedTypeLabelAsync(
+            _memberTypeAliasById,
+            id,
+            async token =>
+                (
+                    await _api
+                        .Umbraco.Management.Api.V1.MemberType[id]
+                        .GetAsync(cancellationToken: token)
+                )?.Alias,
+            ct
+        );
+
+    /// <summary>Media-type id to alias, for #163 / #222.</summary>
+    private readonly Dictionary<Guid, string> _mediaTypeAliasById = [];
+
+    /// <summary>
+    /// Resolves a media type's alias from its id (#163, #222), cached for the client's life.
     /// </summary>
     /// <param name="id">The media type id.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The name, or null when it could not be read.</returns>
-    private Task<string?> MediaTypeNameAsync(Guid id, CancellationToken ct) =>
+    /// <returns>The alias, or null when it could not be read.</returns>
+    private Task<string?> MediaTypeAliasAsync(Guid id, CancellationToken ct) =>
         CachedTypeLabelAsync(
-            _mediaTypeNameById,
+            _mediaTypeAliasById,
             id,
             async token =>
                 (
                     await _api
                         .Umbraco.Management.Api.V1.MediaType[id]
                         .GetAsync(cancellationToken: token)
-                )?.Name,
+                )?.Alias,
             ct
         );
 

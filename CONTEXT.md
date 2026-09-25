@@ -11,15 +11,16 @@ careful about which it means:
 - **Id** - the type's `Guid`. Globally unique and stable. What the Management API
   create models (`ReferenceByIdModel`) require.
 - **Alias** - the developer-facing machine name (e.g. `textPage`). Stable across
-  environments; what developers know and what the CLI's `--content-type` /
-  member `--type` options accept.
+  environments; what developers know, and what `<id|alias>` arguments and options
+  accept (templates, document/media/member types, user groups).
 - **Name** - the human display name (e.g. `Text Page`). May be renamed; not a
   stable identifier. What the type *search* result models expose (they do **not**
-  expose Alias), and what the `media upload --media-type` resolver currently
-  matches on.
+  expose Alias). The shared resolver falls back to it after the alias (document
+  types excepted).
 
-"Resolve" a type reference = turn a caller-supplied **alias** (or a GUID passed
-directly) into the **id** the API needs.
+"Resolve" a reference = turn a caller-supplied **alias, name or key** (or a GUID
+passed directly) into the **id** the API needs: alias first, then name, ignoring
+case; a name that matches several items is refused (409) rather than guessed.
 
 ## Property-editor value
 

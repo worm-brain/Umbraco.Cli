@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
@@ -18,12 +19,12 @@ public static class ContentTypesDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a document type by UUID.\n\n"
+            "Delete a document type by id or alias.\n\n"
                 + "Umbraco deletes every document of this type along with it, and cannot report how "
                 + "many there are, so the delete is refused unless --force is given.\n\n"
-                + "Example:\n  umbraco content-types delete 3f7a8b2e-... --force --yes"
+                + "Example:\n  umbraco content-types delete blogPost --force --yes"
         );
-        var idArg = new Argument<Guid>("id");
+        var idArg = Reference.Argument(EntityKind.DocumentType);
         cmd.Add(idArg);
         InUseGuard.Protect(
             cmd,
@@ -39,7 +40,13 @@ public static class ContentTypesDeleteCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "content-types.delete",
-                    (client, c) => client.DeleteDocumentTypeAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.DeleteDocumentTypeAsync(id, c),
+                            c
+                        ),
                     "Document type deleted.",
                     ct
                 )

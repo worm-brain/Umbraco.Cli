@@ -191,6 +191,36 @@ public class UserAdminWireTests
     }
 
     [Fact]
+    public async Task CreateUserGroupAsync_WithStartNodes_SendsThemAsReferences()
+    {
+        // #217: "editors limited to the Blog node" needs a start node, not just root access.
+        var handler = Wire.Blank();
+        var blog = Guid.NewGuid();
+        var media = Guid.NewGuid();
+
+        await Wire.Client(handler)
+            .CreateUserGroupAsync(
+                new CreateUserGroupRequest
+                {
+                    Alias = "blogEditors",
+                    Name = "Blog editors",
+                    DocumentStartNode = blog,
+                    MediaStartNode = media,
+                },
+                CancellationToken.None
+            );
+
+        var body = handler.BodyOf(HttpMethod.Post, "/user-group");
+        Assert.Equal(
+            (blog.ToString(), media.ToString()),
+            (
+                body["documentStartNode"]!["id"]!.GetValue<string>(),
+                body["mediaStartNode"]!["id"]!.GetValue<string>()
+            )
+        );
+    }
+
+    [Fact]
     public async Task CreateUserGroupAsync_NoSections_SendsAnEmptyArrayNotAMissingKey()
     {
         var handler = Wire.Blank();

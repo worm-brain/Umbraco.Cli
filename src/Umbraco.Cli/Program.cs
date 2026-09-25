@@ -199,6 +199,9 @@ foreach (var option in root.Options)
 // ── Run ───────────────────────────────────────────────────────────────────────
 // Parse with response-file expansion disabled (#115) so option values beginning with '@'
 // (e.g. Serilog log-viewer filters like "@Level='Error'") are passed through verbatim.
+// Readable parse errors for every id and date option, installed once on the finished tree.
+ValueParsing.Apply(root);
+
 var parsed = root.Parse(args, CliParserConfiguration.Create());
 
 // #167: System.CommandLine reports a parse error as plain text plus the help screen, whichever

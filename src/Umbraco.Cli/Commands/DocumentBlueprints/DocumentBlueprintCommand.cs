@@ -215,7 +215,9 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "update",
-            "Update a blueprint's values and variants. Supply --json-body for full control.\n\nExample:\n  umbraco document-blueprint update <id> --json-body ./bp.json"
+            "Update a blueprint's values and variants. They are merged into the blueprint, as "
+                + "'content update' does; --replace sends them as the whole set instead.\n\n"
+                + "Example:\n  umbraco document-blueprint update <id> --json-body ./bp.json"
         );
         // id is nullable/optional at the PARSE level only so --schema can describe the body without
         // it; the validator below makes it required for an actual update.
@@ -231,10 +233,18 @@ public static class DocumentBlueprintCommand
                 + "Required unless --json-body or --schema is used.",
         };
         var body = new JsonBodyOption(
-            "Path to a JSON file (or - for stdin) with the full update body (overrides --name)."
+            "Path to a JSON file (or - for stdin) with the update body; merged into the blueprint unless --replace (overrides --name)."
         );
+        // #242: content update merges and blueprint update replaced, so the same body lost fields
+        // on one and not the other. Both merge now; --replace is the way to the old behaviour.
+        var replaceOpt = new Option<bool>("--replace")
+        {
+            Description =
+                "Replace the blueprint's values and variants with the ones given, instead of merging.",
+        };
         cmd.Add(idArg);
         cmd.Add(nameOpt);
+        cmd.Add(replaceOpt);
         body.AddTo(cmd);
 
         cmd.Validators.Add(result =>
@@ -287,6 +297,7 @@ public static class DocumentBlueprintCommand
                         return await client.UpdateDocumentBlueprintAsync(
                             parseResult.GetValue(idArg)!.Value,
                             request,
+                            parseResult.GetValue(replaceOpt),
                             c
                         );
                     },
@@ -372,12 +383,12 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "move",
-            "Move a blueprint under a folder (or to the root when --target is omitted)."
+            "Move a blueprint under a folder (or to the root when --parent is omitted)."
         );
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
-        var targetOpt = new Option<Guid?>("--target")
+        var targetOpt = new Option<Guid?>("--parent", "--target")
         {
-            Description = "Destination folder UUID; omit to move to the root.",
+            Description = "Destination folder UUID; omit to move to the root. --target works too.",
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);

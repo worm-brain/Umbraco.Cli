@@ -15,7 +15,7 @@ public static class MediaMoveCommand
             "Move a media item under a new parent folder.\n\nExamples:\n  umbraco media move 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco media move 3f7a8b2e-...   # to the media root"
         );
         var idArg = new Argument<Guid>("id") { Description = "Media item ID to move." };
-        var parentOpt = new Option<Guid?>("--parent")
+        var parentOpt = new Option<Guid?>("--parent", "--target")
         {
             Description = "Target folder ID. Moves to the media root if omitted.",
         };

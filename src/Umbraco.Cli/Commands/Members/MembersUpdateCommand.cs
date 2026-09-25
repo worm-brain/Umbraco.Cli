@@ -31,12 +31,10 @@ public static class MembersUpdateCommand
         {
             Description = "New login name. Often the email, but they are separate fields.",
         };
-        var groupOpt = new Option<Guid[]>("--group")
-        {
-            Description =
-                "Member group IDs. Repeatable, and REPLACES the member's groups - omit to leave them alone.",
-            AllowMultipleArgumentsPerToken = true,
-        };
+        var groupOpt = ListOption.Strings(
+            "--group",
+            "Member groups, by name or id. They REPLACE the member's groups - omit to leave them alone."
+        );
         var valueOpt = new Option<string[]>("--value")
         {
             Description =
@@ -66,8 +64,24 @@ public static class MembersUpdateCommand
                 executor.RunObjectAsync(
                     parseResult,
                     "members.update",
-                    (client, c) =>
-                        client.UpdateMemberAsync(
+                    async (client, c) =>
+                    {
+                        // #212: --group took only GUIDs, although members list --group takes a
+                        // name. Resolve every group before writing, so a typo changes nothing.
+                        IReadOnlyList<Guid>? groups = null;
+                        if (parseResult.GetValue(groupOpt) is { Length: > 0 } references)
+                        {
+                            var resolved = await client.ResolveIdsAsync(
+                                EntityKind.MemberGroup,
+                                references,
+                                c
+                            );
+                            if (!resolved.IsSuccess)
+                                return UmbracoResponse<MemberResponse>.FailureFrom(resolved);
+                            groups = resolved.Data;
+                        }
+
+                        return await client.UpdateMemberAsync(
                             parseResult.GetValue(idArg),
                             new UpdateMemberRequest
                             {
@@ -75,9 +89,7 @@ public static class MembersUpdateCommand
                                 Name = parseResult.GetValue(nameOpt),
                                 IsApproved = parseResult.GetValue(approvedOpt),
                                 Username = parseResult.GetValue(usernameOpt),
-                                Groups = parseResult.GetValue(groupOpt) is { Length: > 0 } g
-                                    ? g
-                                    : null,
+                                Groups = groups,
                                 Values =
                                 [
                                     .. KeyValuePairs
@@ -92,7 +104,8 @@ public static class MembersUpdateCommand
                                 IsLockedOut = parseResult.GetValue(unlockOpt) ? false : null,
                             },
                             c
-                        ),
+                        );
+                    },
                     ct
                 )
         );

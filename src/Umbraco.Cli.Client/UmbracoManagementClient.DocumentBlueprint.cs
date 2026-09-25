@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.Kiota.Abstractions;
 using Gen = Umbraco.Cli.Client.Generated.Models;
 
 namespace Umbraco.Cli.Client;
@@ -103,7 +104,7 @@ public sealed partial class UmbracoManagementClient
                     request.DocumentType.Id != Guid.Empty
                         ? request.DocumentType.Id.ToString()
                         : request.DocumentType.Alias;
-                var documentTypeId = await ResolveDocumentTypeIdAsync(reference, ct);
+                var documentTypeId = await IdOfAsync(EntityKind.DocumentType, reference, ct);
 
                 var id = request.Id ?? Guid.NewGuid();
                 var body = new Gen.CreateDocumentBlueprintRequestModel
@@ -154,25 +155,28 @@ public sealed partial class UmbracoManagementClient
     // ── Mutate ───────────────────────────────────────────────────────────────────
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The PUT replaces the whole body, so sending only the supplied values dropped every other
+    /// field (#242: featuredImage and publishDate vanished). Like <c>content update</c>, the
+    /// blueprint is read and the request overlaid on it with <see cref="DocumentUpdateBody.Merge"/>
+    /// unless <paramref name="replace"/> is set.
+    /// </remarks>
     public Task<UmbracoResponse<Empty>> UpdateDocumentBlueprintAsync(
         Guid id,
         UpdateDocumentBlueprintRequest request,
+        bool replace = false,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
             ct,
             async () =>
             {
-                await _api
-                    .Umbraco.Management.Api.V1.DocumentBlueprint[id]
-                    .PutAsync(
-                        new Gen.UpdateDocumentBlueprintRequestModel
-                        {
-                            Variants = MapVariants(request.Variants),
-                            Values = MapValues(request.Values),
-                        },
-                        cancellationToken: ct
-                    );
+                var path = $"umbraco/management/api/v1/document-blueprint/{id}";
+                var blueprint =
+                    await GetRawJsonAsync(path, ct) as JsonObject
+                    ?? throw new ApiException("The blueprint body was not a JSON object.");
+                DocumentUpdateBody.Merge(blueprint, request.Values, request.Variants, replace);
+                await SendRawJsonAsync(Method.PUT, path, blueprint, ct);
                 return Empty.Value;
             }
         );

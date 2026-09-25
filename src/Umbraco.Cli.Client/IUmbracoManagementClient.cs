@@ -57,4 +57,6 @@ public interface IUmbracoManagementClient
         // Examine, imaging, property-type usage (#121).
         IExamineClient,
         IImagingClient,
-        IPropertyTypeClient;
+        IPropertyTypeClient,
+        // One <id|alias> lookup for every kind (#250 Phase 3).
+        IReferenceResolver;

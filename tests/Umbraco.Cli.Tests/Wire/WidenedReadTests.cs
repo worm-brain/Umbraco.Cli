@@ -244,10 +244,9 @@ public class WidenedReadTests
         Assert.Equal(1200, data.Values!.First().Value!.GetValue<int>());
         // The URL is not on the by-id body at all - it needs the separate urls endpoint.
         Assert.Equal("/media/abc/blog-1.jpg", Assert.Single(data.Urls!).Url);
-        // The NAME, deliberately, even though the field is called alias: `media upload
-        // --media-type` resolves media types by name, so returning the alias here would hand back
-        // a value the write side cannot accept whenever the two differ - as they do here.
-        Assert.Equal("Hero Banner", data.MediaType!.Alias);
+        // #222: the real alias, not the name ("Hero Banner"). `media upload --media-type` now
+        // takes the alias or the name, so the value round-trips either way.
+        Assert.Equal("heroBanner", data.MediaType!.Alias);
     }
 
     [Fact]

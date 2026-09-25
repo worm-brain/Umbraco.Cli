@@ -22,11 +22,10 @@ public static class ContentBulkUnpublishCommand
         {
             Description = "File of ids (one per line). Reads stdin when omitted.",
         };
-        var culturesOpt = new Option<string[]>("--cultures")
-        {
-            Description = "ISO culture codes to unpublish. Unpublishes all cultures if omitted.",
-            AllowMultipleArgumentsPerToken = true,
-        };
+        var culturesOpt = ListOption.Strings(
+            "--cultures",
+            "ISO culture codes to unpublish. Unpublishes all cultures if omitted."
+        );
         cmd.Add(fileOpt);
         cmd.Add(culturesOpt);
         cmd.Destructive(parseResult =>

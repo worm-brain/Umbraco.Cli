@@ -53,15 +53,24 @@ public static class UserGroupsCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a user group by UUID.");
-        var idArg = new Argument<Guid>("id") { Description = "User group ID." };
+        var cmd = new Command(
+            "get",
+            "Get a user group by id, alias or name.\n\nExample:\n  umbraco user-groups get blogEditors"
+        );
+        var idArg = Reference.Argument(EntityKind.UserGroup);
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
                     "user-groups.get",
-                    (client, c) => client.GetUserGroupByIdAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.GetUserGroupByIdAsync(id, c),
+                            c
+                        ),
                     ct
                 )
         );
@@ -111,6 +120,8 @@ public static class UserGroupsCommand
                                 HasAccessToAllLanguages = s.HasAccessToAllLanguages,
                                 DocumentRootAccess = s.DocumentRootAccess,
                                 MediaRootAccess = s.MediaRootAccess,
+                                DocumentStartNode = s.DocumentStartNode,
+                                MediaStartNode = s.MediaStartNode,
                             },
                             c
                         ),
@@ -125,9 +136,9 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "update",
-            "Update a user group by UUID. Unset options overwrite with their defaults, so pass the full desired state."
+            "Update a user group by id, alias or name. Unset options overwrite with their defaults, so pass the full desired state."
         );
-        var idArg = new Argument<Guid>("id") { Description = "User group ID." };
+        var idArg = Reference.Argument(EntityKind.UserGroup);
         var aliasOpt = new Option<string>("--alias")
         {
             Required = true,
@@ -147,21 +158,29 @@ public static class UserGroupsCommand
                     parseResult,
                     "user-groups.update",
                     (client, c) =>
-                        client.UpdateUserGroupAsync(
-                            parseResult.GetValue(idArg),
-                            new UpdateUserGroupRequest
-                            {
-                                Alias = parseResult.GetValue(aliasOpt)!,
-                                Name = parseResult.GetValue(nameOpt)!,
-                                Icon = s.Icon,
-                                Description = s.Description,
-                                Sections = s.Sections,
-                                Languages = s.Languages,
-                                FallbackPermissions = s.FallbackPermissions,
-                                HasAccessToAllLanguages = s.HasAccessToAllLanguages,
-                                DocumentRootAccess = s.DocumentRootAccess,
-                                MediaRootAccess = s.MediaRootAccess,
-                            },
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id =>
+                                client.UpdateUserGroupAsync(
+                                    id,
+                                    new UpdateUserGroupRequest
+                                    {
+                                        Alias = parseResult.GetValue(aliasOpt)!,
+                                        Name = parseResult.GetValue(nameOpt)!,
+                                        Icon = s.Icon,
+                                        Description = s.Description,
+                                        Sections = s.Sections,
+                                        Languages = s.Languages,
+                                        FallbackPermissions = s.FallbackPermissions,
+                                        HasAccessToAllLanguages = s.HasAccessToAllLanguages,
+                                        DocumentRootAccess = s.DocumentRootAccess,
+                                        MediaRootAccess = s.MediaRootAccess,
+                                        DocumentStartNode = s.DocumentStartNode,
+                                        MediaStartNode = s.MediaStartNode,
+                                    },
+                                    c
+                                ),
                             c
                         ),
                     "User group updated.",
@@ -174,8 +193,8 @@ public static class UserGroupsCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a user group by UUID.");
-        var idArg = new Argument<Guid>("id") { Description = "User group ID." };
+        var cmd = new Command("delete", "Delete a user group by id, alias or name.");
+        var idArg = Reference.Argument(EntityKind.UserGroup);
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
             $"Permanently delete user group {parseResult.GetValue(idArg)}?"
@@ -185,7 +204,13 @@ public static class UserGroupsCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "user-groups.delete",
-                    (client, c) => client.DeleteUserGroupAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.DeleteUserGroupAsync(id, c),
+                            c
+                        ),
                     "User group deleted.",
                     ct
                 )
@@ -197,14 +222,11 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "delete-many",
-            "Delete several user groups in one call.\n\nExample:\n  umbraco user-groups delete-many --ids <guid> <guid>"
+            "Delete several user groups in one call.\n\nExample:\n  umbraco user-groups delete-many --ids blogEditors newsEditors"
         );
-        var idsOpt = new Option<Guid[]>("--ids")
-        {
-            Required = true,
-            AllowMultipleArgumentsPerToken = true,
-            Description = "The user group IDs to delete.",
-        };
+        var idsOpt = ListOption
+            .Strings("--ids", "The user groups to delete: ids, aliases or names.")
+            .AsRequired();
         cmd.Add(idsOpt);
         cmd.Destructive(parseResult =>
             $"Permanently delete {parseResult.GetValue(idsOpt)!.Length} user group(s)?"
@@ -214,7 +236,18 @@ public static class UserGroupsCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "user-groups.delete-many",
-                    (client, c) => client.DeleteUserGroupsAsync(parseResult.GetValue(idsOpt)!, c),
+                    async (client, c) =>
+                    {
+                        // Resolve every reference before deleting any, so a typo deletes nothing.
+                        var ids = await client.ResolveIdsAsync(
+                            EntityKind.UserGroup,
+                            parseResult.GetValue(idsOpt)!,
+                            c
+                        );
+                        return ids.IsSuccess
+                            ? await client.DeleteUserGroupsAsync([.. ids.Data!], c)
+                            : UmbracoResponse<Empty>.FailureFrom(ids);
+                    },
                     "User groups deleted.",
                     ct
                 )
@@ -226,15 +259,10 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "add-users",
-            "Add users to a user group.\n\nExample:\n  umbraco user-groups add-users <groupId> --user <guid> --user <guid>"
+            "Add users to a user group.\n\nExample:\n  umbraco user-groups add-users blogEditors --user <guid> --user <guid>"
         );
-        var idArg = new Argument<Guid>("id") { Description = "User group ID." };
-        var usersOpt = new Option<Guid[]>("--user")
-        {
-            Required = true,
-            AllowMultipleArgumentsPerToken = true,
-            Description = "User ID to add (repeat for several).",
-        };
+        var idArg = Reference.Argument(EntityKind.UserGroup);
+        var usersOpt = ListOption.Guids("--user", "User ID to add.").AsRequired();
         cmd.Add(idArg);
         cmd.Add(usersOpt);
         cmd.SetAction(
@@ -243,9 +271,11 @@ public static class UserGroupsCommand
                     parseResult,
                     "user-groups.add-users",
                     (client, c) =>
-                        client.AddUsersToGroupAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(usersOpt)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id =>
+                                client.AddUsersToGroupAsync(id, parseResult.GetValue(usersOpt)!, c),
                             c
                         ),
                     "Users added to group.",
@@ -259,15 +289,10 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "remove-users",
-            "Remove users from a user group.\n\nExample:\n  umbraco user-groups remove-users <groupId> --user <guid>"
+            "Remove users from a user group.\n\nExample:\n  umbraco user-groups remove-users blogEditors --user <guid>"
         );
-        var idArg = new Argument<Guid>("id") { Description = "User group ID." };
-        var usersOpt = new Option<Guid[]>("--user")
-        {
-            Required = true,
-            AllowMultipleArgumentsPerToken = true,
-            Description = "User ID to remove (repeat for several).",
-        };
+        var idArg = Reference.Argument(EntityKind.UserGroup);
+        var usersOpt = ListOption.Guids("--user", "User ID to remove.").AsRequired();
         cmd.Add(idArg);
         cmd.Add(usersOpt);
         cmd.SetAction(
@@ -276,9 +301,15 @@ public static class UserGroupsCommand
                     parseResult,
                     "user-groups.remove-users",
                     (client, c) =>
-                        client.RemoveUsersFromGroupAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(usersOpt)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id =>
+                                client.RemoveUsersFromGroupAsync(
+                                    id,
+                                    parseResult.GetValue(usersOpt)!,
+                                    c
+                                ),
                             c
                         ),
                     "Users removed from group.",
@@ -305,22 +336,18 @@ public static class UserGroupsCommand
         {
             Description = "Free-text description.",
         };
-        private readonly Option<string[]> _sections = new("--section")
-        {
-            AllowMultipleArgumentsPerToken = true,
-            Description = "Section alias the group can access (repeat for several).",
-        };
-        private readonly Option<string[]> _languages = new("--language")
-        {
-            AllowMultipleArgumentsPerToken = true,
-            Description = "Culture ISO code the group can edit (repeat for several).",
-        };
-        private readonly Option<string[]> _fallback = new("--fallback-permission")
-        {
-            AllowMultipleArgumentsPerToken = true,
-            Description =
-                "Default permission verb applied where no node-specific permission is set.",
-        };
+        private readonly Option<string[]> _sections = ListOption.Strings(
+            "--section",
+            "Section aliases the group can access."
+        );
+        private readonly Option<string[]> _languages = ListOption.Strings(
+            "--language",
+            "Culture ISO codes the group can edit."
+        );
+        private readonly Option<string[]> _fallback = ListOption.Strings(
+            "--fallback-permission",
+            "Default permission verbs applied where no node-specific permission is set."
+        );
         private readonly Option<bool> _allLanguages = new("--has-access-to-all-languages")
         {
             Description = "Grant edit access to content in every language.",
@@ -332,6 +359,18 @@ public static class UserGroupsCommand
         private readonly Option<bool> _mediaRoot = new("--media-root-access")
         {
             Description = "Set the media start node to the tree root.",
+        };
+
+        // #217: without these a group could only start at the root, so "editors limited to the
+        // Blog node" was not possible.
+        private readonly Option<Guid?> _documentStart = new("--document-start-node")
+        {
+            Description =
+                "Content node id the group's content tree starts at (instead of the root).",
+        };
+        private readonly Option<Guid?> _mediaStart = new("--media-start-node")
+        {
+            Description = "Media node id the group's media tree starts at (instead of the root).",
         };
 
         /// <summary>Adds every shared option to a command.</summary>
@@ -346,6 +385,25 @@ public static class UserGroupsCommand
             cmd.Add(_allLanguages);
             cmd.Add(_documentRoot);
             cmd.Add(_mediaRoot);
+            cmd.Add(_documentStart);
+            cmd.Add(_mediaStart);
+            // A start node and root access say opposite things; refuse rather than pick one.
+            cmd.Validators.Add(result =>
+            {
+                if (
+                    !result.TryGetValue(_documentStart, out var documentStart)
+                    || !result.TryGetValue(_mediaStart, out var mediaStart)
+                )
+                    return;
+                if (result.GetValue(_documentRoot) && documentStart is not null)
+                    result.AddError(
+                        $"{_documentRoot.Name} and {_documentStart.Name} cannot be used together."
+                    );
+                if (result.GetValue(_mediaRoot) && mediaStart is not null)
+                    result.AddError(
+                        $"{_mediaRoot.Name} and {_mediaStart.Name} cannot be used together."
+                    );
+            });
         }
 
         /// <summary>Reads the shared option values off a parsed command line.</summary>
@@ -360,7 +418,9 @@ public static class UserGroupsCommand
                 parseResult.GetValue(_fallback) ?? [],
                 parseResult.GetValue(_allLanguages),
                 parseResult.GetValue(_documentRoot),
-                parseResult.GetValue(_mediaRoot)
+                parseResult.GetValue(_mediaRoot),
+                parseResult.GetValue(_documentStart),
+                parseResult.GetValue(_mediaStart)
             );
     }
 
@@ -373,6 +433,8 @@ public static class UserGroupsCommand
     /// <param name="HasAccessToAllLanguages">Whether the group can edit every language.</param>
     /// <param name="DocumentRootAccess">Whether the content start node is the tree root.</param>
     /// <param name="MediaRootAccess">Whether the media start node is the tree root.</param>
+    /// <param name="DocumentStartNode">The content start node, or null for none.</param>
+    /// <param name="MediaStartNode">The media start node, or null for none.</param>
     private readonly record struct SharedGroupValues(
         string? Icon,
         string? Description,
@@ -381,6 +443,8 @@ public static class UserGroupsCommand
         IReadOnlyList<string> FallbackPermissions,
         bool HasAccessToAllLanguages,
         bool DocumentRootAccess,
-        bool MediaRootAccess
+        bool MediaRootAccess,
+        Guid? DocumentStartNode,
+        Guid? MediaStartNode
     );
 }

@@ -93,12 +93,41 @@ public sealed partial class UmbracoManagementClient
         );
 
     /// <inheritdoc />
-    public Task<UmbracoResponse<PagedResponse<SearchResultResponse>>> QuerySearcherAsync(
+    /// <remarks>
+    /// #244: on Umbraco 17 <c>GET /searcher</c> is empty and an index's <c>searcherName</c>
+    /// (e.g. <c>ExternalSearcher</c>) is a 404, while the <b>index</b> name (<c>ExternalIndex</c>)
+    /// works, because Umbraco falls back to the index's own searcher. So a 404 on a name that is
+    /// some index's <c>searcherName</c> is retried with that index's name.
+    /// </remarks>
+    public async Task<UmbracoResponse<PagedResponse<SearchResultResponse>>> QuerySearcherAsync(
         string name,
         string term,
         int skip = 0,
         int take = 100,
         CancellationToken ct = default
+    )
+    {
+        var result = await QueryAsync(name);
+        if (result.StatusCode != 404)
+            return result;
+
+        var indexes = await GetIndexersAsync(0, 100, ct);
+        var index = indexes.Data?.Items.FirstOrDefault(i =>
+            string.Equals(i.SearcherName, name, StringComparison.OrdinalIgnoreCase)
+        );
+        return index is null ? result : await QueryAsync(index.Name);
+
+        Task<UmbracoResponse<PagedResponse<SearchResultResponse>>> QueryAsync(string searcher) =>
+            QueryOneSearcherAsync(searcher, term, skip, take, ct);
+    }
+
+    /// <summary>Queries one searcher (or index) by the exact name Umbraco registered it under.</summary>
+    private Task<UmbracoResponse<PagedResponse<SearchResultResponse>>> QueryOneSearcherAsync(
+        string name,
+        string term,
+        int skip,
+        int take,
+        CancellationToken ct
     ) =>
         GuardedApiAsync(
             ct,

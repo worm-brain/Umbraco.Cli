@@ -15,7 +15,7 @@ public static class MediaRestoreCommand
             "Restore a media item from the recycle bin.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-..."
         );
         var idArg = new Argument<Guid>("id") { Description = "Trashed media item ID." };
-        var parentOpt = new Option<Guid?>("--parent")
+        var parentOpt = new Option<Guid?>("--parent", "--target")
         {
             Description = "Folder to restore under. Restores to the media root if omitted.",
         };

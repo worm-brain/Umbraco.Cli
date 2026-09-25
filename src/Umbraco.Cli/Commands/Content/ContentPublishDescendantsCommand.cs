@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -15,11 +16,10 @@ public static class ContentPublishDescendantsCommand
             "Publish a content item and its descendants.\n\nExamples:\n  umbraco content publish-descendants 3f7a8b2e-...\n  umbraco content publish-descendants 3f7a8b2e-... --include-unpublished --cultures en-US"
         );
         var idArg = new Argument<Guid>("id") { Description = "Root content item ID." };
-        var culturesOpt = new Option<string[]>("--cultures")
-        {
-            Description = "ISO culture codes to publish. Publishes all cultures if omitted.",
-            AllowMultipleArgumentsPerToken = true,
-        };
+        var culturesOpt = ListOption.Strings(
+            "--cultures",
+            "ISO culture codes to publish. Publishes all cultures if omitted."
+        );
         var includeUnpublishedOpt = new Option<bool>("--include-unpublished")
         {
             DefaultValueFactory = _ => false,

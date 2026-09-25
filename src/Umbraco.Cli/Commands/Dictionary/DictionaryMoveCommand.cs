@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
@@ -12,13 +13,15 @@ public static class DictionaryMoveCommand
     {
         var cmd = new Command(
             "move",
-            "Move a dictionary item under a new parent.\n\nExamples:\n  umbraco dictionary move 3f7a8b2e-... --target 1a2b3c4d-...\n  umbraco dictionary move 3f7a8b2e-...   # to the dictionary root"
+            "Move a dictionary item under a new parent.\n\nExamples:\n  umbraco dictionary move Blog.Tags --parent Blog\n  umbraco dictionary move Blog.Tags   # to the dictionary root"
         );
-        var idArg = new Argument<Guid>("id") { Description = "Dictionary item ID to move." };
-        var targetOpt = new Option<Guid?>("--target")
-        {
-            Description = "Target parent ID. Moves to the dictionary root if omitted.",
-        };
+        var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
+        var targetOpt = Reference.Option(
+            "--parent",
+            EntityKind.DictionaryItem,
+            "The new parent; moves to the dictionary root if omitted",
+            "--target"
+        );
         cmd.Add(idArg);
         cmd.Add(targetOpt);
         cmd.SetAction(
@@ -27,9 +30,16 @@ public static class DictionaryMoveCommand
                     parseResult,
                     "dictionary.move",
                     (client, c) =>
-                        client.MoveDictionaryItemAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(targetOpt),
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id =>
+                                targetOpt.WithResolvedOptionalAsync(
+                                    parseResult,
+                                    client,
+                                    target => client.MoveDictionaryItemAsync(id, target, c),
+                                    c
+                                ),
                             c
                         ),
                     "Dictionary item moved.",

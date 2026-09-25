@@ -14,16 +14,31 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>What <see cref="GetContentAsync"/> lists, whatever the parent (seeded by a test).</summary>
+    public List<ContentItemResponse> ContentChildren { get; } = [];
+
     public Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> GetContentAsync(
         Guid? parentId = null,
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<ContentItemResponse>>.Success(
+                new PagedResponse<ContentItemResponse>
+                {
+                    Total = ContentChildren.Count,
+                    Items = [.. ContentChildren.Skip(skip).Take(take)],
+                }
+            )
+        );
 
     // Configurable exemplar used by the executor tests.
     public UmbracoResponse<ContentItemResponse>? ContentByIdResponse { get; set; }
     public Guid? LastRequestedId { get; private set; }
+
+    /// <summary>Documents by id, checked before <see cref="ContentByIdResponse"/>.</summary>
+    public Dictionary<Guid, ContentItemResponse> ContentById { get; } = [];
 
     public Task<UmbracoResponse<ContentItemResponse>> GetContentByIdAsync(
         Guid id,
@@ -31,6 +46,8 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     )
     {
         LastRequestedId = id;
+        if (ContentById.TryGetValue(id, out var byId))
+            return Task.FromResult(UmbracoResponse<ContentItemResponse>.Success(byId));
         return Task.FromResult(
             ContentByIdResponse
                 ?? throw new InvalidOperationException("ContentByIdResponse not configured.")
@@ -668,11 +685,20 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The (id, request) of the last member update.</summary>
+    public (Guid Id, UpdateMemberRequest Request)? LastMemberUpdate { get; private set; }
+
     public Task<UmbracoResponse<MemberResponse>> UpdateMemberAsync(
         Guid id,
         UpdateMemberRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastMemberUpdate = (id, request);
+        return Task.FromResult(
+            UmbracoResponse<MemberResponse>.Success(new MemberResponse { Id = id })
+        );
+    }
 
     public Task<UmbracoResponse<Empty>> DeleteMemberAsync(
         Guid id,
@@ -1524,12 +1550,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>The replace flag of the last blueprint update (#242).</summary>
+    public bool? LastBlueprintReplace { get; private set; }
+
     public Task<UmbracoResponse<Empty>> UpdateDocumentBlueprintAsync(
         Guid id,
         UpdateDocumentBlueprintRequest request,
+        bool replace = false,
         CancellationToken ct = default
     )
     {
+        LastBlueprintReplace = replace;
         BlueprintsUpdated.Add((id, request));
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
@@ -2193,5 +2224,32 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     {
         LastPropertyTypeUsedQuery = (contentTypeId, propertyAlias);
         return Task.FromResult(UmbracoResponse<bool>.Success(true));
+    }
+
+    // ── references (#250 Phase 3) ─────────────────────────────────────────────
+
+    /// <summary>
+    /// What each (kind, alias/name/key) resolves to. A GUID always resolves to itself, as in the
+    /// real client; anything not listed here is a 404.
+    /// </summary>
+    public Dictionary<(EntityKind Kind, string Reference), Guid> References { get; } = [];
+
+    /// <summary>Every non-GUID reference resolved, in order.</summary>
+    public List<(EntityKind Kind, string Reference)> Resolved { get; } = [];
+
+    public Task<UmbracoResponse<Guid>> ResolveIdAsync(
+        EntityKind kind,
+        string reference,
+        CancellationToken ct = default
+    )
+    {
+        if (Guid.TryParse(reference, out var id))
+            return Task.FromResult(UmbracoResponse<Guid>.Success(id));
+        Resolved.Add((kind, reference));
+        return Task.FromResult(
+            References.TryGetValue((kind, reference), out var found)
+                ? UmbracoResponse<Guid>.Success(found)
+                : UmbracoResponse<Guid>.Failure(404, $"No {kind} '{reference}'.")
+        );
     }
 }

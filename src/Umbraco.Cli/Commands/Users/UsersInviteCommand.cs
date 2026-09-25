@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Users;
 
@@ -30,13 +31,12 @@ public static class UsersInviteCommand
             Description = "The user's login name. Defaults to the email address.",
         };
         // A new user must belong to at least one group, so the option is required.
-        var groupOpt = new Option<string[]>("--group")
-        {
-            Description =
-                "A user group to add the user to, by alias, name or id. Repeatable; at least one is required.",
-            Required = true,
-            AllowMultipleArgumentsPerToken = true,
-        };
+        var groupOpt = ListOption
+            .Strings(
+                "--group",
+                "User groups to add the user to, by alias, name or id. At least one is required."
+            )
+            .AsRequired();
         cmd.Add(emailOpt);
         cmd.Add(nameOpt);
         cmd.Add(msgOpt);

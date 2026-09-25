@@ -17,14 +17,20 @@ public static class DataTypesAdvancedCommands
     public static Command BuildIsUsed(CommandExecutor executor)
     {
         var cmd = new Command("is-used", "Check whether a data type is used by any content type.");
-        var idArg = new Argument<Guid>("id") { Description = "Data type ID." };
+        var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
                     "data-types.is-used",
-                    (client, c) => client.IsDataTypeUsedAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.IsDataTypeUsedAsync(id, c),
+                            c
+                        ),
                     ct
                 )
         );
@@ -40,7 +46,7 @@ public static class DataTypesAdvancedCommands
             "referenced-by",
             "List what references a data type (raw JSON; the references are a mixed set of kinds)."
         );
-        var idArg = new Argument<Guid>("id") { Description = "Data type ID." };
+        var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.SetAction(
@@ -49,10 +55,16 @@ public static class DataTypesAdvancedCommands
                     parseResult,
                     "data-types.referenced-by",
                     (client, c) =>
-                        client.GetDataTypeReferencedByRawAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id =>
+                                client.GetDataTypeReferencedByRawAsync(
+                                    id,
+                                    parseResult.GetValue(skipOpt),
+                                    parseResult.GetValue(takeOpt),
+                                    c
+                                ),
                             c
                         ),
                     ct
@@ -67,10 +79,10 @@ public static class DataTypesAdvancedCommands
     public static Command BuildCopy(CommandExecutor executor)
     {
         var cmd = new Command("copy", "Copy a data type, optionally under a target folder.");
-        var idArg = new Argument<Guid>("id") { Description = "Data type ID to copy." };
-        var targetOpt = new Option<Guid?>("--target")
+        var idArg = Reference.Argument(EntityKind.DataType);
+        var targetOpt = new Option<Guid?>("--parent", "--target")
         {
-            Description = "Destination folder UUID; omit to copy to the root.",
+            Description = "Destination folder UUID; omit to copy to the root. --target works too.",
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);
@@ -82,9 +94,10 @@ public static class DataTypesAdvancedCommands
                     parseResult,
                     "data-types.copy",
                     (client, c) =>
-                        client.CopyDataTypeAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(targetOpt),
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.CopyDataTypeAsync(id, parseResult.GetValue(targetOpt), c),
                             c
                         ),
                     ct
@@ -99,10 +112,10 @@ public static class DataTypesAdvancedCommands
     public static Command BuildMove(CommandExecutor executor)
     {
         var cmd = new Command("move", "Move a data type under a folder (or to the root).");
-        var idArg = new Argument<Guid>("id") { Description = "Data type ID to move." };
-        var targetOpt = new Option<Guid?>("--target")
+        var idArg = Reference.Argument(EntityKind.DataType);
+        var targetOpt = new Option<Guid?>("--parent", "--target")
         {
-            Description = "Destination folder UUID; omit to move to the root.",
+            Description = "Destination folder UUID; omit to move to the root. --target works too.",
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);
@@ -114,9 +127,10 @@ public static class DataTypesAdvancedCommands
                     parseResult,
                     "data-types.move",
                     (client, c) =>
-                        client.MoveDataTypeAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(targetOpt),
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.MoveDataTypeAsync(id, parseResult.GetValue(targetOpt), c),
                             c
                         ),
                     "Data type moved.",

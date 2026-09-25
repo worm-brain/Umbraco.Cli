@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
 
@@ -9,13 +10,9 @@ public static class WebhooksCreateCommand
     {
         var cmd = new Command("create", "Create a webhook.");
         var urlOpt = new Option<string>("--url") { Required = true };
-        var eventsOpt = new Option<string[]>("--events")
-        {
-            Description =
-                "Event names to subscribe to. Repeat --events for multiple: --events ContentPublished --events MediaSaved.",
-            Required = true,
-            AllowMultipleArgumentsPerToken = true,
-        };
+        var eventsOpt = ListOption
+            .Strings("--events", "Event names to subscribe to, e.g. ContentPublished,MediaSaved.")
+            .AsRequired();
         var idOpt = new Option<Guid?>("--id")
         {
             Description = "Optional client-supplied UUID for an idempotent create (#86).",

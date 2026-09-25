@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.PropertyTypes;
 
@@ -17,7 +18,7 @@ public static class PropertyTypeCommand
     {
         var cmd = new Command(
             "property-type",
-            "Inspect property-type usage.\n\nExample:\n  umbraco property-type is-used --content-type <id> --alias bodyText"
+            "Inspect property-type usage.\n\nExample:\n  umbraco property-type is-used --content-type blogPost --alias bodyText"
         );
         cmd.Add(BuildIsUsed(executor));
         return cmd;
@@ -26,11 +27,13 @@ public static class PropertyTypeCommand
     private static Command BuildIsUsed(CommandExecutor executor)
     {
         var cmd = new Command("is-used", "Check whether a property is in use.");
-        var contentTypeOpt = new Option<Guid>("--content-type")
-        {
-            Required = true,
-            Description = "The content type ID the property belongs to.",
-        };
+        var contentTypeOpt = Reference
+            .Option(
+                "--content-type",
+                EntityKind.DocumentType,
+                "The document type the property belongs to"
+            )
+            .AsRequired();
         var aliasOpt = new Option<string>("--alias")
         {
             Required = true,
@@ -44,9 +47,15 @@ public static class PropertyTypeCommand
                     parseResult,
                     "property-type.is-used",
                     (client, c) =>
-                        client.IsPropertyTypeUsedAsync(
-                            parseResult.GetValue(contentTypeOpt),
-                            parseResult.GetValue(aliasOpt)!,
+                        contentTypeOpt.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id =>
+                                client.IsPropertyTypeUsedAsync(
+                                    id,
+                                    parseResult.GetValue(aliasOpt)!,
+                                    c
+                                ),
                             c
                         ),
                     ct

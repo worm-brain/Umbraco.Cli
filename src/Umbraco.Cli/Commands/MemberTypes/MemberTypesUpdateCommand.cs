@@ -17,9 +17,9 @@ public static class MemberTypesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a member type by UUID. Omitted fields (and the type's properties) are preserved.\n\nExample:\n  umbraco member-types update 3f7a8b2e-... --name \"Author\" --icon icon-user"
+            "Update a member type by id or alias. Omitted fields (and the type's properties) are preserved.\n\nExample:\n  umbraco member-types update siteMember --name \"Author\" --icon icon-user"
         );
-        var idArg = new Argument<Guid>("id") { Description = "Member type ID." };
+        var idArg = Reference.Argument(EntityKind.MemberType);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var aliasOpt = new Option<string?>("--alias") { Description = "New alias." };
         var descOpt = new Option<string?>("--description") { Description = "New description." };
@@ -38,15 +38,21 @@ public static class MemberTypesUpdateCommand
                     parseResult,
                     "member-types.update",
                     (client, c) =>
-                        client.UpdateMemberTypeAsync(
-                            parseResult.GetValue(idArg),
-                            new UpdateMemberTypeRequest
-                            {
-                                Name = parseResult.GetValue(nameOpt),
-                                Alias = parseResult.GetValue(aliasOpt),
-                                Description = parseResult.GetValue(descOpt),
-                                Icon = parseResult.GetValue(iconOpt),
-                            },
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id =>
+                                client.UpdateMemberTypeAsync(
+                                    id,
+                                    new UpdateMemberTypeRequest
+                                    {
+                                        Name = parseResult.GetValue(nameOpt),
+                                        Alias = parseResult.GetValue(aliasOpt),
+                                        Description = parseResult.GetValue(descOpt),
+                                        Icon = parseResult.GetValue(iconOpt),
+                                    },
+                                    c
+                                ),
                             c
                         ),
                     "Member type updated.",

@@ -22,9 +22,7 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var id = Guid.TryParse(aliasOrId, out var parsed)
-                    ? parsed
-                    : await ResolveDocumentTypeIdAsync(aliasOrId, ct);
+                var id = await IdOfAsync(EntityKind.DocumentType, aliasOrId, ct);
                 return await ReadDocumentTypeAsync(id, ct);
             }
         );
@@ -38,9 +36,7 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var id = Guid.TryParse(nameOrId, out var parsed)
-                    ? parsed
-                    : await ResolveDataTypeIdAsync(nameOrId, ct);
+                var id = await IdOfAsync(EntityKind.DataType, nameOrId, ct);
                 return await ReadDataTypeAsync(id, ct);
             }
         );
@@ -55,9 +51,7 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var id = Guid.TryParse(aliasOrId, out var parsed)
-                    ? parsed
-                    : await ResolveDocumentTypeIdAsync(aliasOrId, ct);
+                var id = await IdOfAsync(EntityKind.DocumentType, aliasOrId, ct);
                 return await SendRawJsonAsync(
                     Method.PUT,
                     $"umbraco/management/api/v1/document-type/{id}",
@@ -77,9 +71,7 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var id = Guid.TryParse(nameOrId, out var parsed)
-                    ? parsed
-                    : await ResolveDataTypeIdAsync(nameOrId, ct);
+                var id = await IdOfAsync(EntityKind.DataType, nameOrId, ct);
                 return await SendRawJsonAsync(
                     Method.PUT,
                     $"umbraco/management/api/v1/data-type/{id}",
@@ -98,12 +90,9 @@ public sealed partial class UmbracoManagementClient
     {
         // Two calls, so the resolve is guarded separately: a name that matches nothing must read
         // as a 404 naming the name, not as whatever the write would have said about the id.
-        if (Guid.TryParse(nameOrId, out var id))
-            return await UpdateDataTypeAsync(id, request, ct);
-
-        var resolved = await GetDataTypeAsync(nameOrId, ct);
+        var resolved = await ResolveIdAsync(EntityKind.DataType, nameOrId, ct);
         return resolved.IsSuccess
-            ? await UpdateDataTypeAsync(resolved.Data!.Id, request, ct)
+            ? await UpdateDataTypeAsync(resolved.Data, request, ct)
             : UmbracoResponse<Empty>.FailureFrom(resolved);
     }
 
@@ -113,8 +102,8 @@ public sealed partial class UmbracoManagementClient
     /// <param name="nameOrId">The data type name or its id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved data-type id.</returns>
-    /// <exception cref="ApiException">No data type matches the name (mapped to a 404).</exception>
-    private async Task<Guid> ResolveDataTypeIdAsync(string nameOrId, CancellationToken ct)
+    /// <exception cref="ApiException">No data type matches the name (404), or several do (409).</exception>
+    private async Task<Guid> FindDataTypeIdAsync(string nameOrId, CancellationToken ct)
     {
         var search = await _api.Umbraco.Management.Api.V1.Item.DataType.Search.GetAsync(
             c =>
@@ -124,13 +113,13 @@ public sealed partial class UmbracoManagementClient
             },
             ct
         );
-        var match = (search?.Items ?? []).FirstOrDefault(d =>
-            string.Equals(d.Name, nameOrId, StringComparison.OrdinalIgnoreCase)
+        // Two data types can share a name; that is refused rather than guessed (#250 Phase 3).
+        return ReferenceMatch.Pick(
+            EntityKind.DataType,
+            nameOrId,
+            (search?.Items ?? [])
+                .Where(d => d.Id is not null)
+                .Select(d => new ReferenceCandidate(d.Id!.Value, null, d.Name))
         );
-        return match?.Id
-            ?? throw NotFound(
-                $"No data type found with the name '{nameOrId}'. Use 'umbraco data-types list' "
-                    + "to find one, or pass a data type id."
-            );
     }
 }

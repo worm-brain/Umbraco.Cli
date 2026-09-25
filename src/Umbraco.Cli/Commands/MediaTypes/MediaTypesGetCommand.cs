@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.MediaTypes;
 
@@ -12,16 +13,22 @@ public static class MediaTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a media type by UUID, including its alias and description.\n\nExample:\n  umbraco media-types get 3f7a8b2e-..."
+            "Get a media type by id or alias, including its alias and description.\n\nExample:\n  umbraco media-types get brochure"
         );
-        var idArg = new Argument<Guid>("id");
+        var idArg = Reference.Argument(EntityKind.MediaType);
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
                     "media-types.get",
-                    (client, c) => client.GetMediaTypeByIdAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.GetMediaTypeByIdAsync(id, c),
+                            c
+                        ),
                     ct
                 )
         );

@@ -47,18 +47,14 @@ public static class ContentApplyCommand
         };
         // #225: a prune deletes everything the snapshot omits, including content created on the
         // target (form submissions). These leave chosen types and subtrees alone.
-        var excludeTypeOpt = new Option<string[]>("--exclude-type")
-        {
-            Description =
-                "With --prune, never delete documents of this document type (alias or id). Repeatable.",
-            AllowMultipleArgumentsPerToken = true,
-        };
-        var excludeRootOpt = new Option<Guid[]>("--exclude-root")
-        {
-            Description =
-                "With --prune, never delete this document or anything under it (id). Repeatable.",
-            AllowMultipleArgumentsPerToken = true,
-        };
+        var excludeTypeOpt = ListOption.Strings(
+            "--exclude-type",
+            "With --prune, never delete documents of this document type (alias or id)."
+        );
+        var excludeRootOpt = ListOption.Guids(
+            "--exclude-root",
+            "With --prune, never delete this document or anything under it (id)."
+        );
         // #223: carrying publish state is the default, because the snapshot promises the target
         // will match it; this is the way out for a target whose publishing is done by hand.
         var noStateOpt = new Option<bool>("--no-state")

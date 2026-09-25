@@ -33,7 +33,7 @@ public static class MediaUploadCommand
         {
             DefaultValueFactory = _ => "Image",
             Description =
-                "Media type to create the item as: a media type id (GUID) or name (e.g. Image, File). Defaults to Image.",
+                "Media type to create the item as: a media type id, alias or name (e.g. image, Image, File). Defaults to Image.",
         };
         var idOpt = new Option<Guid?>("--id")
         {

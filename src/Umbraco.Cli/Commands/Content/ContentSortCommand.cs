@@ -1,49 +1,99 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.Content;
 
 /// <summary>Wires the <c>content sort</c> command (issue #88).</summary>
 public static class ContentSortCommand
 {
-    /// <summary>Builds the <c>content sort</c> command (reorder a parent's child content items).</summary>
+    /// <summary>
+    /// Builds the <c>content sort</c> command: reorder a parent's children, either into an explicit
+    /// order (<c>--children</c>) or by a field (<c>--by</c>, #232).
+    /// </summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
             "sort",
-            "Reorder a parent's child content items. The children are set to the given order (first = top).\n\nExamples:\n  umbraco content sort --parent 1a2b3c4d-... --children 3f7a... 9c4d... 2e6f...\n  umbraco content sort --children 3f7a... 9c4d...   # reorder items at the content root"
+            "Reorder a parent's child content items, into the order given (first = top) or by a field.\n\n"
+                + "Examples:\n"
+                + "  umbraco content sort --parent 1a2b3c4d-... --children 3f7a...,9c4d...,2e6f...\n"
+                + "  umbraco content sort --parent 1a2b3c4d-... --by publishDate --desc   # newest first\n"
+                + "  umbraco content sort --by name   # the content root, A to Z"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {
             Description =
                 "Parent ID whose children to reorder. Reorders the content root if omitted.",
         };
-        // Ordered, multi-valued: the position in --children becomes the sort order (index 0, 1, ...).
-        var childrenOpt = new Option<Guid[]>("--children")
-        {
-            Description = "Child content IDs in the desired order (first gets sort order 0).",
-            AllowMultipleArgumentsPerToken = true,
-            Required = true,
-        };
         cmd.Add(parentOpt);
-        cmd.Add(childrenOpt);
+        var sort = ChildSort.AddTo(
+            cmd,
+            "content",
+            SortKey.Name,
+            SortKey.CreateDate,
+            SortKey.UpdateDate,
+            SortKey.PublishDate
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
                     "content.sort",
-                    (client, c) =>
-                        client.SortContentAsync(
-                            parseResult.GetValue(parentOpt),
-                            parseResult.GetValue(childrenOpt) ?? [],
+                    async (client, c) =>
+                    {
+                        var parent = parseResult.GetValue(parentOpt);
+                        var order = await sort.OrderAsync(
+                            parseResult,
+                            (skip, take) => client.GetContentAsync(parent, skip, take, c),
+                            (child, key) => CandidateAsync(client, child, key, c),
                             c
-                        ),
+                        );
+                        return order.IsSuccess
+                            ? await client.SortContentAsync(parent, order.Data!, c)
+                            : UmbracoResponse<Empty>.FailureFrom(order);
+                    },
                     "Content children reordered.",
                     ct
                 )
         );
 
         return cmd;
+    }
+
+    /// <summary>
+    /// A child as a sort candidate. The listing carries the name; the dates need a read of the
+    /// child, because the document tree does not carry them. A culture-variant document is dated
+    /// by its first variant.
+    /// </summary>
+    /// <param name="client">The client.</param>
+    /// <param name="child">The listed child.</param>
+    /// <param name="key">What the children are ordered by.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The candidate, or the read failure.</returns>
+    private static async Task<UmbracoResponse<SortCandidate>> CandidateAsync(
+        IUmbracoManagementClient client,
+        ContentItemResponse child,
+        SortKey key,
+        CancellationToken ct
+    )
+    {
+        if (key == SortKey.Name)
+            return UmbracoResponse<SortCandidate>.Success(new SortCandidate(child.Id, child.Name));
+
+        var full = await client.GetContentByIdAsync(child.Id, ct);
+        if (!full.IsSuccess)
+            return UmbracoResponse<SortCandidate>.FailureFrom(full);
+        var variant = full.Data?.Variants?.FirstOrDefault();
+        return UmbracoResponse<SortCandidate>.Success(
+            new SortCandidate(
+                child.Id,
+                child.Name,
+                variant?.CreateDate,
+                variant?.UpdateDate,
+                variant?.PublishDate
+            )
+        );
     }
 }

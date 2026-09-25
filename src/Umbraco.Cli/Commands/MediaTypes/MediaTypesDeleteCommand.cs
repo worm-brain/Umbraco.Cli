@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
@@ -18,12 +19,12 @@ public static class MediaTypesDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a media type by UUID.\n\n"
+            "Delete a media type by id or alias.\n\n"
                 + "Umbraco deletes every media item of this type along with it, and cannot report "
                 + "how many there are, so the delete is refused unless --force is given.\n\n"
-                + "Example:\n  umbraco media-types delete 3f7a8b2e-... --force --yes"
+                + "Example:\n  umbraco media-types delete brochure --force --yes"
         );
-        var idArg = new Argument<Guid>("id");
+        var idArg = Reference.Argument(EntityKind.MediaType);
         cmd.Add(idArg);
         InUseGuard.Protect(
             cmd,
@@ -39,7 +40,13 @@ public static class MediaTypesDeleteCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "media-types.delete",
-                    (client, c) => client.DeleteMediaTypeAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.DeleteMediaTypeAsync(id, c),
+                            c
+                        ),
                     "Media type deleted.",
                     ct
                 )

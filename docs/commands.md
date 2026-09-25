@@ -86,6 +86,19 @@ faked with a large `--take`, which would be the same silent cap further out.
 
 ---
 
+### Lists and references work the same everywhere
+
+- **A list option takes commas, spaces or repeats.** `--cultures en-US,da-DK`,
+  `--cultures en-US da-DK` and `--cultures en-US --cultures da-DK` are the same. This holds for
+  every option that takes several values (`--cultures`, `--children`, `--group`, `--ids`,
+  `--user`, `--section`, `--language`, `--fallback-permission`, `--exclude-type`,
+  `--exclude-root`, `--id`, `--level`, `--events`) - but not for the `key=value` options
+  (`--value`, `--values`, `--domain`), whose values may contain a comma.
+- **An item can be named instead of given by id** wherever the syntax below says `<id|alias>`,
+  `<id|name>` or `<key|id>`. An alias is matched first, then a name, ignoring case (document types
+  match their alias only). A name that matches more than one item is refused, and the error lists
+  each match's id.
+
 ## Discovery: `commands` and `--schema`
 
 ```bash
@@ -131,8 +144,8 @@ umbraco content rollback <version-id> [--culture <code>]   # restore a version
 umbraco content trash <id>                                 # move to recycle bin (reversible)
 umbraco content restore <id> [--parent <id>]               # restore from recycle bin
 umbraco content empty-recycle-bin                          # permanent; needs --yes
-umbraco content move <id> [--parent <id>]
-umbraco content sort [--parent <id>] --children <id> <id> ...   # reorder a parent's children (order given = sort order)
+umbraco content move <id> [--parent <id>]                  # --target works too
+umbraco content sort [--parent <id>] (--children <id>,<id>... | --by name|createDate|updateDate|publishDate [--desc])   # reorder a parent's children
 umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # returns the copy, with its new id
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
 umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
@@ -290,10 +303,10 @@ umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>]   
 umbraco document-blueprint get <id>                        # raw JSON (full fidelity)
 umbraco document-blueprint scaffold <id>                   # pre-filled create template Umbraco would use
 umbraco document-blueprint create --document-type <alias|uuid> --name <name> [--parent <folder>] [--json-body <file>] [--schema] [--id <guid>]
-umbraco document-blueprint update <id> [--name <name>] [--json-body <file>] [--schema]
+umbraco document-blueprint update <id> [--name <name>] [--json-body <file>] [--replace] [--schema]   # merges, like content update
 umbraco document-blueprint delete <id>                     # needs --yes non-interactively
 umbraco document-blueprint from-document <documentId> --name <name> [--parent <folder>] [--id <guid>]
-umbraco document-blueprint move <id> [--target <folder>]   # omit --target to move to the root
+umbraco document-blueprint move <id> [--parent <folder>]   # omit --parent to move to the root; --target works too
 
 # folder sub-noun (organise blueprints in the tree):
 umbraco document-blueprint folder get <id>
@@ -308,16 +321,16 @@ umbraco document-blueprint folder delete <id>              # needs --yes non-int
 umbraco media list [--parent <id>]
 umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
-umbraco media get <id>                                     # includes urls[] and file metadata in values[]
-umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>] [--id <guid>] [--value alias=value]...  # staged via temporary-file
+umbraco media get <id>                                     # includes urls[] and file metadata in values[]; mediaType.alias is the real alias
+umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <id|alias|name>] [--id <guid>] [--value alias=value]...  # staged via temporary-file
 # --id keeps the item's GUID across instances (content references media by id);
 # --value sets other properties, e.g. a custom media type's required fields
 umbraco media delete <id>                                  # permanent; needs --yes
 umbraco media trash <id>                                   # move to recycle bin (reversible)
 umbraco media restore <id> [--parent <id>]
 umbraco media empty-recycle-bin                            # permanent; needs --yes
-umbraco media move <id> [--parent <id>]
-umbraco media sort [--parent <id>] --children <id> <id> ...   # reorder a parent folder's children
+umbraco media move <id> [--parent <id>]                    # --target works too
+umbraco media sort [--parent <id>] (--children <id>,<id>... | --by name|createDate|updateDate [--desc])   # reorder a folder's children
 
 # folder sub-noun (organise uploads):
 umbraco media folder create --name <name> [--parent <id>] [--id <guid>]
@@ -331,9 +344,9 @@ deletes with the usual `media` verbs, and its id is what `media upload --parent`
 
 ```bash
 umbraco media-types list
-umbraco media-types get <id>
+umbraco media-types get <id|alias|name>
 umbraco media-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root]
-umbraco media-types delete <id> --force                    # deletes every media item of the type too; --force always required, plus --yes non-interactively
+umbraco media-types delete <id|alias|name> --force                  # deletes every media item of the type too; --force always required, plus --yes non-interactively
 ```
 
 ## `content-types`
@@ -345,7 +358,7 @@ umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--i
 umbraco content-types create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns {id, name, alias}
 umbraco content-types update <alias|id> --json-body <file> # full replace
 umbraco content-types create --schema                      # print a real document type as a worked example (needs a host)
-umbraco content-types delete <id> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
+umbraco content-types delete <id|alias> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
 ```
 
 ### Authoring a document type with properties
@@ -377,11 +390,11 @@ umbraco data-types create --json-body <file> [--id <guid>]  # full body, includi
 umbraco data-types update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
 umbraco data-types update <name|id> --json-body <file>     # full replace, the only way to set `values`
 umbraco data-types create --schema                         # print a real data type as a worked example (needs a host)
-umbraco data-types delete <id> [--force]                   # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
-umbraco data-types is-used <id>                            # whether any content type uses it
-umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
-umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root; returns the copy
-umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root
+umbraco data-types delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
+umbraco data-types is-used <id|name>                       # whether any content type uses it
+umbraco data-types referenced-by <id|name> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
+umbraco data-types copy <id|name> [--parent <folder>]      # omit --parent to copy to the root; returns the copy; --target works too
+umbraco data-types move <id|name> [--parent <folder>]      # omit --parent to move to the root; --target works too
 
 # folder sub-noun (organise data types in the tree):
 umbraco data-types folder get <id>
@@ -425,20 +438,20 @@ umbraco languages delete <iso-code>                        # needs --yes non-int
 ## `templates`
 
 ```bash
-umbraco templates list
-umbraco templates get <alias>
+umbraco templates list                                     # every template, nested ones too, with its alias
+umbraco templates get <id|alias>
 umbraco templates create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
-umbraco templates update <id> --name <name> --alias <alias> [--content <razor> | --content-file <file>]
-umbraco templates delete <id>                              # needs --yes non-interactively
+umbraco templates update <id|alias> [--name <name>] [--alias <alias>] [--content <razor> | --content-file <file>]   # omitted fields are kept
+umbraco templates delete <id|alias>                        # needs --yes non-interactively
 ```
 
 ## `members`
 
 ```bash
 umbraco members list [--group <name>]                      # filters by member group
-umbraco members get <id>                                   # UUID only; includes groups and property values
+umbraco members get <id>                                   # UUID only; groups as [{id, name}], memberType.alias, property values
 umbraco members create --email <email> --name <name> --type <alias>
-umbraco members update <id> [--email <email>] [--name <name>] [--approved] [--username <name>] [--group <id> ...] [--value alias=value ...] [--new-password <pw>] [--unlock]
+umbraco members update <id> [--email <email>] [--name <name>] [--approved] [--username <name>] [--group <name|id> ...] [--value alias=value ...] [--new-password <pw>] [--unlock]
 umbraco members delete <id>                                # needs --yes non-interactively
 ```
 
@@ -458,27 +471,27 @@ dropped.
 
 ```bash
 umbraco member-types list
-umbraco member-types get <id>
+umbraco member-types get <id|alias>
 umbraco member-types create --name <name> --alias <alias> [--icon <alias>]
-umbraco member-types update <id> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
-umbraco member-types delete <id> [--force]                 # refused while it has members unless --force (deletes them); --yes non-interactively
+umbraco member-types update <id|alias> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
+umbraco member-types delete <id|alias> [--force]               # refused while it has members unless --force (deletes them); --yes non-interactively
 ```
 
 ## `member-groups`
 
 ```bash
 umbraco member-groups list
-umbraco member-groups get <id>
+umbraco member-groups get <id|name>
 umbraco member-groups create --name <name>
-umbraco member-groups update <id> --name <name>
-umbraco member-groups delete <id>                          # needs --yes non-interactively
+umbraco member-groups update <id|name> --name <name>
+umbraco member-groups delete <id|name>                     # needs --yes non-interactively
 ```
 
 ## `users`
 
 ```bash
 umbraco users list
-umbraco users get <id|email>
+umbraco users get <id>
 umbraco users invite --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--message <text>]   # --group repeatable, at least one
 ```
 
@@ -489,13 +502,13 @@ the invite is refused and no user is created. `--username` defaults to the email
 
 ```bash
 umbraco user-groups list
-umbraco user-groups get <id>
-umbraco user-groups create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access] [--media-root-access] [--id <guid>]
-umbraco user-groups update <id> --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access] [--media-root-access]
-umbraco user-groups delete <id>                            # needs --yes non-interactively
-umbraco user-groups delete-many --ids <id>...              # bulk; needs --yes non-interactively
-umbraco user-groups add-users <id> --user <id>...          # --user repeatable
-umbraco user-groups remove-users <id> --user <id>...       # --user repeatable
+umbraco user-groups get <id|alias|name>
+umbraco user-groups create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--id <guid>]
+umbraco user-groups update <id|alias|name> --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>]
+umbraco user-groups delete <id|alias|name>                # needs --yes non-interactively
+umbraco user-groups delete-many --ids <id|alias|name>...  # bulk; needs --yes non-interactively
+umbraco user-groups add-users <id|alias|name> --user <id>...          # --user repeatable
+umbraco user-groups remove-users <id|alias|name> --user <id>...       # --user repeatable
 ```
 
 Granular per-node permissions are a deferred follow-up: `create`/`update` set the scalar and
@@ -510,7 +523,7 @@ Key/value data scoped to the **authenticated** user.
 umbraco user-data list [--group <group>] [--identifier <id>] [--skip <n>] [--take <n>]
 umbraco user-data get <key>
 umbraco user-data create --group <group> --identifier <id> --value <value> [--key <guid>]
-umbraco user-data update --key <key> --group <group> --identifier <id> --value <value>
+umbraco user-data update <key> --group <group> --identifier <id> --value <value>
 umbraco user-data delete <key>                             # needs --yes non-interactively
 ```
 
@@ -518,12 +531,12 @@ umbraco user-data delete <key>                             # needs --yes non-int
 
 ```bash
 umbraco dictionary list
-umbraco dictionary tree [--parent <id>]                    # browse the hierarchy: root, or children of --parent
-umbraco dictionary get <key>
-umbraco dictionary create --key <key> [--values en-US=Hello --values da-DK=Hej] [--parent <id>]   # --parent creates under an item
-umbraco dictionary update <id> [--key <key>] [--values en-US=Home ...]   # merges by ISO code
-umbraco dictionary move <id> [--target <id>]               # reparent; omit --target to move to the root
-umbraco dictionary delete <id>                             # needs --yes non-interactively
+umbraco dictionary tree [--parent <key|id>]                # browse the hierarchy: root, or children of --parent
+umbraco dictionary get <key|id>
+umbraco dictionary create --key <key> [--values en-US=Hello --values da-DK=Hej] [--parent <key|id>]   # --parent creates under an item
+umbraco dictionary update <key|id> [--key <key>] [--values en-US=Home ...]   # merges by ISO code
+umbraco dictionary move <key|id> [--parent <key|id>]       # reparent; omit --parent to move to the root; --target works too
+umbraco dictionary delete <key|id>                         # needs --yes non-interactively
 ```
 
 **Use full ISO codes in `--values`** (`en-US`, not `en`). Umbraco matches them against the
@@ -668,8 +681,8 @@ umbraco indexer list [--skip <n>] [--take <n>]             # Examine indexes, wi
 umbraco indexer get <name>
 umbraco indexer rebuild <name>                             # expensive (POST, --readonly-blocked); needs --yes
 
-umbraco searcher list [--skip <n>] [--take <n>]
-umbraco searcher query <name> --term <term> [--skip <n>] [--take <n>]
+umbraco searcher list [--skip <n>] [--take <n>]            # registered multi-searchers; often empty (Umbraco 17)
+umbraco searcher query <index|searcher> --term <term> [--skip <n>] [--take <n>]   # e.g. ExternalIndex; an index's searcherName is mapped to the index
 ```
 
 ## `imaging` (read-only)
@@ -681,7 +694,7 @@ umbraco imaging resize-urls --id <guid>... [--width <px>] [--height <px>] [--mod
 ## `property-type` (read-only)
 
 ```bash
-umbraco property-type is-used --content-type <id> --alias <alias>
+umbraco property-type is-used --content-type <id|alias> --alias <alias>
 ```
 
 ## `schema` (export / diff / apply)

@@ -119,6 +119,8 @@ public class CommandParseTests
         root.Add(PropertyTypeCommand.Build(executor));
         root.Add(Umbraco.Cli.Commands.Schema.SchemaCommand.Build(executor));
 
+        // As Program.cs does, so the parse errors are the ones a user sees.
+        Umbraco.Cli.Infrastructure.ValueParsing.Apply(root);
         return root;
     }
 
@@ -532,6 +534,23 @@ public class CommandParseTests
     [InlineData("templates create --name Home --alias home")]
     [InlineData("templates update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Home --alias home")]
     [InlineData("templates delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("templates delete blogPost")] // #206: <id|alias>
+    [InlineData("templates update blogPost --name \"Blog post\"")]
+    [InlineData("media-types get brochure")] // #221
+    [InlineData("media-types delete brochure --force")]
+    [InlineData("member-types get siteMember")] // #213
+    [InlineData("member-types update siteMember --name Author")]
+    [InlineData("member-types delete siteMember")]
+    [InlineData("content-types delete blogPost --force")]
+    [InlineData("data-types delete \"Homepage Blocks\"")]
+    [InlineData("data-types is-used Tags")] // data types by name everywhere
+    [InlineData("data-types copy Tags --target 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("property-type is-used --content-type blogPost --alias bodyText")]
+    [InlineData("user-groups get blogEditors")] // #217
+    [InlineData("user-groups delete-many --ids blogEditors newsEditors")]
+    [InlineData(
+        "user-groups create --alias blogEditors --name \"Blog editors\" --document-start-node 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
     [InlineData("dictionary delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("dictionary tree")]
     [InlineData("dictionary tree --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
@@ -541,6 +560,38 @@ public class CommandParseTests
         "dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 1a2b3c4d-1234-5678-abcd-ef0123456789"
     )]
     [InlineData("dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --target optional (to root)
+    [InlineData(
+        "content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789,1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )] // #232
+    [InlineData(
+        "content sort --parent 3f7a8b2e-1234-5678-abcd-ef0123456789 --by publishDate --desc"
+    )]
+    [InlineData("media sort --by name")]
+    [InlineData("content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --cultures en-US,da-DK")] // #231
+    [InlineData(
+        "content move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )] // #242: --target and --parent both work
+    [InlineData(
+        "media move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("dictionary move Blog.Tags --parent Blog")]
+    [InlineData(
+        "data-types move 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "document-blueprint move 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "user-data update 3f7a8b2e-1234-5678-abcd-ef0123456789 --group g --identifier i --value v"
+    )] // #242: positional key
+    [InlineData(
+        "document-blueprint update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name X --replace"
+    )]
+    [InlineData("dictionary move Blog.Tags --target Blog")] // #211: keys everywhere
+    [InlineData("dictionary update Blog.MinRead --values da-DK=Min")]
+    [InlineData("dictionary delete Blog.MinRead")]
+    [InlineData("dictionary tree --parent Blog")]
+    [InlineData("dictionary create --key Blog.MinRead --parent Blog")]
     [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name \"Jane Roe\"")]
     [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --approved")]
     [InlineData(
@@ -740,13 +791,17 @@ public class CommandParseTests
     [InlineData("content get not-a-uuid")]
     [InlineData("content delete not-a-uuid")]
     [InlineData("media-types create --name OnlyName")] // missing required --alias
-    [InlineData("media-types get not-a-uuid")]
     [InlineData("member-types create --alias onlyAlias")] // missing required --name
-    [InlineData("member-types get not-a-uuid")]
-    [InlineData("member-types update not-a-uuid --name Author")] // id must be a uuid
+    [InlineData("user-data update --group g --identifier i --value v")] // #242: no key at all
+    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789 --by name")] // #232: an explicit order and a field conflict
+    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789 --desc")] // --desc needs --by
+    [InlineData("media sort --by publishDate")] // media has no publish date
+    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789,nope")]
     [InlineData("user-groups create --name NoAlias")] // missing required --alias
     [InlineData("user-groups create --alias noName")] // missing required --name
-    [InlineData("user-groups get not-a-uuid")]
+    [InlineData(
+        "user-groups update editors --alias editors --name Editors --document-root-access --document-start-node 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )] // #217: a start node and root access conflict
     [InlineData("user-groups delete-many")] // missing required --ids
     [InlineData("user-groups add-users 3f7a8b2e-1234-5678-abcd-ef0123456789")] // missing required --user
     [InlineData("user-data create --group g --identifier i")] // missing required --value
@@ -773,7 +828,7 @@ public class CommandParseTests
     [InlineData("imaging resize-urls")] // missing required --id
     [InlineData("imaging resize-urls --id 3f7a8b2e-1234-5678-abcd-ef0123456789 --mode Nonsense")] // invalid enum
     [InlineData("property-type is-used --alias bodyText")] // missing required --content-type
-    [InlineData("data-types is-used not-a-uuid")]
+    [InlineData("data-types folder get not-a-uuid")] // folders have no name lookup
     [InlineData("data-types folder create")] // missing required --name
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]

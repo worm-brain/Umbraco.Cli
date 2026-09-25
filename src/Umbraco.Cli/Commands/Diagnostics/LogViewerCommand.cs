@@ -34,12 +34,10 @@ public static class LogViewerCommand
             "log",
             "List log messages, optionally filtered by level/date/expression."
         );
-        var levelOpt = new Option<LogLevel[]>("--level")
-        {
-            AllowMultipleArgumentsPerToken = true,
-            Description =
-                "Filter by level (Verbose/Debug/Information/Warning/Error/Fatal); repeat for several.",
-        };
+        var levelOpt = ListOption.Enums<LogLevel>(
+            "--level",
+            "Filter by level (Verbose/Debug/Information/Warning/Error/Fatal)."
+        );
         var filterOpt = new Option<string?>("--filter")
         {
             Description = "A filter expression applied to the messages.",
