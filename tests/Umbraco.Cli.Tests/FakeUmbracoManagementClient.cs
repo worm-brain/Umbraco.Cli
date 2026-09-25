@@ -2105,14 +2105,16 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
-    public Task<UmbracoResponse<Empty>> CopyDataTypeAsync(
+    public Task<UmbracoResponse<DataTypeResponse>> CopyDataTypeAsync(
         Guid id,
         Guid? targetId,
         CancellationToken ct = default
     )
     {
         DataTypesCopied.Add((id, targetId));
-        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+        return Task.FromResult(
+            UmbracoResponse<DataTypeResponse>.Success(new DataTypeResponse { Id = Guid.NewGuid() })
+        );
     }
 
     public Task<UmbracoResponse<Empty>> MoveDataTypeAsync(

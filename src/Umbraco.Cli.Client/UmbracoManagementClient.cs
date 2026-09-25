@@ -936,7 +936,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                             ),
                         ct
                     );
-                return ExtractIdFromLocation(capture);
+                return await CreatedIdAsync(capture, ct);
             }
         );
 
@@ -965,17 +965,63 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <summary>
     /// Reads the new resource id from a captured <c>201</c> response's <c>Location</c> header (issue
     /// #91): the id is the last path segment. Returns null when there is no location or it is not a GUID.
+    /// <para>
+    /// Attaching a <see cref="NativeResponseHandler"/> makes Kiota hand the response over as it is,
+    /// <b>skipping its error mapping</b>, so a rejected request would otherwise come back as "created,
+    /// but no Location". A non-success status is therefore raised here as the
+    /// <see cref="ApiException"/> the error mapping would have raised, carrying the status and the
+    /// problem-details <c>detail</c>/<c>title</c>, for <see cref="GuardedApiAsync{T}"/> to map.
+    /// </para>
     /// </summary>
     /// <param name="capture">The native response handler that captured the raw HTTP response.</param>
-    /// <returns>The new document id, or null when it cannot be read.</returns>
-    private static Guid? ExtractIdFromLocation(NativeResponseHandler capture)
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The new resource id, or null when it cannot be read.</returns>
+    /// <exception cref="ApiException">The response was not a success.</exception>
+    private static async Task<Guid?> CreatedIdAsync(
+        NativeResponseHandler capture,
+        CancellationToken ct
+    )
     {
         if (capture.Value is not HttpResponseMessage response)
             return null;
+        if (!response.IsSuccessStatusCode)
+            throw new ApiException(await ProblemMessageAsync(response, ct))
+            {
+                ResponseStatusCode = (int)response.StatusCode,
+            };
         var lastSegment = response
             .Headers.Location?.OriginalString.Split('/', StringSplitOptions.RemoveEmptyEntries)
             .LastOrDefault();
         return Guid.TryParse(lastSegment, out var parsed) ? parsed : null;
+    }
+
+    /// <summary>
+    /// The <c>detail</c> (else <c>title</c>) of a problem-details error body, or an empty string when
+    /// the body has neither - <see cref="DescribeApiException"/> turns an empty message into a
+    /// readable one for the status.
+    /// </summary>
+    /// <param name="response">The failed response.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The server's message, or an empty string.</returns>
+    private static async Task<string> ProblemMessageAsync(
+        HttpResponseMessage response,
+        CancellationToken ct
+    )
+    {
+        try
+        {
+            var body = JsonNode.Parse(await response.Content.ReadAsStringAsync(ct));
+            return (string?)body?["detail"] ?? (string?)body?["title"] ?? "";
+        }
+        catch (JsonException)
+        {
+            return "";
+        }
+        catch (InvalidOperationException)
+        {
+            // A detail/title that is not a string.
+            return "";
+        }
     }
 
     /// <summary>How often <c>--wait</c> polls the publish-with-descendants task (issue #90).</summary>

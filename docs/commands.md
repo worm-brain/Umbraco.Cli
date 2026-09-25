@@ -340,7 +340,7 @@ umbraco media-types delete <id> --force                    # deletes every media
 umbraco content-types list
 umbraco content-types get <alias|id>                       # includes properties, groups, templates
 umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
-umbraco content-types create --json-body <file>            # full Management API body: properties, groups, compositions
+umbraco content-types create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns {id, name, alias}
 umbraco content-types update <alias|id> --json-body <file> # full replace
 umbraco content-types create --schema                      # print a real document type as a worked example (needs a host)
 umbraco content-types delete <id> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
@@ -371,14 +371,14 @@ the id.
 umbraco data-types list                                    # includes editorAlias (one read per item)
 umbraco data-types get <name|id>                           # by NAME (a data type has no alias); includes its configuration
 umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
-umbraco data-types create --json-body <file>               # full body, including the editor's `values` configuration
+umbraco data-types create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns {id, name}
 umbraco data-types update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
 umbraco data-types update <name|id> --json-body <file>     # full replace, the only way to set `values`
 umbraco data-types create --schema                         # print a real data type as a worked example (needs a host)
 umbraco data-types delete <id> [--force]                   # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-types is-used <id>                            # whether any content type uses it
 umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
-umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root
+umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root; returns the copy
 umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root
 
 # folder sub-noun (organise data types in the tree):

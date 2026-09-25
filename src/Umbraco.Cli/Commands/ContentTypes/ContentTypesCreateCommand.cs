@@ -34,7 +34,9 @@ public static class ContentTypesCreateCommand
         var allowRootOpt = new Option<bool>("--allow-at-root") { DefaultValueFactory = _ => false };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description =
+                "Optional client-supplied UUID for an idempotent create (#86). With --json-body it "
+                + "fills the body's id, and must match it if the body has one.",
         };
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);
@@ -75,15 +77,16 @@ public static class ContentTypesCreateCommand
                     );
 
                 if (body.HasBody(parseResult))
-                    return executor.RunMessageAsync(
+                    return executor.RunObjectAsync(
                         parseResult,
                         "content-types.create",
                         async (client, c) =>
-                            await client.CreateDocumentTypeRawAsync(
+                            await RawBodyCommand.CreateAsync(
                                 await RawBodyCommand.ReadBodyAsync(body, parseResult, c),
+                                parseResult.GetValue(idOpt),
+                                client.CreateDocumentTypeRawAsync,
                                 c
                             ),
-                        "Document type created.",
                         ct
                     );
 

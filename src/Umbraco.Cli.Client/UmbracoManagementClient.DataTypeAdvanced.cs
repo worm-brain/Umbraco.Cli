@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.Kiota.Abstractions;
 using Gen = Umbraco.Cli.Client.Generated.Models;
 
 namespace Umbraco.Cli.Client;
@@ -45,15 +46,19 @@ public sealed partial class UmbracoManagementClient
         );
 
     /// <inheritdoc />
-    public Task<UmbracoResponse<Empty>> CopyDataTypeAsync(
+    public async Task<UmbracoResponse<DataTypeResponse>> CopyDataTypeAsync(
         Guid id,
         Guid? targetId,
         CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
+    )
+    {
+        // The server assigns the copy's id and returns it only in the 201 Location header, which
+        // the generated method throws away - the same shape as the document copy (#91, #247).
+        var copied = await GuardedApiAsync<Guid?>(
             ct,
             async () =>
             {
+                var capture = new NativeResponseHandler();
                 await _api
                     .Umbraco.Management.Api.V1.DataType[id]
                     .Copy.PostAsync(
@@ -63,11 +68,30 @@ public sealed partial class UmbracoManagementClient
                                 ? new Gen.ReferenceByIdModel { Id = t }
                                 : null,
                         },
-                        cancellationToken: ct
+                        config =>
+                            config.Options.Add(
+                                new ResponseHandlerOption { ResponseHandler = capture }
+                            ),
+                        ct
                     );
-                return Empty.Value;
+                return await CreatedIdAsync(capture, ct);
             }
         );
+
+        if (!copied.IsSuccess)
+            return UmbracoResponse<DataTypeResponse>.FailureFrom(copied);
+        if (copied.Data is not { } newId)
+            return UmbracoResponse<DataTypeResponse>.Failure(
+                502,
+                "The data type was copied but the server did not return the new id (no Location header)."
+            );
+
+        // Best-effort hydration, as for a document copy: a failed read still reports the id.
+        var hydrated = await GetDataTypeByIdAsync(newId, ct);
+        return hydrated is { IsSuccess: true, Data: { } data }
+            ? UmbracoResponse<DataTypeResponse>.Success(data)
+            : UmbracoResponse<DataTypeResponse>.Success(new DataTypeResponse { Id = newId });
+    }
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> MoveDataTypeAsync(

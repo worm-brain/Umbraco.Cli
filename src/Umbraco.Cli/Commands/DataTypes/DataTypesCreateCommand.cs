@@ -32,7 +32,9 @@ public static class DataTypesCreateCommand
         };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description =
+                "Optional client-supplied UUID for an idempotent create (#86). With --json-body it "
+                + "fills the body's id, and must match it if the body has one.",
         };
         cmd.Add(nameOpt);
         cmd.Add(editorAliasOpt);
@@ -68,15 +70,16 @@ public static class DataTypesCreateCommand
                     );
 
                 if (body.HasBody(parseResult))
-                    return executor.RunMessageAsync(
+                    return executor.RunObjectAsync(
                         parseResult,
                         "data-types.create",
                         async (client, c) =>
-                            await client.CreateDataTypeRawAsync(
+                            await RawBodyCommand.CreateAsync(
                                 await RawBodyCommand.ReadBodyAsync(body, parseResult, c),
+                                parseResult.GetValue(idOpt),
+                                client.CreateDataTypeRawAsync,
                                 c
                             ),
-                        "Data type created.",
                         ct
                     );
 

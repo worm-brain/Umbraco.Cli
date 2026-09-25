@@ -111,7 +111,7 @@ public interface IDataTypeClient
     /// <param name="targetId">The destination folder id, or null for the root.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> CopyDataTypeAsync(
+    Task<UmbracoResponse<DataTypeResponse>> CopyDataTypeAsync(
         Guid id,
         Guid? targetId,
         CancellationToken ct = default
