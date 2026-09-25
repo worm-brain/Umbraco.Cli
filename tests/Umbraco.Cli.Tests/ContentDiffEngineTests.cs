@@ -136,7 +136,7 @@ public class ContentDiffEngineTests
 
         var changed = Assert.Single(diff.Changed);
         Assert.False(changed.BodyChanged, "the body is the same");
-        Assert.Equal([null], changed.State.Publish);
+        Assert.Same(PublishScope.WholeDocument, changed.State.Publish);
     }
 
     [Fact]
@@ -153,7 +153,28 @@ public class ContentDiffEngineTests
 
         var diff = ContentDiffEngine.Compare(Snap(doc), Snap());
 
-        Assert.Equal(["en-US"], Assert.Single(diff.Added).State.Publish);
+        Assert.Equal(["en-US"], Assert.Single(diff.Added).State.Publish!.Cultures!);
+    }
+
+    [Fact]
+    public void Compare_ChangedDocument_CarriesTheNormalisedBodyForApply()
+    {
+        // #224: the body apply sends is the one the diff compared, without the source's dates.
+        var id = Guid.NewGuid();
+        var desired = new ContentNode
+        {
+            Id = id,
+            Body = JsonNode.Parse(
+                $$"""{"id":"{{id}}","isTrashed":false,"variants":[{"culture":null,"name":"New","updateDate":"2026-09-01T00:00:00Z"}]}"""
+            )!,
+        };
+
+        var diff = ContentDiffEngine.Compare(Snap(desired), Snap(Doc(id, null, "Old")));
+
+        Assert.Equal(
+            $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"New"}]}""",
+            Assert.Single(diff.Changed).DesiredBody!.ToJsonString()
+        );
     }
 
     [Fact]

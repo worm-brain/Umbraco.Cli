@@ -7,9 +7,9 @@ namespace Umbraco.Cli.Commands.Content;
 /// publish/unpublish steps that bring a live document's state to a snapshot's.
 ///
 /// A culture counts as published when its variant's <c>state</c> is <c>Published</c> or
-/// <c>PublishedPendingChanges</c>. An invariant document has one variant with a null culture; it is
-/// represented here by a null culture, which the applier turns into a whole-document call (the
-/// API has no wildcard: <c>"*"</c> is the invariant culture, #158).
+/// <c>PublishedPendingChanges</c>. An invariant document has one variant with a null culture; its
+/// steps act on the <see cref="PublishScope.WholeDocument"/> (the API has no wildcard: <c>"*"</c>
+/// is the invariant culture, #158).
 /// </summary>
 public static class ContentPublishState
 {
@@ -17,15 +17,15 @@ public static class ContentPublishState
     private const string PendingChanges = "PublishedPendingChanges";
 
     /// <summary>The steps that converge one document's publish state.</summary>
-    /// <param name="Publish">Cultures to publish, in body order; null inside means invariant.</param>
-    /// <param name="Unpublish">Cultures to unpublish; null inside means invariant.</param>
-    public sealed record Steps(IReadOnlyList<string?> Publish, IReadOnlyList<string?> Unpublish)
+    /// <param name="Publish">What to publish, or null for nothing.</param>
+    /// <param name="Unpublish">What to unpublish, or null for nothing.</param>
+    public sealed record Steps(PublishScope? Publish, PublishScope? Unpublish)
     {
         /// <summary>No state change.</summary>
-        public static readonly Steps None = new([], []);
+        public static readonly Steps None = new(null, null);
 
         /// <summary>True when there is nothing to publish or unpublish.</summary>
-        public bool IsEmpty => Publish.Count == 0 && Unpublish.Count == 0;
+        public bool IsEmpty => Publish is null && Unpublish is null;
     }
 
     /// <summary>
@@ -35,7 +35,7 @@ public static class ContentPublishState
     /// <param name="desired">The snapshot body.</param>
     /// <returns>The steps.</returns>
     public static Steps ForCreate(JsonNode desired) =>
-        new([.. States(desired).Where(s => IsPublished(s.State)).Select(s => s.Culture)], []);
+        new(ScopeOf(States(desired).Where(s => IsPublished(s.State)).Select(s => s.Culture)), null);
 
     /// <summary>
     /// The state steps for a document on both sides. A culture is published when the snapshot has
@@ -53,19 +53,18 @@ public static class ContentPublishState
     /// <returns>The steps.</returns>
     public static Steps ForMatch(JsonNode desired, JsonNode live, bool bodyChanged)
     {
-        var liveStates = new Dictionary<string, string?>();
-        foreach (var (culture, state) in States(live))
-            liveStates[Key(culture)] = state;
+        // A lookup, unlike a dictionary, takes the invariant document's null culture as a key.
+        var liveStates = States(live).ToLookup(s => s.Culture, s => s.State);
 
         var publish = new List<string?>();
-        var desiredPublished = new HashSet<string>();
+        var desiredPublished = new HashSet<string?>();
         foreach (var (culture, state) in States(desired))
         {
             if (!IsPublished(state))
                 continue;
-            desiredPublished.Add(Key(culture));
+            desiredPublished.Add(culture);
 
-            var liveState = liveStates.GetValueOrDefault(Key(culture));
+            var liveState = liveStates[culture].FirstOrDefault();
             var needed =
                 bodyChanged
                 || !IsPublished(liveState)
@@ -75,11 +74,10 @@ public static class ContentPublishState
         }
 
         var unpublish = States(live)
-            .Where(s => IsPublished(s.State) && !desiredPublished.Contains(Key(s.Culture)))
-            .Select(s => s.Culture)
-            .ToList();
+            .Where(s => IsPublished(s.State) && !desiredPublished.Contains(s.Culture))
+            .Select(s => s.Culture);
 
-        return publish.Count == 0 && unpublish.Count == 0 ? Steps.None : new(publish, unpublish);
+        return new(ScopeOf(publish), ScopeOf(unpublish));
     }
 
     /// <summary>
@@ -90,17 +88,26 @@ public static class ContentPublishState
     /// <returns>The (culture, state) pairs; culture is null for an invariant document.</returns>
     public static IEnumerable<(string? Culture, string? State)> States(JsonNode? body)
     {
-        var seen = new HashSet<string>();
+        var seen = new HashSet<string?>();
         foreach (var variant in (body?["variants"] as JsonArray ?? []).OfType<JsonObject>())
         {
             var culture = ContentBodyNormaliser.Text(variant, "culture");
-            if (seen.Add(Key(culture)))
+            if (seen.Add(culture))
                 yield return (culture, ContentBodyNormaliser.Text(variant, "state"));
         }
     }
 
-    private static bool IsPublished(string? state) => state is Published or PendingChanges;
+    /// <summary>
+    /// The scope for a set of cultures: none when empty, the whole document when it is the
+    /// invariant (null) culture, else those cultures.
+    /// </summary>
+    private static PublishScope? ScopeOf(IEnumerable<string?> cultures)
+    {
+        var list = cultures.ToList();
+        if (list.Count == 0)
+            return null;
+        return list.Contains(null) ? PublishScope.WholeDocument : new([.. list.OfType<string>()]);
+    }
 
-    // A null culture cannot be a dictionary key; no real culture code is empty.
-    private static string Key(string? culture) => culture ?? "";
+    private static bool IsPublished(string? state) => state is Published or PendingChanges;
 }

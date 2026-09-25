@@ -10,10 +10,10 @@ namespace Umbraco.Cli.Commands.Content;
 /// up to any failure) - apply is fail-fast, so a failure surfaces through the exit code and message
 /// rather than a per-step error row.
 /// </summary>
-/// <param name="Operation">The step: <c>create</c>, <c>update</c>, <c>unpublish</c>, <c>publish</c> or <c>delete</c>.</param>
+/// <param name="Operation">The step.</param>
 /// <param name="Id">The document id the step targets.</param>
 /// <param name="Status">The step status: <c>planned</c> (dry run) or <c>success</c> (executed).</param>
-public sealed record ContentAction(string Operation, Guid Id, string Status)
+public sealed record ContentAction(ContentOperation Operation, Guid Id, string Status)
 {
     /// <summary>
     /// For a publish or unpublish of a culture-variant document, the cultures it acts on. Null for
@@ -38,21 +38,21 @@ public sealed record ContentApplyResult(
 )
 {
     /// <summary>Number of create steps.</summary>
-    public int Created => Count(ContentApplier.Create);
+    public int Created => Count(ContentOperation.Create);
 
     /// <summary>Number of update steps.</summary>
-    public int Updated => Count(ContentApplier.Update);
+    public int Updated => Count(ContentOperation.Update);
 
     /// <summary>Number of publish steps (one per document, whatever its cultures).</summary>
-    public int Published => Count(ContentApplier.Publish);
+    public int Published => Count(ContentOperation.Publish);
 
     /// <summary>Number of unpublish steps.</summary>
-    public int Unpublished => Count(ContentApplier.Unpublish);
+    public int Unpublished => Count(ContentOperation.Unpublish);
 
     /// <summary>Number of delete steps.</summary>
-    public int Deleted => Count(ContentApplier.Delete);
+    public int Deleted => Count(ContentOperation.Delete);
 
-    private int Count(string operation) => Actions.Count(a => a.Operation == operation);
+    private int Count(ContentOperation operation) => Actions.Count(a => a.Operation == operation);
 }
 
 /// <summary>
@@ -73,36 +73,21 @@ public sealed record ContentApplyResult(
 /// </summary>
 public static class ContentApplier
 {
-    /// <summary>The <see cref="ContentAction.Operation"/> of a create step.</summary>
-    public const string Create = "create";
-
-    /// <summary>The <see cref="ContentAction.Operation"/> of an update step.</summary>
-    public const string Update = "update";
-
-    /// <summary>The <see cref="ContentAction.Operation"/> of a publish step.</summary>
-    public const string Publish = "publish";
-
-    /// <summary>The <see cref="ContentAction.Operation"/> of an unpublish step.</summary>
-    public const string Unpublish = "unpublish";
-
-    /// <summary>The <see cref="ContentAction.Operation"/> of a delete step.</summary>
-    public const string Delete = "delete";
-
     /// <summary>One planned write: what to do, to which document, and for which cultures.</summary>
-    /// <param name="Operation">One of the operation constants.</param>
+    /// <param name="Operation">The step.</param>
     /// <param name="Change">The diff entry the step came from.</param>
-    /// <param name="Cultures">For a (un)publish, the cultures; a null inside means invariant.</param>
+    /// <param name="Scope">For a (un)publish, what it acts on.</param>
     private sealed record Step(
-        string Operation,
+        ContentOperation Operation,
         ContentDocumentChange Change,
-        IReadOnlyList<string?>? Cultures = null
+        PublishScope? Scope = null
     )
     {
-        /// <summary>The step as reported: named cultures only, null for a whole-document call.</summary>
+        /// <summary>The step as reported.</summary>
         /// <param name="status">The status to report.</param>
         /// <returns>The action row.</returns>
         public ContentAction ToAction(string status) =>
-            new(Operation, Change.Id, status) { Cultures = NamedCultures(Cultures) };
+            new(Operation, Change.Id, status) { Cultures = Scope?.Cultures };
     }
 
     /// <summary>
@@ -142,7 +127,7 @@ public static class ContentApplier
                     done.Count == 0 ? "no changes were applied" : $"{done.Count} change(s) applied";
                 return UmbracoResponse<ContentApplyResult>.Failure(
                     result.StatusCode,
-                    $"Apply failed on {step.Operation} document '{step.Change.Id}' "
+                    $"Apply failed on {step.Operation.ToString().ToLowerInvariant()} document '{step.Change.Id}' "
                         + $"({doneSummary} before the failure): {result.ErrorMessage}"
                 );
             }
@@ -166,30 +151,43 @@ public static class ContentApplier
     /// <returns>The ordered steps to execute.</returns>
     private static List<Step> BuildPlan(ContentDiff diff, ContentApplyOptions options)
     {
-        // Creates preserve the snapshot's pre-order (parent before child); nothing to topo-sort.
-        var plan = diff.Added.Select(c => new Step(Create, c)).ToList();
-        plan.AddRange(diff.Changed.Where(c => c.BodyChanged).Select(c => new Step(Update, c)));
+        // The diff's documents are in snapshot pre-order (parent before child), so every pass is
+        // a walk of that one list - forwards where parents go first, backwards where children do.
+        var documents = diff.Documents;
+        var plan = new List<Step>();
+        plan.AddRange(
+            documents
+                .Where(d => d.Change == ContentChangeKind.Added)
+                .Select(d => new Step(ContentOperation.Create, d))
+        );
+        plan.AddRange(
+            documents
+                .Where(d => d.Change == ContentChangeKind.Changed && d.BodyChanged)
+                .Select(d => new Step(ContentOperation.Update, d))
+        );
 
         if (options.State)
         {
-            var withState = diff.Added.Concat(diff.Changed).OrderBy(c => c.Order).ToList();
-            for (var i = withState.Count - 1; i >= 0; i--)
-                if (withState[i].State.Unpublish.Count > 0)
-                    plan.Add(new Step(Unpublish, withState[i], withState[i].State.Unpublish));
-            foreach (var change in withState)
-                if (change.State.Publish.Count > 0)
-                    plan.Add(new Step(Publish, change, change.State.Publish));
+            for (var i = documents.Count - 1; i >= 0; i--)
+                if (documents[i].State.Unpublish is { } unpublish)
+                    plan.Add(new Step(ContentOperation.Unpublish, documents[i], unpublish));
+            foreach (var d in documents)
+                if (d.State.Publish is { } publish)
+                    plan.Add(new Step(ContentOperation.Publish, d, publish));
         }
 
-        // Deletes in reverse tree order: the Removed list is in live pre-order (parents first), so
-        // reversing it deletes children before their parents. Fail-fast covers any residual order
+        // Deletes in reverse tree order: removed documents are in live pre-order (parents first),
+        // so reversing deletes children before their parents. Fail-fast covers any residual order
         // issue (a re-run completes once the blocker is gone).
         if (options.Prune)
         {
             var kept = KeptByExclusions(diff, options.Exclude);
-            for (var i = diff.Removed.Count - 1; i >= 0; i--)
-                if (!kept.Contains(diff.Removed[i].Id))
-                    plan.Add(new Step(Delete, diff.Removed[i]));
+            for (var i = documents.Count - 1; i >= 0; i--)
+                if (
+                    documents[i].Change == ContentChangeKind.Removed
+                    && !kept.Contains(documents[i].Id)
+                )
+                    plan.Add(new Step(ContentOperation.Delete, documents[i]));
         }
 
         return plan;
@@ -257,36 +255,34 @@ public static class ContentApplier
         return step.Operation switch
         {
             // Create carries the document's own id (GUID-primary) already in the body; inject the
-            // captured parent so it lands in the right place. Both writes send the normalised body
-            // (#224): the dates, flags and state are the source's, and are the server's to set.
-            Create => client.CreateDocumentRawAsync(
-                WithParent(ContentBodyNormaliser.Normalise(change.DesiredBody!), change.Parent),
+            // captured parent so it lands in the right place. The body is the normalised one the
+            // diff compared (#224): the dates, flags and state are the source's, not the target's.
+            ContentOperation.Create => client.CreateDocumentRawAsync(
+                WithParent(change.DesiredBody!, change.Parent),
                 ct
             ),
-            Update => client.UpdateDocumentRawAsync(
+            ContentOperation.Update => client.UpdateDocumentRawAsync(
                 change.Id,
-                ContentBodyNormaliser.Normalise(change.DesiredBody!),
+                change.DesiredBody!,
                 ct
             ),
-            // An invariant document's culture is null, and a null culture list is the
-            // whole-document call on both endpoints.
-            Publish => client.PublishContentAsync(change.Id, NamedCultures(step.Cultures), ct: ct),
-            Unpublish => client.UnpublishContentAsync(change.Id, NamedCultures(step.Cultures), ct),
-            Delete => client.DeleteContentAsync(change.Id, ct),
+            // A whole-document scope is a null culture list, which both endpoints take as "all".
+            ContentOperation.Publish => client.PublishContentAsync(
+                change.Id,
+                step.Scope!.Cultures,
+                ct: ct
+            ),
+            ContentOperation.Unpublish => client.UnpublishContentAsync(
+                change.Id,
+                step.Scope!.Cultures,
+                ct
+            ),
+            ContentOperation.Delete => client.DeleteContentAsync(change.Id, ct),
             _ => throw new InvalidOperationException(
                 $"{step.Operation} is not an executable apply operation."
             ),
         };
     }
-
-    /// <summary>
-    /// The named cultures of a (un)publish, or null when the document is invariant (its only
-    /// culture is null) or the step has no cultures.
-    /// </summary>
-    /// <param name="cultures">The step's cultures.</param>
-    /// <returns>The culture codes, or null.</returns>
-    private static IReadOnlyList<string>? NamedCultures(IReadOnlyList<string?>? cultures) =>
-        cultures?.OfType<string>().ToList() is { Count: > 0 } named ? named : null;
 
     /// <summary>
     /// Returns a clone of <paramref name="body"/> with its top-level <c>parent</c> set for a create:

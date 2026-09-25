@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Schema;
 
@@ -32,7 +31,7 @@ public static class SchemaDiffCommand
 
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunListAsync(
+                executor.RunReportAsync(
                     parseResult,
                     "schema.diff",
                     (client, c) =>
@@ -64,8 +63,6 @@ public static class SchemaDiffCommand
                             change.Note ?? "",
                             string.Join(", ", change.Changes ?? []),
                         ],
-                    // A diff is complete by construction, so it can say so.
-                    diff => new ListPaging(Rows(diff).Count, 0, null),
                     ct
                 )
         );

@@ -1,5 +1,4 @@
 using System.CommandLine;
-using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -31,7 +30,7 @@ public static class ContentDiffCommand
 
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunListAsync(
+                executor.RunReportAsync(
                     parseResult,
                     "content.diff",
                     (client, c) =>
@@ -40,7 +39,7 @@ public static class ContentDiffCommand
                             parseResult.GetValue(snapshotArg)!,
                             c
                         ),
-                    Rows,
+                    diff => diff?.Rows ?? [],
                     new[] { "Change", "Id", "Parent", "Changes" },
                     change =>
                         [
@@ -49,25 +48,10 @@ public static class ContentDiffCommand
                             change.Parent?.ToString() ?? "",
                             string.Join(", ", change.Changes ?? []),
                         ],
-                    // A diff is complete by construction, so it can say so.
-                    diff => new ListPaging(Rows(diff).Count, 0, null),
                     ct
                 )
         );
 
         return cmd;
     }
-
-    /// <summary>
-    /// One row per reported change - added, changed, removed, and drifted (advisory placement
-    /// drift); unchanged documents are omitted to keep the output lean. Structured output
-    /// serializes the <see cref="ContentDocumentChange"/> records themselves (#229), so empty
-    /// fields are null rather than <c>""</c> and each row carries its <c>changes</c>.
-    /// </summary>
-    /// <param name="diff">The computed diff, or null on an (unexpected) empty result.</param>
-    /// <returns>The rows, one per change.</returns>
-    private static IReadOnlyList<ContentDocumentChange> Rows(ContentDiff? diff) =>
-        diff is null
-            ? []
-            : [.. diff.Added.Concat(diff.Changed).Concat(diff.Removed).Concat(diff.Drifted)];
 }

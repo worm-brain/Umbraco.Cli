@@ -21,15 +21,25 @@ public class ContentApplierTests
         new(ContentChangeKind.Changed, id)
         {
             DesiredBody = JsonNode.Parse($$"""{"id":"{{id}}","name":"Y"}""")!,
+            BodyChanged = true,
         };
+
+    /// <summary>State steps that publish the named cultures.</summary>
+    private static ContentPublishState.Steps Publishes(params string[] cultures) =>
+        new(new PublishScope(cultures), null);
+
+    /// <summary>State steps that unpublish the named cultures.</summary>
+    private static ContentPublishState.Steps Unpublishes(params string[] cultures) =>
+        new(null, new PublishScope(cultures));
 
     private static ContentDocumentChange Removed(Guid id) => new(ContentChangeKind.Removed, id);
 
+    /// <summary>A diff whose documents are in the order given: added, then changed, then removed.</summary>
     private static ContentDiff Diff(
         IReadOnlyList<ContentDocumentChange>? added = null,
         IReadOnlyList<ContentDocumentChange>? changed = null,
         IReadOnlyList<ContentDocumentChange>? removed = null
-    ) => new(added ?? [], changed ?? [], removed ?? [], [], 0);
+    ) => new([.. added ?? [], .. changed ?? [], .. removed ?? []], 0);
 
     [Fact]
     public async Task ApplyAsync_DryRun_WritesNothingAndPlansEveryStep()
@@ -88,17 +98,11 @@ public class ContentApplierTests
     }
 
     [Fact]
-    public async Task ApplyAsync_Update_SendsTheNormalisedBody()
+    public async Task ApplyAsync_Update_SendsTheDiffsBodyAsItIs()
     {
-        // #224: the source's dates and state are not the target's to be told.
+        // #224: the diff stores the normalised body; apply must send exactly what was compared.
         var fake = new FakeUmbracoManagementClient();
-        var id = Guid.NewGuid();
-        var change = new ContentDocumentChange(ContentChangeKind.Changed, id)
-        {
-            DesiredBody = JsonNode.Parse(
-                $$"""{"id":"{{id}}","isTrashed":false,"variants":[{"culture":null,"name":"Y","state":"Published","updateDate":"2026-09-01T00:00:00Z"}]}"""
-            )!,
-        };
+        var change = Changed(Guid.NewGuid());
 
         await ContentApplier.ApplyAsync(
             fake,
@@ -107,13 +111,9 @@ public class ContentApplierTests
             CancellationToken.None
         );
 
-        var body = Assert.Single(fake.RawWrites).Body!;
         Assert.Equal(
-            """{"id":"%ID%","variants":[{"culture":null,"name":"Y"}]}""".Replace(
-                "%ID%",
-                id.ToString()
-            ),
-            body.ToJsonString()
+            change.DesiredBody!.ToJsonString(),
+            Assert.Single(fake.RawWrites).Body!.ToJsonString()
         );
     }
 
@@ -290,9 +290,20 @@ public class ContentApplierTests
         var fake = StateFake();
         Guid parent = Guid.NewGuid(),
             child = Guid.NewGuid();
-        var diff = Diff(
-            added: [Added(child, parent) with { Order = 2, State = new(["en-US"], []) }],
-            changed: [Changed(parent) with { Order = 1, State = new(["en-US"], []) }]
+        // The diff lists documents in snapshot pre-order, so the parent comes first even though
+        // it is a change and the child an addition.
+        var diff = new ContentDiff(
+            [
+                Changed(parent) with
+                {
+                    State = Publishes("en-US"),
+                },
+                Added(child, parent) with
+                {
+                    State = Publishes("en-US"),
+                },
+            ],
+            0
         );
 
         await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
@@ -306,7 +317,7 @@ public class ContentApplierTests
         var fake = StateFake();
         var id = Guid.NewGuid();
         var diff = Diff(
-            changed: [Changed(id) with { BodyChanged = false, State = new(["da-DK"], []) }]
+            changed: [Changed(id) with { BodyChanged = false, State = Publishes("da-DK") }]
         );
 
         var result = await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
@@ -323,12 +334,16 @@ public class ContentApplierTests
     {
         var fake = StateFake();
         var id = Guid.NewGuid();
-        var diff = Diff(added: [Added(id, null) with { State = new([null], []) }]);
+        var diff = Diff(
+            added: [Added(id, null) with { State = new(PublishScope.WholeDocument, null) }]
+        );
 
         var result = await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
 
         Assert.Null(Assert.Single(fake.StateCalls).Cultures);
-        Assert.Null(result.Data!.Actions.Single(a => a.Operation == "publish").Cultures);
+        Assert.Null(
+            result.Data!.Actions.Single(a => a.Operation == ContentOperation.Publish).Cultures
+        );
     }
 
     [Fact]
@@ -337,7 +352,7 @@ public class ContentApplierTests
         var fake = StateFake();
         var id = Guid.NewGuid();
         var diff = Diff(
-            changed: [Changed(id) with { BodyChanged = false, State = new([], ["da-DK"]) }]
+            changed: [Changed(id) with { BodyChanged = false, State = Unpublishes("da-DK") }]
         );
 
         await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
@@ -352,13 +367,13 @@ public class ContentApplierTests
     {
         var fake = StateFake();
         var diff = Diff(
-            added: [Added(Guid.NewGuid(), null) with { State = new(["en-US"], []) }],
+            added: [Added(Guid.NewGuid(), null) with { State = Publishes("en-US") }],
             changed:
             [
                 Changed(Guid.NewGuid()) with
                 {
                     BodyChanged = false,
-                    State = new([], ["da-DK"]),
+                    State = Unpublishes("da-DK"),
                 },
             ]
         );
@@ -371,7 +386,7 @@ public class ContentApplierTests
         );
 
         Assert.Empty(fake.StateCalls);
-        Assert.Equal(["create"], result.Data!.Actions.Select(a => a.Operation));
+        Assert.Equal([ContentOperation.Create], result.Data!.Actions.Select(a => a.Operation));
     }
 
     [Fact]
@@ -383,7 +398,7 @@ public class ContentApplierTests
                 UmbracoResponse<Empty>.Failure(400, "parent not published"),
         };
         var id = Guid.NewGuid();
-        var diff = Diff(added: [Added(id, null) with { State = new(["en-US"], []) }]);
+        var diff = Diff(added: [Added(id, null) with { State = Publishes("en-US") }]);
 
         var result = await ContentApplier.ApplyAsync(fake, diff, Apply(), CancellationToken.None);
 

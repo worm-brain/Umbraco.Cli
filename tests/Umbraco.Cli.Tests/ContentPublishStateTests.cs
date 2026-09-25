@@ -27,7 +27,7 @@ public class ContentPublishStateTests
             Body(("en-US", "Published"), ("da-DK", "Draft"), ("de-DE", "PublishedPendingChanges"))
         );
 
-        Assert.Equal(["en-US", "de-DE"], steps.Publish);
+        Assert.Equal(["en-US", "de-DE"], steps.Publish!.Cultures!);
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public class ContentPublishStateTests
     {
         var steps = ContentPublishState.ForCreate(Body((null, "Published")));
 
-        Assert.Equal([null], steps.Publish);
+        Assert.Same(PublishScope.WholeDocument, steps.Publish);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class ContentPublishStateTests
             bodyChanged: false
         );
 
-        Assert.Equal(["en-US"], steps.Publish);
+        Assert.Equal(["en-US"], steps.Publish!.Cultures!);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class ContentPublishStateTests
             bodyChanged: true
         );
 
-        Assert.Equal(["en-US"], steps.Publish);
+        Assert.Equal(["en-US"], steps.Publish!.Cultures!);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class ContentPublishStateTests
             bodyChanged: false
         );
 
-        Assert.Equal(["da-DK"], steps.Unpublish);
+        Assert.Equal(["da-DK"], steps.Unpublish!.Cultures!);
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class ContentPublishStateTests
             bodyChanged: false
         );
 
-        Assert.Equal(["en-US"], steps.Publish);
+        Assert.Equal(["en-US"], steps.Publish!.Cultures!);
     }
 
     [Fact]

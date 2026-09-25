@@ -1,7 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
-using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -141,13 +140,17 @@ public static class ContentApplyCommand
                     // #229: the action records themselves, so structured output carries real nulls
                     // and a cultures array rather than caption-keyed strings.
                     (ctx, result) =>
-                        ctx.Output.WriteList(
-                            [.. result?.Actions ?? []],
+                        CommandExecutor.WriteReport(
+                            ctx,
+                            result?.Actions ?? [],
                             new[] { "Operation", "Id", "Cultures", "Status" },
-                            Rows(result),
-                            new ListPaging(result?.Actions.Count ?? 0, 0, null),
-                            ctx.CommandName,
-                            ctx.Stopwatch.ElapsedMilliseconds
+                            a =>
+                                [
+                                    a.Operation.ToString().ToLowerInvariant(),
+                                    a.Id.ToString(),
+                                    a.Cultures is { } cultures ? string.Join(",", cultures) : "",
+                                    a.Status,
+                                ]
                         ),
                     ct
                 );
@@ -183,22 +186,5 @@ public static class ContentApplyCommand
         return UmbracoResponse<PruneExclusions>.Success(
             new PruneExclusions(typeIds, roots.ToHashSet())
         );
-    }
-
-    /// <summary>Projects the apply result's steps into table rows (one per step).</summary>
-    /// <param name="result">The apply result, or null on an unexpected empty payload.</param>
-    /// <returns>The rows.</returns>
-    private static IEnumerable<string[]> Rows(ContentApplyResult? result)
-    {
-        if (result is null)
-            yield break;
-        foreach (var a in result.Actions)
-            yield return
-            [
-                a.Operation,
-                a.Id.ToString(),
-                a.Cultures is { } cultures ? string.Join(",", cultures) : "",
-                a.Status,
-            ];
     }
 }
