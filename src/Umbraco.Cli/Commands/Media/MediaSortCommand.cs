@@ -43,21 +43,15 @@ public static class MediaSortCommand
                     async (client, c) =>
                     {
                         var parent = parseResult.GetValue(parentOpt);
-                        IReadOnlyList<Guid> order = parseResult.GetValue(sort.Children) ?? [];
-                        if (parseResult.GetValue(sort.By) is { } key)
-                        {
-                            var ordered = await OrderAsync(
-                                client,
-                                parent,
-                                key,
-                                parseResult.GetValue(sort.Descending),
-                                c
-                            );
-                            if (!ordered.IsSuccess)
-                                return UmbracoResponse<Empty>.FailureFrom(ordered);
-                            order = ordered.Data!;
-                        }
-                        return await client.SortMediaAsync(parent, order, c);
+                        var order = await sort.OrderAsync(
+                            parseResult,
+                            (skip, take) => client.GetMediaAsync(parent, skip, take, c),
+                            (child, key) => CandidateAsync(client, child, key, c),
+                            c
+                        );
+                        return order.IsSuccess
+                            ? await client.SortMediaAsync(parent, order.Data!, c)
+                            : UmbracoResponse<Empty>.FailureFrom(order);
                     },
                     "Media children reordered.",
                     ct
@@ -68,51 +62,31 @@ public static class MediaSortCommand
     }
 
     /// <summary>
-    /// Reads every child of <paramref name="parent"/> and orders them by <paramref name="key"/>.
-    /// The listing carries names and creation dates; the update date needs one read per child.
+    /// A child as a sort candidate. The listing carries the name and creation date; the update
+    /// date needs a read of the child.
     /// </summary>
     /// <param name="client">The client.</param>
-    /// <param name="parent">The parent folder, or null for the root.</param>
-    /// <param name="key">What to order by.</param>
-    /// <param name="descending">Whether to order descending.</param>
+    /// <param name="child">The listed child.</param>
+    /// <param name="key">What the children are ordered by.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The child ids in the new order, or the first read failure.</returns>
-    private static async Task<UmbracoResponse<IReadOnlyList<Guid>>> OrderAsync(
+    /// <returns>The candidate, or the read failure.</returns>
+    private static async Task<UmbracoResponse<SortCandidate>> CandidateAsync(
         IUmbracoManagementClient client,
-        Guid? parent,
+        MediaItemResponse child,
         SortKey key,
-        bool descending,
         CancellationToken ct
     )
     {
-        const int take = 100;
-        var children = new List<MediaItemResponse>();
-        while (true)
-        {
-            var page = await client.GetMediaAsync(parent, children.Count, take, ct);
-            if (!page.IsSuccess)
-                return UmbracoResponse<IReadOnlyList<Guid>>.FailureFrom(page);
-            var items = (page.Data?.Items ?? []).ToList();
-            children.AddRange(items);
-            if (items.Count < take || children.Count >= page.Data!.Total)
-                break;
-        }
+        if (key != SortKey.UpdateDate)
+            return UmbracoResponse<SortCandidate>.Success(
+                new SortCandidate(child.Id, child.Name, child.CreateDate, child.UpdateDate)
+            );
 
-        var candidates = new List<SortCandidate>();
-        foreach (var child in children)
-        {
-            var updated = child.UpdateDate;
-            if (key == SortKey.UpdateDate)
-            {
-                var full = await client.GetMediaByIdAsync(child.Id, ct);
-                if (!full.IsSuccess)
-                    return UmbracoResponse<IReadOnlyList<Guid>>.FailureFrom(full);
-                updated = full.Data!.UpdateDate;
-            }
-            candidates.Add(new SortCandidate(child.Id, child.Name, child.CreateDate, updated));
-        }
-        return UmbracoResponse<IReadOnlyList<Guid>>.Success(
-            ChildSort.Order(candidates, key, descending)
-        );
+        var full = await client.GetMediaByIdAsync(child.Id, ct);
+        return full.IsSuccess
+            ? UmbracoResponse<SortCandidate>.Success(
+                new SortCandidate(child.Id, child.Name, child.CreateDate, full.Data!.UpdateDate)
+            )
+            : UmbracoResponse<SortCandidate>.FailureFrom(full);
     }
 }

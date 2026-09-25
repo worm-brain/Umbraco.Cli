@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands;
@@ -47,7 +48,100 @@ public static class ChildSort
         Option<Guid[]> Children,
         Option<SortKey?> By,
         Option<bool> Descending
-    );
+    )
+    {
+        /// <summary>
+        /// The order to send: <c>--children</c> as given, or every child ordered by <c>--by</c>.
+        /// </summary>
+        /// <typeparam name="TChild">The noun's child item.</typeparam>
+        /// <param name="parseResult">The parsed command line.</param>
+        /// <param name="page">Reads one page of the parent's children: (skip, take).</param>
+        /// <param name="candidate">
+        /// Turns a child into a <see cref="SortCandidate"/> for a key; reads more only when the
+        /// listing does not carry the field.
+        /// </param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>The child ids in order, or the first read failure.</returns>
+        public async Task<UmbracoResponse<IReadOnlyList<Guid>>> OrderAsync<TChild>(
+            ParseResult parseResult,
+            Func<int, int, Task<UmbracoResponse<PagedResponse<TChild>>>> page,
+            Func<TChild, SortKey, Task<UmbracoResponse<SortCandidate>>> candidate,
+            CancellationToken ct
+        )
+        {
+            if (parseResult.GetValue(By) is not { } key)
+                return UmbracoResponse<IReadOnlyList<Guid>>.Success(
+                    parseResult.GetValue(Children) ?? []
+                );
+
+            var children = await ReadAllAsync(page);
+            if (!children.IsSuccess)
+                return UmbracoResponse<IReadOnlyList<Guid>>.FailureFrom(children);
+
+            var candidates = await CandidatesAsync(children.Data!, c => candidate(c, key), ct);
+            return candidates.IsSuccess
+                ? UmbracoResponse<IReadOnlyList<Guid>>.Success(
+                    Order(candidates.Data!, key, parseResult.GetValue(Descending))
+                )
+                : UmbracoResponse<IReadOnlyList<Guid>>.FailureFrom(candidates);
+        }
+    }
+
+    // Enough to overlap the per-child reads without hammering the server.
+    private const int DetailConcurrency = 4;
+
+    /// <summary>Every child, page by page, stopping on a short page or at the total.</summary>
+    private static async Task<UmbracoResponse<IReadOnlyList<TChild>>> ReadAllAsync<TChild>(
+        Func<int, int, Task<UmbracoResponse<PagedResponse<TChild>>>> page
+    )
+    {
+        const int take = 100;
+        var all = new List<TChild>();
+        while (true)
+        {
+            var next = await page(all.Count, take);
+            if (!next.IsSuccess)
+                return UmbracoResponse<IReadOnlyList<TChild>>.FailureFrom(next);
+            var items = (next.Data?.Items ?? []).ToList();
+            all.AddRange(items);
+            if (items.Count < take || all.Count >= next.Data!.Total)
+                return UmbracoResponse<IReadOnlyList<TChild>>.Success(all);
+        }
+    }
+
+    /// <summary>
+    /// The candidates for every child, a few at a time, in the children's order; the first failure
+    /// (in that order) is returned.
+    /// </summary>
+    private static async Task<
+        UmbracoResponse<IReadOnlyList<SortCandidate>>
+    > CandidatesAsync<TChild>(
+        IReadOnlyList<TChild> children,
+        Func<TChild, Task<UmbracoResponse<SortCandidate>>> candidate,
+        CancellationToken ct
+    )
+    {
+        using var gate = new SemaphoreSlim(DetailConcurrency);
+        var results = await Task.WhenAll(
+            children.Select(async child =>
+            {
+                await gate.WaitAsync(ct);
+                try
+                {
+                    return await candidate(child);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            })
+        );
+        return results.FirstOrDefault(r => !r.IsSuccess) is { } failed
+            ? UmbracoResponse<IReadOnlyList<SortCandidate>>.FailureFrom(failed)
+            : UmbracoResponse<IReadOnlyList<SortCandidate>>.Success([
+                .. results.Select(r => r.Data!),
+            ]);
+    }
 
     /// <summary>
     /// Adds <c>--children</c>, <c>--by</c> and <c>--desc</c>, and requires exactly one of

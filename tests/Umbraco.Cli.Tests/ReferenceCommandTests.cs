@@ -235,6 +235,34 @@ public class ReferenceCommandTests
     }
 
     [Fact]
+    public async Task ContentSort_ByPublishDateDescending_ReadsEachChildAndPutsNewestFirst()
+    {
+        // The document tree carries no dates, so each child is read.
+        var (older, newer) = (Guid.NewGuid(), Guid.NewGuid());
+        var fake = new FakeUmbracoManagementClient();
+        foreach (var (id, day) in new[] { (older, 1), (newer, 20) })
+        {
+            fake.ContentChildren.Add(new ContentItemResponse { Id = id, Name = $"post {day}" });
+            fake.ContentById[id] = new ContentItemResponse
+            {
+                Id = id,
+                Variants =
+                [
+                    new ContentVariantResponse
+                    {
+                        PublishDate = new DateTimeOffset(2026, 9, day, 0, 0, 0, TimeSpan.Zero),
+                    },
+                ],
+            };
+        }
+
+        var exit = await Run(fake, "content sort --by publishDate --desc");
+
+        Assert.Equal(0, exit);
+        Assert.Equal([newer, older], Assert.Single(fake.ContentSorted).OrderedChildIds);
+    }
+
+    [Fact]
     public async Task TemplatesDelete_UnknownAlias_FailsWithoutDeleting()
     {
         var fake = new FakeUmbracoManagementClient();

@@ -37,12 +37,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public UmbracoResponse<ContentItemResponse>? ContentByIdResponse { get; set; }
     public Guid? LastRequestedId { get; private set; }
 
+    /// <summary>Documents by id, checked before <see cref="ContentByIdResponse"/>.</summary>
+    public Dictionary<Guid, ContentItemResponse> ContentById { get; } = [];
+
     public Task<UmbracoResponse<ContentItemResponse>> GetContentByIdAsync(
         Guid id,
         CancellationToken ct = default
     )
     {
         LastRequestedId = id;
+        if (ContentById.TryGetValue(id, out var byId))
+            return Task.FromResult(UmbracoResponse<ContentItemResponse>.Success(byId));
         return Task.FromResult(
             ContentByIdResponse
                 ?? throw new InvalidOperationException("ContentByIdResponse not configured.")
