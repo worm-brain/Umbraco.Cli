@@ -80,7 +80,8 @@ public static class ParseErrorReporter
     );
 
     /// <summary>
-    /// Rewrites System.CommandLine's type-conversion error into words a user can act on (#211):
+    /// The fallback for types <see cref="ValueParsing"/> does not cover (numbers with defaults,
+    /// enums): rewrites System.CommandLine's type-conversion error into words a user can act on (#211):
     /// "'Blog' is not valid for --parent: expected a GUID id." rather than a .NET type name such as
     /// <c>System.Nullable`1[System.Guid]</c>. Any other message is returned as it is.
     /// </summary>

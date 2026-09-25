@@ -119,6 +119,8 @@ public class CommandParseTests
         root.Add(PropertyTypeCommand.Build(executor));
         root.Add(Umbraco.Cli.Commands.Schema.SchemaCommand.Build(executor));
 
+        // As Program.cs does, so the parse errors are the ones a user sees.
+        Umbraco.Cli.Infrastructure.ValueParsing.Apply(root);
         return root;
     }
 
