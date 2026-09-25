@@ -65,9 +65,9 @@ public static class UserGroupsCommand
                     parseResult,
                     "user-groups.get",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.UserGroup,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.GetUserGroupByIdAsync(id, c),
                             c
                         ),
@@ -158,9 +158,9 @@ public static class UserGroupsCommand
                     parseResult,
                     "user-groups.update",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.UserGroup,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
                                 client.UpdateUserGroupAsync(
                                     id,
@@ -205,9 +205,9 @@ public static class UserGroupsCommand
                     parseResult,
                     "user-groups.delete",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.UserGroup,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.DeleteUserGroupAsync(id, c),
                             c
                         ),
@@ -271,9 +271,9 @@ public static class UserGroupsCommand
                     parseResult,
                     "user-groups.add-users",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.UserGroup,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
                                 client.AddUsersToGroupAsync(id, parseResult.GetValue(usersOpt)!, c),
                             c
@@ -301,9 +301,9 @@ public static class UserGroupsCommand
                     parseResult,
                     "user-groups.remove-users",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.UserGroup,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
                                 client.RemoveUsersFromGroupAsync(
                                     id,

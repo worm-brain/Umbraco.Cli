@@ -27,9 +27,9 @@ public static class DictionaryDeleteCommand
                     parseResult,
                     "dictionary.delete",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DictionaryItem,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.DeleteDictionaryItemAsync(id, c),
                             c
                         ),

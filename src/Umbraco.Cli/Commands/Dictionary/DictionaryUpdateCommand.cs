@@ -66,9 +66,9 @@ public static class DictionaryUpdateCommand
                     parseResult,
                     "dictionary.update",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DictionaryItem,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
                                 client.UpdateDictionaryItemAsync(
                                     id,

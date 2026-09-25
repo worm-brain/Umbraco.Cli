@@ -47,9 +47,9 @@ public static class PropertyTypeCommand
                     parseResult,
                     "property-type.is-used",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DocumentType,
-                            parseResult.GetValue(contentTypeOpt)!,
+                        contentTypeOpt.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
                                 client.IsPropertyTypeUsedAsync(
                                     id,

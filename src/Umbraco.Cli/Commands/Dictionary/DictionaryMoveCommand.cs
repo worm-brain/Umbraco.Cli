@@ -30,13 +30,13 @@ public static class DictionaryMoveCommand
                     parseResult,
                     "dictionary.move",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DictionaryItem,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
-                                client.WithResolvedOptionalAsync(
-                                    EntityKind.DictionaryItem,
-                                    parseResult.GetValue(targetOpt),
+                                targetOpt.WithResolvedOptionalAsync(
+                                    parseResult,
+                                    client,
                                     target => client.MoveDictionaryItemAsync(id, target, c),
                                     c
                                 ),

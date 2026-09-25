@@ -40,9 +40,9 @@ public static class DataTypesDeleteCommand
                     parseResult,
                     "data-types.delete",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DataType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.DeleteDataTypeAsync(id, c),
                             c
                         ),

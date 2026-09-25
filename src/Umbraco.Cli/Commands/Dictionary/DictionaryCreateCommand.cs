@@ -53,9 +53,9 @@ public static class DictionaryCreateCommand
                     parseResult,
                     "dictionary.create",
                     (client, c) =>
-                        client.WithResolvedOptionalAsync(
-                            EntityKind.DictionaryItem,
-                            parseResult.GetValue(parentOpt),
+                        parentOpt.WithResolvedOptionalAsync(
+                            parseResult,
+                            client,
                             parent =>
                                 client.CreateDictionaryItemAsync(
                                     new CreateDictionaryItemRequest

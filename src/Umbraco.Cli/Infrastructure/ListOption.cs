@@ -82,10 +82,11 @@ public static class ListOption
         });
 
     /// <summary>Marks an option required, for options built by a factory rather than an initializer.</summary>
-    /// <typeparam name="T">The option value type.</typeparam>
+    /// <typeparam name="TOption">The option type, kept so a subclass keeps its members.</typeparam>
     /// <param name="option">The option.</param>
     /// <returns>The same option.</returns>
-    public static Option<T> AsRequired<T>(this Option<T> option)
+    public static TOption AsRequired<TOption>(this TOption option)
+        where TOption : Option
     {
         option.Required = true;
         return option;

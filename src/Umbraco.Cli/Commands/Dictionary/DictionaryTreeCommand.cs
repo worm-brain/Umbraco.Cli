@@ -28,9 +28,9 @@ public static class DictionaryTreeCommand
                     parseResult,
                     "dictionary.tree",
                     (client, skip, take, c) =>
-                        client.WithResolvedOptionalAsync(
-                            EntityKind.DictionaryItem,
-                            parseResult.GetValue(parentOpt),
+                        parentOpt.WithResolvedOptionalAsync(
+                            parseResult,
+                            client,
                             parent => client.GetDictionaryTreeAsync(parent, skip, take, c),
                             c
                         ),

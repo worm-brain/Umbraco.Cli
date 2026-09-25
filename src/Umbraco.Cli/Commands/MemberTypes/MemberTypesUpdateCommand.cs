@@ -38,9 +38,9 @@ public static class MemberTypesUpdateCommand
                     parseResult,
                     "member-types.update",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.MemberType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
                                 client.UpdateMemberTypeAsync(
                                     id,

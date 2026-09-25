@@ -62,7 +62,7 @@ public static class InUseGuard
     public static void Protect(
         Command command,
         string kind,
-        Argument<string> idArg,
+        ReferenceArgument idArg,
         string forceDescription
     )
     {
@@ -75,11 +75,7 @@ public static class InUseGuard
                     return null;
                 // A reference that does not resolve is not a safety question: the delete itself
                 // then fails with the resolver's 404, which says what was not found.
-                var id = await client.ResolveIdAsync(
-                    EntityKindOf(kind),
-                    parseResult.GetValue(idArg)!,
-                    ct
-                );
+                var id = await idArg.ResolveAsync(parseResult, client, ct);
                 if (!id.IsSuccess)
                     return null;
                 var reason = await ReasonAsync(client, kind, id.Data, ct);
@@ -89,17 +85,6 @@ public static class InUseGuard
             }
         );
     }
-
-    /// <summary>The resolver kind for a <see cref="SchemaKinds"/> value.</summary>
-    private static EntityKind EntityKindOf(string kind) =>
-        kind switch
-        {
-            SchemaKinds.DataType => EntityKind.DataType,
-            SchemaKinds.MemberType => EntityKind.MemberType,
-            SchemaKinds.MediaType => EntityKind.MediaType,
-            SchemaKinds.Template => EntityKind.Template,
-            _ => EntityKind.DocumentType,
-        };
 
     /// <summary>Why deleting data type <paramref name="id"/> would lose content, or null when nothing uses it.</summary>
     private static async Task<string?> DataTypeAsync(

@@ -155,6 +155,22 @@ public class ReferenceResolverWireTests
     }
 
     [Fact]
+    public async Task ResolveIdAsync_TheSameReferenceTwice_LooksItUpOnce()
+    {
+        // A delete's in-use check and the delete itself both resolve the argument.
+        var tags = Guid.NewGuid();
+        var handler = Wire.Routed(
+            ("item/data-type/search", $$"""{"total":1,"items":[{"id":"{{tags}}","name":"Tags"}]}""")
+        );
+        var client = Wire.Client(handler);
+
+        await client.ResolveIdAsync(EntityKind.DataType, "Tags");
+        var second = await client.ResolveIdAsync(EntityKind.DataType, "Tags");
+
+        Assert.Equal((tags, 1), (second.Data, handler.Recordings.Count));
+    }
+
+    [Fact]
     public async Task ResolveIdAsync_MemberGroupByName_Resolves()
     {
         var subscribers = Guid.NewGuid();

@@ -41,9 +41,9 @@ public static class MediaTypesDeleteCommand
                     parseResult,
                     "media-types.delete",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.MediaType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.DeleteMediaTypeAsync(id, c),
                             c
                         ),

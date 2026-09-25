@@ -23,9 +23,9 @@ public static class MemberTypesGetCommand
                     parseResult,
                     "member-types.get",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.MemberType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.GetMemberTypeByIdAsync(id, c),
                             c
                         ),

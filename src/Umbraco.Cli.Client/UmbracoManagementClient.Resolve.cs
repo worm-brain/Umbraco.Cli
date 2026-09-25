@@ -31,7 +31,23 @@ public sealed partial class UmbracoManagementClient
         if (Guid.TryParse(reference, out var id))
             return Task.FromResult(UmbracoResponse<Guid>.Success(id));
 
-        return GuardedApiAsync(
+        // Resolved already in this run (e.g. by a delete's in-use check, then by the delete).
+        if (_resolved.TryGetValue((kind, reference), out var known))
+            return Task.FromResult(UmbracoResponse<Guid>.Success(known));
+
+        return ResolveUncachedAsync(kind, reference, ct);
+    }
+
+    /// <summary>Successful resolutions, by (kind, reference), for the client's life.</summary>
+    private readonly Dictionary<(EntityKind, string), Guid> _resolved = [];
+
+    private async Task<UmbracoResponse<Guid>> ResolveUncachedAsync(
+        EntityKind kind,
+        string reference,
+        CancellationToken ct
+    )
+    {
+        var result = await GuardedApiAsync(
             ct,
             () =>
                 kind switch
@@ -47,6 +63,9 @@ public sealed partial class UmbracoManagementClient
                     _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
                 }
         );
+        if (result.IsSuccess)
+            _resolved[(kind, reference)] = result.Data;
+        return result;
     }
 
     /// <summary>

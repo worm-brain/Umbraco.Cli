@@ -47,9 +47,9 @@ public static class TemplatesUpdateCommand
                             contentFileOpt,
                             ct
                         );
-                        return await client.WithResolvedAsync(
-                            EntityKind.Template,
-                            parseResult.GetValue(idArg)!,
+                        return await idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
                                 client.UpdateTemplateAsync(
                                     id,

@@ -41,9 +41,9 @@ public static class MemberTypesDeleteCommand
                     parseResult,
                     "member-types.delete",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.MemberType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.DeleteMemberTypeAsync(id, c),
                             c
                         ),

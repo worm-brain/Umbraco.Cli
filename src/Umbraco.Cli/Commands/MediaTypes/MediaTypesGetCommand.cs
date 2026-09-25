@@ -23,9 +23,9 @@ public static class MediaTypesGetCommand
                     parseResult,
                     "media-types.get",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.MediaType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.GetMediaTypeByIdAsync(id, c),
                             c
                         ),

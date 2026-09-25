@@ -58,9 +58,9 @@ public static class MemberGroupsCommand
                     parseResult,
                     "member-groups.get",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.MemberGroup,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.GetMemberGroupByIdAsync(id, c),
                             c
                         ),
@@ -116,9 +116,9 @@ public static class MemberGroupsCommand
                     parseResult,
                     "member-groups.update",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.MemberGroup,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
                                 client.UpdateMemberGroupAsync(
                                     id,
@@ -151,9 +151,9 @@ public static class MemberGroupsCommand
                     parseResult,
                     "member-groups.delete",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.MemberGroup,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.DeleteMemberGroupAsync(id, c),
                             c
                         ),

@@ -41,9 +41,9 @@ public static class ContentTypesDeleteCommand
                     parseResult,
                     "content-types.delete",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DocumentType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.DeleteDocumentTypeAsync(id, c),
                             c
                         ),

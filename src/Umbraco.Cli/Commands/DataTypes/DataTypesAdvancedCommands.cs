@@ -25,9 +25,9 @@ public static class DataTypesAdvancedCommands
                     parseResult,
                     "data-types.is-used",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DataType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.IsDataTypeUsedAsync(id, c),
                             c
                         ),
@@ -55,9 +55,9 @@ public static class DataTypesAdvancedCommands
                     parseResult,
                     "data-types.referenced-by",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DataType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id =>
                                 client.GetDataTypeReferencedByRawAsync(
                                     id,
@@ -94,9 +94,9 @@ public static class DataTypesAdvancedCommands
                     parseResult,
                     "data-types.copy",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DataType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.CopyDataTypeAsync(id, parseResult.GetValue(targetOpt), c),
                             c
                         ),
@@ -127,9 +127,9 @@ public static class DataTypesAdvancedCommands
                     parseResult,
                     "data-types.move",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.DataType,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.MoveDataTypeAsync(id, parseResult.GetValue(targetOpt), c),
                             c
                         ),

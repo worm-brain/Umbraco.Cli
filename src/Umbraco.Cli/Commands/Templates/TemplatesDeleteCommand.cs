@@ -27,9 +27,9 @@ public static class TemplatesDeleteCommand
                     parseResult,
                     "templates.delete",
                     (client, c) =>
-                        client.WithResolvedAsync(
-                            EntityKind.Template,
-                            parseResult.GetValue(idArg)!,
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
                             id => client.DeleteTemplateAsync(id, c),
                             c
                         ),
