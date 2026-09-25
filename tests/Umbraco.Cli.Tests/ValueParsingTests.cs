@@ -72,6 +72,21 @@ public class ValueParsingTests
     }
 
     [Fact]
+    public void Apply_BadValueForAnOptionalNullableArgument_IsAParseErrorNotACrash()
+    {
+        // Found by the Phase 3 blast-radius probe: without a parser, System.CommandLine accepted
+        // 'nope' for an optional Guid? argument (content update, document-blueprint update,
+        // user-data update) with no parse error, and reading the value then threw.
+        var key = new Argument<Guid?>("key") { Arity = ArgumentArity.ZeroOrOne };
+        var root = new RootCommand { new Command("update") { key } };
+        ValueParsing.Apply(root);
+
+        var error = Assert.Single(root.Parse("update nope").Errors);
+
+        Assert.Equal("'nope' is not a valid key: expected a GUID id.", error.Message);
+    }
+
+    [Fact]
     public void Apply_AnOptionWithItsOwnParser_IsLeftAlone()
     {
         var own = new Option<Guid?>("--own") { CustomParser = _ => Guid.Empty };
