@@ -1065,6 +1065,32 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => RecordWrite("template", id, body);
 
+    /// <summary>The (id, request, replace) of the last <see cref="UpdateMediaAsync"/> call (#220).</summary>
+    public (Guid Id, UpdateMediaRequest Request, bool Replace)? LastMediaUpdate
+    {
+        get;
+        private set;
+    }
+
+    /// <summary>Records the update and answers with a bare item.</summary>
+    /// <param name="id">The media id.</param>
+    /// <param name="request">The update.</param>
+    /// <param name="replace">Whether it replaces.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A success carrying the id.</returns>
+    public Task<UmbracoResponse<MediaItemResponse>> UpdateMediaAsync(
+        Guid id,
+        UpdateMediaRequest request,
+        bool replace = false,
+        CancellationToken ct = default
+    )
+    {
+        LastMediaUpdate = (id, request, replace);
+        return Task.FromResult(
+            UmbracoResponse<MediaItemResponse>.Success(new MediaItemResponse { Id = id })
+        );
+    }
+
     /// <summary>The (kind, id, body, replace) of the last <see cref="MergeSchemaItemAsync"/> call (#201).</summary>
     public (EntityKind Kind, Guid Id, JsonNode Body, bool Replace)? LastSchemaMerge
     {

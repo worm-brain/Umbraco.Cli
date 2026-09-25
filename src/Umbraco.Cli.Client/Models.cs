@@ -818,6 +818,21 @@ public record MediaVariant
 }
 
 /// <summary>A single media property value (e.g. <c>umbracoFile</c> pointing at a staged temporary file).</summary>
+/// <summary>
+/// A media update (#220): values and variants merged into the item, matched like
+/// <see cref="UpdateContentRequest"/> on alias + culture + segment.
+/// </summary>
+public record UpdateMediaRequest
+{
+    /// <summary>Property values to set; any value not named keeps its current one.</summary>
+    [JsonPropertyName("values")]
+    public IEnumerable<ContentValue> Values { get; init; } = [];
+
+    /// <summary>Variants (names) to set; any variant not named keeps its current one.</summary>
+    [JsonPropertyName("variants")]
+    public IEnumerable<ContentVariant> Variants { get; init; } = [];
+}
+
 public record MediaValue
 {
     [JsonPropertyName("alias")]
