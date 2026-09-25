@@ -18,9 +18,9 @@ public static class TemplatesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a Razor view template by UUID. Omitted fields are preserved.\n\nExample:\n  umbraco templates update 3f7a8b2e-... --content-file ./home.cshtml"
+            "Update a Razor view template by id or alias. Omitted fields are preserved.\n\nExample:\n  umbraco templates update blogPost --content-file ./blog-post.cshtml"
         );
-        var idArg = new Argument<Guid>("id") { Description = "Template ID." };
+        var idArg = Reference.Argument(EntityKind.Template);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var aliasOpt = new Option<string?>("--alias") { Description = "New alias." };
         var (contentOpt, contentFileOpt) = FileContentInput.Options(
@@ -47,14 +47,20 @@ public static class TemplatesUpdateCommand
                             contentFileOpt,
                             ct
                         );
-                        return await client.UpdateTemplateAsync(
-                            parseResult.GetValue(idArg),
-                            new UpdateTemplateRequest
-                            {
-                                Name = parseResult.GetValue(nameOpt),
-                                Alias = parseResult.GetValue(aliasOpt),
-                                Content = content,
-                            },
+                        return await client.WithResolvedAsync(
+                            EntityKind.Template,
+                            parseResult.GetValue(idArg)!,
+                            id =>
+                                client.UpdateTemplateAsync(
+                                    id,
+                                    new UpdateTemplateRequest
+                                    {
+                                        Name = parseResult.GetValue(nameOpt),
+                                        Alias = parseResult.GetValue(aliasOpt),
+                                        Content = content,
+                                    },
+                                    c
+                                ),
                             c
                         );
                     },

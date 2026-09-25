@@ -425,11 +425,11 @@ umbraco languages delete <iso-code>                        # needs --yes non-int
 ## `templates`
 
 ```bash
-umbraco templates list
-umbraco templates get <alias>
+umbraco templates list                                     # every template, nested ones too, with its alias
+umbraco templates get <id|alias>
 umbraco templates create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
-umbraco templates update <id> --name <name> --alias <alias> [--content <razor> | --content-file <file>]
-umbraco templates delete <id>                              # needs --yes non-interactively
+umbraco templates update <id|alias> --name <name> --alias <alias> [--content <razor> | --content-file <file>]
+umbraco templates delete <id|alias>                        # needs --yes non-interactively
 ```
 
 ## `members`

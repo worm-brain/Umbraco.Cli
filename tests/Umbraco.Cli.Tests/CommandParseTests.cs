@@ -532,6 +532,8 @@ public class CommandParseTests
     [InlineData("templates create --name Home --alias home")]
     [InlineData("templates update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Home --alias home")]
     [InlineData("templates delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("templates delete blogPost")] // #206: <id|alias>
+    [InlineData("templates update blogPost --name \"Blog post\"")]
     [InlineData("dictionary delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("dictionary tree")]
     [InlineData("dictionary tree --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]

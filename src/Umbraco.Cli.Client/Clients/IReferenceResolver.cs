@@ -28,6 +28,39 @@ public enum EntityKind
     DictionaryItem,
 }
 
+/// <summary>How messages and help text name each <see cref="EntityKind"/>.</summary>
+public static class EntityKindText
+{
+    /// <summary>The kind as a noun, e.g. <c>media type</c>.</summary>
+    /// <param name="kind">The kind.</param>
+    /// <returns>The noun.</returns>
+    public static string Noun(this EntityKind kind) => Describe(kind).Noun;
+
+    /// <summary>What the kind is looked up by besides its id, e.g. <c>alias or name</c>.</summary>
+    /// <param name="kind">The kind.</param>
+    /// <returns>The key description.</returns>
+    public static string KeyName(this EntityKind kind) => Describe(kind).By;
+
+    /// <summary>The command that lists the kind, e.g. <c>media-types list</c>.</summary>
+    /// <param name="kind">The kind.</param>
+    /// <returns>The command, without the <c>umbraco</c> prefix.</returns>
+    public static string ListCommand(this EntityKind kind) => Describe(kind).List;
+
+    private static (string Noun, string By, string List) Describe(EntityKind kind) =>
+        kind switch
+        {
+            EntityKind.Template => ("template", "alias or name", "templates list"),
+            EntityKind.DocumentType => ("document type", "alias", "content-types list"),
+            EntityKind.MediaType => ("media type", "alias or name", "media-types list"),
+            EntityKind.MemberType => ("member type", "alias", "member-types list"),
+            EntityKind.DataType => ("data type", "name", "data-types list"),
+            EntityKind.UserGroup => ("user group", "alias or name", "user-groups list"),
+            EntityKind.MemberGroup => ("member group", "name", "member-groups list"),
+            EntityKind.DictionaryItem => ("dictionary item", "key", "dictionary list"),
+            _ => (kind.ToString(), "reference", "--help"),
+        };
+}
+
 /// <summary>
 /// Turns what a user types for an item - its id, alias, name or key - into the item's id, the same
 /// way for every kind (#250 Phase 3). Before this each noun had its own lookup, most commands took

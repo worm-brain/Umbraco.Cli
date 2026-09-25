@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
@@ -13,9 +14,9 @@ public static class TemplatesDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a Razor view template by UUID.\n\nExample:\n  umbraco templates delete 3f7a8b2e-..."
+            "Delete a Razor view template by id or alias.\n\nExample:\n  umbraco templates delete blogPost"
         );
-        var idArg = new Argument<Guid>("id") { Description = "Template ID." };
+        var idArg = Reference.Argument(EntityKind.Template);
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
             $"Permanently delete template {parseResult.GetValue(idArg)}? This cannot be undone."
@@ -25,7 +26,13 @@ public static class TemplatesDeleteCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "templates.delete",
-                    (client, c) => client.DeleteTemplateAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client.WithResolvedAsync(
+                            EntityKind.Template,
+                            parseResult.GetValue(idArg)!,
+                            id => client.DeleteTemplateAsync(id, c),
+                            c
+                        ),
                     "Template deleted.",
                     ct
                 )

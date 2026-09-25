@@ -14,21 +14,6 @@ internal sealed record ReferenceCandidate(Guid Id, string? Alias, string? Name);
 /// </summary>
 internal static class ReferenceMatch
 {
-    /// <summary>How the messages name a kind: the noun, what it is looked up by, and its list command.</summary>
-    private static (string Noun, string By, string List) Describe(EntityKind kind) =>
-        kind switch
-        {
-            EntityKind.Template => ("template", "alias or name", "templates list"),
-            EntityKind.DocumentType => ("document type", "alias", "content-types list"),
-            EntityKind.MediaType => ("media type", "alias or name", "media-types list"),
-            EntityKind.MemberType => ("member type", "alias", "member-types list"),
-            EntityKind.DataType => ("data type", "name", "data-types list"),
-            EntityKind.UserGroup => ("user group", "alias or name", "user-groups list"),
-            EntityKind.MemberGroup => ("member group", "name", "member-groups list"),
-            EntityKind.DictionaryItem => ("dictionary item", "key", "dictionary list"),
-            _ => (kind.ToString(), "reference", "--help"),
-        };
-
     /// <summary>Picks the one candidate <paramref name="reference"/> names.</summary>
     /// <param name="kind">The kind, for the messages.</param>
     /// <param name="reference">The alias, name or key.</param>
@@ -52,10 +37,9 @@ internal static class ReferenceMatch
         if (byName.Count > 0)
             return Single(kind, reference, byName);
 
-        var (noun, by, list) = Describe(kind);
         throw new ApiException(
-            $"No {noun} found with the {by} '{reference}'. Use 'umbraco {list}' to find one, "
-                + $"or pass its id."
+            $"No {kind.Noun()} found with the {kind.KeyName()} '{reference}'. Use "
+                + $"'umbraco {kind.ListCommand()}' to find one, or pass its id."
         )
         {
             ResponseStatusCode = 404,
@@ -68,10 +52,9 @@ internal static class ReferenceMatch
         if (matches.Count == 1)
             return matches[0].Id;
 
-        var (noun, _, _) = Describe(kind);
         var ids = string.Join(", ", matches.Select(m => $"{m.Id} ({m.Name ?? m.Alias})"));
         throw new ApiException(
-            $"'{reference}' matches {matches.Count} {noun}s: {ids}. Pass the id of the one you mean."
+            $"'{reference}' matches {matches.Count} {kind.Noun()}s: {ids}. Pass the id of the one you mean."
         )
         {
             ResponseStatusCode = 409,

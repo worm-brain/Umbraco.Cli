@@ -59,6 +59,16 @@ public class ReferenceResolverWireTests
     }
 
     [Fact]
+    public async Task GetTemplatesAsync_ListsNestedTemplatesWithTheirAliases()
+    {
+        // #206: the list read the tree root only (so Blog Post, under Master, was missing) and
+        // never filled the alias.
+        var result = await Wire.Client(Templates()).GetTemplatesAsync(0, 20);
+
+        Assert.Equal(["master", "blogPost"], result.Data!.Items.Select(t => t.Alias));
+    }
+
+    [Fact]
     public async Task ResolveIdAsync_UnknownTemplate_Is404NamingTheListCommand()
     {
         var result = await Wire.Client(Templates()).ResolveIdAsync(EntityKind.Template, "nope");

@@ -2232,9 +2232,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     // ── Templates ────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Lists templates from <c>tree/template/root</c> (issue #39 — no flat
-    /// <c>/template</c> collection). Tree items are named entities exposing id + name;
-    /// alias/master are only available from a single-item GET.
+    /// Lists templates (issue #39 - there is no flat <c>/template</c> collection). Every template
+    /// is listed, including those nested under a master (the tree root alone omits them), with
+    /// its alias from the item endpoint (#206; it was always <c>""</c>). Paged client-side.
     /// </summary>
     /// <param name="skip">Number of items to skip (paging).</param>
     /// <param name="take">Maximum number of items to return.</param>
@@ -2249,24 +2249,21 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var paged = await _api.Umbraco.Management.Api.V1.Tree.Template.Root.GetAsync(
-                    c =>
-                    {
-                        c.QueryParameters.Skip = skip;
-                        c.QueryParameters.Take = take;
-                    },
-                    ct
-                );
+                var all = await TemplateCandidatesAsync(ct);
                 return new PagedResponse<TemplateResponse>
                 {
-                    Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? [])
-                        .Select(i => new TemplateResponse
-                        {
-                            Id = i.Id ?? Guid.Empty,
-                            Name = i.Name ?? "",
-                        })
-                        .ToList(),
+                    Total = all.Count,
+                    Items =
+                    [
+                        .. all.Skip(skip)
+                            .Take(take)
+                            .Select(t => new TemplateResponse
+                            {
+                                Id = t.Id,
+                                Name = t.Name ?? "",
+                                Alias = t.Alias ?? "",
+                            }),
+                    ],
                 };
             }
         );
