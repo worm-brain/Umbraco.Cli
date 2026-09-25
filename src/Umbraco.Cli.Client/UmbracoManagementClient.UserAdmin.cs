@@ -167,28 +167,43 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                await _api
-                    .Umbraco.Management.Api.V1.UserGroup[id]
-                    .PutAsync(
-                        new Gen.UpdateUserGroupRequestModel
-                        {
-                            Alias = request.Alias,
-                            Name = request.Name,
-                            Icon = request.Icon,
-                            Description = request.Description,
-                            Sections = request.Sections.ToList(),
-                            Languages = request.Languages.ToList(),
-                            FallbackPermissions = request.FallbackPermissions.ToList(),
-                            HasAccessToAllLanguages = request.HasAccessToAllLanguages,
-                            DocumentRootAccess = request.DocumentRootAccess,
-                            MediaRootAccess = request.MediaRootAccess,
-                            DocumentStartNode = Ref(request.DocumentStartNode),
-                            MediaStartNode = Ref(request.MediaStartNode),
-                            // Granular per-node permissions are a deferred follow-up.
-                            Permissions = [],
-                        },
-                        cancellationToken: ct
-                    );
+                var group = _api.Umbraco.Management.Api.V1.UserGroup[id];
+                // The PUT replaces the whole group, and the CLI does not model granular per-node
+                // permissions (#111). Carry the group's current ones through, so an update never
+                // silently wipes permissions set in the backoffice.
+                var current = await group.GetAsync(cancellationToken: ct);
+                await group.PutAsync(
+                    new Gen.UpdateUserGroupRequestModel
+                    {
+                        Alias = request.Alias,
+                        Name = request.Name,
+                        Icon = request.Icon,
+                        Description = request.Description,
+                        Sections = request.Sections.ToList(),
+                        Languages = request.Languages.ToList(),
+                        FallbackPermissions = request.FallbackPermissions.ToList(),
+                        HasAccessToAllLanguages = request.HasAccessToAllLanguages,
+                        DocumentRootAccess = request.DocumentRootAccess,
+                        MediaRootAccess = request.MediaRootAccess,
+                        DocumentStartNode = Ref(request.DocumentStartNode),
+                        MediaStartNode = Ref(request.MediaStartNode),
+                        Permissions =
+                        [
+                            .. (current?.Permissions ?? []).Select(
+                                p => new Gen.UpdateUserGroupRequestModel.UpdateUserGroupRequestModel_permissions
+                                {
+                                    DocumentPermissionPresentationModel =
+                                        p.DocumentPermissionPresentationModel,
+                                    DocumentPropertyValuePermissionPresentationModel =
+                                        p.DocumentPropertyValuePermissionPresentationModel,
+                                    UnknownTypePermissionPresentationModel =
+                                        p.UnknownTypePermissionPresentationModel,
+                                }
+                            ),
+                        ],
+                    },
+                    cancellationToken: ct
+                );
                 return Empty.Value;
             }
         );

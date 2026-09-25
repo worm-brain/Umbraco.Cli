@@ -10,7 +10,7 @@ public static class WebhooksCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event ContentPublished\n  umbraco webhook create --url https://my.app/hook --event ContentPublished,MediaSaved --name \"Deploy hook\""
+            "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\""
         ).Mutating();
         var urlOpt = new Option<string>("--url")
         {
@@ -18,7 +18,10 @@ public static class WebhooksCreateCommand
             Description = "URL that Umbraco posts the event payload to.",
         };
         var eventsOpt = ListOption
-            .Strings("--event", "Event names to subscribe to, e.g. ContentPublished,MediaSaved.")
+            .Strings(
+                "--event",
+                "Umbraco event aliases to subscribe to, e.g. Umbraco.ContentPublish or Umbraco.MediaSave."
+            )
             .AsRequired();
         var idOpt = new Option<Guid?>("--id")
         {

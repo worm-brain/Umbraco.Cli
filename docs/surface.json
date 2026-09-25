@@ -3674,7 +3674,7 @@
     },
     {
       "name": "webhook",
-      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event ContentPublished,ContentUnpublished\n  umbraco webhook delete <id>",
+      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook delete <id>",
       "arguments": [],
       "options": [],
       "commands": [
@@ -3707,7 +3707,7 @@
         },
         {
           "name": "create",
-          "description": "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event ContentPublished\n  umbraco webhook create --url https://my.app/hook --event ContentPublished,MediaSaved --name \"Deploy hook\"",
+          "description": "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\"",
           "arguments": [],
           "options": [
             {
@@ -3721,7 +3721,7 @@
             {
               "name": "--event",
               "aliases": [],
-              "description": "Event names to subscribe to, e.g. ContentPublished,MediaSaved. Repeat the option, or separate values with commas.",
+              "description": "Umbraco event aliases to subscribe to, e.g. Umbraco.ContentPublish or Umbraco.MediaSave. Repeat the option, or separate values with commas.",
               "type": "string[]",
               "required": true,
               "hasDefault": false

@@ -254,7 +254,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             "--url",
             marker,
             "--event",
-            "ContentPublished",
+            "Umbraco.ContentPublish",
             "--dry-run"
         );
         Assert.True(dry.Ok, dry.Stderr);
@@ -480,7 +480,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             "--url",
             marker,
             "--event",
-            "ContentPublished",
+            "Umbraco.ContentPublish",
             "--readonly"
         );
         Assert.Equal(2, create.ExitCode);
@@ -521,7 +521,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             "--url",
             "https://example.com/confirm-gate-test",
             "--event",
-            "ContentPublished"
+            "Umbraco.ContentPublish"
         );
         Assert.True(create.Ok, create.Stderr);
         var id = create.Data().GetProperty("id").GetString()!;
@@ -554,7 +554,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             "--url",
             "https://example.com/integration-test-hook",
             "--event",
-            "ContentPublished"
+            "Umbraco.ContentPublish"
         );
         Assert.True(create.Ok, create.Stderr);
         var id = create.Data().GetProperty("id").GetString();
