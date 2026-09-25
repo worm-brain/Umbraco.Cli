@@ -77,7 +77,7 @@ public sealed class HumanOutputWriter : IOutputWriter
 
     /// <inheritdoc />
     public void WriteBulk(
-        IReadOnlyList<Commands.BulkItemResult> results,
+        IReadOnlyList<BulkItemResult> results,
         string? commandName = null,
         long? durationMs = null
     )
@@ -87,15 +87,15 @@ public sealed class HumanOutputWriter : IOutputWriter
         {
             var line = r.Status switch
             {
-                "success" => $"[green]✓[/] {Markup.Escape(r.Id)}",
-                "dry-run" when r.Request is { } q =>
+                BulkItemStatus.Success => $"[green]✓[/] {Markup.Escape(r.Id)}",
+                BulkItemStatus.DryRun when r.Request is { } q =>
                     $"[yellow]●[/] {Markup.Escape(r.Id)}  would send {Markup.Escape(q.Method)} {Markup.Escape(q.Url)}",
-                "dry-run" => $"[yellow]●[/] {Markup.Escape(r.Id)}  (dry run)",
+                BulkItemStatus.DryRun => $"[yellow]●[/] {Markup.Escape(r.Id)}  (dry run)",
                 _ => $"[red]✗[/] {Markup.Escape(r.Id)}  {Markup.Escape(r.Error ?? "failed")}",
             };
             AnsiConsole.MarkupLine(line);
         }
-        var s = Commands.BulkSummary.Of(results);
+        var s = BulkSummary.Of(results);
         AnsiConsole.MarkupLine(
             $"{s.Succeeded} succeeded, {s.Failed} failed"
                 + (s.DryRun > 0 ? $", {s.DryRun} previewed" : "")

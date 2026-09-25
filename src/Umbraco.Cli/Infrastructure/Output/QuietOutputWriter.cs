@@ -55,4 +55,11 @@ public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
     /// <inheritdoc />
     public void WriteDryRun(string method, string url, string? body) =>
         inner.WriteDryRun(method, url, body);
+
+    /// <inheritdoc />
+    public void WriteBulk(
+        IReadOnlyList<BulkItemResult> results,
+        string? commandName = null,
+        long? durationMs = null
+    ) => inner.WriteBulk(results, commandName, durationMs);
 }

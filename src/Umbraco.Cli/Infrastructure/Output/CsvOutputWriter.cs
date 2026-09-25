@@ -106,6 +106,24 @@ public sealed class CsvOutputWriter : IOutputWriter
     }
 
     /// <inheritdoc />
+    /// <inheritdoc />
+    /// <remarks>
+    /// One row per item. CSV has no envelope, so the overall status and counts are left out; a
+    /// caller that needs them reads the exit code or asks for JSON.
+    /// </remarks>
+    public void WriteBulk(
+        IReadOnlyList<BulkItemResult> results,
+        string? commandName = null,
+        long? durationMs = null
+    )
+    {
+        Console.Out.WriteLine("id,status,error");
+        foreach (var r in results)
+            Console.Out.WriteLine(
+                $"{Escape(r.Id)},{Escape(r.Status.ToWire())},{Escape(r.Error ?? "")}"
+            );
+    }
+
     public void WriteDryRun(string method, string url, string? body)
     {
         Console.Out.WriteLine("method,url,body");

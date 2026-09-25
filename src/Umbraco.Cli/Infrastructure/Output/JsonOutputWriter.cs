@@ -161,7 +161,7 @@ public sealed class JsonOutputWriter : IOutputWriter
 
     /// <inheritdoc />
     public void WriteBulk(
-        IReadOnlyList<Commands.BulkItemResult> results,
+        IReadOnlyList<BulkItemResult> results,
         string? commandName = null,
         long? durationMs = null
     )
@@ -169,7 +169,7 @@ public sealed class JsonOutputWriter : IOutputWriter
         object? payload = _fields is null
             ? results
             : OutputShaping.Project(JsonSerializer.SerializeToNode(results, Options), _fields);
-        var summary = Commands.BulkSummary.Of(results);
+        var summary = BulkSummary.Of(results);
 
         // #236: the status follows the outcomes, so it no longer says "success" while the exit
         // code says 1. meta.summary gives the counts without walking data.
@@ -199,18 +199,7 @@ public sealed class JsonOutputWriter : IOutputWriter
         // Embed the body as parsed JSON when it is valid JSON so the preview nests cleanly
         // for agents; otherwise fall back to the raw string. A dry run is a successful
         // preview, so it goes to stdout with a distinct "dry-run" status.
-        object? parsedBody = null;
-        if (!string.IsNullOrWhiteSpace(body))
-        {
-            try
-            {
-                parsedBody = JsonSerializer.Deserialize<JsonElement>(body!);
-            }
-            catch (JsonException)
-            {
-                parsedBody = body;
-            }
-        }
+        var parsedBody = JsonBody.Parse(body);
 
         // #165: under `data`, like every other success envelope. It used to be `request`, which
         // was the one documented exception to "the payload always lives under .data".
