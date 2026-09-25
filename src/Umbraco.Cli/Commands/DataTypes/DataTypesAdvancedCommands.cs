@@ -68,7 +68,7 @@ public static class DataTypesAdvancedCommands
     {
         var cmd = new Command("copy", "Copy a data type, optionally under a target folder.");
         var idArg = new Argument<Guid>("id") { Description = "Data type ID to copy." };
-        var targetOpt = new Option<Guid?>("--target")
+        var targetOpt = new Option<Guid?>("--target", "--parent")
         {
             Description = "Destination folder UUID; omit to copy to the root.",
         };
@@ -100,7 +100,7 @@ public static class DataTypesAdvancedCommands
     {
         var cmd = new Command("move", "Move a data type under a folder (or to the root).");
         var idArg = new Argument<Guid>("id") { Description = "Data type ID to move." };
-        var targetOpt = new Option<Guid?>("--target")
+        var targetOpt = new Option<Guid?>("--target", "--parent")
         {
             Description = "Destination folder UUID; omit to move to the root.",
         };

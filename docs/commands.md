@@ -143,7 +143,7 @@ umbraco content rollback <version-id> [--culture <code>]   # restore a version
 umbraco content trash <id>                                 # move to recycle bin (reversible)
 umbraco content restore <id> [--parent <id>]               # restore from recycle bin
 umbraco content empty-recycle-bin                          # permanent; needs --yes
-umbraco content move <id> [--parent <id>]
+umbraco content move <id> [--parent <id>]                  # --target works too
 umbraco content sort [--parent <id>] (--children <id>,<id>... | --by name|createDate|updateDate|publishDate [--desc])   # reorder a parent's children
 umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # returns the copy, with its new id
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
@@ -302,10 +302,10 @@ umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>]   
 umbraco document-blueprint get <id>                        # raw JSON (full fidelity)
 umbraco document-blueprint scaffold <id>                   # pre-filled create template Umbraco would use
 umbraco document-blueprint create --document-type <alias|uuid> --name <name> [--parent <folder>] [--json-body <file>] [--schema] [--id <guid>]
-umbraco document-blueprint update <id> [--name <name>] [--json-body <file>] [--schema]
+umbraco document-blueprint update <id> [--name <name>] [--json-body <file>] [--replace] [--schema]   # merges, like content update
 umbraco document-blueprint delete <id>                     # needs --yes non-interactively
 umbraco document-blueprint from-document <documentId> --name <name> [--parent <folder>] [--id <guid>]
-umbraco document-blueprint move <id> [--target <folder>]   # omit --target to move to the root
+umbraco document-blueprint move <id> [--target <folder>]   # omit --target to move to the root; --parent works too
 
 # folder sub-noun (organise blueprints in the tree):
 umbraco document-blueprint folder get <id>
@@ -328,7 +328,7 @@ umbraco media delete <id>                                  # permanent; needs --
 umbraco media trash <id>                                   # move to recycle bin (reversible)
 umbraco media restore <id> [--parent <id>]
 umbraco media empty-recycle-bin                            # permanent; needs --yes
-umbraco media move <id> [--parent <id>]
+umbraco media move <id> [--parent <id>]                    # --target works too
 umbraco media sort [--parent <id>] (--children <id>,<id>... | --by name|createDate|updateDate [--desc])   # reorder a folder's children
 
 # folder sub-noun (organise uploads):
@@ -393,7 +393,7 @@ umbraco data-types delete <id|name> [--force]                  # refused while i
 umbraco data-types is-used <id>                            # whether any content type uses it
 umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
 umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root; returns the copy
-umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root
+umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root; --parent works too
 
 # folder sub-noun (organise data types in the tree):
 umbraco data-types folder get <id>
@@ -522,7 +522,7 @@ Key/value data scoped to the **authenticated** user.
 umbraco user-data list [--group <group>] [--identifier <id>] [--skip <n>] [--take <n>]
 umbraco user-data get <key>
 umbraco user-data create --group <group> --identifier <id> --value <value> [--key <guid>]
-umbraco user-data update --key <key> --group <group> --identifier <id> --value <value>
+umbraco user-data update <key> --group <group> --identifier <id> --value <value>
 umbraco user-data delete <key>                             # needs --yes non-interactively
 ```
 

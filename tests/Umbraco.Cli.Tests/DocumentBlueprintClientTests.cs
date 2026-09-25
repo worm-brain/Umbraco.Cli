@@ -126,25 +126,63 @@ public class DocumentBlueprintClientTests
         );
     }
 
-    [Fact]
-    public async Task UpdateDocumentBlueprintAsync_PutsValuesToByIdEndpoint()
-    {
-        var id = Guid.NewGuid();
-        var (client, handler) = ClientReturning("");
+    /// <summary>A blueprint with a title and a featured image, as Umbraco returns it.</summary>
+    private static string ExistingBlueprint(Guid id) =>
+        $$"""
+            {"id":"{{id}}","documentType":{"id":"{{Guid.NewGuid()}}"},
+             "values":[{"alias":"title","culture":null,"segment":null,"value":"Old"},
+                       {"alias":"featuredImage","culture":null,"segment":null,"value":"img"}],
+             "variants":[{"culture":null,"segment":null,"name":"Post"}]}
+            """;
 
-        var result = await client.UpdateDocumentBlueprintAsync(
-            id,
-            new UpdateDocumentBlueprintRequest
-            {
-                Values = [new ContentValue { Alias = "title", Value = "New" }],
-            },
-            CancellationToken.None
-        );
+    [Fact]
+    public async Task UpdateDocumentBlueprintAsync_MergesIntoTheBlueprint()
+    {
+        // #242: the PUT replaced the body, so fields the caller left out (featuredImage) vanished.
+        var id = Guid.NewGuid();
+        var handler = Wire.Existing(ExistingBlueprint(id));
+
+        var result = await Wire.Client(handler)
+            .UpdateDocumentBlueprintAsync(
+                id,
+                new UpdateDocumentBlueprintRequest
+                {
+                    Values = [new ContentValue { Alias = "title", Value = "New" }],
+                },
+                ct: CancellationToken.None
+            );
 
         Assert.True(result.IsSuccess);
-        var put = handler.First(HttpMethod.Put);
-        Assert.EndsWith($"/document-blueprint/{id}", put.Uri.AbsolutePath);
-        Assert.Contains("title", put.Body);
+        var values = handler.BodyOf(HttpMethod.Put, $"/document-blueprint/{id}")[
+            "values"
+        ]!.AsArray();
+        Assert.Equal(
+            ["title=New", "featuredImage=img"],
+            values.Select(v => $"{v!["alias"]}={v["value"]}")
+        );
+    }
+
+    [Fact]
+    public async Task UpdateDocumentBlueprintAsync_Replace_SendsOnlyTheGivenValues()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Existing(ExistingBlueprint(id));
+
+        await Wire.Client(handler)
+            .UpdateDocumentBlueprintAsync(
+                id,
+                new UpdateDocumentBlueprintRequest
+                {
+                    Values = [new ContentValue { Alias = "title", Value = "New" }],
+                },
+                replace: true,
+                ct: CancellationToken.None
+            );
+
+        var values = handler.BodyOf(HttpMethod.Put, $"/document-blueprint/{id}")[
+            "values"
+        ]!.AsArray();
+        Assert.Equal("title", Assert.Single(values)!["alias"]!.GetValue<string>());
     }
 
     [Fact]

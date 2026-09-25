@@ -19,7 +19,8 @@ public static class DictionaryMoveCommand
         var targetOpt = Reference.Option(
             "--target",
             EntityKind.DictionaryItem,
-            "The new parent; moves to the dictionary root if omitted"
+            "The new parent; moves to the dictionary root if omitted",
+            "--parent"
         );
         cmd.Add(idArg);
         cmd.Add(targetOpt);

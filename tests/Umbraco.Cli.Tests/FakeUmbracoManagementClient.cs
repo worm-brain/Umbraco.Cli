@@ -1545,12 +1545,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>The replace flag of the last blueprint update (#242).</summary>
+    public bool? LastBlueprintReplace { get; private set; }
+
     public Task<UmbracoResponse<Empty>> UpdateDocumentBlueprintAsync(
         Guid id,
         UpdateDocumentBlueprintRequest request,
+        bool replace = false,
         CancellationToken ct = default
     )
     {
+        LastBlueprintReplace = replace;
         BlueprintsUpdated.Add((id, request));
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }

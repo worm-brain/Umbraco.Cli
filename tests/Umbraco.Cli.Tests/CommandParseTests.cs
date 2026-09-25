@@ -563,6 +563,25 @@ public class CommandParseTests
     )]
     [InlineData("media sort --by name")]
     [InlineData("content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --cultures en-US,da-DK")] // #231
+    [InlineData(
+        "content move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )] // #242: --target and --parent both work
+    [InlineData(
+        "media move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData("dictionary move Blog.Tags --parent Blog")]
+    [InlineData(
+        "data-types move 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "document-blueprint move 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "user-data update 3f7a8b2e-1234-5678-abcd-ef0123456789 --group g --identifier i --value v"
+    )] // #242: positional key
+    [InlineData(
+        "document-blueprint update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name X --replace"
+    )]
     [InlineData("dictionary move Blog.Tags --target Blog")] // #211: keys everywhere
     [InlineData("dictionary update Blog.MinRead --values da-DK=Min")]
     [InlineData("dictionary delete Blog.MinRead")]
@@ -768,6 +787,7 @@ public class CommandParseTests
     [InlineData("content delete not-a-uuid")]
     [InlineData("media-types create --name OnlyName")] // missing required --alias
     [InlineData("member-types create --alias onlyAlias")] // missing required --name
+    [InlineData("user-data update --group g --identifier i --value v")] // #242: no key at all
     [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789 --by name")] // #232: an explicit order and a field conflict
     [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789 --desc")] // --desc needs --by
     [InlineData("media sort --by publishDate")] // media has no publish date

@@ -15,7 +15,7 @@ public static class ContentMoveCommand
             "Move a content item under a new parent.\n\nExamples:\n  umbraco content move 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content move 3f7a8b2e-...   # to the content root"
         );
         var idArg = new Argument<Guid>("id") { Description = "Content item ID to move." };
-        var parentOpt = new Option<Guid?>("--parent")
+        var parentOpt = new Option<Guid?>("--parent", "--target")
         {
             Description = "Target parent ID. Moves to the content root if omitted.",
         };

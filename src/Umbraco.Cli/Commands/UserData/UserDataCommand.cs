@@ -134,12 +134,18 @@ public static class UserDataCommand
     {
         var cmd = new Command(
             "update",
-            "Update a user-data entry by key.\n\nExample:\n  umbraco user-data update --key <guid> --group myGroup --identifier theme --value light"
+            "Update a user-data entry by key.\n\nExample:\n  umbraco user-data update <key> --group myGroup --identifier theme --value light"
         );
-        var keyOpt = new Option<Guid>("--key")
+        // #242: every other update takes its id positionally, as user-data get and delete do.
+        // --key still works, so existing scripts keep running.
+        var keyArg = new Argument<Guid?>("key")
         {
-            Required = true,
             Description = "Key of the entry to update.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
+        var keyOpt = new Option<Guid?>("--key")
+        {
+            Description = "Key of the entry to update (the same as the positional key).",
         };
         var groupOpt = new Option<string>("--group") { Required = true, Description = "Group." };
         var identifierOpt = new Option<string>("--identifier")
@@ -152,7 +158,19 @@ public static class UserDataCommand
             Required = true,
             Description = "New value to store.",
         };
+        cmd.Add(keyArg);
         cmd.Add(keyOpt);
+        ListOption.ValidateParsed(
+            cmd,
+            result =>
+            {
+                var (positional, option) = (result.GetValue(keyArg), result.GetValue(keyOpt));
+                if (positional is null && option is null)
+                    result.AddError("Give the entry's key: 'user-data update <key> ...'.");
+                else if (positional is not null && option is not null && positional != option)
+                    result.AddError("The positional key and --key disagree; give one.");
+            }
+        );
         cmd.Add(groupOpt);
         cmd.Add(identifierOpt);
         cmd.Add(valueOpt);
@@ -165,7 +183,10 @@ public static class UserDataCommand
                         client.UpdateUserDataAsync(
                             new UpdateUserDataRequest
                             {
-                                Key = parseResult.GetValue(keyOpt),
+                                // The validator guarantees one of them was given.
+                                Key = (
+                                    parseResult.GetValue(keyArg) ?? parseResult.GetValue(keyOpt)
+                                )!.Value,
                                 Group = parseResult.GetValue(groupOpt)!,
                                 Identifier = parseResult.GetValue(identifierOpt)!,
                                 Value = parseResult.GetValue(valueOpt)!,
