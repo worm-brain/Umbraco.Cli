@@ -123,10 +123,14 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         if (PublishContentHandler is null)
             throw new NotImplementedException();
         CalledIds.Add(id);
+        StateCalls.Add(("publish", id, cultures?.ToList()));
         return Task.FromResult(PublishContentHandler(id));
     }
 
     public Func<Guid, UmbracoResponse<Empty>>? UnpublishContentHandler { get; set; }
+
+    /// <summary>Every publish/unpublish call in order, with the cultures it named (null = all/invariant).</summary>
+    public List<(string Operation, Guid Id, List<string>? Cultures)> StateCalls { get; } = [];
 
     public Task<UmbracoResponse<Empty>> UnpublishContentAsync(
         Guid id,
@@ -137,6 +141,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         if (UnpublishContentHandler is null)
             throw new NotImplementedException();
         CalledIds.Add(id);
+        StateCalls.Add(("unpublish", id, cultures?.ToList()));
         return Task.FromResult(UnpublishContentHandler(id));
     }
 

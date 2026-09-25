@@ -119,6 +119,44 @@ public class ContentDiffEngineTests
     }
 
     [Fact]
+    public void Compare_OnlyPublishStateDiffers_IsAStateOnlyChange()
+    {
+        // #223: published on the source, a draft on the target, same content.
+        var id = Guid.NewGuid();
+        ContentNode In(string state) =>
+            new()
+            {
+                Id = id,
+                Body = JsonNode.Parse(
+                    $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"Home","state":"{{state}}"}]}"""
+                )!,
+            };
+
+        var diff = ContentDiffEngine.Compare(Snap(In("Published")), Snap(In("Draft")));
+
+        var changed = Assert.Single(diff.Changed);
+        Assert.False(changed.BodyChanged, "the body is the same");
+        Assert.Equal([null], changed.State.Publish);
+    }
+
+    [Fact]
+    public void Compare_AddedPublishedDocument_CarriesItsPublishStep()
+    {
+        var id = Guid.NewGuid();
+        var doc = new ContentNode
+        {
+            Id = id,
+            Body = JsonNode.Parse(
+                $$"""{"id":"{{id}}","variants":[{"culture":"en-US","state":"Published"}]}"""
+            )!,
+        };
+
+        var diff = ContentDiffEngine.Compare(Snap(doc), Snap());
+
+        Assert.Equal(["en-US"], Assert.Single(diff.Added).State.Publish);
+    }
+
+    [Fact]
     public void Compare_OnlyInstanceDatesDiffer_IsUnchanged()
     {
         // #224: the same document on two instances always has different dates; that is not a change.

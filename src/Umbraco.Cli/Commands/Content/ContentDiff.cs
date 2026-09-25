@@ -9,14 +9,17 @@ public enum ContentChangeKind
     /// <summary>In the snapshot, absent live - apply creates it (with its snapshot id and parent).</summary>
     Added,
 
-    /// <summary>Present in both but the body differs - apply updates the live document.</summary>
+    /// <summary>
+    /// Present in both but the body or the publish state differs - apply updates the live document
+    /// and/or publishes and unpublishes its cultures.
+    /// </summary>
     Changed,
 
     /// <summary>Live but absent from the snapshot - apply deletes it, but only under <c>--prune</c>.</summary>
     Removed,
 
     /// <summary>
-    /// Present in both with an identical body but a different parent. This is <b>advisory only</b>:
+    /// Present in both with an identical body and publish state but a different parent. This is <b>advisory only</b>:
     /// apply replaces bodies, it does not move documents, so a drift is reported by <c>diff</c> but
     /// never generates an apply step (which is why it is separate from <see cref="Changed"/> - an
     /// update here would be a no-op that could never converge the drift).
@@ -48,6 +51,28 @@ public sealed record ContentDocumentChange(ContentChangeKind Change, Guid Id, Gu
     /// </summary>
     [JsonIgnore]
     public Guid? DocumentTypeId { get; init; }
+
+    /// <summary>
+    /// For a changed document, whether the normalised body differs. False means only the publish
+    /// state differs (#223), so apply publishes or unpublishes without an update. Not serialized.
+    /// </summary>
+    [JsonIgnore]
+    public bool BodyChanged { get; init; } = true;
+
+    /// <summary>
+    /// For an added or changed document, the cultures apply publishes and unpublishes so the
+    /// target matches the snapshot's publish state (#223). Not serialized.
+    /// </summary>
+    [JsonIgnore]
+    public ContentPublishState.Steps State { get; init; } = ContentPublishState.Steps.None;
+
+    /// <summary>
+    /// The document's position in the snapshot's pre-order, so apply can publish parents before
+    /// children across the added and changed lists (Umbraco refuses to publish a document under
+    /// an unpublished parent). Not serialized.
+    /// </summary>
+    [JsonIgnore]
+    public int Order { get; init; }
 }
 
 /// <summary>

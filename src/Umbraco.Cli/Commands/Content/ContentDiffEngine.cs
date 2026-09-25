@@ -30,15 +30,20 @@ public static class ContentDiffEngine
         var matchedLiveIds = new HashSet<Guid>();
         var unchanged = 0;
 
+        var order = 0;
         foreach (var d in desired.Documents)
         {
+            order++;
             if (!currentById.TryGetValue(d.Id, out var live))
             {
-                // Present in the snapshot, absent live -> create it with its snapshot id and parent.
+                // Present in the snapshot, absent live -> create it with its snapshot id and parent,
+                // then publish what the snapshot has published (#223).
                 added.Add(
                     new ContentDocumentChange(ContentChangeKind.Added, d.Id, d.Parent)
                     {
                         DesiredBody = d.Body,
+                        State = ContentPublishState.ForCreate(d.Body),
+                        Order = order,
                     }
                 );
                 continue;
@@ -52,15 +57,22 @@ public static class ContentDiffEngine
                 ContentBodyNormaliser.Normalise(live.Body)
             );
             var parentDiffers = d.Parent != live.Parent;
+            // State is compared on the verbatim bodies (the normaliser drops it), so a state-only
+            // difference is a publish step with no update (#223).
+            var state = ContentPublishState.ForMatch(d.Body, live.Body, bodyDiffers);
 
-            if (bodyDiffers)
+            if (bodyDiffers || !state.IsEmpty)
             {
-                // Body differs -> update (converges the body). If the parent also drifted, that part
-                // is still not fixed - apply does not move documents - but the update is real work.
+                // Body or state differs -> update and/or (un)publish. If the parent also drifted,
+                // that part is still not fixed - apply does not move documents - but the rest is
+                // real work.
                 changed.Add(
                     new ContentDocumentChange(ContentChangeKind.Changed, d.Id, d.Parent)
                     {
                         DesiredBody = d.Body,
+                        BodyChanged = bodyDiffers,
+                        State = state,
+                        Order = order,
                     }
                 );
             }

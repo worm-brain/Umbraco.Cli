@@ -137,7 +137,7 @@ umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   #
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
 umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
 umbraco content diff <snapshot>                            # diff a snapshot vs live (read-only)
-umbraco content apply <snapshot> [--prune [--exclude-type <alias|id>]... [--exclude-root <id>]...] [--dry-run]   # reconcile; --prune deletes, needs --yes
+umbraco content apply <snapshot> [--no-state] [--prune [--exclude-type <alias|id>]... [--exclude-root <id>]...] [--dry-run]   # reconcile bodies + publish state; --prune deletes, needs --yes
 
 # Bulk ops over many ids (from --file or stdin), with a per-item results array:
 umbraco content bulk delete [--file ids.txt]               # permanent; needs --yes
@@ -740,6 +740,14 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
   all property values). A document's raw body does not carry its parent, so placement is recorded
   separately: `{ contentVersion, root, documents[] }` where each entry is `{ id, parent, body }`,
   in tree pre-order (parents before children).
+- **Content, not instance history** - diff and apply compare a normalised body: the per-variant
+  `createDate`, `updateDate`, `publishDate`, scheduled dates, `flags` and `state`, and the
+  top-level `isTrashed` and `flags`, are ignored, and `values`/`variants` are compared in a fixed
+  order. The same content on two instances is `Unchanged`, and a second `apply` does nothing.
+- **Publish state** - apply publishes each culture the snapshot has published (`Published` or
+  `PublishedPendingChanges`) and unpublishes live cultures the snapshot has not, parents first.
+  A difference in publish state alone is a `Changed` row that apply publishes or unpublishes
+  without an update. `--no-state` turns this off.
 - **Identity** - documents are matched by **GUID only** (they have no stable natural key). Apply
   recreates a document with its snapshot GUID (Umbraco 14+ honours a client-supplied id), so the
   same content has the same identity in every environment.

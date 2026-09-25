@@ -66,3 +66,9 @@ move is deliberately out of scope for this pass.
   schema ones (response variants carry state/dates the request may not accept), so this is a real
   risk. The pipeline's mechanics are unit-tested; live round-trip fidelity is tracked as a follow-up
   and belongs in the deferred integration harness (#51/#77).
+- **Amended (#224, #223):** the snapshot still stores verbatim bodies, but diff and apply work on
+  a normalised body (per-variant dates, flags and state, and top-level `isTrashed`/`flags`
+  removed; `values`/`variants` sorted), because a verbatim comparison reported every document as
+  changed on any other instance. Publish state is compared separately and applied by default:
+  apply publishes the cultures the snapshot has published and unpublishes the rest, parents
+  first (`--no-state` opts out).
