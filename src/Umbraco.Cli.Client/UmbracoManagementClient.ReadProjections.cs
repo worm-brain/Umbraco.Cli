@@ -271,4 +271,118 @@ public sealed partial class UmbracoManagementClient
             return null;
         }
     }
+
+    /// <summary>
+    /// Fills each row's document-type alias (#202): tree rows carry only the type id, so a list
+    /// said <c>contentType: {id}</c> where <c>get</c> said <c>{id, alias}</c>. One cached read per
+    /// distinct type, made one at a time because the alias cache is not thread-safe.
+    /// </summary>
+    /// <param name="rows">The mapped rows.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The rows, with aliases filled where they could be read.</returns>
+    private async Task<List<ContentItemResponse>> WithDocumentTypeAliasesAsync(
+        IEnumerable<ContentItemResponse> rows,
+        CancellationToken ct
+    )
+    {
+        var result = new List<ContentItemResponse>();
+        foreach (var row in rows)
+            result.Add(
+                row.ContentType is { } type
+                    ? row with
+                    {
+                        ContentType = type with
+                        {
+                            Alias = await DocumentTypeAliasAsync(type.Id, ct),
+                        },
+                    }
+                    : row
+            );
+        return result;
+    }
+
+    /// <summary>The media twin of <see cref="WithDocumentTypeAliasesAsync"/> (#202).</summary>
+    /// <param name="rows">The mapped rows.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The rows, with aliases filled where they could be read.</returns>
+    private async Task<List<MediaItemResponse>> WithMediaTypeAliasesAsync(
+        IEnumerable<MediaItemResponse> rows,
+        CancellationToken ct
+    )
+    {
+        var result = new List<MediaItemResponse>();
+        foreach (var row in rows)
+            result.Add(
+                row.MediaType is { } type
+                    ? row with
+                    {
+                        MediaType = type with { Alias = await MediaTypeAliasAsync(type.Id, ct) },
+                    }
+                    : row
+            );
+        return result;
+    }
+
+    /// <summary>
+    /// A document's parent (#205). <c>GET /document/{id}</c> has no parent field, so it is read from
+    /// <c>GET /tree/document/ancestors</c>: the item's own tree entry names its parent. Best-effort -
+    /// a failed read leaves the parent out rather than failing the <c>get</c>.
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parent, or null at the root or when it could not be read.</returns>
+    private async Task<ContentParentReference?> DocumentParentAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var chain = await _api.Umbraco.Management.Api.V1.Tree.Document.Ancestors.GetAsync(
+                c => c.QueryParameters.DescendantId = id,
+                ct
+            );
+            return ParentIn(chain?.Select(a => (a.Id, a.Parent?.Id)), id);
+        }
+        catch (ApiException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>A media item's parent (#205); see <see cref="DocumentParentAsync"/>.</summary>
+    /// <param name="id">The media item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parent, or null at the root or when it could not be read.</returns>
+    private async Task<ContentParentReference?> MediaParentAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var chain = await _api.Umbraco.Management.Api.V1.Tree.Media.Ancestors.GetAsync(
+                c => c.QueryParameters.DescendantId = id,
+                ct
+            );
+            return ParentIn(chain?.Select(a => (a.Id, a.Parent?.Id)), id);
+        }
+        catch (ApiException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Picks an item's parent out of its ancestor chain: the item's own entry names it; if the
+    /// chain leaves the item out, its last entry is the parent.
+    /// </summary>
+    /// <param name="chain">Each ancestor's (id, parent id), root first.</param>
+    /// <param name="id">The item whose parent is wanted.</param>
+    /// <returns>The parent, or null at the root.</returns>
+    internal static ContentParentReference? ParentIn(
+        IEnumerable<(Guid? Id, Guid? ParentId)>? chain,
+        Guid id
+    )
+    {
+        var entries = chain?.ToList() ?? [];
+        var parentId = entries.Any(e => e.Id == id)
+            ? entries.First(e => e.Id == id).ParentId
+            : entries.LastOrDefault().Id;
+        return parentId is { } p ? new ContentParentReference { Id = p } : null;
+    }
 }

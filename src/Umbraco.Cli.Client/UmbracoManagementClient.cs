@@ -139,7 +139,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return new PagedResponse<ContentItemResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? []).Select(MapDocumentTreeItem).ToList(),
+                    Items = await WithDocumentTypeAliasesAsync(
+                        (paged?.Items ?? []).Select(MapDocumentTreeItem),
+                        ct
+                    ),
                 };
             }
         );
@@ -181,8 +184,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                             is Gen.DocumentVariantStateModel.Published
                                 or Gen.DocumentVariantStateModel.PublishedPendingChanges
                     ),
+                    // #205: the by-id body has no parent at all, so it comes from the tree.
+                    Parent = await DocumentParentAsync(id, ct),
                     CreateDate = variant?.CreateDate ?? default,
-                    UpdateDate = variant?.UpdateDate ?? default,
+                    UpdateDate = variant?.UpdateDate,
                     // #168: the whole document, not a summary of its first variant. Without these
                     // a get -> edit -> update round-trip is impossible through the CLI alone.
                     Values = MapValueResponses(d?.Values),
@@ -972,7 +977,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return new PagedResponse<MediaItemResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? []).Select(MapMediaTreeItem).ToList(),
+                    Items = await WithMediaTypeAliasesAsync(
+                        (paged?.Items ?? []).Select(MapMediaTreeItem),
+                        ct
+                    ),
                 };
             }
         );
@@ -1016,7 +1024,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         ? new ContentTypeRef { Id = mtId, Alias = aliasTask.Result }
                         : null,
                     CreateDate = variant?.CreateDate ?? default,
-                    UpdateDate = variant?.UpdateDate ?? default,
+                    // #205: media get said parent: null for every item; the tree knows it.
+                    Parent = await MediaParentAsync(id, ct),
+                    UpdateDate = variant?.UpdateDate,
                     // #172: width, height, bytes and extension are all in values[]; they were
                     // being fetched and thrown away on every read.
                     Values = MapMediaValueResponses(m?.Values),

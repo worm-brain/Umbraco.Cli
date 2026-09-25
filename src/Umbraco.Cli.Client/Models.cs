@@ -220,8 +220,12 @@ public record ContentItemResponse
     [JsonPropertyName("createDate")]
     public DateTimeOffset CreateDate { get; init; }
 
+    /// <summary>
+    /// When the item was last saved. Null (and so left out of JSON) on list and tree rows, which
+    /// the Management API returns without it (#202) - a default date read as a real one.
+    /// </summary>
     [JsonPropertyName("updateDate")]
-    public DateTimeOffset UpdateDate { get; init; }
+    public DateTimeOffset? UpdateDate { get; init; }
 
     /// <summary>
     /// The item's property values (#168). Null when the item was read from a list or tree walk,
@@ -564,8 +568,12 @@ public record MediaItemResponse
     [JsonPropertyName("createDate")]
     public DateTimeOffset CreateDate { get; init; }
 
+    /// <summary>
+    /// When the item was last saved. Null (and so left out of JSON) on list and tree rows, which
+    /// the Management API returns without it (#202) - a default date read as a real one.
+    /// </summary>
     [JsonPropertyName("updateDate")]
-    public DateTimeOffset UpdateDate { get; init; }
+    public DateTimeOffset? UpdateDate { get; init; }
 
     /// <summary>
     /// The item's property values (#172). This is where the file actually lives: Umbraco keeps
