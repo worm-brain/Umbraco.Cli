@@ -210,7 +210,7 @@ public class SchemaAuthoringTests
     }
 
     [Fact]
-    public async Task Example_OnAnInstanceWithNone_SaysSoRatherThanFailingObscurely()
+    public async Task Example_OnAnInstanceWithNone_PrintsTheBuiltInMinimalBody()
     {
         var handler = Wire.Routed(("tree/document-type", """{ "total": 0, "items": [] }"""));
         var client = Wire.Client(handler);
@@ -222,8 +222,49 @@ public class SchemaAuthoringTests
             CancellationToken.None
         );
 
-        Assert.False(example.IsSuccess);
-        Assert.Contains("no document types", example.ErrorMessage);
+        // #200: a fresh site is when the shape is most needed, so it gets a body, not a 404.
+        Assert.True(example.IsSuccess, example.ErrorMessage);
+        Assert.Equal("myDocumentType", example.Data!["alias"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Example_KindWithNoBuiltInBody_SaysSoRatherThanFailingObscurely()
+    {
+        var example = await Umbraco.Cli.Commands.RawBodyCommand.ExampleAsync(
+            _ => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success([])),
+            (_, _) => throw new InvalidOperationException("Nothing to read."),
+            "templates",
+            CancellationToken.None
+        );
+
+        Assert.Equal(404, example.StatusCode);
         Assert.Contains("Create one first", example.ErrorMessage);
+    }
+
+    /// <summary>
+    /// The built-in bodies are a second definition of the create shape, which is the kind of copy
+    /// that goes stale; this ties each one to the spec the client is generated from.
+    /// </summary>
+    [Theory]
+    [InlineData("document types", "CreateDocumentTypeRequestModel")]
+    [InlineData("media types", "CreateMediaTypeRequestModel")]
+    [InlineData("member types", "CreateMemberTypeRequestModel")]
+    [InlineData("data types", "CreateDataTypeRequestModel")]
+    public void MinimalBody_CarriesEveryFieldTheSpecRequires(string kind, string model)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Umbraco.Cli.sln")))
+            dir = dir.Parent;
+        var spec = System.Text.Json.Nodes.JsonNode.Parse(
+            File.ReadAllText(Path.Combine(dir!.FullName, "spec", "management.json"))
+        )!;
+        var required = spec["components"]!["schemas"]![model]!["required"]!
+            .AsArray()
+            .Select(r => r!.GetValue<string>())
+            .ToList();
+
+        var body = Umbraco.Cli.Commands.RawBodyCommand.MinimalBody(kind)!.AsObject();
+
+        Assert.Empty(required.Where(r => !body.ContainsKey(r)));
     }
 }

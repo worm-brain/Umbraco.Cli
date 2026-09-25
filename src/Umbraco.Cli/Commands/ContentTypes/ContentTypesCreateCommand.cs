@@ -19,7 +19,7 @@ public static class ContentTypesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new document type with a given name and alias.\n\nExamples:\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
+            "Create a new document type, from flags or from a full Management API body (--json-body). --schema prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco content-types create --schema -o json | jq .data > t.json\n  umbraco content-types create --json-body t.json\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
         );
         var body = RawBodyCommand.AddBodyOptions(cmd);
         var nameOpt = new Option<string>("--name");

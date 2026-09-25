@@ -241,6 +241,47 @@ public static class RawBodyCommand
             : UmbracoResponse<RawCreated>.FailureFrom(created);
     }
 
+    /// <summary>
+    /// The smallest valid create body for a schema kind, for <c>--schema</c> on an instance that has
+    /// none to copy (#200). Each carries exactly the properties the Management API spec marks as
+    /// required on the create model, with empty collections where it wants a list.
+    /// </summary>
+    /// <param name="kind">The noun, as passed to <see cref="ExampleAsync"/> (e.g. <c>document types</c>).</param>
+    /// <returns>A fresh body, or null when there is no built-in one for the kind.</returns>
+    internal static JsonNode? MinimalBody(string kind) =>
+        kind switch
+        {
+            "document types" => JsonNode.Parse(
+                """
+                { "alias": "myDocumentType", "name": "My document type", "icon": "icon-document",
+                  "allowedAsRoot": true, "isElement": false, "variesByCulture": false, "variesBySegment": false,
+                  "properties": [], "containers": [], "allowedDocumentTypes": [], "compositions": [],
+                  "allowedTemplates": [], "cleanup": { "preventCleanup": false } }
+                """
+            ),
+            "media types" => JsonNode.Parse(
+                """
+                { "alias": "myMediaType", "name": "My media type", "icon": "icon-picture",
+                  "allowedAsRoot": true, "isElement": false, "variesByCulture": false, "variesBySegment": false,
+                  "properties": [], "containers": [], "allowedMediaTypes": [], "compositions": [] }
+                """
+            ),
+            "member types" => JsonNode.Parse(
+                """
+                { "alias": "myMemberType", "name": "My member type", "icon": "icon-user",
+                  "allowedAsRoot": false, "isElement": false, "variesByCulture": false, "variesBySegment": false,
+                  "properties": [], "containers": [], "compositions": [] }
+                """
+            ),
+            "data types" => JsonNode.Parse(
+                """
+                { "name": "My text", "editorAlias": "Umbraco.TextBox",
+                  "editorUiAlias": "Umb.PropertyEditorUi.TextBox", "values": [] }
+                """
+            ),
+            _ => null,
+        };
+
     private static string? Text(JsonObject obj, string name) =>
         obj[name] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
 
@@ -264,12 +305,17 @@ public static class RawBodyCommand
         if (!ids.IsSuccess)
             return UmbracoResponse<JsonNode>.FailureFrom(ids);
 
+        // A fresh site has no types to show (#200) - which is exactly when the shape is most
+        // needed - so fall back to a minimal body that carries the fields the create endpoint
+        // requires. It is written against the Management API spec, and is valid to create as-is.
         if (ids.Data is not { Count: > 0 } found)
-            return UmbracoResponse<JsonNode>.Failure(
-                404,
-                $"This instance has no {kind} to use as an example. Create one first, or write "
-                    + "the body against the Umbraco Management API reference."
-            );
+            return MinimalBody(kind) is { } minimal
+                ? UmbracoResponse<JsonNode>.Success(minimal)
+                : UmbracoResponse<JsonNode>.Failure(
+                    404,
+                    $"This instance has no {kind} to use as an example. Create one first, or write "
+                        + "the body against the Umbraco Management API reference."
+                );
 
         // The lowest id, so the same instance prints the same example every run - "whatever the
         // API returned first" is not reproducible, and --schema output gets diffed.
