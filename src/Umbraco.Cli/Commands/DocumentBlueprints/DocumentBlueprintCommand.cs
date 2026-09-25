@@ -356,10 +356,11 @@ public static class DocumentBlueprintCommand
 
     private static Command BuildFromDocument(CommandExecutor executor)
     {
+        // A POST (it creates a blueprint) under a compound verb the verb set does not know.
         var cmd = new Command(
             "from-document",
             "Create a blueprint from an existing document.\n\nExample:\n  umbraco document-blueprint from-document <documentId> --name \"Starter\""
-        );
+        ).Mutating();
         var docArg = new Argument<Guid>("documentId") { Description = "Source document ID." };
         var nameOpt = new Option<string>("--name")
         {

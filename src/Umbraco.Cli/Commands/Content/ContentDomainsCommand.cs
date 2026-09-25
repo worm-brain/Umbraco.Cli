@@ -57,10 +57,11 @@ public static class ContentDomainsCommand
     /// <returns>The configured command.</returns>
     private static Command BuildSet(CommandExecutor executor)
     {
+        // A PUT under a verb the catalog's verb set does not know.
         var cmd = new Command(
             "set",
             "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domains set <id> --default en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domains set <id> --replace --domain example.com=en-US"
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Document ID." };
         var defaultOpt = new Option<string?>("--default")
         {

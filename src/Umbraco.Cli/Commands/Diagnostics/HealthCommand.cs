@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Diagnostics;
 
@@ -65,7 +66,8 @@ public static class HealthCommand
 
     private static Command BuildRun(CommandExecutor executor)
     {
-        var cmd = new Command("run", "Run a health-check group and show the results.");
+        // A POST: it runs the checks server-side, so --readonly blocks it and the catalog says so.
+        var cmd = new Command("run", "Run a health-check group and show the results.").Mutating();
         var nameArg = new Argument<string>("name") { Description = "Health-check group name." };
         cmd.Add(nameArg);
         cmd.SetAction(

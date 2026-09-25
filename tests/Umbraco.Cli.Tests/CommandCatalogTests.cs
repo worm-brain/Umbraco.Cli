@@ -217,6 +217,47 @@ public class CommandCatalogTests
     }
 
     [Fact]
+    public void Describe_UnknownVerbDeclaredMutating_IsMutating()
+    {
+        // A write under a verb outside the standard set (e.g. `sort`, a PUT) is only reported
+        // mutating because the command declares it.
+        var root = new RootCommand();
+        root.Add(new Command("reorder").Mutating());
+
+        var node = CommandCatalog.Describe(root).Commands.Single();
+
+        Assert.True(node.Mutating);
+    }
+
+    [Fact]
+    public void Describe_UnknownVerbNotDeclared_IsNotMutating()
+    {
+        var root = new RootCommand();
+        root.Add(new Command("reorder"));
+
+        var node = CommandCatalog.Describe(root).Commands.Single();
+
+        Assert.False(node.Mutating);
+    }
+
+    [Theory]
+    [InlineData("content", "sort")]
+    [InlineData("media", "sort")]
+    [InlineData("content", "domains", "set")]
+    [InlineData("document-blueprint", "from-document")]
+    [InlineData("health", "run")]
+    public void Describe_ShippedWritesWithNonStandardVerbs_AreMutating(params string[] path)
+    {
+        // These send PUT/POST under verbs the verb set does not know, and were reported as safe
+        // reads until they declared themselves.
+        var node = CommandCatalog.Describe(TestCliRoot.Build());
+        foreach (var name in path)
+            node = node.Commands.Single(c => c.Name == name);
+
+        Assert.True(node.Mutating);
+    }
+
+    [Fact]
     public void Describe_ArgumentWithDefault_IsNotRequired()
     {
         // An argument that has a default parses fine when omitted, so it is not "required"

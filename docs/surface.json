@@ -594,7 +594,7 @@
                 }
               ],
               "commands": [],
-              "mutating": false,
+              "mutating": true,
               "destructive": false,
               "acceptsJsonBody": false
             }
@@ -849,7 +849,7 @@
             }
           ],
           "commands": [],
-          "mutating": false,
+          "mutating": true,
           "destructive": false,
           "acceptsJsonBody": false
         },
@@ -1516,7 +1516,7 @@
             }
           ],
           "commands": [],
-          "mutating": false,
+          "mutating": true,
           "destructive": false,
           "acceptsJsonBody": false
         }
@@ -4984,7 +4984,7 @@
             }
           ],
           "commands": [],
-          "mutating": false,
+          "mutating": true,
           "destructive": false,
           "acceptsJsonBody": false
         },
@@ -5245,7 +5245,7 @@
           ],
           "options": [],
           "commands": [],
-          "mutating": false,
+          "mutating": true,
           "destructive": false,
           "acceptsJsonBody": false
         }

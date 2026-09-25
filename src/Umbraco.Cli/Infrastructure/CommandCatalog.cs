@@ -88,11 +88,13 @@ public static class CommandCatalog
         var isLeaf = command.Subcommands.Count == 0;
         // Destructive comes from the command's own CommandSafety declaration - the same one the
         // executor gates on - so "needs --yes" in the catalog cannot drift from the real gate
-        // (#255). A destructive command is always mutating, whatever its verb.
+        // (#255). A destructive command is always mutating, whatever its verb, and so is one
+        // declared .Mutating() because its verb (sort, set, run...) is not a standard write verb.
         var destructive = isLeaf && CommandSafety.IsAlwaysDestructive(command);
         var destructiveWhen = isLeaf ? CommandSafety.DestructiveWhen(command) : null;
         var mutating =
-            isLeaf && (CommandSafety.IsDeclared(command) || MutatingVerbs.Contains(command.Name));
+            isLeaf
+            && (CommandSafety.IsDeclaredMutating(command) || MutatingVerbs.Contains(command.Name));
         var acceptsJsonBody = command.Options.Any(o => o.Name == "--json-body");
 
         return new CommandCatalogNode(

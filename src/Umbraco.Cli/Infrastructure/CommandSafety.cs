@@ -4,7 +4,8 @@ using System.Runtime.CompilerServices;
 namespace Umbraco.Cli.Infrastructure;
 
 /// <summary>
-/// The one place a command is declared destructive (#255).
+/// The one place a command is declared destructive (#255) or, when its verb does not say so, a
+/// write.
 /// <para>
 /// A destructive command carries its confirmation prompt. <see cref="Commands.CommandExecutor"/>
 /// reads it to gate the run behind <c>--yes</c>, and <see cref="CommandCatalog"/> reads it to report
@@ -81,6 +82,35 @@ public static class CommandSafety
     /// <returns>The option name, or null.</returns>
     public static string? DestructiveWhen(Command command) =>
         Declarations.TryGetValue(command, out var d) ? d.When : null;
+
+    // Commands declared as writes whose verb the catalog's verb set cannot classify (a `sort`
+    // is a PUT, `health run` a POST). The value is unused; only membership matters.
+    private static readonly ConditionalWeakTable<Command, object> MutatingDeclarations = new();
+
+    /// <summary>
+    /// Declares <paramref name="command"/> a server write, so <c>umbraco commands</c> reports it
+    /// <c>mutating: true</c> whatever its verb. Use it on any leaf that sends a non-GET request
+    /// under a verb outside the catalog's standard write verbs. Destructive commands need not
+    /// call it: a destructive command is always mutating.
+    /// </summary>
+    /// <typeparam name="TCommand">The command type, returned for chaining.</typeparam>
+    /// <param name="command">The leaf command.</param>
+    /// <returns>The same command.</returns>
+    public static TCommand Mutating<TCommand>(this TCommand command)
+        where TCommand : Command
+    {
+        MutatingDeclarations.AddOrUpdate(command, true);
+        return command;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="command"/> was declared a write, either explicitly via
+    /// <see cref="Mutating{TCommand}"/> or implicitly by being declared destructive.
+    /// </summary>
+    /// <param name="command">The command.</param>
+    /// <returns>True when it carries either declaration.</returns>
+    public static bool IsDeclaredMutating(Command command) =>
+        MutatingDeclarations.TryGetValue(command, out _) || IsDeclared(command);
 
     // Pre-flight checks that can refuse a run before it is confirmed (#246, #253). Kept apart
     // from the prompts: a check reads the server, a prompt does not.

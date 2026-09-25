@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -59,7 +60,8 @@ public static class ContentSortCommand
                 )
         );
 
-        return cmd;
+        // A PUT under a verb the catalog's verb set does not know.
+        return cmd.Mutating();
     }
 
     /// <summary>
