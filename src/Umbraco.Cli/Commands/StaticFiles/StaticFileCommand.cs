@@ -169,18 +169,22 @@ public static class StaticFileCommand
                             contentFileOpt,
                             c
                         );
-                        // Update replaces content, so content is mandatory (unlike create's default).
+                        // Update replaces content, so content is mandatory (unlike create's
+                        // default). Missing input is the caller's to fix: invalid_argument.
                         if (content is null)
-                            return UmbracoResponse<Empty>.Failure(
-                                400,
+                            throw new InvalidInputException(
                                 "Provide --content or --content-file to update the file."
                             );
-                        return await client.UpdateStaticFileAsync(
-                            kind,
-                            parseResult.GetValue(pathArg)!,
-                            new UpdateStaticFileRequest { Content = content },
-                            c
-                        );
+                        var path = parseResult.GetValue(pathArg)!;
+                        // An update's data is the resulting file, as get shows it.
+                        return await client
+                            .UpdateStaticFileAsync(
+                                kind,
+                                path,
+                                new UpdateStaticFileRequest { Content = content },
+                                c
+                            )
+                            .ThenRead(() => client.GetStaticFileAsync(kind, path, c));
                     },
                     $"{humanName} updated.",
                     ct
@@ -208,7 +212,9 @@ public static class StaticFileCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.DeleteStaticFileAsync(kind, parseResult.GetValue(pathArg)!, c),
+                        client
+                            .DeleteStaticFileAsync(kind, parseResult.GetValue(pathArg)!, c)
+                            .Then(ItemRef.Of(parseResult.GetValue(pathArg)!)),
                     $"{humanName} deleted.",
                     ct
                 )

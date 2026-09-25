@@ -37,7 +37,10 @@ public static class DictionaryMoveCommand
                                 targetOpt.WithResolvedOptionalAsync(
                                     parseResult,
                                     client,
-                                    target => client.MoveDictionaryItemAsync(id, target, c),
+                                    target =>
+                                        client
+                                            .MoveDictionaryItemAsync(id, target, c)
+                                            .Then(ItemRef.Of(id)),
                                     c
                                 ),
                             c

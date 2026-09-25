@@ -29,7 +29,7 @@ public static class DictionaryDeleteCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.DeleteDictionaryItemAsync(id, c),
+                            id => client.DeleteDictionaryItemAsync(id, c).Then(ItemRef.Of(id)),
                             c
                         ),
                     "Dictionary item deleted.",

@@ -101,11 +101,12 @@ public sealed class CsvOutputWriter : IOutputWriter
         WriteSuccess(OutputShaping.TableToRecords(headers, rows));
 
     /// <inheritdoc />
-    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
-    {
-        Console.Out.WriteLine("message");
-        Console.Out.WriteLine(Escape(message));
-    }
+    public void WriteMessage(
+        object data,
+        string message,
+        string? commandName = null,
+        long? durationMs = null
+    ) => WriteSuccess(data, commandName, durationMs);
 
     /// <inheritdoc />
     /// <inheritdoc />

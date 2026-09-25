@@ -26,7 +26,8 @@ public static class ContentEmptyRecycleBinCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.EmptyContentRecycleBinAsync(c),
+                    // Nothing to read back: the data is an empty object (docs/conventions.md 6.2).
+                    (client, c) => client.EmptyContentRecycleBinAsync(c).Then(new { }),
                     "Content recycle bin emptied.",
                     ct
                 )

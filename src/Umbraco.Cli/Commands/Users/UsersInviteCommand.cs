@@ -51,17 +51,19 @@ public static class UsersInviteCommand
                 return executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.InviteUserAsync(
-                            new InviteUserRequest
-                            {
-                                Email = email,
-                                Name = parseResult.GetValue(nameOpt)!,
-                                UserName = parseResult.GetValue(userNameOpt),
-                                Message = parseResult.GetValue(msgOpt),
-                                UserGroups = parseResult.GetValue(groupOpt)!,
-                            },
-                            c
-                        ),
+                        client
+                            .InviteUserAsync(
+                                new InviteUserRequest
+                                {
+                                    Email = email,
+                                    Name = parseResult.GetValue(nameOpt)!,
+                                    UserName = parseResult.GetValue(userNameOpt),
+                                    Message = parseResult.GetValue(msgOpt),
+                                    UserGroups = parseResult.GetValue(groupOpt)!,
+                                },
+                                c
+                            )
+                            .ThenRead(() => InvitedAsync(client, email, c)),
                     $"Invitation sent to {email}.",
                     ct
                 );
@@ -69,5 +71,37 @@ public static class UsersInviteCommand
         );
 
         return cmd;
+    }
+
+    /// <summary>
+    /// The invited user, as <c>user get</c> shows it - a create's data is the item it made
+    /// (docs/conventions.md 6.2). The invite endpoint returns no id, so the user is found by email;
+    /// if it is not visible yet, the data names the email instead.
+    /// </summary>
+    /// <param name="client">The client.</param>
+    /// <param name="email">The invited email address.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The user, or <c>{ "email": ... }</c>; a failed read carries through.</returns>
+    internal static async Task<UmbracoResponse<object>> InvitedAsync(
+        IUmbracoManagementClient client,
+        string email,
+        CancellationToken ct
+    )
+    {
+        const int page = 100;
+        for (var skip = 0; ; skip += page)
+        {
+            var users = await client.GetUsersAsync(skip, page, ct);
+            if (!users.IsSuccess)
+                return UmbracoResponse<object>.FailureFrom(users);
+            var items = users.Data!.Items.ToList();
+            var match = items.FirstOrDefault(u =>
+                string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase)
+            );
+            if (match is not null)
+                return UmbracoResponse<object>.Success(match);
+            if (items.Count < page || skip + page >= users.Data.Total)
+                return UmbracoResponse<object>.Success(new { email });
+        }
     }
 }

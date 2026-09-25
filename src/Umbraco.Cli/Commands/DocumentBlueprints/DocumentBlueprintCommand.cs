@@ -377,12 +377,16 @@ public static class DocumentBlueprintCommand
                             };
                         }
 
-                        return await client.UpdateDocumentBlueprintAsync(
-                            parseResult.GetValue(idArg)!.Value,
-                            request,
-                            parseResult.GetValue(replaceOpt),
-                            c
-                        );
+                        var id = parseResult.GetValue(idArg)!.Value;
+                        // An update's data is the resulting item, as get shows it (docs/conventions.md 6.2).
+                        return await client
+                            .UpdateDocumentBlueprintAsync(
+                                id,
+                                request,
+                                parseResult.GetValue(replaceOpt),
+                                c
+                            )
+                            .ThenRead(() => client.GetDocumentBlueprintAsync(id, c));
                     },
                     "Blueprint updated.",
                     ct
@@ -405,7 +409,9 @@ public static class DocumentBlueprintCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.DeleteDocumentBlueprintAsync(parseResult.GetValue(idArg), c),
+                        client
+                            .DeleteDocumentBlueprintAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Blueprint deleted.",
                     ct
                 )
@@ -431,11 +437,13 @@ public static class DocumentBlueprintCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.MoveDocumentBlueprintAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(targetOpt),
-                            c
-                        ),
+                        client
+                            .MoveDocumentBlueprintAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(targetOpt),
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Blueprint moved.",
                     ct
                 )

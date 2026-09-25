@@ -50,7 +50,11 @@ public static class ModelsBuilderCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.BuildModelsAsync(c),
+                    // No target: the data is the state the build left, as 'models-builder status' shows it.
+                    (client, c) =>
+                        client
+                            .BuildModelsAsync(c)
+                            .ThenRead(() => client.GetModelsBuilderStatusAsync(c)),
                     "Models build triggered.",
                     ct
                 )

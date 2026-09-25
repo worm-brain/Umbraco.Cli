@@ -43,7 +43,7 @@ public static class MediaTypesDeleteCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.DeleteMediaTypeAsync(id, c),
+                            id => client.DeleteMediaTypeAsync(id, c).Then(ItemRef.Of(id)),
                             c
                         ),
                     "Media type deleted.",

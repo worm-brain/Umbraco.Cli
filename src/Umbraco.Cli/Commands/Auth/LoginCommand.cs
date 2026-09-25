@@ -112,7 +112,12 @@ public static class LoginCommand
                 );
 
                 var where = string.IsNullOrWhiteSpace(profile) ? "" : $" (profile '{profile}')";
-                writer.WriteMessage($"Logged in to {host}{where}", CommandPath.Of(parseResult));
+                // Every success has data (docs/conventions.md 6.2): where the credentials went.
+                writer.WriteMessage(
+                    new { host, profile },
+                    $"Logged in to {host}{where}",
+                    CommandPath.Of(parseResult)
+                );
                 return 0;
             }
         );

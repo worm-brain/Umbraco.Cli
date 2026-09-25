@@ -69,7 +69,7 @@ public class PublishScheduleCommandTests
     }
 
     /// <summary>Runs the command and returns the <c>message</c> of its JSON success envelope.</summary>
-    private static async Task<string?> MessageOf(string args)
+    private static async Task<System.Text.Json.JsonElement> DataOf(string args)
     {
         var root = BuildRoot(
             new FakeUmbracoManagementClient
@@ -90,42 +90,57 @@ public class PublishScheduleCommandTests
         }
         return System
             .Text.Json.JsonDocument.Parse(sw.ToString())
-            .RootElement.GetProperty("message")
-            .GetString();
+            .RootElement.GetProperty("data")
+            .Clone();
     }
 
     private const string Auth = "--host https://x --token t --output json";
 
     [Fact]
-    public async Task Publish_WithoutSchedule_SaysPublished()
+    public void Publish_WithoutSchedule_SaysPublished()
     {
-        var message = await MessageOf($"{Auth} content publish {Guid.NewGuid()}");
+        var message = ContentPublishCommand.SuccessMessage(null, null, null);
 
         Assert.Equal("Content item published.", message);
     }
 
     [Fact]
-    public async Task Publish_WithPublishAt_SaysScheduledNotPublished()
+    public void Publish_WithPublishAt_SaysScheduledNotPublished()
     {
         // #239: a scheduled publish said "Content item published." while the item stayed a draft.
-        var message = await MessageOf(
-            $"{Auth} content publish {Guid.NewGuid()} --publish-at 2026-01-01T09:00:00Z --culture en-US da-DK"
+        var message = ContentPublishCommand.SuccessMessage(
+            DateTimeOffset.Parse("2026-01-01T09:00:00Z"),
+            null,
+            ["en-US", "da-DK"]
         );
 
         Assert.Equal("Scheduled to publish at 2026-01-01T09:00:00Z (en-US, da-DK).", message);
     }
 
     [Fact]
-    public async Task Publish_WithOnlyUnpublishAt_SaysPublishedAndNamesTheUnpublishTime()
+    public void Publish_WithOnlyUnpublishAt_SaysPublishedAndNamesTheUnpublishTime()
     {
-        var message = await MessageOf(
-            $"{Auth} content publish {Guid.NewGuid()} --unpublish-at 2026-02-01T18:30:00Z"
+        var message = ContentPublishCommand.SuccessMessage(
+            null,
+            DateTimeOffset.Parse("2026-02-01T18:30:00Z"),
+            null
         );
 
         Assert.Equal(
             "Content item published; scheduled to unpublish at 2026-02-01T18:30:00Z.",
             message
         );
+    }
+
+    [Fact]
+    public async Task Publish_Scheduled_DataSaysNotPublishedYet()
+    {
+        // JSON callers get the same fact the message states (#239): scheduled is not published.
+        var data = await DataOf(
+            $"{Auth} content publish {Guid.NewGuid()} --publish-at 2026-01-01T09:00:00Z"
+        );
+
+        Assert.False(data.GetProperty("published").GetBoolean());
     }
 
     [Fact]

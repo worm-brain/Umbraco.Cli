@@ -93,7 +93,10 @@ public static class RedirectCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.DeleteRedirectAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteRedirectAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Redirect deleted.",
                     ct
                 )
@@ -133,7 +136,11 @@ public static class RedirectCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.SetRedirectTrackingAsync(enabled, c),
+                    // No target: the data is the state the switch left, as 'redirect tracking status' shows it.
+                    (client, c) =>
+                        client
+                            .SetRedirectTrackingAsync(enabled, c)
+                            .ThenRead(() => client.GetRedirectStatusAsync(c)),
                     $"URL-redirect tracking {(enabled ? "enabled" : "disabled")}.",
                     ct
                 )

@@ -55,7 +55,7 @@ public class JsonOutputWriterTests
     public void WriteMessage_CarriesSchemaVersion()
     {
         // #61: message-shaped success envelopes (delete/publish) are versioned too.
-        var (stdout, _) = Capture(() => _writer.WriteMessage("Done."));
+        var (stdout, _) = Capture(() => _writer.WriteMessage(new { id = "1" }, "Done."));
         var meta = JsonDocument.Parse(stdout).RootElement.GetProperty("meta");
         Assert.Equal("5", meta.GetProperty("schemaVersion").GetString());
     }
@@ -87,7 +87,9 @@ public class JsonOutputWriterTests
     public void WriteMessage_MetaContainsCommandAndDuration()
     {
         // #137: message-shaped success (delete/publish) carries command/duration/timestamp too.
-        var (stdout, _) = Capture(() => _writer.WriteMessage("Deleted.", "content.delete", 12));
+        var (stdout, _) = Capture(() =>
+            _writer.WriteMessage(new { id = "1" }, "Deleted.", "content.delete", 12)
+        );
         var meta = JsonDocument.Parse(stdout).RootElement.GetProperty("meta");
         Assert.Equal("content.delete", meta.GetProperty("command").GetString());
         Assert.Equal(12, meta.GetProperty("durationMs").GetInt64());
@@ -485,16 +487,26 @@ public class JsonOutputWriterTests
     [Fact]
     public void WriteMessage_StatusIsSuccess()
     {
-        var (stdout, _) = Capture(() => _writer.WriteMessage("Done."));
+        var (stdout, _) = Capture(() => _writer.WriteMessage(new { id = "1" }, "Done."));
         var doc = JsonDocument.Parse(stdout);
         Assert.Equal("success", doc.RootElement.GetProperty("status").GetString());
     }
 
     [Fact]
-    public void WriteMessage_MessageFieldPresent()
+    public void WriteMessage_CarriesTheDataAndLeavesTheMessageToHumans()
     {
-        var (stdout, _) = Capture(() => _writer.WriteMessage("Item deleted."));
-        var doc = JsonDocument.Parse(stdout);
-        Assert.Equal("Item deleted.", doc.RootElement.GetProperty("message").GetString());
+        // docs/conventions.md 6.2: every success has data; the message is human output only.
+        var (stdout, _) = Capture(() =>
+            _writer.WriteMessage(new { id = "3f7a8b2e" }, "Item deleted.")
+        );
+        var root = JsonDocument.Parse(stdout).RootElement;
+
+        Assert.Equal(
+            ("3f7a8b2e", false),
+            (
+                root.GetProperty("data").GetProperty("id").GetString(),
+                root.TryGetProperty("message", out _)
+            )
+        );
     }
 }

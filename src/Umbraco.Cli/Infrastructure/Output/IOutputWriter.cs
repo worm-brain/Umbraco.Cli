@@ -121,15 +121,20 @@ public interface IOutputWriter
     );
 
     /// <summary>
-    /// Renders a fixed success message. <paramref name="commandName"/> and
-    /// <paramref name="durationMs"/> populate the same <c>meta</c> fields as
-    /// <see cref="WriteSuccess"/>, so a message-style success (delete/publish) carries the same
-    /// envelope contract (#137).
+    /// Renders the result of a write (delete, move, update...). Structured writers emit
+    /// <paramref name="data"/> like any success - every success has <c>data</c>
+    /// (docs/conventions.md 6.2) - and the human writer shows <paramref name="message"/>.
     /// </summary>
-    /// <param name="message">The success message.</param>
+    /// <param name="data">The resulting item, or an <see cref="Commands.ItemRef"/> naming what was acted on.</param>
+    /// <param name="message">The human confirmation, e.g. "Deleted.".</param>
     /// <param name="commandName">The dotted command name for <c>meta.command</c>, or null.</param>
     /// <param name="durationMs">The command duration for <c>meta.durationMs</c>, or null.</param>
-    void WriteMessage(string message, string? commandName = null, long? durationMs = null);
+    void WriteMessage(
+        object data,
+        string message,
+        string? commandName = null,
+        long? durationMs = null
+    );
 
     /// <summary>
     /// Renders a <c>--dry-run</c> preview of the write request that would have been sent,

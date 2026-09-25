@@ -25,7 +25,10 @@ public static class ContentTrashCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.TrashContentAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .TrashContentAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Content moved to the recycle bin.",
                     ct
                 )

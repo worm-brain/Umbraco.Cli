@@ -332,7 +332,7 @@ public class CommandExecutorTests
                 (c, ct) =>
                 {
                     called = true;
-                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                    return Task.FromResult(UmbracoResponse<ItemRef>.Success(ItemRef.Of("1")));
                 },
                 "Deleted.",
                 CancellationToken.None
@@ -364,7 +364,7 @@ public class CommandExecutorTests
                 (c, ct) =>
                 {
                     called = true;
-                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                    return Task.FromResult(UmbracoResponse<ItemRef>.Success(ItemRef.Of("1")));
                 },
                 "Deleted.",
                 CancellationToken.None
@@ -393,7 +393,7 @@ public class CommandExecutorTests
                 (c, ct) =>
                 {
                     called = true;
-                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                    return Task.FromResult(UmbracoResponse<ItemRef>.Success(ItemRef.Of("1")));
                 },
                 "Deleted.",
                 CancellationToken.None
@@ -422,7 +422,7 @@ public class CommandExecutorTests
                 (c, ct) =>
                 {
                     called = true;
-                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                    return Task.FromResult(UmbracoResponse<ItemRef>.Success(ItemRef.Of("1")));
                 },
                 "Deleted.",
                 CancellationToken.None
@@ -485,7 +485,7 @@ public class CommandExecutorTests
                 (c, ct) =>
                 {
                     called = true;
-                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                    return Task.FromResult(UmbracoResponse<ItemRef>.Success(ItemRef.Of("1")));
                 },
                 "Deleted.",
                 CancellationToken.None

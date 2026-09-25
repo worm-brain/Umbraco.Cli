@@ -50,7 +50,12 @@ public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
     ) => inner.WriteList(items, headers, rows, paging, commandName, durationMs);
 
     /// <inheritdoc />
-    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
+    public void WriteMessage(
+        object data,
+        string message,
+        string? commandName = null,
+        long? durationMs = null
+    )
     {
         // Suppressed under --quiet: a fixed success confirmation is chatter, not data.
     }

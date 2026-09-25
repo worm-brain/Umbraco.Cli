@@ -27,11 +27,13 @@ public static class ContentMoveCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.MoveContentAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(parentOpt),
-                            c
-                        ),
+                        client
+                            .MoveContentAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(parentOpt),
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Content moved.",
                     ct
                 )

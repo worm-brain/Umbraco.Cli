@@ -26,7 +26,8 @@ public static class MediaEmptyRecycleBinCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.EmptyMediaRecycleBinAsync(c),
+                    // Nothing to read back: the data is an empty object (docs/conventions.md 6.2).
+                    (client, c) => client.EmptyMediaRecycleBinAsync(c).Then(new { }),
                     "Media recycle bin emptied.",
                     ct
                 )

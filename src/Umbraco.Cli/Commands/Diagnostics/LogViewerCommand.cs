@@ -227,7 +227,9 @@ public static class LogViewerCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.DeleteSavedLogSearchAsync(parseResult.GetValue(nameArg)!, c),
+                        client
+                            .DeleteSavedLogSearchAsync(parseResult.GetValue(nameArg)!, c)
+                            .Then(ItemRef.Of(parseResult.GetValue(nameArg))),
                     "Saved search deleted.",
                     ct
                 )

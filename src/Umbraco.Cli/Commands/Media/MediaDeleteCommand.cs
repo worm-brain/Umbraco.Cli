@@ -21,7 +21,10 @@ public static class MediaDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.DeleteMediaAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteMediaAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Media item deleted.",
                     ct
                 )

@@ -34,11 +34,13 @@ public static class ContentRollbackCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.RollbackDocumentVersionAsync(
-                            parseResult.GetValue(versionIdArg),
-                            parseResult.GetValue(cultureOpt),
-                            c
-                        ),
+                        client
+                            .RollbackDocumentVersionAsync(
+                                parseResult.GetValue(versionIdArg),
+                                parseResult.GetValue(cultureOpt),
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(versionIdArg))),
                     "Content rolled back to the selected version.",
                     ct
                 )

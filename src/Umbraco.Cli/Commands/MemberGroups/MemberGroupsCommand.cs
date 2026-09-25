@@ -116,14 +116,16 @@ public static class MemberGroupsCommand
                             parseResult,
                             client,
                             id =>
-                                client.UpdateMemberGroupAsync(
-                                    id,
-                                    new UpdateMemberGroupRequest
-                                    {
-                                        Name = parseResult.GetValue(nameOpt)!,
-                                    },
-                                    c
-                                ),
+                                client
+                                    .UpdateMemberGroupAsync(
+                                        id,
+                                        new UpdateMemberGroupRequest
+                                        {
+                                            Name = parseResult.GetValue(nameOpt)!,
+                                        },
+                                        c
+                                    )
+                                    .Then(ItemRef.Of(id)),
                             c
                         ),
                     "Member group updated.",
@@ -149,7 +151,7 @@ public static class MemberGroupsCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.DeleteMemberGroupAsync(id, c),
+                            id => client.DeleteMemberGroupAsync(id, c).Then(ItemRef.Of(id)),
                             c
                         ),
                     "Member group deleted.",

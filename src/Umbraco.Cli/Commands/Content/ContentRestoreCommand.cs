@@ -46,14 +46,16 @@ public static class ContentRestoreCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.RestoreContentAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(parentOpt) is { } parent
-                                    ? RestoreTarget.Under(parent)
-                                : parseResult.GetValue(toRootOpt) ? RestoreTarget.Root
-                                : RestoreTarget.Original,
-                            c
-                        ),
+                        client
+                            .RestoreContentAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(parentOpt) is { } parent
+                                        ? RestoreTarget.Under(parent)
+                                    : parseResult.GetValue(toRootOpt) ? RestoreTarget.Root
+                                    : RestoreTarget.Original,
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Content restored from the recycle bin.",
                     ct
                 )

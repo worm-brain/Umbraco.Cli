@@ -43,7 +43,7 @@ public static class MemberTypesDeleteCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.DeleteMemberTypeAsync(id, c),
+                            id => client.DeleteMemberTypeAsync(id, c).Then(ItemRef.Of(id)),
                             c
                         ),
                     "Member type deleted.",

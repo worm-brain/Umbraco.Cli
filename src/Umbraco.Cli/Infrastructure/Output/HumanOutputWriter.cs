@@ -72,7 +72,12 @@ public sealed class HumanOutputWriter : IOutputWriter
         AnsiConsole.Write(table);
     }
 
-    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
+    public void WriteMessage(
+        object data,
+        string message,
+        string? commandName = null,
+        long? durationMs = null
+    )
     {
         AnsiConsole.MarkupLine($"[green]✓[/] {Markup.Escape(message)}");
     }

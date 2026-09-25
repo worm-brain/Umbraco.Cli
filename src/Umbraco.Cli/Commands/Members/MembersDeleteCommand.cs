@@ -20,7 +20,10 @@ public static class MembersDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.DeleteMemberAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteMemberAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Member deleted.",
                     ct
                 )

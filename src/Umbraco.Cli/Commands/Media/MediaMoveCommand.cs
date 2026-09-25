@@ -27,11 +27,13 @@ public static class MediaMoveCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.MoveMediaAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(parentOpt),
-                            c
-                        ),
+                        client
+                            .MoveMediaAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(parentOpt),
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Media moved.",
                     ct
                 )

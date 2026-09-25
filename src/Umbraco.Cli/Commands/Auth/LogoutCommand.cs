@@ -38,18 +38,21 @@ public static class LogoutCommand
                 {
                     case ConfigStore.LogoutOutcome.Removed:
                         writer.WriteMessage(
+                            new { profile, removed = true },
                             $"Logged out. Credentials removed{where}.",
                             CommandPath.Of(parseResult)
                         );
                         break;
                     case ConfigStore.LogoutOutcome.CredentialsClearedAllowListKept:
                         writer.WriteMessage(
+                            new { profile, removed = true },
                             $"Logged out. Credentials removed{where}; the command allow-list was preserved.",
                             CommandPath.Of(parseResult)
                         );
                         break;
                     default:
                         writer.WriteMessage(
+                            new { profile, removed = false },
                             "No stored credentials to remove.",
                             CommandPath.Of(parseResult)
                         );

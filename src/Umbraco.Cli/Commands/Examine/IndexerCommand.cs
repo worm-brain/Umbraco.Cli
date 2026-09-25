@@ -76,7 +76,10 @@ public static class IndexerCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.RebuildIndexAsync(parseResult.GetValue(nameArg)!, c),
+                    (client, c) =>
+                        client
+                            .RebuildIndexAsync(parseResult.GetValue(nameArg)!, c)
+                            .Then(ItemRef.Of(parseResult.GetValue(nameArg))),
                     "Index rebuild triggered.",
                     ct
                 )

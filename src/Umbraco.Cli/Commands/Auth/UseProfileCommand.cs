@@ -42,6 +42,7 @@ public static class UseProfileCommand
                 if (store.SetDefaultProfile(name))
                 {
                     writer.WriteMessage(
+                        ItemRef.Of(name),
                         $"Default profile set to '{name}'.",
                         CommandPath.Of(parseResult)
                     );

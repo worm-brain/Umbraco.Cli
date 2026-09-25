@@ -21,7 +21,10 @@ public static class ContentDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.DeleteContentAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteContentAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Content item deleted.",
                     ct
                 )

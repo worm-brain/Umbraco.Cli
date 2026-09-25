@@ -163,14 +163,17 @@ public static class UserGroupsCommand
                             {
                                 var current = await client.GetUserGroupByIdAsync(id, c);
                                 if (!current.IsSuccess)
-                                    return UmbracoResponse<Empty>.FailureFrom(current);
+                                    return UmbracoResponse<UserGroupResponse>.FailureFrom(current);
                                 var request = Merge(
                                     current.Data!,
                                     parseResult.GetValue(aliasOpt),
                                     parseResult.GetValue(nameOpt),
                                     s
                                 );
-                                return await client.UpdateUserGroupAsync(id, request, c);
+                                // An update's data is the resulting group, as get shows it.
+                                return await client
+                                    .UpdateUserGroupAsync(id, request, c)
+                                    .ThenRead(() => client.GetUserGroupByIdAsync(id, c));
                             },
                             c
                         ),
@@ -264,10 +267,11 @@ public static class UserGroupsCommand
                             c
                         );
                         if (!ids.IsSuccess)
-                            return UmbracoResponse<Empty>.FailureFrom(ids);
-                        return ids.Data! is [var one]
-                            ? await client.DeleteUserGroupAsync(one, c)
-                            : await client.DeleteUserGroupsAsync([.. ids.Data!], c);
+                            return UmbracoResponse<ItemRefs>.FailureFrom(ids);
+                        var delete = ids.Data! is [var one]
+                            ? client.DeleteUserGroupAsync(one, c)
+                            : client.DeleteUserGroupsAsync([.. ids.Data!], c);
+                        return await delete.Then(ItemRefs.Of(ids.Data!));
                     },
                     "User group(s) deleted.",
                     ct
@@ -295,7 +299,9 @@ public static class UserGroupsCommand
                             parseResult,
                             client,
                             id =>
-                                client.AddUsersToGroupAsync(id, parseResult.GetValue(usersOpt)!, c),
+                                client
+                                    .AddUsersToGroupAsync(id, parseResult.GetValue(usersOpt)!, c)
+                                    .Then(ItemRef.Of(id)),
                             c
                         ),
                     "Users added to group.",
@@ -324,11 +330,13 @@ public static class UserGroupsCommand
                             parseResult,
                             client,
                             id =>
-                                client.RemoveUsersFromGroupAsync(
-                                    id,
-                                    parseResult.GetValue(usersOpt)!,
-                                    c
-                                ),
+                                client
+                                    .RemoveUsersFromGroupAsync(
+                                        id,
+                                        parseResult.GetValue(usersOpt)!,
+                                        c
+                                    )
+                                    .Then(ItemRef.Of(id)),
                             c
                         ),
                     "Users removed from group.",

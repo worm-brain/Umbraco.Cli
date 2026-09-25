@@ -18,7 +18,10 @@ public static class WebhooksDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.DeleteWebhookAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteWebhookAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Webhook deleted.",
                     ct
                 )

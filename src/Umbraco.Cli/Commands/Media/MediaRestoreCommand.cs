@@ -46,14 +46,16 @@ public static class MediaRestoreCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.RestoreMediaAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(parentOpt) is { } parent
-                                    ? RestoreTarget.Under(parent)
-                                : parseResult.GetValue(toRootOpt) ? RestoreTarget.Root
-                                : RestoreTarget.Original,
-                            c
-                        ),
+                        client
+                            .RestoreMediaAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(parentOpt) is { } parent
+                                        ? RestoreTarget.Under(parent)
+                                    : parseResult.GetValue(toRootOpt) ? RestoreTarget.Root
+                                    : RestoreTarget.Original,
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Media restored from the recycle bin.",
                     ct
                 )

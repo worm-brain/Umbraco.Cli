@@ -42,7 +42,7 @@ public static class DataTypesDeleteCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.DeleteDataTypeAsync(id, c),
+                            id => client.DeleteDataTypeAsync(id, c).Then(ItemRef.Of(id)),
                             c
                         ),
                     "Data type deleted.",

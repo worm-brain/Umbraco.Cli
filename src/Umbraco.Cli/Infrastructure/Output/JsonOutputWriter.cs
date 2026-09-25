@@ -148,23 +148,15 @@ public sealed class JsonOutputWriter : IOutputWriter
         // keeps meta identical to object output (#137). Shared shaping with the CSV writer.
         WriteSuccess(OutputShaping.TableToRecords(headers, rows), commandName, durationMs);
 
-    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
-    {
-        var envelope = new
-        {
-            status = "success",
-            message,
-            // Same meta shape as WriteSuccess so every success envelope agrees (#137).
-            meta = new
-            {
-                command = commandName,
-                durationMs,
-                timestamp = DateTimeOffset.UtcNow,
-                schemaVersion = SchemaVersion,
-            },
-        };
-        Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
-    }
+    public void WriteMessage(
+        object data,
+        string message,
+        string? commandName = null,
+        long? durationMs = null
+    ) =>
+        // The message is for people; structured output carries the data, in the same envelope as
+        // every other success (docs/conventions.md 6.2).
+        WriteSuccess(data, commandName, durationMs);
 
     /// <inheritdoc />
     public void WriteBulk(

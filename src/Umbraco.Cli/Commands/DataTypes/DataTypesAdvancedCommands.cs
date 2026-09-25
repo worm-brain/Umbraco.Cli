@@ -155,7 +155,10 @@ public static class DataTypesAdvancedCommands
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.MoveDataTypeAsync(id, parseResult.GetValue(targetOpt), c),
+                            id =>
+                                client
+                                    .MoveDataTypeAsync(id, parseResult.GetValue(targetOpt), c)
+                                    .Then(ItemRef.Of(id)),
                             c
                         ),
                     "Data type moved.",
@@ -249,11 +252,13 @@ public static class DataTypesAdvancedCommands
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.UpdateDataTypeFolderAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(nameOpt)!,
-                            c
-                        ),
+                        client
+                            .UpdateDataTypeFolderAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(nameOpt)!,
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Folder updated.",
                     ct
                 )
@@ -273,7 +278,10 @@ public static class DataTypesAdvancedCommands
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.DeleteDataTypeFolderAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteDataTypeFolderAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Folder deleted.",
                     ct
                 )

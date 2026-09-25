@@ -37,11 +37,13 @@ public static class ContentUnpublishCommand
                 return executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.UnpublishContentAsync(
-                            parseResult.GetValue(idArg),
-                            cultures?.Length > 0 ? cultures : null,
-                            c
-                        ),
+                        client
+                            .UnpublishContentAsync(
+                                parseResult.GetValue(idArg),
+                                cultures?.Length > 0 ? cultures : null,
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Content item unpublished.",
                     ct
                 );

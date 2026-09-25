@@ -267,14 +267,17 @@ public static class RawBodyCommand
                     return await client.WithResolvedAsync(
                         noun.Kind,
                         reference,
+                        // An update's data is the resulting item, as get prints it.
                         id =>
-                            client.MergeSchemaItemAsync(
-                                noun.Kind,
-                                id,
-                                json,
-                                parseResult.GetValue(options.Replace),
-                                c
-                            ),
+                            client
+                                .MergeSchemaItemAsync(
+                                    noun.Kind,
+                                    id,
+                                    json,
+                                    parseResult.GetValue(options.Replace),
+                                    c
+                                )
+                                .ThenRead(() => client.GetSchemaRawAsync(noun.Kind, id, c)),
                         c
                     );
                 },
@@ -285,7 +288,14 @@ public static class RawBodyCommand
         return executor.RunMessageAsync(
             parseResult,
             (client, c) =>
-                client.WithResolvedAsync(noun.Kind, reference, id => flagUpdate(client, id, c), c),
+                client.WithResolvedAsync(
+                    noun.Kind,
+                    reference,
+                    id =>
+                        flagUpdate(client, id, c)
+                            .ThenRead(() => client.GetSchemaRawAsync(noun.Kind, id, c)),
+                    c
+                ),
             message,
             ct
         );

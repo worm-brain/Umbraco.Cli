@@ -50,9 +50,12 @@ public static class ContentSortCommand
                             (child, key) => CandidateAsync(client, child, key, c),
                             c
                         );
+                        // The data is the children in their new order (docs/conventions.md 6.2).
                         return order.IsSuccess
-                            ? await client.SortContentAsync(parent, order.Data!, c)
-                            : UmbracoResponse<Empty>.FailureFrom(order);
+                            ? await client
+                                .SortContentAsync(parent, order.Data!, c)
+                                .Then(ItemRefs.Of(order.Data!))
+                            : UmbracoResponse<ItemRefs>.FailureFrom(order);
                     },
                     "Content children reordered.",
                     ct

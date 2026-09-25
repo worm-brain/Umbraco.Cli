@@ -29,7 +29,7 @@ public static class TemplatesDeleteCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.DeleteTemplateAsync(id, c),
+                            id => client.DeleteTemplateAsync(id, c).Then(ItemRef.Of(id)),
                             c
                         ),
                     "Template deleted.",

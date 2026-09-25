@@ -99,11 +99,13 @@ public static class BlueprintFolderCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.UpdateBlueprintFolderAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(nameOpt)!,
-                            c
-                        ),
+                        client
+                            .UpdateBlueprintFolderAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(nameOpt)!,
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Folder updated.",
                     ct
                 )
@@ -124,7 +126,9 @@ public static class BlueprintFolderCommand
                 executor.RunMessageAsync(
                     parseResult,
                     (client, c) =>
-                        client.DeleteBlueprintFolderAsync(parseResult.GetValue(idArg), c),
+                        client
+                            .DeleteBlueprintFolderAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Folder deleted.",
                     ct
                 )

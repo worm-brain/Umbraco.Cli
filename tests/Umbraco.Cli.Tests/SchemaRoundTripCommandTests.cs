@@ -231,6 +231,7 @@ public class SchemaRoundTripCommandTests
     public async Task MemberTypesUpdate_FlagsOnly_StillUsesTheScalarUpdate()
     {
         var fake = new FakeUmbracoManagementClient();
+        fake.MemberTypeRaw[Id] = JsonNode.Parse("""{ "alias": "member" }""")!;
         fake.References[(EntityKind.MemberType, "siteMember")] = Id;
 
         var (exit, _) = await Run(fake, "member-type update siteMember --name Author");

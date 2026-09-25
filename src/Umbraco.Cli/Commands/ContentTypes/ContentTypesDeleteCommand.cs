@@ -43,7 +43,7 @@ public static class ContentTypesDeleteCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.DeleteDocumentTypeAsync(id, c),
+                            id => client.DeleteDocumentTypeAsync(id, c).Then(ItemRef.Of(id)),
                             c
                         ),
                     "Document type deleted.",

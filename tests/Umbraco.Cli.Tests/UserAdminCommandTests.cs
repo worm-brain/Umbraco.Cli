@@ -253,6 +253,37 @@ public class UserAdminCommandTests
     // tests. The command's job is to pass the options through and require a group.
 
     [Fact]
+    public async Task Invited_UserVisible_IsTheUser()
+    {
+        // A create's data is the item it made; invite returns no id, so it is found by email.
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        fake.UserList.Add(new UserResponse { Id = id, Email = "Jane@Example.com" });
+
+        var result = await UsersInviteCommand.InvitedAsync(
+            fake,
+            "jane@example.com",
+            CancellationToken.None
+        );
+
+        Assert.Equal(id, Assert.IsType<UserResponse>(result.Data).Id);
+    }
+
+    [Fact]
+    public async Task Invited_UserNotVisibleYet_NamesTheEmail()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var result = await UsersInviteCommand.InvitedAsync(
+            fake,
+            "jane@example.com",
+            CancellationToken.None
+        );
+
+        Assert.Contains("jane@example.com", System.Text.Json.JsonSerializer.Serialize(result.Data));
+    }
+
+    [Fact]
     public async Task UsersInvite_PassesGroupReferencesAndUserNameThrough()
     {
         var fake = new FakeUmbracoManagementClient();

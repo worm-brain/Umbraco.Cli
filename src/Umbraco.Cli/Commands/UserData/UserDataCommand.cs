@@ -161,18 +161,22 @@ public static class UserDataCommand
                         var key = parseResult.GetValue(keyArg);
                         var current = await client.GetUserDataByIdAsync(key, c);
                         if (!current.IsSuccess)
-                            return UmbracoResponse<Empty>.FailureFrom(current);
-                        return await client.UpdateUserDataAsync(
-                            new UpdateUserDataRequest
-                            {
-                                Key = key,
-                                Group = parseResult.GetValue(groupOpt) ?? current.Data!.Group,
-                                Identifier =
-                                    parseResult.GetValue(identifierOpt) ?? current.Data!.Identifier,
-                                Value = parseResult.GetValue(valueOpt) ?? current.Data!.Value,
-                            },
-                            c
-                        );
+                            return UmbracoResponse<UserDataResponse>.FailureFrom(current);
+                        // An update's data is the resulting entry, as get shows it.
+                        return await client
+                            .UpdateUserDataAsync(
+                                new UpdateUserDataRequest
+                                {
+                                    Key = key,
+                                    Group = parseResult.GetValue(groupOpt) ?? current.Data!.Group,
+                                    Identifier =
+                                        parseResult.GetValue(identifierOpt)
+                                        ?? current.Data!.Identifier,
+                                    Value = parseResult.GetValue(valueOpt) ?? current.Data!.Value,
+                                },
+                                c
+                            )
+                            .ThenRead(() => client.GetUserDataByIdAsync(key, c));
                     },
                     "User-data entry updated.",
                     ct
@@ -193,7 +197,10 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) => client.DeleteUserDataAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteUserDataAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "User-data entry deleted.",
                     ct
                 )

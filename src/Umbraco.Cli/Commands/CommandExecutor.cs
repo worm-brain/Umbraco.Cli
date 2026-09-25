@@ -425,14 +425,16 @@ public sealed class CommandExecutor
         );
 
     /// <summary>
-    /// Writes a fixed success message via <see cref="IOutputWriter.WriteMessage"/>. A command
-    /// declared destructive with <see cref="CommandSafety.Destructive{TCommand}"/> is confirmed
-    /// before it runs unless <c>--yes</c> is given (#70, #255).
+    /// Runs a write whose human output is a confirmation (delete, move, update...). The call returns
+    /// the write's <c>data</c> - the resulting item, or an <see cref="ItemRef"/> naming what it acted
+    /// on - which structured output emits, because every success has <c>data</c>
+    /// (docs/conventions.md 6.2); the human writer shows <paramref name="successMessage"/>. A command
+    /// declared destructive is confirmed before it runs unless <c>--yes</c> is given (#70, #255).
     /// </summary>
-    /// <typeparam name="T">The client call's payload type (discarded).</typeparam>
+    /// <typeparam name="T">The data type.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="call">The client call.</param>
-    /// <param name="successMessage">The message written on success.</param>
+    /// <param name="call">The write, returning its data (see <see cref="WriteResult"/>).</param>
+    /// <param name="successMessage">The human confirmation.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The process exit code.</returns>
     public Task<int> RunMessageAsync<T>(
@@ -444,14 +446,37 @@ public sealed class CommandExecutor
         RunAsync(
             parseResult,
             call,
-            (ctx, _) =>
+            (ctx, data) =>
                 ctx.Output.WriteMessage(
+                    data!,
                     successMessage,
                     ctx.CommandName,
                     ctx.Stopwatch.ElapsedMilliseconds
                 ),
             ct
         );
+
+    /// <summary>
+    /// Refuses, at compile time, a write that returns no data: every success has <c>data</c>
+    /// (docs/conventions.md 6.2). Chain <see cref="WriteResult.Then{T}"/> or
+    /// <see cref="WriteResult.ThenRead{T}"/> onto the call to say what it returns.
+    /// </summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="call">A write that returns nothing.</param>
+    /// <param name="successMessage">The human confirmation.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Never returns.</returns>
+    /// <exception cref="NotSupportedException">Always; the overload exists to fail compilation.</exception>
+    [Obsolete(
+        "Every success has data: chain .Then(ItemRef.Of(id)) or .ThenRead(...) onto the call.",
+        error: true
+    )]
+    public Task<int> RunMessageAsync(
+        ParseResult parseResult,
+        Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<Empty>>> call,
+        string successMessage,
+        CancellationToken ct
+    ) => throw new NotSupportedException();
 
     /// <summary>
     /// Runs a list command (#164/#173): structured output is serialized from the items

@@ -76,6 +76,7 @@ public class QuietOutputWriterTests
         }
 
         public void WriteMessage(
+            object data,
             string message,
             string? commandName = null,
             long? durationMs = null
@@ -104,7 +105,7 @@ public class QuietOutputWriterTests
         var inner = new RecordingWriter();
         var quiet = new QuietOutputWriter(inner);
 
-        quiet.WriteMessage("Deleted.");
+        quiet.WriteMessage(new { id = "1" }, "Deleted.");
 
         Assert.False(inner.MessageCalled);
     }
