@@ -1,0 +1,91 @@
+using Umbraco.Cli.Commands.Content;
+
+namespace Umbraco.Cli.Tests;
+
+/// <summary>
+/// <c>content create --json-body</c> takes the CLI's body and the Management API's (#241), so the
+/// output of <c>document-blueprint scaffold</c> can be piped straight into a create.
+/// </summary>
+public class ContentCreateBodyTests
+{
+    private static readonly Guid TypeId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid BlueprintId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+    private static readonly string Scaffold = $$"""
+        { "id": "{{BlueprintId}}", "documentType": { "id": "{{TypeId}}" }, "flags": [],
+          "values": [ { "alias": "title", "value": "Starter", "editorAlias": "Umbraco.TextBox" } ],
+          "variants": [ { "culture": null, "name": "Starter", "state": "Draft" } ] }
+        """;
+
+    [Fact]
+    public void ReadCreateRequest_ScaffoldShape_ReadsDocumentTypeAsTheContentType()
+    {
+        var request = ContentCreateCommand.ReadCreateRequest(Scaffold, null);
+
+        Assert.Equal(TypeId, request.ContentType.Id);
+    }
+
+    [Fact]
+    public void ReadCreateRequest_ScaffoldShape_DropsTheBlueprintsId()
+    {
+        var request = ContentCreateCommand.ReadCreateRequest(Scaffold, null);
+
+        Assert.Null(request.Id);
+    }
+
+    [Fact]
+    public void ReadCreateRequest_ScaffoldShape_KeepsValuesAndVariants()
+    {
+        var request = ContentCreateCommand.ReadCreateRequest(Scaffold, null);
+
+        Assert.Equal(
+            ("title", "Starter"),
+            (request.Values.Single().Alias, request.Variants.Single().Name)
+        );
+    }
+
+    [Fact]
+    public void ReadCreateRequest_CliShapeWithAnId_KeepsItForAnIdempotentCreate()
+    {
+        var id = Guid.NewGuid();
+
+        var request = ContentCreateCommand.ReadCreateRequest(
+            $$"""{ "id": "{{id}}", "contentType": { "alias": "blogPost" }, "variants": [ { "name": "P" } ] }""",
+            null
+        );
+
+        Assert.Equal(id, request.Id);
+    }
+
+    [Fact]
+    public void ReadCreateRequest_IdFlag_FillsTheId()
+    {
+        var id = Guid.NewGuid();
+
+        var request = ContentCreateCommand.ReadCreateRequest(Scaffold, id);
+
+        Assert.Equal(id, request.Id);
+    }
+
+    [Fact]
+    public void ReadCreateRequest_IdFlagContradictsTheBody_IsRefused()
+    {
+        var body = $$"""{ "id": "{{Guid.NewGuid()}}", "contentType": { "alias": "blogPost" } }""";
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            ContentCreateCommand.ReadCreateRequest(body, Guid.NewGuid())
+        );
+
+        Assert.Contains("does not match", ex.Message);
+    }
+
+    [Fact]
+    public void ReadCreateRequest_NoDocumentType_SaysWhatToSet()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            ContentCreateCommand.ReadCreateRequest("""{ "variants": [ { "name": "P" } ] }""", null)
+        );
+
+        Assert.Contains("contentType", ex.Message);
+    }
+}

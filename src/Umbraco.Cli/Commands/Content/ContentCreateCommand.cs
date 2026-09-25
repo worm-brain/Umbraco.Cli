@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
@@ -7,6 +8,58 @@ namespace Umbraco.Cli.Commands.Content;
 
 public static class ContentCreateCommand
 {
+    /// <summary>
+    /// Reads a <c>--json-body</c> into a create request. Besides the CLI's own shape it takes the
+    /// Management API's, which is what <c>document-blueprint scaffold</c> prints (#241): a
+    /// <c>documentType</c> is read as the <c>contentType</c>, and the body's <c>id</c> - the
+    /// blueprint's, in a scaffold - is dropped, so piping a scaffold into a create makes a new item
+    /// rather than colliding with the blueprint. In the CLI's shape an <c>id</c> is kept, which is
+    /// how an idempotent create is scripted (#140).
+    /// </summary>
+    /// <param name="json">The body text.</param>
+    /// <param name="id">The <c>--id</c> value, or null.</param>
+    /// <returns>The request.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// The body is not a JSON object, names no document type, or its id contradicts <c>--id</c>.
+    /// </exception>
+    internal static CreateContentRequest ReadCreateRequest(string json, Guid? id)
+    {
+        if (JsonNode.Parse(json) is not JsonObject obj)
+            throw new InvalidOperationException("--json-body did not contain a JSON object.");
+
+        // The Management API (and scaffold) shape names the type documentType; the CLI's names it
+        // contentType. Only a body without the CLI key is translated, so nothing is overridden.
+        if (!obj.ContainsKey("contentType") && obj["documentType"] is { } documentType)
+        {
+            obj.Remove("documentType");
+            obj["contentType"] = documentType.DeepClone();
+            obj.Remove("id");
+        }
+
+        if (obj["contentType"] is null)
+            throw new InvalidOperationException(
+                "--json-body names no document type: set \"contentType\": { \"alias\": \"...\" }, "
+                    + "or pipe in 'document-blueprint scaffold', whose documentType is read as it."
+            );
+
+        var request =
+            obj.Deserialize<CreateContentRequest>()
+            ?? throw new InvalidOperationException("Invalid JSON body.");
+
+        return id switch
+        {
+            null => request,
+            { } flag when request.Id is { } fromBody && fromBody != flag =>
+                throw new InvalidOperationException(
+                    $"--id {flag} does not match the id {fromBody} in --json-body. Give one, or make them agree."
+                ),
+            { } flag => request with { Id = flag },
+        };
+    }
+
+    /// <summary>Builds the <c>content create</c> command.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
@@ -98,10 +151,10 @@ public static class ContentCreateCommand
                         CreateContentRequest request;
                         if (body.HasBody(parseResult))
                         {
-                            var json = await body.ReadAsync(parseResult, c);
-                            request =
-                                JsonSerializer.Deserialize<CreateContentRequest>(json)
-                                ?? throw new InvalidOperationException("Invalid JSON body.");
+                            request = ReadCreateRequest(
+                                await body.ReadAsync(parseResult, c),
+                                parseResult.GetValue(idOpt)
+                            );
                         }
                         else
                         {
