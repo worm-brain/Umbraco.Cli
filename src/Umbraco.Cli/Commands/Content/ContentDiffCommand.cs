@@ -32,7 +32,6 @@ public static class ContentDiffCommand
             (parseResult, ct) =>
                 executor.RunReportAsync(
                     parseResult,
-                    "content.diff",
                     (client, c) =>
                         ContentPipeline.DiffAgainstLiveAsync(
                             client,

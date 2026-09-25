@@ -27,7 +27,7 @@ public static class MediaFindCommand
         {
             Description = "With --name, scope the search to this folder's subtree.",
         };
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.Add(nameOpt);
         cmd.Add(pathOpt);
         cmd.Add(parentOpt);
@@ -49,7 +49,6 @@ public static class MediaFindCommand
                 if (!string.IsNullOrWhiteSpace(path))
                     return executor.RunCompleteListAsync(
                         parseResult,
-                        "media.find",
                         (client, c) => client.FindMediaByPathAsync(path, c),
                         headers,
                         Row,
@@ -58,7 +57,6 @@ public static class MediaFindCommand
 
                 return executor.RunPagedAsync(
                     parseResult,
-                    "media.find",
                     (client, skip, take, c) =>
                         client.FindMediaByNameAsync(
                             parseResult.GetValue(nameOpt)!,

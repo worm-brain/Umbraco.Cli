@@ -94,7 +94,7 @@ public class PromotionCommandTests
         {
             var (stdout, exit) = await Run(
                 BuildRoot(fake),
-                $"{Auth} data-types create --id {id} --json-body {body}"
+                $"{Auth} data-type create --id {id} --json-body {body}"
             );
 
             Assert.Equal(0, exit);
@@ -122,7 +122,7 @@ public class PromotionCommandTests
         {
             var (_, exit) = await Run(
                 BuildRoot(fake),
-                $"{Auth} data-types create --id {Guid.NewGuid()} --json-body {body}"
+                $"{Auth} data-type create --id {Guid.NewGuid()} --json-body {body}"
             );
 
             Assert.Equal((1, 0), (exit, fake.RawWrites.Count));

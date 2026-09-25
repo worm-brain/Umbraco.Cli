@@ -9,9 +9,9 @@ public static class MembersDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Permanently delete a member by UUID.\n\nExample:\n  umbraco members delete 3f7a8b2e-..."
-        );
-        var idArg = new Argument<Guid>("id");
+            "Delete a member permanently, by id.\n\nExamples:\n  umbraco member delete 3f7a8b2e-..."
+        ).Mutating();
+        var idArg = new Argument<Guid>("id") { Description = "Member id." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
             $"Permanently delete member {parseResult.GetValue(idArg)}? This cannot be undone."
@@ -20,8 +20,10 @@ public static class MembersDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "members.delete",
-                    (client, c) => client.DeleteMemberAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteMemberAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Member deleted.",
                     ct
                 )

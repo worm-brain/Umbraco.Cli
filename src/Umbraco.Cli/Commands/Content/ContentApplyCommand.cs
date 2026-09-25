@@ -22,7 +22,8 @@ public static class ContentApplyCommand
     {
         var cmd = new Command(
             "apply",
-            "Apply a content snapshot to the live instance (create, update and publish state; --prune also deletes).\n\n"
+            "Apply a content snapshot to the live instance.\n\n"
+                + "Creates, updates and sets publish state; --prune also deletes.\n\n"
                 + "Examples:\n"
                 + "  umbraco content apply content.json --dry-run\n"
                 + "  umbraco content apply content.json\n"
@@ -34,7 +35,7 @@ public static class ContentApplyCommand
                 + "subtree, or leave content alone with --exclude-type / --exclude-root.\n\n"
                 + "Publish state is applied too: cultures published in the snapshot are published, "
                 + "and live cultures the snapshot has unpublished are unpublished."
-        );
+        ).Mutating();
         var snapshotArg = new Argument<string>("snapshot")
         {
             Description = "Path to a snapshot file produced by 'content export', or '-' for stdin.",
@@ -97,7 +98,6 @@ public static class ContentApplyCommand
                 var prune = parseResult.GetValue(pruneOpt);
                 return executor.RunContextualAsync(
                     parseResult,
-                    "content.apply",
                     async (ctx, c) =>
                     {
                         var diff = await ContentPipeline.DiffAgainstLiveAsync(

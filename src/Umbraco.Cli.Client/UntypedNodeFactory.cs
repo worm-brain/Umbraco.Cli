@@ -124,7 +124,7 @@ public static class UntypedNodeFactory
     /// <para>
     /// Needed because property values arrive from the generated client as <c>UntypedNode</c> and,
     /// until #187 Phase 3, were simply dropped rather than surfaced - so <c>content get</c> could
-    /// not show what a document actually held (#168), <c>data-types get</c> could not show a
+    /// not show what a document actually held (#168), <c>data-type get</c> could not show a
     /// dropdown's items (#170), and <c>media get</c> could not show a file's dimensions (#172).
     /// </para>
     /// </summary>

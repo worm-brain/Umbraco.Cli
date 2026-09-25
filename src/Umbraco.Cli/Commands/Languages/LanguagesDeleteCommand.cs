@@ -9,11 +9,11 @@ public static class LanguagesDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Remove a language by its ISO culture code.\n\nExample:\n  umbraco languages delete fr-FR"
-        );
-        var isoArg = new Argument<string>("iso-code")
+            "Delete a language by its ISO code.\n\nExamples:\n  umbraco language delete fr-FR"
+        ).Mutating();
+        var isoArg = new Argument<string>("id")
         {
-            Description = "ISO culture code of the language to remove (e.g. en-US, fr-FR).",
+            Description = "The language's ISO code (e.g. en-US, fr-FR).",
         };
         cmd.Add(isoArg);
         cmd.Destructive(parseResult =>
@@ -23,8 +23,10 @@ public static class LanguagesDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "languages.delete",
-                    (client, c) => client.DeleteLanguageAsync(parseResult.GetValue(isoArg)!, c),
+                    (client, c) =>
+                        client
+                            .DeleteLanguageAsync(parseResult.GetValue(isoArg)!, c)
+                            .Then(ItemRef.Of(parseResult.GetValue(isoArg))),
                     "Language removed.",
                     ct
                 )

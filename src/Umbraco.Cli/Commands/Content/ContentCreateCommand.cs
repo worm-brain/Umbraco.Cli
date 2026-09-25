@@ -19,13 +19,13 @@ public static class ContentCreateCommand
     /// <param name="json">The body text.</param>
     /// <param name="id">The <c>--id</c> value, or null.</param>
     /// <returns>The request.</returns>
-    /// <exception cref="InvalidOperationException">
+    /// <exception cref="InvalidInputException">
     /// The body is not a JSON object, names no document type, or its id contradicts <c>--id</c>.
     /// </exception>
     internal static CreateContentRequest ReadCreateRequest(string json, Guid? id)
     {
         if (JsonNode.Parse(json) is not JsonObject obj)
-            throw new InvalidOperationException("--json-body did not contain a JSON object.");
+            throw new InvalidInputException("--json-body did not contain a JSON object.");
 
         // The Management API (and scaffold) shape names the type documentType; the CLI's names it
         // contentType. Only a body without the CLI key is translated, so nothing is overridden.
@@ -37,14 +37,14 @@ public static class ContentCreateCommand
         }
 
         if (obj["contentType"] is null)
-            throw new InvalidOperationException(
+            throw new InvalidInputException(
                 "--json-body names no document type: set \"contentType\": { \"alias\": \"...\" }, "
                     + "or pipe in 'document-blueprint scaffold', whose documentType is read as it."
             );
 
         var request =
             obj.Deserialize<CreateContentRequest>()
-            ?? throw new InvalidOperationException("Invalid JSON body.");
+            ?? throw new InvalidInputException("Invalid JSON body.");
 
         return request with
         {
@@ -59,13 +59,13 @@ public static class ContentCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --content-type textPage --name \"About\"\n  umbraco content create --content-type textPage --name \"Child\" --parent <id>\n  umbraco content create --content-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --content-type blogPost --name \"Post\" --json-body ./body.json"
-        );
-        // Not marked Required at parse level: a create can be driven by --content-type + --name
+            "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --json-body ./body.json"
+        ).Mutating();
+        // Not marked Required at parse level: a create can be driven by --document-type + --name
         // OR by --json-body OR short-circuited by --schema. The conditional requirement is
         // enforced by a parse-level validator below, so a missing input is a proper parse error
         // (with usage help, before any host/auth work) rather than a late runtime failure.
-        var typeOpt = new Option<string>("--content-type")
+        var typeOpt = new Option<string>("--document-type")
         {
             Description =
                 "Alias of the document type to create (e.g. textPage, blogPost). "
@@ -79,11 +79,11 @@ public static class ContentCreateCommand
         };
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Parent content item UUID. Omit to create at the root.",
+            Description = "Parent content item id. Omit to create at the root.",
         };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         // #228: without a culture a flags-only create on a variant type was rejected with
         // "variance did not match". The client fills in the default language when this is unset.
@@ -94,13 +94,13 @@ public static class ContentCreateCommand
                 + "default language and an invariant type gets none.",
         };
         var body = new JsonBodyOption(
-            "Path to a JSON file (or - for stdin) containing the full create request body "
-                + "(overrides other flags)."
+            "Path to a JSON file (or - for stdin) containing the full create request body. "
+                + "--id and --template still apply; the other field flags go in the body instead."
         );
         var templateOpt = new Option<string?>("--template")
         {
             Description =
-                "Template for the new item, by alias or UUID. Omitted, the document type's default is used.",
+                "Template for the new item, by alias or id. Omitted, the document type's default is used.",
         };
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);
@@ -111,18 +111,34 @@ public static class ContentCreateCommand
         body.AddTo(cmd);
 
         // Parse-level conditional requirement: unless --schema (describe-and-exit) or a
-        // --json-body is given, both --content-type and --name are required. Emitting this as a
+        // --json-body is given, both --document-type and --name are required. Emitting this as a
         // parse error keeps usage help and a fast, local, argument-level failure.
         cmd.Validators.Add(result =>
         {
-            if (body.SchemaRequested(result) || body.HasBody(result))
+            if (body.SchemaRequested(result))
                 return;
+            if (body.HasBody(result))
+            {
+                // The body carries these; a flag beside it would be silently dropped
+                // (docs/conventions.md 4.5), so it is refused instead.
+                if (
+                    !string.IsNullOrEmpty(result.GetValue(typeOpt))
+                    || !string.IsNullOrEmpty(result.GetValue(nameOpt))
+                    || result.GetValue(parentOpt) is not null
+                    || result.GetValue(cultureOpt) is not null
+                )
+                    result.AddError(
+                        "--json-body carries the document type, name, parent and culture; put them "
+                            + "in the body rather than passing --document-type, --name, --parent or --culture."
+                    );
+                return;
+            }
             if (
                 string.IsNullOrEmpty(result.GetValue(typeOpt))
                 || string.IsNullOrEmpty(result.GetValue(nameOpt))
             )
                 result.AddError(
-                    "Supply --content-type and --name, or --json-body. "
+                    "Supply --document-type and --name, or --json-body. "
                         + "Run with --schema to see the JSON body shape."
                 );
         });
@@ -140,7 +156,6 @@ public static class ContentCreateCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "content.create",
                     async (client, c) =>
                     {
                         CreateContentRequest request;

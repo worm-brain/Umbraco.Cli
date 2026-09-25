@@ -4,9 +4,9 @@ namespace Umbraco.Cli.Commands;
 
 /// <summary>
 /// The shared <c>--content</c> / <c>--content-file</c> option pair used by commands that take a
-/// text body (templates, scripts, stylesheets, partial views). Centralises the two options and the
-/// "file wins over inline, read inside the executor" resolution so each command does not
-/// re-implement it.
+/// text body (templates, scripts, stylesheets, partial views). Centralises the two options and
+/// their resolution: one or the other, never both (docs/conventions.md 4.5), with <c>-</c> reading
+/// the file from stdin.
 /// </summary>
 public static class FileContentInput
 {
@@ -15,9 +15,8 @@ public static class FileContentInput
     /// <param name="fileDescription">Help text for the <c>--content-file</c> option.</param>
     /// <returns>The two options, to be added to a command.</returns>
     public static (Option<string?> Content, Option<FileInfo?> ContentFile) Options(
-        string inlineDescription = "Inline content. Mutually exclusive with --content-file.",
-        string fileDescription =
-            "Read the content from this local file (takes precedence over --content)."
+        string inlineDescription = "Inline content. Give this or --content-file, not both.",
+        string fileDescription = "Read the content from this local file, or - for stdin."
     )
     {
         var content = new Option<string?>("--content") { Description = inlineDescription };
@@ -26,15 +25,16 @@ public static class FileContentInput
     }
 
     /// <summary>
-    /// Resolves the content to send: the <c>--content-file</c> body if given (read here, inside the
-    /// executor's try, so a missing file surfaces as a clean error), else <c>--content</c>, else
-    /// null. Callers that require content treat null as an error; callers with a default coalesce it.
+    /// Resolves the content to send: the <c>--content-file</c> body (read here, inside the executor's
+    /// try, so a missing file surfaces as a clean error; <c>-</c> reads stdin), or <c>--content</c>,
+    /// or null. Callers that require content treat null as an error; callers with a default coalesce it.
     /// </summary>
     /// <param name="parseResult">The parsed command line.</param>
     /// <param name="content">The inline-content option.</param>
     /// <param name="contentFile">The content-file option.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved content, or null when neither option was supplied.</returns>
+    /// <exception cref="InvalidInputException">Both options were given.</exception>
     public static async Task<string?> ReadAsync(
         ParseResult parseResult,
         Option<string?> content,
@@ -43,8 +43,17 @@ public static class FileContentInput
     )
     {
         var file = parseResult.GetValue(contentFile);
-        if (file is not null)
-            return await File.ReadAllTextAsync(file.FullName, ct);
-        return parseResult.GetValue(content);
+        var inline = parseResult.GetValue(content);
+        // Two sources for one value: refuse rather than silently pick one.
+        if (file is not null && inline is not null)
+            throw new InvalidInputException(
+                $"Give {content.Name} or {contentFile.Name}, not both."
+            );
+        if (file is null)
+            return inline;
+        // FileInfo keeps the path as typed, so '-' is recognisable before it is resolved.
+        return file.ToString() == "-"
+            ? await Console.In.ReadToEndAsync(ct)
+            : await File.ReadAllTextAsync(file.FullName, ct);
     }
 }

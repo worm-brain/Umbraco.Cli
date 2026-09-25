@@ -52,12 +52,14 @@ public sealed partial class UmbracoManagementClient
     private async Task<Guid> IdOfAsync(EntityKind kind, string reference, CancellationToken ct)
     {
         var id = await ResolveIdAsync(kind, reference, ct);
-        return id.IsSuccess
-            ? id.Data
-            : throw new ApiException(id.ErrorMessage ?? $"No {kind.Noun()} '{reference}'.")
-            {
-                ResponseStatusCode = id.StatusCode,
-            };
+        if (id.IsSuccess)
+            return id.Data;
+        var message = id.ErrorMessage ?? $"No {kind.Noun()} '{reference}'.";
+        // Keep an unresolved reference distinguishable from a server failure, so the guard
+        // around the calling method reports it as invalid_argument too (#256).
+        throw id.Category == FailureCategory.InvalidArgument
+            ? new UnresolvedReferenceException(message, 404)
+            : new ApiException(message) { ResponseStatusCode = id.StatusCode };
     }
 
     /// <summary>Successful resolutions, by (kind, reference), for the client's life.</summary>
@@ -190,7 +192,7 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// Every media type (folders excluded, nested types included) with its alias, read once per
-    /// client. Shared by the resolver and <c>media-types list</c> (#221).
+    /// client. Shared by the resolver and <c>media-type list</c> (#221).
     /// </summary>
     private async Task<List<MediaTypeResponse>> MediaTypesWithAliasAsync(CancellationToken ct) =>
         _mediaTypes ??= await TypesWithAliasAsync(
@@ -209,7 +211,7 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// Every member type (folders excluded, nested types included) with its alias, read once per
-    /// client, for <c>member-types list</c> (#213). The list read the tree root only before, so a
+    /// client, for <c>member-type list</c> (#213). The list read the tree root only before, so a
     /// type inside a folder was missing, and the alias was always <c>""</c>.
     /// </summary>
     private async Task<List<MemberTypeResponse>> MemberTypesWithAliasAsync(CancellationToken ct) =>

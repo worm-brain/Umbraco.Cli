@@ -8,14 +8,24 @@ public static class WebhooksCreateCommand
 {
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command("create", "Create a webhook.");
-        var urlOpt = new Option<string>("--url") { Required = true };
+        var cmd = new Command(
+            "create",
+            "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\""
+        ).Mutating();
+        var urlOpt = new Option<string>("--url")
+        {
+            Required = true,
+            Description = "URL that Umbraco posts the event payload to.",
+        };
         var eventsOpt = ListOption
-            .Strings("--events", "Event names to subscribe to, e.g. ContentPublished,MediaSaved.")
+            .Strings(
+                "--event",
+                "Umbraco event aliases to subscribe to, e.g. Umbraco.ContentPublish or Umbraco.MediaSave."
+            )
             .AsRequired();
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         var nameOpt = new Option<string?>("--name")
         {
@@ -34,7 +44,6 @@ public static class WebhooksCreateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "webhooks.create",
                     (client, c) =>
                         client.CreateWebhookAsync(
                             new CreateWebhookRequest

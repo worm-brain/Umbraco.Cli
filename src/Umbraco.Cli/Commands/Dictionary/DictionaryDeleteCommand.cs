@@ -14,9 +14,9 @@ public static class DictionaryDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a dictionary item by id or key.\n\nExample:\n  umbraco dictionary delete Blog.MinRead"
-        );
-        var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
+            "Delete a dictionary item by id or key.\n\nExamples:\n  umbraco dictionary delete Blog.MinRead"
+        ).Mutating();
+        var idArg = Reference.Argument(EntityKind.DictionaryItem);
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
             $"Permanently delete dictionary item {parseResult.GetValue(idArg)}? This cannot be undone."
@@ -25,12 +25,11 @@ public static class DictionaryDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "dictionary.delete",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.DeleteDictionaryItemAsync(id, c),
+                            id => client.DeleteDictionaryItemAsync(id, c).Then(ItemRef.Of(id)),
                             c
                         ),
                     "Dictionary item deleted.",

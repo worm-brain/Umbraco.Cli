@@ -1,11 +1,12 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Auth;
 
 /// <summary>
-/// The <c>auth profiles</c> command (#64): lists the saved credential profiles and marks which
+/// The <c>auth profile list</c> command (#64): lists the saved credential profiles and marks which
 /// one is the default.
 /// </summary>
 public static class ProfilesCommand
@@ -22,8 +23,9 @@ public static class ProfilesCommand
     )
     {
         var cmd = new Command(
-            "profiles",
-            "List saved credential profiles and which one is the default."
+            "list",
+            "List saved credential profiles and which one is the default.\n\n"
+                + "Examples:\n  umbraco auth profile list\n  umbraco auth profile list --output json"
         );
 
         cmd.SetAction(
@@ -45,7 +47,8 @@ public static class ProfilesCommand
                                 ? "*"
                                 : "",
                         }
-                    )
+                    ),
+                    CommandPath.Of(parseResult)
                 );
                 return Task.CompletedTask;
             }

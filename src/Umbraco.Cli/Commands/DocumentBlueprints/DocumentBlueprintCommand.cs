@@ -7,7 +7,7 @@ namespace Umbraco.Cli.Commands.DocumentBlueprints;
 
 /// <summary>
 /// Wires the <c>document-blueprint</c> noun (issue #113) - content templates authors start new
-/// documents from. Verbs: list/get/create/update/delete, from-document scaffolding, move, scaffold
+/// documents from. Verbs: list/get/create (from flags, a body, or --from-document)/update/delete, move, scaffold
 /// preview, and a <c>folder</c> sub-noun. The create/update body mirrors <c>content create</c>
 /// (scalar flags + <c>--json-body</c> + <c>--schema</c>); get/scaffold/create emit raw JSON.
 /// </summary>
@@ -20,7 +20,7 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "document-blueprint",
-            "List, inspect, and manage Umbraco document blueprints (content templates).\n\nExamples:\n  umbraco document-blueprint list\n  umbraco document-blueprint from-document <documentId> --name \"Starter\""
+            "List, inspect, and manage Umbraco document blueprints (content templates).\n\nExamples:\n  umbraco document-blueprint list\n  umbraco document-blueprint create --from-document <id> --name \"Starter\""
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildGet(executor));
@@ -28,7 +28,6 @@ public static class DocumentBlueprintCommand
         cmd.Add(BuildCreate(executor));
         cmd.Add(BuildUpdate(executor));
         cmd.Add(BuildDelete(executor));
-        cmd.Add(BuildFromDocument(executor));
         cmd.Add(BuildMove(executor));
         cmd.Add(BlueprintFolderCommand.Build(executor));
         return cmd;
@@ -38,19 +37,19 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "list",
-            "List blueprints. With --parent, lists the children of that folder; otherwise the root."
+            "List blueprints at the root, or the children of a folder.\n\n"
+                + "Examples:\n  umbraco document-blueprint list\n  umbraco document-blueprint list --parent <folder-id>"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Parent folder UUID to list children of; omit for the tree root.",
+            Description = "Parent folder id to list children of; omit for the tree root.",
         };
         cmd.Add(parentOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "document-blueprint.list",
                     (client, skip, take, c) =>
                         client.GetDocumentBlueprintsAsync(
                             parseResult.GetValue(parentOpt),
@@ -77,14 +76,17 @@ public static class DocumentBlueprintCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a blueprint by UUID as raw JSON (full fidelity).");
+        var cmd = new Command(
+            "get",
+            "Get a blueprint by id as raw JSON (full fidelity).\n\n"
+                + "Examples:\n  umbraco document-blueprint get 3f7a8b2e-...\n  umbraco document-blueprint get <id> -o json | jq .data > bp.json"
+        );
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.get",
                     (client, c) => client.GetDocumentBlueprintAsync(parseResult.GetValue(idArg), c),
                     ct
                 )
@@ -96,7 +98,9 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "scaffold",
-            "Print the pre-filled create template Umbraco would use to start a document from this blueprint."
+            "Print the pre-filled create body for a document started from a blueprint.\n\n"
+                + "This is the template Umbraco itself would use.\n\n"
+                + "Examples:\n  umbraco document-blueprint scaffold 3f7a8b2e-...\n  umbraco document-blueprint scaffold <id> -o json | jq .data > body.json"
         );
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         cmd.Add(idArg);
@@ -104,7 +108,6 @@ public static class DocumentBlueprintCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.scaffold",
                     (client, c) =>
                         client.ScaffoldDocumentBlueprintAsync(parseResult.GetValue(idArg), c),
                     ct
@@ -117,14 +120,15 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "create",
-            "Create a blueprint. Supply --json-body for full property control.\n\nExamples:\n  umbraco document-blueprint create --document-type textPage --name \"Starter\"\n  umbraco document-blueprint create --json-body ./bp.json"
-        );
-        // Conditional requirement (mirrors content create): --document-type + --name, OR --json-body,
-        // OR --schema (describe-and-exit). Enforced by the validator below as a parse error.
+            "Create a blueprint from flags, a JSON body, or an existing document.\n\nExamples:\n  umbraco document-blueprint create --document-type textPage --name \"Starter\"\n  umbraco document-blueprint create --from-document <id> --name \"Starter\"\n  umbraco document-blueprint create --json-body ./bp.json"
+        ).Mutating();
+        // Conditional requirement (mirrors content create): --document-type + --name, OR
+        // --from-document + --name, OR --json-body, OR --schema (describe-and-exit). Enforced by the
+        // validator below as a parse error.
         var typeOpt = new Option<string>("--document-type")
         {
             Description =
-                "Document type alias or UUID the blueprint is based on. "
+                "Document type alias or id the blueprint is based on. "
                 + "Required unless --json-body or --schema is used.",
         };
         var nameOpt = new Option<string>("--name")
@@ -134,14 +138,21 @@ public static class DocumentBlueprintCommand
         };
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Parent folder UUID. Omit to create at the blueprint root.",
+            Description = "Parent folder id. Omit to create at the blueprint root.",
+        };
+        // Creating from something else is an option on create, not its own verb (docs/conventions.md 2).
+        var fromDocumentOpt = new Option<Guid?>("--from-document")
+        {
+            Description =
+                "Copy an existing document into the new blueprint. Takes --name (applied to "
+                + "every culture), --parent and --id; not --document-type, --culture or --json-body.",
         };
         var body = new JsonBodyOption(
-            "Path to a JSON file (or - for stdin) with the full create body (overrides flags)."
+            "Path to a JSON file (or - for stdin) with the full create body; the field flags go in the body instead."
         );
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         var cultureOpt = new Option<string?>("--culture")
         {
@@ -152,14 +163,48 @@ public static class DocumentBlueprintCommand
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
+        cmd.Add(fromDocumentOpt);
         body.AddTo(cmd);
         cmd.Add(idOpt);
         cmd.Add(cultureOpt);
 
         cmd.Validators.Add(result =>
         {
-            if (body.SchemaRequested(result) || body.HasBody(result))
+            if (result.GetValue(fromDocumentOpt) is not null)
+            {
+                // The document supplies the type, values and cultures, so options that would set
+                // them conflict rather than being silently ignored.
+                if (
+                    !string.IsNullOrEmpty(result.GetValue(typeOpt))
+                    || body.HasBody(result)
+                    || result.GetValue(cultureOpt) is not null
+                )
+                    result.AddError(
+                        "--from-document copies the document's type, values and cultures; "
+                            + "drop --document-type, --json-body and --culture."
+                    );
+                else if (string.IsNullOrEmpty(result.GetValue(nameOpt)))
+                    result.AddError("--from-document needs --name for the new blueprint.");
                 return;
+            }
+            if (body.SchemaRequested(result))
+                return;
+            if (body.HasBody(result))
+            {
+                // The body is the whole request; a flag beside it would be silently dropped.
+                if (
+                    !string.IsNullOrEmpty(result.GetValue(typeOpt))
+                    || !string.IsNullOrEmpty(result.GetValue(nameOpt))
+                    || result.GetValue(parentOpt) is not null
+                    || result.GetValue(idOpt) is not null
+                    || result.GetValue(cultureOpt) is not null
+                )
+                    result.AddError(
+                        "--json-body is the whole create request; put the document type, name, "
+                            + "parent, id and culture in it rather than passing them as flags."
+                    );
+                return;
+            }
             if (
                 string.IsNullOrEmpty(result.GetValue(typeOpt))
                 || string.IsNullOrEmpty(result.GetValue(nameOpt))
@@ -179,9 +224,27 @@ public static class DocumentBlueprintCommand
                     return Task.FromResult(0);
                 }
 
+                if (parseResult.GetValue(fromDocumentOpt) is { } source)
+                    return executor.RunObjectAsync(
+                        parseResult,
+                        (client, c) =>
+                            client.CreateDocumentBlueprintFromDocumentAsync(
+                                new CreateBlueprintFromDocumentRequest
+                                {
+                                    Id = parseResult.GetValue(idOpt),
+                                    Document = source,
+                                    Name = parseResult.GetValue(nameOpt),
+                                    Parent = parseResult.GetValue(parentOpt) is { } p
+                                        ? new ContentParentReference { Id = p }
+                                        : null,
+                                },
+                                c
+                            ),
+                        ct
+                    );
+
                 return executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.create",
                     async (client, c) =>
                     {
                         CreateDocumentBlueprintRequest request;
@@ -190,7 +253,7 @@ public static class DocumentBlueprintCommand
                             var json = await body.ReadAsync(parseResult, c);
                             request =
                                 JsonSerializer.Deserialize<CreateDocumentBlueprintRequest>(json)
-                                ?? throw new InvalidOperationException("Invalid JSON body.");
+                                ?? throw new InvalidInputException("Invalid JSON body.");
                         }
                         else
                         {
@@ -229,10 +292,10 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "update",
-            "Update a blueprint's values and variants. They are merged into the blueprint, as "
+            "Update a blueprint's values and variants.\n\nThey are merged into the blueprint, as "
                 + "'content update' does; --replace sends them as the whole set instead.\n\n"
-                + "Example:\n  umbraco document-blueprint update <id> --json-body ./bp.json"
-        );
+                + "Examples:\n  umbraco document-blueprint update <id> --json-body ./bp.json"
+        ).Mutating();
         // id is nullable/optional at the PARSE level only so --schema can describe the body without
         // it; the validator below makes it required for an actual update.
         var idArg = new Argument<Guid?>("id")
@@ -260,6 +323,11 @@ public static class DocumentBlueprintCommand
             Description =
                 "Replace the blueprint's values and variants with the ones given, instead of merging.",
         };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replaceOpt,
+            _ => "Replace this blueprint's values and variants, clearing anything not given?"
+        );
         cmd.Add(idArg);
         cmd.Add(nameOpt);
         cmd.Add(updateCultureOpt);
@@ -291,7 +359,6 @@ public static class DocumentBlueprintCommand
 
                 return executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.update",
                     async (client, c) =>
                     {
                         UpdateDocumentBlueprintRequest request;
@@ -300,7 +367,7 @@ public static class DocumentBlueprintCommand
                             var json = await body.ReadAsync(parseResult, c);
                             request =
                                 JsonSerializer.Deserialize<UpdateDocumentBlueprintRequest>(json)
-                                ?? throw new InvalidOperationException("Invalid JSON body.");
+                                ?? throw new InvalidInputException("Invalid JSON body.");
                         }
                         else
                         {
@@ -317,12 +384,16 @@ public static class DocumentBlueprintCommand
                             };
                         }
 
-                        return await client.UpdateDocumentBlueprintAsync(
-                            parseResult.GetValue(idArg)!.Value,
-                            request,
-                            parseResult.GetValue(replaceOpt),
-                            c
-                        );
+                        var id = parseResult.GetValue(idArg)!.Value;
+                        // An update's data is the resulting item, as get shows it (docs/conventions.md 6.2).
+                        return await client
+                            .UpdateDocumentBlueprintAsync(
+                                id,
+                                request,
+                                parseResult.GetValue(replaceOpt),
+                                c
+                            )
+                            .ThenRead(() => client.GetDocumentBlueprintAsync(id, c));
                     },
                     "Blueprint updated.",
                     ct
@@ -334,7 +405,10 @@ public static class DocumentBlueprintCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a blueprint by UUID.");
+        var cmd = new Command(
+            "delete",
+            "Delete a blueprint by id.\n\nExamples:\n  umbraco document-blueprint delete 3f7a8b2e-... --yes"
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
@@ -344,58 +418,11 @@ public static class DocumentBlueprintCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.delete",
                     (client, c) =>
-                        client.DeleteDocumentBlueprintAsync(parseResult.GetValue(idArg), c),
+                        client
+                            .DeleteDocumentBlueprintAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Blueprint deleted.",
-                    ct
-                )
-        );
-        return cmd;
-    }
-
-    private static Command BuildFromDocument(CommandExecutor executor)
-    {
-        var cmd = new Command(
-            "from-document",
-            "Create a blueprint from an existing document.\n\nExample:\n  umbraco document-blueprint from-document <documentId> --name \"Starter\""
-        );
-        var docArg = new Argument<Guid>("documentId") { Description = "Source document ID." };
-        var nameOpt = new Option<string>("--name")
-        {
-            Required = true,
-            Description = "Name for the new blueprint, applied to every culture it has.",
-        };
-        var parentOpt = new Option<Guid?>("--parent")
-        {
-            Description = "Parent folder UUID. Omit for the blueprint root.",
-        };
-        var idOpt = new Option<Guid?>("--id")
-        {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
-        };
-        cmd.Add(docArg);
-        cmd.Add(nameOpt);
-        cmd.Add(parentOpt);
-        cmd.Add(idOpt);
-        cmd.SetAction(
-            (parseResult, ct) =>
-                executor.RunObjectAsync(
-                    parseResult,
-                    "document-blueprint.from-document",
-                    (client, c) =>
-                        client.CreateDocumentBlueprintFromDocumentAsync(
-                            new CreateBlueprintFromDocumentRequest
-                            {
-                                Id = parseResult.GetValue(idOpt),
-                                Document = parseResult.GetValue(docArg),
-                                Name = parseResult.GetValue(nameOpt),
-                                Parent = parseResult.GetValue(parentOpt) is { } p
-                                    ? new ContentParentReference { Id = p }
-                                    : null,
-                            },
-                            c
-                        ),
                     ct
                 )
         );
@@ -406,12 +433,13 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "move",
-            "Move a blueprint under a folder (or to the root when --parent is omitted)."
-        );
+            "Move a blueprint under a folder (or to the root when --parent is omitted).\n\n"
+                + "Examples:\n  umbraco document-blueprint move 3f7a8b2e-... --parent <folder-id>\n  umbraco document-blueprint move 3f7a8b2e-..."
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         var targetOpt = new Option<Guid?>("--parent", "--target")
         {
-            Description = "Destination folder UUID; omit to move to the root. --target works too.",
+            Description = "Destination folder id; omit to move to the root. --target works too.",
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);
@@ -419,13 +447,14 @@ public static class DocumentBlueprintCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.move",
                     (client, c) =>
-                        client.MoveDocumentBlueprintAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(targetOpt),
-                            c
-                        ),
+                        client
+                            .MoveDocumentBlueprintAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(targetOpt),
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Blueprint moved.",
                     ct
                 )

@@ -17,8 +17,8 @@ public static class MediaEmptyRecycleBinCommand
     {
         var cmd = new Command(
             "empty-recycle-bin",
-            "Permanently delete all media items in the recycle bin.\n\nExample:\n  umbraco media empty-recycle-bin --yes"
-        );
+            "Permanently delete all media items in the recycle bin.\n\nExamples:\n  umbraco media empty-recycle-bin --yes"
+        ).Mutating();
         cmd.Destructive(parseResult =>
             "Permanently delete ALL items in the media recycle bin? This cannot be undone."
         );
@@ -26,8 +26,8 @@ public static class MediaEmptyRecycleBinCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "media.empty-recycle-bin",
-                    (client, c) => client.EmptyMediaRecycleBinAsync(c),
+                    // Nothing to read back: the data is an empty object (docs/conventions.md 6.2).
+                    (client, c) => client.EmptyMediaRecycleBinAsync(c).Then(new { }),
                     "Media recycle bin emptied.",
                     ct
                 )

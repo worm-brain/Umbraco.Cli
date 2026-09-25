@@ -77,7 +77,7 @@ public class UserAdminCommandTests
 
     private const string Auth = "--host https://x --token t --output json";
 
-    // ── user-groups: option mapping ─────────────────────────────────────────────
+    // ── user-group: option mapping ─────────────────────────────────────────────
 
     [Fact]
     public async Task UserGroupsCreate_MapsRepeatableAndFlagOptions()
@@ -87,9 +87,9 @@ public class UserAdminCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} user-groups create --alias editors --name Editors "
+            $"{Auth} user-group create --alias editors --name Editors "
                 + "--section Umb.Section.Content --section Umb.Section.Media "
-                + "--language en-US --fallback-permission Umb.Document.Read "
+                + "--culture en-US --fallback-permission Umb.Document.Read "
                 + "--has-access-to-all-languages --document-root-access"
         );
 
@@ -105,14 +105,14 @@ public class UserAdminCommandTests
     }
 
     [Fact]
-    public async Task UserGroupsDeleteMany_MapsIdsList()
+    public async Task UserGroupsDelete_SeveralIds_DeletesThemInOneCall()
     {
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
         var a = Guid.NewGuid();
         var b = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} --yes user-groups delete-many --ids {a} {b}");
+        var exit = await Run(root, $"{Auth} --yes user-group delete {a} {b}");
 
         Assert.Equal(0, exit);
         var ids = Assert.Single(fake.UserGroupsBulkDeleted);
@@ -128,7 +128,7 @@ public class UserAdminCommandTests
         var u1 = Guid.NewGuid();
         var u2 = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} user-groups add-users {group} --user {u1} --user {u2}");
+        var exit = await Run(root, $"{Auth} user-group add-users {group} --user {u1} --user {u2}");
 
         Assert.Equal(0, exit);
         var (groupId, userIds) = Assert.Single(fake.UserGroupUsersAdded);
@@ -136,7 +136,7 @@ public class UserAdminCommandTests
         Assert.Equal([u1, u2], userIds);
     }
 
-    // ── user-groups: confirmation gating ────────────────────────────────────────
+    // ── user-group: confirmation gating ────────────────────────────────────────
 
     [Fact]
     public async Task UserGroupsDelete_NonInteractiveWithoutYes_AbortsAndDoesNotDelete()
@@ -144,7 +144,7 @@ public class UserAdminCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
 
-        var exit = await Run(root, $"{Auth} user-groups delete {Guid.NewGuid()}");
+        var exit = await Run(root, $"{Auth} user-group delete {Guid.NewGuid()}");
 
         Assert.Equal(2, exit); // aborted before running (confirmation required, non-interactive)
         Assert.Empty(fake.UserGroupsDeleted);
@@ -157,7 +157,7 @@ public class UserAdminCommandTests
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
         var id = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} --yes user-groups delete {id}");
+        var exit = await Run(root, $"{Auth} --yes user-group delete {id}");
 
         Assert.Equal(0, exit);
         Assert.Equal(id, Assert.Single(fake.UserGroupsDeleted));
@@ -173,7 +173,7 @@ public class UserAdminCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} user-data create --group myGroup --identifier theme --value dark"
+            $"{Auth} user-data create --group myGroup --identifier theme --data dark"
         );
 
         Assert.Equal(0, exit);
@@ -189,16 +189,51 @@ public class UserAdminCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
         var key = Guid.NewGuid();
+        fake.UserDataList.Add(
+            new UserDataResponse
+            {
+                Key = key,
+                Group = "g",
+                Identifier = "i",
+                Value = "dark",
+            }
+        );
 
         var exit = await Run(
             root,
-            $"{Auth} user-data update --key {key} --group g --identifier i --value light"
+            $"{Auth} user-data update {key} --group g --identifier i --data light"
         );
 
         Assert.Equal(0, exit);
         var updated = Assert.Single(fake.UserDataUpdated);
         Assert.Equal(key, updated.Key);
         Assert.Equal("light", updated.Value);
+    }
+
+    [Fact]
+    public async Task UserDataUpdate_OmittedOptions_KeepTheirValues()
+    {
+        // docs/conventions.md 5.1: update merges, so only --data changes here.
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+        var key = Guid.NewGuid();
+        fake.UserDataList.Add(
+            new UserDataResponse
+            {
+                Key = key,
+                Group = "prefs",
+                Identifier = "theme",
+                Value = "dark",
+            }
+        );
+
+        await Run(root, $"{Auth} user-data update {key} --data light");
+
+        var updated = Assert.Single(fake.UserDataUpdated);
+        Assert.Equal(
+            ("prefs", "theme", "light"),
+            (updated.Group, updated.Identifier, updated.Value)
+        );
     }
 
     [Fact]
@@ -213,9 +248,40 @@ public class UserAdminCommandTests
         Assert.Empty(fake.UserDataDeleted);
     }
 
-    // ── users invite (#215) ─────────────────────────────────────────────────────
+    // ── user invite (#215) ─────────────────────────────────────────────────────
     // The client resolves the group references and defaults the userName; see the invite wire
     // tests. The command's job is to pass the options through and require a group.
+
+    [Fact]
+    public async Task Invited_UserVisible_IsTheUser()
+    {
+        // A create's data is the item it made; invite returns no id, so it is found by email.
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        fake.UserList.Add(new UserResponse { Id = id, Email = "Jane@Example.com" });
+
+        var result = await UsersInviteCommand.InvitedAsync(
+            fake,
+            "jane@example.com",
+            CancellationToken.None
+        );
+
+        Assert.Equal(id, Assert.IsType<UserResponse>(result.Data).Id);
+    }
+
+    [Fact]
+    public async Task Invited_UserNotVisibleYet_NamesTheEmail()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var result = await UsersInviteCommand.InvitedAsync(
+            fake,
+            "jane@example.com",
+            CancellationToken.None
+        );
+
+        Assert.Contains("jane@example.com", System.Text.Json.JsonSerializer.Serialize(result.Data));
+    }
 
     [Fact]
     public async Task UsersInvite_PassesGroupReferencesAndUserNameThrough()
@@ -225,7 +291,7 @@ public class UserAdminCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} users invite --email a@example.com --name A --group editor --group Translators --username alice"
+            $"{Auth} user invite --email a@example.com --name A --group editor --group Translators --username alice"
         );
 
         Assert.Equal(0, exit);
@@ -240,7 +306,7 @@ public class UserAdminCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
 
-        var exit = await Run(root, $"{Auth} users invite --email a@example.com --name A");
+        var exit = await Run(root, $"{Auth} user invite --email a@example.com --name A");
 
         Assert.NotEqual(0, exit);
         Assert.Null(fake.LastInvite);

@@ -16,14 +16,14 @@ public static class ContentBulkUnpublishCommand
     {
         var cmd = new Command(
             "unpublish",
-            "Unpublish many content items by id (ids from --file or stdin).\n\nExample:\n  umbraco content bulk unpublish --file ids.txt"
-        );
+            "Unpublish many content items by id (ids from --file or stdin).\n\nExamples:\n  umbraco content bulk unpublish --file ids.txt\n  umbraco content bulk unpublish --file ids.txt --culture da-DK"
+        ).Mutating();
         var fileOpt = new Option<FileInfo?>("--file")
         {
             Description = "File of ids (one per line). Reads stdin when omitted.",
         };
         var culturesOpt = ListOption.Strings(
-            "--cultures",
+            "--culture",
             "ISO culture codes to unpublish. Unpublishes all cultures if omitted."
         );
         cmd.Add(fileOpt);
@@ -38,7 +38,6 @@ public static class ContentBulkUnpublishCommand
                 var effective = cultures?.Length > 0 ? cultures : null;
                 return executor.RunBulkAsync(
                     parseResult,
-                    "content.bulk.unpublish",
                     () => BulkIds.Read(parseResult.GetValue(fileOpt)),
                     (client, id, c) => client.UnpublishContentAsync(id, effective, c),
                     ct

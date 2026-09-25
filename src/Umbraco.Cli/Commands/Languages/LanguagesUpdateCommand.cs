@@ -1,13 +1,14 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Languages;
 
-/// <summary>Wires the <c>languages update</c> command (issue #59).</summary>
+/// <summary>Wires the <c>language update</c> command (issue #59).</summary>
 public static class LanguagesUpdateCommand
 {
     /// <summary>
-    /// Builds the <c>languages update</c> command. Only supplied options change; anything
+    /// Builds the <c>language update</c> command. Only supplied options change; anything
     /// omitted (name, the default/mandatory flags, the fallback culture) is preserved by the
     /// client's read-merge, so a name change never silently clears the other settings.
     /// </summary>
@@ -17,11 +18,11 @@ public static class LanguagesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a language by its ISO culture code. Omitted fields are preserved.\n\nExample:\n  umbraco languages update fr-FR --name \"French (France)\" --mandatory"
-        );
-        var isoArg = new Argument<string>("iso-code")
+            "Update a language by its ISO culture code. Omitted fields are preserved.\n\nExamples:\n  umbraco language update fr-FR --name \"French (France)\" --mandatory\n  umbraco language update da-DK --fallback en-US"
+        ).Mutating();
+        var isoArg = new Argument<string>("id")
         {
-            Description = "ISO culture code of the language to update (e.g. fr-FR).",
+            Description = "The language's ISO code (e.g. fr-FR).",
         };
         var nameOpt = new Option<string?>("--name")
         {
@@ -48,7 +49,6 @@ public static class LanguagesUpdateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "languages.update",
                     (client, c) =>
                         client.UpdateLanguageAsync(
                             parseResult.GetValue(isoArg)!,

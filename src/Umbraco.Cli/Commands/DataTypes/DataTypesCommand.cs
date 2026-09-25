@@ -7,8 +7,8 @@ public static class DataTypesCommand
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "data-types",
-            "List, inspect, and manage Umbraco data types (property editors).\n\nExamples:\n  umbraco data-types list --output json\n  umbraco data-types create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
+            "data-type",
+            "List, inspect, and manage Umbraco data types (property editors).\n\nExamples:\n  umbraco data-type list --output json\n  umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
         );
         cmd.Add(DataTypesListCommand.Build(executor));
         cmd.Add(DataTypesGetCommand.Build(executor));

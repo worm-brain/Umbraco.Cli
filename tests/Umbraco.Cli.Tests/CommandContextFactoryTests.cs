@@ -79,7 +79,7 @@ public class CommandContextFactoryTests
         var root = new RootCommand();
         global.AddTo(root);
 
-        await factory.CreateAsync(root.Parse(args), "server.info");
+        await factory.CreateAsync(root.Parse(args));
         File.Delete(configPath);
         return (state, endpoint);
     }

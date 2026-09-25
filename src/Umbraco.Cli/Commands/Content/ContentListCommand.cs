@@ -9,31 +9,19 @@ public static class ContentListCommand
     {
         var cmd = new Command(
             "list",
-            "List content items. Returns a paginated list of top-level or child content nodes.\n\nExamples:\n  umbraco content list\n  umbraco content list --parent <id> --take 50\n  umbraco content list --output json | jq '.data[].name'"
+            "List content items at the root, or the children of a parent.\n\nReturns a paginated list of top-level or child content nodes.\n\nExamples:\n  umbraco content list\n  umbraco content list --parent <id> --take 50\n  umbraco content list --output json | jq '.data[].name'"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Filter by parent content item ID (UUID). Omit for root items.",
-        };
-        var skipOpt = new Option<int>("--skip")
-        {
-            DefaultValueFactory = _ => 0,
-            Description = "Number of items to skip for pagination.",
-        };
-        var takeOpt = new Option<int>("--take")
-        {
-            DefaultValueFactory = _ => 20,
-            Description = "Maximum number of items to return.",
+            Description = "Parent content item id; lists root items if omitted.",
         };
         cmd.Add(parentOpt);
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
 
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "content.list",
                     (client, skip, take, c) =>
                         client.GetContentAsync(parseResult.GetValue(parentOpt), skip, take, c),
                     // Content Type is intentionally omitted: the document-tree list items carry

@@ -1,3 +1,5 @@
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Tests;
@@ -53,7 +55,7 @@ public class JsonOutputWriterTests
     public void WriteMessage_CarriesSchemaVersion()
     {
         // #61: message-shaped success envelopes (delete/publish) are versioned too.
-        var (stdout, _) = Capture(() => _writer.WriteMessage("Done."));
+        var (stdout, _) = Capture(() => _writer.WriteMessage(new { id = "1" }, "Done."));
         var meta = JsonDocument.Parse(stdout).RootElement.GetProperty("meta");
         Assert.Equal("5", meta.GetProperty("schemaVersion").GetString());
     }
@@ -85,7 +87,9 @@ public class JsonOutputWriterTests
     public void WriteMessage_MetaContainsCommandAndDuration()
     {
         // #137: message-shaped success (delete/publish) carries command/duration/timestamp too.
-        var (stdout, _) = Capture(() => _writer.WriteMessage("Deleted.", "content.delete", 12));
+        var (stdout, _) = Capture(() =>
+            _writer.WriteMessage(new { id = "1" }, "Deleted.", "content.delete", 12)
+        );
         var meta = JsonDocument.Parse(stdout).RootElement.GetProperty("meta");
         Assert.Equal("content.delete", meta.GetProperty("command").GetString());
         Assert.Equal(12, meta.GetProperty("durationMs").GetInt64());
@@ -272,7 +276,15 @@ public class JsonOutputWriterTests
     [Fact]
     public void WriteError_StatusIsError()
     {
-        var (_, stderr) = Capture(() => _writer.WriteError(404, "Not found"));
+        var (_, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Failed,
+                FailureCategory.RequestRejected,
+                "Not found",
+                "content.get",
+                404
+            )
+        );
         var doc = JsonDocument.Parse(stderr);
         Assert.Equal("error", doc.RootElement.GetProperty("status").GetString());
     }
@@ -280,7 +292,15 @@ public class JsonOutputWriterTests
     [Fact]
     public void WriteError_SeparatesTheExitCodeFromTheHttpStatus()
     {
-        var (_, stderr) = Capture(() => _writer.WriteError(1, "Unauthorized", 401));
+        var (_, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Failed,
+                FailureCategory.RequestRejected,
+                "Unauthorized",
+                "content.get",
+                401
+            )
+        );
         var doc = JsonDocument.Parse(stderr);
 
         // #177: `code` used to carry whichever of the two applied, so a caller could not act on
@@ -294,7 +314,14 @@ public class JsonOutputWriterTests
     public void WriteError_PolicyFailure_OmitsTheHttpStatus()
     {
         // A failure that never reached the server has no status to report - absent, not 0.
-        var (_, stderr) = Capture(() => _writer.WriteError(2, "Not authenticated"));
+        var (_, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Aborted,
+                FailureCategory.NotAuthenticated,
+                "Not authenticated",
+                "content.list"
+            )
+        );
         var root = JsonDocument.Parse(stderr).RootElement;
 
         Assert.Equal(2, root.GetProperty("exitCode").GetInt32());
@@ -304,7 +331,14 @@ public class JsonOutputWriterTests
     [Fact]
     public void WriteError_CarriesSchemaVersionInMetaLikeSuccess()
     {
-        var (_, stderr) = Capture(() => _writer.WriteError(2, "Not authenticated"));
+        var (_, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Aborted,
+                FailureCategory.NotAuthenticated,
+                "Not authenticated",
+                "content.list"
+            )
+        );
         var root = JsonDocument.Parse(stderr).RootElement;
 
         // #177: it used to sit at the top level, so the error envelope was the one shape that did
@@ -315,7 +349,15 @@ public class JsonOutputWriterTests
     [Fact]
     public void WriteError_WritesToStderr_NotStdout()
     {
-        var (stdout, stderr) = Capture(() => _writer.WriteError(500, "oops"));
+        var (stdout, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Failed,
+                FailureCategory.ServerError,
+                "oops",
+                "content.get",
+                500
+            )
+        );
         Assert.Empty(stdout);
         Assert.NotEmpty(stderr);
     }
@@ -326,7 +368,14 @@ public class JsonOutputWriterTests
         // #152: an API failure carries a machine-readable category and the connected server
         // version so a caller can attribute the failure without a controlled experiment.
         var (_, stderr) = Capture(() =>
-            _writer.WriteError(1, "oops", 500, "server_error", "17.3.5")
+            _writer.WriteError(
+                ExitCode.Failed,
+                FailureCategory.ServerError,
+                "oops",
+                "content.get",
+                500,
+                "17.3.5"
+            )
         );
         var root = JsonDocument.Parse(stderr).RootElement;
         Assert.Equal("server_error", root.GetProperty("category").GetString());
@@ -334,14 +383,40 @@ public class JsonOutputWriterTests
     }
 
     [Fact]
-    public void WriteError_WithoutCategoryOrVersion_OmitsThoseFields()
+    public void WriteError_PolicyFailure_CarriesItsCategoryButNoServerVersion()
     {
-        // A policy error (auth, read-only) passes neither; the fields must be absent, not null,
-        // so the original 3-key envelope shape is preserved for those errors.
-        var (_, stderr) = Capture(() => _writer.WriteError(2, "Operation cancelled."));
+        // docs/conventions.md section 7: every error has a category, policy aborts included;
+        // the server version only belongs to failures the server answered.
+        var (_, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Aborted,
+                FailureCategory.Cancelled,
+                "Operation cancelled.",
+                "content.delete"
+            )
+        );
         var root = JsonDocument.Parse(stderr).RootElement;
-        Assert.False(root.TryGetProperty("category", out _));
+
+        Assert.Equal("cancelled", root.GetProperty("category").GetString());
         Assert.False(root.TryGetProperty("serverVersion", out _));
+    }
+
+    [Fact]
+    public void WriteError_CarriesTheFullMeta()
+    {
+        // The error meta matches a success's: the command and a timestamp, not just the version.
+        var (_, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Aborted,
+                FailureCategory.NotAllowed,
+                "Not in the allow-list.",
+                "content.delete"
+            )
+        );
+        var meta = JsonDocument.Parse(stderr).RootElement.GetProperty("meta");
+
+        Assert.Equal("content.delete", meta.GetProperty("command").GetString());
+        Assert.True(meta.TryGetProperty("timestamp", out _), "meta.timestamp is missing");
     }
 
     // ── WriteTable ───────────────────────────────────────────────────────────
@@ -412,16 +487,26 @@ public class JsonOutputWriterTests
     [Fact]
     public void WriteMessage_StatusIsSuccess()
     {
-        var (stdout, _) = Capture(() => _writer.WriteMessage("Done."));
+        var (stdout, _) = Capture(() => _writer.WriteMessage(new { id = "1" }, "Done."));
         var doc = JsonDocument.Parse(stdout);
         Assert.Equal("success", doc.RootElement.GetProperty("status").GetString());
     }
 
     [Fact]
-    public void WriteMessage_MessageFieldPresent()
+    public void WriteMessage_CarriesTheDataAndLeavesTheMessageToHumans()
     {
-        var (stdout, _) = Capture(() => _writer.WriteMessage("Item deleted."));
-        var doc = JsonDocument.Parse(stdout);
-        Assert.Equal("Item deleted.", doc.RootElement.GetProperty("message").GetString());
+        // docs/conventions.md 6.2: every success has data; the message is human output only.
+        var (stdout, _) = Capture(() =>
+            _writer.WriteMessage(new { id = "3f7a8b2e" }, "Item deleted.")
+        );
+        var root = JsonDocument.Parse(stdout).RootElement;
+
+        Assert.Equal(
+            ("3f7a8b2e", false),
+            (
+                root.GetProperty("data").GetProperty("id").GetString(),
+                root.TryGetProperty("message", out _)
+            )
+        );
     }
 }

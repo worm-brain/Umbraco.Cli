@@ -18,8 +18,8 @@ public static class MediaUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a media item's property values and name. They are MERGED into the item, matched on alias + culture + segment: anything you leave out, the uploaded file included, keeps its current value. --replace sends the body's values and variants as the whole set.\n\nExamples:\n  umbraco media update 3f7a8b2e-... --value summary=\"Forms for new members\" --value pageCount=4\n  umbraco media update 3f7a8b2e-... --name \"Membership forms\"\n  umbraco media update 3f7a8b2e-... --json-body ./media.json"
-        );
+            "Update a media item's property values and name.\n\nThey are MERGED into the item, matched on alias + culture + segment: anything you leave out, the uploaded file included, keeps its current value. --replace sends the body's values and variants as the whole set.\n\nExamples:\n  umbraco media update 3f7a8b2e-... --value summary=\"Forms for new members\" --value pageCount=4\n  umbraco media update 3f7a8b2e-... --name \"Membership forms\"\n  umbraco media update 3f7a8b2e-... --json-body ./media.json"
+        ).Mutating();
         // Optional at parse level only so --schema can describe the body without it.
         var idArg = new Argument<Guid?>("id")
         {
@@ -38,6 +38,12 @@ public static class MediaUpdateCommand
                 "Replace the item's values and variants with the body's instead of merging into them. "
                 + "Anything absent from the body is cleared - the uploaded file included.",
         };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replaceOpt,
+            _ =>
+                "Replace this media item's values and variants, clearing anything the body leaves out (the file included)?"
+        );
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) with values and variants to merge; --name and "
                 + "--value are applied on top of it."
@@ -87,13 +93,12 @@ public static class MediaUpdateCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "media.update",
                     async (client, c) =>
                     {
                         var request = body.HasBody(parseResult)
                             ? JsonSerializer.Deserialize<UpdateMediaRequest>(
                                 await body.ReadAsync(parseResult, c)
-                            ) ?? throw new InvalidOperationException("Invalid JSON body.")
+                            ) ?? throw new InvalidInputException("Invalid JSON body.")
                             : new UpdateMediaRequest();
 
                         // Flags win over the body, the way an explicit flag beats a file, and are

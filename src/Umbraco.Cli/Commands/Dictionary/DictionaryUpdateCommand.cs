@@ -20,17 +20,17 @@ public static class DictionaryUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped (#181).\n\nExamples:\n  umbraco dictionary update Blog.MinRead --values da-DK=Hjem\n  umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --values en-US=Home"
-        );
-        var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
+            "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped.\n\nExamples:\n  umbraco dictionary update Blog.MinRead --value da-DK=Hjem\n  umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --value en-US=Home"
+        ).Mutating();
+        var idArg = Reference.Argument(EntityKind.DictionaryItem);
         var keyOpt = new Option<string?>("--key")
         {
             Description = "New key/name for the item. Omit to keep the current one.",
         };
-        var valuesOpt = new Option<string[]>("--values")
+        var valuesOpt = new Option<string[]>("--value")
         {
             Description =
-                "Translation pairs in lang=value format. Repeat for multiple languages: --values en-US=Home --values da-DK=Hjem",
+                "Translation pairs in lang=value format. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem",
             AllowMultipleArgumentsPerToken = true,
         };
         cmd.Add(idArg);
@@ -43,12 +43,12 @@ public static class DictionaryUpdateCommand
                 string.IsNullOrEmpty(result.GetValue(keyOpt))
                 && (result.GetValue(valuesOpt) ?? []).Length == 0
             )
-                result.AddError("Supply --key and/or --values; there is nothing to update.");
+                result.AddError("Supply --key and/or --value; there is nothing to update.");
         });
         KeyValuePairs.Validate(
             cmd,
             valuesOpt,
-            "--values must be isoCode=translation, e.g. en-US=Home"
+            "--value must be isoCode=translation, e.g. en-US=Home"
         );
 
         cmd.SetAction(
@@ -64,7 +64,6 @@ public static class DictionaryUpdateCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "dictionary.update",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,

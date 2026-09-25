@@ -5,11 +5,11 @@ namespace Umbraco.Cli.Infrastructure;
 
 /// <summary>
 /// Parsing and validation for the repeatable <c>key=value</c> options the CLI uses for
-/// translations (<c>--values en-US=Home</c>), property values (<c>--value author=Ann</c>) and
+/// translations (<c>--value en-US=Home</c>), property values (<c>--value author=Ann</c>) and
 /// domain bindings (<c>--domain example.com=en-US</c>).
 /// <para>
 /// Every one of these used to parse with <c>.Split('=', 2).Where(p =&gt; p.Length == 2)</c>, which
-/// silently <b>discards</b> a token with no <c>=</c> in it. A typo (<c>--values en-US Home</c>,
+/// silently <b>discards</b> a token with no <c>=</c> in it. A typo (<c>--value en-US Home</c>,
 /// two tokens because the shell ate the quotes) therefore reported success having written
 /// nothing - the same "said it worked, did nothing" failure as #158. Validation belongs at parse
 /// time, where it costs the caller a clear message and no API call at all.
@@ -23,7 +23,7 @@ public static class KeyValuePairs
     /// <param name="cmd">The command to validate.</param>
     /// <param name="option">The repeatable pair option.</param>
     /// <param name="shape">
-    /// The expected shape, shown in the error - e.g. <c>"--values isoCode=translation, e.g.
+    /// The expected shape, shown in the error - e.g. <c>"--value isoCode=translation, e.g.
     /// en-US=Home"</c>.
     /// </param>
     public static void Validate(Command cmd, Option<string[]> option, string shape)

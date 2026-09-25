@@ -1,4 +1,6 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
@@ -15,7 +17,7 @@ public static class LogoutCommand
     {
         var cmd = new Command(
             "logout",
-            "Remove stored Umbraco credentials for a profile (the default profile unless --profile is given).\n\nExamples:\n  umbraco auth logout\n  umbraco auth logout --profile prod"
+            "Remove stored Umbraco credentials for a profile.\n\nThe default profile is used unless --profile is given.\n\nExamples:\n  umbraco auth logout\n  umbraco auth logout --profile prod"
         );
 
         cmd.SetAction(
@@ -35,15 +37,25 @@ public static class LogoutCommand
                 switch (store.Logout(profile))
                 {
                     case ConfigStore.LogoutOutcome.Removed:
-                        writer.WriteMessage($"Logged out. Credentials removed{where}.");
+                        writer.WriteMessage(
+                            new { profile, removed = true },
+                            $"Logged out. Credentials removed{where}.",
+                            CommandPath.Of(parseResult)
+                        );
                         break;
                     case ConfigStore.LogoutOutcome.CredentialsClearedAllowListKept:
                         writer.WriteMessage(
-                            $"Logged out. Credentials removed{where}; the command allow-list was preserved."
+                            new { profile, removed = true },
+                            $"Logged out. Credentials removed{where}; the command allow-list was preserved.",
+                            CommandPath.Of(parseResult)
                         );
                         break;
                     default:
-                        writer.WriteMessage("No stored credentials to remove.");
+                        writer.WriteMessage(
+                            new { profile, removed = false },
+                            "No stored credentials to remove.",
+                            CommandPath.Of(parseResult)
+                        );
                         break;
                 }
                 return Task.CompletedTask;

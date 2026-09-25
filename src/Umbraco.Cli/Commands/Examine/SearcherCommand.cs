@@ -15,7 +15,7 @@ public static class SearcherCommand
     {
         var cmd = new Command(
             "searcher",
-            "List Examine searchers and query them.\n\nExample:\n  umbraco searcher query ExternalIndex --term news"
+            "List Examine searchers and query them.\n\nExamples:\n  umbraco searcher query ExternalIndex --term news"
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildQuery(executor));
@@ -28,14 +28,14 @@ public static class SearcherCommand
             "list",
             "List the registered Examine multi-searchers.\n\n"
                 + "This is often empty (it is on Umbraco 17): every index can still be queried by its "
-                + "name - see 'umbraco indexer list'."
+                + "name - see 'umbraco indexer list'.\n\n"
+                + "Examples:\n  umbraco searcher list"
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "searcher.list",
                     (client, skip, take, c) => client.GetSearchersAsync(skip, take, c),
                     new[] { "Name" },
                     s => new[] { s.Name },
@@ -55,7 +55,7 @@ public static class SearcherCommand
                 + "Give an index name from 'umbraco indexer list' (e.g. ExternalIndex), or its "
                 + "searcherName (ExternalSearcher), which is mapped to the index when Umbraco does "
                 + "not register it as a searcher.\n\n"
-                + "Example:\n  umbraco searcher query ExternalIndex --term Docker"
+                + "Examples:\n  umbraco searcher query ExternalIndex --term Docker\n  umbraco searcher query ExternalSearcher --term news --take 10"
         );
         var nameArg = new Argument<string>("name")
         {
@@ -68,12 +68,11 @@ public static class SearcherCommand
         };
         cmd.Add(nameArg);
         cmd.Add(termOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "searcher.query",
                     (client, skip, take, c) =>
                         client.QuerySearcherAsync(
                             parseResult.GetValue(nameArg)!,

@@ -25,14 +25,16 @@ public static class BlueprintFolderCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a blueprint folder by UUID.");
+        var cmd = new Command(
+            "get",
+            "Get a blueprint folder by id.\n\nExamples:\n  umbraco document-blueprint folder get 3f7a8b2e-..."
+        );
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.folder.get",
                     (client, c) => client.GetBlueprintFolderAsync(parseResult.GetValue(idArg), c),
                     ct
                 )
@@ -44,8 +46,8 @@ public static class BlueprintFolderCommand
     {
         var cmd = new Command(
             "create",
-            "Create a blueprint folder.\n\nExample:\n  umbraco document-blueprint folder create --name \"Marketing\""
-        );
+            "Create a blueprint folder.\n\nExamples:\n  umbraco document-blueprint folder create --name \"Marketing\""
+        ).Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
@@ -53,11 +55,11 @@ public static class BlueprintFolderCommand
         };
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Parent folder UUID. Omit to create at the root.",
+            Description = "Parent folder id. Omit to create at the root.",
         };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
@@ -66,7 +68,6 @@ public static class BlueprintFolderCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "document-blueprint.folder.create",
                     (client, c) =>
                         client.CreateBlueprintFolderAsync(
                             new CreateBlueprintFolderRequest
@@ -87,7 +88,10 @@ public static class BlueprintFolderCommand
 
     private static Command BuildUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Rename a blueprint folder by UUID.");
+        var cmd = new Command(
+            "update",
+            "Update a blueprint folder's name, by id.\n\nExamples:\n  umbraco document-blueprint folder update 3f7a8b2e-... --name \"Campaigns\""
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         var nameOpt = new Option<string>("--name")
         {
@@ -100,13 +104,14 @@ public static class BlueprintFolderCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.folder.update",
                     (client, c) =>
-                        client.UpdateBlueprintFolderAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(nameOpt)!,
-                            c
-                        ),
+                        client
+                            .UpdateBlueprintFolderAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(nameOpt)!,
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Folder updated.",
                     ct
                 )
@@ -116,7 +121,10 @@ public static class BlueprintFolderCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a blueprint folder by UUID.");
+        var cmd = new Command(
+            "delete",
+            "Delete a blueprint folder by id.\n\nExamples:\n  umbraco document-blueprint folder delete 3f7a8b2e-..."
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
@@ -126,9 +134,10 @@ public static class BlueprintFolderCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "document-blueprint.folder.delete",
                     (client, c) =>
-                        client.DeleteBlueprintFolderAsync(parseResult.GetValue(idArg), c),
+                        client
+                            .DeleteBlueprintFolderAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Folder deleted.",
                     ct
                 )

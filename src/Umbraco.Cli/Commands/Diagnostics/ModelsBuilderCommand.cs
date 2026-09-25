@@ -24,8 +24,7 @@ public static class ModelsBuilderCommand
             DiagnosticsVerb.Object(
                 executor,
                 "dashboard",
-                "Show the models-builder dashboard status.",
-                "models-builder.dashboard",
+                "Show the models-builder dashboard status.\n\nExamples:\n  umbraco models-builder dashboard\n  umbraco models-builder dashboard --output json",
                 (c, ct) => c.GetModelsBuilderDashboardAsync(ct)
             )
         );
@@ -33,8 +32,7 @@ public static class ModelsBuilderCommand
             DiagnosticsVerb.Object(
                 executor,
                 "status",
-                "Show whether the generated models are out of date.",
-                "models-builder.status",
+                "Show whether the generated models are out of date.\n\nExamples:\n  umbraco models-builder status",
                 (c, ct) => c.GetModelsBuilderStatusAsync(ct)
             )
         );
@@ -46,17 +44,17 @@ public static class ModelsBuilderCommand
     {
         var cmd = new Command(
             "build",
-            "Regenerate the models (writes source files on the server)."
-        );
-        cmd.Destructive(parseResult =>
-            "Regenerate models on the server (overwrites generated source files)?"
-        );
+            "Regenerate the models (writes source files on the server).\n\nExamples:\n  umbraco models-builder build\n  umbraco models-builder build --dry-run"
+        ).Mutating();
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "models-builder.build",
-                    (client, c) => client.BuildModelsAsync(c),
+                    // No target: the data is the state the build left, as 'models-builder status' shows it.
+                    (client, c) =>
+                        client
+                            .BuildModelsAsync(c)
+                            .ThenRead(() => client.GetModelsBuilderStatusAsync(c)),
                     "Models build triggered.",
                     ct
                 )

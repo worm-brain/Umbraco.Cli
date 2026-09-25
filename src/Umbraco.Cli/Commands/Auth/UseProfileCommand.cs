@@ -1,11 +1,13 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Auth;
 
 /// <summary>
-/// The <c>auth use</c> command (#64): switches the default credential profile so subsequent
+/// The <c>auth profile use</c> command (#64): switches the default credential profile so subsequent
 /// commands use it without <c>--profile</c>.
 /// </summary>
 public static class UseProfileCommand
@@ -21,7 +23,10 @@ public static class UseProfileCommand
         ConfigStore configStore
     )
     {
-        var cmd = new Command("use", "Set the default credential profile.");
+        var cmd = new Command(
+            "use",
+            "Set the default credential profile.\n\nExamples:\n  umbraco auth profile use prod\n  umbraco auth profile use default"
+        );
         var nameArg = new Argument<string>("name")
         {
             Description = "The profile to make the default.",
@@ -39,12 +44,21 @@ public static class UseProfileCommand
 
                 if (store.SetDefaultProfile(name))
                 {
-                    writer.WriteMessage($"Default profile set to '{name}'.");
+                    writer.WriteMessage(
+                        ItemRef.Of(name),
+                        $"Default profile set to '{name}'.",
+                        CommandPath.Of(parseResult)
+                    );
                     return Task.FromResult(0);
                 }
 
-                writer.WriteError(2, $"No profile named '{name}'. See 'umbraco auth profiles'.");
-                return Task.FromResult(2);
+                writer.WriteError(
+                    ExitCode.Failed,
+                    FailureCategory.InvalidArgument,
+                    $"No profile named '{name}'. See 'umbraco auth profile list'.",
+                    CommandPath.Of(parseResult)
+                );
+                return Task.FromResult((int)ExitCode.Failed);
             }
         );
 

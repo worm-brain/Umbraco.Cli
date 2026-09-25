@@ -7,8 +7,8 @@ public static class MembersCommand
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "members",
-            "Manage Umbraco front-end members (not back-office users).\n\nExamples:\n  umbraco members list\n  umbraco members create --email user@example.com --name \"Jane Doe\" --type Member\n  umbraco members delete <id>"
+            "member",
+            "Manage Umbraco front-end members (not backoffice users).\n\nExamples:\n  umbraco member list\n  umbraco member create --email user@example.com --name \"Jane Doe\" --member-type Member\n  umbraco member delete <id>"
         );
         cmd.Add(MembersListCommand.Build(executor));
         cmd.Add(MembersGetCommand.Build(executor));

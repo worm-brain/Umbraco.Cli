@@ -531,7 +531,7 @@ public class UmbracoManagementClientTests
         var id = Guid.NewGuid();
         var (client, handler) = ClientReturning("", HttpStatusCode.OK);
 
-        var result = await client.RestoreMediaAsync(id, ct: CancellationToken.None);
+        var result = await client.RestoreMediaAsync(id, RestoreTarget.Root, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Contains($"recycle-bin/media/{id}/restore", handler.LastRequestUri!.AbsoluteUri);
@@ -659,7 +659,7 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task UploadMediaAsync_UnknownMediaTypeName_Returns404()
+    public async Task UploadMediaAsync_UnknownMediaTypeName_IsInvalidArgument()
     {
         // A media type name that matches nothing yields a clear 404 rather than staging a file
         // that can never be attached.
@@ -677,7 +677,7 @@ public class UmbracoManagementClientTests
         );
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
     }
 
     [Fact]
@@ -855,7 +855,7 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task UpdateTemplateAsync_MissingTemplate_Returns404()
+    public async Task UpdateTemplateAsync_MissingTemplate_IsInvalidArgument()
     {
         // The read step surfaces a clean 404 when the template does not exist.
         var (client, _) = ClientReturning("", HttpStatusCode.NotFound);
@@ -983,7 +983,7 @@ public class UmbracoManagementClientTests
     [Fact]
     public async Task DeleteMemberAsync_ServerReturns500ButMemberIsGone_ReportsSuccess()
     {
-        // Regression for the alpha.8 finding members.delete.reports-500-on-success: Umbraco 17.x
+        // Regression for the alpha.8 finding member.delete.reports-500-on-success: Umbraco 17.x
         // returns an undeclared 500 from member delete even when the member IS removed. The client
         // must confirm the delete with a follow-up read and, finding the member gone (404), report
         // success rather than a false failure that breaks teardown scripts.
@@ -1043,7 +1043,7 @@ public class UmbracoManagementClientTests
         // An HTTP 500 is not declared on most endpoints, so Kiota throws a bare ApiException whose
         // own message is "...no error factory is registered for this code: 500". That must be
         // rewritten into an actionable message while preserving the 500 status. (Surfaced by the
-        // Umbraco 17.x member-delete server bug; see finding members.delete.500-when-membertype-present.)
+        // Umbraco 17.x member-delete server bug; see finding member.delete.500-when-membertype-present.)
         var (client, _) = ClientReturning("", HttpStatusCode.InternalServerError);
 
         var result = await client.GetContentByIdAsync(Guid.NewGuid(), CancellationToken.None);
@@ -1209,7 +1209,7 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task GetDictionaryItemByKeyAsync_UnknownKey_Returns404()
+    public async Task GetDictionaryItemByKeyAsync_UnknownKey_IsInvalidArgument()
     {
         // Regression for #44: an unmatched key yields a clear 404, not a silent empty item.
         var (client, _) = ClientReturning("""{"total":0,"items":[]}""");
@@ -1217,7 +1217,7 @@ public class UmbracoManagementClientTests
         var result = await client.GetDictionaryItemByKeyAsync("Nope", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
     }
 
     [Fact]
@@ -1422,7 +1422,7 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task CreateMemberAsync_UnknownTypeAlias_Returns404()
+    public async Task CreateMemberAsync_UnknownTypeAlias_IsInvalidArgument()
     {
         // An unresolvable member-type alias yields a clean 404 and never POSTs a member.
         var handler = new RoutingHandler().When(
@@ -1445,7 +1445,7 @@ public class UmbracoManagementClientTests
         );
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.DoesNotContain(handler.Requests, u => u.AbsolutePath.EndsWith("/member"));
     }
 

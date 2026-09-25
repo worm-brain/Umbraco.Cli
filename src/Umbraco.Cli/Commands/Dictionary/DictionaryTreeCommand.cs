@@ -3,50 +3,69 @@ using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
-/// <summary>Wires the <c>dictionary tree</c> command (issue #110).</summary>
+/// <summary>Wires the <c>dictionary tree</c> command: a recursive walk, as <c>content tree</c> is.</summary>
 public static class DictionaryTreeCommand
 {
-    /// <summary>Builds the <c>dictionary tree</c> command (browse the dictionary hierarchy level by level).</summary>
+    /// <summary>
+    /// Builds <c>dictionary tree</c>: walks the dictionary into a flat list, each item carrying
+    /// its depth and parent, with the same <c>--parent</c> / <c>--recursive</c> / <c>--depth</c>
+    /// options as <c>content tree</c> and <c>media tree</c>. Not paged: a walk is complete.
+    /// </summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
             "tree",
-            "Browse the dictionary hierarchy. Lists the root level, or the direct children of --parent.\n\nExamples:\n  umbraco dictionary tree\n  umbraco dictionary tree --parent Blog --output json"
+            "Walk the dictionary into a flat list of items.\n\nEach item carries its depth and parent id.\n\nExamples:\n  umbraco dictionary tree                    # direct children of the root\n  umbraco dictionary tree --parent Blog --recursive\n  umbraco dictionary tree --depth 3 --output json"
         );
         var parentOpt = Reference.Option(
             "--parent",
             EntityKind.DictionaryItem,
-            "The item whose direct children to list; lists the root level if omitted"
+            "The item whose subtree to walk; walks from the root if omitted"
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var recursiveOpt = new Option<bool>("--recursive")
+        {
+            Description = "Walk the whole subtree instead of one level.",
+        };
+        var depthOpt = new Option<int?>("--depth")
+        {
+            Description =
+                "Maximum levels to descend (1 = direct children, capped at 50). Overrides --recursive when given.",
+        };
         cmd.Add(parentOpt);
+        cmd.Add(recursiveOpt);
+        cmd.Add(depthOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunPagedAsync(
+            {
+                // --depth wins if given; else --recursive walks the whole subtree (the client
+                // clamps to its safety cap); else one level, as content tree does.
+                var depth = parseResult.GetValue(depthOpt);
+                var maxDepth = depth ?? (parseResult.GetValue(recursiveOpt) ? int.MaxValue : 1);
+
+                return executor.RunCompleteListAsync(
                     parseResult,
-                    "dictionary.tree",
-                    (client, skip, take, c) =>
+                    (client, c) =>
                         parentOpt.WithResolvedOptionalAsync(
                             parseResult,
                             client,
-                            parent => client.GetDictionaryTreeAsync(parent, skip, take, c),
+                            parent => client.WalkDictionaryTreeAsync(parent, maxDepth, c),
                             c
                         ),
-                    ["ID", "Name", "Parent ID", "Has Children"],
+                    ["ID", "Name", "Parent ID", "Depth", "Has Children"],
                     i =>
                         new[]
                         {
                             i.Id.ToString(),
                             i.Name,
-                            i.Parent?.Id.ToString() ?? "",
+                            i.ParentId?.ToString() ?? "",
+                            i.Depth.ToString(),
                             i.HasChildren ? "yes" : "no",
                         },
-                    parseResult.GetValue(skipOpt),
-                    parseResult.GetValue(takeOpt),
                     ct
-                )
+                );
+            }
         );
 
         return cmd;

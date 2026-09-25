@@ -2,18 +2,18 @@ using System.CommandLine;
 
 namespace Umbraco.Cli.Commands.Content;
 
-/// <summary>Wires the <c>content versions</c> command (issue #58).</summary>
+/// <summary>Wires the <c>content version list</c> command (issue #58).</summary>
 public static class ContentVersionsCommand
 {
-    /// <summary>Builds the <c>content versions</c> command (list a document's version history).</summary>
+    /// <summary>Builds the <c>content version list</c> command (list a document's version history).</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "versions",
-            "List the version history of a content item. A culture-variant item is listed across all "
-                + "its cultures, each row tagged with its culture, unless --culture is given.\n\nExamples:\n  umbraco content versions 3f7a8b2e-...\n  umbraco content versions 3f7a8b2e-... --culture en-US"
+            "list",
+            "List the version history of a content item.\n\nA culture-variant item is listed across all "
+                + "its cultures, each row tagged with its culture, unless --culture is given.\n\nExamples:\n  umbraco content version list 3f7a8b2e-...\n  umbraco content version list 3f7a8b2e-... --culture en-US"
         );
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         var cultureOpt = new Option<string?>("--culture")
@@ -23,12 +23,11 @@ public static class ContentVersionsCommand
         };
         cmd.Add(idArg);
         cmd.Add(cultureOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "content.versions",
                     (client, skip, take, c) =>
                         client.GetDocumentVersionsAsync(
                             parseResult.GetValue(idArg),

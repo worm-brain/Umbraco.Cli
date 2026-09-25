@@ -7,8 +7,8 @@ namespace Umbraco.Cli.Commands;
 /// The command-line side of <c>&lt;id|alias&gt;</c> (#250 Phase 3): an argument or option that
 /// takes an item's id <i>or</i> its alias, name or key, and knows which kind of item it names, so
 /// a command resolves it with one call and never has to say the kind twice. Typing it as
-/// <see cref="Guid"/> is what made <c>templates delete blogPost</c> a parse error while
-/// <c>templates get blogPost</c> worked.
+/// <see cref="Guid"/> is what made <c>template delete blogPost</c> a parse error while
+/// <c>template get blogPost</c> worked.
 /// </summary>
 public static class Reference
 {

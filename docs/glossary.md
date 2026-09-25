@@ -9,9 +9,9 @@ Project-specific terms. Add entries as concepts are introduced.
 - **Endpoint drift** — when the real Umbraco Management API changes (endpoint moved,
   renamed or removed) such that a URL the CLI calls no longer exists. The original cause
   of the #39/#40/#44 bugs.
-- **Hand-written path** — a Management API call in `UmbracoManagementClient` made directly
-  through `HttpClient` with a URL string literal, as opposed to a Kiota-generated request
-  builder. These are the drift-risk surface the contract test targets.
+- **Hand-written path** *(historical)* — a Management API call made directly through
+  `HttpClient` with a URL string literal. Removed by the Kiota migration (#98); every call now
+  goes through the generated client.
 - **Generated client** — the Kiota-generated request builders and models under
   `src/Umbraco.Cli.Client/Generated`, produced from `spec/management.json` by
   `scripts/regen-client.ps1`.
@@ -59,3 +59,17 @@ Project-specific terms. Add entries as concepts are introduced.
 - **Snapshot format version** — the `schemaVersion` field *inside* a snapshot
   document (currently `"2"`), versioning the snapshot layout. Independent of the
   output envelope's `meta.schemaVersion` (the CLI's JSON contract version).
+- **Selector** — the positional `<id>` a command acts on. Always named `id`, it accepts the GUID
+  plus the item's natural keys (alias, then name; a language's ISO code; a dictionary item's key).
+  See [conventions.md](conventions.md) section 3.
+- **Document type vs content** — the noun `content` is the content items (the backoffice section);
+  their types are **document types** (`document-type`), never "content types".
+- **Mutating / destructive** — every command that sends a write is *mutating* (blocked by
+  `--readonly`); a *destructive* one can lose data the CLI cannot restore, or take something
+  offline, and needs `--yes` non-interactively. Both are declared per command
+  (`.Mutating()`, `.Destructive()`), never inferred from the verb.
+- **Write result** — the `data` every write returns: the resulting item for create/update/copy/
+  upload, otherwise `{ "id" }` / `{ "ids" }` of what it acted on.
+- **Legacy name** — a command name renamed by the #268 surface batch that still runs for one
+  release, with a warning (`LegacyNames`).
+

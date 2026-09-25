@@ -1,13 +1,14 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
 
-/// <summary>Wires the <c>templates create</c> command (issue #59).</summary>
+/// <summary>Wires the <c>template create</c> command (issue #59).</summary>
 public static class TemplatesCreateCommand
 {
     /// <summary>
-    /// Builds the <c>templates create</c> command. Content is the Razor view body; it defaults
+    /// Builds the <c>template create</c> command. Content is the Razor view body; it defaults
     /// to empty and can be supplied inline with <c>--content</c> or read from a file with
     /// <c>--content-file</c>.
     /// </summary>
@@ -17,17 +18,25 @@ public static class TemplatesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a Razor view template.\n\nExamples:\n  umbraco templates create --name \"Blog Post\" --alias blogPost\n  umbraco templates create --name Home --alias home --content-file ./home.cshtml"
-        );
-        var nameOpt = new Option<string>("--name") { Required = true };
-        var aliasOpt = new Option<string>("--alias") { Required = true };
+            "Create a Razor view template.\n\nExamples:\n  umbraco template create --name \"Blog Post\" --alias blogPost\n  umbraco template create --name Home --alias home --content-file ./home.cshtml"
+        ).Mutating();
+        var nameOpt = new Option<string>("--name")
+        {
+            Required = true,
+            Description = "Display name of the new template.",
+        };
+        var aliasOpt = new Option<string>("--alias")
+        {
+            Required = true,
+            Description = "Alias of the new template, e.g. blogPost.",
+        };
         var (contentOpt, contentFileOpt) = FileContentInput.Options(
-            "Razor view content (inline). Mutually exclusive with --content-file.",
-            "Path to a file whose contents become the Razor view."
+            "Razor view content (inline). Give this or --content-file, not both.",
+            "Path to a file whose contents become the Razor view, or - for stdin."
         );
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);
@@ -38,7 +47,6 @@ public static class TemplatesCreateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "templates.create",
                     async (client, c) =>
                     {
                         // Prefer --content-file when given; else --content; else empty.

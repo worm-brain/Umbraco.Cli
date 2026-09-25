@@ -99,14 +99,48 @@ public class SchemaRoundTripCommandTests
         }
     }
 
+    // ── --schema is the JSON Schema; --example the live item ────────────────────
+
+    [Theory]
+    [InlineData("document-type create --schema", "CreateDocumentTypeRequestModel")]
+    [InlineData("data-type update --schema", "UpdateDataTypeRequestModel")]
+    [InlineData("template update --schema", "UpdateTemplateRequestModel")]
+    public async Task Schema_PrintsTheRequestModelsJsonSchemaWithoutCallingTheServer(
+        string command,
+        string model
+    )
+    {
+        // docs/conventions.md 4.1: --schema means the JSON Schema everywhere, offline.
+        var fake = new FakeUmbracoManagementClient();
+
+        var (exit, output) = await Run(fake, command);
+
+        Assert.Equal((0, model), (exit, JsonNode.Parse(output)!["title"]!.GetValue<string>()));
+    }
+
+    [Fact]
+    public async Task Example_PrintsARealItemFromTheInstance()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.DocumentTypeList.Add(new DocumentTypeResponse { Id = Id, Alias = "blogPost" });
+        fake.DocumentTypeRaw[Id] = JsonNode.Parse(
+            """{ "alias": "blogPost", "name": "Blog post" }"""
+        )!;
+
+        var (exit, output) = await Run(fake, "document-type create --example");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("blogPost", output);
+    }
+
     // ── get prints the raw body ───────────────────────────────────────────────
 
     [Theory]
-    [InlineData("content-types", EntityKind.DocumentType)]
-    [InlineData("data-types", EntityKind.DataType)]
-    [InlineData("media-types", EntityKind.MediaType)]
-    [InlineData("member-types", EntityKind.MemberType)]
-    [InlineData("templates", EntityKind.Template)]
+    [InlineData("document-type", EntityKind.DocumentType)]
+    [InlineData("data-type", EntityKind.DataType)]
+    [InlineData("media-type", EntityKind.MediaType)]
+    [InlineData("member-type", EntityKind.MemberType)]
+    [InlineData("template", EntityKind.Template)]
     public async Task Get_ByReference_PrintsTheRawBody(string noun, EntityKind kind)
     {
         var fake = new FakeUmbracoManagementClient();
@@ -132,7 +166,7 @@ public class SchemaRoundTripCommandTests
     {
         var fake = new FakeUmbracoManagementClient();
 
-        var (exit, _) = await Run(fake, "media-types get nope");
+        var (exit, _) = await Run(fake, "media-type get nope");
 
         Assert.NotEqual(0, exit);
     }
@@ -140,11 +174,11 @@ public class SchemaRoundTripCommandTests
     // ── update --json-body merges, --replace replaces ─────────────────────────
 
     [Theory]
-    [InlineData("content-types", EntityKind.DocumentType)]
-    [InlineData("data-types", EntityKind.DataType)]
-    [InlineData("media-types", EntityKind.MediaType)]
-    [InlineData("member-types", EntityKind.MemberType)]
-    [InlineData("templates", EntityKind.Template)]
+    [InlineData("document-type", EntityKind.DocumentType)]
+    [InlineData("data-type", EntityKind.DataType)]
+    [InlineData("media-type", EntityKind.MediaType)]
+    [InlineData("member-type", EntityKind.MemberType)]
+    [InlineData("template", EntityKind.Template)]
     public async Task Update_JsonBody_MergesIntoTheResolvedItem(string noun, EntityKind kind)
     {
         var fake = new FakeUmbracoManagementClient();
@@ -175,7 +209,7 @@ public class SchemaRoundTripCommandTests
 
         await Run(
             fake,
-            "content-types update blog --json-body {body} --replace",
+            "document-type update blog --json-body {body} --replace --yes",
             """{ "name": "N" }"""
         );
 
@@ -187,7 +221,7 @@ public class SchemaRoundTripCommandTests
     {
         var fake = new FakeUmbracoManagementClient();
 
-        var (exit, _) = await Run(fake, "media-types update brochure");
+        var (exit, _) = await Run(fake, "media-type update brochure");
 
         Assert.NotEqual(0, exit);
         Assert.Null(fake.LastSchemaMerge);
@@ -197,9 +231,10 @@ public class SchemaRoundTripCommandTests
     public async Task MemberTypesUpdate_FlagsOnly_StillUsesTheScalarUpdate()
     {
         var fake = new FakeUmbracoManagementClient();
+        fake.MemberTypeRaw[Id] = JsonNode.Parse("""{ "alias": "member" }""")!;
         fake.References[(EntityKind.MemberType, "siteMember")] = Id;
 
-        var (exit, _) = await Run(fake, "member-types update siteMember --name Author");
+        var (exit, _) = await Run(fake, "member-type update siteMember --name Author");
 
         Assert.Equal(0, exit);
         Assert.Equal(
@@ -212,8 +247,8 @@ public class SchemaRoundTripCommandTests
     // ── create --json-body on media and member types ──────────────────────────
 
     [Theory]
-    [InlineData("media-types", "mediaType")]
-    [InlineData("member-types", "memberType")]
+    [InlineData("media-type", "mediaType")]
+    [InlineData("member-type", "memberType")]
     public async Task Create_JsonBody_PostsTheRawBodyWithItsId(string noun, string rawKind)
     {
         var fake = new FakeUmbracoManagementClient();
@@ -230,8 +265,8 @@ public class SchemaRoundTripCommandTests
     }
 
     [Theory]
-    [InlineData("media-types")]
-    [InlineData("member-types")]
+    [InlineData("media-type")]
+    [InlineData("member-type")]
     public async Task Create_NoFlagsAndNoBody_IsAParseError(string noun)
     {
         var fake = new FakeUmbracoManagementClient();

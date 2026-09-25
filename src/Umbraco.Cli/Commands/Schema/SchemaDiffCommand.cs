@@ -33,7 +33,6 @@ public static class SchemaDiffCommand
             (parseResult, ct) =>
                 executor.RunReportAsync(
                     parseResult,
-                    "schema.diff",
                     (client, c) =>
                         SchemaPipeline.DiffAgainstLiveAsync(
                             client,

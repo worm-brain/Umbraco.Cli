@@ -8,14 +8,13 @@ public static class UsersListCommand
     {
         var cmd = new Command(
             "list",
-            "List Umbraco back-office users.\n\nExample:\n  umbraco users list --output json"
+            "List Umbraco backoffice users.\n\nExamples:\n  umbraco user list\n  umbraco user list --take 20 --output json"
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "users.list",
                     (client, skip, take, c) => client.GetUsersAsync(skip, take, c),
                     ["ID", "Name", "Email", "State"],
                     i => new[] { i.Id.ToString(), i.Name, i.Email, i.State },

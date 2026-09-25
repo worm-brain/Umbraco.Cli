@@ -1,0 +1,2216 @@
+{
+  "CreateDocumentTypeRequestModel": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "CreateDocumentTypeRequestModel",
+    "$ref": "#/$defs/CreateDocumentTypeRequestModel",
+    "$defs": {
+      "CompositionTypeModel": {
+        "enum": [
+          "Composition",
+          "Inheritance"
+        ],
+        "type": "string"
+      },
+      "CreateDocumentTypePropertyTypeContainerRequestModel": {
+        "required": [
+          "id",
+          "sortOrder",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateDocumentTypePropertyTypeRequestModel": {
+        "required": [
+          "alias",
+          "appearance",
+          "dataType",
+          "id",
+          "name",
+          "sortOrder",
+          "validation",
+          "variesByCulture",
+          "variesBySegment"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "container": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dataType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "validation": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeValidationModel"
+              }
+            ]
+          },
+          "appearance": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeAppearanceModel"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateDocumentTypeRequestModel": {
+        "required": [
+          "alias",
+          "allowedAsRoot",
+          "allowedDocumentTypes",
+          "allowedTemplates",
+          "cleanup",
+          "compositions",
+          "containers",
+          "icon",
+          "isElement",
+          "name",
+          "properties",
+          "variesByCulture",
+          "variesBySegment"
+        ],
+        "type": "object",
+        "properties": {
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "allowedAsRoot": {
+            "type": "boolean"
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "collection": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isElement": {
+            "type": "boolean"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/CreateDocumentTypePropertyTypeRequestModel"
+                }
+              ]
+            }
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/CreateDocumentTypePropertyTypeContainerRequestModel"
+                }
+              ]
+            }
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allowedTemplates": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ReferenceByIdModel"
+                }
+              ]
+            }
+          },
+          "defaultTemplate": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cleanup": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DocumentTypeCleanupModel"
+              }
+            ]
+          },
+          "allowedDocumentTypes": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DocumentTypeSortModel"
+                }
+              ]
+            }
+          },
+          "compositions": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DocumentTypeCompositionModel"
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "DocumentTypeCleanupModel": {
+        "required": [
+          "preventCleanup"
+        ],
+        "type": "object",
+        "properties": {
+          "preventCleanup": {
+            "type": "boolean"
+          },
+          "keepAllVersionsNewerThanDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "keepLatestVersionPerDayForDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DocumentTypeCompositionModel": {
+        "required": [
+          "compositionType",
+          "documentType"
+        ],
+        "type": "object",
+        "properties": {
+          "documentType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "compositionType": {
+            "$ref": "#/$defs/CompositionTypeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DocumentTypeSortModel": {
+        "required": [
+          "documentType",
+          "sortOrder"
+        ],
+        "type": "object",
+        "properties": {
+          "documentType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeAppearanceModel": {
+        "required": [
+          "labelOnTop"
+        ],
+        "type": "object",
+        "properties": {
+          "labelOnTop": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeValidationModel": {
+        "required": [
+          "mandatory"
+        ],
+        "type": "object",
+        "properties": {
+          "mandatory": {
+            "type": "boolean"
+          },
+          "mandatoryMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regEx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regExMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReferenceByIdModel": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "UpdateDocumentTypeRequestModel": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateDocumentTypeRequestModel",
+    "$ref": "#/$defs/UpdateDocumentTypeRequestModel",
+    "$defs": {
+      "CompositionTypeModel": {
+        "enum": [
+          "Composition",
+          "Inheritance"
+        ],
+        "type": "string"
+      },
+      "DocumentTypeCleanupModel": {
+        "required": [
+          "preventCleanup"
+        ],
+        "type": "object",
+        "properties": {
+          "preventCleanup": {
+            "type": "boolean"
+          },
+          "keepAllVersionsNewerThanDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "keepLatestVersionPerDayForDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DocumentTypeCompositionModel": {
+        "required": [
+          "compositionType",
+          "documentType"
+        ],
+        "type": "object",
+        "properties": {
+          "documentType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "compositionType": {
+            "$ref": "#/$defs/CompositionTypeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DocumentTypeSortModel": {
+        "required": [
+          "documentType",
+          "sortOrder"
+        ],
+        "type": "object",
+        "properties": {
+          "documentType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeAppearanceModel": {
+        "required": [
+          "labelOnTop"
+        ],
+        "type": "object",
+        "properties": {
+          "labelOnTop": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeValidationModel": {
+        "required": [
+          "mandatory"
+        ],
+        "type": "object",
+        "properties": {
+          "mandatory": {
+            "type": "boolean"
+          },
+          "mandatoryMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regEx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regExMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReferenceByIdModel": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateDocumentTypePropertyTypeContainerRequestModel": {
+        "required": [
+          "id",
+          "sortOrder",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateDocumentTypePropertyTypeRequestModel": {
+        "required": [
+          "alias",
+          "appearance",
+          "dataType",
+          "id",
+          "name",
+          "sortOrder",
+          "validation",
+          "variesByCulture",
+          "variesBySegment"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "container": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dataType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "validation": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeValidationModel"
+              }
+            ]
+          },
+          "appearance": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeAppearanceModel"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateDocumentTypeRequestModel": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "allowedAsRoot": {
+            "type": "boolean"
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "collection": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isElement": {
+            "type": "boolean"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/UpdateDocumentTypePropertyTypeRequestModel"
+                }
+              ]
+            }
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/UpdateDocumentTypePropertyTypeContainerRequestModel"
+                }
+              ]
+            }
+          },
+          "allowedTemplates": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ReferenceByIdModel"
+                }
+              ]
+            }
+          },
+          "defaultTemplate": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cleanup": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DocumentTypeCleanupModel"
+              }
+            ]
+          },
+          "allowedDocumentTypes": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DocumentTypeSortModel"
+                }
+              ]
+            }
+          },
+          "compositions": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DocumentTypeCompositionModel"
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "CreateDataTypeRequestModel": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "CreateDataTypeRequestModel",
+    "$ref": "#/$defs/CreateDataTypeRequestModel",
+    "$defs": {
+      "CreateDataTypeRequestModel": {
+        "required": [
+          "editorAlias",
+          "editorUiAlias",
+          "name",
+          "values"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "editorAlias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "editorUiAlias": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DataTypePropertyPresentationModel"
+                }
+              ]
+            }
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "DataTypePropertyPresentationModel": {
+        "required": [
+          "alias"
+        ],
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "additionalProperties": false
+      },
+      "ReferenceByIdModel": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "UpdateDataTypeRequestModel": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateDataTypeRequestModel",
+    "$ref": "#/$defs/UpdateDataTypeRequestModel",
+    "$defs": {
+      "DataTypePropertyPresentationModel": {
+        "required": [
+          "alias"
+        ],
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "value": {}
+        },
+        "additionalProperties": false
+      },
+      "UpdateDataTypeRequestModel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "editorAlias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "editorUiAlias": {
+            "type": "string"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DataTypePropertyPresentationModel"
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "CreateMediaTypeRequestModel": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "CreateMediaTypeRequestModel",
+    "$ref": "#/$defs/CreateMediaTypeRequestModel",
+    "$defs": {
+      "CompositionTypeModel": {
+        "enum": [
+          "Composition",
+          "Inheritance"
+        ],
+        "type": "string"
+      },
+      "CreateMediaTypePropertyTypeContainerRequestModel": {
+        "required": [
+          "id",
+          "sortOrder",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateMediaTypePropertyTypeRequestModel": {
+        "required": [
+          "alias",
+          "appearance",
+          "dataType",
+          "id",
+          "name",
+          "sortOrder",
+          "validation",
+          "variesByCulture",
+          "variesBySegment"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "container": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dataType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "validation": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeValidationModel"
+              }
+            ]
+          },
+          "appearance": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeAppearanceModel"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateMediaTypeRequestModel": {
+        "required": [
+          "alias",
+          "allowedAsRoot",
+          "allowedMediaTypes",
+          "compositions",
+          "containers",
+          "icon",
+          "isElement",
+          "name",
+          "properties",
+          "variesByCulture",
+          "variesBySegment"
+        ],
+        "type": "object",
+        "properties": {
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "allowedAsRoot": {
+            "type": "boolean"
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "isElement": {
+            "type": "boolean"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/CreateMediaTypePropertyTypeRequestModel"
+                }
+              ]
+            }
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/CreateMediaTypePropertyTypeContainerRequestModel"
+                }
+              ]
+            }
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allowedMediaTypes": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/MediaTypeSortModel"
+                }
+              ]
+            }
+          },
+          "compositions": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/MediaTypeCompositionModel"
+                }
+              ]
+            }
+          },
+          "collection": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "MediaTypeCompositionModel": {
+        "required": [
+          "compositionType",
+          "mediaType"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "compositionType": {
+            "$ref": "#/$defs/CompositionTypeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MediaTypeSortModel": {
+        "required": [
+          "mediaType",
+          "sortOrder"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeAppearanceModel": {
+        "required": [
+          "labelOnTop"
+        ],
+        "type": "object",
+        "properties": {
+          "labelOnTop": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeValidationModel": {
+        "required": [
+          "mandatory"
+        ],
+        "type": "object",
+        "properties": {
+          "mandatory": {
+            "type": "boolean"
+          },
+          "mandatoryMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regEx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regExMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReferenceByIdModel": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "UpdateMediaTypeRequestModel": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateMediaTypeRequestModel",
+    "$ref": "#/$defs/UpdateMediaTypeRequestModel",
+    "$defs": {
+      "CompositionTypeModel": {
+        "enum": [
+          "Composition",
+          "Inheritance"
+        ],
+        "type": "string"
+      },
+      "MediaTypeCompositionModel": {
+        "required": [
+          "compositionType",
+          "mediaType"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "compositionType": {
+            "$ref": "#/$defs/CompositionTypeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MediaTypeSortModel": {
+        "required": [
+          "mediaType",
+          "sortOrder"
+        ],
+        "type": "object",
+        "properties": {
+          "mediaType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeAppearanceModel": {
+        "required": [
+          "labelOnTop"
+        ],
+        "type": "object",
+        "properties": {
+          "labelOnTop": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeValidationModel": {
+        "required": [
+          "mandatory"
+        ],
+        "type": "object",
+        "properties": {
+          "mandatory": {
+            "type": "boolean"
+          },
+          "mandatoryMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regEx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regExMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReferenceByIdModel": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateMediaTypePropertyTypeContainerRequestModel": {
+        "required": [
+          "id",
+          "sortOrder",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateMediaTypePropertyTypeRequestModel": {
+        "required": [
+          "alias",
+          "appearance",
+          "dataType",
+          "id",
+          "name",
+          "sortOrder",
+          "validation",
+          "variesByCulture",
+          "variesBySegment"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "container": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dataType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "validation": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeValidationModel"
+              }
+            ]
+          },
+          "appearance": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeAppearanceModel"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateMediaTypeRequestModel": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "allowedAsRoot": {
+            "type": "boolean"
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "collection": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isElement": {
+            "type": "boolean"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/UpdateMediaTypePropertyTypeRequestModel"
+                }
+              ]
+            }
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/UpdateMediaTypePropertyTypeContainerRequestModel"
+                }
+              ]
+            }
+          },
+          "allowedMediaTypes": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/MediaTypeSortModel"
+                }
+              ]
+            }
+          },
+          "compositions": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/MediaTypeCompositionModel"
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "CreateMemberTypeRequestModel": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "CreateMemberTypeRequestModel",
+    "$ref": "#/$defs/CreateMemberTypeRequestModel",
+    "$defs": {
+      "CompositionTypeModel": {
+        "enum": [
+          "Composition",
+          "Inheritance"
+        ],
+        "type": "string"
+      },
+      "CreateMemberTypePropertyTypeContainerRequestModel": {
+        "required": [
+          "id",
+          "sortOrder",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateMemberTypePropertyTypeRequestModel": {
+        "required": [
+          "alias",
+          "appearance",
+          "dataType",
+          "id",
+          "isSensitive",
+          "name",
+          "sortOrder",
+          "validation",
+          "variesByCulture",
+          "variesBySegment",
+          "visibility"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "container": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dataType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "validation": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeValidationModel"
+              }
+            ]
+          },
+          "appearance": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeAppearanceModel"
+              }
+            ]
+          },
+          "isSensitive": {
+            "type": "boolean"
+          },
+          "visibility": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/MemberTypePropertyTypeVisibilityModel"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateMemberTypeRequestModel": {
+        "required": [
+          "alias",
+          "allowedAsRoot",
+          "compositions",
+          "containers",
+          "icon",
+          "isElement",
+          "name",
+          "properties",
+          "variesByCulture",
+          "variesBySegment"
+        ],
+        "type": "object",
+        "properties": {
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "allowedAsRoot": {
+            "type": "boolean"
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "collection": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isElement": {
+            "type": "boolean"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/CreateMemberTypePropertyTypeRequestModel"
+                }
+              ]
+            }
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/CreateMemberTypePropertyTypeContainerRequestModel"
+                }
+              ]
+            }
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compositions": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/MemberTypeCompositionModel"
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "MemberTypeCompositionModel": {
+        "required": [
+          "compositionType",
+          "memberType"
+        ],
+        "type": "object",
+        "properties": {
+          "memberType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "compositionType": {
+            "$ref": "#/$defs/CompositionTypeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MemberTypePropertyTypeVisibilityModel": {
+        "required": [
+          "memberCanEdit",
+          "memberCanView"
+        ],
+        "type": "object",
+        "properties": {
+          "memberCanView": {
+            "type": "boolean"
+          },
+          "memberCanEdit": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeAppearanceModel": {
+        "required": [
+          "labelOnTop"
+        ],
+        "type": "object",
+        "properties": {
+          "labelOnTop": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeValidationModel": {
+        "required": [
+          "mandatory"
+        ],
+        "type": "object",
+        "properties": {
+          "mandatory": {
+            "type": "boolean"
+          },
+          "mandatoryMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regEx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regExMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReferenceByIdModel": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "UpdateMemberTypeRequestModel": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateMemberTypeRequestModel",
+    "$ref": "#/$defs/UpdateMemberTypeRequestModel",
+    "$defs": {
+      "CompositionTypeModel": {
+        "enum": [
+          "Composition",
+          "Inheritance"
+        ],
+        "type": "string"
+      },
+      "MemberTypeCompositionModel": {
+        "required": [
+          "compositionType",
+          "memberType"
+        ],
+        "type": "object",
+        "properties": {
+          "memberType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "compositionType": {
+            "$ref": "#/$defs/CompositionTypeModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MemberTypePropertyTypeVisibilityModel": {
+        "required": [
+          "memberCanEdit",
+          "memberCanView"
+        ],
+        "type": "object",
+        "properties": {
+          "memberCanView": {
+            "type": "boolean"
+          },
+          "memberCanEdit": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeAppearanceModel": {
+        "required": [
+          "labelOnTop"
+        ],
+        "type": "object",
+        "properties": {
+          "labelOnTop": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyTypeValidationModel": {
+        "required": [
+          "mandatory"
+        ],
+        "type": "object",
+        "properties": {
+          "mandatory": {
+            "type": "boolean"
+          },
+          "mandatoryMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regEx": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regExMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReferenceByIdModel": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateMemberTypePropertyTypeContainerRequestModel": {
+        "required": [
+          "id",
+          "sortOrder",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateMemberTypePropertyTypeRequestModel": {
+        "required": [
+          "alias",
+          "appearance",
+          "dataType",
+          "id",
+          "isSensitive",
+          "name",
+          "sortOrder",
+          "validation",
+          "variesByCulture",
+          "variesBySegment",
+          "visibility"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "container": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dataType": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              }
+            ]
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "validation": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeValidationModel"
+              }
+            ]
+          },
+          "appearance": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/PropertyTypeAppearanceModel"
+              }
+            ]
+          },
+          "isSensitive": {
+            "type": "boolean"
+          },
+          "visibility": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/MemberTypePropertyTypeVisibilityModel"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateMemberTypeRequestModel": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "allowedAsRoot": {
+            "type": "boolean"
+          },
+          "variesByCulture": {
+            "type": "boolean"
+          },
+          "variesBySegment": {
+            "type": "boolean"
+          },
+          "collection": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ReferenceByIdModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isElement": {
+            "type": "boolean"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/UpdateMemberTypePropertyTypeRequestModel"
+                }
+              ]
+            }
+          },
+          "containers": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/UpdateMemberTypePropertyTypeContainerRequestModel"
+                }
+              ]
+            }
+          },
+          "compositions": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/MemberTypeCompositionModel"
+                }
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "UpdateTemplateRequestModel": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateTemplateRequestModel",
+    "$ref": "#/$defs/UpdateTemplateRequestModel",
+    "$defs": {
+      "UpdateTemplateRequestModel": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "alias": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

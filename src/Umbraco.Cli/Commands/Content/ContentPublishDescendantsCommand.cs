@@ -13,11 +13,11 @@ public static class ContentPublishDescendantsCommand
     {
         var cmd = new Command(
             "publish-descendants",
-            "Publish a content item and its descendants.\n\nExamples:\n  umbraco content publish-descendants 3f7a8b2e-...\n  umbraco content publish-descendants 3f7a8b2e-... --include-unpublished --cultures en-US"
-        );
+            "Publish a content item and its descendants.\n\nExamples:\n  umbraco content publish-descendants 3f7a8b2e-...\n  umbraco content publish-descendants 3f7a8b2e-... --include-unpublished --culture en-US"
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Root content item ID." };
         var culturesOpt = ListOption.Strings(
-            "--cultures",
+            "--culture",
             "ISO culture codes to publish. Publishes all cultures if omitted."
         );
         var includeUnpublishedOpt = new Option<bool>("--include-unpublished")
@@ -29,7 +29,7 @@ public static class ContentPublishDescendantsCommand
         {
             DefaultValueFactory = _ => false,
             Description =
-                "Poll the background publish task until it completes, rather than returning as soon as it is queued (#90).",
+                "Poll the background publish task until it completes, rather than returning as soon as it is queued.",
         };
         cmd.Add(idArg);
         cmd.Add(culturesOpt);
@@ -40,10 +40,9 @@ public static class ContentPublishDescendantsCommand
             {
                 var cultures = parseResult.GetValue(culturesOpt);
                 // Object output (rather than a fixed message) surfaces the background task id and
-                // completion state, so a script can chain on --wait or poll the id itself (#90).
+                // completion state, so a script can chain on --wait or poll the id itself.
                 return executor.RunObjectAsync(
                     parseResult,
-                    "content.publish-descendants",
                     (client, c) =>
                         client.PublishContentWithDescendantsAsync(
                             parseResult.GetValue(idArg),

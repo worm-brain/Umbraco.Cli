@@ -1,14 +1,15 @@
 using System.CommandLine;
 using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
-/// <summary>Wires the <c>data-types update</c> command (issue #59).</summary>
+/// <summary>Wires the <c>data-type update</c> command (issue #59).</summary>
 public static class DataTypesUpdateCommand
 {
     /// <summary>
-    /// Builds the <c>data-types update</c> command. Only supplied options change; anything
+    /// Builds the <c>data-type update</c> command. Only supplied options change; anything
     /// omitted (including the editor configuration values, which are never exposed here) is
     /// preserved by the client's read-merge.
     /// </summary>
@@ -18,8 +19,8 @@ public static class DataTypesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a data type by name or id. Omitted fields (and editor configuration) are preserved. With --json-body, the body's top-level keys are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco data-types update Textstring --name \"My Text\"\n  umbraco data-types update Textstring --json-body dt.json"
-        );
+            "Update a data type by name or id.\n\nOmitted fields (and editor configuration) are preserved. With --json-body, the body's top-level keys are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco data-type update Textstring --name \"My Text\"\n  umbraco data-type update Textstring --json-body dt.json"
+        ).Mutating();
         var options = RawBodyCommand.AddUpdateOptions(cmd, SchemaNoun.DataTypes, hasFlags: true);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var editorAliasOpt = new Option<string?>("--editor-alias")
@@ -38,7 +39,6 @@ public static class DataTypesUpdateCommand
                 RawBodyCommand.RunUpdateAsync(
                     executor,
                     parseResult,
-                    "data-types.update",
                     SchemaNoun.DataTypes,
                     options,
                     "Data type updated.",

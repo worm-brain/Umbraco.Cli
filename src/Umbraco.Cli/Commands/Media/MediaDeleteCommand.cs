@@ -9,9 +9,9 @@ public static class MediaDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Permanently delete a media item by UUID.\n\nExample:\n  umbraco media delete 3f7a8b2e-..."
-        );
-        var idArg = new Argument<Guid>("id");
+            "Delete a media item permanently, by id.\n\nExamples:\n  umbraco media delete 3f7a8b2e-...\n  umbraco media delete <id> --yes"
+        ).Mutating();
+        var idArg = new Argument<Guid>("id") { Description = "Media item id." };
         cmd.Add(idArg);
 
         cmd.Destructive(parseResult =>
@@ -21,8 +21,10 @@ public static class MediaDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "media.delete",
-                    (client, c) => client.DeleteMediaAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteMediaAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Media item deleted.",
                     ct
                 )

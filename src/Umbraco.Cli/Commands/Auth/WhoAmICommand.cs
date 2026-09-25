@@ -15,7 +15,6 @@ public static class WhoAmICommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "auth.whoami",
                     (client, c) => client.GetCurrentUserAsync(c),
                     ct
                 )

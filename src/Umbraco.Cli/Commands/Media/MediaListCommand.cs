@@ -12,16 +12,15 @@ public static class MediaListCommand
         );
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Filter by parent media folder UUID. Omit for root media items.",
+            Description = "Parent media folder id; lists root media items if omitted.",
         };
         cmd.Add(parentOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
 
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "media.list",
                     (client, skip, take, c) =>
                         client.GetMediaAsync(parseResult.GetValue(parentOpt), skip, take, c),
                     // Media Type is intentionally omitted: the media-tree list items carry only

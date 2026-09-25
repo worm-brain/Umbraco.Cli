@@ -9,8 +9,8 @@ public static class ContentDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Permanently delete a content item by ID. This cannot be undone.\n\nExample:\n  umbraco content delete 3f7a8b2e-1234-5678-abcd-ef0123456789"
-        );
+            "Delete a content item permanently, by id. This cannot be undone.\n\nExamples:\n  umbraco content delete 3f7a8b2e-1234-5678-abcd-ef0123456789\n  umbraco content delete <id> --yes"
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         cmd.Add(idArg);
 
@@ -21,8 +21,10 @@ public static class ContentDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content.delete",
-                    (client, c) => client.DeleteContentAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteContentAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Content item deleted.",
                     ct
                 )

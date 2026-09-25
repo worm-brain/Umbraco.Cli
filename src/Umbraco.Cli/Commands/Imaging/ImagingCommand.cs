@@ -16,7 +16,7 @@ public static class ImagingCommand
     {
         var cmd = new Command(
             "imaging",
-            "Generate resized image URLs for media items.\n\nExample:\n  umbraco imaging resize-urls --id <guid> --width 300 --height 200 --mode Crop"
+            "Generate resized image URLs for media items.\n\nExamples:\n  umbraco imaging resize-urls <id> --width 300 --height 200 --mode Crop"
         );
         cmd.Add(BuildResizeUrls(executor));
         return cmd;
@@ -24,8 +24,16 @@ public static class ImagingCommand
 
     private static Command BuildResizeUrls(CommandExecutor executor)
     {
-        var cmd = new Command("resize-urls", "Get resized URLs for one or more media items.");
-        var idOpt = ListOption.Guids("--id", "Media item ID.").AsRequired();
+        var cmd = new Command(
+            "resize-urls",
+            "Get resized URLs for one or more media items.\n\nExamples:\n  umbraco imaging resize-urls <id> --width 300\n  umbraco imaging resize-urls <id> <id> --width 300 --height 200 --mode Crop --format webp"
+        );
+        // Several known targets are a variadic positional (docs/conventions.md 3.3).
+        var idOpt = new Argument<Guid[]>("id")
+        {
+            Description = "The media items to resize: one or more ids.",
+            Arity = ArgumentArity.OneOrMore,
+        };
         var widthOpt = new Option<int?>("--width") { Description = "Target width in pixels." };
         var heightOpt = new Option<int?>("--height") { Description = "Target height in pixels." };
         var modeOpt = new Option<ImageResizeMode?>("--mode")
@@ -46,7 +54,6 @@ public static class ImagingCommand
             (parseResult, ct) =>
                 executor.RunCompleteListAsync(
                     parseResult,
-                    "imaging.resize-urls",
                     (client, c) =>
                         client.GetResizeUrlsAsync(
                             parseResult.GetValue(idOpt)!,

@@ -27,7 +27,7 @@ public static class ContentFindCommand
         {
             Description = "With --name, scope the search to this node's subtree.",
         };
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.Add(nameOpt);
         cmd.Add(pathOpt);
         cmd.Add(parentOpt);
@@ -49,7 +49,6 @@ public static class ContentFindCommand
                 if (!string.IsNullOrWhiteSpace(path))
                     return executor.RunCompleteListAsync(
                         parseResult,
-                        "content.find",
                         (client, c) => client.FindContentByPathAsync(path, c),
                         headers,
                         Row,
@@ -58,7 +57,6 @@ public static class ContentFindCommand
 
                 return executor.RunPagedAsync(
                     parseResult,
-                    "content.find",
                     (client, skip, take, c) =>
                         client.FindContentByNameAsync(
                             parseResult.GetValue(nameOpt)!,

@@ -24,22 +24,25 @@ public sealed class CommandExecutor
     }
 
     /// <summary>
-    /// Exit codes: <c>0</c> success · <c>1</c> API failure · <c>2</c> aborted (no host / not
-    /// authenticated · a command blocked by the allow-list · a destructive command
-    /// refused/declined without <c>--yes</c> · a write blocked by <c>--readonly</c>) ·
-    /// <c>130</c> cancelled (Ctrl-C). Note a <c>--readonly</c> block can fire after prerequisite
-    /// reads (e.g. alias→id resolution) have already run.
+    /// Runs one client call and renders its result. Exit codes are <see cref="ExitCode"/>; every
+    /// error carries a category. Note a <c>--readonly</c> block can fire after prerequisite reads
+    /// (e.g. alias→id resolution) have already run.
     /// </summary>
+    /// <typeparam name="T">The client call's payload type.</typeparam>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="call">The client call.</param>
+    /// <param name="render">Renders the payload on success.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The process exit code.</returns>
     public Task<int> RunAsync<T>(
         ParseResult parseResult,
-        string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         Action<CommandContext, T?> render,
         CancellationToken ct
     ) =>
         // The vast majority of commands are a single client call; expose the client-only shape
         // and delegate to the context-aware core below.
-        RunContextualAsync(parseResult, commandName, (ctx, c) => call(ctx.Client, c), render, ct);
+        RunContextualAsync(parseResult, (ctx, c) => call(ctx.Client, c), render, ct);
 
     /// <summary>
     /// Context-aware variant of <see cref="RunAsync{T}"/>: the operation receives the whole
@@ -52,14 +55,12 @@ public sealed class CommandExecutor
     /// </summary>
     /// <typeparam name="T">The rendered payload type.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
     /// <param name="call">The operation, receiving the built context.</param>
     /// <param name="render">Renders the payload on success.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The process exit code.</returns>
     public async Task<int> RunContextualAsync<T>(
         ParseResult parseResult,
-        string commandName,
         Func<CommandContext, CancellationToken, Task<UmbracoResponse<T>>> call,
         Action<CommandContext, T?> render,
         CancellationToken ct
@@ -68,15 +69,15 @@ public sealed class CommandExecutor
         CommandContext ctx;
         try
         {
-            ctx = await _factory.CreateAsync(parseResult, commandName, ct);
+            ctx = await _factory.CreateAsync(parseResult, ct);
         }
         catch (CommandAbortedException)
         {
-            return 2;
+            return (int)ExitCode.Aborted;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            return 130;
+            return (int)ExitCode.Cancelled;
         }
 
         // Destructive-op gate (#70): a command declared destructive (CommandSafety, #255) must be
@@ -95,33 +96,13 @@ public sealed class CommandExecutor
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            return 130;
+            return (int)ExitCode.Cancelled;
         }
         if (refusal is not null)
-        {
-            ctx.Output.WriteError(2, refusal, commandName: ctx.CommandName);
-            return 2;
-        }
+            return Abort(ctx, FailureCategory.Refused, refusal);
 
-        var confirmationPrompt = CommandSafety.PromptFor(parseResult);
-        if (confirmationPrompt is not null && !ctx.AssumeYes && !ctx.DryRun && !ctx.ReadOnly)
-        {
-            if (!_confirmation.IsInteractive)
-            {
-                ctx.Output.WriteError(
-                    2,
-                    $"{confirmationPrompt} Refusing to run a destructive operation without "
-                        + "confirmation. Re-run with --yes to proceed (required in non-interactive mode)."
-                );
-                return 2;
-            }
-
-            if (!_confirmation.Confirm(confirmationPrompt))
-            {
-                ctx.Output.WriteError(2, "Operation cancelled.", commandName: ctx.CommandName);
-                return 2;
-            }
-        }
+        if (Confirm(ctx, parseResult, "a destructive operation") is { } declined)
+            return declined;
 
         try
         {
@@ -157,58 +138,130 @@ public sealed class CommandExecutor
                 // different fields. StatusCode is 0 when the request never reached the server
                 // (unreachable/timeout), which is not a status - omit it rather than emit 0.
                 ctx.Output.WriteError(
-                    1,
+                    ExitCode.Failed,
+                    CategoryOf(result),
                     message,
+                    ctx.CommandName,
                     result.StatusCode == 0 ? null : result.StatusCode,
-                    result.Category.ToWire(),
-                    serverVersion,
-                    ctx.CommandName
+                    serverVersion
                 );
-                return 1;
+                return (int)ExitCode.Failed;
             }
 
             render(ctx, result.Data);
-            return 0;
+            return (int)ExitCode.Success;
         }
         catch (DryRunException dry)
         {
             // --dry-run: the mutation-interceptor aborted a write before it was sent. Print
             // the captured request instead of executing it, and report success (exit 0) —
             // nothing was changed.
-            ctx.Output.WriteDryRun(dry.Method, dry.Url, dry.Body);
-            return 0;
+            ctx.Output.WriteDryRun(
+                dry.Method,
+                dry.Url,
+                dry.Body,
+                ctx.CommandName,
+                ctx.Stopwatch.ElapsedMilliseconds
+            );
+            return (int)ExitCode.Success;
         }
         catch (ReadOnlyModeException ro)
         {
             // --readonly: the mutation-interceptor refused a write. Report a clear error and a
             // non-zero exit; nothing was changed.
-            ctx.Output.WriteError(
-                2,
+            return Abort(
+                ctx,
+                FailureCategory.ReadOnly,
                 $"Read-only mode is active ({ro.Method} {ro.Url} was blocked). This command "
-                    + "performs a write, which is not allowed under --readonly / UMBRACO_READONLY.",
-                commandName: ctx.CommandName
+                    + "performs a write, which is not allowed under --readonly / UMBRACO_READONLY."
             );
-            return 2;
         }
         catch (SafetyRefusalException refused)
         {
             // The command checked and refused (e.g. deleting an in-use type without --force).
-            // Nothing was changed, so it is an abort (2), like a missing --yes (#246).
-            ctx.Output.WriteError(2, refused.Message, commandName: ctx.CommandName);
-            return 2;
+            // Nothing was changed, so it is an abort, like a missing --yes (#246).
+            return Abort(ctx, FailureCategory.Refused, refused.Message);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            return 130; // 128 + SIGINT — distinct from a config abort (2)
+            return (int)ExitCode.Cancelled; // distinct from a config abort
         }
         catch (Exception ex)
         {
-            // Backstop: any unforeseen failure (e.g. a malformed --json-body, a missing
-            // upload file) becomes a clean error instead of a raw stack trace.
-            ctx.Output.WriteError(1, ex.Message, commandName: ctx.CommandName);
-            return 1;
+            // Backstop: nothing escapes as a raw stack trace. Input the caller must fix (a
+            // malformed --json-body, a file that is not there) is invalid_argument (#256);
+            // anything else is a CLI bug, and says so.
+            ctx.Output.WriteError(ExitCode.Failed, CategoryOf(ex), ex.Message, ctx.CommandName);
+            return (int)ExitCode.Failed;
         }
     }
+
+    /// <summary>
+    /// Asks for confirmation when the parsed command is destructive, unless <c>--yes</c>,
+    /// <c>--dry-run</c> or <c>--readonly</c> means nothing destructive will happen. Never prompts
+    /// non-interactively: it refuses, so a destructive operation can never happen silently (#70).
+    /// </summary>
+    /// <param name="ctx">The command context.</param>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="what">What is being refused, for the message (e.g. "a destructive operation").</param>
+    /// <returns>The exit code when the run must stop, or null to proceed.</returns>
+    private int? Confirm(CommandContext ctx, ParseResult parseResult, string what)
+    {
+        var prompt = CommandSafety.PromptFor(parseResult);
+        if (prompt is null || ctx.AssumeYes || ctx.DryRun || ctx.ReadOnly)
+            return null;
+
+        if (!_confirmation.IsInteractive)
+            return Abort(
+                ctx,
+                FailureCategory.ConfirmationRequired,
+                $"{prompt} Refusing to run {what} without confirmation. Re-run with --yes to "
+                    + "proceed (required in non-interactive mode)."
+            );
+
+        return _confirmation.Confirm(prompt)
+            ? null
+            : Abort(ctx, FailureCategory.Cancelled, "Operation cancelled.");
+    }
+
+    /// <summary>Writes an abort (exit 2) with its category and returns the exit code.</summary>
+    /// <param name="ctx">The command context.</param>
+    /// <param name="category">Why the run stopped.</param>
+    /// <param name="message">What happened and how to proceed.</param>
+    /// <returns><see cref="ExitCode.Aborted"/>.</returns>
+    private static int Abort(CommandContext ctx, FailureCategory category, string message)
+    {
+        ctx.Output.WriteError(ExitCode.Aborted, category, message, ctx.CommandName);
+        return (int)ExitCode.Aborted;
+    }
+
+    /// <summary>
+    /// The category for a failed client call. The client always classifies its failures; one that
+    /// arrives unclassified is derived from its status, so the envelope never lacks a category.
+    /// </summary>
+    /// <typeparam name="T">The payload type.</typeparam>
+    /// <param name="result">The failed response.</param>
+    /// <returns>The category to report.</returns>
+    internal static FailureCategory CategoryOf<T>(UmbracoResponse<T> result) =>
+        result.Category is not FailureCategory.None ? result.Category
+        : result.StatusCode is 0 ? FailureCategory.Unreachable
+        : result.StatusCode >= 500 ? FailureCategory.ServerError
+        : FailureCategory.RequestRejected;
+
+    /// <summary>
+    /// The category for an exception the backstop caught: input the caller must fix is
+    /// <see cref="FailureCategory.InvalidArgument"/>, anything else <see cref="FailureCategory.Internal"/>.
+    /// </summary>
+    /// <param name="ex">The exception.</param>
+    /// <returns>The category to report.</returns>
+    internal static FailureCategory CategoryOf(Exception ex) =>
+        ex
+            is InvalidInputException
+                or System.Text.Json.JsonException
+                or FileNotFoundException
+                or DirectoryNotFoundException
+            ? FailureCategory.InvalidArgument
+            : FailureCategory.Internal;
 
     /// <summary>
     /// Runs a single operation over many ids (#85), collecting a per-item result so a script can
@@ -220,7 +273,6 @@ public sealed class CommandExecutor
     /// <c>0</c> when every item succeeded, <c>1</c> when any item failed.
     /// </summary>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name (e.g. <c>content.bulk.delete</c>).</param>
     /// <param name="readIds">
     /// Reads the raw id lines from stdin/file. Invoked after the context is built so an IO error
     /// (e.g. a missing file) is reported through the resolved output writer.
@@ -230,7 +282,6 @@ public sealed class CommandExecutor
     /// <returns>The process exit code.</returns>
     public async Task<int> RunBulkAsync(
         ParseResult parseResult,
-        string commandName,
         Func<IReadOnlyList<string>> readIds,
         Func<
             IUmbracoManagementClient,
@@ -244,15 +295,15 @@ public sealed class CommandExecutor
         CommandContext ctx;
         try
         {
-            ctx = await _factory.CreateAsync(parseResult, commandName, ct);
+            ctx = await _factory.CreateAsync(parseResult, ct);
         }
         catch (CommandAbortedException)
         {
-            return 2;
+            return (int)ExitCode.Aborted;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            return 130;
+            return (int)ExitCode.Cancelled;
         }
 
         // Read-only mode refuses writes, so a bulk write is blocked before it runs — mirror the
@@ -260,14 +311,12 @@ public sealed class CommandExecutor
         // reporting every item as a failure (which would read as an API error, exit 1). Bulk
         // operations are all writes, so this applies to the whole group.
         if (ctx.ReadOnly)
-        {
-            ctx.Output.WriteError(
-                2,
+            return Abort(
+                ctx,
+                FailureCategory.ReadOnly,
                 "Read-only mode is active (--readonly / UMBRACO_READONLY). This bulk command "
                     + "performs writes, which are not allowed."
             );
-            return 2;
-        }
 
         // Read the ids now that the output writer exists, so a missing/unreadable file becomes a
         // clean error rather than an unhandled exception.
@@ -278,46 +327,33 @@ public sealed class CommandExecutor
         }
         catch (Exception ex)
         {
+            // The input could not be read: the caller's to fix, and nothing ran.
             ctx.Output.WriteError(
-                2,
+                ExitCode.Failed,
+                FailureCategory.InvalidArgument,
                 $"Could not read ids: {ex.Message}",
-                commandName: ctx.CommandName
+                ctx.CommandName
             );
-            return 2;
+            return (int)ExitCode.Failed;
         }
 
         // Nothing to do — surface an empty result rather than silently exiting.
         if (rawIds.Count == 0)
         {
             ctx.Output.WriteError(
-                2,
+                ExitCode.Failed,
+                FailureCategory.InvalidArgument,
                 "No ids supplied. Provide ids via --file <path> or stdin.",
-                commandName: ctx.CommandName
+                ctx.CommandName
             );
-            return 2;
+            return (int)ExitCode.Failed;
         }
 
         // Destructive-op gate (#70), applied ONCE for the whole batch. Skipped under --dry-run
         // (previewed, not sent) and --readonly (refused at the HTTP layer) exactly as the
         // single-op path does. The prompt comes from the command's CommandSafety declaration.
-        var confirmationPrompt = CommandSafety.PromptFor(parseResult);
-        if (confirmationPrompt is not null && !ctx.AssumeYes && !ctx.DryRun && !ctx.ReadOnly)
-        {
-            if (!_confirmation.IsInteractive)
-            {
-                ctx.Output.WriteError(
-                    2,
-                    $"{confirmationPrompt} Refusing to run a destructive bulk operation without "
-                        + "confirmation. Re-run with --yes to proceed (required in non-interactive mode)."
-                );
-                return 2;
-            }
-            if (!_confirmation.Confirm(confirmationPrompt))
-            {
-                ctx.Output.WriteError(2, "Operation cancelled.", commandName: ctx.CommandName);
-                return 2;
-            }
-        }
+        if (Confirm(ctx, parseResult, "a destructive bulk operation") is { } declined)
+            return declined;
 
         var results = new List<BulkItemResult>(rawIds.Count);
         foreach (var raw in rawIds)
@@ -361,7 +397,7 @@ public sealed class CommandExecutor
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                return 130; // Ctrl-C mid-batch
+                return (int)ExitCode.Cancelled; // Ctrl-C mid-batch
             }
             catch (Exception ex)
             {
@@ -377,13 +413,11 @@ public sealed class CommandExecutor
     /// <summary>Renders the result object via <see cref="IOutputWriter.WriteSuccess"/>.</summary>
     public Task<int> RunObjectAsync<T>(
         ParseResult parseResult,
-        string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         CancellationToken ct
     ) =>
         RunAsync(
             parseResult,
-            commandName,
             call,
             static (ctx, data) =>
                 ctx.Output.WriteSuccess(data, ctx.CommandName, ctx.Stopwatch.ElapsedMilliseconds),
@@ -391,36 +425,58 @@ public sealed class CommandExecutor
         );
 
     /// <summary>
-    /// Writes a fixed success message via <see cref="IOutputWriter.WriteMessage"/>. A command
-    /// declared destructive with <see cref="CommandSafety.Destructive{TCommand}"/> is confirmed
-    /// before it runs unless <c>--yes</c> is given (#70, #255).
+    /// Runs a write whose human output is a confirmation (delete, move, update...). The call returns
+    /// the write's <c>data</c> - the resulting item, or an <see cref="ItemRef"/> naming what it acted
+    /// on - which structured output emits, because every success has <c>data</c>
+    /// (docs/conventions.md 6.2); the human writer shows <paramref name="successMessage"/>. A command
+    /// declared destructive is confirmed before it runs unless <c>--yes</c> is given (#70, #255).
     /// </summary>
-    /// <typeparam name="T">The client call's payload type (discarded).</typeparam>
+    /// <typeparam name="T">The data type.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
-    /// <param name="call">The client call.</param>
-    /// <param name="successMessage">The message written on success.</param>
+    /// <param name="call">The write, returning its data (see <see cref="WriteResult"/>).</param>
+    /// <param name="successMessage">The human confirmation.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The process exit code.</returns>
     public Task<int> RunMessageAsync<T>(
         ParseResult parseResult,
-        string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         string successMessage,
         CancellationToken ct
     ) =>
         RunAsync(
             parseResult,
-            commandName,
             call,
-            (ctx, _) =>
+            (ctx, data) =>
                 ctx.Output.WriteMessage(
+                    data!,
                     successMessage,
                     ctx.CommandName,
                     ctx.Stopwatch.ElapsedMilliseconds
                 ),
             ct
         );
+
+    /// <summary>
+    /// Refuses, at compile time, a write that returns no data: every success has <c>data</c>
+    /// (docs/conventions.md 6.2). Chain <see cref="WriteResult.Then{T}"/> or
+    /// <see cref="WriteResult.ThenRead{T}"/> onto the call to say what it returns.
+    /// </summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="call">A write that returns nothing.</param>
+    /// <param name="successMessage">The human confirmation.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Never returns.</returns>
+    /// <exception cref="NotSupportedException">Always; the overload exists to fail compilation.</exception>
+    [Obsolete(
+        "Every success has data: chain .Then(ItemRef.Of(id)) or .ThenRead(...) onto the call.",
+        error: true
+    )]
+    public Task<int> RunMessageAsync(
+        ParseResult parseResult,
+        Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<Empty>>> call,
+        string successMessage,
+        CancellationToken ct
+    ) => throw new NotSupportedException();
 
     /// <summary>
     /// Runs a list command (#164/#173): structured output is serialized from the items
@@ -430,7 +486,6 @@ public sealed class CommandExecutor
     /// <typeparam name="T">The client result type.</typeparam>
     /// <typeparam name="TItem">The item type serialized to structured output.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
     /// <param name="call">The client call.</param>
     /// <param name="items">Selects the items from the result.</param>
     /// <param name="headers">Human table column headers.</param>
@@ -440,7 +495,6 @@ public sealed class CommandExecutor
     /// <returns>The process exit code.</returns>
     public Task<int> RunListAsync<T, TItem>(
         ParseResult parseResult,
-        string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         Func<T?, IReadOnlyList<TItem>> items,
         string[] headers,
@@ -450,7 +504,6 @@ public sealed class CommandExecutor
     ) =>
         RunAsync(
             parseResult,
-            commandName,
             call,
             (ctx, data) =>
             {
@@ -468,7 +521,6 @@ public sealed class CommandExecutor
     /// <typeparam name="T">The client result type.</typeparam>
     /// <typeparam name="TItem">The row type serialized to structured output.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
     /// <param name="call">The client call.</param>
     /// <param name="items">Selects the rows from the result.</param>
     /// <param name="headers">Human table column headers.</param>
@@ -477,20 +529,13 @@ public sealed class CommandExecutor
     /// <returns>The process exit code.</returns>
     public Task<int> RunReportAsync<T, TItem>(
         ParseResult parseResult,
-        string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         Func<T?, IReadOnlyList<TItem>> items,
         string[] headers,
         Func<TItem, string[]> row,
         CancellationToken ct
     ) =>
-        RunAsync(
-            parseResult,
-            commandName,
-            call,
-            (ctx, data) => WriteReport(ctx, items(data), headers, row),
-            ct
-        );
+        RunAsync(parseResult, call, (ctx, data) => WriteReport(ctx, items(data), headers, row), ct);
 
     /// <summary>
     /// Writes a complete computed report, for a command that renders inside its own
@@ -544,7 +589,6 @@ public sealed class CommandExecutor
     /// </summary>
     /// <typeparam name="TItem">The item type.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
     /// <param name="call">The client call.</param>
     /// <param name="headers">Human table column headers.</param>
     /// <param name="row">Projects one item into human table cells.</param>
@@ -554,7 +598,6 @@ public sealed class CommandExecutor
     /// <returns>The process exit code.</returns>
     public Task<int> RunPagedAsync<TItem>(
         ParseResult parseResult,
-        string commandName,
         Func<
             IUmbracoManagementClient,
             int,
@@ -572,7 +615,6 @@ public sealed class CommandExecutor
         // caller cannot report a page the server was never asked for.
         RunListAsync(
             parseResult,
-            commandName,
             (client, c) => call(client, skip, take, c),
             d => (d?.Items ?? []).ToList(),
             headers,
@@ -586,7 +628,6 @@ public sealed class CommandExecutor
     /// </summary>
     /// <typeparam name="TItem">The item type.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
     /// <param name="call">The client call.</param>
     /// <param name="headers">Human table column headers.</param>
     /// <param name="row">Projects one item into human table cells.</param>
@@ -594,7 +635,6 @@ public sealed class CommandExecutor
     /// <returns>The process exit code.</returns>
     public Task<int> RunCompleteListAsync<TItem>(
         ParseResult parseResult,
-        string commandName,
         Func<
             IUmbracoManagementClient,
             CancellationToken,
@@ -603,7 +643,7 @@ public sealed class CommandExecutor
         string[] headers,
         Func<TItem, string[]> row,
         CancellationToken ct
-    ) => RunWholeListAsync(parseResult, commandName, call, d => d, headers, row, ct);
+    ) => RunWholeListAsync(parseResult, call, d => d, headers, row, ct);
 
     /// <summary>
     /// <see cref="RunCompleteListAsync{TItem}(ParseResult, string, Func{IUmbracoManagementClient, CancellationToken, Task{UmbracoResponse{IReadOnlyList{TItem}}}}, string[], Func{TItem, string[]}, CancellationToken)"/>
@@ -611,7 +651,6 @@ public sealed class CommandExecutor
     /// </summary>
     /// <typeparam name="TItem">The item type.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
     /// <param name="call">The client call.</param>
     /// <param name="headers">Human table column headers.</param>
     /// <param name="row">Projects one item into human table cells.</param>
@@ -619,7 +658,6 @@ public sealed class CommandExecutor
     /// <returns>The process exit code.</returns>
     public Task<int> RunCompleteListAsync<TItem>(
         ParseResult parseResult,
-        string commandName,
         Func<
             IUmbracoManagementClient,
             CancellationToken,
@@ -628,13 +666,12 @@ public sealed class CommandExecutor
         string[] headers,
         Func<TItem, string[]> row,
         CancellationToken ct
-    ) => RunWholeListAsync(parseResult, commandName, call, d => d, headers, row, ct);
+    ) => RunWholeListAsync(parseResult, call, d => d, headers, row, ct);
 
     /// <summary>Shared core for the two complete-list overloads.</summary>
     /// <typeparam name="T">The client result type.</typeparam>
     /// <typeparam name="TItem">The item type.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The dotted command name.</param>
     /// <param name="call">The client call.</param>
     /// <param name="select">Selects the sequence from the result.</param>
     /// <param name="headers">Human table column headers.</param>
@@ -643,7 +680,6 @@ public sealed class CommandExecutor
     /// <returns>The process exit code.</returns>
     private Task<int> RunWholeListAsync<T, TItem>(
         ParseResult parseResult,
-        string commandName,
         Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> call,
         Func<T?, IEnumerable<TItem>?> select,
         string[] headers,
@@ -652,7 +688,6 @@ public sealed class CommandExecutor
     ) =>
         RunListAsync(
             parseResult,
-            commandName,
             call,
             d => select(d)?.ToList() ?? [],
             headers,

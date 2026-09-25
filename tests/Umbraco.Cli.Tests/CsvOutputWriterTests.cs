@@ -1,3 +1,5 @@
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Tests;
@@ -129,22 +131,37 @@ public class CsvOutputWriterTests
     [Fact]
     public void WriteError_WritesBothCodesAndMessageToStderr()
     {
-        var (stdout, stderr) = Capture(() => _writer.WriteError(1, "Not found", 404));
+        var (stdout, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Failed,
+                FailureCategory.RequestRejected,
+                "Not found",
+                "content.get",
+                404
+            )
+        );
 
         Assert.Empty(stdout);
         var lines = stderr.TrimEnd().Split(Environment.NewLine);
         // #177: the exit code and the HTTP status are separate columns, so a CSV consumer can
         // tell them apart the same way a JSON one can.
-        Assert.Equal("exitCode,httpStatus,message", lines[0]);
-        Assert.Equal("1,404,Not found", lines[1]);
+        Assert.Equal("exitCode,httpStatus,category,message", lines[0]);
+        Assert.Equal("1,404,request_rejected,Not found", lines[1]);
     }
 
     [Fact]
     public void WriteError_PolicyFailure_LeavesTheHttpStatusColumnEmpty()
     {
-        var (_, stderr) = Capture(() => _writer.WriteError(2, "Not authenticated"));
+        var (_, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Aborted,
+                FailureCategory.NotAuthenticated,
+                "Not authenticated",
+                "content.list"
+            )
+        );
 
         var lines = stderr.TrimEnd().Split(Environment.NewLine);
-        Assert.Equal("2,,Not authenticated", lines[1]);
+        Assert.Equal("2,,not_authenticated,Not authenticated", lines[1]);
     }
 }

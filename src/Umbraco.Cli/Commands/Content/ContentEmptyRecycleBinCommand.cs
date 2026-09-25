@@ -17,8 +17,8 @@ public static class ContentEmptyRecycleBinCommand
     {
         var cmd = new Command(
             "empty-recycle-bin",
-            "Permanently delete all content items in the recycle bin.\n\nExample:\n  umbraco content empty-recycle-bin --yes"
-        );
+            "Permanently delete all content items in the recycle bin.\n\nExamples:\n  umbraco content empty-recycle-bin --yes"
+        ).Mutating();
         cmd.Destructive(parseResult =>
             "Permanently delete ALL items in the content recycle bin? This cannot be undone."
         );
@@ -26,8 +26,8 @@ public static class ContentEmptyRecycleBinCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content.empty-recycle-bin",
-                    (client, c) => client.EmptyContentRecycleBinAsync(c),
+                    // Nothing to read back: the data is an empty object (docs/conventions.md 6.2).
+                    (client, c) => client.EmptyContentRecycleBinAsync(c).Then(new { }),
                     "Content recycle bin emptied.",
                     ct
                 )

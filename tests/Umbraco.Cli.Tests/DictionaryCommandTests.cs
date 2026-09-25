@@ -9,7 +9,7 @@ using Umbraco.Cli.Infrastructure.Http;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// Command-layer behaviour of the dictionary tree/create-with-parent/move verbs (#110): the create
+/// Command-layer behaviour of the dictionary list/tree/create-with-parent/move verbs (#110): the create
 /// maps an optional <c>--parent</c>, the tree threads <c>--parent</c> to the client, and move maps
 /// its target. Client HTTP behaviour is covered separately by <see cref="DictionaryClientTests"/>.
 /// </summary>
@@ -98,7 +98,7 @@ public class DictionaryCommandTests
     }
 
     [Fact]
-    public async Task Tree_WithParent_PassesParentIdToClient()
+    public async Task List_WithParent_PassesParentIdToClient()
     {
         var fake = new FakeUmbracoManagementClient();
         fake.DictionaryTreeItems.Add(
@@ -112,22 +112,52 @@ public class DictionaryCommandTests
         var root = BuildRoot(fake);
         var parent = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} dictionary tree --parent {parent}");
+        var exit = await Run(root, $"{Auth} dictionary list --parent {parent}");
 
         Assert.Equal(0, exit);
         Assert.Equal(parent, fake.LastDictionaryTreeArgs!.Value.ParentId);
     }
 
     [Fact]
-    public async Task Tree_Root_PassesNullParent()
+    public async Task List_Root_PassesNullParent()
     {
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
-        var exit = await Run(root, $"{Auth} dictionary tree");
+        var exit = await Run(root, $"{Auth} dictionary list");
 
         Assert.Equal(0, exit);
         Assert.Null(fake.LastDictionaryTreeArgs!.Value.ParentId);
+    }
+
+    [Theory]
+    [InlineData("dictionary tree", 1)]
+    [InlineData("dictionary tree --recursive", int.MaxValue)]
+    [InlineData("dictionary tree --recursive --depth 3", 3)]
+    public async Task Tree_WalksToTheRequestedDepth(string command, int expectedDepth)
+    {
+        // Like content tree: one level by default, the whole subtree with --recursive, and
+        // --depth wins over --recursive.
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake);
+
+        var exit = await Run(root, $"{Auth} {command}");
+
+        Assert.Equal(0, exit);
+        Assert.Equal(expectedDepth, fake.LastDictionaryWalk!.Value.MaxDepth);
+    }
+
+    [Fact]
+    public async Task Tree_Parent_WalksBeneathIt()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake);
+        var parent = Guid.NewGuid();
+
+        var exit = await Run(root, $"{Auth} dictionary tree --parent {parent}");
+
+        Assert.Equal(0, exit);
+        Assert.Equal(parent, fake.LastDictionaryWalk!.Value.Parent);
     }
 
     [Fact]

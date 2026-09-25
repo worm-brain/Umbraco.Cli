@@ -12,7 +12,7 @@ public static class ContentUpdateCommand
         var cmd = new Command(
             "update",
             "Update an existing content item from a JSON body file.\n\nValues and variants in the body are MERGED into the item, matched on alias + culture + segment: anything you leave out keeps its current value, and the item's template is preserved. Pass --replace for the old behaviour, where the body's values and variants replace the item's wholesale.\n\nExamples:\n  umbraco content update 3f7a8b2e-... --json-body ./update.json\n  umbraco content update 3f7a8b2e-... --json-body ./full.json --replace\n  umbraco content update 3f7a8b2e-... --json-body ./update.json --template blogPost\n  umbraco content update 3f7a8b2e-... --template blogPost"
-        );
+        ).Mutating();
         // id and --json-body are optional at the PARSE level only so that `--schema` can
         // describe the body without them. A nullable id makes "omitted" (null) unambiguous
         // versus an explicit all-zero GUID. Both are required for an actual update, enforced by
@@ -32,10 +32,16 @@ public static class ContentUpdateCommand
                 "Replace the item's values and variants with the body's instead of merging into them. "
                 + "Anything absent from the body is cleared.",
         };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replaceOpt,
+            _ =>
+                "Replace this content item's values and variants, clearing anything the body leaves out?"
+        );
         var templateOpt = new Option<string?>("--template")
         {
             Description =
-                "Template to set on the item, by alias or UUID. Omitted, the current template is kept.",
+                "Template to set on the item, by alias or id. Omitted, the current template is kept.",
         };
         cmd.Add(idArg);
         cmd.Add(replaceOpt);
@@ -74,7 +80,6 @@ public static class ContentUpdateCommand
 
                 return executor.RunObjectAsync(
                     parseResult,
-                    "content.update",
                     async (client, c) =>
                     {
                         // The validator guarantees an id, and a body or a --template.
@@ -85,7 +90,7 @@ public static class ContentUpdateCommand
                         var request = body.HasBody(parseResult)
                             ? JsonSerializer.Deserialize<UpdateContentRequest>(
                                 await body.ReadAsync(parseResult, c)
-                            ) ?? throw new InvalidOperationException("Invalid JSON body.")
+                            ) ?? throw new InvalidInputException("Invalid JSON body.")
                             : new UpdateContentRequest();
 
                         // --template wins over a template in the body, the way an explicit flag

@@ -121,7 +121,7 @@ public class ContentUpdateCommandTests
 
         var exit = await RunAsync(
             fake,
-            "content create --content-type blogPost --name Post --culture da-DK",
+            "content create --document-type blogPost --name Post --culture da-DK",
             "{}"
         );
 
@@ -134,7 +134,7 @@ public class ContentUpdateCommandTests
     {
         var fake = new FakeUmbracoManagementClient();
 
-        await RunAsync(fake, "content create --content-type blogPost --name Post", "{}");
+        await RunAsync(fake, "content create --document-type blogPost --name Post", "{}");
 
         Assert.Null(Assert.Single(fake.LastCreate!.Variants).Culture);
     }
@@ -161,7 +161,7 @@ public class ContentUpdateCommandTests
 
         var exit = await RunAsync(
             fake,
-            $"content update {Id} --json-body {{body}} --replace",
+            $"content update {Id} --json-body {{body}} --replace --yes",
             """{"values":[]}"""
         );
 

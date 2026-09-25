@@ -16,7 +16,7 @@ public static class RelationTypeCommand
     {
         var cmd = new Command(
             "relation-type",
-            "List and inspect relation types.\n\nExample:\n  umbraco relation-type list"
+            "List and inspect relation types.\n\nExamples:\n  umbraco relation-type list"
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildGet(executor));
@@ -25,13 +25,15 @@ public static class RelationTypeCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List relation types.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var cmd = new Command(
+            "list",
+            "List relation types.\n\nExamples:\n  umbraco relation-type list"
+        );
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "relation-type.list",
                     (client, skip, take, c) => client.GetRelationTypesAsync(skip, take, c),
                     new[] { "Id", "Alias", "Name", "Bidirectional" },
                     t => new[] { t.Id.ToString(), t.Alias, t.Name, t.IsBidirectional.ToString() },
@@ -45,14 +47,16 @@ public static class RelationTypeCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a relation type by UUID.");
+        var cmd = new Command(
+            "get",
+            "Get a relation type by id.\n\nExamples:\n  umbraco relation-type get 3f7a8b2e-..."
+        );
         var idArg = new Argument<Guid>("id") { Description = "Relation type ID." };
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "relation-type.get",
                     (client, c) => client.GetRelationTypeByIdAsync(parseResult.GetValue(idArg), c),
                     ct
                 )

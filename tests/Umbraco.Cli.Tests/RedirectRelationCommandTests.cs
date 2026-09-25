@@ -11,7 +11,7 @@ namespace Umbraco.Cli.Tests;
 
 /// <summary>
 /// Command-layer behaviour of the redirect and relation nouns (#118): option mapping (redirect
-/// list --content routing, relation --type) and confirmation gating on the redirect writes (delete,
+/// list --content-item routing, relation --relation-type) and confirmation gating on the redirect writes (delete,
 /// tracking toggle). Client HTTP behaviour is covered by the client tests.
 /// </summary>
 [Collection("ConsoleCapture")]
@@ -93,7 +93,7 @@ public class RedirectRelationCommandTests
         var root = BuildRoot(fake);
         var key = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} redirect list --content {key}");
+        var exit = await Run(root, $"{Auth} redirect list --content-item {key}");
 
         Assert.Equal(0, exit);
         Assert.Equal(key, fake.LastRedirectContentKey);
@@ -176,7 +176,7 @@ public class RedirectRelationCommandTests
         var root = BuildRoot(fake);
         var typeId = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} relation list --type {typeId}");
+        var exit = await Run(root, $"{Auth} relation list --relation-type {typeId}");
 
         Assert.Equal(0, exit);
         Assert.Equal(typeId, fake.LastRelationTypeQueried);
@@ -189,6 +189,6 @@ public class RedirectRelationCommandTests
 
         var parse = root.Parse($"{Auth} relation list");
 
-        Assert.NotEmpty(parse.Errors); // --type is required
+        Assert.NotEmpty(parse.Errors); // --relation-type is required
     }
 }

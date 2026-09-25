@@ -108,7 +108,7 @@ All reads: `list`, `tree`, `find`, `get`, `status`, `info`, `configuration`, `tr
 
 ### Tier SCOPED-WRITE (allowed only on entities you created this run)
 `create`, `update`, `delete`, `trash`, `restore`, `move`, `sort`, `copy`, `publish`, `unpublish`,
-`publish-descendants`, `upload`, `add-users`/`remove-users`, `from-document`, `rollback`,
+`publish-descendants`, `upload`, `add-users`/`remove-users`, `create --from-document`, `rollback`,
 `bulk publish/unpublish/delete`, saved-search create/delete, `schema apply` / `content apply`.
 (`content`/`media sort` reorders children; `dictionary move` reparents an item.)
 Run these **only** against the `clitest` namespace and the fixed ids in the
@@ -124,7 +124,7 @@ prove the CLI works:
 - `models-builder build` - regenerates server-side source.
 - `indexer rebuild` - expensive; degrades search while it runs.
 - `redirect tracking enable` / `redirect tracking disable` - toggles a **site-wide** behaviour.
-  If tested, read `redirect status` first and **restore the original value** after.
+  If tested, read `redirect tracking status` first and **restore the original value** after.
 - `health run` - a POST that executes health checks (some checks may have side effects).
 
 If a DANGER command is skipped, still write a ledger row with `status: "SKIP"` and
@@ -275,16 +275,16 @@ Run this even if earlier phases failed. Delete in reverse dependency order, by f
 umbraco content delete "$CLITEST_CONTENT_CHILD" --yes || true
 umbraco content delete "$CLITEST_CONTENT_ROOT"  --yes || true
 umbraco document-blueprint delete "$CLITEST_BLUEPRINT" --yes || true
-umbraco content-types delete "$CLITEST_DOCTYPE" --yes || true
+umbraco document-type delete "$CLITEST_DOCTYPE" --yes || true
 umbraco media delete "$CLITEST_MEDIA" --yes || true
-umbraco media-types delete "$CLITEST_MEDIATYPE" --yes || true
-umbraco data-types delete "$CLITEST_DATATYPE" --yes || true
-umbraco user-groups delete "$CLITEST_USERGROUP" --yes || true
-umbraco languages delete "$CLITEST_LANG" --yes || true
+umbraco media-type delete "$CLITEST_MEDIATYPE" --yes || true
+umbraco data-type delete "$CLITEST_DATATYPE" --yes || true
+umbraco user-group delete "$CLITEST_USERGROUP" --yes || true
+umbraco language delete "$CLITEST_LANG" --yes || true
 umbraco dictionary delete "$CLITEST_DICT" --yes || true
-umbraco webhooks delete "$CLITEST_WEBHOOK" --yes || true
-umbraco member-groups delete "$CLITEST_MEMBERGROUP" --yes || true
-umbraco members delete "$CLITEST_MEMBER" --yes || true
+umbraco webhook delete "$CLITEST_WEBHOOK" --yes || true
+umbraco member-group delete "$CLITEST_MEMBERGROUP" --yes || true
+umbraco member delete "$CLITEST_MEMBER" --yes || true
 umbraco script delete "clitest/clitest.js" --yes || true
 umbraco stylesheet delete "clitest/clitest.css" --yes || true
 umbraco partial-view delete "clitest/clitest.cshtml" --yes || true
@@ -385,7 +385,7 @@ Verifies the agent safety rails. These are high-value: a broken guardrail is a `
 
 | ID | Command | Expect |
 |---|---|---|
-| T-C-01 | `umbraco content create --content-type clitestDocType --name "x" --readonly` | refused; exit `2`; error says read-only. No entity created. |
+| T-C-01 | `umbraco content create --document-type clitestDocType --name "x" --readonly` | refused; exit `2`; error says read-only. No entity created. |
 | T-C-02 | `UMBRACO_READONLY=1 umbraco content delete <any> ` | refused; exit `2`. |
 | T-C-03 | read under readonly: `umbraco content list --readonly` | exit 0 (reads unaffected). |
 | T-C-04 | `UMBRACO_ALLOWED_COMMANDS=media umbraco content list` | blocked; exit `2` (content not in allow-list). |
@@ -394,7 +394,7 @@ Verifies the agent safety rails. These are high-value: a broken guardrail is a `
 | T-C-07 | `UMBRACO_ALLOWED_COMMANDS=" " umbraco content list` | explicit lockdown; blocked; exit `2` (present-but-blank != unset). |
 | T-C-08 | `UMBRACO_ALLOWED_COMMANDS=content.list umbraco content get <id>` | blocked; exit `2` (full-name entry allows only `content.list`). |
 | T-C-09 | destructive without TTY and without `--yes`: `echo "" | umbraco content delete <test-id>` (piped) | refused; exit `2`; nothing deleted. |
-| T-C-10 | `--dry-run` on a write: `umbraco webhooks create --url https://x --events x --dry-run` | exit 0; `{status:"dry-run", request:{method,url,body}}`; **no** webhook created (verify via list). |
+| T-C-10 | `--dry-run` on a write: `umbraco webhook create --url https://x --event x --dry-run` | exit 0; `{status:"dry-run", request:{method,url,body}}`; **no** webhook created (verify via list). |
 | T-C-11 | idempotent create: run the same `create --id <fixed>` twice | second run does not create a duplicate (list count unchanged); both exit 0 or the second is a clean no-op/upsert. Record behaviour. |
 
 ---
@@ -411,35 +411,35 @@ envelope, record a finding `coverage.<noun>.<verb>` with the stderr message (thi
 
 ```bash
 umbraco content list ; umbraco content get <id>
-umbraco content versions <id>
+umbraco content version list <id>
 umbraco media list ; umbraco media get <id>
-umbraco content-types list ; umbraco content-types get <id|alias>
-umbraco media-types list ; umbraco media-types get <id>
-umbraco data-types list ; umbraco data-types get <id> ; umbraco data-types is-used <id> ; umbraco data-types referenced-by <id>
+umbraco document-type list ; umbraco document-type get <id|alias>
+umbraco media-type list ; umbraco media-type get <id>
+umbraco data-type list ; umbraco data-type get <id> ; umbraco data-type is-used <id> ; umbraco data-type referenced-by <id>
 umbraco document-blueprint list ; umbraco document-blueprint get <id> ; umbraco document-blueprint scaffold <id>
-umbraco languages list
-umbraco templates list ; umbraco templates get <alias>
-umbraco members list ; umbraco members get <id|email>
-umbraco member-types list ; umbraco member-types get <id>
-umbraco member-groups list ; umbraco member-groups get <id>
-umbraco users list ; umbraco users get <id|email>
-umbraco user-groups list ; umbraco user-groups get <id>
+umbraco language list
+umbraco template list ; umbraco template get <alias>
+umbraco member list ; umbraco member get <id|email>
+umbraco member-type list ; umbraco member-type get <id>
+umbraco member-group list ; umbraco member-group get <id>
+umbraco user list ; umbraco user get <id|email>
+umbraco user-group list ; umbraco user-group get <id>
 umbraco user-data list
 umbraco dictionary list ; umbraco dictionary get <key>
-umbraco webhooks list
+umbraco webhook list
 umbraco script list ; umbraco script get <path>
 umbraco stylesheet list ; umbraco partial-view list
-umbraco tags list ; umbraco cultures list
+umbraco tag list ; umbraco culture list
 umbraco server status ; umbraco server info ; umbraco server configuration ; umbraco server troubleshooting
 umbraco health list ; umbraco health get <group>
-umbraco log-viewer log --take 5 ; umbraco log-viewer levels ; umbraco log-viewer level-count ; umbraco log-viewer message-templates ; umbraco log-viewer saved-search list
+umbraco log-viewer list --take 5 ; umbraco log-viewer levels ; umbraco log-viewer level-count ; umbraco log-viewer message-templates ; umbraco log-viewer saved-search list
 umbraco manifest list
-umbraco redirect list ; umbraco redirect status
-umbraco relation-type list ; umbraco relation-type get <id> ; umbraco relation list --type <relationTypeId>
+umbraco redirect list ; umbraco redirect tracking status
+umbraco relation-type list ; umbraco relation-type get <id> ; umbraco relation list --relation-type <relationTypeId>
 umbraco indexer list ; umbraco indexer get <name>
 umbraco searcher list ; umbraco searcher query <name> --term test
 umbraco imaging resize-urls --id <mediaGuid> --width 100
-umbraco property-type is-used --content-type <id> --alias <alias>
+umbraco property-type is-used --document-type <id> --alias <alias>
 ```
 
 Also verify **help** for every command: `umbraco <cmd> --help` exits 0 and is non-empty
@@ -455,40 +455,40 @@ follow-up read, not just the write's own success envelope.
 
 **E1 Data type -> content type -> content (the core path).**
 
-1. `data-types create --name "clitest DataType" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox --id $CLITEST_DATATYPE` -> exit 0.
-2. `content-types create --name "clitest DocType" --alias clitestDocType --id $CLITEST_DOCTYPE` (allow at root) -> exit 0. (If root-allow needs a `--json-body`, build it and use `--schema` to validate the body first.)
-3. `content create --content-type clitestDocType --name "clitest Root" --id $CLITEST_CONTENT_ROOT` -> exit 0; `content get $CLITEST_CONTENT_ROOT` shows the name.
-4. `content create --content-type clitestDocType --name "clitest Child" --parent $CLITEST_CONTENT_ROOT --id $CLITEST_CONTENT_CHILD` -> exit 0; parent is the root.
+1. `data-type create --name "clitest DataType" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox --id $CLITEST_DATATYPE` -> exit 0.
+2. `document-type create --name "clitest DocType" --alias clitestDocType --id $CLITEST_DOCTYPE` (allow at root) -> exit 0. (If root-allow needs a `--json-body`, build it and use `--schema` to validate the body first.)
+3. `content create --document-type clitestDocType --name "clitest Root" --id $CLITEST_CONTENT_ROOT` -> exit 0; `content get $CLITEST_CONTENT_ROOT` shows the name.
+4. `content create --document-type clitestDocType --name "clitest Child" --parent $CLITEST_CONTENT_ROOT --id $CLITEST_CONTENT_CHILD` -> exit 0; parent is the root.
 5. `content update $CLITEST_CONTENT_ROOT --json-body -` (change the name) -> exit 0; a `get` reflects the new name. **If the get shows the old value, that is `content.update.no-op`.**
 5a. **Merge (#179).** Give the doc type a second property, set both, then `content update` naming only the first. Read the document back from the Management API (`GET /umbraco/management/api/v1/document/{id}`, since `content get` returns no values - #168). **The second property must still hold its value.** If it is empty, that is `content.update.clobbers-unlisted`.
 5b. **Template preservation (#178).** Confirm `template` is still set on that same read-back. **If it is null, that is `content.update.drops-template`** - the bug that 404'd every page in the 2026-09-23 round.
 5c. **Replace opt-out.** Repeat 5a with `--replace`; this time the second property *must* be cleared, and the template must *still* be set.
 5d. **Template flag (#162).** `content update $CLITEST_CONTENT_ROOT --json-body - --template <alias>` -> the read-back shows that template. An unknown alias must fail with a message naming it, not succeed silently.
 6. `content publish $CLITEST_CONTENT_ROOT` -> exit 0 **and the document actually reports published**. Check with `content get` (`isPublished: true`) or a Management API read of `variants[].state`. **Exit 0 alone is not a pass** - the #158 no-op returned exit 0 and `{"status":"success"}` while publishing nothing, for two releases. Then `content unpublish $CLITEST_CONTENT_ROOT --yes` -> exit 0, and confirm it is no longer published.
-6a. **Variant publish (#158).** On a culture-varying document, `content publish <id>` with no `--cultures` must publish *every* culture, not 400. `"*"` is not a wildcard - it is the invariant culture - so a regression here shows up as `400 "Cannot publish invariant culture when the document varies by culture."`
-7. `content versions $CLITEST_CONTENT_ROOT` lists >= 2; `content rollback <versionId>` -> exit 0.
+6a. **Variant publish (#158).** On a culture-varying document, `content publish <id>` with no `--culture` must publish *every* culture, not 400. `"*"` is not a wildcard - it is the invariant culture - so a regression here shows up as `400 "Cannot publish invariant culture when the document varies by culture."`
+7. `content version list $CLITEST_CONTENT_ROOT` lists >= 2; `content version rollback <versionId>` -> exit 0.
 8. `content trash $CLITEST_CONTENT_CHILD` -> exit 0 (in bin); `content restore $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (back).
 9. `content copy $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (record the copy's id and delete it in teardown).
 10. `content move` the copy to root then back -> exit 0.
 
-**E2 Document blueprint.** `document-blueprint from-document $CLITEST_CONTENT_ROOT --name "clitest BP" --id $CLITEST_BLUEPRINT`; then `get`, `scaffold`, `update`, and a folder create/update/delete.
+**E2 Document blueprint.** `document-blueprint create --from-document $CLITEST_CONTENT_ROOT --name "clitest BP" --id $CLITEST_BLUEPRINT`; then `get`, `scaffold`, `update`, and a folder create/update/delete.
 
-**E3 Media.** `media-types create ... --id $CLITEST_MEDIATYPE`; `media upload ./<small-file> --name "clitest media" --media-type "clitest MediaType" --id $CLITEST_MEDIA`; `get`; `trash`/`restore`; `move`.
+**E3 Media.** `media-type create ... --id $CLITEST_MEDIATYPE`; `media upload ./<small-file> --name "clitest media" --media-type "clitest MediaType" --id $CLITEST_MEDIA`; `get`; `trash`/`restore`; `move`.
 
 **E4 Static files (x3 nouns).** For `script`, `stylesheet`, `partial-view`: `create --name clitest.<ext> --parent clitest --content "..."`; `get <path>` shows the content; `update` changes it; `get` reflects the change.
 
-**E5 Localization.** `languages create --culture fr-FR` (pick a culture the site does not
-already have; languages are keyed by iso-code, there is no `--id`); `languages update fr-FR
---name "clitest French"`; delete in teardown. `dictionary create --key clitest --values
+**E5 Localization.** `language create --culture fr-FR` (pick a culture the site does not
+already have; languages are keyed by iso-code, there is no `--id`); `language update fr-FR
+--name "clitest French"`; delete in teardown. `dictionary create --key clitest --value
 en=Hello --id $CLITEST_DICT`; `get`; delete in teardown.
 
-**E6 Users & groups.** `user-groups create --alias clitestGroup --name "clitest Group" --id $CLITEST_USERGROUP`; `add-users`/`remove-users` with an existing user id (read from `users list`); `update`; delete-many in teardown. `users invite` -> record but note it sends an email; prefer a throwaway address or SKIP with `note:"sends-email"` on a shared instance.
+**E6 Users & groups.** `user-group create --alias clitestGroup --name "clitest Group" --id $CLITEST_USERGROUP`; `add-users`/`remove-users` with an existing user id (read from `user list`); `update`; `delete` in teardown. `user invite` -> record but note it sends an email; prefer a throwaway address or SKIP with `note:"sends-email"` on a shared instance.
 
-**E7 Members.** `member-types create --alias clitestMemberType --name "clitest MT"`; `members create --email clitest@example.com --name "clitest Member" --type clitestMemberType --id $CLITEST_MEMBER`; `update --approved`; `member-groups create --name "clitest MG" --id $CLITEST_MEMBERGROUP`.
+**E7 Members.** `member-type create --alias clitestMemberType --name "clitest MT"`; `member create --email clitest@example.com --name "clitest Member" --type clitestMemberType --id $CLITEST_MEMBER`; `update --approved`; `member-group create --name "clitest MG" --id $CLITEST_MEMBERGROUP`.
 
-**E8 Webhooks.** `webhooks create --url https://example.com/hook --events "Umbraco.ContentPublish" --name "clitest hook" --id $CLITEST_WEBHOOK`; `list` shows it; delete in teardown.
+**E8 Webhooks.** `webhook create --url https://example.com/hook --event "Umbraco.ContentPublish" --name "clitest hook" --id $CLITEST_WEBHOOK`; `list` shows it; delete in teardown.
 
-**E9 user-data.** `user-data create --group clitest --identifier clitest-1 --value "v" --key $CLITEST_USERDATA`; `get`; `update`; delete in teardown.
+**E9 user-data.** `user-data create --group clitest --identifier clitest-1 --data "v" --id $CLITEST_USERDATA`; `get`; `update`; delete in teardown.
 
 **E10 log-viewer saved search.** `saved-search create --name clitest-errors --query "@Level='Error'"`; `list` shows it; delete in teardown.
 
@@ -551,7 +551,7 @@ Only if `RUN_DANGEROUS=1` **and** a human confirmed the instance is disposable. 
 | T-H-01 | `umbraco health run <group> --yes` | POST; low risk but may have side effects. Record results. |
 | T-H-02 | `umbraco indexer rebuild <name> --yes` | expensive; degrades search while running. |
 | T-H-03 | `umbraco models-builder status` then `models-builder build --yes` | regenerates server source; only where that is acceptable. |
-| T-H-04 | `redirect status` -> `redirect tracking disable --yes` -> `redirect status` -> **restore** to original (`enable`/`disable`) -> `redirect status` | site-wide toggle; you MUST restore the original value. |
+| T-H-04 | `redirect tracking status` -> `redirect tracking disable --yes` -> `redirect tracking status` -> **restore** to original (`enable`/`disable`) -> `redirect tracking status` | site-wide toggle; you MUST restore the original value. |
 | T-H-05 | `content empty-recycle-bin` / `media empty-recycle-bin` | default SKIP even here unless the bin is known to hold only your test items. |
 
 ---

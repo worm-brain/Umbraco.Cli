@@ -7,8 +7,8 @@ public static class TemplatesCommand
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "templates",
-            "List, inspect, and manage Razor view templates defined in the Umbraco instance.\n\nExamples:\n  umbraco templates list\n  umbraco templates create --name Home --alias home"
+            "template",
+            "List, inspect, and manage Razor view templates defined in the Umbraco instance.\n\nExamples:\n  umbraco template list\n  umbraco template create --name Home --alias home"
         );
         cmd.Add(TemplatesListCommand.Build(executor));
         cmd.Add(TemplatesGetCommand.Build(executor));

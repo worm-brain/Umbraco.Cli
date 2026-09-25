@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -29,7 +30,7 @@ public static class MediaFolderCommand
         var cmd = new Command(
             "create",
             "Create a media folder.\n\nA folder is an ordinary media item of the Folder media type, so it is deleted, moved and trashed with the usual media verbs.\n\nExamples:\n  umbraco media folder create --name Blog\n  umbraco media folder create --name 2026 --parent 3f7a8b2e-..."
-        );
+        ).Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
@@ -37,11 +38,11 @@ public static class MediaFolderCommand
         };
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Parent folder UUID. Creates at the media root when omitted.",
+            Description = "Parent folder id. Creates at the media root when omitted.",
         };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
@@ -51,7 +52,6 @@ public static class MediaFolderCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "media.folder.create",
                     (client, c) =>
                         client.CreateMediaFolderAsync(
                             parseResult.GetValue(nameOpt)!,

@@ -15,7 +15,7 @@ namespace Umbraco.Cli.Infrastructure;
 /// <param name="Commands">Nested sub-commands.</param>
 /// <param name="Mutating">
 /// True for a leaf command that changes server state (an API write). Agents should treat these
-/// as blocked under <c>--readonly</c>. Derived from the command verb (#84).
+/// as blocked under <c>--readonly</c>. Declared by the command itself (#258).
 /// </param>
 /// <param name="Destructive">
 /// True for a leaf command gated by a confirmation prompt — i.e. one that requires <c>--yes</c>
@@ -88,11 +88,11 @@ public static class CommandCatalog
         var isLeaf = command.Subcommands.Count == 0;
         // Destructive comes from the command's own CommandSafety declaration - the same one the
         // executor gates on - so "needs --yes" in the catalog cannot drift from the real gate
-        // (#255). A destructive command is always mutating, whatever its verb.
+        // (#255). Mutating comes from the command's own declaration too (#258): every write
+        // declares .Mutating(), and a destructive command is always mutating.
         var destructive = isLeaf && CommandSafety.IsAlwaysDestructive(command);
         var destructiveWhen = isLeaf ? CommandSafety.DestructiveWhen(command) : null;
-        var mutating =
-            isLeaf && (CommandSafety.IsDeclared(command) || MutatingVerbs.Contains(command.Name));
+        var mutating = isLeaf && CommandSafety.IsDeclaredMutating(command);
         var acceptsJsonBody = command.Options.Any(o => o.Name == "--json-body");
 
         return new CommandCatalogNode(
@@ -112,41 +112,6 @@ public static class CommandCatalog
             destructiveWhen
         );
     }
-
-    /// <summary>
-    /// Leaf verbs that change server state (an API write). Kept as a verb set (not a
-    /// hand-maintained per-command list) so a new command following the standard verb naming is
-    /// classified automatically, matching #60's no-drift goal. Extend when a new mutating verb
-    /// is introduced (#84).
-    /// </summary>
-    private static readonly HashSet<string> MutatingVerbs = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "create",
-        "update",
-        "delete",
-        "publish",
-        "unpublish",
-        "upload",
-        "move",
-        "copy",
-        "trash",
-        "restore",
-        "rollback",
-        "empty-recycle-bin",
-        "publish-descendants",
-        "invite",
-        // schema apply writes (create/update, and delete under --prune) — #68. schema export
-        // and diff are reads and are deliberately absent.
-        "apply",
-        // Site-state switches and server-side jobs that write (#255).
-        "enable",
-        "disable",
-        "build",
-        "rebuild",
-        "delete-many",
-        "add-users",
-        "remove-users",
-    };
 
     private static CommandCatalogArgument DescribeArgument(Argument argument) =>
         new(
@@ -188,7 +153,7 @@ public static class CommandCatalog
     private static string FriendlyType(Type type)
     {
         var t = Nullable.GetUnderlyingType(type) ?? type;
-        // A multi-valued option/argument (e.g. --events) surfaces as "string[]" rather than
+        // A multi-valued option/argument (e.g. --event) surfaces as "string[]" rather than
         // the CLR "String[]".
         if (t.IsArray)
             return FriendlyType(t.GetElementType()!) + "[]";

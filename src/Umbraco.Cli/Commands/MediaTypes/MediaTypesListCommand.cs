@@ -2,11 +2,11 @@ using System.CommandLine;
 
 namespace Umbraco.Cli.Commands.MediaTypes;
 
-/// <summary>Wires the <c>media-types list</c> command (issue #55).</summary>
+/// <summary>Wires the <c>media-type list</c> command (issue #55).</summary>
 public static class MediaTypesListCommand
 {
     /// <summary>
-    /// Builds the <c>media-types list</c> command. Backed by the media-type tree root, which
+    /// Builds the <c>media-type list</c> command. Backed by the media-type tree root, which
     /// exposes id/name/icon per item; alias and description require a single-item <c>get</c>.
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
@@ -15,14 +15,13 @@ public static class MediaTypesListCommand
     {
         var cmd = new Command(
             "list",
-            "List media types defined in the Umbraco instance.\n\nExamples:\n  umbraco media-types list\n  umbraco media-types list --output json | jq '.[].name'"
+            "List media types defined in the Umbraco instance.\n\nExamples:\n  umbraco media-type list\n  umbraco media-type list --output json | jq '.data[].name'"
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "media-types.list",
                     (client, skip, take, c) => client.GetMediaTypesAsync(skip, take, c),
                     ["ID", "Name", "Icon"],
                     i => new[] { i.Id.ToString(), i.Name, i.Icon ?? "" },

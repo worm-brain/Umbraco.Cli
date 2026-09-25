@@ -69,12 +69,12 @@ public class ReferenceResolverWireTests
     }
 
     [Fact]
-    public async Task ResolveIdAsync_UnknownTemplate_Is404NamingTheListCommand()
+    public async Task ResolveIdAsync_UnknownTemplate_IsInvalidArgumentNamingTheListCommand()
     {
         var result = await Wire.Client(Templates()).ResolveIdAsync(EntityKind.Template, "nope");
 
-        Assert.Equal(404, result.StatusCode);
-        Assert.Contains("umbraco templates list", result.ErrorMessage);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
+        Assert.Contains("umbraco template list", result.ErrorMessage);
     }
 
     private static readonly Guid Brochure = Guid.Parse("22222222-0000-0000-0000-000000000001");
@@ -105,7 +105,7 @@ public class ReferenceResolverWireTests
     [Fact]
     public async Task GetMediaTypesAsync_FillsTheAlias()
     {
-        // #221: media-types list showed "alias": "" for every type.
+        // #221: media-type list showed "alias": "" for every type.
         var result = await Wire.Client(MediaTypes()).GetMediaTypesAsync(0, 20);
 
         Assert.Equal("brochure", Assert.Single(result.Data!.Items).Alias);
@@ -149,7 +149,7 @@ public class ReferenceResolverWireTests
 
         var result = await Wire.Client(handler).ResolveIdAsync(EntityKind.DataType, "Tags");
 
-        Assert.Equal(409, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains(a.ToString(), result.ErrorMessage);
         Assert.Contains(b.ToString(), result.ErrorMessage);
     }

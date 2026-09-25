@@ -89,10 +89,10 @@ public class TypeLookupAndDictionaryTests
             .ResolveIdAsync(EntityKind.DataType, "NotARealDataType", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(404, result.StatusCode);
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains("NotARealDataType", result.ErrorMessage);
         // The message has to say what to do next, not just that it failed.
-        Assert.Contains("data-types list", result.ErrorMessage);
+        Assert.Contains("data-type list", result.ErrorMessage);
     }
 
     // ── #181: translations reported as saved that Umbraco discarded ───────────

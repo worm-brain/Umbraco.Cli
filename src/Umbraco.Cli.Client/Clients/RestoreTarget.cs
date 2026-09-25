@@ -8,24 +8,24 @@ public abstract record RestoreTarget
 {
     private RestoreTarget() { }
 
-    /// <summary>The parent the document was trashed from (the root if it came from there).</summary>
+    /// <summary>The parent the item was trashed from (the root if it came from there).</summary>
     public static RestoreTarget Original { get; } = new OriginalParent();
 
-    /// <summary>The content root, whatever the original parent was.</summary>
+    /// <summary>The tree root (content or media), whatever the original parent was.</summary>
     public static RestoreTarget Root { get; } = new ContentRoot();
 
     /// <summary>A parent the caller names.</summary>
-    /// <param name="id">The parent document id.</param>
+    /// <param name="id">The parent id.</param>
     /// <returns>The target.</returns>
     public static RestoreTarget Under(Guid id) => new UnderParent(id);
 
     /// <summary>Restore under the original parent.</summary>
     public sealed record OriginalParent : RestoreTarget;
 
-    /// <summary>Restore at the content root.</summary>
+    /// <summary>Restore at the tree root.</summary>
     public sealed record ContentRoot : RestoreTarget;
 
     /// <summary>Restore under a named parent.</summary>
-    /// <param name="Id">The parent document id.</param>
+    /// <param name="Id">The parent id.</param>
     public sealed record UnderParent(Guid Id) : RestoreTarget;
 }

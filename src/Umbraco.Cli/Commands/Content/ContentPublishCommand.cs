@@ -9,22 +9,22 @@ public static class ContentPublishCommand
     {
         var cmd = new Command(
             "publish",
-            "Publish a content item, making it live. Optionally target specific cultures.\n\nExamples:\n  umbraco content publish 3f7a8b2e-...\n  umbraco content publish 3f7a8b2e-... --cultures en-US da-DK"
-        );
+            "Publish a content item, making it live. Optionally target specific cultures.\n\nExamples:\n  umbraco content publish 3f7a8b2e-...\n  umbraco content publish 3f7a8b2e-... --culture en-US da-DK"
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         var culturesOpt = ListOption.Strings(
-            "--cultures",
+            "--culture",
             "ISO culture codes to publish (e.g. en-US da-DK). Publishes all cultures if omitted."
         );
         var publishAtOpt = new Option<DateTimeOffset?>("--publish-at")
         {
             Description =
-                "Schedule the publish for a future time (ISO 8601, e.g. 2026-01-01T09:00:00Z). Publishes now if omitted (#90).",
+                "Schedule the publish for a future time (ISO 8601, e.g. 2026-01-01T09:00:00Z). Publishes now if omitted.",
         };
         var unpublishAtOpt = new Option<DateTimeOffset?>("--unpublish-at")
         {
             Description =
-                "Schedule an automatic unpublish at a future time (ISO 8601). Stays published if omitted (#90).",
+                "Schedule an automatic unpublish at a future time (ISO 8601). Stays published if omitted.",
         };
         cmd.Add(idArg);
         cmd.Add(culturesOpt);
@@ -35,22 +35,31 @@ public static class ContentPublishCommand
             (parseResult, ct) =>
             {
                 var cultures = parseResult.GetValue(culturesOpt);
+                var publishAt = parseResult.GetValue(publishAtOpt);
+                var unpublishAt = parseResult.GetValue(unpublishAtOpt);
                 return executor.RunMessageAsync(
                     parseResult,
-                    "content.publish",
                     (client, c) =>
-                        client.PublishContentAsync(
-                            parseResult.GetValue(idArg),
-                            cultures?.Length > 0 ? cultures : null,
-                            parseResult.GetValue(publishAtOpt),
-                            parseResult.GetValue(unpublishAtOpt),
-                            c
-                        ),
-                    SuccessMessage(
-                        parseResult.GetValue(publishAtOpt),
-                        parseResult.GetValue(unpublishAtOpt),
-                        cultures
-                    ),
+                        client
+                            .PublishContentAsync(
+                                parseResult.GetValue(idArg),
+                                cultures?.Length > 0 ? cultures : null,
+                                publishAt,
+                                unpublishAt,
+                                c
+                            )
+                            // The data says what happened, as the message does: a scheduled
+                            // publish leaves the item as it was until then (#239).
+                            .Then(
+                                new PublishResult(
+                                    parseResult.GetValue(idArg).ToString(),
+                                    Published: publishAt is null,
+                                    publishAt,
+                                    unpublishAt,
+                                    cultures is { Length: > 0 } ? cultures : null
+                                )
+                            ),
+                    SuccessMessage(publishAt, unpublishAt, cultures),
                     ct
                 );
             }
@@ -66,9 +75,9 @@ public static class ContentPublishCommand
     /// </summary>
     /// <param name="publishAt">When the publish is scheduled for, or null to publish now.</param>
     /// <param name="unpublishAt">When an unpublish is scheduled for, or null for none.</param>
-    /// <param name="cultures">The cultures named with <c>--cultures</c>, if any.</param>
+    /// <param name="cultures">The cultures named with <c>--culture</c>, if any.</param>
     /// <returns>The message.</returns>
-    private static string SuccessMessage(
+    internal static string SuccessMessage(
         DateTimeOffset? publishAt,
         DateTimeOffset? unpublishAt,
         string[]? cultures
@@ -93,4 +102,18 @@ public static class ContentPublishCommand
             "yyyy-MM-dd'T'HH:mm:ss'Z'",
             System.Globalization.CultureInfo.InvariantCulture
         );
+
+    /// <summary>The data of a publish: the item, and whether it is published now or only scheduled.</summary>
+    /// <param name="Id">The content item's id.</param>
+    /// <param name="Published">True when published now; false when the publish is only scheduled.</param>
+    /// <param name="PublishAt">When the publish is scheduled for, or null.</param>
+    /// <param name="UnpublishAt">When an unpublish is scheduled for, or null.</param>
+    /// <param name="Cultures">The cultures published, or null for all.</param>
+    internal sealed record PublishResult(
+        string Id,
+        bool Published,
+        DateTimeOffset? PublishAt,
+        DateTimeOffset? UnpublishAt,
+        IReadOnlyList<string>? Cultures
+    );
 }

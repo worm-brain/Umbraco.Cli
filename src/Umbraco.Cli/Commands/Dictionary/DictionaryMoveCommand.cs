@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
@@ -14,8 +15,8 @@ public static class DictionaryMoveCommand
         var cmd = new Command(
             "move",
             "Move a dictionary item under a new parent.\n\nExamples:\n  umbraco dictionary move Blog.Tags --parent Blog\n  umbraco dictionary move Blog.Tags   # to the dictionary root"
-        );
-        var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
+        ).Mutating();
+        var idArg = Reference.Argument(EntityKind.DictionaryItem);
         var targetOpt = Reference.Option(
             "--parent",
             EntityKind.DictionaryItem,
@@ -28,7 +29,6 @@ public static class DictionaryMoveCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "dictionary.move",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
@@ -37,7 +37,10 @@ public static class DictionaryMoveCommand
                                 targetOpt.WithResolvedOptionalAsync(
                                     parseResult,
                                     client,
-                                    target => client.MoveDictionaryItemAsync(id, target, c),
+                                    target =>
+                                        client
+                                            .MoveDictionaryItemAsync(id, target, c)
+                                            .Then(ItemRef.Of(id)),
                                     c
                                 ),
                             c

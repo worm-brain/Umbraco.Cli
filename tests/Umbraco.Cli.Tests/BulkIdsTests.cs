@@ -38,4 +38,23 @@ public class BulkIdsTests
             File.Delete(path);
         }
     }
+
+    [Fact]
+    public void Parse_StdinWithAByteOrderMark_ReadsTheFirstIdIntact()
+    {
+        // A producer that writes UTF-8 with a BOM (PowerShell, .NET's Encoding.UTF8) must not turn
+        // the first id into garbage that fails as "not a valid GUID".
+        var bytes = System.Text.Encoding.UTF8.GetPreamble()
+            .Concat(System.Text.Encoding.UTF8.GetBytes("3f7a8b2e-1234-5678-abcd-ef0123456789\n"))
+            .ToArray();
+        using var reader = new StreamReader(
+            new MemoryStream(bytes),
+            new System.Text.UTF8Encoding(false),
+            detectEncodingFromByteOrderMarks: true
+        );
+
+        var ids = Umbraco.Cli.Commands.Content.Bulk.BulkIds.Parse(reader);
+
+        Assert.Equal(["3f7a8b2e-1234-5678-abcd-ef0123456789"], ids);
+    }
 }

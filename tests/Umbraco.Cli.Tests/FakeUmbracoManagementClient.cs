@@ -419,11 +419,18 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<Empty>> TrashMediaAsync(Guid id, CancellationToken ct = default) =>
         throw new NotImplementedException();
 
+    /// <summary>The (id, target) of the last media restore.</summary>
+    public (Guid Id, RestoreTarget? Target)? LastMediaRestore { get; private set; }
+
     public Task<UmbracoResponse<Empty>> RestoreMediaAsync(
         Guid id,
-        Guid? parentId = null,
+        RestoreTarget? target = null,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastMediaRestore = (id, target);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<Empty>> EmptyMediaRecycleBinAsync(CancellationToken ct = default) =>
         throw new NotImplementedException();
@@ -766,11 +773,23 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
             UmbracoResponse<int>.Success(MemberCountsByType.GetValueOrDefault(memberTypeId))
         );
 
+    /// <summary>The users <see cref="GetUsersAsync"/> pages through.</summary>
+    public List<UserResponse> UserList { get; } = [];
+
     public Task<UmbracoResponse<PagedResponse<UserResponse>>> GetUsersAsync(
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<UserResponse>>.Success(
+                new PagedResponse<UserResponse>
+                {
+                    Total = UserList.Count,
+                    Items = UserList.Skip(skip).Take(take).ToList(),
+                }
+            )
+        );
 
     public Task<UmbracoResponse<UserResponse>> GetUserByIdAsync(
         Guid id,
@@ -846,6 +865,24 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
                     Items = DictionaryTreeItems.Skip(skip).Take(take).ToList(),
                 }
             )
+        );
+    }
+
+    /// <summary>The subtree <see cref="WalkDictionaryTreeAsync"/> returns.</summary>
+    public List<TreeItem> DictionaryWalk { get; } = [];
+
+    /// <summary>The (parent, maxDepth) of the last dictionary walk.</summary>
+    public (Guid? Parent, int MaxDepth)? LastDictionaryWalk { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<TreeItem>>> WalkDictionaryTreeAsync(
+        Guid? parentId,
+        int maxDepth,
+        CancellationToken ct = default
+    )
+    {
+        LastDictionaryWalk = (parentId, maxDepth);
+        return Task.FromResult(
+            UmbracoResponse<IReadOnlyList<TreeItem>>.Success(DictionaryWalk.ToList())
         );
     }
 
@@ -1063,6 +1100,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         // Recorded both ways: the round-trip tests look at the merge call, the apply tests at
         // the write it amounts to (an apply update is a replace).
         LastSchemaMerge = (kind, id, body, replace);
+        // Leave the merged item readable, as the server does, so a read-back after it works.
+        var store = SchemaStore(kind).Store;
+        if (
+            replace
+            || !store.TryGetValue(id, out var current)
+            || current is not JsonObject existing
+        )
+            store[id] = body.DeepClone();
+        else
+            foreach (var (key, value) in body.AsObject())
+                existing[key] = value?.DeepClone();
         return RecordWrite(SchemaStore(kind).Tag, id, body);
     }
 

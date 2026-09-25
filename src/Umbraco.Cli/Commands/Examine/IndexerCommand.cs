@@ -27,13 +27,15 @@ public static class IndexerCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List the Examine indexes.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var cmd = new Command(
+            "list",
+            "List the Examine indexes.\n\nExamples:\n  umbraco indexer list\n  umbraco indexer list --output json"
+        );
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "indexer.list",
                     (client, skip, take, c) => client.GetIndexersAsync(skip, take, c),
                     new[] { "Name", "Health", "Documents", "CanRebuild" },
                     i =>
@@ -54,14 +56,16 @@ public static class IndexerCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get an index by name.");
+        var cmd = new Command(
+            "get",
+            "Get an index by name.\n\nExamples:\n  umbraco indexer get ExternalIndex"
+        );
         var nameArg = new Argument<string>("name") { Description = "Index name." };
         cmd.Add(nameArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "indexer.get",
                     (client, c) => client.GetIndexerAsync(parseResult.GetValue(nameArg)!, c),
                     ct
                 )
@@ -71,18 +75,20 @@ public static class IndexerCommand
 
     private static Command BuildRebuild(CommandExecutor executor)
     {
-        var cmd = new Command("rebuild", "Rebuild an index by name (expensive).");
+        var cmd = new Command(
+            "rebuild",
+            "Rebuild an index by name (expensive).\n\nExamples:\n  umbraco indexer rebuild ExternalIndex"
+        ).Mutating();
         var nameArg = new Argument<string>("name") { Description = "Index name." };
         cmd.Add(nameArg);
-        cmd.Destructive(parseResult =>
-            $"Rebuild index '{parseResult.GetValue(nameArg)}'? This can be expensive."
-        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "indexer.rebuild",
-                    (client, c) => client.RebuildIndexAsync(parseResult.GetValue(nameArg)!, c),
+                    (client, c) =>
+                        client
+                            .RebuildIndexAsync(parseResult.GetValue(nameArg)!, c)
+                            .Then(ItemRef.Of(parseResult.GetValue(nameArg))),
                     "Index rebuild triggered.",
                     ct
                 )

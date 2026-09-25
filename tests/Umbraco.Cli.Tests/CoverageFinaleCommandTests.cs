@@ -79,15 +79,16 @@ public class CoverageFinaleCommandTests
     private const string Auth = "--host https://x --token t --output json";
 
     [Fact]
-    public async Task IndexerRebuild_NonInteractiveWithoutYes_Aborts()
+    public async Task IndexerRebuild_NonInteractiveWithoutYes_Runs()
     {
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
         var exit = await Run(root, $"{Auth} indexer rebuild ExternalIndex");
 
-        Assert.Equal(2, exit);
-        Assert.Empty(fake.IndexesRebuilt);
+        // A rebuild loses nothing, so cost alone does not gate it (docs/conventions.md 5.2).
+        Assert.Equal(0, exit);
+        Assert.Single(fake.IndexesRebuilt);
     }
 
     [Fact]
@@ -121,7 +122,7 @@ public class CoverageFinaleCommandTests
         var root = BuildRoot(fake);
         var id = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} imaging resize-urls --id {id} --width 300 --mode Crop");
+        var exit = await Run(root, $"{Auth} imaging resize-urls {id} --width 300 --mode Crop");
 
         Assert.Equal(0, exit);
         Assert.NotNull(fake.LastResizeUrls);
@@ -138,7 +139,7 @@ public class CoverageFinaleCommandTests
         var id = Guid.NewGuid();
         var target = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} --yes data-types move {id} --target {target}");
+        var exit = await Run(root, $"{Auth} --yes data-type move {id} --target {target}");
 
         Assert.Equal(0, exit);
         var (movedId, movedTarget) = Assert.Single(fake.DataTypesMoved);
@@ -153,7 +154,7 @@ public class CoverageFinaleCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
-        var exit = await Run(root, $"{Auth} data-types copy {Guid.NewGuid()}");
+        var exit = await Run(root, $"{Auth} data-type copy {Guid.NewGuid()}");
 
         Assert.Equal(0, exit);
         Assert.Single(fake.DataTypesCopied);
@@ -168,7 +169,7 @@ public class CoverageFinaleCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} data-types folder create --name Pickers --parent {parent}"
+            $"{Auth} data-type folder create --name Pickers --parent {parent}"
         );
 
         Assert.Equal(0, exit);
@@ -183,7 +184,7 @@ public class CoverageFinaleCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
-        var exit = await Run(root, $"{Auth} data-types folder delete {Guid.NewGuid()}");
+        var exit = await Run(root, $"{Auth} data-type folder delete {Guid.NewGuid()}");
 
         Assert.Equal(2, exit);
         Assert.Empty(fake.DataTypeFoldersDeleted);
@@ -198,7 +199,7 @@ public class CoverageFinaleCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} property-type is-used --content-type {ctId} --alias bodyText"
+            $"{Auth} property-type is-used --document-type {ctId} --alias bodyText"
         );
 
         Assert.Equal(0, exit);

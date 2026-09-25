@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Diagnostics;
 
@@ -27,13 +28,15 @@ public static class HealthCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List the health-check groups.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var cmd = new Command(
+            "list",
+            "List the health-check groups.\n\nExamples:\n  umbraco health list\n  umbraco health list --output json"
+        );
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "health.list",
                     (client, skip, take, c) => client.GetHealthCheckGroupsAsync(skip, take, c),
                     new[] { "Name" },
                     g => new[] { g.Name },
@@ -47,14 +50,16 @@ public static class HealthCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Show a health-check group and the checks it contains.");
+        var cmd = new Command(
+            "get",
+            "Get a health-check group and the checks it contains.\n\nExamples:\n  umbraco health get \"Data Integrity\"\n  umbraco health get Security"
+        );
         var nameArg = new Argument<string>("name") { Description = "Health-check group name." };
         cmd.Add(nameArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "health.get",
                     (client, c) =>
                         client.GetHealthCheckGroupAsync(parseResult.GetValue(nameArg)!, c),
                     ct
@@ -65,14 +70,17 @@ public static class HealthCommand
 
     private static Command BuildRun(CommandExecutor executor)
     {
-        var cmd = new Command("run", "Run a health-check group and show the results.");
+        // A POST: it runs the checks server-side, so --readonly blocks it and the catalog says so.
+        var cmd = new Command(
+            "run",
+            "Run a health-check group and show the results.\n\nExamples:\n  umbraco health run \"Data Integrity\"\n  umbraco health run Security --output json"
+        ).Mutating();
         var nameArg = new Argument<string>("name") { Description = "Health-check group name." };
         cmd.Add(nameArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "health.run",
                     (client, c) =>
                         client.RunHealthCheckGroupAsync(parseResult.GetValue(nameArg)!, c),
                     ct

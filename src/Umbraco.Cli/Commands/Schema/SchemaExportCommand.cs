@@ -54,7 +54,6 @@ public static class SchemaExportCommand
             (parseResult, ct) =>
                 executor.RunAsync(
                     parseResult,
-                    "schema.export",
                     (client, c) => SchemaExporter.ExportAsync(client, c),
                     (ctx, snapshot) =>
                     {

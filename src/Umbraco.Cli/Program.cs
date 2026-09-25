@@ -109,100 +109,29 @@ var globalOptions = sp.GetRequiredService<GlobalOptions>();
 var executor = sp.GetRequiredService<CommandExecutor>();
 
 // ── Root command ──────────────────────────────────────────────────────────────
-var root = new RootCommand(
-    "Umbraco CLI — manage your Umbraco CMS from the terminal.\n\n"
-        + "Quick start:\n"
-        + "  umbraco auth login --host https://mysite.com\n"
-        + "  umbraco content list --output json\n"
-        + "  umbraco content list | jq '.data[].name'\n\n"
-        + "All commands support --output json (default when stdout is piped).\n"
-        + "Use UMBRACO_HOST, UMBRACO_CLIENT_ID, UMBRACO_CLIENT_SECRET for CI/CD."
+// The whole tree is assembled in CliRoot so the tests and the surface snapshot see the same one.
+var root = CliRoot.Build(
+    globalOptions,
+    configStore,
+    authService,
+    executor,
+    sp.GetRequiredService<IHttpClientFactory>(),
+    sp.GetRequiredService<IUmbracoManagementClientFactory>()
 );
-
-// Global options are recursive — available on every command.
-globalOptions.AddTo(root);
-
-// ── Sub-commands ──────────────────────────────────────────────────────────────
-root.Add(
-    AuthCommand.Build(
-        globalOptions,
-        configStore,
-        authService,
-        executor,
-        sp.GetRequiredService<IHttpClientFactory>(),
-        sp.GetRequiredService<IUmbracoManagementClientFactory>()
-    )
-);
-root.Add(ContentCommand.Build(executor));
-root.Add(MediaCommand.Build(executor));
-root.Add(MediaTypesCommand.Build(executor));
-root.Add(ContentTypesCommand.Build(executor));
-root.Add(DataTypesCommand.Build(executor));
-root.Add(LanguagesCommand.Build(executor));
-root.Add(TemplatesCommand.Build(executor));
-root.Add(MembersCommand.Build(executor));
-root.Add(MemberTypesCommand.Build(executor));
-root.Add(UsersCommand.Build(executor));
-root.Add(DictionaryCommand.Build(executor));
-root.Add(WebhooksCommand.Build(executor));
-root.Add(SchemaCommand.Build(executor));
-
-// Static-file resources: one factory, three nouns (#105).
-root.Add(StaticFileCommand.Build(executor, StaticFileKind.Script, "script", "script"));
-root.Add(StaticFileCommand.Build(executor, StaticFileKind.Stylesheet, "stylesheet", "stylesheet"));
-root.Add(
-    StaticFileCommand.Build(executor, StaticFileKind.PartialView, "partial-view", "partial view")
-);
-
-// Small coverage resources (#107).
-root.Add(MemberGroupsCommand.Build(executor));
-root.Add(TagsCommand.Build(executor));
-root.Add(CulturesCommand.Build(executor));
-
-// User-administration resources (#109).
-root.Add(UserGroupsCommand.Build(executor));
-root.Add(UserDataCommand.Build(executor));
-
-// Document blueprints / content templates (#113).
-root.Add(DocumentBlueprintCommand.Build(executor));
-
-// Read-only diagnostics: server, health, log-viewer, models-builder, manifest (#115).
-root.Add(ServerCommand.Build(executor));
-root.Add(HealthCommand.Build(executor));
-root.Add(LogViewerCommand.Build(executor));
-root.Add(ModelsBuilderCommand.Build(executor));
-root.Add(ManifestCommand.Build(executor));
-
-// Redirects and relations (#118).
-root.Add(RedirectCommand.Build(executor));
-root.Add(RelationTypeCommand.Build(executor));
-root.Add(RelationCommand.Build(executor));
-
-// Examine, imaging, property-type (#121).
-root.Add(IndexerCommand.Build(executor));
-root.Add(SearcherCommand.Build(executor));
-root.Add(ImagingCommand.Build(executor));
-root.Add(PropertyTypeCommand.Build(executor));
-
-// Machine-readable command catalog for agents (#60). Added last and given the root so it can
-// describe the fully-assembled tree (including itself).
-root.Add(CommandsCommand.Build(globalOptions, root));
-
-// Richer --version (#95): replace System.CommandLine's default version action so the output
-// reports the tool version, target framework and runtime instead of just the assembly version.
-foreach (var option in root.Options)
-{
-    if (option is VersionOption versionOption)
-        versionOption.Action = new VersionCommandAction();
-}
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 // Parse with response-file expansion disabled (#115) so option values beginning with '@'
 // (e.g. Serilog log-viewer filters like "@Level='Error'") are passed through verbatim.
-// Readable parse errors for every id and date option, installed once on the finished tree.
-ValueParsing.Apply(root);
-
 var parsed = root.Parse(args, CliParserConfiguration.Create());
+
+// Names renamed by #268 still run for one release, with a warning (LegacyNames). Re-parse after
+// each rewrite: a line can hold an old noun and an old sub-noun.
+while (LegacyNames.TryRewrite(parsed, args, out var rewritten, out var warning))
+{
+    Console.Error.WriteLine(warning);
+    args = rewritten;
+    parsed = root.Parse(args, CliParserConfiguration.Create());
+}
 
 // #167: System.CommandLine reports a parse error as plain text plus the help screen, whichever
 // output format was asked for - so `... -o json | jq` failed on the help text instead of reading

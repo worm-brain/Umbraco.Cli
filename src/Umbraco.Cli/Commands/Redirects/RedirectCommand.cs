@@ -18,10 +18,9 @@ public static class RedirectCommand
     {
         var cmd = new Command(
             "redirect",
-            "List and manage tracked URL redirects.\n\nExamples:\n  umbraco redirect list --filter old-page\n  umbraco redirect status"
+            "List and manage tracked URL redirects.\n\nExamples:\n  umbraco redirect list --filter old-page\n  umbraco redirect tracking status"
         );
         cmd.Add(BuildList(executor));
-        cmd.Add(BuildStatus(executor));
         cmd.Add(BuildDelete(executor));
         cmd.Add(BuildTracking(executor));
         return cmd;
@@ -31,24 +30,23 @@ public static class RedirectCommand
     {
         var cmd = new Command(
             "list",
-            "List redirects. With --content, lists redirects pointing at that document."
+            "List redirects. With --content-item, lists redirects pointing at that document.\n\nExamples:\n  umbraco redirect list\n  umbraco redirect list --filter old-page\n  umbraco redirect list --content-item <id>"
         );
-        var contentOpt = new Option<Guid?>("--content")
+        var contentOpt = new Option<Guid?>("--content-item")
         {
             Description = "List redirects for this destination document (content key).",
         };
         var filterOpt = new Option<string?>("--filter")
         {
-            Description = "Filter redirects by URL text (ignored with --content).",
+            Description = "Filter redirects by URL text (ignored with --content-item).",
         };
         cmd.Add(contentOpt);
         cmd.Add(filterOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "redirect.list",
                     (client, skip, take, c) =>
                     {
                         return parseResult.GetValue(contentOpt) is { } key
@@ -73,12 +71,14 @@ public static class RedirectCommand
 
     private static Command BuildStatus(CommandExecutor executor)
     {
-        var cmd = new Command("status", "Show whether automatic URL-redirect tracking is enabled.");
+        var cmd = new Command(
+            "status",
+            "Show whether automatic URL-redirect tracking is enabled.\n\nExamples:\n  umbraco redirect tracking status"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "redirect.status",
                     (client, c) => client.GetRedirectStatusAsync(c),
                     ct
                 )
@@ -88,7 +88,10 @@ public static class RedirectCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a redirect by UUID.");
+        var cmd = new Command(
+            "delete",
+            "Delete a redirect by id.\n\nExamples:\n  umbraco redirect delete 3f7a8b2e-... --yes"
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Redirect ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult => $"Delete redirect {parseResult.GetValue(idArg)}?");
@@ -96,8 +99,10 @@ public static class RedirectCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "redirect.delete",
-                    (client, c) => client.DeleteRedirectAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteRedirectAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Redirect deleted.",
                     ct
                 )
@@ -107,7 +112,12 @@ public static class RedirectCommand
 
     private static Command BuildTracking(CommandExecutor executor)
     {
-        var cmd = new Command("tracking", "Enable or disable automatic URL-redirect tracking.");
+        var cmd = new Command(
+            "tracking",
+            "Show, enable or disable automatic URL-redirect tracking."
+        );
+        // The tracking state is read here, beside the switches that change it.
+        cmd.Add(BuildStatus(executor));
         cmd.Add(BuildTrackingToggle(executor, "enable", enabled: true));
         cmd.Add(BuildTrackingToggle(executor, "disable", enabled: false));
         return cmd;
@@ -120,7 +130,10 @@ public static class RedirectCommand
     /// <returns>The configured verb command.</returns>
     private static Command BuildTrackingToggle(CommandExecutor executor, string verb, bool enabled)
     {
-        var cmd = new Command(verb, $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking.");
+        var cmd = new Command(
+            verb,
+            $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking.\n\nExamples:\n  umbraco redirect tracking {verb}{(enabled ? "" : " --yes")}"
+        ).Mutating();
         // Only disabling is gated: it stops Umbraco recording redirects site-wide, so moved pages
         // start to 404. Enabling turns a protection on and needs no --yes (#249).
         if (!enabled)
@@ -129,8 +142,11 @@ public static class RedirectCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    $"redirect.tracking.{verb}",
-                    (client, c) => client.SetRedirectTrackingAsync(enabled, c),
+                    // No target: the data is the state the switch left, as 'redirect tracking status' shows it.
+                    (client, c) =>
+                        client
+                            .SetRedirectTrackingAsync(enabled, c)
+                            .ThenRead(() => client.GetRedirectStatusAsync(c)),
                     $"URL-redirect tracking {(enabled ? "enabled" : "disabled")}.",
                     ct
                 )

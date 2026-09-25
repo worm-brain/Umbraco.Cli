@@ -1,3 +1,4 @@
+using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.Content;
 
 namespace Umbraco.Cli.Tests;
@@ -72,7 +73,7 @@ public class ContentCreateBodyTests
     {
         var body = $$"""{ "id": "{{Guid.NewGuid()}}", "contentType": { "alias": "blogPost" } }""";
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<InvalidInputException>(() =>
             ContentCreateCommand.ReadCreateRequest(body, Guid.NewGuid())
         );
 
@@ -82,7 +83,7 @@ public class ContentCreateBodyTests
     [Fact]
     public void ReadCreateRequest_NoDocumentType_SaysWhatToSet()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<InvalidInputException>(() =>
             ContentCreateCommand.ReadCreateRequest("""{ "variants": [ { "name": "P" } ] }""", null)
         );
 

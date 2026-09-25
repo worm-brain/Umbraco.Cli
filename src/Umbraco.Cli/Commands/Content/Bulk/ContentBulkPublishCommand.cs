@@ -13,14 +13,14 @@ public static class ContentBulkPublishCommand
     {
         var cmd = new Command(
             "publish",
-            "Publish many content items by id (ids from --file or stdin).\n\nExample:\n  umbraco content list --fields id | umbraco content bulk publish"
-        );
+            "Publish many content items by id (ids from --file or stdin).\n\nExamples:\n  umbraco content list --fields id | umbraco content bulk publish\n  umbraco content bulk publish --file ids.txt --culture en-US"
+        ).Mutating();
         var fileOpt = new Option<FileInfo?>("--file")
         {
             Description = "File of ids (one per line). Reads stdin when omitted.",
         };
         var culturesOpt = ListOption.Strings(
-            "--cultures",
+            "--culture",
             "ISO culture codes to publish. Publishes all cultures if omitted."
         );
         cmd.Add(fileOpt);
@@ -32,7 +32,6 @@ public static class ContentBulkPublishCommand
                 var effective = cultures?.Length > 0 ? cultures : null;
                 return executor.RunBulkAsync(
                     parseResult,
-                    "content.bulk.publish",
                     () => BulkIds.Read(parseResult.GetValue(fileOpt)),
                     (client, id, c) => client.PublishContentAsync(id, effective, ct: c),
                     ct

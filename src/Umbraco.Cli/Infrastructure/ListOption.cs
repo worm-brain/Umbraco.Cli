@@ -4,14 +4,14 @@ namespace Umbraco.Cli.Infrastructure;
 
 /// <summary>
 /// The one shape for an option that takes several values (#231, #232): repeat the option, give
-/// several values after it, <b>or</b> separate them with commas - <c>--cultures en-US,da-DK</c>,
-/// <c>--cultures en-US da-DK</c> and <c>--cultures en-US --cultures da-DK</c> all mean the same.
-/// The docs had always said <c>--cultures &lt;csv&gt;</c>, but a comma list was sent as one culture
-/// (a 400), and <c>--children id1,id2</c> was a GUID parse error.
+/// several values after it, <b>or</b> separate them with commas - <c>--culture en-US,da-DK</c>,
+/// <c>--culture en-US da-DK</c> and <c>--culture en-US --culture da-DK</c> all mean the same.
+/// The docs had always said <c>--culture &lt;csv&gt;</c>, but a comma list was sent as one culture
+/// (a 400), and <c>--order id1,id2</c> was a GUID parse error.
 /// <para>
 /// Splitting on commas is safe for every value these options take - culture codes, GUIDs, aliases,
 /// section and permission aliases, log levels, event names - none of which can contain one. The
-/// <c>key=value</c> options (<c>--value</c>, <c>--values</c>, <c>--domain</c>) deliberately do not
+/// <c>key=value</c> options (<c>--value</c>, <c>--value</c>, <c>--domain</c>) deliberately do not
 /// use this: a value may contain a comma.
 /// </para>
 /// </summary>

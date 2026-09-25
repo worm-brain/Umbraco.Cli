@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -13,7 +14,7 @@ public static class ContentMoveCommand
         var cmd = new Command(
             "move",
             "Move a content item under a new parent.\n\nExamples:\n  umbraco content move 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content move 3f7a8b2e-...   # to the content root"
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID to move." };
         var parentOpt = new Option<Guid?>("--parent", "--target")
         {
@@ -25,13 +26,14 @@ public static class ContentMoveCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content.move",
                     (client, c) =>
-                        client.MoveContentAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(parentOpt),
-                            c
-                        ),
+                        client
+                            .MoveContentAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(parentOpt),
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Content moved.",
                     ct
                 )

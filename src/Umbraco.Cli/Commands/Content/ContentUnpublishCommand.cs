@@ -17,11 +17,11 @@ public static class ContentUnpublishCommand
     {
         var cmd = new Command(
             "unpublish",
-            "Unpublish a content item, taking it offline. Optionally target specific cultures.\n\nExamples:\n  umbraco content unpublish 3f7a8b2e-...\n  umbraco content unpublish 3f7a8b2e-... --cultures en-US"
-        );
+            "Unpublish a content item, taking it offline.\n\nOptionally target specific cultures.\n\nExamples:\n  umbraco content unpublish 3f7a8b2e-...\n  umbraco content unpublish 3f7a8b2e-... --culture en-US"
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         var culturesOpt = ListOption.Strings(
-            "--cultures",
+            "--culture",
             "ISO culture codes to unpublish. Unpublishes all cultures if omitted."
         );
         cmd.Add(idArg);
@@ -36,13 +36,14 @@ public static class ContentUnpublishCommand
                 var cultures = parseResult.GetValue(culturesOpt);
                 return executor.RunMessageAsync(
                     parseResult,
-                    "content.unpublish",
                     (client, c) =>
-                        client.UnpublishContentAsync(
-                            parseResult.GetValue(idArg),
-                            cultures?.Length > 0 ? cultures : null,
-                            c
-                        ),
+                        client
+                            .UnpublishContentAsync(
+                                parseResult.GetValue(idArg),
+                                cultures?.Length > 0 ? cultures : null,
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Content item unpublished.",
                     ct
                 );

@@ -6,9 +6,9 @@ namespace Umbraco.Cli.Commands.UserData;
 
 /// <summary>
 /// Wires the <c>user-data</c> noun (issue #109) and its list/get/create/update/delete verbs.
-/// User data is key/value state scoped to the authenticated user; <c>update</c> is a
-/// collection-level PUT that carries the target key in the body, so it takes <c>--key</c>
-/// rather than a positional id argument.
+/// User data is key/value state scoped to the authenticated user. <c>update</c> is a
+/// collection-level PUT that carries the entry's key in the body; the CLI takes it as the
+/// positional <c>&lt;id&gt;</c>, like every other update.
 /// </summary>
 public static class UserDataCommand
 {
@@ -19,7 +19,7 @@ public static class UserDataCommand
     {
         var cmd = new Command(
             "user-data",
-            "List, inspect, and manage the authenticated user's key/value data.\n\nExamples:\n  umbraco user-data list --group myGroup\n  umbraco user-data create --group myGroup --identifier theme --value dark"
+            "List, inspect, and manage the authenticated user's key/value data.\n\nExamples:\n  umbraco user-data list --group myGroup\n  umbraco user-data create --group myGroup --identifier theme --data dark"
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildGet(executor));
@@ -33,7 +33,8 @@ public static class UserDataCommand
     {
         var cmd = new Command(
             "list",
-            "List user-data entries, optionally filtered by group/identifier."
+            "List user-data entries, optionally filtered by group/identifier.\n\n"
+                + "Examples:\n  umbraco user-data list\n  umbraco user-data list --group myGroup --identifier theme"
         );
         var groupOpt = new Option<string?>("--group") { Description = "Filter by group." };
         var identifierOpt = new Option<string?>("--identifier")
@@ -42,12 +43,11 @@ public static class UserDataCommand
         };
         cmd.Add(groupOpt);
         cmd.Add(identifierOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "user-data.list",
                     (client, skip, take, c) =>
                         client.GetUserDataAsync(
                             parseResult.GetValue(groupOpt),
@@ -68,14 +68,16 @@ public static class UserDataCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a user-data entry by key.");
-        var idArg = new Argument<Guid>("key") { Description = "Entry key." };
+        var cmd = new Command(
+            "get",
+            "Get a user-data entry by id.\n\nExamples:\n  umbraco user-data get 3f7a8b2e-..."
+        );
+        var idArg = new Argument<Guid>("id") { Description = "The entry's id (its key)." };
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "user-data.get",
                     (client, c) => client.GetUserDataByIdAsync(parseResult.GetValue(idArg), c),
                     ct
                 )
@@ -87,22 +89,23 @@ public static class UserDataCommand
     {
         var cmd = new Command(
             "create",
-            "Create a user-data entry.\n\nExample:\n  umbraco user-data create --group myGroup --identifier theme --value dark"
-        );
+            "Create a user-data entry.\n\nExamples:\n  umbraco user-data create --group myGroup --identifier theme --data dark"
+        ).Mutating();
         var groupOpt = new Option<string>("--group") { Required = true, Description = "Group." };
         var identifierOpt = new Option<string>("--identifier")
         {
             Required = true,
             Description = "Identifier within the group.",
         };
-        var valueOpt = new Option<string>("--value")
+        // --data, not --value: across the CLI --value means an alias=value pair.
+        var valueOpt = new Option<string>("--data")
         {
             Required = true,
             Description = "Value to store.",
         };
-        var keyOpt = new Option<Guid?>("--key")
+        var keyOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(groupOpt);
         cmd.Add(identifierOpt);
@@ -112,7 +115,6 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "user-data.create",
                     (client, c) =>
                         client.CreateUserDataAsync(
                             new CreateUserDataRequest
@@ -130,48 +132,27 @@ public static class UserDataCommand
         return cmd;
     }
 
+    /// <summary>
+    /// Builds <c>user-data update</c>: reads the entry and lays the given options over it, so an
+    /// omitted one keeps its value (docs/conventions.md 5.1). The API takes the whole entry.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     private static Command BuildUpdate(CommandExecutor executor)
     {
         var cmd = new Command(
             "update",
-            "Update a user-data entry by key.\n\nExample:\n  umbraco user-data update <key> --group myGroup --identifier theme --value light"
-        );
-        // #242: every other update takes its id positionally, as user-data get and delete do.
-        // --key still works, so existing scripts keep running.
-        var keyArg = new Argument<Guid?>("key")
+            "Update a user-data entry by id. Omitted options keep their values.\n\nExamples:\n  umbraco user-data update <id> --data light"
+        ).Mutating();
+        // The id is positional, as on every other update (#242).
+        var keyArg = new Argument<Guid>("id") { Description = "The entry's id (its key)." };
+        var groupOpt = new Option<string?>("--group") { Description = "New group." };
+        var identifierOpt = new Option<string?>("--identifier")
         {
-            Description = "Key of the entry to update.",
-            Arity = ArgumentArity.ZeroOrOne,
+            Description = "New identifier within the group.",
         };
-        var keyOpt = new Option<Guid?>("--key")
-        {
-            Description = "Key of the entry to update (the same as the positional key).",
-        };
-        var groupOpt = new Option<string>("--group") { Required = true, Description = "Group." };
-        var identifierOpt = new Option<string>("--identifier")
-        {
-            Required = true,
-            Description = "Identifier within the group.",
-        };
-        var valueOpt = new Option<string>("--value")
-        {
-            Required = true,
-            Description = "New value to store.",
-        };
+        var valueOpt = new Option<string?>("--data") { Description = "New value to store." };
         cmd.Add(keyArg);
-        cmd.Add(keyOpt);
-        cmd.Validators.Add(result =>
-        {
-            if (
-                !result.TryGetValue(keyArg, out var positional)
-                || !result.TryGetValue(keyOpt, out var option)
-            )
-                return;
-            if (positional is null && option is null)
-                result.AddError("Give the entry's key: 'user-data update <key> ...'.");
-            else if (positional is not null && option is not null && positional != option)
-                result.AddError("The positional key and --key disagree; give one.");
-        });
         cmd.Add(groupOpt);
         cmd.Add(identifierOpt);
         cmd.Add(valueOpt);
@@ -179,21 +160,28 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "user-data.update",
-                    (client, c) =>
-                        client.UpdateUserDataAsync(
-                            new UpdateUserDataRequest
-                            {
-                                // The validator guarantees one of them was given.
-                                Key = (
-                                    parseResult.GetValue(keyArg) ?? parseResult.GetValue(keyOpt)
-                                )!.Value,
-                                Group = parseResult.GetValue(groupOpt)!,
-                                Identifier = parseResult.GetValue(identifierOpt)!,
-                                Value = parseResult.GetValue(valueOpt)!,
-                            },
-                            c
-                        ),
+                    async (client, c) =>
+                    {
+                        var key = parseResult.GetValue(keyArg);
+                        var current = await client.GetUserDataByIdAsync(key, c);
+                        if (!current.IsSuccess)
+                            return UmbracoResponse<UserDataResponse>.FailureFrom(current);
+                        // An update's data is the resulting entry, as get shows it.
+                        return await client
+                            .UpdateUserDataAsync(
+                                new UpdateUserDataRequest
+                                {
+                                    Key = key,
+                                    Group = parseResult.GetValue(groupOpt) ?? current.Data!.Group,
+                                    Identifier =
+                                        parseResult.GetValue(identifierOpt)
+                                        ?? current.Data!.Identifier,
+                                    Value = parseResult.GetValue(valueOpt) ?? current.Data!.Value,
+                                },
+                                c
+                            )
+                            .ThenRead(() => client.GetUserDataByIdAsync(key, c));
+                    },
                     "User-data entry updated.",
                     ct
                 )
@@ -203,8 +191,11 @@ public static class UserDataCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a user-data entry by key.");
-        var idArg = new Argument<Guid>("key") { Description = "Entry key." };
+        var cmd = new Command(
+            "delete",
+            "Delete a user-data entry by id.\n\nExamples:\n  umbraco user-data delete 3f7a8b2e-... --yes"
+        ).Mutating();
+        var idArg = new Argument<Guid>("id") { Description = "The entry's id (its key)." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
             $"Permanently delete user-data entry {parseResult.GetValue(idArg)}?"
@@ -213,8 +204,10 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "user-data.delete",
-                    (client, c) => client.DeleteUserDataAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .DeleteUserDataAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "User-data entry deleted.",
                     ct
                 )

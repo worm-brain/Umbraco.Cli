@@ -72,14 +72,17 @@ public interface IMediaClient
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> TrashMediaAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>Restores a media item from the recycle bin (issue #67).</summary>
+    /// <summary>
+    /// Restores a media item from the recycle bin (issue #67): to its original parent by default,
+    /// as content restore does (#265), or to the root or a named parent.
+    /// </summary>
     /// <param name="id">The trashed media item id.</param>
-    /// <param name="parentId">Target parent to restore under; null restores to the root.</param>
+    /// <param name="target">Where to restore it; null means the original parent.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> RestoreMediaAsync(
         Guid id,
-        Guid? parentId = null,
+        RestoreTarget? target = null,
         CancellationToken ct = default
     );
 

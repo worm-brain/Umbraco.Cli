@@ -7,8 +7,8 @@ public static class ContentTypesCommand
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "content-types",
-            "List, inspect, and manage Umbraco document types (content types).\n\nExamples:\n  umbraco content-types list\n  umbraco content-types get textPage\n  umbraco content-types create --name \"Blog Post\" --alias blogPost"
+            "document-type",
+            "List, inspect, and manage Umbraco document types.\n\nExamples:\n  umbraco document-type list\n  umbraco document-type get textPage\n  umbraco document-type create --name \"Blog Post\" --alias blogPost"
         );
         cmd.Add(ContentTypesListCommand.Build(executor));
         cmd.Add(ContentTypesGetCommand.Build(executor));

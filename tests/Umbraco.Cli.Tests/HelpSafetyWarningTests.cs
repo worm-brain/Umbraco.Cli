@@ -15,7 +15,7 @@ namespace Umbraco.Cli.Tests;
 /// obligations: the write semantics of <c>content update</c> must be stated, including how to opt
 /// into the destructive one (#178/#179); and the help must agree with what the command actually
 /// does. The second one started as "must not advertise a capability the CLI lacks" - the false
-/// claims on <c>content-types get</c> (#160) and <c>media get</c> (#172) sent a test agent down a
+/// claims on <c>document-type get</c> (#160) and <c>media get</c> (#172) sent a test agent down a
 /// dead end in the 2026-09-23 round (#187). Phase 3 made both claims true, so these now assert the
 /// capability is described rather than absent; the point is that the two never drift apart.
 /// </summary>
@@ -61,7 +61,7 @@ public class HelpSafetyWarningTests
     [Fact]
     public void DictionaryHelp_ExamplesUseFullCultureCodes()
     {
-        // #210: "--values en=Home" always fails since #181 validates against the site's
+        // #210: "--value en=Home" always fails since #181 validates against the site's
         // isoCodes (en-US). Covers the noun's examples, create's examples and the option text.
         var dictionary = Umbraco.Cli.Commands.Dictionary.DictionaryCommand.Build(BuildExecutor());
         var create = Assert.Single(dictionary.Subcommands, c => c.Name == "create");
@@ -69,10 +69,10 @@ public class HelpSafetyWarningTests
             "\n",
             dictionary.Description,
             create.Description,
-            Assert.Single(create.Options, o => o.Name == "--values").Description
+            Assert.Single(create.Options, o => o.Name == "--value").Description
         );
 
-        Assert.DoesNotMatch(@"--values [a-z]{2}=", help);
+        Assert.DoesNotMatch(@"--value [a-z]{2}=", help);
     }
 
     [Fact]

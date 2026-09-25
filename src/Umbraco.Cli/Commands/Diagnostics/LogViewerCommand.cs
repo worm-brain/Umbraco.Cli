@@ -18,7 +18,7 @@ public static class LogViewerCommand
     {
         var cmd = new Command(
             "log-viewer",
-            "Query the Umbraco logs.\n\nExamples:\n  umbraco log-viewer log --level Error --take 50\n  umbraco log-viewer level-count"
+            "Query the Umbraco logs.\n\nExamples:\n  umbraco log-viewer list --level Error --take 50\n  umbraco log-viewer level-count"
         );
         cmd.Add(BuildLog(executor));
         cmd.Add(BuildLevels(executor));
@@ -31,8 +31,8 @@ public static class LogViewerCommand
     private static Command BuildLog(CommandExecutor executor)
     {
         var cmd = new Command(
-            "log",
-            "List log messages, optionally filtered by level/date/expression."
+            "list",
+            "List log messages, optionally filtered by level/date/expression.\n\nExamples:\n  umbraco log-viewer list --level Error --take 50\n  umbraco log-viewer list --start-date 2026-09-01 --end-date 2026-09-02 --asc\n  umbraco log-viewer list --filter \"@Level='Error' and Has(@Exception)\""
         );
         var levelOpt = ListOption.Enums<LogLevel>(
             "--level",
@@ -50,11 +50,11 @@ public static class LogViewerCommand
         {
             Description = "Only messages on/before this date.",
         };
-        var ascendingOpt = new Option<bool>("--ascending")
+        var ascendingOpt = new Option<bool>("--asc")
         {
             Description = "Order oldest-first (default is newest-first).",
         };
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.Add(levelOpt);
         cmd.Add(filterOpt);
         cmd.Add(startOpt);
@@ -64,7 +64,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "log-viewer.log",
                     (client, skip, take, c) =>
                         client.GetLogsAsync(
                             parseResult.GetValue(skipOpt),
@@ -88,13 +87,15 @@ public static class LogViewerCommand
 
     private static Command BuildLevels(CommandExecutor executor)
     {
-        var cmd = new Command("levels", "List the configured loggers and their minimum levels.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var cmd = new Command(
+            "levels",
+            "List the configured loggers and their minimum levels.\n\nExamples:\n  umbraco log-viewer levels"
+        );
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "log-viewer.levels",
                     (client, skip, take, c) => client.GetLogLevelsAsync(skip, take, c),
                     new[] { "Name", "Level" },
                     l => new[] { l.Name, l.Level ?? "" },
@@ -108,7 +109,10 @@ public static class LogViewerCommand
 
     private static Command BuildLevelCount(CommandExecutor executor)
     {
-        var cmd = new Command("level-count", "Show message counts by level over a date range.");
+        var cmd = new Command(
+            "level-count",
+            "Show message counts by level over a date range.\n\nExamples:\n  umbraco log-viewer level-count\n  umbraco log-viewer level-count --start-date 2026-09-01 --end-date 2026-09-08"
+        );
         var startOpt = new Option<DateTimeOffset?>("--start-date") { Description = "Range start." };
         var endOpt = new Option<DateTimeOffset?>("--end-date") { Description = "Range end." };
         cmd.Add(startOpt);
@@ -117,7 +121,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "log-viewer.level-count",
                     (client, c) =>
                         client.GetLogLevelCountsAsync(
                             parseResult.GetValue(startOpt),
@@ -132,17 +135,19 @@ public static class LogViewerCommand
 
     private static Command BuildMessageTemplates(CommandExecutor executor)
     {
-        var cmd = new Command("message-templates", "List the most common message templates.");
+        var cmd = new Command(
+            "message-templates",
+            "List the most common message templates.\n\nExamples:\n  umbraco log-viewer message-templates --take 20\n  umbraco log-viewer message-templates --start-date 2026-09-01"
+        );
         var startOpt = new Option<DateTimeOffset?>("--start-date") { Description = "Range start." };
         var endOpt = new Option<DateTimeOffset?>("--end-date") { Description = "Range end." };
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.Add(startOpt);
         cmd.Add(endOpt);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "log-viewer.message-templates",
                     (client, skip, take, c) =>
                         client.GetLogMessageTemplatesAsync(
                             parseResult.GetValue(skipOpt),
@@ -172,13 +177,15 @@ public static class LogViewerCommand
 
     private static Command BuildSavedSearchList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List saved log searches.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var cmd = new Command(
+            "list",
+            "List saved log searches.\n\nExamples:\n  umbraco log-viewer saved-search list"
+        );
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "log-viewer.saved-search.list",
                     (client, skip, take, c) => client.GetSavedLogSearchesAsync(skip, take, c),
                     new[] { "Name", "Query" },
                     s => new[] { s.Name, s.Query },
@@ -192,7 +199,10 @@ public static class LogViewerCommand
 
     private static Command BuildSavedSearchCreate(CommandExecutor executor)
     {
-        var cmd = new Command("create", "Create a saved log search.");
+        var cmd = new Command(
+            "create",
+            "Create a saved log search.\n\nExamples:\n  umbraco log-viewer saved-search create --name Errors --query \"@Level='Error'\""
+        ).Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
@@ -209,7 +219,6 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "log-viewer.saved-search.create",
                     (client, c) =>
                         client.CreateSavedLogSearchAsync(
                             parseResult.GetValue(nameOpt)!,
@@ -224,7 +233,10 @@ public static class LogViewerCommand
 
     private static Command BuildSavedSearchDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a saved log search by name.");
+        var cmd = new Command(
+            "delete",
+            "Delete a saved log search by name.\n\nExamples:\n  umbraco log-viewer saved-search delete Errors --yes"
+        ).Mutating();
         var nameArg = new Argument<string>("name") { Description = "Saved search name." };
         cmd.Add(nameArg);
         cmd.Destructive(parseResult => $"Delete saved search '{parseResult.GetValue(nameArg)}'?");
@@ -232,9 +244,10 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "log-viewer.saved-search.delete",
                     (client, c) =>
-                        client.DeleteSavedLogSearchAsync(parseResult.GetValue(nameArg)!, c),
+                        client
+                            .DeleteSavedLogSearchAsync(parseResult.GetValue(nameArg)!, c)
+                            .Then(ItemRef.Of(parseResult.GetValue(nameArg))),
                     "Saved search deleted.",
                     ct
                 )

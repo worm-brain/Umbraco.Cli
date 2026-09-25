@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Infrastructure.Output;
 
@@ -71,26 +72,26 @@ public sealed class JsonOutputWriter : IOutputWriter
     }
 
     public void WriteError(
-        int exitCode,
+        ExitCode exitCode,
+        FailureCategory category,
         string message,
+        string? commandName,
         int? httpStatus = null,
-        string? category = null,
-        string? serverVersion = null,
-        string? commandName = null
+        string? serverVersion = null
     )
     {
-        // category/serverVersion are additive fields (#152); null ones are dropped by the
-        // WhenWritingNull policy, so a policy error (no category) keeps the original shape.
+        // serverVersion (#152) and httpStatus are dropped by the WhenWritingNull policy when
+        // they do not apply; category is always present.
         var envelope = new
         {
             status = "error",
             // #177: `code` used to be the CLI exit code sometimes and the HTTP status other
             // times, so it could not be acted on without knowing which. They are separate fields
             // now; `httpStatus` is absent when the failure never reached the server.
-            exitCode,
+            exitCode = (int)exitCode,
             httpStatus,
             message,
-            category,
+            category = category.ToWire(),
             serverVersion,
             meta = new
             {
@@ -147,23 +148,15 @@ public sealed class JsonOutputWriter : IOutputWriter
         // keeps meta identical to object output (#137). Shared shaping with the CSV writer.
         WriteSuccess(OutputShaping.TableToRecords(headers, rows), commandName, durationMs);
 
-    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
-    {
-        var envelope = new
-        {
-            status = "success",
-            message,
-            // Same meta shape as WriteSuccess so every success envelope agrees (#137).
-            meta = new
-            {
-                command = commandName,
-                durationMs,
-                timestamp = DateTimeOffset.UtcNow,
-                schemaVersion = SchemaVersion,
-            },
-        };
-        Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
-    }
+    public void WriteMessage(
+        object data,
+        string message,
+        string? commandName = null,
+        long? durationMs = null
+    ) =>
+        // The message is for people; structured output carries the data, in the same envelope as
+        // every other success (docs/conventions.md 6.2).
+        WriteSuccess(data, commandName, durationMs);
 
     /// <inheritdoc />
     public void WriteBulk(
@@ -200,7 +193,13 @@ public sealed class JsonOutputWriter : IOutputWriter
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
-    public void WriteDryRun(string method, string url, string? body)
+    public void WriteDryRun(
+        string method,
+        string url,
+        string? body,
+        string? commandName,
+        long? durationMs = null
+    )
     {
         // Embed the body as parsed JSON when it is valid JSON so the preview nests cleanly
         // for agents; otherwise fall back to the raw string. A dry run is a successful
@@ -218,7 +217,14 @@ public sealed class JsonOutputWriter : IOutputWriter
                 url,
                 body = parsedBody,
             },
-            meta = new { schemaVersion = SchemaVersion },
+            // The same meta as every other envelope (docs/conventions.md, section 6).
+            meta = new
+            {
+                command = commandName,
+                durationMs,
+                timestamp = DateTimeOffset.UtcNow,
+                schemaVersion = SchemaVersion,
+            },
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }

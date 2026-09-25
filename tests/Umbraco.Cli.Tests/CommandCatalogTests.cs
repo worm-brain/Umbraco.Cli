@@ -21,7 +21,7 @@ public class CommandCatalogTests
         verb.Add(new Argument<Guid>("id") { Description = "the id" });
         verb.Add(new Option<bool>("--yes", new[] { "-y" }) { Description = "skip prompt" });
         verb.Destructive(_ => "Delete it?");
-        var create = new Command("create");
+        var create = new Command("create").Mutating();
         create.Add(new Option<string>("--name") { Required = true });
         create.Add(new Option<string[]>("--tags"));
         noun.Add(verb);
@@ -174,7 +174,7 @@ public class CommandCatalogTests
         // #82: publishing is additive/low-impact, so it stays mutating-but-not-gated — the
         // catalog must not tell agents that `publish` needs --yes.
         var root = new RootCommand();
-        root.Add(new Command("publish"));
+        root.Add(new Command("publish").Mutating());
 
         var publish = CommandCatalog.Describe(root).Commands.Single(c => c.Name == "publish");
         Assert.True(publish.Mutating);
@@ -214,6 +214,99 @@ public class CommandCatalogTests
             .Commands.Single(c => c.Name == "content")
             .Commands.Single(c => c.Name == "create");
         Assert.True(createNode.AcceptsJsonBody);
+    }
+
+    /// <summary>
+    /// Verbs that always send a write. The catalog no longer infers anything from them (#258);
+    /// this list only lets the guard below catch a new write command that forgot to declare it.
+    /// </summary>
+    private static readonly HashSet<string> WriteVerbs =
+    [
+        "create",
+        "update",
+        "delete",
+        "publish",
+        "unpublish",
+        "upload",
+        "move",
+        "copy",
+        "trash",
+        "restore",
+        "rollback",
+        "empty-recycle-bin",
+        "publish-descendants",
+        "invite",
+        "apply",
+        "enable",
+        "disable",
+        "build",
+        "rebuild",
+        "sort",
+        "set",
+        "add-users",
+        "remove-users",
+    ];
+
+    [Fact]
+    public void Describe_EveryShippedLeafWithAWriteVerb_IsDeclaredMutating()
+    {
+        // #258: mutating comes only from each command's declaration, so a write command that
+        // forgets .Mutating() would be reported as a safe read. Catch it here.
+        var undeclared = Leaves(CommandCatalog.Describe(TestCliRoot.Build()), "")
+            .Where(l => WriteVerbs.Contains(l.Node.Name) && !l.Node.Mutating)
+            .Select(l => l.Path)
+            .ToList();
+
+        Assert.True(undeclared.Count == 0, "Undeclared writes: " + string.Join(", ", undeclared));
+    }
+
+    /// <summary>Every leaf under <paramref name="node"/>, with its space-separated path.</summary>
+    private static IEnumerable<(string Path, CommandCatalogNode Node)> Leaves(
+        CommandCatalogNode node,
+        string path
+    ) =>
+        node.Commands.Count == 0
+            ? [(path.Trim(), node)]
+            : node.Commands.SelectMany(c => Leaves(c, $"{path} {c.Name}"));
+
+    [Fact]
+    public void Describe_UnknownVerbDeclaredMutating_IsMutating()
+    {
+        // A write under a verb outside the standard set (e.g. `sort`, a PUT) is only reported
+        // mutating because the command declares it.
+        var root = new RootCommand();
+        root.Add(new Command("reorder").Mutating());
+
+        var node = CommandCatalog.Describe(root).Commands.Single();
+
+        Assert.True(node.Mutating);
+    }
+
+    [Fact]
+    public void Describe_UnknownVerbNotDeclared_IsNotMutating()
+    {
+        var root = new RootCommand();
+        root.Add(new Command("reorder"));
+
+        var node = CommandCatalog.Describe(root).Commands.Single();
+
+        Assert.False(node.Mutating);
+    }
+
+    [Theory]
+    [InlineData("content", "sort")]
+    [InlineData("media", "sort")]
+    [InlineData("content", "domain", "set")]
+    [InlineData("health", "run")]
+    public void Describe_ShippedWritesWithNonStandardVerbs_AreMutating(params string[] path)
+    {
+        // These send PUT/POST under verbs the verb set does not know, and were reported as safe
+        // reads until they declared themselves.
+        var node = CommandCatalog.Describe(TestCliRoot.Build());
+        foreach (var name in path)
+            node = node.Commands.Single(c => c.Name == name);
+
+        Assert.True(node.Mutating);
     }
 
     [Fact]

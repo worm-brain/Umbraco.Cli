@@ -10,7 +10,7 @@ public static class ContentCommand
     {
         var cmd = new Command(
             "content",
-            "Manage Umbraco content items (create, read, update, delete, publish).\n\nExamples:\n  umbraco content list --output json\n  umbraco content get <id>\n  umbraco content create --content-type textPage --name \"My Page\"\n  umbraco content publish <id>"
+            "Manage Umbraco content items (create, read, update, delete, publish).\n\nExamples:\n  umbraco content list --output json\n  umbraco content get <id>\n  umbraco content create --document-type textPage --name \"My Page\"\n  umbraco content publish <id>"
         );
         cmd.Add(ContentListCommand.Build(executor));
         cmd.Add(ContentTreeCommand.Build(executor));
@@ -22,9 +22,15 @@ public static class ContentCommand
         cmd.Add(ContentPublishCommand.Build(executor));
         cmd.Add(ContentDomainsCommand.Build(executor));
         cmd.Add(ContentUnpublishCommand.Build(executor));
-        cmd.Add(ContentVersionsCommand.Build(executor));
-        cmd.Add(ContentVersionCommand.Build(executor));
-        cmd.Add(ContentRollbackCommand.Build(executor));
+        // A content item's versions are one sub-resource, so one sub-noun (docs/conventions.md 1.4).
+        var version = new Command(
+            "version",
+            "List, inspect and roll back a content item's versions.\n\nExamples:\n  umbraco content version list <id>\n  umbraco content version get <version-id>\n  umbraco content version rollback <version-id>"
+        );
+        version.Add(ContentVersionsCommand.Build(executor));
+        version.Add(ContentVersionCommand.Build(executor));
+        version.Add(ContentRollbackCommand.Build(executor));
+        cmd.Add(version);
         cmd.Add(ContentTrashCommand.Build(executor));
         cmd.Add(ContentRestoreCommand.Build(executor));
         cmd.Add(ContentEmptyRecycleBinCommand.Build(executor));

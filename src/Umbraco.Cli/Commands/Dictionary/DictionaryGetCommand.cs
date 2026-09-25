@@ -8,18 +8,17 @@ public static class DictionaryGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a dictionary item and its translations by key or id.\n\nExample:\n  umbraco dictionary get Common.Search\n  umbraco dictionary get 1a2b3c4d-....."
+            "Get a dictionary item and its translations by key or id.\n\nExamples:\n  umbraco dictionary get Common.Search\n  umbraco dictionary get 1a2b3c4d-....."
         );
-        var keyArg = new Argument<string>("key")
+        var keyArg = new Argument<string>("id")
         {
-            Description = "Dictionary item key (name) or id (GUID).",
+            Description = "The dictionary item's id, or its key.",
         };
         cmd.Add(keyArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "dictionary.get",
                     (client, c) =>
                         client.GetDictionaryItemByKeyAsync(parseResult.GetValue(keyArg)!, c),
                     ct

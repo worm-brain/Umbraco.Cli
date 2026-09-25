@@ -16,29 +16,29 @@ namespace Umbraco.Cli.Commands;
 /// and <c>update --json-body</c> merges it back (#201).
 /// </para>
 /// <para>
-/// <c>--schema</c> reads a real item off the instance and prints it as a worked example. That makes
-/// it host-requiring, unlike the typed <c>--schema</c> on <c>content create</c> - a deliberate
-/// trade: a hand-written schema beside a passthrough body is a second definition that goes stale
-/// silently. The one exception is an instance with none to copy (#200), where a minimal body is
-/// printed instead; a test ties each minimal body to the spec so it cannot drift.
+/// <c>--schema</c> prints the body's JSON Schema offline, as it does on every command
+/// (docs/conventions.md 4.1). It comes from the Management API spec (<see cref="ApiBodySchema"/>),
+/// never a hand-written copy. <c>--example</c> reads a real item off the instance as a worked
+/// example, and so needs a host; on an instance with none to copy (#200) it prints a minimal body,
+/// which a test ties to the spec.
 /// </para>
 /// <para>
 /// Each schema verb states only its own flags. The <c>--json-body</c> / <c>--schema</c> /
-/// <c>--replace</c> options, their validation and the three-way branch (schema, body, flags) live
-/// here once, keyed by a <see cref="SchemaNoun"/>.
+/// <c>--example</c> / <c>--replace</c> options, their validation and the branch (schema, example,
+/// body, flags) live here once, keyed by a <see cref="SchemaNoun"/>.
 /// </para>
 /// </summary>
 public static class RawBodyCommand
 {
-    /// <summary>Adds the <c>--json-body</c> / <c>--schema</c> pair used by the raw schema verbs.</summary>
+    /// <summary>Adds the <c>--json-body</c> / <c>--schema</c> / <c>--example</c> options used by the raw schema verbs.</summary>
     /// <param name="cmd">The command to add them to.</param>
     /// <returns>The body option handle.</returns>
     public static JsonBodyOption AddBodyOptions(Command cmd)
     {
         var body = new JsonBodyOption(
-            "Path to a JSON file (or - for stdin) containing the full Management API body. "
-                + "Use --schema to print a real one from the instance as a starting point.",
-            "Print an existing entity of this kind from the instance, as a worked example of the "
+            "Path to a JSON file (or - for stdin) containing the Management API body. --schema "
+                + "prints its JSON Schema; --example prints a real one to start from.",
+            "Print an existing item of this kind from the instance, as a worked example of the "
                 + "--json-body shape, and exit. Requires a host."
         );
         body.AddTo(cmd);
@@ -53,7 +53,6 @@ public static class RawBodyCommand
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="idArg">The <c>&lt;id|alias&gt;</c> argument.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -61,14 +60,12 @@ public static class RawBodyCommand
     public static Task<int> RunGetAsync(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         ReferenceArgument idArg,
         CancellationToken ct
     ) =>
         executor.RunObjectAsync(
             parseResult,
-            commandName,
             (client, c) =>
                 idArg.WithResolvedAsync(
                     parseResult,
@@ -99,26 +96,29 @@ public static class RawBodyCommand
         var body = AddBodyOptions(cmd);
         cmd.Validators.Add(result =>
         {
-            if (body.SchemaRequested(result) || body.HasBody(result))
+            if (
+                body.SchemaRequested(result)
+                || body.ExampleRequested(result)
+                || body.HasBody(result)
+            )
                 return;
             if (required.Any(o => string.IsNullOrEmpty(result.GetValue(o))))
                 result.AddError(
                     $"Supply {Join(required.Select(o => o.Name))}, or a full body with --json-body. "
-                        + $"Run with --schema to print a real {noun.Singular} as a starting point."
+                        + $"Run with --example to print a real {noun.Singular} as a starting point."
                 );
         });
         return body;
     }
 
     /// <summary>
-    /// Runs a schema <c>create</c>: <c>--schema</c> prints an example, a <c>--json-body</c> is
-    /// POSTed raw with its id settled first (#204), and otherwise <paramref name="flagCreate"/>
-    /// builds it from the flags.
+    /// Runs a schema <c>create</c>: <c>--schema</c> prints the body's JSON Schema, <c>--example</c>
+    /// a real item, a <c>--json-body</c> is POSTed raw with its id settled first (#204), and
+    /// otherwise <paramref name="flagCreate"/> builds it from the flags.
     /// </summary>
     /// <typeparam name="T">What the flag-built create returns.</typeparam>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="body">The body option handle, from <see cref="AddCreateOptions"/>.</param>
     /// <param name="idOpt">The <c>--id</c> option.</param>
@@ -128,7 +128,6 @@ public static class RawBodyCommand
     public static Task<int> RunCreateAsync<T>(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         JsonBodyOption body,
         Option<Guid?> idOpt,
@@ -137,12 +136,13 @@ public static class RawBodyCommand
     )
     {
         if (body.SchemaRequested(parseResult))
-            return RunSchemaAsync(executor, parseResult, commandName, noun, ct);
+            return PrintSchema(noun, update: false);
+        if (body.ExampleRequested(parseResult))
+            return RunExampleAsync(executor, parseResult, noun, ct);
 
         if (body.HasBody(parseResult))
             return executor.RunObjectAsync(
                 parseResult,
-                commandName,
                 async (client, c) =>
                     await CreateAsync(
                         await ReadBodyAsync(body, parseResult, c),
@@ -153,13 +153,13 @@ public static class RawBodyCommand
                 ct
             );
 
-        return executor.RunObjectAsync(parseResult, commandName, flagCreate, ct);
+        return executor.RunObjectAsync(parseResult, flagCreate, ct);
     }
 
     // ── update ───────────────────────────────────────────────────────────────
 
     /// <summary>The options a schema <c>update</c> adds; see <see cref="AddUpdateOptions"/>.</summary>
-    /// <param name="Id">The optional <c>&lt;id|alias&gt;</c> argument (optional so <c>--schema</c> runs without it).</param>
+    /// <param name="Id">The optional <c>&lt;id|alias&gt;</c> argument (optional so <c>--schema</c> and <c>--example</c> run without it).</param>
     /// <param name="Body">The body option handle.</param>
     /// <param name="Replace">The <c>--replace</c> option.</param>
     public sealed record UpdateOptions(
@@ -182,7 +182,7 @@ public static class RawBodyCommand
         var id = new Argument<string?>("id")
         {
             Description =
-                $"The {noun.Singular}'s id, or its {noun.Kind.KeyName()}. Required unless --schema is used.",
+                $"The {noun.Singular}'s id, or its {noun.Kind.KeyName()}. Required unless --schema or --example is used.",
             Arity = ArgumentArity.ZeroOrOne,
         };
         cmd.Add(id);
@@ -193,19 +193,24 @@ public static class RawBodyCommand
                 "Send --json-body as the whole item, instead of merging its top-level keys into the "
                 + "current one. Keys the body leaves out are then removed or reset.",
         };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replace,
+            _ => $"Replace the whole {noun.Singular} with --json-body, removing what it leaves out?"
+        );
         cmd.Add(replace);
 
         cmd.Validators.Add(result =>
         {
-            if (body.SchemaRequested(result))
+            if (body.SchemaRequested(result) || body.ExampleRequested(result))
                 return;
             if (string.IsNullOrEmpty(result.GetValue(id)))
                 result.AddError(
-                    $"Supply the {noun.Singular}. Run with --schema to print a real one as a starting point."
+                    $"Supply the {noun.Singular}. Run with --example to print a real one as a starting point."
                 );
             else if (!hasFlags && !body.HasBody(result))
                 result.AddError(
-                    $"Supply --json-body. Run with --schema to print a real {noun.Singular} as a starting point."
+                    $"Supply --json-body. Run with --example to print a real {noun.Singular} as a starting point."
                 );
             else if (result.GetValue(replace) && !body.HasBody(result))
                 result.AddError(
@@ -216,14 +221,14 @@ public static class RawBodyCommand
     }
 
     /// <summary>
-    /// Runs a schema <c>update</c>: <c>--schema</c> prints an example, a <c>--json-body</c> is
-    /// merged into the item (or replaces it with <c>--replace</c>) through one read-modify-write,
-    /// and otherwise <paramref name="flagUpdate"/> applies the flags to the resolved id.
+    /// Runs a schema <c>update</c>: <c>--schema</c> prints the body's JSON Schema, <c>--example</c>
+    /// a real item, a <c>--json-body</c> is merged into the item (or replaces it with
+    /// <c>--replace</c>) through one read-modify-write, and otherwise <paramref name="flagUpdate"/>
+    /// applies the flags to the resolved id.
     /// </summary>
     /// <typeparam name="T">What the flag-built update returns.</typeparam>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="options">The options from <see cref="AddUpdateOptions"/>.</param>
     /// <param name="message">The success message.</param>
@@ -233,7 +238,6 @@ public static class RawBodyCommand
     public static Task<int> RunUpdateAsync<T>(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         UpdateOptions options,
         string message,
@@ -247,7 +251,9 @@ public static class RawBodyCommand
     )
     {
         if (options.Body.SchemaRequested(parseResult))
-            return RunSchemaAsync(executor, parseResult, commandName, noun, ct);
+            return PrintSchema(noun, update: true);
+        if (options.Body.ExampleRequested(parseResult))
+            return RunExampleAsync(executor, parseResult, noun, ct);
 
         // The alias the rest of the noun accepts (#159) is resolved here, so a caller never has
         // to look an id up just to write back what they just read.
@@ -255,21 +261,23 @@ public static class RawBodyCommand
         if (options.Body.HasBody(parseResult) || flagUpdate is null)
             return executor.RunMessageAsync(
                 parseResult,
-                commandName,
                 async (client, c) =>
                 {
                     var json = await ReadBodyAsync(options.Body, parseResult, c);
                     return await client.WithResolvedAsync(
                         noun.Kind,
                         reference,
+                        // An update's data is the resulting item, as get prints it.
                         id =>
-                            client.MergeSchemaItemAsync(
-                                noun.Kind,
-                                id,
-                                json,
-                                parseResult.GetValue(options.Replace),
-                                c
-                            ),
+                            client
+                                .MergeSchemaItemAsync(
+                                    noun.Kind,
+                                    id,
+                                    json,
+                                    parseResult.GetValue(options.Replace),
+                                    c
+                                )
+                                .ThenRead(() => client.GetSchemaRawAsync(noun.Kind, id, c)),
                         c
                     );
                 },
@@ -279,9 +287,15 @@ public static class RawBodyCommand
 
         return executor.RunMessageAsync(
             parseResult,
-            commandName,
             (client, c) =>
-                client.WithResolvedAsync(noun.Kind, reference, id => flagUpdate(client, id, c), c),
+                client.WithResolvedAsync(
+                    noun.Kind,
+                    reference,
+                    id =>
+                        flagUpdate(client, id, c)
+                            .ThenRead(() => client.GetSchemaRawAsync(noun.Kind, id, c)),
+                    c
+                ),
             message,
             ct
         );
@@ -290,7 +304,6 @@ public static class RawBodyCommand
     /// <summary>A shorthand for a schema <c>update</c> that has no flags of its own.</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="options">The options from <see cref="AddUpdateOptions"/>.</param>
     /// <param name="message">The success message.</param>
@@ -299,40 +312,43 @@ public static class RawBodyCommand
     public static Task<int> RunUpdateAsync(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         UpdateOptions options,
         string message,
         CancellationToken ct
-    ) =>
-        RunUpdateAsync<Empty>(executor, parseResult, commandName, noun, options, message, null, ct);
+    ) => RunUpdateAsync<Empty>(executor, parseResult, noun, options, message, null, ct);
 
-    // ── --schema ─────────────────────────────────────────────────────────────
+    // ── --schema / --example ─────────────────────────────────────────────────
 
-    /// <summary>Runs the <c>--schema</c> branch: prints a real item of this kind off the instance.</summary>
+    /// <summary>
+    /// Runs the <c>--schema</c> branch: prints the body's JSON Schema, from the Management API spec,
+    /// with no host - a local describe-and-exit, like <c>--help</c>.
+    /// </summary>
+    /// <param name="noun">The schema noun.</param>
+    /// <param name="update">True for the update body (every key optional, as it is merged).</param>
+    /// <returns>Exit code 0.</returns>
+    public static Task<int> PrintSchema(SchemaNoun noun, bool update)
+    {
+        ApiBodySchema.Print(noun.Kind, update);
+        return Task.FromResult((int)ExitCode.Success);
+    }
+
+    /// <summary>Runs the <c>--example</c> branch: prints a real item of this kind off the instance.</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="commandName">The command name for the output envelope.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The command's exit code.</returns>
-    public static Task<int> RunSchemaAsync(
+    public static Task<int> RunExampleAsync(
         CommandExecutor executor,
         ParseResult parseResult,
-        string commandName,
         SchemaNoun noun,
         CancellationToken ct
-    ) =>
-        executor.RunObjectAsync(
-            parseResult,
-            commandName,
-            (client, c) => ExampleAsync(client, noun, c),
-            ct
-        );
+    ) => executor.RunObjectAsync(parseResult, (client, c) => ExampleAsync(client, noun, c), ct);
 
     /// <summary>
     /// Reads an existing item of this kind and returns it as a worked example for
-    /// <c>--schema</c>, or the built-in minimal body when the instance has none (#200).
+    /// <c>--example</c>, or the built-in minimal body when the instance has none (#200).
     /// </summary>
     /// <param name="client">The client.</param>
     /// <param name="noun">The schema noun.</param>
@@ -360,12 +376,12 @@ public static class RawBodyCommand
                 );
 
         // The lowest id, so the same instance prints the same example every run - "whatever the
-        // API returned first" is not reproducible, and --schema output gets diffed.
+        // API returned first" is not reproducible, and --example output gets diffed.
         return await client.GetSchemaRawAsync(noun.Kind, found.Order().First(), ct);
     }
 
     /// <summary>
-    /// The smallest valid create body for a schema kind, for <c>--schema</c> on an instance that has
+    /// The smallest valid create body for a schema kind, for <c>--example</c> on an instance that has
     /// none to copy (#200). Each carries exactly the properties the Management API spec marks as
     /// required on the create model, with empty collections where it wants a list.
     /// </summary>
@@ -422,8 +438,8 @@ public static class RawBodyCommand
         CancellationToken ct
     ) =>
         JsonNode.Parse(await body.ReadAsync(parseResult, ct))
-        ?? throw new InvalidOperationException(
-            "--json-body did not contain a JSON object. Run with --schema to print a real one."
+        ?? throw new InvalidInputException(
+            "--json-body did not contain a JSON object. Run with --example to print a real one."
         );
 
     /// <summary>
@@ -449,15 +465,15 @@ public static class RawBodyCommand
     )
     {
         if (body is not JsonObject obj)
-            throw new InvalidOperationException(
-                "--json-body did not contain a JSON object. Run with --schema to print a real one."
+            throw new InvalidInputException(
+                "--json-body did not contain a JSON object. Run with --example to print a real one."
             );
 
         var bodyId = obj["id"] switch
         {
             null => (Guid?)null,
             JsonValue v when v.TryGetValue<string>(out var s) && Guid.TryParse(s, out var g) => g,
-            var other => throw new InvalidOperationException(
+            var other => throw new InvalidInputException(
                 $"The --json-body id {other.ToJsonString()} is not a UUID."
             ),
         };
@@ -479,7 +495,7 @@ public static class RawBodyCommand
     /// <exception cref="InvalidOperationException">The two are both given and differ.</exception>
     internal static Guid? ReconcileId(Guid? flag, Guid? fromBody) =>
         flag is { } f && fromBody is { } b && f != b
-            ? throw new InvalidOperationException(
+            ? throw new InvalidInputException(
                 $"--id {f} does not match the id {b} in --json-body. Give one, or make them agree."
             )
             : flag ?? fromBody;

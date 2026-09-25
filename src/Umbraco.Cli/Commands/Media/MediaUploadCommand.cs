@@ -19,11 +19,11 @@ public static class MediaUploadCommand
         var cmd = new Command(
             "upload",
             "Upload a local file as a media item (staged via temporary-file for large files).\n\nExamples:\n  umbraco media upload ./logo.png\n  umbraco media upload ./big-video.mp4 --media-type File --name \"Promo\"\n  umbraco media upload ./photo.jpg --parent 3f7a8b2e-...\n  umbraco media upload ./report.pdf --media-type brochure --id 3f7a8b2e-... --value title=\"Annual report\""
-        );
+        ).Mutating();
         var fileArg = new Argument<FileInfo>("file") { Description = "Local file to upload." };
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "UUID of the media folder to upload into. Omit for the media root.",
+            Description = "Id of the media folder to upload into. Omit for the media root.",
         };
         var nameOpt = new Option<string?>("--name")
         {
@@ -38,7 +38,7 @@ public static class MediaUploadCommand
         var idOpt = new Option<Guid?>("--id")
         {
             Description =
-                "UUID to create the item with, so it keeps the same id on every instance (content "
+                "Id to create the item with, so it keeps the same id on every instance (content "
                 + "references media by id). Omit to generate one.",
         };
         var valueOpt = new Option<string[]>("--value")
@@ -72,7 +72,6 @@ public static class MediaUploadCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "media.upload",
                     async (client, c) =>
                     {
                         var file = parseResult.GetValue(fileArg)!;

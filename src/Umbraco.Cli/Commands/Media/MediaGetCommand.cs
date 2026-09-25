@@ -8,16 +8,15 @@ public static class MediaGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a media item by its UUID, including its public URL and file metadata.\n\nWidth, height, size and extension come back under 'values', keyed by the aliases Umbraco uses (umbracoWidth, umbracoHeight, umbracoBytes, umbracoExtension); the URL comes back under 'urls', one entry per culture.\n\nExample:\n  umbraco media get 3f7a8b2e-..."
+            "Get a media item by id, including its public URL and file metadata.\n\nWidth, height, size and extension come back under 'values', keyed by the aliases Umbraco uses (umbracoWidth, umbracoHeight, umbracoBytes, umbracoExtension); the URL comes back under 'urls', one entry per culture.\n\nExamples:\n  umbraco media get 3f7a8b2e-...\n  umbraco media get <id> -o json | jq .data.urls"
         );
-        var idArg = new Argument<Guid>("id");
+        var idArg = new Argument<Guid>("id") { Description = "Media item id." };
         cmd.Add(idArg);
 
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "media.get",
                     (client, c) => client.GetMediaByIdAsync(parseResult.GetValue(idArg), c),
                     ct
                 )

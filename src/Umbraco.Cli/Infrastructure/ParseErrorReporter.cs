@@ -51,25 +51,18 @@ public static class ParseErrorReporter
         var writer = OutputWriterFactory.Create(requested);
         var message = string.Join(" ", parsed.Errors.Select(e => Humanise(e.Message)));
         // The dotted name, matching meta.command everywhere else - "content.list", not "list".
-        var path = new List<string>();
-        for (
-            var result = parsed.CommandResult;
-            result is not null;
-            result = result.Parent as CommandResult
-        )
-            path.Insert(0, result.Command.Name);
-        var usage = string.Join(" ", path.Skip(1));
-        var command = string.Join(".", path.Skip(1));
+        var segments = CommandPath.Segments(parsed);
+        var usage = string.Join(" ", segments);
 
         // category lets a caller branch on "my command line was wrong" without parsing the
         // message (#203), the same way API failures carry request_rejected / server_error.
         writer.WriteError(
-            1,
+            ExitCode.Failed,
+            FailureCategory.InvalidArgument,
             $"{message} Run 'umbraco {usage} --help' for usage.".Replace("  ", " "),
-            category: FailureCategory.InvalidArgument.ToWire(),
-            commandName: string.IsNullOrEmpty(command) ? null : command
+            CommandPath.Of(parsed)
         );
-        return 1;
+        return (int)ExitCode.Failed;
     }
 
     // System.CommandLine's conversion error: "Cannot parse argument 'x' for option '--parent' as

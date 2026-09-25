@@ -8,14 +8,13 @@ public static class TemplatesListCommand
     {
         var cmd = new Command(
             "list",
-            "List all Razor view templates in the Umbraco instance.\n\nExample:\n  umbraco templates list --output json"
+            "List all Razor view templates in the Umbraco instance.\n\nExamples:\n  umbraco template list --output json"
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "templates.list",
                     (client, skip, take, c) => client.GetTemplatesAsync(skip, take, c),
                     ["ID", "Name", "Alias"],
                     i => new[] { i.Id.ToString(), i.Name, i.Alias },

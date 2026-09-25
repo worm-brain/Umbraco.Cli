@@ -2,6 +2,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Infrastructure.Output;
 
@@ -46,20 +48,20 @@ public sealed class CsvOutputWriter : IOutputWriter
 
     /// <inheritdoc />
     public void WriteError(
-        int exitCode,
+        ExitCode exitCode,
+        FailureCategory category,
         string message,
+        string? commandName,
         int? httpStatus = null,
-        string? category = null,
-        string? serverVersion = null,
-        string? commandName = null
+        string? serverVersion = null
     )
     {
-        // The failure category and server version (#152) are part of the structured (JSON)
-        // contract; the CSV error stays the simple code/message pair it has always been.
-        // #177: both codes, so a CSV consumer can tell an exit code from an HTTP status.
-        Console.Error.WriteLine("exitCode,httpStatus,message");
+        // #177: both codes, so a CSV consumer can tell an exit code from an HTTP status; the
+        // category, like every error's, says why. The server version stays JSON-only.
+        Console.Error.WriteLine("exitCode,httpStatus,category,message");
         Console.Error.WriteLine(
-            $"{Escape(exitCode.ToString())},{Escape(httpStatus?.ToString() ?? "")},{Escape(message)}"
+            $"{Escape(((int)exitCode).ToString())},{Escape(httpStatus?.ToString() ?? "")},"
+                + $"{Escape(category.ToWire() ?? "")},{Escape(message)}"
         );
     }
 
@@ -99,11 +101,12 @@ public sealed class CsvOutputWriter : IOutputWriter
         WriteSuccess(OutputShaping.TableToRecords(headers, rows));
 
     /// <inheritdoc />
-    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
-    {
-        Console.Out.WriteLine("message");
-        Console.Out.WriteLine(Escape(message));
-    }
+    public void WriteMessage(
+        object data,
+        string message,
+        string? commandName = null,
+        long? durationMs = null
+    ) => WriteSuccess(data, commandName, durationMs);
 
     /// <inheritdoc />
     /// <inheritdoc />
@@ -124,7 +127,13 @@ public sealed class CsvOutputWriter : IOutputWriter
             );
     }
 
-    public void WriteDryRun(string method, string url, string? body)
+    public void WriteDryRun(
+        string method,
+        string url,
+        string? body,
+        string? commandName,
+        long? durationMs = null
+    )
     {
         Console.Out.WriteLine("method,url,body");
         Console.Out.WriteLine($"{Escape(method)},{Escape(url)},{Escape(body ?? "")}");

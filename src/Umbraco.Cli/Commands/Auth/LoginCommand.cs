@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Spectre.Console;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
 
@@ -70,11 +71,14 @@ public static class LoginCommand
                     || string.IsNullOrEmpty(clientSecret)
                 )
                 {
+                    // Missing input is the caller's to fix, like any other invalid argument.
                     writer.WriteError(
-                        2,
-                        "--host, --client-id, and --client-secret are all required."
+                        ExitCode.Failed,
+                        FailureCategory.InvalidArgument,
+                        "--host, --client-id, and --client-secret are all required.",
+                        CommandPath.Of(parseResult)
                     );
-                    return 2;
+                    return (int)ExitCode.Failed;
                 }
 
                 try
@@ -84,8 +88,13 @@ public static class LoginCommand
                 }
                 catch (UmbracoAuthException ex)
                 {
-                    writer.WriteError(2, $"Authentication failed: {ex.Message}");
-                    return 2;
+                    writer.WriteError(
+                        ExitCode.Aborted,
+                        FailureCategory.NotAuthenticated,
+                        $"Authentication failed: {ex.Message}",
+                        CommandPath.Of(parseResult)
+                    );
+                    return (int)ExitCode.Aborted;
                 }
 
                 var store = ConfigStore.Resolve(parseResult.GetValue(configOption), configStore);
@@ -103,7 +112,12 @@ public static class LoginCommand
                 );
 
                 var where = string.IsNullOrWhiteSpace(profile) ? "" : $" (profile '{profile}')";
-                writer.WriteMessage($"Logged in to {host}{where}");
+                // Every success has data (docs/conventions.md 6.2): where the credentials went.
+                writer.WriteMessage(
+                    new { host, profile },
+                    $"Logged in to {host}{where}",
+                    CommandPath.Of(parseResult)
+                );
                 return 0;
             }
         );

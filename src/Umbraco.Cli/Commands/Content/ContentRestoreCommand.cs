@@ -19,7 +19,7 @@ public static class ContentRestoreCommand
         var cmd = new Command(
             "restore",
             "Restore a content item from the recycle bin.\n\nExamples:\n  umbraco content restore 3f7a8b2e-...\n  umbraco content restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content restore 3f7a8b2e-... --to-root"
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Trashed content item ID." };
         var parentOpt = new Option<Guid?>("--parent", "--target")
         {
@@ -45,16 +45,17 @@ public static class ContentRestoreCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "content.restore",
                     (client, c) =>
-                        client.RestoreContentAsync(
-                            parseResult.GetValue(idArg),
-                            parseResult.GetValue(parentOpt) is { } parent
-                                    ? RestoreTarget.Under(parent)
-                                : parseResult.GetValue(toRootOpt) ? RestoreTarget.Root
-                                : RestoreTarget.Original,
-                            c
-                        ),
+                        client
+                            .RestoreContentAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(parentOpt) is { } parent
+                                        ? RestoreTarget.Under(parent)
+                                    : parseResult.GetValue(toRootOpt) ? RestoreTarget.Root
+                                    : RestoreTarget.Original,
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Content restored from the recycle bin.",
                     ct
                 )

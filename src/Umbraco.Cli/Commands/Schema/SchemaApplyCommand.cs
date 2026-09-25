@@ -21,12 +21,13 @@ public static class SchemaApplyCommand
     {
         var cmd = new Command(
             "apply",
-            "Apply a schema snapshot to the live instance (create + update; --prune also deletes).\n\n"
+            "Apply a schema snapshot to the live instance.\n\n"
+                + "Creates and updates; --prune also deletes.\n\n"
                 + "Examples:\n"
                 + "  umbraco schema apply schema.json --dry-run\n"
                 + "  umbraco schema apply schema.json\n"
                 + "  umbraco schema apply schema.json --prune --yes"
-        );
+        ).Mutating();
         var snapshotArg = new Argument<string>("snapshot")
         {
             Description = "Path to a snapshot file produced by 'schema export', or '-' for stdin.",
@@ -70,7 +71,6 @@ public static class SchemaApplyCommand
                 var prune = parseResult.GetValue(pruneOpt);
                 return executor.RunContextualAsync(
                     parseResult,
-                    "schema.apply",
                     async (ctx, c) =>
                     {
                         var diff = await SchemaPipeline.DiffAgainstLiveAsync(

@@ -5,11 +5,11 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
-/// <summary>Wires the <c>data-types delete</c> command (issue #59).</summary>
+/// <summary>Wires the <c>data-type delete</c> command (issue #59).</summary>
 public static class DataTypesDeleteCommand
 {
     /// <summary>
-    /// Builds the <c>data-types delete</c> command: destructive, gated by confirmation, and
+    /// Builds the <c>data-type delete</c> command: destructive, gated by confirmation, and
     /// refused before confirmation while the data type is in use, unless <c>--force</c> (#246).
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
@@ -21,8 +21,8 @@ public static class DataTypesDeleteCommand
             "Delete a data type by id or name.\n\n"
                 + "A data type that is in use is refused unless --force is given: Umbraco deletes "
                 + "every property that uses it, and all the values in those properties, with it.\n\n"
-                + "Example:\n  umbraco data-types delete \"Homepage Blocks\" --yes"
-        );
+                + "Examples:\n  umbraco data-type delete \"Homepage Blocks\" --yes\n  umbraco data-type delete \"Homepage Blocks\" --force --yes"
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
         InUseGuard.Protect(
@@ -38,12 +38,11 @@ public static class DataTypesDeleteCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "data-types.delete",
                     (client, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id => client.DeleteDataTypeAsync(id, c),
+                            id => client.DeleteDataTypeAsync(id, c).Then(ItemRef.Of(id)),
                             c
                         ),
                     "Data type deleted.",

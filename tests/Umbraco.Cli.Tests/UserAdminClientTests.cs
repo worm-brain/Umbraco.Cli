@@ -91,6 +91,37 @@ public class UserAdminClientTests
     }
 
     [Fact]
+    public async Task UpdateUserGroupAsync_KeepsTheGroupsGranularPermissions()
+    {
+        // #111: the CLI does not model per-node permissions, and the PUT replaces the whole group,
+        // so an update must carry the current ones through rather than wipe them.
+        var id = Guid.NewGuid();
+        var node = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                $$"""
+                { "id": "{{id}}", "alias": "editors", "name": "Editors", "sections": [], "languages": [],
+                  "fallbackPermissions": [], "hasAccessToAllLanguages": false,
+                  "documentRootAccess": false, "mediaRootAccess": false,
+                  "permissions": [ { "$type": "DocumentPermissionPresentationModel",
+                                     "document": { "id": "{{node}}" }, "verbs": ["Umb.Document.Read"] } ] }
+                """
+            )
+            .When(_ => true, HttpStatusCode.OK, "");
+
+        await Wire.Client(handler)
+            .UpdateUserGroupAsync(
+                id,
+                new UpdateUserGroupRequest { Alias = "editors", Name = "Renamed" },
+                CancellationToken.None
+            );
+
+        Assert.Contains(node.ToString(), handler.RequestBodies.Last(b => b is not null));
+    }
+
+    [Fact]
     public async Task DeleteUserGroupAsync_DeletesByIdEndpoint()
     {
         var id = Guid.NewGuid();

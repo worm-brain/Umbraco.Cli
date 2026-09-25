@@ -30,8 +30,14 @@ public static class AuthCommand
             )
         );
         cmd.Add(LogoutCommand.Build(global.Output, global.Config, global.Profile, configStore));
-        cmd.Add(ProfilesCommand.Build(global.Output, global.Config, configStore));
-        cmd.Add(UseProfileCommand.Build(global.Output, global.Config, configStore));
+        // Saved credential profiles are one sub-resource: a noun, not two verbs (docs/conventions.md 1.4).
+        var profile = new Command(
+            "profile",
+            "List saved credential profiles and choose the default.\n\nExamples:\n  umbraco auth profile list\n  umbraco auth profile use prod"
+        );
+        profile.Add(ProfilesCommand.Build(global.Output, global.Config, configStore));
+        profile.Add(UseProfileCommand.Build(global.Output, global.Config, configStore));
+        cmd.Add(profile);
         cmd.Add(WhoAmICommand.Build(executor));
         cmd.Add(
             AuthDoctorCommand.Build(

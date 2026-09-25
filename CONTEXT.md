@@ -42,8 +42,19 @@ The two-step Umbraco 14+ file upload: POST the file bytes to the `temporary-file
 endpoint (staging), then create the media item referencing that temp-file id
 inside a property value. Replaces the older single multipart create.
 
-## Transitional hybrid
+## Transitional hybrid (historical)
 
-The interim state (post-#50, pre-#79) where the client holds both a raw
-`HttpClient` (`_http`) and the generated Kiota client (`_api`). #79 removes
-`_http`, ending the hybrid - the client becomes fully generated.
+The interim state (post-#50, pre-#79) where the client held both a raw
+`HttpClient` and the generated Kiota client. It has ended: the client is fully
+generated.
+
+## Selector
+
+The positional `<id>` a command acts on. Always named `id`; accepts the GUID and
+the item's natural keys (alias, then name; a language's ISO code; a dictionary
+item's key).
+
+## Document type
+
+The type of a content item. The noun is `document-type`; the items themselves are
+`content`. Never "content type".

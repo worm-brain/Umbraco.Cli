@@ -208,7 +208,7 @@ public interface IManifestClient
 }
 
 /// <summary>
-/// Log levels for the <c>log-viewer log</c> filter (issue #115). Mirrors the Management API's log
+/// Log levels for the <c>log-viewer list</c> filter (issue #115). Mirrors the Management API's log
 /// levels; a typed option means an unknown level is rejected at parse time rather than silently
 /// dropped.
 /// </summary>

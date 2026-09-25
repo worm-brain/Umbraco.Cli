@@ -1,4 +1,6 @@
 using Spectre.Console;
+using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Infrastructure.Output;
 
@@ -11,16 +13,16 @@ public sealed class HumanOutputWriter : IOutputWriter
     }
 
     public void WriteError(
-        int exitCode,
+        ExitCode exitCode,
+        FailureCategory category,
         string message,
+        string? commandName,
         int? httpStatus = null,
-        string? category = null,
-        string? serverVersion = null,
-        string? commandName = null
+        string? serverVersion = null
     )
     {
         // The HTTP status is the more informative of the two when there is one, so it leads.
-        var shown = httpStatus ?? exitCode;
+        var shown = httpStatus ?? (int)exitCode;
         AnsiConsole.MarkupLine($"[red]✗ Error {shown}:[/] {Markup.Escape(message)}");
         // Show the server version when it is known (#152): it is the single most useful bit of
         // triage context on a failure - which server produced it. Category is left to the
@@ -48,7 +50,7 @@ public sealed class HumanOutputWriter : IOutputWriter
             && paging is { Total: { } total, Skip: { } skip }
         )
             Console.Error.WriteLine(
-                $"Showing {skip + items.Count} of {total}. Use --skip/--take to page, or --all."
+                $"Showing {skip + items.Count} of {total}. Use --skip/--take to page."
             );
     }
 
@@ -70,7 +72,12 @@ public sealed class HumanOutputWriter : IOutputWriter
         AnsiConsole.Write(table);
     }
 
-    public void WriteMessage(string message, string? commandName = null, long? durationMs = null)
+    public void WriteMessage(
+        object data,
+        string message,
+        string? commandName = null,
+        long? durationMs = null
+    )
     {
         AnsiConsole.MarkupLine($"[green]✓[/] {Markup.Escape(message)}");
     }
@@ -102,7 +109,13 @@ public sealed class HumanOutputWriter : IOutputWriter
         );
     }
 
-    public void WriteDryRun(string method, string url, string? body)
+    public void WriteDryRun(
+        string method,
+        string url,
+        string? body,
+        string? commandName,
+        long? durationMs = null
+    )
     {
         AnsiConsole.MarkupLine(
             "[yellow]● DRY RUN[/] — the following request would be sent (nothing was executed):"

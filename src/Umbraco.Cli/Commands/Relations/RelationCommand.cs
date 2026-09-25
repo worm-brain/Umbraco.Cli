@@ -5,7 +5,7 @@ namespace Umbraco.Cli.Commands.Relations;
 
 /// <summary>
 /// Wires the read-only <c>relation</c> noun (issue #118). The generated client lists relations only
-/// by relation-type id, so <c>list</c> requires <c>--type</c>.
+/// by relation-type id, so <c>list</c> requires <c>--relation-type</c>.
 /// </summary>
 public static class RelationCommand
 {
@@ -16,7 +16,7 @@ public static class RelationCommand
     {
         var cmd = new Command(
             "relation",
-            "List relations of a relation type.\n\nExample:\n  umbraco relation list --type <relationTypeId>"
+            "List relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relationTypeId>"
         );
         cmd.Add(BuildList(executor));
         return cmd;
@@ -24,19 +24,21 @@ public static class RelationCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List the relations of a relation type.");
-        var typeOpt = new Option<Guid>("--type")
+        var cmd = new Command(
+            "list",
+            "List the relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relation-type-id>\n  umbraco relation list --relation-type <relation-type-id> --take 20"
+        );
+        var typeOpt = new Option<Guid>("--relation-type")
         {
             Required = true,
             Description = "The relation type ID to list relations for.",
         };
         cmd.Add(typeOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    "relation.list",
                     (client, skip, take, c) =>
                         client.GetRelationsByTypeAsync(
                             parseResult.GetValue(typeOpt),

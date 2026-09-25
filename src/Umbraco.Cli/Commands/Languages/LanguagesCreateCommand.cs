@@ -1,14 +1,15 @@
 using System.CommandLine;
 using System.Globalization;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Languages;
 
-/// <summary>Wires the <c>languages create</c> command.</summary>
+/// <summary>Wires the <c>language create</c> command.</summary>
 public static class LanguagesCreateCommand
 {
     /// <summary>
-    /// Builds the <c>languages create</c> command. The API requires a human-readable
+    /// Builds the <c>language create</c> command. The API requires a human-readable
     /// <c>name</c> (issue #47); when <c>--name</c> is omitted it is derived from the
     /// culture's display name so the common case stays a one-flag call.
     /// </summary>
@@ -18,8 +19,8 @@ public static class LanguagesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Add a language.\n\nExamples:\n  umbraco languages create --culture da-DK\n  umbraco languages create --culture da-DK --fallback en-US --mandatory"
-        );
+            "Create a language.\n\nExamples:\n  umbraco language create --culture da-DK\n  umbraco language create --culture da-DK --fallback en-US --mandatory"
+        ).Mutating();
         var cultureOpt = new Option<string>("--culture")
         {
             Description = "ISO 4646 culture code for the language (e.g. en-US, fr-FR, da-DK).",
@@ -54,7 +55,6 @@ public static class LanguagesCreateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    "languages.create",
                     (client, c) =>
                     {
                         var culture = parseResult.GetValue(cultureOpt)!;

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -15,16 +16,18 @@ public static class MediaTrashCommand
     {
         var cmd = new Command(
             "trash",
-            "Move a media item to the recycle bin (reversible with 'media restore').\n\nExample:\n  umbraco media trash 3f7a8b2e-..."
-        );
+            "Move a media item to the recycle bin (reversible with 'media restore').\n\nExamples:\n  umbraco media trash 3f7a8b2e-..."
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Media item ID." };
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    "media.trash",
-                    (client, c) => client.TrashMediaAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client
+                            .TrashMediaAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
                     "Media moved to the recycle bin.",
                     ct
                 )

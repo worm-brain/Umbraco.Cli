@@ -18,7 +18,7 @@ public sealed partial class UmbracoManagementClient
     /// read first: an invariant one gets the single unfiltered query, a variant one gets a query
     /// per culture and the results are merged newest first. Every row carries the culture it was
     /// listed under (null when invariant), which is also the <c>--culture</c> that
-    /// <c>content rollback</c> needs for that version.
+    /// <c>content version rollback</c> needs for that version.
     /// </para>
     /// </summary>
     /// <param name="documentId">The document whose versions to list.</param>
@@ -117,7 +117,7 @@ public sealed partial class UmbracoManagementClient
     /// <summary>
     /// Reads one version of a document, with its values, via <c>GET document-version/{id}</c>
     /// (#209). The body is returned raw so every property value survives, which is what a
-    /// diff before <c>content rollback</c> needs.
+    /// diff before <c>content version rollback</c> needs.
     /// </summary>
     /// <param name="versionId">The version id, from <see cref="GetDocumentVersionsAsync"/>.</param>
     /// <param name="ct">Cancellation token.</param>

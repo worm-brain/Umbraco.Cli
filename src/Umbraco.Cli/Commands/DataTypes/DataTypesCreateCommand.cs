@@ -1,14 +1,15 @@
 using System.CommandLine;
 using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
-/// <summary>Wires the <c>data-types create</c> command (issue #59).</summary>
+/// <summary>Wires the <c>data-type create</c> command (issue #59).</summary>
 public static class DataTypesCreateCommand
 {
     /// <summary>
-    /// Builds the <c>data-types create</c> command. A data type wraps a property editor:
+    /// Builds the <c>data-type create</c> command. A data type wraps a property editor:
     /// <c>--editor-alias</c> is the backend editor and <c>--editor-ui-alias</c> the backoffice
     /// UI. Editor configuration values are not exposed here (default to empty).
     /// </summary>
@@ -18,9 +19,12 @@ public static class DataTypesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a data type (property editor configuration).\n\nExample:\n  umbraco data-types create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
-        );
-        var nameOpt = new Option<string>("--name");
+            "Create a data type (property editor configuration).\n\nExamples:\n  umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
+        ).Mutating();
+        var nameOpt = new Option<string>("--name")
+        {
+            Description = "Name of the new data type. Required unless --json-body is given.",
+        };
         var editorAliasOpt = new Option<string>("--editor-alias")
         {
             Description = "Backend property editor alias (e.g. Umbraco.TextBox).",
@@ -47,7 +51,6 @@ public static class DataTypesCreateCommand
                 RawBodyCommand.RunCreateAsync(
                     executor,
                     parseResult,
-                    "data-types.create",
                     SchemaNoun.DataTypes,
                     body,
                     idOpt,

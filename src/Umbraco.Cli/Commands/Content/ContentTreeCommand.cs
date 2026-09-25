@@ -12,7 +12,7 @@ public static class ContentTreeCommand
     {
         var cmd = new Command(
             "tree",
-            "Walk the content tree into a flat list, each node carrying its depth and parent id.\n\nExamples:\n  umbraco content tree                       # direct children of the root\n  umbraco content tree --parent <id> --recursive\n  umbraco content tree --depth 3 --output json"
+            "Walk the content tree into a flat list of nodes.\n\nEach node carries its depth and parent id.\n\nExamples:\n  umbraco content tree                       # direct children of the root\n  umbraco content tree --parent <id> --recursive\n  umbraco content tree --depth 3 --output json"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {
@@ -42,7 +42,6 @@ public static class ContentTreeCommand
 
                 return executor.RunCompleteListAsync(
                     parseResult,
-                    "content.tree",
                     (client, c) =>
                         client.GetContentTreeAsync(parseResult.GetValue(parentOpt), maxDepth, c),
                     ["ID", "Name", "Parent ID", "Depth", "Has Children"],

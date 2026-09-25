@@ -43,16 +43,21 @@ compare `.data` only - `meta.timestamp` changes on every call.
 
 ## 2. Discover request bodies: `--schema`
 
-Any command that accepts a `--json-body` also accepts `--schema`. For content, media, members and
-blueprints it prints the JSON Schema of that body and exits. It is local (no host/auth), it ignores
+Any command that accepts a `--json-body` also accepts `--schema`, and it means the same thing
+everywhere: print the JSON Schema of that body and exit. It is local (no host/auth), it ignores
 `--output` (always a bare JSON Schema document, not the envelope), and it is never blocked by the
-allow-list or `--readonly`. The schema nouns (`content-types`, `media-types`, `member-types`,
-`data-types`, `templates`) are the exception: their body is the Management API's own, so
-`--schema` prints a real one off the instance instead (see "Authoring schema") and needs a host.
+allow-list or `--readonly`. For the schema nouns (`document-type`, `media-type`, `member-type`,
+`data-type`, `template`) the schema is generated from the Management API spec; an `update`
+schema requires no key, because the body is merged.
+
+Those nouns also take `--example`, which prints a **real** item from the instance (or a minimal
+valid body on a site with none) - usually the best starting point for a body you will edit. It
+needs a host.
 
 ```bash
-umbraco content create --schema        # the shape of a content-create body
-umbraco content update --schema
+umbraco content create --schema          # the shape of a content-create body
+umbraco document-type update --schema    # the shape of a document-type update body
+umbraco document-type create --example   # a real document type to start from
 ```
 
 Feed the schema straight to a validator, or use it to construct a valid body before sending.
@@ -80,18 +85,27 @@ names, same types - and its `meta` says how much more there is:
   "data": [ { "id": "...", "name": "Home", "isPublished": true } ],
   "meta": {
     "command": "content.list", "durationMs": 142, "schemaVersion": "5",
-    "total": 37, "skip": 0, "take": 20, "hasMore": true
+    "total": 237, "skip": 0, "take": 100, "hasMore": true
   }
 }
 ```
 
-`total`, `skip`, `take` and `hasMore` are **omitted when the source cannot report them** - an
+Every paged `list` defaults to `--take 100`. `total`, `skip`, `take` and `hasMore` are
+**omitted when the source cannot report them** - an
 absent `hasMore` means "unknown", not "no". Never read a missing `total` as a complete list. Many
 commands (`content tree`, `content find --path`, `manifest list`) genuinely cannot count, and say
 so by omission rather than claiming completeness.
 
 `--output csv` cannot carry `meta`, so a truncated CSV prints the same "showing N of M" line to
 stderr that human output does - stdout stays loadable as-is.
+
+**Every write returns `data` too.** `create`, `update`, `copy` and `upload` return the resulting
+item, as `get` shows it. Every other write - delete, move, trash, restore, publish, sort, and the
+like - returns `{ "id": ... }` (or `{ "ids": [...] }`) of what it acted on; one with no target
+returns the state it left (`redirect tracking enable` returns the tracking status), or `{}` when
+there is nothing to read back (`empty-recycle-bin`). `content publish` returns
+`{ id, published, publishAt, unpublishAt, cultures }`, so a scheduled publish reads as
+`"published": false`. The confirmation text ("Deleted.") is human output only.
 
 Errors go to **stderr**:
 
@@ -101,7 +115,8 @@ Errors go to **stderr**:
   "exitCode": 1,
   "httpStatus": 404,
   "message": "Content item not found",
-  "meta": { "command": "content.get", "schemaVersion": "5" }
+  "category": "request_rejected",
+  "meta": { "command": "content.get", "timestamp": "2026-09-25T20:00:00Z", "schemaVersion": "5" }
 }
 ```
 
@@ -110,10 +125,9 @@ request never reached the server** (a policy refusal, an unreachable host, a tim
 a single `code` field before schemaVersion 3, which meant you could not act on it without already
 knowing which kind of failure you had.
 
-An error from an Umbraco API call also carries a `category` and, when the server responded, the
-`serverVersion`, so you can tell **whose** problem it is without a controlled experiment. A command
-line that does not parse carries a `category` too (`invalid_argument`, below), but no
-`serverVersion`, since nothing was sent:
+**Every error carries a `category`**, so you can tell **whose** problem it is without parsing the
+message; an error from an Umbraco API call also carries the `serverVersion` when the server
+responded:
 
 ```json
 {
@@ -123,7 +137,7 @@ line that does not parse carries a `category` too (`invalid_argument`, below), b
   "message": "The Umbraco server returned an internal error (HTTP 500). This is a server-side problem, not a rejected request; check the Umbraco logs.",
   "category": "server_error",
   "serverVersion": "17.3.5",
-  "meta": { "command": "content.get", "schemaVersion": "5" }
+  "meta": { "command": "content.get", "timestamp": "2026-09-25T20:00:00Z", "schemaVersion": "5" }
 }
 ```
 
@@ -133,18 +147,24 @@ undeclared status - a server-side fault) or `unexpected_response` (the body did 
 CLI expected, a likely version mismatch). `serverVersion` is omitted when the server could not be
 reached (`unreachable`/`timeout`) or the version could not be determined.
 
-`invalid_argument` means the command line itself did not parse - a value of the wrong type, an
-unknown option, a missing argument - so no request was made. It covers parse errors only for now.
-Input the CLI rejects after parsing is not categorised this way yet: a malformed `--json-body`
-carries no `category`, an alias that matches nothing is a 404 `request_rejected`, and a name that
-matches several items is a 409 listing their ids. Other policy
-errors that never hit the API (auth, `--readonly`,
-cancellation) carry neither field.
+The rest never reach the API, so they carry no `httpStatus` and no `serverVersion`:
+
+| `category` | Exit | Meaning |
+|---|---|---|
+| `invalid_argument` | 1 | Your input: a command line that does not parse, a malformed or contradictory `--json-body`, two inputs for one value, an alias or name that matches nothing (or several items - the message lists their ids), a file that is not there. |
+| `internal` | 1 | An unexpected error inside the CLI - a bug to report. |
+| `not_authenticated` | 2 | No host, no credentials, an unknown `--profile`, or authentication failed. |
+| `not_allowed` | 2 | The command is not in the allow-list. |
+| `readonly` | 2 | A write blocked by `--readonly` / `UMBRACO_READONLY`. |
+| `confirmation_required` | 2 | A destructive command run non-interactively without `--yes`. |
+| `refused` | 2 | A pre-flight check refused (e.g. deleting an in-use type without `--force`). |
+| `cancelled` | 2 | You declined the confirmation prompt. |
 
 A write command run with `--dry-run` uses a distinct status and does not touch the server:
 
 ```json
-{ "status": "dry-run", "data": { "method": "POST", "url": ".../webhook", "body": { } } }
+{ "status": "dry-run", "data": { "method": "POST", "url": ".../webhook", "body": { } },
+  "meta": { "command": "webhook.create", "durationMs": 12, "timestamp": "...", "schemaVersion": "5" } }
 ```
 
 The payload is under `data`, like every other success envelope - it was `request` before
@@ -166,7 +186,13 @@ schemaVersion 3, the one exception to that rule.
   source could not count, not one that is complete.
 
 **What changed in schemaVersion 5**, if you are moving from `"4"`: the **diff and apply**
-reports (`content diff`, `schema diff`, `content apply`, `schema apply`), and a member's `groups`.
+reports (`content diff`, `schema diff`, `content apply`, `schema apply`), a member's `groups`, and
+the #268 surface batch:
+
+- `meta.command` uses the renamed nouns and verbs (`document-type.list`, `content.version.list`).
+- Every error has a `category` and a full `meta`; CSV errors gain a `category` column.
+- The message-only success (`{status, message, meta}`) is gone: those writes emit `data`.
+- The dry-run envelope carries the full `meta`.
 
 | Before | Now |
 |---|---|
@@ -175,7 +201,7 @@ reports (`content diff`, `schema diff`, `content apply`, `schema apply`), and a 
 | no way to tell what a `Changed` row changed | `"changes": ["values.title[en-US]", "state[da-DK]"]` (null for added/removed rows) |
 | no `meta.total` | `meta.total`, `skip: 0`, `hasMore: false` (a diff is complete) |
 | `content apply` rows `{operation, id, status}` | also `cultures` (for a publish/unpublish of a variant document), and the operations `publish`/`unpublish` |
-| `members get`/`list` `"groups": ["<id>"]` | `"groups": [{"id": "<id>", "name": "Subscribers"}]`, and `memberType.alias` is filled |
+| `member get`/`list` `"groups": ["<id>"]` | `"groups": [{"id": "<id>", "name": "Subscribers"}]`, and `memberType.alias` is filled |
 
 **What changed in schemaVersion 4**, if you are moving from `"3"`: only the **bulk** envelope.
 
@@ -190,7 +216,7 @@ reports (`content diff`, `schema diff`, `content apply`, `schema apply`), and a 
 | Before | Now |
 |---|---|
 | `"published": "True"` (string, from the table caption) | `"isPublished": true` |
-| `"default"` / `"mandatory"` on `languages list` | `"isDefault"` / `"isMandatory"` |
+| `"default"` / `"mandatory"` on `language list` | `"isDefault"` / `"isMandatory"` |
 | every list value was a string | booleans, numbers and dates keep their types |
 | `"code": 404` (exit code *or* HTTP status) | `"exitCode": 1` **and** `"httpStatus": 404` |
 | error `schemaVersion` at the top level, no `meta` | error carries `meta`, like every other envelope |
@@ -208,17 +234,17 @@ reports (`content diff`, `schema diff`, `content apply`, `schema apply`), and a 
   ```
 - **`--output csv`** emits RFC-4180 CSV (list -> one row per item; object/scalar -> header+value).
   Columns use the same camelCase keys, and `--fields` selects/orders them. Errors go to stderr
-  as a `code,message` line.
-- **`--quiet` / `-q`** drops success-confirmation chatter ("Deleted.") but still emits requested
-  data, errors, and exit codes.
+  as an `exitCode,httpStatus,category,message` row.
+- **`--quiet` / `-q`** drops the result of writes (the confirmation and its `data`) but still
+  emits reads, errors, and exit codes.
 
 ## 5. Exit codes
 
 | Code | Meaning |
 |---|---|
 | `0` | Success (including a `--dry-run` preview). |
-| `1` | API error, or an invalid invocation (parse/validation error). |
-| `2` | Aborted before running: no host / not authenticated, blocked by the allow-list, a destructive command refused without `--yes`, or a write blocked by `--readonly`. |
+| `1` | The command ran and failed: an API error, invalid input (`invalid_argument`), a bulk run where some items failed, or an unexpected error (`internal`). |
+| `2` | Aborted before running: not authenticated, blocked by the allow-list or `--readonly`, confirmation missing or declined, or refused by a pre-flight check. |
 | `130` | Cancelled (Ctrl-C). |
 
 Since schemaVersion 3 the JSON error envelope reports this as `exitCode`, separately from the
@@ -226,7 +252,7 @@ server's `httpStatus` - so `exitCode: 1` with `httpStatus: 404` is an API 404, w
 with no `httpStatus` never reached the server at all. A parse error is also reported this way
 rather than as plain text plus a help screen (#167), so `-o json` stays parseable when you mistype.
 
-Gate your automation on the exit code first, then parse the envelope.
+Gate your automation on the exit code first, then read the envelope's `category` for why.
 
 ---
 
@@ -260,16 +286,17 @@ full auth story and profiles.
 
 - **Destructive commands refuse to run without a TTY unless you pass `--yes` / `-y`.** The
   permanent `delete` commands, every `empty-recycle-bin`, `unpublish` (which takes live content
-  offline), `indexer rebuild`, `models-builder build` and `redirect tracking disable` prompt for
-  confirmation interactively and **abort with exit `2`** when piped or scripted without `--yes`.
+  offline) and `redirect tracking disable` prompt for confirmation interactively and **abort with
+  exit `2`** (`confirmation_required`) when piped or scripted without `--yes`. Cost alone does not
+  gate: `indexer rebuild` and `models-builder build` lose nothing and run without it.
   The `umbraco commands` catalog marks each of these `"destructive": true`, read from the same
   declaration the gate uses, so it cannot disagree with what actually asks. `content apply` and
-  `schema apply` are destructive only with `--prune`; the catalog says so with
-  `"destructiveWhen": "--prune"`. Reversible writes - `move`, `copy`, `publish`,
-  `redirect tracking enable` - never need `--yes`.
-- **Deleting a type that content uses needs `--force` as well as `--yes`.** `data-types delete`
-  (while in use), `member-types delete` (while it has members), and every `content-types` /
-  `media-types delete` (Umbraco cannot count their items) are refused with exit `2` unless
+  `schema apply` are destructive only with `--prune`, and every `update` (and
+  `content domain set`) only with `--replace`; the catalog says so with `"destructiveWhen"`.
+  Reversible writes - `move`, `copy`, `publish`, `redirect tracking enable` - never need `--yes`.
+- **Deleting a type that content uses needs `--force` as well as `--yes`.** `data-type delete`
+  (while in use), `member-type delete` (while it has members), and every `document-type` /
+  `media-type delete` (Umbraco cannot count their items) are refused with exit `2` unless
   `--force` is given - checked **before** any confirmation prompt, and under `--dry-run` too,
   since a refusal is what a real run would do. `schema apply --prune` applies the same check to
   every type it would delete; its `--dry-run` plan marks those steps `needs --force`.
@@ -299,20 +326,19 @@ effect, or use the workaround.
 
 | Command | What actually happens | Escape hatch |
 |---|---|---|
-| Any `list` ([#173](https://github.com/worm-brain/Umbraco.Cli/issues/173)) | Truncates at `--take` (default 20) with no `total` or `hasMore` | Page explicitly with `--skip`/`--take`; treat a full page as "probably more" |
 
 ### Publishing
 
-`content publish <id>` with no `--cultures` reads the document and publishes every culture it
+`content publish <id>` with no `--culture` reads the document and publishes every culture it
 has. Name cultures explicitly to publish a subset. `content unpublish` (and `bulk unpublish`)
-works the same way: no `--cultures` unpublishes every culture of a variant document, and the
+works the same way: no `--culture` unpublishes every culture of a variant document, and the
 whole of an invariant one.
 
 Other commands pick a sensible culture when you name none. `content create` and
 `document-blueprint create` use the default language when the document type varies by culture.
-`content versions` lists every culture's history, newest first, and tags each row with the
-`culture` to pass to `content rollback --culture`. Use `content version <version-id>` to read a
-version's values before rolling back. `document-blueprint from-document --name` renames every
+`content version list` lists every culture's history, newest first, and tags each row with the
+`culture` to pass to `content version rollback --culture`. Use `content version get <version-id>` to read a
+version's values before rolling back. `document-blueprint create --from-document --name` renames every
 culture.
 
 `content restore <id>` puts the item back under the parent it was trashed from. Pass
@@ -341,12 +367,12 @@ the CLI alone:
 |---|---|
 | `content get` | `values` (with each value's `editorAlias`), every `variant` and its publication `state`, and `template` |
 | `media get` | `values` carrying `umbracoWidth`/`umbracoHeight`/`umbracoBytes`/`umbracoExtension`, plus `urls` per culture |
-| `content-types`, `media-types`, `member-types`, `data-types`, `templates` `get` | the Management API body verbatim - `properties`, `containers`, `compositions`, `allowedTemplates`, `collection`, allowed children, per-property `validation`; a data type's `values`; a template's `content` - which is a valid `update --json-body` as it stands |
+| `document-type`, `media-type`, `member-type`, `data-type`, `template` `get` | the Management API body verbatim - `properties`, `containers`, `compositions`, `allowedTemplates`, `collection`, allowed children, per-property `validation`; a data type's `values`; a template's `content` - which is a valid `update --json-body` as it stands |
 
-`members get` returns the member's `groups` and `values` too
+`member get` returns the member's `groups` and `values` too
 ([#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)). `content get` and `media get`
 carry `parent` (read from the tree, because the by-id body has none; left out at the root), and
-`data-types list` rows carry their folder. List rows leave out `updateDate`, which the tree does
+`data-type list` rows carry their folder. List rows leave out `updateDate`, which the tree does
 not provide, rather than showing a default date.
 
 Type references (`contentType`, `mediaType`) carry a resolved `alias`
@@ -393,25 +419,25 @@ property editor expects.
 
 ### Authoring schema
 
-The scalar flags on `content-types create`, `data-types create/update` and
-`member-types create/update` cannot express properties, groups, editor configuration, templates,
+The scalar flags on `document-type create`, `data-type create/update` and
+`member-type create/update` cannot express properties, groups, editor configuration, templates,
 compositions or culture variance. **Pass the Management API body instead**
 ([#161](https://github.com/worm-brain/Umbraco.Cli/issues/161),
 [#169](https://github.com/worm-brain/Umbraco.Cli/issues/169)):
 
 ```bash
-umbraco content-types get blogPost -o json | jq .data > t.json
+umbraco document-type get blogPost -o json | jq .data > t.json
 # ...edit t.json: add a property, a group, a template...
-umbraco content-types update blogPost --json-body t.json
+umbraco document-type update blogPost --json-body t.json
 ```
 
-`--json-body` is on `create` and `update` for `content-types`, `media-types`, `member-types` and
-`data-types`, and on `templates update`, and takes a file or `-` for stdin. `update` **merges the
+`--json-body` is on `create` and `update` for `document-type`, `media-type`, `member-type` and
+`data-type`, and on `template update`, and takes a file or `-` for stdin. `update` **merges the
 body's top-level keys** into the item, so a partial body is safe: a key you leave out keeps its
-value, a key you send replaces it whole. Pass `--replace` to send the body as the whole item. Run
-any of them with `--schema` to print a real type off the instance as a worked example - a real
-one rather than a hand-written schema, so it cannot drift from what the API accepts (which is why
-it needs a host). On a site that has none yet, `--schema` prints a minimal valid body.
+value, a key you send replaces it whole. Pass `--replace` (with `--yes`) to send the body as the
+whole item. `--schema` prints the body's JSON Schema, generated from the Management API spec, and
+`--example` prints a real item off the instance to start from (it needs a host; on a site that has
+none yet, it prints a minimal valid body). Both `update` and `create` return the resulting item.
 
 A blueprint's scaffold is a valid content body: `document-blueprint scaffold <id> | umbraco
 content create --json-body -` creates a new item from it (its `documentType` is read as the
@@ -434,7 +460,7 @@ umbraco media folder create --name Blog                     # id goes to media u
 
 # route /da/ to the Danish variant. Without domains, Umbraco logs "the root node was published
 # with multiple cultures, but no domains are configured" and serves nothing but the default.
-umbraco content domains set "$ID" --default en-US \
+umbraco content domain set "$ID" --default en-US \
   --domain example.com=en-US --domain example.com/da=da-DK
 ```
 
@@ -485,15 +511,20 @@ process** that supervises an agent, where the agent itself cannot change them.
 
 ### Read-only mode
 
-`--readonly` (or `UMBRACO_READONLY=1`) refuses every write (create/update/delete/publish) with
-a clear error and a non-zero exit; reads are unaffected.
+`--readonly` (or `UMBRACO_READONLY=1`) refuses every write - any non-GET request, so `sort`,
+`health run` and the like as well as create/update/delete/publish - with exit `2` and category
+`readonly`; reads are unaffected. Every write is marked `"mutating": true` in `umbraco commands`.
 
 ### Command allow-list
 
 `UMBRACO_ALLOWED_COMMANDS` (or the config `allowedCommands` field) restricts which commands may
 run. Entries are noun groups (`content`, `media`) and/or full command names (`content.list`); a
 command runs only if its group or full name is listed. The `auth` group is always allowed. A
-blocked command aborts before running with exit `2`.
+blocked command aborts before running with exit `2` and category `not_allowed`.
+
+- **Renamed nouns still match:** an entry written before the #268 renames
+  (`UMBRACO_ALLOWED_COMMANDS=content-types`, `content.domains.set`) allows exactly what it allowed
+  before, under the new names (`document-type`, `content.domain.set`) - and nothing more.
 
 - **Unset vs lockdown:** only a *truly unset* value (variable absent and no config
   `allowedCommands`) means no restriction. Any *present* value that is blank or separators-only
@@ -524,8 +555,8 @@ without changing anything (`"status": "dry-run"`). Use it to show a plan before 
 Create with a fixed `--id` so re-runs converge instead of duplicating:
 
 ```bash
-umbraco content-types create --name "Blog Post" --alias blogPost
-umbraco content create --content-type blogPost --name "Hello" --id 3f2a...  # same id each run
+umbraco document-type create --name "Blog Post" --alias blogPost
+umbraco content create --document-type blogPost --name "Hello" --id 3f2a...  # same id each run
 ```
 
 ### Move schema between environments

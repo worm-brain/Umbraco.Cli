@@ -50,12 +50,18 @@ public sealed class CommandContextFactory
     /// <see cref="CommandAbortedException"/> (after writing the error) when no host is
     /// configured or the caller is not authenticated.
     /// </summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The built context.</returns>
+    /// <exception cref="CommandAbortedException">No host, not authenticated, or blocked by the allow-list.</exception>
     public async Task<CommandContext> CreateAsync(
         ParseResult parseResult,
-        string commandName,
         CancellationToken ct = default
     )
     {
+        // The dotted name comes from the parse tree (never typed by hand), so meta.command and the
+        // allow-list always name the command that actually ran.
+        var commandName = CommandPath.Of(parseResult) ?? "umbraco";
         var hostOverride = parseResult.GetValue(_globalOptions.Host);
         var tokenOverride = parseResult.GetValue(_globalOptions.Token);
         var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(_globalOptions.Output));
@@ -92,8 +98,10 @@ public sealed class CommandContextFactory
         )
         {
             output.WriteError(
-                2,
-                $"No profile named '{requestedProfile}'. See 'umbraco auth profiles'."
+                ExitCode.Aborted,
+                FailureCategory.NotAuthenticated,
+                $"No profile named '{requestedProfile}'. See 'umbraco auth profile list'.",
+                commandName
             );
             throw new CommandAbortedException();
         }
@@ -111,8 +119,10 @@ public sealed class CommandContextFactory
         if (string.IsNullOrEmpty(host))
         {
             output.WriteError(
-                2,
-                "No Umbraco host configured. Run 'umbraco auth login' or set UMBRACO_HOST."
+                ExitCode.Aborted,
+                FailureCategory.NotAuthenticated,
+                "No Umbraco host configured. Run 'umbraco auth login' or set UMBRACO_HOST.",
+                commandName
             );
             throw new CommandAbortedException();
         }
@@ -129,8 +139,10 @@ public sealed class CommandContextFactory
             if (!config.IsComplete)
             {
                 output.WriteError(
-                    2,
-                    "Not authenticated. Run 'umbraco auth login' or set UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET."
+                    ExitCode.Aborted,
+                    FailureCategory.NotAuthenticated,
+                    "Not authenticated. Run 'umbraco auth login' or set UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET.",
+                    commandName
                 );
                 throw new CommandAbortedException();
             }
@@ -145,7 +157,12 @@ public sealed class CommandContextFactory
             }
             catch (UmbracoAuthException ex)
             {
-                output.WriteError(2, $"Authentication failed: {ex.Message}");
+                output.WriteError(
+                    ExitCode.Aborted,
+                    FailureCategory.NotAuthenticated,
+                    $"Authentication failed: {ex.Message}",
+                    commandName
+                );
                 throw new CommandAbortedException();
             }
 
@@ -281,9 +298,11 @@ public sealed class CommandContextFactory
         )
         {
             output.WriteError(
-                2,
+                ExitCode.Aborted,
+                FailureCategory.NotAllowed,
                 $"Command '{commandName}' is not in the allow-list. Set UMBRACO_ALLOWED_COMMANDS "
-                    + "(or the config 'allowedCommands') to include its group or full name."
+                    + "(or the config 'allowedCommands') to include its group or full name.",
+                commandName
             );
             throw new CommandAbortedException();
         }
@@ -319,9 +338,12 @@ public sealed class CommandContextFactory
             ',',
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
         );
-        return entries.Any(entry =>
-            string.Equals(entry, group, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(entry, commandName, StringComparison.OrdinalIgnoreCase)
-        );
+        // An entry written before a rename (#268) still names the same commands, and no more.
+        return entries
+            .Select(LegacyNames.Canonical)
+            .Any(entry =>
+                string.Equals(entry, group, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(entry, commandName, StringComparison.OrdinalIgnoreCase)
+            );
     }
 }
