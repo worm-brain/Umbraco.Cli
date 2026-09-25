@@ -30,7 +30,7 @@ public static class RedirectCommand
     {
         var cmd = new Command(
             "list",
-            "List redirects. With --content-item, lists redirects pointing at that document."
+            "List redirects. With --content-item, lists redirects pointing at that document.\n\nExamples:\n  umbraco redirect list\n  umbraco redirect list --filter old-page\n  umbraco redirect list --content-item <id>"
         );
         var contentOpt = new Option<Guid?>("--content-item")
         {
@@ -71,7 +71,10 @@ public static class RedirectCommand
 
     private static Command BuildStatus(CommandExecutor executor)
     {
-        var cmd = new Command("status", "Show whether automatic URL-redirect tracking is enabled.");
+        var cmd = new Command(
+            "status",
+            "Show whether automatic URL-redirect tracking is enabled.\n\nExamples:\n  umbraco redirect tracking status"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
@@ -85,7 +88,10 @@ public static class RedirectCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a redirect by UUID.").Mutating();
+        var cmd = new Command(
+            "delete",
+            "Delete a redirect by id.\n\nExamples:\n  umbraco redirect delete 3f7a8b2e-... --yes"
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Redirect ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult => $"Delete redirect {parseResult.GetValue(idArg)}?");
@@ -126,7 +132,7 @@ public static class RedirectCommand
     {
         var cmd = new Command(
             verb,
-            $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking."
+            $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking.\n\nExamples:\n  umbraco redirect tracking {verb}{(enabled ? "" : " --yes")}"
         ).Mutating();
         // Only disabling is gated: it stops Umbraco recording redirects site-wide, so moved pages
         // start to 404. Enabling turns a protection on and needs no --yes (#249).

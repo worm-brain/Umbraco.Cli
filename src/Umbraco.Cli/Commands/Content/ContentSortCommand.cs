@@ -17,7 +17,8 @@ public static class ContentSortCommand
     {
         var cmd = new Command(
             "sort",
-            "Reorder a parent's child content items, into the order given (first = top) or by a field.\n\n"
+            "Sort a parent's child content items, in the order given or by a field.\n\n"
+                + "With --order the first id goes to the top.\n\n"
                 + "Examples:\n"
                 + "  umbraco content sort --parent 1a2b3c4d-... --order 3f7a...,9c4d...,2e6f...\n"
                 + "  umbraco content sort --parent 1a2b3c4d-... --by publishDate --desc   # newest first\n"

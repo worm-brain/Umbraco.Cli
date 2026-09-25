@@ -27,7 +27,10 @@ public static class IndexerCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List the Examine indexes.");
+        var cmd = new Command(
+            "list",
+            "List the Examine indexes.\n\nExamples:\n  umbraco indexer list\n  umbraco indexer list --output json"
+        );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
@@ -53,7 +56,10 @@ public static class IndexerCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get an index by name.");
+        var cmd = new Command(
+            "get",
+            "Get an index by name.\n\nExamples:\n  umbraco indexer get ExternalIndex"
+        );
         var nameArg = new Argument<string>("name") { Description = "Index name." };
         cmd.Add(nameArg);
         cmd.SetAction(
@@ -69,7 +75,10 @@ public static class IndexerCommand
 
     private static Command BuildRebuild(CommandExecutor executor)
     {
-        var cmd = new Command("rebuild", "Rebuild an index by name (expensive).").Mutating();
+        var cmd = new Command(
+            "rebuild",
+            "Rebuild an index by name (expensive).\n\nExamples:\n  umbraco indexer rebuild ExternalIndex"
+        ).Mutating();
         var nameArg = new Argument<string>("name") { Description = "Index name." };
         cmd.Add(nameArg);
         cmd.SetAction(

@@ -147,8 +147,8 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
   `UMBRACO_CLIENT_ID` / `UMBRACO_CLIENT_SECRET`) take precedence over the file, per-field.
 - **`OutputWriterFactory`** picks the writer: explicit `--output json|human|csv`, else JSON
   when `Console.IsOutputRedirected`, else human (csv is only ever explicit). `JsonOutputWriter`
-  writes the `{status, data, meta}` envelope to stdout and `{status, code, message}` errors to
-  **stderr**; `CsvOutputWriter` emits RFC-4180 CSV; `HumanOutputWriter` uses Spectre.Console.
+  writes the `{status, data, meta}` envelope to stdout and
+  `{status, exitCode, httpStatus?, message, category, meta}` errors to **stderr**; `CsvOutputWriter` emits RFC-4180 CSV; `HumanOutputWriter` uses Spectre.Console.
   Table/`--fields` shaping is shared via `OutputShaping` so list and get output agree on
   camelCase field keys across formats. `--quiet` wraps the writer (`QuietOutputWriter`) to drop
   success chatter; `ConsoleColorSetup` honours `NO_COLOR`.
@@ -158,6 +158,11 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
 - Adding a command = new `XxxVerbCommand.cs` in the noun's folder + register it in the noun's
   `XxxCommand.Build`. Mirror an existing one (e.g. `Commands/Content/ContentListCommand.cs`)
   rather than inventing a new shape. Then add it to [`docs/commands.md`](docs/commands.md).
+  A write declares `.Mutating()` (and `.Destructive(...)` / `.DestructiveWith(...)` if it can lose
+  data); its call returns data via `.Then(ItemRef.Of(id))` or `.ThenRead(...)` - a write that
+  returns nothing does not compile. `meta.command` is derived from the tree: never type it. Help
+  text follows [`docs/conventions.md`](docs/conventions.md) section 8, which `HelpTextTests`
+  enforces. (Folder and class names such as `ContentTypes/` predate the singular nouns.)
 - Errors are data, not exceptions: return `UmbracoResponse.Failure(...)` from the client; let
   `CommandExecutor` translate to exit codes. Do not `Console.WriteLine`/`throw` from commands
   for expected failures.

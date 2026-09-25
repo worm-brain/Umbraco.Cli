@@ -29,7 +29,7 @@ public static class ContentPublishDescendantsCommand
         {
             DefaultValueFactory = _ => false,
             Description =
-                "Poll the background publish task until it completes, rather than returning as soon as it is queued (#90).",
+                "Poll the background publish task until it completes, rather than returning as soon as it is queued.",
         };
         cmd.Add(idArg);
         cmd.Add(culturesOpt);
@@ -40,7 +40,7 @@ public static class ContentPublishDescendantsCommand
             {
                 var cultures = parseResult.GetValue(culturesOpt);
                 // Object output (rather than a fixed message) surfaces the background task id and
-                // completion state, so a script can chain on --wait or poll the id itself (#90).
+                // completion state, so a script can chain on --wait or poll the id itself.
                 return executor.RunObjectAsync(
                     parseResult,
                     (client, c) =>

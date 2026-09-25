@@ -32,7 +32,7 @@ public static class LogViewerCommand
     {
         var cmd = new Command(
             "list",
-            "List log messages, optionally filtered by level/date/expression."
+            "List log messages, optionally filtered by level/date/expression.\n\nExamples:\n  umbraco log-viewer list --level Error --take 50\n  umbraco log-viewer list --start-date 2026-09-01 --end-date 2026-09-02 --asc\n  umbraco log-viewer list --filter \"@Level='Error' and Has(@Exception)\""
         );
         var levelOpt = ListOption.Enums<LogLevel>(
             "--level",
@@ -87,7 +87,10 @@ public static class LogViewerCommand
 
     private static Command BuildLevels(CommandExecutor executor)
     {
-        var cmd = new Command("levels", "List the configured loggers and their minimum levels.");
+        var cmd = new Command(
+            "levels",
+            "List the configured loggers and their minimum levels.\n\nExamples:\n  umbraco log-viewer levels"
+        );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
@@ -106,7 +109,10 @@ public static class LogViewerCommand
 
     private static Command BuildLevelCount(CommandExecutor executor)
     {
-        var cmd = new Command("level-count", "Show message counts by level over a date range.");
+        var cmd = new Command(
+            "level-count",
+            "Show message counts by level over a date range.\n\nExamples:\n  umbraco log-viewer level-count\n  umbraco log-viewer level-count --start-date 2026-09-01 --end-date 2026-09-08"
+        );
         var startOpt = new Option<DateTimeOffset?>("--start-date") { Description = "Range start." };
         var endOpt = new Option<DateTimeOffset?>("--end-date") { Description = "Range end." };
         cmd.Add(startOpt);
@@ -129,7 +135,10 @@ public static class LogViewerCommand
 
     private static Command BuildMessageTemplates(CommandExecutor executor)
     {
-        var cmd = new Command("message-templates", "List the most common message templates.");
+        var cmd = new Command(
+            "message-templates",
+            "List the most common message templates.\n\nExamples:\n  umbraco log-viewer message-templates --take 20\n  umbraco log-viewer message-templates --start-date 2026-09-01"
+        );
         var startOpt = new Option<DateTimeOffset?>("--start-date") { Description = "Range start." };
         var endOpt = new Option<DateTimeOffset?>("--end-date") { Description = "Range end." };
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
@@ -168,7 +177,10 @@ public static class LogViewerCommand
 
     private static Command BuildSavedSearchList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List saved log searches.");
+        var cmd = new Command(
+            "list",
+            "List saved log searches.\n\nExamples:\n  umbraco log-viewer saved-search list"
+        );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
@@ -187,7 +199,10 @@ public static class LogViewerCommand
 
     private static Command BuildSavedSearchCreate(CommandExecutor executor)
     {
-        var cmd = new Command("create", "Create a saved log search.").Mutating();
+        var cmd = new Command(
+            "create",
+            "Create a saved log search.\n\nExamples:\n  umbraco log-viewer saved-search create --name Errors --query \"@Level='Error'\""
+        ).Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
@@ -218,7 +233,10 @@ public static class LogViewerCommand
 
     private static Command BuildSavedSearchDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a saved log search by name.").Mutating();
+        var cmd = new Command(
+            "delete",
+            "Delete a saved log search by name.\n\nExamples:\n  umbraco log-viewer saved-search delete Errors --yes"
+        ).Mutating();
         var nameArg = new Argument<string>("name") { Description = "Saved search name." };
         cmd.Add(nameArg);
         cmd.Destructive(parseResult => $"Delete saved search '{parseResult.GetValue(nameArg)}'?");

@@ -17,7 +17,11 @@ public static class DataTypesAdvancedCommands
     /// <returns>The configured command.</returns>
     public static Command BuildIsUsed(CommandExecutor executor)
     {
-        var cmd = new Command("is-used", "Check whether a data type is used by any content type.");
+        var cmd = new Command(
+            "is-used",
+            "Check whether a data type is used by any document, media or member type.\n\n"
+                + "Examples:\n  umbraco data-type is-used Textstring\n  umbraco data-type is-used 3f7a8b2e-..."
+        );
         var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
         cmd.SetAction(
@@ -44,9 +48,10 @@ public static class DataTypesAdvancedCommands
     {
         var cmd = new Command(
             "referenced-by",
-            "List what references a data type: the properties that use it, and the items holding values in it. "
+            "List what references a data type.\n\n"
+                + "That is the properties that use it, and the items holding values in it. "
                 + "Each row's 'kind' says what it is (e.g. documentTypePropertyType).\n\n"
-                + "Example:\n  umbraco data-type referenced-by Textstring"
+                + "Examples:\n  umbraco data-type referenced-by Textstring\n  umbraco data-type referenced-by \"Homepage Blocks\" --take 20"
         );
         var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
@@ -101,12 +106,13 @@ public static class DataTypesAdvancedCommands
     {
         var cmd = new Command(
             "copy",
-            "Copy a data type, optionally under a target folder."
+            "Copy a data type, optionally under a target folder.\n\n"
+                + "Examples:\n  umbraco data-type copy Textstring\n  umbraco data-type copy Textstring --parent <folder-id>"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.DataType);
         var targetOpt = new Option<Guid?>("--parent", "--target")
         {
-            Description = "Destination folder UUID; omit to copy to the root. --target works too.",
+            Description = "Destination folder id; omit to copy to the root. --target works too.",
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);
@@ -136,12 +142,13 @@ public static class DataTypesAdvancedCommands
     {
         var cmd = new Command(
             "move",
-            "Move a data type under a folder (or to the root)."
+            "Move a data type under a folder (or to the root).\n\n"
+                + "Examples:\n  umbraco data-type move Textstring --parent <folder-id>\n  umbraco data-type move Textstring"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.DataType);
         var targetOpt = new Option<Guid?>("--parent", "--target")
         {
-            Description = "Destination folder UUID; omit to move to the root. --target works too.",
+            Description = "Destination folder id; omit to move to the root. --target works too.",
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);
@@ -183,7 +190,10 @@ public static class DataTypesAdvancedCommands
 
     private static Command BuildFolderGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a data-type folder by UUID.");
+        var cmd = new Command(
+            "get",
+            "Get a data-type folder by id.\n\nExamples:\n  umbraco data-type folder get 3f7a8b2e-..."
+        );
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
         cmd.SetAction(
@@ -199,7 +209,10 @@ public static class DataTypesAdvancedCommands
 
     private static Command BuildFolderCreate(CommandExecutor executor)
     {
-        var cmd = new Command("create", "Create a data-type folder.").Mutating();
+        var cmd = new Command(
+            "create",
+            "Create a data-type folder.\n\nExamples:\n  umbraco data-type folder create --name \"Blocks\"\n  umbraco data-type folder create --name \"Grid\" --parent <folder-id>"
+        ).Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
@@ -207,11 +220,11 @@ public static class DataTypesAdvancedCommands
         };
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Parent folder UUID. Omit to create at the root.",
+            Description = "Parent folder id. Omit to create at the root.",
         };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
@@ -238,7 +251,10 @@ public static class DataTypesAdvancedCommands
 
     private static Command BuildFolderUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Update a data-type folder's name, by id.").Mutating();
+        var cmd = new Command(
+            "update",
+            "Update a data-type folder's name, by id.\n\nExamples:\n  umbraco data-type folder update 3f7a8b2e-... --name \"Block editors\""
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         var nameOpt = new Option<string>("--name")
         {
@@ -268,7 +284,10 @@ public static class DataTypesAdvancedCommands
 
     private static Command BuildFolderDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a data-type folder by UUID.").Mutating();
+        var cmd = new Command(
+            "delete",
+            "Delete a data-type folder by id.\n\nExamples:\n  umbraco data-type folder delete 3f7a8b2e-..."
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

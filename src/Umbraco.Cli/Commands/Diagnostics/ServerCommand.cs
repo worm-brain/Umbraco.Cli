@@ -22,7 +22,7 @@ public static class ServerCommand
             DiagnosticsVerb.Object(
                 executor,
                 "status",
-                "Show the server's runtime status.",
+                "Show the server's runtime status.\n\nExamples:\n  umbraco server status\n  umbraco server status --output json",
                 (c, ct) => c.GetServerStatusAsync(ct)
             )
         );
@@ -30,7 +30,7 @@ public static class ServerCommand
             DiagnosticsVerb.Object(
                 executor,
                 "info",
-                "Show server version and runtime-mode information.",
+                "Show server version and runtime-mode information.\n\nExamples:\n  umbraco server info",
                 (c, ct) => c.GetServerInformationAsync(ct)
             )
         );
@@ -38,7 +38,7 @@ public static class ServerCommand
             DiagnosticsVerb.Object(
                 executor,
                 "configuration",
-                "Show public server configuration flags.",
+                "Show public server configuration flags.\n\nExamples:\n  umbraco server configuration",
                 (c, ct) => c.GetServerConfigurationAsync(ct)
             )
         );
@@ -48,7 +48,10 @@ public static class ServerCommand
 
     private static Command BuildTroubleshooting(CommandExecutor executor)
     {
-        var cmd = new Command("troubleshooting", "List server troubleshooting items.");
+        var cmd = new Command(
+            "troubleshooting",
+            "List server troubleshooting items.\n\nExamples:\n  umbraco server troubleshooting\n  umbraco server troubleshooting --output json"
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunCompleteListAsync(

@@ -17,7 +17,7 @@ public static class DataTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a data type by name or UUID: the full Management API body, including its editor configuration. The output is a valid 'update --json-body'.\n\nA data type has no alias - 'editorAlias' names the property editor behind it, which many data types share - so the human-facing key is its name.\n\nExamples:\n  umbraco data-type get Textstring\n  umbraco data-type get 3f7a8b2e-..."
+            "Get a data type by name or id, as the full Management API body.\n\nThe body includes its editor configuration. The output is a valid 'update --json-body'.\n\nA data type has no alias - 'editorAlias' names the property editor behind it, which many data types share - so the human-facing key is its name.\n\nExamples:\n  umbraco data-type get Textstring\n  umbraco data-type get 3f7a8b2e-..."
         );
         var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);

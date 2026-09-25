@@ -8,7 +8,7 @@ public static class UsersCommand
     {
         var cmd = new Command(
             "user",
-            "Manage Umbraco back-office users (not front-end members).\n\nExamples:\n  umbraco user list\n  umbraco user invite --email editor@example.com --name \"John Smith\"\n  umbraco user get <id>"
+            "Manage Umbraco backoffice users (not front-end members).\n\nExamples:\n  umbraco user list\n  umbraco user invite --email editor@example.com --name \"John Smith\"\n  umbraco user get <id>"
         );
         cmd.Add(UsersListCommand.Build(executor));
         cmd.Add(UsersGetCommand.Build(executor));

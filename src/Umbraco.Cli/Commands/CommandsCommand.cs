@@ -28,9 +28,11 @@ public static class CommandsCommand
     {
         var cmd = new Command(
             "commands",
-            "List every command (name, arguments, options, types, help) so agents and scripts "
-                + "can discover the whole CLI surface in one call. JSON by default; "
-                + "--output human prints an outline."
+            "List every command, with its arguments, options, types and help.\n\n"
+                + "Agents and scripts can discover the whole CLI surface in one call. JSON by default; "
+                + "--output human prints an outline.\n\n"
+                + "Examples:\n  umbraco commands\n  umbraco commands --output human\n"
+                + "  umbraco commands | jq '.data.commands[].name'"
         );
 
         cmd.SetAction(

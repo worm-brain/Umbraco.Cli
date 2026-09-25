@@ -8,7 +8,7 @@ public static class ContentTypesListCommand
     {
         var cmd = new Command(
             "list",
-            "List all document types defined in the Umbraco instance.\n\nExamples:\n  umbraco document-type list\n  umbraco document-type list --output json | jq '.[].alias'"
+            "List all document types defined in the Umbraco instance.\n\nExamples:\n  umbraco document-type list\n  umbraco document-type list --output json | jq '.data[].alias'"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(

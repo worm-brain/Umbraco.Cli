@@ -16,7 +16,7 @@ public static class RelationCommand
     {
         var cmd = new Command(
             "relation",
-            "List relations of a relation type.\n\nExample:\n  umbraco relation list --relation-type <relationTypeId>"
+            "List relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relationTypeId>"
         );
         cmd.Add(BuildList(executor));
         return cmd;
@@ -24,7 +24,10 @@ public static class RelationCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List the relations of a relation type.");
+        var cmd = new Command(
+            "list",
+            "List the relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relation-type-id>\n  umbraco relation list --relation-type <relation-type-id> --take 20"
+        );
         var typeOpt = new Option<Guid>("--relation-type")
         {
             Required = true,

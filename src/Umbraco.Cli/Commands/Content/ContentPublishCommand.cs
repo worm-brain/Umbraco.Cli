@@ -19,12 +19,12 @@ public static class ContentPublishCommand
         var publishAtOpt = new Option<DateTimeOffset?>("--publish-at")
         {
             Description =
-                "Schedule the publish for a future time (ISO 8601, e.g. 2026-01-01T09:00:00Z). Publishes now if omitted (#90).",
+                "Schedule the publish for a future time (ISO 8601, e.g. 2026-01-01T09:00:00Z). Publishes now if omitted.",
         };
         var unpublishAtOpt = new Option<DateTimeOffset?>("--unpublish-at")
         {
             Description =
-                "Schedule an automatic unpublish at a future time (ISO 8601). Stays published if omitted (#90).",
+                "Schedule an automatic unpublish at a future time (ISO 8601). Stays published if omitted.",
         };
         cmd.Add(idArg);
         cmd.Add(culturesOpt);

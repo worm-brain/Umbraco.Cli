@@ -21,9 +21,20 @@ public static class MemberTypesCreateCommand
             "create",
             "Create a new member type with a given name and alias.\n\nExamples:\n  umbraco member-type create --name \"Author\" --alias author\n  umbraco member-type create --name \"Subscriber\" --alias subscriber --icon icon-user"
         ).Mutating();
-        var nameOpt = new Option<string>("--name");
-        var aliasOpt = new Option<string>("--alias");
-        var descOpt = new Option<string?>("--description");
+        var nameOpt = new Option<string>("--name")
+        {
+            Description =
+                "Display name of the new member type. Required unless --json-body is given.",
+        };
+        var aliasOpt = new Option<string>("--alias")
+        {
+            Description =
+                "Alias of the new member type, e.g. author. Required unless --json-body is given.",
+        };
+        var descOpt = new Option<string?>("--description")
+        {
+            Description = "Optional description shown in the backoffice.",
+        };
         var iconOpt = new Option<string>("--icon")
         {
             DefaultValueFactory = _ => "icon-user",

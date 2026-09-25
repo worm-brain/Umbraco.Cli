@@ -12,7 +12,11 @@ public static class DictionaryCreateCommand
             "create",
             "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil"
         ).Mutating();
-        var keyOpt = new Option<string>("--key") { Required = true };
+        var keyOpt = new Option<string>("--key")
+        {
+            Required = true,
+            Description = "Key (name) of the new dictionary item, e.g. Nav.Home.",
+        };
         // --value accepts isoCode=value pairs (en-US=Hello da-DK=Hej); the isoCode must be the full culture code (#181)
         var valuesOpt = new Option<string[]>("--value")
         {
@@ -22,12 +26,12 @@ public static class DictionaryCreateCommand
         };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         var parentOpt = Reference.Option(
             "--parent",
             EntityKind.DictionaryItem,
-            "The item to create this one under; creates at the root if omitted (#110)"
+            "The item to create this one under; creates at the root if omitted"
         );
         cmd.Add(keyOpt);
         cmd.Add(valuesOpt);

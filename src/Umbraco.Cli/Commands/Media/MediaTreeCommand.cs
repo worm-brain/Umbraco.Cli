@@ -12,7 +12,7 @@ public static class MediaTreeCommand
     {
         var cmd = new Command(
             "tree",
-            "Walk the media tree into a flat list, each node carrying its depth and parent id.\n\nExamples:\n  umbraco media tree                       # direct children of the root\n  umbraco media tree --parent <folder-id> --recursive\n  umbraco media tree --depth 3 --output json"
+            "Walk the media tree into a flat list of nodes.\n\nEach node carries its depth and parent id.\n\nExamples:\n  umbraco media tree                       # direct children of the root\n  umbraco media tree --parent <folder-id> --recursive\n  umbraco media tree --depth 3 --output json"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {

@@ -9,7 +9,7 @@ public static class LanguagesDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a language by its ISO code.\n\nExample:\n  umbraco language delete fr-FR"
+            "Delete a language by its ISO code.\n\nExamples:\n  umbraco language delete fr-FR"
         ).Mutating();
         var isoArg = new Argument<string>("id")
         {

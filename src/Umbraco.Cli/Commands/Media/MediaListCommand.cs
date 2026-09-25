@@ -12,7 +12,7 @@ public static class MediaListCommand
         );
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Filter by parent media folder UUID. Omit for root media items.",
+            Description = "Parent media folder id; lists root media items if omitted.",
         };
         cmd.Add(parentOpt);
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);

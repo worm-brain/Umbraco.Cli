@@ -12,7 +12,7 @@ public static class ContentVersionsCommand
     {
         var cmd = new Command(
             "list",
-            "List the version history of a content item. A culture-variant item is listed across all "
+            "List the version history of a content item.\n\nA culture-variant item is listed across all "
                 + "its cultures, each row tagged with its culture, unless --culture is given.\n\nExamples:\n  umbraco content version list 3f7a8b2e-...\n  umbraco content version list 3f7a8b2e-... --culture en-US"
         );
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };

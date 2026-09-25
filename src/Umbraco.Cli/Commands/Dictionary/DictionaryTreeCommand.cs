@@ -17,7 +17,7 @@ public static class DictionaryTreeCommand
     {
         var cmd = new Command(
             "tree",
-            "Walk the dictionary into a flat list, each item carrying its depth and parent id.\n\nExamples:\n  umbraco dictionary tree                    # direct children of the root\n  umbraco dictionary tree --parent Blog --recursive\n  umbraco dictionary tree --depth 3 --output json"
+            "Walk the dictionary into a flat list of items.\n\nEach item carries its depth and parent id.\n\nExamples:\n  umbraco dictionary tree                    # direct children of the root\n  umbraco dictionary tree --parent Blog --recursive\n  umbraco dictionary tree --depth 3 --output json"
         );
         var parentOpt = Reference.Option(
             "--parent",

@@ -22,7 +22,8 @@ public static class ContentApplyCommand
     {
         var cmd = new Command(
             "apply",
-            "Apply a content snapshot to the live instance (create, update and publish state; --prune also deletes).\n\n"
+            "Apply a content snapshot to the live instance.\n\n"
+                + "Creates, updates and sets publish state; --prune also deletes.\n\n"
                 + "Examples:\n"
                 + "  umbraco content apply content.json --dry-run\n"
                 + "  umbraco content apply content.json\n"

@@ -8,7 +8,7 @@ public static class ContentGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a content item by its UUID, including all property values.\n\nExample:\n  umbraco content get 3f7a8b2e-1234-5678-abcd-ef0123456789"
+            "Get a content item by id, including all property values.\n\nExamples:\n  umbraco content get 3f7a8b2e-1234-5678-abcd-ef0123456789\n  umbraco content get <id> -o json | jq .data.values"
         );
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         cmd.Add(idArg);

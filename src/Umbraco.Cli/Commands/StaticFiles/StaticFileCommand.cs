@@ -33,8 +33,8 @@ public static class StaticFileCommand
             $"List, inspect, and manage Umbraco {humanName}s (addressed by file path).\n\n"
                 + "Examples:\n"
                 + $"  umbraco {noun} list\n"
-                + $"  umbraco {noun} get folder/file\n"
-                + $"  umbraco {noun} create --name file --content-file ./local"
+                + $"  umbraco {noun} get folder/{SampleFile(noun)}\n"
+                + $"  umbraco {noun} create --name {SampleFile(noun)} --content-file ./{SampleFile(noun)}"
         );
         cmd.Add(BuildList(executor, kind, noun));
         cmd.Add(BuildGet(executor, kind, noun));
@@ -44,12 +44,30 @@ public static class StaticFileCommand
         return cmd;
     }
 
+    /// <summary>
+    /// A plausible file name for the noun's help examples, e.g. <c>site.js</c> for scripts, so
+    /// each of the three nouns built here shows examples with its own file extension.
+    /// </summary>
+    /// <param name="noun">The command name (<c>script</c>, <c>stylesheet</c> or <c>partial-view</c>).</param>
+    /// <returns>A sample file name.</returns>
+    private static string SampleFile(string noun) =>
+        noun switch
+        {
+            "script" => "site.js",
+            "stylesheet" => "site.css",
+            _ => "card.cshtml",
+        };
+
     /// <summary>Builds the <c>list</c> verb (tree root, or a folder's children with <c>--parent</c>).</summary>
     private static Command BuildList(CommandExecutor executor, StaticFileKind kind, string noun)
     {
         var cmd = new Command(
             "list",
-            $"List {noun} files and folders from the tree. --parent lists a folder's children."
+            $"List {noun} files and folders from the tree.\n\n"
+                + "--parent lists a folder's children.\n\n"
+                + "Examples:\n"
+                + $"  umbraco {noun} list\n"
+                + $"  umbraco {noun} list --parent folder"
         );
         var parentOpt = new Option<string?>("--parent")
         {
@@ -82,7 +100,13 @@ public static class StaticFileCommand
     /// <summary>Builds the <c>get</c> verb (single file by path, including content).</summary>
     private static Command BuildGet(CommandExecutor executor, StaticFileKind kind, string noun)
     {
-        var cmd = new Command("get", $"Get a {noun} by path, including its content.");
+        var cmd = new Command(
+            "get",
+            $"Get a {noun} by path, including its content.\n\n"
+                + "Examples:\n"
+                + $"  umbraco {noun} get {SampleFile(noun)}\n"
+                + $"  umbraco {noun} get folder/{SampleFile(noun)} -o json | jq -r .data.content"
+        );
         var pathArg = new Argument<string>("path") { Description = "The file path." };
         cmd.Add(pathArg);
         cmd.SetAction(
@@ -102,7 +126,11 @@ public static class StaticFileCommand
     {
         var cmd = new Command(
             "create",
-            $"Create a {noun} file. Content comes from --content or --content-file (empty if neither)."
+            $"Create a {noun} file.\n\n"
+                + "Content comes from --content or --content-file (empty if neither).\n\n"
+                + "Examples:\n"
+                + $"  umbraco {noun} create --name {SampleFile(noun)} --content-file ./{SampleFile(noun)}\n"
+                + $"  umbraco {noun} create --name {SampleFile(noun)} --parent folder"
         ).Mutating();
         var nameOpt = new Option<string>("--name") { Required = true, Description = "File name." };
         var parentOpt = new Option<string?>("--parent")
@@ -151,7 +179,13 @@ public static class StaticFileCommand
         string humanName
     )
     {
-        var cmd = new Command("update", $"Update a {noun}\'s content (by path).").Mutating();
+        var cmd = new Command(
+            "update",
+            $"Update a {noun}'s content (by path).\n\n"
+                + "Examples:\n"
+                + $"  umbraco {noun} update {SampleFile(noun)} --content-file ./{SampleFile(noun)}\n"
+                + $"  cat ./{SampleFile(noun)} | umbraco {noun} update folder/{SampleFile(noun)} --content-file -"
+        ).Mutating();
         var pathArg = new Argument<string>("path") { Description = "The file path." };
         var (contentOpt, contentFileOpt) = FileContentInput.Options();
         cmd.Add(pathArg);
@@ -201,7 +235,13 @@ public static class StaticFileCommand
         string humanName
     )
     {
-        var cmd = new Command("delete", $"Delete a {noun} by path.").Mutating();
+        var cmd = new Command(
+            "delete",
+            $"Delete a {noun} by path.\n\n"
+                + "Examples:\n"
+                + $"  umbraco {noun} delete {SampleFile(noun)}\n"
+                + $"  umbraco {noun} delete folder/{SampleFile(noun)} --yes"
+        ).Mutating();
         var pathArg = new Argument<string>("path") { Description = "The file path." };
         cmd.Add(pathArg);
         cmd.Destructive(parseResult =>

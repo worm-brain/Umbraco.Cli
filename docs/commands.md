@@ -2,7 +2,14 @@
 
 Every command in the `umbraco` CLI. For the JSON envelope, exit codes, guardrails, and
 non-interactive rules that apply across all of them, see [agent-guide.md](agent-guide.md). For
-install and auth, see [getting-started.md](getting-started.md).
+install and auth, see [getting-started.md](getting-started.md). The design rules every command
+follows are in [conventions.md](conventions.md).
+
+> **Renamed nouns.** As of the #268 batch, nouns are singular and document types are
+> `document-type` (was `content-types`). The old names (`content-types`, `media-types`,
+> `data-types`, `languages`, `templates`, `members`, `member-types`, `users`, `webhooks`,
+> `member-groups`, `tags`, `cultures`, `user-groups`, and `content domains`) still run for one
+> release, with a warning on stderr, and an allow-list entry naming an old noun still matches.
 
 > The authoritative, always-in-sync surface is `umbraco commands` (the whole tree as JSON,
 > including a `destructive` flag per command). This page is the human/agent-readable narrative
@@ -17,21 +24,21 @@ install and auth, see [getting-started.md](getting-started.md).
 - [`content`](#content)
 - [`document-blueprint`](#document-blueprint)
 - [`media`](#media)
-- [`media-types`](#media-types)
-- [`content-types`](#content-types)
-- [`data-types`](#data-types)
-- [`languages`](#languages)
-- [`templates`](#templates)
-- [`members`](#members)
-- [`member-types`](#member-types)
-- [`member-groups`](#member-groups)
-- [`users`](#users)
-- [`user-groups`](#user-groups)
+- [`media-type`](#media-type)
+- [`document-type`](#document-type)
+- [`data-type`](#data-type)
+- [`language`](#language)
+- [`template`](#template)
+- [`member`](#member)
+- [`member-type`](#member-type)
+- [`member-group`](#member-group)
+- [`user`](#user)
+- [`user-group`](#user-group)
 - [`user-data`](#user-data)
 - [`dictionary`](#dictionary)
-- [`webhooks`](#webhooks)
+- [`webhook`](#webhook)
 - [`script` / `stylesheet` / `partial-view`](#script--stylesheet--partial-view-static-files)
-- [`tags` / `cultures`](#tags--cultures-read-only)
+- [`tag` / `culture`](#tag--culture-read-only)
 - [`server`](#server-read-only)
 - [`health`](#health)
 - [`log-viewer`](#log-viewer)
@@ -56,7 +63,7 @@ Available on every command:
 | `--host <url>` | Umbraco instance base URL (overrides config). |
 | `--token <bearer>` | Raw bearer token (overrides stored credentials). |
 | `--output json\|human\|csv` | Output format. Default: `json` when piped, `human` in a terminal. `csv` is RFC-4180 and only ever explicit. |
-| `--quiet`, `-q` | Suppress success-confirmation messages; data, errors, and exit codes still emitted. |
+| `--quiet`, `-q` | Suppress the result of writes (the confirmation and its `data`); reads, errors, and exit codes still emitted. |
 | `--verbose` | Log the HTTP method, URL, selected headers and status to stderr. Bodies are **not** logged ([#166](https://github.com/worm-brain/Umbraco.Cli/issues/166)) - use `--dry-run` to see the request body. |
 | `--dry-run` | On a write command, print the request that would be sent (method, URL, body) and exit `0` without executing. No effect on reads. |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands. **Required** to run one non-interactively. |
@@ -70,10 +77,11 @@ TTY.
 
 ### Paging applies to every `list`
 
-`list` commands return at most `--take` items, **default 20**, and say so in `meta`:
+Paged `list` commands return at most `--take` items, **default 100** on every one, and say so
+in `meta`:
 
 ```json
-"meta": { "total": 37, "skip": 0, "take": 20, "hasMore": true }
+"meta": { "total": 237, "skip": 0, "take": 100, "hasMore": true }
 ```
 
 In a terminal a truncated list also prints a hint to stderr. Page with `--skip`/`--take` until
@@ -90,22 +98,35 @@ faked with a large `--take`, which would be the same silent cap further out.
 
 - **A list option takes commas, spaces or repeats.** `--culture en-US,da-DK`,
   `--culture en-US da-DK` and `--culture en-US --culture da-DK` are the same. This holds for
-  every option that takes several values (`--culture`, `--order`, `--group`, `--ids`,
-  `--user`, `--section`, `--culture`, `--fallback-permission`, `--exclude-type`,
-  `--exclude-root`, `--id`, `--level`, `--event`) - but not for the `key=value` options
-  (`--value`, `--value`, `--domain`), whose values may contain a comma.
+  every option that takes several values (`--culture`, `--order`, `--group`, `--user`,
+  `--section`, `--fallback-permission`, `--exclude-type`, `--exclude-root`, `--level`, `--event`)
+  - but not for the `key=value` options (`--value`, `--domain`), whose values may contain a comma.
+- **Several targets known up front are positional:** `user-group delete a b c`,
+  `imaging resize-urls <id> <id>`.
 - **An item can be named instead of given by id** wherever the syntax below says `<id|alias>`,
-  `<id|name>` or `<key|id>`. An alias is matched first, then a name, ignoring case (document types
-  match their alias only). A name that matches more than one item is refused, and the error lists
-  each match's id.
+  `<id|name>` or `<id|key>`. An alias is matched first, then a name, ignoring case (document types
+  match their alias only). A reference that matches nothing, or a name that matches several items,
+  is an `invalid_argument` error; the latter lists each match's id.
+- **Two inputs for one value are refused,** never silently resolved: `--content` with
+  `--content-file`, or a field flag beside `--json-body` on `content create` /
+  `document-blueprint create`.
+- **Every write returns `data`:** `create`/`update`/`copy`/`upload` return the resulting item, other
+  writes `{ "id": ... }` (or `{ "ids": [...] }`) of what they acted on.
+- **`update` merges:** omitted options keep their values; `--replace` (where offered) sends the item
+  as given, is destructive, and needs `--yes` non-interactively.
 
 ## Discovery: `commands` and `--schema`
 
 ```bash
-umbraco commands                 # entire command tree as JSON (local; no host/auth)
-umbraco commands --output human  # same, as an indented outline
-umbraco content create --schema  # JSON Schema of a command's --json-body (local; no host/auth)
+umbraco commands                        # entire command tree as JSON (local; no host/auth)
+umbraco commands --output human         # same, as an indented outline
+umbraco content create --schema         # JSON Schema of a command's --json-body (local; no host/auth)
+umbraco document-type create --example  # a real document type from the instance, to start from (needs a host)
 ```
+
+`--schema` means the same on every command that takes `--json-body`: the body's JSON Schema,
+printed offline. `--example` (on the document, media, member and data type verbs) prints a real
+item instead - the most useful starting point for a body the schema cannot fully describe.
 
 See [agent-guide.md](agent-guide.md#1-discover-the-surface-umbraco-commands) for details.
 
@@ -118,8 +139,8 @@ umbraco auth login [--host <url>] [--client-id <id>] [--client-secret <secret>]
 umbraco auth logout [--profile <name>]        # clears credentials; preserves the profile's allow-list
 umbraco auth whoami                           # the resolved identity
 umbraco auth doctor [--output json]           # diagnose host/TLS/credentials/auth/identity/version
-umbraco auth profile list                         # list credential profiles; * marks the default
-umbraco auth profile use <profile>                    # make a profile the default
+umbraco auth profile list                     # list credential profiles; * marks the default
+umbraco auth profile use <profile>             # make a profile the default
 ```
 
 `auth doctor` runs a sequence of checks (host resolution, connectivity/TLS, credentials,
@@ -134,15 +155,15 @@ umbraco content list [--parent <id>] [--skip <n>] [--take <n>]
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco content get <id>                                   # values, variants, template and state
-umbraco content create --document-type <alias> --name <name> [--culture <code>] [--parent <id>] [--id <guid>] [--template <alias|id>]
-umbraco content create --json-body <file> [--id <guid>] [--template <alias|id>]   # the body carries type, name, parent and culture   # no --culture on a variant type: the default language
-umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default
+umbraco content create --document-type <alias> --name <name> [--culture <code>] [--parent <id>] [--id <guid>] [--template <alias|id>]   # no --culture on a variant type: the default language
+umbraco content create --json-body <file> [--id <guid>] [--template <alias|id>]   # the body carries type, name, parent and culture
+umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default; --replace needs --yes
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
 umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; no --culture publishes every culture the item has
 umbraco content unpublish <id> [--culture <csv>]          # takes offline; needs --yes; no --culture = every culture
 umbraco content version list <id> [--culture <code>]           # version history; no --culture = every culture, rows tagged `culture`
-umbraco content version get <version-id>                       # one version, values included (diff before rollback)
-umbraco content version rollback <version-id> [--culture <code>]   # restore a version
+umbraco content version get <id>                           # one version (its id from version list), values included
+umbraco content version rollback <id> [--culture <code>]   # restore a version
 umbraco content trash <id>                                 # move to recycle bin (reversible)
 umbraco content restore <id> [--parent <id> | --to-root]   # restore from recycle bin; default = original parent
 umbraco content empty-recycle-bin                          # permanent; needs --yes
@@ -159,9 +180,9 @@ umbraco content bulk delete [--file ids.txt]               # permanent; needs --
 umbraco content bulk publish [--file ids.txt] [--culture <csv>]
 umbraco content bulk unpublish [--file ids.txt] [--culture <csv>]   # takes offline; needs --yes; no --culture = every culture
 
-# domains sub-noun (Culture and Hostnames):
+# domain sub-noun (Culture and Hostnames):
 umbraco content domain get <id>
-umbraco content domain set <id> [--default-culture <iso>] [--domain host=iso ...] [--replace]   # merges by hostname unless --replace
+umbraco content domain set <id> [--default-culture <iso>] [--domain host=iso ...] [--replace]   # merges by hostname; --replace needs --yes
 ```
 
 ### Domains: a multilingual site is not reachable without them
@@ -297,17 +318,18 @@ The `export` / `diff` / `apply` trio has its own section:
 ## `document-blueprint`
 
 Content templates (blueprints) that authors start a new document from, keyed off a document
-type. `get`/`scaffold` return raw JSON (full fidelity); `create`/`update` mirror `content
-create` (scalar flags OR `--json-body` OR `--schema`).
+type. `get`/`scaffold` return raw JSON (full fidelity); `create` takes flags, a `--json-body`, or
+`--from-document`, and `update` merges like `content update`.
 
 ```bash
 umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>]   # --parent lists a folder's children
 umbraco document-blueprint get <id>                        # raw JSON (full fidelity)
 umbraco document-blueprint scaffold <id>                   # pre-filled create body; pipe it into content create --json-body -
-umbraco document-blueprint create --document-type <alias|uuid> --name <name> [--culture <code>] [--parent <folder>] [--json-body <file>] [--schema] [--id <guid>]
-umbraco document-blueprint update <id> [--name <name> [--culture <code>]] [--json-body <file>] [--replace] [--schema]   # merges, like content update
+umbraco document-blueprint create --document-type <alias|id> --name <name> [--culture <code>] [--parent <folder>] [--id <guid>]
+umbraco document-blueprint create --json-body <file>        # the whole request; --schema prints its JSON Schema
+umbraco document-blueprint update <id> [--name <name> [--culture <code>]] [--json-body <file>] [--replace]   # merges; --replace needs --yes
 umbraco document-blueprint delete <id>                     # needs --yes non-interactively
-umbraco document-blueprint create --from-document <documentId> --name <name> [--parent <folder>] [--id <guid>]   # --name applies to every culture
+umbraco document-blueprint create --from-document <id> --name <name> [--parent <folder>] [--id <guid>]   # copies a document; --name applies to every culture
 umbraco document-blueprint move <id> [--parent <folder>]   # omit --parent to move to the root; --target works too
 
 # folder sub-noun (organise blueprints in the tree):
@@ -330,7 +352,7 @@ umbraco media update <id> [--name <name>] [--value alias=value]... [--json-body 
 # --value sets other properties, e.g. a custom media type's required fields
 umbraco media delete <id>                                  # permanent; needs --yes
 umbraco media trash <id>                                   # move to recycle bin (reversible)
-umbraco media restore <id> [--parent <id>]
+umbraco media restore <id> [--parent <id> | --to-root]     # restore from recycle bin; default = original parent
 umbraco media empty-recycle-bin                            # permanent; needs --yes
 umbraco media move <id> [--parent <id>]                    # --target works too
 umbraco media sort [--parent <id>] (--order <id>,<id>... | --by name|createDate|updateDate [--desc])   # reorder a folder's children
@@ -343,26 +365,28 @@ A media folder is an ordinary media item of the **Folder** media type, so it mov
 deletes with the usual `media` verbs, and its id is what `media upload --parent` takes
 ([#171](https://github.com/worm-brain/Umbraco.Cli/issues/171)).
 
-## `media-types`
+## `media-type`
 
 ```bash
 umbraco media-type list
 umbraco media-type get <id|alias|name>                   # the full Management API body: properties, groups, allowed children
 umbraco media-type create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root]
 umbraco media-type create --json-body <file> [--id <guid>]
-umbraco media-type update <id|alias|name> --json-body <file> [--replace]   # merged into the type
+umbraco media-type update <id|alias|name> --json-body <file> [--replace]   # merged into the type; --replace needs --yes
+umbraco media-type create --schema | --example            # the body's JSON Schema (offline), or a real media type (needs a host)
 umbraco media-type delete <id|alias|name> --force                  # deletes every media item of the type too; --force always required, plus --yes non-interactively
 ```
 
-## `content-types`
+## `document-type`
 
 ```bash
 umbraco document-type list
 umbraco document-type get <alias|id>                       # the full Management API body - a valid update --json-body
 umbraco document-type create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
 umbraco document-type create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns {id, name, alias}
-umbraco document-type update <alias|id> --json-body <file> [--replace]   # merged into the type; --replace sends the whole type
-umbraco document-type create --schema                      # print a real document type (a minimal one on an empty site) as a worked example (needs a host)
+umbraco document-type update <alias|id> --json-body <file> [--replace]   # merged into the type; --replace sends the whole type and needs --yes
+umbraco document-type create --schema                      # the create body's JSON Schema, from the Management API spec (offline)
+umbraco document-type create --example                     # a real document type (a minimal one on an empty site) to start from (needs a host)
 umbraco document-type delete <id|alias> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
 ```
 
@@ -378,19 +402,20 @@ umbraco document-type get blogPost -o json | jq .data > t.json
 umbraco document-type update blogPost --json-body t.json
 ```
 
-`--schema` on these verbs prints **a real type off the instance** rather than a hand-written
-JSON Schema, so the example cannot drift from what the API actually accepts. That is why it
-needs a host, unlike `--schema` on `content create`.
+`--schema` prints the body's **JSON Schema**, offline, generated from the Management API spec
+the client is built from - so it cannot drift from what the API accepts. For an update it
+requires no key (the body is merged). `--example` prints **a real type off the instance** instead,
+which needs a host and is usually the better starting point for a body you will edit.
 
 `get` prints the Management API body verbatim, so its output is a valid `--json-body` as it
 stands. `update` merges the body's **top-level keys** into the type: a key you leave out keeps
 its value, and a key you send replaces it whole (a `properties` array is the complete list, not a
 delta). `--replace` sends the body as the whole type instead. The type's own id always wins over
-an `id` in the body. On a site with no document types yet, `--schema` prints a minimal valid body
-rather than failing. The same applies to `data-types`, `media-types`, `member-types` and
-`templates`. All take the alias (or name) or the id.
+an `id` in the body. On a site with no document types yet, `--example` prints a minimal valid body
+rather than failing. The same applies to `data-type`, `media-type`, `member-type` and
+`template`. All take the alias (or name) or the id.
 
-## `data-types`
+## `data-type`
 
 ```bash
 umbraco data-type list [--parent <folder>]                # includes editorAlias (one read per item) and the folder as parent
@@ -398,8 +423,8 @@ umbraco data-type get <name|id>                           # by NAME (a data type
 umbraco data-type create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-type create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns {id, name}
 umbraco data-type update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
-umbraco data-type update <name|id> --json-body <file> [--replace]   # merged; the only way to set `values`
-umbraco data-type create --schema                         # print a real data type as a worked example (needs a host)
+umbraco data-type update <name|id> --json-body <file> [--replace]   # merged; the only way to set `values`; --replace needs --yes
+umbraco data-type create --schema | --example             # the body's JSON Schema (offline), or a real data type (needs a host)
 umbraco data-type delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-type is-used <id|name>                       # whether any content type uses it
 umbraco data-type referenced-by <id|name> [--skip <n>] [--take <n>]   # a list; each row's `kind` says what it is
@@ -436,31 +461,31 @@ umbraco data-type create --json-body categories.json
 
 Both `update` forms take the **name** or the id, as `get` does.
 
-## `languages`
+## `language`
 
 ```bash
 umbraco language list
 umbraco language create --culture <code> [--default] [--mandatory] [--fallback <code>]
-umbraco language update <id> --name <name> [--default] [--mandatory] [--fallback <code>]
+umbraco language update <id> [--name <name>] [--default] [--mandatory] [--fallback <code>]   # <id> is the ISO code; omitted fields are kept
 umbraco language delete <id>                        # needs --yes non-interactively
 ```
 
-## `templates`
+## `template`
 
 ```bash
 umbraco template list                                     # every template, nested ones too, with its alias
 umbraco template get <id|alias>                          # includes the view `content`
 umbraco template create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
 umbraco template update <id|alias> [--name <name>] [--alias <alias>] [--content <razor> | --content-file <file>]   # omitted fields are kept
-umbraco template update <id|alias> --json-body <file> [--replace]   # the body `template get` prints, merged
+umbraco template update <id|alias> --json-body <file> [--replace]   # the body `template get` prints, merged; --replace needs --yes
 umbraco template delete <id|alias>                        # needs --yes non-interactively
 ```
 
-## `members`
+## `member`
 
 ```bash
 umbraco member list [--group <name>]                      # filters by member group
-umbraco member get <id>                                   # UUID only; groups as [{id, name}], memberType.alias, property values
+umbraco member get <id>                                   # id only; groups as [{id, name}], memberType.alias, property values
 umbraco member create --email <email> --name <name> --member-type <alias>
 umbraco member update <id> [--email <email>] [--name <name>] [--approved] [--username <name>] [--group <name|id> ...] [--value alias=value ...] [--new-password <pw>] [--unlock]
 umbraco member delete <id>                                # needs --yes non-interactively
@@ -478,7 +503,7 @@ alias + culture + segment, so setting one does not clear the rest. Two exception
 `--value` takes `alias=value`; a value with no `=` is refused at parse time rather than silently
 dropped.
 
-## `member-types`
+## `member-type`
 
 ```bash
 umbraco member-type list
@@ -486,11 +511,11 @@ umbraco member-type get <id|alias>                       # the full body, proper
 umbraco member-type create --name <name> --alias <alias> [--icon <alias>]
 umbraco member-type create --json-body <file> [--id <guid>]
 umbraco member-type update <id|alias> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
-umbraco member-type update <id|alias> --json-body <file> [--replace]   # merged into the type
+umbraco member-type update <id|alias> --json-body <file> [--replace]   # merged into the type; --replace needs --yes
 umbraco member-type delete <id|alias> [--force]               # refused while it has members unless --force (deletes them); --yes non-interactively
 ```
 
-## `member-groups`
+## `member-group`
 
 ```bash
 umbraco member-group list
@@ -500,32 +525,33 @@ umbraco member-group update <id|name> --name <name>
 umbraco member-group delete <id|name>                     # needs --yes non-interactively
 ```
 
-## `users`
+## `user`
 
 ```bash
 umbraco user list
 umbraco user get <id>
-umbraco user invite --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--message <text>]   # --group repeatable, at least one
+umbraco user invite --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--message <text>]   # --group repeatable, at least one; returns the invited user
 ```
 
 `user invite` needs SMTP configured on the site, because Umbraco emails the invitation; without it
 the invite is refused and no user is created. `--username` defaults to the email.
 
-## `user-groups`
+## `user-group`
 
 ```bash
 umbraco user-group list
 umbraco user-group get <id|alias|name>
 umbraco user-group create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--id <guid>]
-umbraco user-group update <id|alias|name> --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>]
+umbraco user-group update <id|alias|name> [--alias <alias>] [--name <name>] [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>]
 umbraco user-group delete <id|alias|name>...             # one or several; needs --yes non-interactively
 umbraco user-group add-users <id|alias|name> --user <id>...          # --user repeatable
 umbraco user-group remove-users <id|alias|name> --user <id>...       # --user repeatable
 ```
 
 Granular per-node permissions are a deferred follow-up: `create`/`update` set the scalar and
-list fields but send an empty permissions set. `update` replaces the whole group, so pass the
-full desired state.
+list fields but send an empty permissions set. `update` merges: omitted options keep their
+values, a list option given replaces that list, and a start node and root access clear each
+other.
 
 ## `user-data`
 
@@ -533,10 +559,10 @@ Key/value data scoped to the **authenticated** user.
 
 ```bash
 umbraco user-data list [--group <group>] [--identifier <id>] [--skip <n>] [--take <n>]
-umbraco user-data get <key>
+umbraco user-data get <id>
 umbraco user-data create --group <group> --identifier <id> --data <value> [--id <guid>]
-umbraco user-data update <id> --group <group> --identifier <id> --data <value>
-umbraco user-data delete <key>                             # needs --yes non-interactively
+umbraco user-data update <id> [--group <group>] [--identifier <id>] [--data <value>]   # omitted fields are kept
+umbraco user-data delete <id>                              # needs --yes non-interactively
 ```
 
 ## `dictionary`
@@ -565,18 +591,19 @@ and it keeps the item's id - correcting a translation no longer means delete-and
 ([#182](https://github.com/worm-brain/Umbraco.Cli/issues/182)). It applies the same ISO-code
 check as `create`.
 
-## `webhooks`
+## `webhook`
 
 ```bash
 umbraco webhook list
-umbraco webhook create --url <url> --event <csv> [--name <name>] [--description <text>]
+umbraco webhook create --url <url> --event <name>... [--name <name>] [--description <text>]   # --event repeatable
 umbraco webhook delete <id>                               # needs --yes non-interactively
 ```
 
 ## `script` / `stylesheet` / `partial-view` (static files)
 
 The three static-file resources share the same path-addressed verbs. Files are identified by
-**path** (not a GUID); `update` replaces the content only. The three nouns are spelled out
+**path** (not an id); `update` replaces the content only. Give `--content` or `--content-file`
+(`-` for stdin), not both. The three nouns are spelled out
 below so each is complete on its own.
 
 ```bash
@@ -602,7 +629,7 @@ umbraco partial-view update <path> [--content <text> | --content-file <file>]
 umbraco partial-view delete <path>                         # needs --yes non-interactively
 ```
 
-## `tags` / `cultures` (read-only)
+## `tag` / `culture` (read-only)
 
 ```bash
 umbraco tag list [--group <group>] [--culture <iso>]      # tags, with node counts
@@ -655,7 +682,7 @@ umbraco log-viewer saved-search create --name Errors --query "@Level='Error'"
 ```bash
 umbraco models-builder dashboard                           # dashboard status
 umbraco models-builder status                              # whether generated models are out of date
-umbraco models-builder build                               # regenerate source files (POST, --readonly-blocked); needs --yes
+umbraco models-builder build                               # regenerate source files (POST, --readonly-blocked); returns the status after
 ```
 
 ## `manifest` (read-only)
@@ -667,10 +694,10 @@ umbraco manifest list [--scope All|Public|Private]         # default: All
 ## `redirect`
 
 ```bash
-umbraco redirect list [--content-item <key>] [--filter <s>] [--skip <n>] [--take <n>]   # --content-item lists redirects to that document
-umbraco redirect tracking status                                    # whether automatic URL-redirect tracking is enabled
+umbraco redirect list [--content-item <id>] [--filter <s>] [--skip <n>] [--take <n>]   # --content-item lists redirects to that document
 umbraco redirect delete <id>                               # needs --yes non-interactively
-umbraco redirect tracking enable                           # site-wide toggle
+umbraco redirect tracking status                           # whether automatic URL-redirect tracking is enabled
+umbraco redirect tracking enable                           # site-wide toggle; returns the status after
 umbraco redirect tracking disable                          # site-wide toggle; needs --yes non-interactively
 ```
 
@@ -691,7 +718,7 @@ umbraco relation list --relation-type <relationTypeId> [--skip <n>] [--take <n>]
 ```bash
 umbraco indexer list [--skip <n>] [--take <n>]             # Examine indexes, with health + document counts
 umbraco indexer get <name>
-umbraco indexer rebuild <name>                             # expensive (POST, --readonly-blocked); needs --yes
+umbraco indexer rebuild <name>                             # expensive (POST, --readonly-blocked); not gated - nothing is lost
 
 umbraco searcher list [--skip <n>] [--take <n>]            # registered multi-searchers; often empty (Umbraco 17)
 umbraco searcher query <index|searcher> --term <term> [--skip <n>] [--take <n>]   # e.g. ExternalIndex; an index's searcherName is mapped to the index

@@ -23,7 +23,10 @@ public static class UseProfileCommand
         ConfigStore configStore
     )
     {
-        var cmd = new Command("use", "Set the default credential profile.");
+        var cmd = new Command(
+            "use",
+            "Set the default credential profile.\n\nExamples:\n  umbraco auth profile use prod\n  umbraco auth profile use default"
+        );
         var nameArg = new Argument<string>("name")
         {
             Description = "The profile to make the default.",

@@ -9,11 +9,11 @@ public static class ContentListCommand
     {
         var cmd = new Command(
             "list",
-            "List content items. Returns a paginated list of top-level or child content nodes.\n\nExamples:\n  umbraco content list\n  umbraco content list --parent <id> --take 50\n  umbraco content list --output json | jq '.data[].name'"
+            "List content items at the root, or the children of a parent.\n\nReturns a paginated list of top-level or child content nodes.\n\nExamples:\n  umbraco content list\n  umbraco content list --parent <id> --take 50\n  umbraco content list --output json | jq '.data[].name'"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Filter by parent content item ID (UUID). Omit for root items.",
+            Description = "Parent content item id; lists root items if omitted.",
         };
         cmd.Add(parentOpt);
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);

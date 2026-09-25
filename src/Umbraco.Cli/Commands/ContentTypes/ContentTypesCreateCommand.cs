@@ -20,18 +20,37 @@ public static class ContentTypesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new document type, from flags or from a full Management API body (--json-body). --example prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco document-type create --example -o json | jq .data > t.json\n  umbraco document-type create --json-body t.json\n  umbraco document-type create --name \"Blog Post\" --alias blogPost\n  umbraco document-type create --name \"Widget\" --alias widget --is-element\n  umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
+            "Create a new document type, from flags or from a full Management API body.\n\nPass the body with --json-body. --example prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco document-type create --example -o json | jq .data > t.json\n  umbraco document-type create --json-body t.json\n  umbraco document-type create --name \"Blog Post\" --alias blogPost\n  umbraco document-type create --name \"Widget\" --alias widget --is-element\n  umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
         ).Mutating();
-        var nameOpt = new Option<string>("--name");
-        var aliasOpt = new Option<string>("--alias");
-        var descOpt = new Option<string?>("--description");
+        var nameOpt = new Option<string>("--name")
+        {
+            Description =
+                "Display name of the new document type. Required unless --json-body is given.",
+        };
+        var aliasOpt = new Option<string>("--alias")
+        {
+            Description =
+                "Alias of the new document type, e.g. blogPost. Required unless --json-body is given.",
+        };
+        var descOpt = new Option<string?>("--description")
+        {
+            Description = "Optional description shown in the backoffice.",
+        };
         var iconOpt = new Option<string>("--icon")
         {
             DefaultValueFactory = _ => "icon-document",
             Description = "Backoffice icon alias (e.g. icon-document, icon-home).",
         };
-        var isElementOpt = new Option<bool>("--is-element") { DefaultValueFactory = _ => false };
-        var allowRootOpt = new Option<bool>("--allow-at-root") { DefaultValueFactory = _ => false };
+        var isElementOpt = new Option<bool>("--is-element")
+        {
+            DefaultValueFactory = _ => false,
+            Description = "Make it an element type, for use in blocks rather than as a page.",
+        };
+        var allowRootOpt = new Option<bool>("--allow-at-root")
+        {
+            DefaultValueFactory = _ => false,
+            Description = "Allow items of this type at the root of the tree.",
+        };
         var idOpt = IdOption();
         var body = RawBodyCommand.AddCreateOptions(
             cmd,
@@ -82,7 +101,7 @@ public static class ContentTypesCreateCommand
         new("--id")
         {
             Description =
-                "Optional client-supplied UUID for an idempotent create (#86). With --json-body it "
+                "Optional client-supplied id, so a retried create is idempotent. With --json-body it "
                 + "fills the body's id, and must match it if the body has one.",
         };
 }

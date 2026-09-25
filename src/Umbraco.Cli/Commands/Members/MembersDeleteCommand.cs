@@ -9,9 +9,9 @@ public static class MembersDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a member permanently, by id.\n\nExample:\n  umbraco member delete 3f7a8b2e-..."
+            "Delete a member permanently, by id.\n\nExamples:\n  umbraco member delete 3f7a8b2e-..."
         ).Mutating();
-        var idArg = new Argument<Guid>("id");
+        var idArg = new Argument<Guid>("id") { Description = "Member id." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
             $"Permanently delete member {parseResult.GetValue(idArg)}? This cannot be undone."

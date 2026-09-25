@@ -20,15 +20,23 @@ public static class TemplatesCreateCommand
             "create",
             "Create a Razor view template.\n\nExamples:\n  umbraco template create --name \"Blog Post\" --alias blogPost\n  umbraco template create --name Home --alias home --content-file ./home.cshtml"
         ).Mutating();
-        var nameOpt = new Option<string>("--name") { Required = true };
-        var aliasOpt = new Option<string>("--alias") { Required = true };
+        var nameOpt = new Option<string>("--name")
+        {
+            Required = true,
+            Description = "Display name of the new template.",
+        };
+        var aliasOpt = new Option<string>("--alias")
+        {
+            Required = true,
+            Description = "Alias of the new template, e.g. blogPost.",
+        };
         var (contentOpt, contentFileOpt) = FileContentInput.Options(
             "Razor view content (inline). Give this or --content-file, not both.",
             "Path to a file whose contents become the Razor view, or - for stdin."
         );
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);

@@ -33,7 +33,8 @@ public static class UserDataCommand
     {
         var cmd = new Command(
             "list",
-            "List user-data entries, optionally filtered by group/identifier."
+            "List user-data entries, optionally filtered by group/identifier.\n\n"
+                + "Examples:\n  umbraco user-data list\n  umbraco user-data list --group myGroup --identifier theme"
         );
         var groupOpt = new Option<string?>("--group") { Description = "Filter by group." };
         var identifierOpt = new Option<string?>("--identifier")
@@ -67,7 +68,10 @@ public static class UserDataCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a user-data entry by id.");
+        var cmd = new Command(
+            "get",
+            "Get a user-data entry by id.\n\nExamples:\n  umbraco user-data get 3f7a8b2e-..."
+        );
         var idArg = new Argument<Guid>("id") { Description = "The entry's id (its key)." };
         cmd.Add(idArg);
         cmd.SetAction(
@@ -85,7 +89,7 @@ public static class UserDataCommand
     {
         var cmd = new Command(
             "create",
-            "Create a user-data entry.\n\nExample:\n  umbraco user-data create --group myGroup --identifier theme --data dark"
+            "Create a user-data entry.\n\nExamples:\n  umbraco user-data create --group myGroup --identifier theme --data dark"
         ).Mutating();
         var groupOpt = new Option<string>("--group") { Required = true, Description = "Group." };
         var identifierOpt = new Option<string>("--identifier")
@@ -101,7 +105,7 @@ public static class UserDataCommand
         };
         var keyOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create.",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(groupOpt);
         cmd.Add(identifierOpt);
@@ -138,7 +142,7 @@ public static class UserDataCommand
     {
         var cmd = new Command(
             "update",
-            "Update a user-data entry by id. Omitted options keep their values.\n\nExample:\n  umbraco user-data update <id> --data light"
+            "Update a user-data entry by id. Omitted options keep their values.\n\nExamples:\n  umbraco user-data update <id> --data light"
         ).Mutating();
         // The id is positional, as on every other update (#242).
         var keyArg = new Argument<Guid>("id") { Description = "The entry's id (its key)." };
@@ -187,7 +191,10 @@ public static class UserDataCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a user-data entry by id.").Mutating();
+        var cmd = new Command(
+            "delete",
+            "Delete a user-data entry by id.\n\nExamples:\n  umbraco user-data delete 3f7a8b2e-... --yes"
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "The entry's id (its key)." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

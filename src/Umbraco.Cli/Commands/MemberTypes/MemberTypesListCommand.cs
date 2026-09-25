@@ -15,7 +15,7 @@ public static class MemberTypesListCommand
     {
         var cmd = new Command(
             "list",
-            "List member types defined in the Umbraco instance.\n\nExamples:\n  umbraco member-type list\n  umbraco member-type list --output json | jq '.[].name'"
+            "List member types defined in the Umbraco instance.\n\nExamples:\n  umbraco member-type list\n  umbraco member-type list --output json | jq '.data[].name'"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(

@@ -17,8 +17,9 @@ public static class ContentVersionCommand
     {
         var cmd = new Command(
             "get",
-            "Get one version of a content item, with its values. Take the id from 'content version list'."
-                + "\n\nExample:\n  umbraco content version get 7c1d9e4a-..."
+            "Get one version of a content item, with its values."
+                + "\n\nTake the id from 'content version list'."
+                + "\n\nExamples:\n  umbraco content version get 7c1d9e4a-..."
         );
         var idArg = new Argument<Guid>("id")
         {

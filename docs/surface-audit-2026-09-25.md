@@ -1,5 +1,10 @@
 # `umbraco` CLI surface consistency audit
 
+> **Status: applied** by the #268 batch. This is a dated record: command names below are the ones
+> in use when it was written. The rules it led to live in [conventions.md](conventions.md); the
+> current surface is [surface.json](surface.json). Out of scope and still open: I5 (#269), I10
+> (#237, #216, #214).
+
 Input for `docs/conventions.md` and the breaking-change batch that follows it. Written 2026-09-25 against `docs/surface.json` in worktree `surface-snapshot` (snapshot commit 3399408).
 
 ## How this was done

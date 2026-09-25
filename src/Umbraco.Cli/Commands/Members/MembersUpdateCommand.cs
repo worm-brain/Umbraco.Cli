@@ -18,7 +18,7 @@ public static class MembersUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a member's email, name, or approved state by UUID.\n\nExamples:\n  umbraco member update 3f7a8b2e-... --name \"Jane Roe\"\n  umbraco member update 3f7a8b2e-... --email jane@example.com --approved"
+            "Update a member's email, name, or approved state by id.\n\nExamples:\n  umbraco member update 3f7a8b2e-... --name \"Jane Roe\"\n  umbraco member update 3f7a8b2e-... --email jane@example.com --approved"
         ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Member ID." };
         var emailOpt = new Option<string?>("--email") { Description = "New email address." };

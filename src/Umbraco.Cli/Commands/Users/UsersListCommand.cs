@@ -8,7 +8,7 @@ public static class UsersListCommand
     {
         var cmd = new Command(
             "list",
-            "List Umbraco back-office users.\n\nExample:\n  umbraco user list --output json"
+            "List Umbraco backoffice users.\n\nExamples:\n  umbraco user list\n  umbraco user list --take 20 --output json"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(

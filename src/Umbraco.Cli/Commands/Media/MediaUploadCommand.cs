@@ -23,7 +23,7 @@ public static class MediaUploadCommand
         var fileArg = new Argument<FileInfo>("file") { Description = "Local file to upload." };
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "UUID of the media folder to upload into. Omit for the media root.",
+            Description = "Id of the media folder to upload into. Omit for the media root.",
         };
         var nameOpt = new Option<string?>("--name")
         {
@@ -38,7 +38,7 @@ public static class MediaUploadCommand
         var idOpt = new Option<Guid?>("--id")
         {
             Description =
-                "UUID to create the item with, so it keeps the same id on every instance (content "
+                "Id to create the item with, so it keeps the same id on every instance (content "
                 + "references media by id). Omit to generate one.",
         };
         var valueOpt = new Option<string[]>("--value")

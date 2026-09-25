@@ -17,7 +17,7 @@ public static class MediaTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a media type by id or alias: the full Management API body, with its properties, groups and allowed child types. The output is a valid 'update --json-body'.\n\nExample:\n  umbraco media-type get brochure"
+            "Get a media type by id or alias, as the full Management API body.\n\nThe body has its properties, groups and allowed child types. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco media-type get brochure\n  umbraco media-type get brochure -o json | jq .data > mt.json"
         );
         var idArg = Reference.Argument(EntityKind.MediaType);
         cmd.Add(idArg);

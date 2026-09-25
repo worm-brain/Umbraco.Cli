@@ -20,7 +20,10 @@ public static class TagsCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List tags.");
+        var cmd = new Command(
+            "list",
+            "List tags.\n\nExamples:\n  umbraco tag list\n  umbraco tag list --group default --culture en-US"
+        );
         var groupOpt = new Option<string?>("--group")
         {
             Description = "Tag group to filter by; omit for all groups.",

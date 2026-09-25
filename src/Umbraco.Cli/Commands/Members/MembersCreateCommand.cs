@@ -10,10 +10,18 @@ public static class MembersCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new Umbraco member.\n\nExample:\n  umbraco member create --email user@example.com --name \"Jane Doe\" --member-type Member"
+            "Create a new Umbraco member.\n\nExamples:\n  umbraco member create --email user@example.com --name \"Jane Doe\" --member-type Member"
         ).Mutating();
-        var emailOpt = new Option<string>("--email") { Required = true };
-        var nameOpt = new Option<string>("--name") { Required = true };
+        var emailOpt = new Option<string>("--email")
+        {
+            Required = true,
+            Description = "Email address of the new member.",
+        };
+        var nameOpt = new Option<string>("--name")
+        {
+            Required = true,
+            Description = "Display name of the new member.",
+        };
         var typeOpt = new Option<string>("--member-type")
         {
             Description = "Alias of the member type (e.g. Member).",
@@ -30,7 +38,7 @@ public static class MembersCreateCommand
         };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(emailOpt);
         cmd.Add(nameOpt);

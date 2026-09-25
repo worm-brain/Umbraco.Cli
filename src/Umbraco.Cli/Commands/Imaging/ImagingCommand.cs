@@ -16,7 +16,7 @@ public static class ImagingCommand
     {
         var cmd = new Command(
             "imaging",
-            "Generate resized image URLs for media items.\n\nExample:\n  umbraco imaging resize-urls <id> --width 300 --height 200 --mode Crop"
+            "Generate resized image URLs for media items.\n\nExamples:\n  umbraco imaging resize-urls <id> --width 300 --height 200 --mode Crop"
         );
         cmd.Add(BuildResizeUrls(executor));
         return cmd;

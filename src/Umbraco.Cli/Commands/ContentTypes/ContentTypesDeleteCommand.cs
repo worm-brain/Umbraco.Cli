@@ -22,7 +22,7 @@ public static class ContentTypesDeleteCommand
             "Delete a document type by id or alias.\n\n"
                 + "Umbraco deletes every document of this type along with it, and cannot report how "
                 + "many there are, so the delete is refused unless --force is given.\n\n"
-                + "Example:\n  umbraco document-type delete blogPost --force --yes"
+                + "Examples:\n  umbraco document-type delete blogPost --force --yes"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.DocumentType);
         cmd.Add(idArg);

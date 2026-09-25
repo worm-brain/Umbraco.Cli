@@ -8,7 +8,7 @@ public static class DictionaryGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a dictionary item and its translations by key or id.\n\nExample:\n  umbraco dictionary get Common.Search\n  umbraco dictionary get 1a2b3c4d-....."
+            "Get a dictionary item and its translations by key or id.\n\nExamples:\n  umbraco dictionary get Common.Search\n  umbraco dictionary get 1a2b3c4d-....."
         );
         var keyArg = new Argument<string>("id")
         {

@@ -29,7 +29,10 @@ public static class MemberGroupsCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List member groups.");
+        var cmd = new Command(
+            "list",
+            "List member groups.\n\nExamples:\n  umbraco member-group list\n  umbraco member-group list --output json"
+        );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
@@ -48,7 +51,10 @@ public static class MemberGroupsCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a member group by id or name.");
+        var cmd = new Command(
+            "get",
+            "Get a member group by id or name.\n\nExamples:\n  umbraco member-group get Subscribers\n  umbraco member-group get 3f7a8b2e-..."
+        );
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         cmd.Add(idArg);
         cmd.SetAction(
@@ -72,12 +78,12 @@ public static class MemberGroupsCommand
     {
         var cmd = new Command(
             "create",
-            "Create a member group.\n\nExample:\n  umbraco member-group create --name Editors"
+            "Create a member group.\n\nExamples:\n  umbraco member-group create --name Editors"
         ).Mutating();
         var nameOpt = new Option<string>("--name") { Required = true, Description = "Group name." };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(nameOpt);
         cmd.Add(idOpt);
@@ -102,7 +108,10 @@ public static class MemberGroupsCommand
 
     private static Command BuildUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Update a member group's name by id or name.").Mutating();
+        var cmd = new Command(
+            "update",
+            "Update a member group's name by id or name.\n\nExamples:\n  umbraco member-group update Subscribers --name \"Newsletter subscribers\""
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         var nameOpt = new Option<string>("--name") { Required = true, Description = "New name." };
         cmd.Add(idArg);
@@ -137,7 +146,10 @@ public static class MemberGroupsCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a member group by id or name.").Mutating();
+        var cmd = new Command(
+            "delete",
+            "Delete a member group by id or name.\n\nExamples:\n  umbraco member-group delete Subscribers --yes"
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

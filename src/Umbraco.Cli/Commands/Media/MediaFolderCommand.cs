@@ -38,11 +38,11 @@ public static class MediaFolderCommand
         };
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Parent folder UUID. Creates at the media root when omitted.",
+            Description = "Parent folder id. Creates at the media root when omitted.",
         };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);

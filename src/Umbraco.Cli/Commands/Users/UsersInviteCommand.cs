@@ -4,7 +4,7 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Users;
 
-/// <summary>Builds <c>user invite</c>: send an email invitation to a new back-office user.</summary>
+/// <summary>Builds <c>user invite</c>: send an email invitation to a new backoffice user.</summary>
 public static class UsersInviteCommand
 {
     /// <summary>Builds the command.</summary>
@@ -14,16 +14,27 @@ public static class UsersInviteCommand
     {
         var cmd = new Command(
             "invite",
-            "Send an email invitation to a new back-office user.\n\n"
+            "Send an email invitation to a new backoffice user.\n\n"
                 + "Umbraco sends the invitation by email, so the site must have SMTP configured; "
                 + "without it the invite is refused and no user is created.\n\n"
                 + "Examples:\n"
                 + "  umbraco user invite --email editor@example.com --name \"Jane Smith\" --group editor\n"
                 + "  umbraco user invite --email admin@example.com --name \"Bob\" --group admin --group translator --message \"Welcome to the team!\""
         ).Mutating();
-        var emailOpt = new Option<string>("--email") { Required = true };
-        var nameOpt = new Option<string>("--name") { Required = true };
-        var msgOpt = new Option<string?>("--message");
+        var emailOpt = new Option<string>("--email")
+        {
+            Required = true,
+            Description = "Email address to send the invitation to.",
+        };
+        var nameOpt = new Option<string>("--name")
+        {
+            Required = true,
+            Description = "Display name of the new user.",
+        };
+        var msgOpt = new Option<string?>("--message")
+        {
+            Description = "Optional personal message to include in the invitation email.",
+        };
         // The client defaults the userName to the email, which Umbraco requires by default
         // (#215); --username is for sites configured to allow a different one.
         var userNameOpt = new Option<string?>("--username")

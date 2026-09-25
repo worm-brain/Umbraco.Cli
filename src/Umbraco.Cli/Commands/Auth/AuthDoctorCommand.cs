@@ -40,7 +40,7 @@ public static class AuthDoctorCommand
     {
         var cmd = new Command(
             "doctor",
-            "Diagnose connectivity, TLS, credentials, authentication, and the target instance version.\n\nExamples:\n  umbraco auth doctor\n  umbraco auth doctor --output json"
+            "Diagnose connectivity, TLS, credentials, authentication and instance version.\n\nExamples:\n  umbraco auth doctor\n  umbraco auth doctor --output json"
         );
 
         cmd.SetAction(

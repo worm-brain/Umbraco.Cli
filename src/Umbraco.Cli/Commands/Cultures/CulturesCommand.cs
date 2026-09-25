@@ -12,7 +12,7 @@ public static class CulturesCommand
     {
         var cmd = new Command(
             "culture",
-            "List the cultures available on the instance.\n\nExample:\n  umbraco culture list"
+            "List the cultures available on the instance.\n\nExamples:\n  umbraco culture list"
         );
         cmd.Add(BuildList(executor));
         return cmd;
@@ -20,7 +20,10 @@ public static class CulturesCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List available cultures.");
+        var cmd = new Command(
+            "list",
+            "List available cultures.\n\nExamples:\n  umbraco culture list\n  umbraco culture list --take 500 --output json"
+        );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>

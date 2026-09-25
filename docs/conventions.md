@@ -157,3 +157,6 @@ Each exception is deliberate or tracked; don't copy it.
 
 - **2026-09-25** - First version, from the
   [surface audit](surface-audit-2026-09-25.md) and decisions D1-D8 recorded there.
+- **2026-09-25** - 6.2 made precise while applying it (#268): which writes return the item
+  (create/update/copy/upload) and which return `{ "id" }`, what a write with no target returns,
+  and that `--quiet` drops write results.

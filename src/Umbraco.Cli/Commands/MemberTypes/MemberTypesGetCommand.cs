@@ -17,7 +17,7 @@ public static class MemberTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a member type by id or alias: the full Management API body, with its properties and groups. The output is a valid 'update --json-body'.\n\nExample:\n  umbraco member-type get siteMember"
+            "Get a member type by id or alias, as the full Management API body.\n\nThe body has its properties and groups. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco member-type get siteMember\n  umbraco member-type get siteMember -o json | jq .data > mt.json"
         );
         var idArg = Reference.Argument(EntityKind.MemberType);
         cmd.Add(idArg);

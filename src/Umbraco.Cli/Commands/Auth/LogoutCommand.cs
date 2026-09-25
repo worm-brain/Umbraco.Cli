@@ -17,7 +17,7 @@ public static class LogoutCommand
     {
         var cmd = new Command(
             "logout",
-            "Remove stored Umbraco credentials for a profile (the default profile unless --profile is given).\n\nExamples:\n  umbraco auth logout\n  umbraco auth logout --profile prod"
+            "Remove stored Umbraco credentials for a profile.\n\nThe default profile is used unless --profile is given.\n\nExamples:\n  umbraco auth logout\n  umbraco auth logout --profile prod"
         );
 
         cmd.SetAction(

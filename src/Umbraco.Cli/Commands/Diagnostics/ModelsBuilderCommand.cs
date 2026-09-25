@@ -24,7 +24,7 @@ public static class ModelsBuilderCommand
             DiagnosticsVerb.Object(
                 executor,
                 "dashboard",
-                "Show the models-builder dashboard status.",
+                "Show the models-builder dashboard status.\n\nExamples:\n  umbraco models-builder dashboard\n  umbraco models-builder dashboard --output json",
                 (c, ct) => c.GetModelsBuilderDashboardAsync(ct)
             )
         );
@@ -32,7 +32,7 @@ public static class ModelsBuilderCommand
             DiagnosticsVerb.Object(
                 executor,
                 "status",
-                "Show whether the generated models are out of date.",
+                "Show whether the generated models are out of date.\n\nExamples:\n  umbraco models-builder status",
                 (c, ct) => c.GetModelsBuilderStatusAsync(ct)
             )
         );
@@ -44,7 +44,7 @@ public static class ModelsBuilderCommand
     {
         var cmd = new Command(
             "build",
-            "Regenerate the models (writes source files on the server)."
+            "Regenerate the models (writes source files on the server).\n\nExamples:\n  umbraco models-builder build\n  umbraco models-builder build --dry-run"
         ).Mutating();
         cmd.SetAction(
             (parseResult, ct) =>

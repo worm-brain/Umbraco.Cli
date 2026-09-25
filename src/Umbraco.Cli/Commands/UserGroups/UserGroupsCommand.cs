@@ -32,7 +32,10 @@ public static class UserGroupsCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List user groups.");
+        var cmd = new Command(
+            "list",
+            "List user groups.\n\nExamples:\n  umbraco user-group list\n  umbraco user-group list --output json"
+        );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
@@ -53,7 +56,7 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "get",
-            "Get a user group by id, alias or name.\n\nExample:\n  umbraco user-group get blogEditors"
+            "Get a user group by id, alias or name.\n\nExamples:\n  umbraco user-group get blogEditors"
         );
         var idArg = Reference.Argument(EntityKind.UserGroup);
         cmd.Add(idArg);
@@ -78,7 +81,7 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "create",
-            "Create a user group.\n\nExample:\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read"
+            "Create a user group.\n\nExamples:\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read"
         ).Mutating();
         var aliasOpt = new Option<string>("--alias")
         {
@@ -89,7 +92,7 @@ public static class UserGroupsCommand
         var shared = new SharedGroupOptions();
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         cmd.Add(aliasOpt);
         cmd.Add(nameOpt);
@@ -284,7 +287,7 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "add-users",
-            "Add users to a user group.\n\nExample:\n  umbraco user-group add-users blogEditors --user <guid> --user <guid>"
+            "Add users to a user group.\n\nExamples:\n  umbraco user-group add-users blogEditors --user <guid> --user <guid>"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
         var usersOpt = ListOption.Guids("--user", "User ID to add.").AsRequired();
@@ -315,7 +318,7 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "remove-users",
-            "Remove users from a user group.\n\nExample:\n  umbraco user-group remove-users blogEditors --user <guid>"
+            "Remove users from a user group.\n\nExamples:\n  umbraco user-group remove-users blogEditors --user <guid>"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
         var usersOpt = ListOption.Guids("--user", "User ID to remove.").AsRequired();

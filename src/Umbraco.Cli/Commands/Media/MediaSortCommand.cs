@@ -17,7 +17,8 @@ public static class MediaSortCommand
     {
         var cmd = new Command(
             "sort",
-            "Reorder a folder's child media items, into the order given (first = top) or by a field.\n\n"
+            "Sort a folder's child media items, in the order given or by a field.\n\n"
+                + "With --order the first id goes to the top.\n\n"
                 + "Examples:\n"
                 + "  umbraco media sort --parent 1a2b3c4d-... --order 3f7a...,9c4d...,2e6f...\n"
                 + "  umbraco media sort --parent 1a2b3c4d-... --by name\n"

@@ -22,7 +22,7 @@ public static class ContentTypesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a document type from a Management API body - its properties, groups, compositions, allowed templates and culture variance.\n\nThe body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type. Read it with get, edit, write it back:\n\nExamples:\n  umbraco document-type get blogPost -o json | jq .data > t.json\n  # ...edit t.json...\n  umbraco document-type update blogPost --json-body t.json\n  umbraco document-type update --schema"
+            "Update a document type from a Management API body.\n\nThe body sets its properties, groups, compositions, allowed templates and culture variance. The body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type. Read it with get, edit, write it back:\n\nExamples:\n  umbraco document-type get blogPost -o json | jq .data > t.json\n  # ...edit t.json...\n  umbraco document-type update blogPost --json-body t.json\n  umbraco document-type update --schema"
         ).Mutating();
         var options = RawBodyCommand.AddUpdateOptions(
             cmd,

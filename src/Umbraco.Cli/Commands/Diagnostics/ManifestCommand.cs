@@ -17,7 +17,7 @@ public static class ManifestCommand
     {
         var cmd = new Command(
             "manifest",
-            "List Umbraco package manifests.\n\nExample:\n  umbraco manifest list --scope public"
+            "List Umbraco package manifests.\n\nExamples:\n  umbraco manifest list --scope public"
         );
         cmd.Add(BuildList(executor));
         return cmd;
@@ -25,7 +25,10 @@ public static class ManifestCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command("list", "List package manifests.");
+        var cmd = new Command(
+            "list",
+            "List package manifests.\n\nExamples:\n  umbraco manifest list\n  umbraco manifest list --scope public"
+        );
         var scopeOpt = new Option<ManifestScope>("--scope")
         {
             DefaultValueFactory = _ => ManifestScope.All,

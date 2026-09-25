@@ -79,11 +79,11 @@ public static class ContentCreateCommand
         };
         var parentOpt = new Option<Guid?>("--parent")
         {
-            Description = "Parent content item UUID. Omit to create at the root.",
+            Description = "Parent content item id. Omit to create at the root.",
         };
         var idOpt = new Option<Guid?>("--id")
         {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
         };
         // #228: without a culture a flags-only create on a variant type was rejected with
         // "variance did not match". The client fills in the default language when this is unset.
@@ -100,7 +100,7 @@ public static class ContentCreateCommand
         var templateOpt = new Option<string?>("--template")
         {
             Description =
-                "Template for the new item, by alias or UUID. Omitted, the document type's default is used.",
+                "Template for the new item, by alias or id. Omitted, the document type's default is used.",
         };
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);
