@@ -41,6 +41,15 @@
     <ProjectReference Include="..\Umbraco.Cli.Client\Umbraco.Cli.Client.csproj" />
   </ItemGroup>
 
+  <!-- The JSON Schemas of the raw schema verbs' request bodies, generated from spec/management.json
+       by ApiBodySchemaTests and embedded so printing a schema needs no host. -->
+  <ItemGroup>
+    <EmbeddedResource
+      Include="Schemas\api-bodies.json"
+      LogicalName="Umbraco.Cli.Schemas.api-bodies.json"
+    />
+  </ItemGroup>
+
   <!-- Expose internal helpers (e.g. PasswordGenerator) to the unit test project. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Umbraco.Cli.Tests" />

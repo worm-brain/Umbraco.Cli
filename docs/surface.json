@@ -421,7 +421,7 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print the JSON Schema for the --json-body request and exit (no host/auth needed).",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -472,7 +472,7 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print the JSON Schema for the --json-body request and exit (no host/auth needed).",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -1408,7 +1408,7 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print the JSON Schema for the --json-body request and exit (no host/auth needed).",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -1684,7 +1684,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1692,7 +1692,15 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -1760,7 +1768,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The media type's id, or its alias or name. Required unless --schema is used.",
+              "description": "The media type's id, or its alias or name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1770,7 +1778,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1778,7 +1786,15 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -1883,13 +1899,13 @@
         },
         {
           "name": "create",
-          "description": "Create a new document type, from flags or from a full Management API body (--json-body). --schema prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco document-type create --schema -o json | jq .data > t.json\n  umbraco document-type create --json-body t.json\n  umbraco document-type create --name \"Blog Post\" --alias blogPost\n  umbraco document-type create --name \"Widget\" --alias widget --is-element\n  umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home",
+          "description": "Create a new document type, from flags or from a full Management API body (--json-body). --example prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco document-type create --example -o json | jq .data > t.json\n  umbraco document-type create --json-body t.json\n  umbraco document-type create --name \"Blog Post\" --alias blogPost\n  umbraco document-type create --name \"Widget\" --alias widget --is-element\n  umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home",
           "arguments": [],
           "options": [
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1897,7 +1913,15 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -1965,7 +1989,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The document type's id, or its alias. Required unless --schema is used.",
+              "description": "The document type's id, or its alias. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1975,7 +1999,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1983,7 +2007,15 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -2102,7 +2134,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2110,7 +2142,15 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -2158,7 +2198,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The data type's id, or its name. Required unless --schema is used.",
+              "description": "The data type's id, or its name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2168,7 +2208,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2176,7 +2216,15 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -2719,7 +2767,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The template's id, or its alias or name. Required unless --schema is used.",
+              "description": "The template's id, or its alias or name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2729,7 +2777,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2737,7 +2785,15 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -3083,7 +3139,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -3091,7 +3147,15 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -3145,7 +3209,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The member type's id, or its alias. Required unless --schema is used.",
+              "description": "The member type's id, or its alias. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -3155,7 +3219,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full Management API body. Use --schema to print a real one from the instance as a starting point.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -3163,7 +3227,15 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print an existing entity of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -5123,7 +5195,7 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print the JSON Schema for the --json-body request and exit (no host/auth needed).",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -5198,7 +5270,7 @@
             {
               "name": "--schema",
               "aliases": [],
-              "description": "Print the JSON Schema for the --json-body request and exit (no host/auth needed).",
+              "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
               "hasDefault": true

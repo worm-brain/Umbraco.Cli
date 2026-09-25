@@ -99,6 +99,40 @@ public class SchemaRoundTripCommandTests
         }
     }
 
+    // ── --schema is the JSON Schema; --example the live item ────────────────────
+
+    [Theory]
+    [InlineData("document-type create --schema", "CreateDocumentTypeRequestModel")]
+    [InlineData("data-type update --schema", "UpdateDataTypeRequestModel")]
+    [InlineData("template update --schema", "UpdateTemplateRequestModel")]
+    public async Task Schema_PrintsTheRequestModelsJsonSchemaWithoutCallingTheServer(
+        string command,
+        string model
+    )
+    {
+        // docs/conventions.md 4.1: --schema means the JSON Schema everywhere, offline.
+        var fake = new FakeUmbracoManagementClient();
+
+        var (exit, output) = await Run(fake, command);
+
+        Assert.Equal((0, model), (exit, JsonNode.Parse(output)!["title"]!.GetValue<string>()));
+    }
+
+    [Fact]
+    public async Task Example_PrintsARealItemFromTheInstance()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.DocumentTypeList.Add(new DocumentTypeResponse { Id = Id, Alias = "blogPost" });
+        fake.DocumentTypeRaw[Id] = JsonNode.Parse(
+            """{ "alias": "blogPost", "name": "Blog post" }"""
+        )!;
+
+        var (exit, output) = await Run(fake, "document-type create --example");
+
+        Assert.Equal(0, exit);
+        Assert.Contains("blogPost", output);
+    }
+
     // ── get prints the raw body ───────────────────────────────────────────────
 
     [Theory]

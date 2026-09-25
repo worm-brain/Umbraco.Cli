@@ -20,7 +20,7 @@ public static class ContentTypesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new document type, from flags or from a full Management API body (--json-body). --schema prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco document-type create --schema -o json | jq .data > t.json\n  umbraco document-type create --json-body t.json\n  umbraco document-type create --name \"Blog Post\" --alias blogPost\n  umbraco document-type create --name \"Widget\" --alias widget --is-element\n  umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
+            "Create a new document type, from flags or from a full Management API body (--json-body). --example prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco document-type create --example -o json | jq .data > t.json\n  umbraco document-type create --json-body t.json\n  umbraco document-type create --name \"Blog Post\" --alias blogPost\n  umbraco document-type create --name \"Widget\" --alias widget --is-element\n  umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
         ).Mutating();
         var nameOpt = new Option<string>("--name");
         var aliasOpt = new Option<string>("--alias");

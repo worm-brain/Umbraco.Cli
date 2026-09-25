@@ -6,12 +6,12 @@ namespace Umbraco.Cli.Commands;
 /// One schema noun - document types, data types, media types, member types, templates - as the
 /// raw-body commands need it (#250 Phase 5): its <see cref="EntityKind"/>, which picks the
 /// endpoint on the client, how it is named in messages, and how to list its ids for
-/// <c>--schema</c>. One descriptor per noun, so a command names its kind once rather than as
+/// <c>--example</c>. One descriptor per noun, so a command names its kind once rather than as
 /// an enum here and a loose string there.
 /// </summary>
 /// <param name="Kind">The schema kind; selects the Management API endpoint.</param>
 /// <param name="Plural">The plural used in messages, e.g. <c>document types</c>.</param>
-/// <param name="ListIds">Lists the ids of every item of the kind, for <c>--schema</c>.</param>
+/// <param name="ListIds">Lists the ids of every item of the kind, for <c>--example</c>.</param>
 public sealed record SchemaNoun(
     EntityKind Kind,
     string Plural,
