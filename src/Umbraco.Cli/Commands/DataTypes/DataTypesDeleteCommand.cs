@@ -22,7 +22,7 @@ public static class DataTypesDeleteCommand
                 + "A data type that is in use is refused unless --force is given: Umbraco deletes "
                 + "every property that uses it, and all the values in those properties, with it.\n\n"
                 + "Example:\n  umbraco data-types delete \"Homepage Blocks\" --yes"
-        );
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
         InUseGuard.Protect(

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -13,7 +14,7 @@ public static class ContentCopyCommand
         var cmd = new Command(
             "copy",
             "Copy a content item under a new parent.\n\nExamples:\n  umbraco content copy 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content copy 3f7a8b2e-... --include-descendants"
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID to copy." };
         var parentOpt = new Option<Guid?>("--parent", "--target")
         {

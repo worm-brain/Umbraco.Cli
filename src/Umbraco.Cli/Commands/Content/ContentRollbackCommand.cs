@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -17,7 +18,7 @@ public static class ContentRollbackCommand
         var cmd = new Command(
             "rollback",
             "Roll a content item back to a previous version.\n\nThe ID is a version ID from 'content versions', not the content ID.\n\nExamples:\n  umbraco content rollback 7a1c2d3e-...\n  umbraco content rollback 7a1c2d3e-... --culture en-US"
-        );
+        ).Mutating();
         var versionIdArg = new Argument<Guid>("version-id")
         {
             Description = "Version ID to roll back to (see 'content versions').",

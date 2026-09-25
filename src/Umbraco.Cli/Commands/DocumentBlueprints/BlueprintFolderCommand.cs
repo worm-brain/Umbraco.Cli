@@ -44,7 +44,7 @@ public static class BlueprintFolderCommand
         var cmd = new Command(
             "create",
             "Create a blueprint folder.\n\nExample:\n  umbraco document-blueprint folder create --name \"Marketing\""
-        );
+        ).Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
@@ -85,7 +85,7 @@ public static class BlueprintFolderCommand
 
     private static Command BuildUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Rename a blueprint folder by UUID.");
+        var cmd = new Command("update", "Rename a blueprint folder by UUID.").Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         var nameOpt = new Option<string>("--name")
         {
@@ -113,7 +113,7 @@ public static class BlueprintFolderCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a blueprint folder by UUID.");
+        var cmd = new Command("delete", "Delete a blueprint folder by UUID.").Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

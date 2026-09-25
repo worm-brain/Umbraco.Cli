@@ -60,7 +60,7 @@ public static class ContentCreateCommand
         var cmd = new Command(
             "create",
             "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --content-type textPage --name \"About\"\n  umbraco content create --content-type textPage --name \"Child\" --parent <id>\n  umbraco content create --content-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --content-type blogPost --name \"Post\" --json-body ./body.json"
-        );
+        ).Mutating();
         // Not marked Required at parse level: a create can be driven by --content-type + --name
         // OR by --json-body OR short-circuited by --schema. The conditional requirement is
         // enforced by a parse-level validator below, so a missing input is a proper parse error

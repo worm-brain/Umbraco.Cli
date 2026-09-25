@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -13,7 +14,7 @@ public static class MediaMoveCommand
         var cmd = new Command(
             "move",
             "Move a media item under a new parent folder.\n\nExamples:\n  umbraco media move 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco media move 3f7a8b2e-...   # to the media root"
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Media item ID to move." };
         var parentOpt = new Option<Guid?>("--parent", "--target")
         {

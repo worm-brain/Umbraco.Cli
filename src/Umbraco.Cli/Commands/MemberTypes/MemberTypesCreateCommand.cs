@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MemberTypes;
 
@@ -19,7 +20,7 @@ public static class MemberTypesCreateCommand
         var cmd = new Command(
             "create",
             "Create a new member type with a given name and alias.\n\nExamples:\n  umbraco member-types create --name \"Author\" --alias author\n  umbraco member-types create --name \"Subscriber\" --alias subscriber --icon icon-user"
-        );
+        ).Mutating();
         var nameOpt = new Option<string>("--name");
         var aliasOpt = new Option<string>("--alias");
         var descOpt = new Option<string?>("--description");

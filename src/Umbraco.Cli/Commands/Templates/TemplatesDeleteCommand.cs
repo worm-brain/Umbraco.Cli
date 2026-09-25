@@ -15,7 +15,7 @@ public static class TemplatesDeleteCommand
         var cmd = new Command(
             "delete",
             "Delete a Razor view template by id or alias.\n\nExample:\n  umbraco templates delete blogPost"
-        );
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.Template);
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

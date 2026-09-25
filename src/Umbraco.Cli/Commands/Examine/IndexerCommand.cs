@@ -69,7 +69,7 @@ public static class IndexerCommand
 
     private static Command BuildRebuild(CommandExecutor executor)
     {
-        var cmd = new Command("rebuild", "Rebuild an index by name (expensive).");
+        var cmd = new Command("rebuild", "Rebuild an index by name (expensive).").Mutating();
         var nameArg = new Argument<string>("name") { Description = "Index name." };
         cmd.Add(nameArg);
         cmd.Destructive(parseResult =>

@@ -115,7 +115,7 @@ public static class DocumentBlueprintCommand
         var cmd = new Command(
             "create",
             "Create a blueprint. Supply --json-body for full property control.\n\nExamples:\n  umbraco document-blueprint create --document-type textPage --name \"Starter\"\n  umbraco document-blueprint create --json-body ./bp.json"
-        );
+        ).Mutating();
         // Conditional requirement (mirrors content create): --document-type + --name, OR --json-body,
         // OR --schema (describe-and-exit). Enforced by the validator below as a parse error.
         var typeOpt = new Option<string>("--document-type")
@@ -228,7 +228,7 @@ public static class DocumentBlueprintCommand
             "Update a blueprint's values and variants. They are merged into the blueprint, as "
                 + "'content update' does; --replace sends them as the whole set instead.\n\n"
                 + "Example:\n  umbraco document-blueprint update <id> --json-body ./bp.json"
-        );
+        ).Mutating();
         // id is nullable/optional at the PARSE level only so --schema can describe the body without
         // it; the validator below makes it required for an actual update.
         var idArg = new Argument<Guid?>("id")
@@ -329,7 +329,7 @@ public static class DocumentBlueprintCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a blueprint by UUID.");
+        var cmd = new Command("delete", "Delete a blueprint by UUID.").Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
@@ -401,7 +401,7 @@ public static class DocumentBlueprintCommand
         var cmd = new Command(
             "move",
             "Move a blueprint under a folder (or to the root when --parent is omitted)."
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         var targetOpt = new Option<Guid?>("--parent", "--target")
         {

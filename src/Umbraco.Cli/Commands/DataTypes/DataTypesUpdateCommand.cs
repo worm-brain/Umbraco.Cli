@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
@@ -19,7 +20,7 @@ public static class DataTypesUpdateCommand
         var cmd = new Command(
             "update",
             "Update a data type by name or id. Omitted fields (and editor configuration) are preserved. With --json-body, the body's top-level keys are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco data-types update Textstring --name \"My Text\"\n  umbraco data-types update Textstring --json-body dt.json"
-        );
+        ).Mutating();
         var options = RawBodyCommand.AddUpdateOptions(cmd, SchemaNoun.DataTypes, hasFlags: true);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var editorAliasOpt = new Option<string?>("--editor-alias")

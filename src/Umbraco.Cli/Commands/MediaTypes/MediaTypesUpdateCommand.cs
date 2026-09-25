@@ -19,7 +19,7 @@ public static class MediaTypesUpdateCommand
         var cmd = new Command(
             "update",
             "Update a media type from a Management API body - its properties, groups, allowed child types and icon. The body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type.\n\nExamples:\n  umbraco media-types get brochure -o json | jq .data > mt.json\n  # ...edit mt.json...\n  umbraco media-types update brochure --json-body mt.json\n  umbraco media-types update --schema"
-        );
+        ).Mutating();
         var options = RawBodyCommand.AddUpdateOptions(cmd, SchemaNoun.MediaTypes, hasFlags: false);
         cmd.SetAction(
             (parseResult, ct) =>

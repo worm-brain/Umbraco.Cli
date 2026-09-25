@@ -10,7 +10,7 @@ public static class MediaDeleteCommand
         var cmd = new Command(
             "delete",
             "Permanently delete a media item by UUID.\n\nExample:\n  umbraco media delete 3f7a8b2e-..."
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);
 

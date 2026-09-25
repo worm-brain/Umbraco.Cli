@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Globalization;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Languages;
 
@@ -19,7 +20,7 @@ public static class LanguagesCreateCommand
         var cmd = new Command(
             "create",
             "Add a language.\n\nExamples:\n  umbraco languages create --culture da-DK\n  umbraco languages create --culture da-DK --fallback en-US --mandatory"
-        );
+        ).Mutating();
         var cultureOpt = new Option<string>("--culture")
         {
             Description = "ISO 4646 culture code for the language (e.g. en-US, fr-FR, da-DK).",

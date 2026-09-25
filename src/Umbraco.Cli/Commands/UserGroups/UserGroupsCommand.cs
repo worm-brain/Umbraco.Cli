@@ -80,7 +80,7 @@ public static class UserGroupsCommand
         var cmd = new Command(
             "create",
             "Create a user group.\n\nExample:\n  umbraco user-groups create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read"
-        );
+        ).Mutating();
         var aliasOpt = new Option<string>("--alias")
         {
             Required = true,
@@ -134,7 +134,7 @@ public static class UserGroupsCommand
         var cmd = new Command(
             "update",
             "Update a user group by id, alias or name. Unset options overwrite with their defaults, so pass the full desired state."
-        );
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
         var aliasOpt = new Option<string>("--alias")
         {
@@ -189,7 +189,7 @@ public static class UserGroupsCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a user group by id, alias or name.");
+        var cmd = new Command("delete", "Delete a user group by id, alias or name.").Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
@@ -218,7 +218,7 @@ public static class UserGroupsCommand
         var cmd = new Command(
             "delete-many",
             "Delete several user groups in one call.\n\nExample:\n  umbraco user-groups delete-many --ids blogEditors newsEditors"
-        );
+        ).Mutating();
         var idsOpt = ListOption
             .Strings("--ids", "The user groups to delete: ids, aliases or names.")
             .AsRequired();
@@ -254,7 +254,7 @@ public static class UserGroupsCommand
         var cmd = new Command(
             "add-users",
             "Add users to a user group.\n\nExample:\n  umbraco user-groups add-users blogEditors --user <guid> --user <guid>"
-        );
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
         var usersOpt = ListOption.Guids("--user", "User ID to add.").AsRequired();
         cmd.Add(idArg);
@@ -283,7 +283,7 @@ public static class UserGroupsCommand
         var cmd = new Command(
             "remove-users",
             "Remove users from a user group.\n\nExample:\n  umbraco user-groups remove-users blogEditors --user <guid>"
-        );
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
         var usersOpt = ListOption.Guids("--user", "User ID to remove.").AsRequired();
         cmd.Add(idArg);

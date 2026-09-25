@@ -86,7 +86,7 @@ public static class RedirectCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a redirect by UUID.");
+        var cmd = new Command("delete", "Delete a redirect by UUID.").Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Redirect ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult => $"Delete redirect {parseResult.GetValue(idArg)}?");
@@ -117,7 +117,10 @@ public static class RedirectCommand
     /// <returns>The configured verb command.</returns>
     private static Command BuildTrackingToggle(CommandExecutor executor, string verb, bool enabled)
     {
-        var cmd = new Command(verb, $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking.");
+        var cmd = new Command(
+            verb,
+            $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking."
+        ).Mutating();
         // Only disabling is gated: it stops Umbraco recording redirects site-wide, so moved pages
         // start to 404. Enabling turns a protection on and needs no --yes (#249).
         if (!enabled)

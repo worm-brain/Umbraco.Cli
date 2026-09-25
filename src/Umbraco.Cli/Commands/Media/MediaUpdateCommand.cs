@@ -19,7 +19,7 @@ public static class MediaUpdateCommand
         var cmd = new Command(
             "update",
             "Update a media item's property values and name. They are MERGED into the item, matched on alias + culture + segment: anything you leave out, the uploaded file included, keeps its current value. --replace sends the body's values and variants as the whole set.\n\nExamples:\n  umbraco media update 3f7a8b2e-... --value summary=\"Forms for new members\" --value pageCount=4\n  umbraco media update 3f7a8b2e-... --name \"Membership forms\"\n  umbraco media update 3f7a8b2e-... --json-body ./media.json"
-        );
+        ).Mutating();
         // Optional at parse level only so --schema can describe the body without it.
         var idArg = new Argument<Guid?>("id")
         {

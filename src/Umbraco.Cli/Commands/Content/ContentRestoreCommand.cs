@@ -19,7 +19,7 @@ public static class ContentRestoreCommand
         var cmd = new Command(
             "restore",
             "Restore a content item from the recycle bin.\n\nExamples:\n  umbraco content restore 3f7a8b2e-...\n  umbraco content restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content restore 3f7a8b2e-... --to-root"
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Trashed content item ID." };
         var parentOpt = new Option<Guid?>("--parent", "--target")
         {

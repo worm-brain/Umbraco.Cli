@@ -73,7 +73,7 @@ public static class MemberGroupsCommand
         var cmd = new Command(
             "create",
             "Create a member group.\n\nExample:\n  umbraco member-groups create --name Editors"
-        );
+        ).Mutating();
         var nameOpt = new Option<string>("--name") { Required = true, Description = "Group name." };
         var idOpt = new Option<Guid?>("--id")
         {
@@ -102,7 +102,7 @@ public static class MemberGroupsCommand
 
     private static Command BuildUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Rename a member group by id or name.");
+        var cmd = new Command("update", "Rename a member group by id or name.").Mutating();
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         var nameOpt = new Option<string>("--name") { Required = true, Description = "New name." };
         cmd.Add(idArg);
@@ -135,7 +135,7 @@ public static class MemberGroupsCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a member group by id or name.");
+        var cmd = new Command("delete", "Delete a member group by id or name.").Mutating();
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

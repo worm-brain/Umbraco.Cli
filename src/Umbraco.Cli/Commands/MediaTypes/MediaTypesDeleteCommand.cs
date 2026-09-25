@@ -23,7 +23,7 @@ public static class MediaTypesDeleteCommand
                 + "Umbraco deletes every media item of this type along with it, and cannot report "
                 + "how many there are, so the delete is refused unless --force is given.\n\n"
                 + "Example:\n  umbraco media-types delete brochure --force --yes"
-        );
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.MediaType);
         cmd.Add(idArg);
         InUseGuard.Protect(

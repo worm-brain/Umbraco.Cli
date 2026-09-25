@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -17,7 +18,7 @@ public static class ContentTrashCommand
         var cmd = new Command(
             "trash",
             "Move a content item to the recycle bin (reversible with 'content restore').\n\nExample:\n  umbraco content trash 3f7a8b2e-..."
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         cmd.Add(idArg);
         cmd.SetAction(

@@ -99,7 +99,10 @@ public static class DataTypesAdvancedCommands
     /// <returns>The configured command.</returns>
     public static Command BuildCopy(CommandExecutor executor)
     {
-        var cmd = new Command("copy", "Copy a data type, optionally under a target folder.");
+        var cmd = new Command(
+            "copy",
+            "Copy a data type, optionally under a target folder."
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.DataType);
         var targetOpt = new Option<Guid?>("--parent", "--target")
         {
@@ -131,7 +134,10 @@ public static class DataTypesAdvancedCommands
     /// <returns>The configured command.</returns>
     public static Command BuildMove(CommandExecutor executor)
     {
-        var cmd = new Command("move", "Move a data type under a folder (or to the root).");
+        var cmd = new Command(
+            "move",
+            "Move a data type under a folder (or to the root)."
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.DataType);
         var targetOpt = new Option<Guid?>("--parent", "--target")
         {
@@ -190,7 +196,7 @@ public static class DataTypesAdvancedCommands
 
     private static Command BuildFolderCreate(CommandExecutor executor)
     {
-        var cmd = new Command("create", "Create a data-type folder.");
+        var cmd = new Command("create", "Create a data-type folder.").Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
@@ -229,7 +235,7 @@ public static class DataTypesAdvancedCommands
 
     private static Command BuildFolderUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Rename a data-type folder by UUID.");
+        var cmd = new Command("update", "Rename a data-type folder by UUID.").Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         var nameOpt = new Option<string>("--name")
         {
@@ -257,7 +263,7 @@ public static class DataTypesAdvancedCommands
 
     private static Command BuildFolderDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a data-type folder by UUID.");
+        var cmd = new Command("delete", "Delete a data-type folder by UUID.").Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

@@ -34,7 +34,7 @@ public static class ContentApplyCommand
                 + "subtree, or leave content alone with --exclude-type / --exclude-root.\n\n"
                 + "Publish state is applied too: cultures published in the snapshot are published, "
                 + "and live cultures the snapshot has unpublished are unpublished."
-        );
+        ).Mutating();
         var snapshotArg = new Argument<string>("snapshot")
         {
             Description = "Path to a snapshot file produced by 'content export', or '-' for stdin.",

@@ -103,7 +103,7 @@ public static class StaticFileCommand
         var cmd = new Command(
             "create",
             $"Create a {noun} file. Content comes from --content or --content-file (empty if neither)."
-        );
+        ).Mutating();
         var nameOpt = new Option<string>("--name") { Required = true, Description = "File name." };
         var parentOpt = new Option<string?>("--parent")
         {
@@ -151,7 +151,7 @@ public static class StaticFileCommand
         string humanName
     )
     {
-        var cmd = new Command("update", $"Replace a {noun}'s content (by path).");
+        var cmd = new Command("update", $"Replace a {noun}'s content (by path).").Mutating();
         var pathArg = new Argument<string>("path") { Description = "The file path." };
         var (contentOpt, contentFileOpt) = FileContentInput.Options();
         cmd.Add(pathArg);
@@ -197,7 +197,7 @@ public static class StaticFileCommand
         string humanName
     )
     {
-        var cmd = new Command("delete", $"Delete a {noun} by path.");
+        var cmd = new Command("delete", $"Delete a {noun} by path.").Mutating();
         var pathArg = new Argument<string>("path") { Description = "The file path." };
         cmd.Add(pathArg);
         cmd.Destructive(parseResult =>

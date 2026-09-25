@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
@@ -14,7 +15,7 @@ public static class DictionaryMoveCommand
         var cmd = new Command(
             "move",
             "Move a dictionary item under a new parent.\n\nExamples:\n  umbraco dictionary move Blog.Tags --parent Blog\n  umbraco dictionary move Blog.Tags   # to the dictionary root"
-        );
+        ).Mutating();
         var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
         var targetOpt = Reference.Option(
             "--parent",

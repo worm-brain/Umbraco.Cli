@@ -86,7 +86,7 @@ public static class UserDataCommand
         var cmd = new Command(
             "create",
             "Create a user-data entry.\n\nExample:\n  umbraco user-data create --group myGroup --identifier theme --value dark"
-        );
+        ).Mutating();
         var groupOpt = new Option<string>("--group") { Required = true, Description = "Group." };
         var identifierOpt = new Option<string>("--identifier")
         {
@@ -132,7 +132,7 @@ public static class UserDataCommand
         var cmd = new Command(
             "update",
             "Update a user-data entry by key.\n\nExample:\n  umbraco user-data update <key> --group myGroup --identifier theme --value light"
-        );
+        ).Mutating();
         // #242: every other update takes its id positionally, as user-data get and delete do.
         // --key still works, so existing scripts keep running.
         var keyArg = new Argument<Guid?>("key")
@@ -199,7 +199,7 @@ public static class UserDataCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a user-data entry by key.");
+        var cmd = new Command("delete", "Delete a user-data entry by key.").Mutating();
         var idArg = new Argument<Guid>("key") { Description = "Entry key." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
@@ -19,7 +20,7 @@ public static class DataTypesCreateCommand
         var cmd = new Command(
             "create",
             "Create a data type (property editor configuration).\n\nExample:\n  umbraco data-types create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
-        );
+        ).Mutating();
         var nameOpt = new Option<string>("--name");
         var editorAliasOpt = new Option<string>("--editor-alias")
         {

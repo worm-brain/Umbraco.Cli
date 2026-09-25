@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Languages;
 
@@ -18,7 +19,7 @@ public static class LanguagesUpdateCommand
         var cmd = new Command(
             "update",
             "Update a language by its ISO culture code. Omitted fields are preserved.\n\nExample:\n  umbraco languages update fr-FR --name \"French (France)\" --mandatory"
-        );
+        ).Mutating();
         var isoArg = new Argument<string>("iso-code")
         {
             Description = "ISO culture code of the language to update (e.g. fr-FR).",

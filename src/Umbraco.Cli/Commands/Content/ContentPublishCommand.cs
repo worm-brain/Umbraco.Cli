@@ -10,7 +10,7 @@ public static class ContentPublishCommand
         var cmd = new Command(
             "publish",
             "Publish a content item, making it live. Optionally target specific cultures.\n\nExamples:\n  umbraco content publish 3f7a8b2e-...\n  umbraco content publish 3f7a8b2e-... --cultures en-US da-DK"
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         var culturesOpt = ListOption.Strings(
             "--cultures",

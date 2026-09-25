@@ -19,7 +19,7 @@ public static class MemberTypesUpdateCommand
         var cmd = new Command(
             "update",
             "Update a member type by id or alias. Omitted fields (and the type's properties) are preserved. With --json-body, the body's top-level keys (properties and containers included) are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco member-types update siteMember --name \"Author\" --icon icon-user\n  umbraco member-types get siteMember -o json | jq .data > mt.json\n  umbraco member-types update siteMember --json-body mt.json"
-        );
+        ).Mutating();
         var options = RawBodyCommand.AddUpdateOptions(cmd, SchemaNoun.MemberTypes, hasFlags: true);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var aliasOpt = new Option<string?>("--alias") { Description = "New alias." };

@@ -26,7 +26,7 @@ public static class SchemaApplyCommand
                 + "  umbraco schema apply schema.json --dry-run\n"
                 + "  umbraco schema apply schema.json\n"
                 + "  umbraco schema apply schema.json --prune --yes"
-        );
+        ).Mutating();
         var snapshotArg = new Argument<string>("snapshot")
         {
             Description = "Path to a snapshot file produced by 'schema export', or '-' for stdin.",

@@ -11,7 +11,7 @@ public static class DictionaryCreateCommand
         var cmd = new Command(
             "create",
             "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --values en-US=Home --values da-DK=Hjem --values fr-FR=Accueil"
-        );
+        ).Mutating();
         var keyOpt = new Option<string>("--key") { Required = true };
         // --values accepts isoCode=value pairs (en-US=Hello da-DK=Hej); the isoCode must be the full culture code (#181)
         var valuesOpt = new Option<string[]>("--values")

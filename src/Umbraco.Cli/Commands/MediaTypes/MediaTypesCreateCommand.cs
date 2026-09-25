@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MediaTypes;
 
@@ -19,7 +20,7 @@ public static class MediaTypesCreateCommand
         var cmd = new Command(
             "create",
             "Create a new media type with a given name and alias.\n\nExamples:\n  umbraco media-types create --name \"Custom Image\" --alias customImage\n  umbraco media-types create --name \"Widget\" --alias widget --is-element\n  umbraco media-types create --name \"Doc\" --alias doc --allow-at-root --icon icon-document"
-        );
+        ).Mutating();
         var nameOpt = new Option<string>("--name");
         var aliasOpt = new Option<string>("--alias");
         var descOpt = new Option<string?>("--description");

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -13,7 +14,7 @@ public static class MediaRestoreCommand
         var cmd = new Command(
             "restore",
             "Restore a media item from the recycle bin.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-..."
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Trashed media item ID." };
         var parentOpt = new Option<Guid?>("--parent", "--target")
         {

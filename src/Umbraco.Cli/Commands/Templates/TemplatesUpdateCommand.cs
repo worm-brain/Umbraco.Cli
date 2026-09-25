@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
 
@@ -19,7 +20,7 @@ public static class TemplatesUpdateCommand
         var cmd = new Command(
             "update",
             "Update a Razor view template by id or alias. Omitted fields are preserved. With --json-body, the body's top-level keys (as 'templates get' prints them) are merged into the template; --replace sends it as the whole template.\n\nExamples:\n  umbraco templates update blogPost --content-file ./blog-post.cshtml\n  umbraco templates get blogPost -o json | jq .data > t.json\n  umbraco templates update blogPost --json-body t.json"
-        );
+        ).Mutating();
         var options = RawBodyCommand.AddUpdateOptions(cmd, SchemaNoun.Templates, hasFlags: true);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var aliasOpt = new Option<string?>("--alias") { Description = "New alias." };

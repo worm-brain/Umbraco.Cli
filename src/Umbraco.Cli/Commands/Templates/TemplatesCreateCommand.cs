@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
 
@@ -18,7 +19,7 @@ public static class TemplatesCreateCommand
         var cmd = new Command(
             "create",
             "Create a Razor view template.\n\nExamples:\n  umbraco templates create --name \"Blog Post\" --alias blogPost\n  umbraco templates create --name Home --alias home --content-file ./home.cshtml"
-        );
+        ).Mutating();
         var nameOpt = new Option<string>("--name") { Required = true };
         var aliasOpt = new Option<string>("--alias") { Required = true };
         var (contentOpt, contentFileOpt) = FileContentInput.Options(

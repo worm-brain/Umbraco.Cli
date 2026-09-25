@@ -187,7 +187,7 @@ public static class LogViewerCommand
 
     private static Command BuildSavedSearchCreate(CommandExecutor executor)
     {
-        var cmd = new Command("create", "Create a saved log search.");
+        var cmd = new Command("create", "Create a saved log search.").Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
@@ -218,7 +218,7 @@ public static class LogViewerCommand
 
     private static Command BuildSavedSearchDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a saved log search by name.");
+        var cmd = new Command("delete", "Delete a saved log search by name.").Mutating();
         var nameArg = new Argument<string>("name") { Description = "Saved search name." };
         cmd.Add(nameArg);
         cmd.Destructive(parseResult => $"Delete saved search '{parseResult.GetValue(nameArg)}'?");

@@ -20,7 +20,7 @@ public static class UsersInviteCommand
                 + "Examples:\n"
                 + "  umbraco users invite --email editor@example.com --name \"Jane Smith\" --group editor\n"
                 + "  umbraco users invite --email admin@example.com --name \"Bob\" --group admin --group translator --message \"Welcome to the team!\""
-        );
+        ).Mutating();
         var emailOpt = new Option<string>("--email") { Required = true };
         var nameOpt = new Option<string>("--name") { Required = true };
         var msgOpt = new Option<string?>("--message");

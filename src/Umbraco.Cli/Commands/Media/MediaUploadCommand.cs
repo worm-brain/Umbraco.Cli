@@ -19,7 +19,7 @@ public static class MediaUploadCommand
         var cmd = new Command(
             "upload",
             "Upload a local file as a media item (staged via temporary-file for large files).\n\nExamples:\n  umbraco media upload ./logo.png\n  umbraco media upload ./big-video.mp4 --media-type File --name \"Promo\"\n  umbraco media upload ./photo.jpg --parent 3f7a8b2e-...\n  umbraco media upload ./report.pdf --media-type brochure --id 3f7a8b2e-... --value title=\"Annual report\""
-        );
+        ).Mutating();
         var fileArg = new Argument<FileInfo>("file") { Description = "Local file to upload." };
         var parentOpt = new Option<Guid?>("--parent")
         {

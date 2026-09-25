@@ -14,7 +14,7 @@ public static class ContentPublishDescendantsCommand
         var cmd = new Command(
             "publish-descendants",
             "Publish a content item and its descendants.\n\nExamples:\n  umbraco content publish-descendants 3f7a8b2e-...\n  umbraco content publish-descendants 3f7a8b2e-... --include-unpublished --cultures en-US"
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Root content item ID." };
         var culturesOpt = ListOption.Strings(
             "--cultures",

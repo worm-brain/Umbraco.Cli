@@ -14,7 +14,7 @@ public static class ContentBulkPublishCommand
         var cmd = new Command(
             "publish",
             "Publish many content items by id (ids from --file or stdin).\n\nExample:\n  umbraco content list --fields id | umbraco content bulk publish"
-        );
+        ).Mutating();
         var fileOpt = new Option<FileInfo?>("--file")
         {
             Description = "File of ids (one per line). Reads stdin when omitted.",

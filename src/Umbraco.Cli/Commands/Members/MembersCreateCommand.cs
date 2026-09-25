@@ -11,7 +11,7 @@ public static class MembersCreateCommand
         var cmd = new Command(
             "create",
             "Create a new Umbraco member.\n\nExample:\n  umbraco members create --email user@example.com --name \"Jane Doe\" --type Member"
-        );
+        ).Mutating();
         var emailOpt = new Option<string>("--email") { Required = true };
         var nameOpt = new Option<string>("--name") { Required = true };
         var typeOpt = new Option<string>("--type")

@@ -10,7 +10,7 @@ public static class ContentDeleteCommand
         var cmd = new Command(
             "delete",
             "Permanently delete a content item by ID. This cannot be undone.\n\nExample:\n  umbraco content delete 3f7a8b2e-1234-5678-abcd-ef0123456789"
-        );
+        ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         cmd.Add(idArg);
 
