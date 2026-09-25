@@ -378,8 +378,8 @@ umbraco data-types create --schema                         # print a real data t
 umbraco data-types delete <id> [--force]                   # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-types is-used <id>                            # whether any content type uses it
 umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
-umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root; needs --yes
-umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root; needs --yes
+umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root
+umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root
 
 # folder sub-noun (organise data types in the tree):
 umbraco data-types folder get <id>
