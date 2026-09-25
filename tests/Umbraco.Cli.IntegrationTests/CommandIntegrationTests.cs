@@ -261,7 +261,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
 
         using var doc = JsonDocument.Parse(dry.Stdout);
         Assert.Equal("dry-run", doc.RootElement.GetProperty("status").GetString());
-        var request = doc.RootElement.GetProperty("request");
+        var request = doc.RootElement.GetProperty("data"); // the dry-run payload has been under data since schemaVersion 3
         Assert.Equal("POST", request.GetProperty("method").GetString());
         Assert.Contains("webhook", request.GetProperty("url").GetString());
 
@@ -369,7 +369,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
 
         Assert.True(result.Ok, result.Stderr);
         using var doc = JsonDocument.Parse(result.Stdout);
-        var request = doc.RootElement.GetProperty("request");
+        var request = doc.RootElement.GetProperty("data"); // the dry-run payload has been under data since schemaVersion 3
         Assert.Equal("dry-run", doc.RootElement.GetProperty("status").GetString());
         Assert.Equal("POST", request.GetProperty("method").GetString());
         // The non-ASCII name must survive the pipe intact (UTF-8, no mojibake).
