@@ -42,7 +42,7 @@ public static class UserDataCommand
         };
         cmd.Add(groupOpt);
         cmd.Add(identifierOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
@@ -128,25 +128,26 @@ public static class UserDataCommand
         return cmd;
     }
 
+    /// <summary>
+    /// Builds <c>user-data update</c>: reads the entry and lays the given options over it, so an
+    /// omitted one keeps its value (docs/conventions.md 5.1). The API takes the whole entry.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     private static Command BuildUpdate(CommandExecutor executor)
     {
         var cmd = new Command(
             "update",
-            "Update a user-data entry by id.\n\nExample:\n  umbraco user-data update <id> --group myGroup --identifier theme --data light"
+            "Update a user-data entry by id. Omitted options keep their values.\n\nExample:\n  umbraco user-data update <id> --data light"
         ).Mutating();
         // The id is positional, as on every other update (#242).
         var keyArg = new Argument<Guid>("id") { Description = "The entry's id (its key)." };
-        var groupOpt = new Option<string>("--group") { Required = true, Description = "Group." };
-        var identifierOpt = new Option<string>("--identifier")
+        var groupOpt = new Option<string?>("--group") { Description = "New group." };
+        var identifierOpt = new Option<string?>("--identifier")
         {
-            Required = true,
-            Description = "Identifier within the group.",
+            Description = "New identifier within the group.",
         };
-        var valueOpt = new Option<string>("--data")
-        {
-            Required = true,
-            Description = "New value to store.",
-        };
+        var valueOpt = new Option<string?>("--data") { Description = "New value to store." };
         cmd.Add(keyArg);
         cmd.Add(groupOpt);
         cmd.Add(identifierOpt);
@@ -155,17 +156,24 @@ public static class UserDataCommand
             (parseResult, ct) =>
                 executor.RunMessageAsync(
                     parseResult,
-                    (client, c) =>
-                        client.UpdateUserDataAsync(
+                    async (client, c) =>
+                    {
+                        var key = parseResult.GetValue(keyArg);
+                        var current = await client.GetUserDataByIdAsync(key, c);
+                        if (!current.IsSuccess)
+                            return UmbracoResponse<Empty>.FailureFrom(current);
+                        return await client.UpdateUserDataAsync(
                             new UpdateUserDataRequest
                             {
-                                Key = parseResult.GetValue(keyArg),
-                                Group = parseResult.GetValue(groupOpt)!,
-                                Identifier = parseResult.GetValue(identifierOpt)!,
-                                Value = parseResult.GetValue(valueOpt)!,
+                                Key = key,
+                                Group = parseResult.GetValue(groupOpt) ?? current.Data!.Group,
+                                Identifier =
+                                    parseResult.GetValue(identifierOpt) ?? current.Data!.Identifier,
+                                Value = parseResult.GetValue(valueOpt) ?? current.Data!.Value,
                             },
                             c
-                        ),
+                        );
+                    },
                     "User-data entry updated.",
                     ct
                 )

@@ -189,6 +189,15 @@ public class UserAdminCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
         var key = Guid.NewGuid();
+        fake.UserDataList.Add(
+            new UserDataResponse
+            {
+                Key = key,
+                Group = "g",
+                Identifier = "i",
+                Value = "dark",
+            }
+        );
 
         var exit = await Run(
             root,
@@ -199,6 +208,32 @@ public class UserAdminCommandTests
         var updated = Assert.Single(fake.UserDataUpdated);
         Assert.Equal(key, updated.Key);
         Assert.Equal("light", updated.Value);
+    }
+
+    [Fact]
+    public async Task UserDataUpdate_OmittedOptions_KeepTheirValues()
+    {
+        // docs/conventions.md 5.1: update merges, so only --data changes here.
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+        var key = Guid.NewGuid();
+        fake.UserDataList.Add(
+            new UserDataResponse
+            {
+                Key = key,
+                Group = "prefs",
+                Identifier = "theme",
+                Value = "dark",
+            }
+        );
+
+        await Run(root, $"{Auth} user-data update {key} --data light");
+
+        var updated = Assert.Single(fake.UserDataUpdated);
+        Assert.Equal(
+            ("prefs", "theme", "light"),
+            (updated.Group, updated.Identifier, updated.Value)
+        );
     }
 
     [Fact]

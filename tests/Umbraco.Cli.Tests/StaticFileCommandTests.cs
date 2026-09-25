@@ -103,7 +103,7 @@ public class StaticFileCommandTests
     }
 
     [Fact]
-    public async Task ContentFile_TakesPrecedenceOverInlineContent()
+    public async Task ContentAndContentFile_Together_AreRefusedAndNothingIsCreated()
     {
         var file = Path.Combine(Path.GetTempPath(), $"sf-{Guid.NewGuid()}.js");
         await File.WriteAllTextAsync(file, "// from file");
@@ -117,9 +117,9 @@ public class StaticFileCommandTests
                 $"{Auth} script create --name site.js --content \"// inline\" --content-file {file}"
             );
 
-            Assert.Equal(0, exit);
-            var created = Assert.Single(fake.StaticFilesCreated);
-            Assert.Equal("// from file", created.Request.Content); // file wins over --content
+            // Two sources for one value is an input error, not a silent pick (docs/conventions.md 4.5).
+            Assert.Equal(1, exit);
+            Assert.Empty(fake.StaticFilesCreated);
         }
         finally
         {

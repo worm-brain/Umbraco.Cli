@@ -17,7 +17,7 @@ public static class MediaTypesListCommand
             "list",
             "List media types defined in the Umbraco instance.\n\nExamples:\n  umbraco media-type list\n  umbraco media-type list --output json | jq '.[].name'"
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

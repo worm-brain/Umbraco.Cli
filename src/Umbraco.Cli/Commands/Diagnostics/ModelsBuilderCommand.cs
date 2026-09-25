@@ -46,9 +46,6 @@ public static class ModelsBuilderCommand
             "build",
             "Regenerate the models (writes source files on the server)."
         ).Mutating();
-        cmd.Destructive(parseResult =>
-            "Regenerate models on the server (overwrites generated source files)?"
-        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(

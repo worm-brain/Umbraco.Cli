@@ -56,7 +56,7 @@ public static class StaticFileCommand
             Description = "Folder path to list children of; omit for the tree root.",
         };
         cmd.Add(parentOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

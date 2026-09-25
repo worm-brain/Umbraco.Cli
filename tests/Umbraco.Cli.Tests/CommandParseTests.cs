@@ -79,7 +79,6 @@ public class CommandParseTests
             "dictionary.delete",
             "document-blueprint.delete",
             "document-blueprint.folder.delete",
-            "indexer.rebuild",
             "language.delete",
             "log-viewer.saved-search.delete",
             "media.delete",
@@ -88,7 +87,6 @@ public class CommandParseTests
             "member-group.delete",
             "member-type.delete",
             "member.delete",
-            "models-builder.build",
             "partial-view.delete",
             "redirect.delete",
             "redirect.tracking.disable",
@@ -109,14 +107,30 @@ public class CommandParseTests
     }
 
     [Fact]
-    public void RealTree_ConditionallyDestructiveCommands_AreTheApplyPrunes()
+    public void RealTree_ConditionallyDestructiveCommands_AreThePrunesAndReplaces()
     {
         var actual = Leaves(BuildRoot(), "")
             .Where(l => CommandSafety.DestructiveWhen(l.Command) is not null)
             .Select(l => $"{l.Path} {CommandSafety.DestructiveWhen(l.Command)}")
             .Order(StringComparer.Ordinal);
 
-        Assert.Equal(["content.apply --prune", "schema.apply --prune"], actual);
+        // docs/conventions.md 5.2: a flag that makes a safe command lose data gates it.
+        Assert.Equal(
+            [
+                "content.apply --prune",
+                "content.domain.set --replace",
+                "content.update --replace",
+                "data-type.update --replace",
+                "document-blueprint.update --replace",
+                "document-type.update --replace",
+                "media-type.update --replace",
+                "media.update --replace",
+                "member-type.update --replace",
+                "schema.apply --prune",
+                "template.update --replace",
+            ],
+            actual
+        );
     }
 
     /// <summary>
@@ -738,6 +752,17 @@ public class CommandParseTests
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]
+    // A flag the body would silently override is refused (docs/conventions.md 4.5).
+    [InlineData("content create --json-body body.json --name About")]
+    [InlineData(
+        "content create --json-body body.json --parent 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "document-blueprint create --json-body bp.json --id 3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "media restore 3f7a8b2e-1234-5678-abcd-ef0123456789 --to-root --parent 1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )]
     public void InvalidArgs_ProduceParseErrors(string args)
     {
         Assert.True(HasErrors(args), $"Expected parse errors for: {args}");

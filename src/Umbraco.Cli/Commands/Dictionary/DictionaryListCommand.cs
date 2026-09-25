@@ -24,7 +24,7 @@ public static class DictionaryListCommand
             EntityKind.DictionaryItem,
             "The item whose direct children to list; lists the root level if omitted"
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.Add(parentOpt);
         cmd.SetAction(
             (parseResult, ct) =>

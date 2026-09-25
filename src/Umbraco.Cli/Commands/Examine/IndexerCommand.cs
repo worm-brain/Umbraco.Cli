@@ -28,7 +28,7 @@ public static class IndexerCommand
     private static Command BuildList(CommandExecutor executor)
     {
         var cmd = new Command("list", "List the Examine indexes.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
@@ -72,9 +72,6 @@ public static class IndexerCommand
         var cmd = new Command("rebuild", "Rebuild an index by name (expensive).").Mutating();
         var nameArg = new Argument<string>("name") { Description = "Index name." };
         cmd.Add(nameArg);
-        cmd.Destructive(parseResult =>
-            $"Rebuild index '{parseResult.GetValue(nameArg)}'? This can be expensive."
-        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(

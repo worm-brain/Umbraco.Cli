@@ -1216,20 +1216,26 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>An empty success response, or a mapped failure.</returns>
     public Task<UmbracoResponse<Empty>> RestoreMediaAsync(
         Guid id,
-        Guid? parentId = null,
+        RestoreTarget? target = null,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
             ct,
             async () =>
             {
+                var bin = _api.Umbraco.Management.Api.V1.RecycleBin.Media[id];
+                // The original parent by default, the way content restore works (#265).
+                var parentId = (target ?? RestoreTarget.Original) switch
+                {
+                    RestoreTarget.UnderParent under => under.Id,
+                    RestoreTarget.ContentRoot => (Guid?)null,
+                    _ => (await bin.OriginalParent.GetAsync(cancellationToken: ct))?.Id,
+                };
                 var body = new Gen.MoveMediaRequestModel
                 {
                     Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
                 };
-                await _api
-                    .Umbraco.Management.Api.V1.RecycleBin.Media[id]
-                    .Restore.PutAsync(body, cancellationToken: ct);
+                await bin.Restore.PutAsync(body, cancellationToken: ct);
                 return Empty.Value;
             }
         );

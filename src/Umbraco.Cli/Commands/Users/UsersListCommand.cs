@@ -10,7 +10,7 @@ public static class UsersListCommand
             "list",
             "List Umbraco back-office users.\n\nExample:\n  umbraco user list --output json"
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

@@ -118,13 +118,47 @@ public class MediaAndContentAncillaryWireTests
     }
 
     [Fact]
+    public async Task RestoreMediaAsync_NoTarget_RestoresUnderTheOriginalParent()
+    {
+        // #265: like content restore, a trashed media item goes back where it was by default.
+        var id = Guid.NewGuid();
+        var original = Guid.NewGuid();
+        var handler = Wire.Routed(("/original-parent", $$"""{ "id": "{{original}}" }"""));
+
+        await Wire.Client(handler).RestoreMediaAsync(id, ct: CancellationToken.None);
+
+        Assert.Equal(
+            original.ToString(),
+            handler.BodyOf(HttpMethod.Put, $"/recycle-bin/media/{id}/restore")["target"]![
+                "id"
+            ]!.GetValue<string>()
+        );
+    }
+
+    [Fact]
+    public async Task RestoreMediaAsync_ToRoot_SendsNoTargetAndDoesNotAskForTheOriginalParent()
+    {
+        var id = Guid.NewGuid();
+        var handler = Wire.Blank();
+
+        await Wire.Client(handler)
+            .RestoreMediaAsync(id, RestoreTarget.Root, CancellationToken.None);
+
+        handler.AssertNoRequest(HttpMethod.Get, $"/recycle-bin/media/{id}/original-parent");
+        Assert.False(
+            handler.BodyOf(HttpMethod.Put, $"/recycle-bin/media/{id}/restore").ContainsKey("target")
+        );
+    }
+
+    [Fact]
     public async Task RestoreMediaAsync_WithParent_SendsTheTarget()
     {
         var id = Guid.NewGuid();
         var parent = Guid.NewGuid();
         var handler = Wire.Blank();
 
-        await Wire.Client(handler).RestoreMediaAsync(id, parent, CancellationToken.None);
+        await Wire.Client(handler)
+            .RestoreMediaAsync(id, RestoreTarget.Under(parent), CancellationToken.None);
 
         Assert.Equal(
             parent.ToString(),

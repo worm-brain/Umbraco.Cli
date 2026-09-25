@@ -10,7 +10,7 @@ public static class WebhooksListCommand
             "list",
             "List all webhook subscriptions configured in the Umbraco instance.\n\nExample:\n  umbraco webhook list --output json"
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

@@ -175,7 +175,7 @@ public class SchemaRoundTripCommandTests
 
         await Run(
             fake,
-            "document-type update blog --json-body {body} --replace",
+            "document-type update blog --json-body {body} --replace --yes",
             """{ "name": "N" }"""
         );
 

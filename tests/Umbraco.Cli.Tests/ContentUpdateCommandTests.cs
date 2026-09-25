@@ -161,7 +161,7 @@ public class ContentUpdateCommandTests
 
         var exit = await RunAsync(
             fake,
-            $"content update {Id} --json-body {{body}} --replace",
+            $"content update {Id} --json-body {{body}} --replace --yes",
             """{"values":[]}"""
         );
 

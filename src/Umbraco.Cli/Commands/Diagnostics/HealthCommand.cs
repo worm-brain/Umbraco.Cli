@@ -29,7 +29,7 @@ public static class HealthCommand
     private static Command BuildList(CommandExecutor executor)
     {
         var cmd = new Command("list", "List the health-check groups.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

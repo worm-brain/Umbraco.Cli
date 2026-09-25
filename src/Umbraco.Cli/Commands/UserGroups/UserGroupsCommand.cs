@@ -33,7 +33,7 @@ public static class UserGroupsCommand
     private static Command BuildList(CommandExecutor executor)
     {
         var cmd = new Command("list", "List user groups.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
@@ -113,9 +113,9 @@ public static class UserGroupsCommand
                                 Sections = s.Sections,
                                 Languages = s.Languages,
                                 FallbackPermissions = s.FallbackPermissions,
-                                HasAccessToAllLanguages = s.HasAccessToAllLanguages,
-                                DocumentRootAccess = s.DocumentRootAccess,
-                                MediaRootAccess = s.MediaRootAccess,
+                                HasAccessToAllLanguages = s.HasAccessToAllLanguages ?? false,
+                                DocumentRootAccess = s.DocumentRootAccess ?? false,
+                                MediaRootAccess = s.MediaRootAccess ?? false,
                                 DocumentStartNode = s.DocumentStartNode,
                                 MediaStartNode = s.MediaStartNode,
                             },
@@ -128,19 +128,22 @@ public static class UserGroupsCommand
         return cmd;
     }
 
+    /// <summary>
+    /// Builds <c>user-group update</c>: reads the group, lays the given options over it and writes
+    /// it back, so an omitted option keeps its value (docs/conventions.md 5.1). The API itself takes
+    /// the whole group, which is why this used to reset everything not passed.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     private static Command BuildUpdate(CommandExecutor executor)
     {
         var cmd = new Command(
             "update",
-            "Update a user group by id, alias or name. Unset options overwrite with their defaults, so pass the full desired state."
+            "Update a user group by id, alias or name. Omitted options keep their values.\n\nExamples:\n  umbraco user-group update editors --name \"Site editors\"\n  umbraco user-group update editors --section Umb.Section.Media --document-start-node <id>"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
-        var aliasOpt = new Option<string>("--alias")
-        {
-            Required = true,
-            Description = "Unique group alias.",
-        };
-        var nameOpt = new Option<string>("--name") { Required = true, Description = "Group name." };
+        var aliasOpt = new Option<string?>("--alias") { Description = "New group alias." };
+        var nameOpt = new Option<string?>("--name") { Description = "New group name." };
         var shared = new SharedGroupOptions();
         cmd.Add(idArg);
         cmd.Add(aliasOpt);
@@ -156,26 +159,19 @@ public static class UserGroupsCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id =>
-                                client.UpdateUserGroupAsync(
-                                    id,
-                                    new UpdateUserGroupRequest
-                                    {
-                                        Alias = parseResult.GetValue(aliasOpt)!,
-                                        Name = parseResult.GetValue(nameOpt)!,
-                                        Icon = s.Icon,
-                                        Description = s.Description,
-                                        Sections = s.Sections,
-                                        Languages = s.Languages,
-                                        FallbackPermissions = s.FallbackPermissions,
-                                        HasAccessToAllLanguages = s.HasAccessToAllLanguages,
-                                        DocumentRootAccess = s.DocumentRootAccess,
-                                        MediaRootAccess = s.MediaRootAccess,
-                                        DocumentStartNode = s.DocumentStartNode,
-                                        MediaStartNode = s.MediaStartNode,
-                                    },
-                                    c
-                                ),
+                            async id =>
+                            {
+                                var current = await client.GetUserGroupByIdAsync(id, c);
+                                if (!current.IsSuccess)
+                                    return UmbracoResponse<Empty>.FailureFrom(current);
+                                var request = Merge(
+                                    current.Data!,
+                                    parseResult.GetValue(aliasOpt),
+                                    parseResult.GetValue(nameOpt),
+                                    s
+                                );
+                                return await client.UpdateUserGroupAsync(id, request, c);
+                            },
                             c
                         ),
                     "User group updated.",
@@ -184,6 +180,51 @@ public static class UserGroupsCommand
             }
         );
         return cmd;
+    }
+
+    /// <summary>
+    /// The update request for a group: each given value over the current one. Lists given replace
+    /// the list; a start node and root access say opposite things, so setting one clears the other.
+    /// </summary>
+    /// <param name="current">The group as it is now.</param>
+    /// <param name="alias">The new alias, or null to keep it.</param>
+    /// <param name="name">The new name, or null to keep it.</param>
+    /// <param name="given">The shared options as parsed; null or empty means not given.</param>
+    /// <returns>The request to send.</returns>
+    internal static UpdateUserGroupRequest Merge(
+        UserGroupResponse current,
+        string? alias,
+        string? name,
+        SharedGroupValues given
+    )
+    {
+        var documentRoot =
+            given.DocumentRootAccess
+            ?? (given.DocumentStartNode is not null ? false : current.DocumentRootAccess);
+        var mediaRoot =
+            given.MediaRootAccess
+            ?? (given.MediaStartNode is not null ? false : current.MediaRootAccess);
+        return new UpdateUserGroupRequest
+        {
+            Alias = alias ?? current.Alias,
+            Name = name ?? current.Name,
+            Icon = given.Icon ?? current.Icon,
+            Description = given.Description ?? current.Description,
+            Sections = given.Sections.Count > 0 ? given.Sections : current.Sections,
+            Languages = given.Languages.Count > 0 ? given.Languages : current.Languages,
+            FallbackPermissions =
+                given.FallbackPermissions.Count > 0
+                    ? given.FallbackPermissions
+                    : current.FallbackPermissions,
+            HasAccessToAllLanguages =
+                given.HasAccessToAllLanguages ?? current.HasAccessToAllLanguages,
+            DocumentRootAccess = documentRoot,
+            MediaRootAccess = mediaRoot,
+            DocumentStartNode = documentRoot
+                ? null
+                : given.DocumentStartNode ?? current.DocumentStartNode,
+            MediaStartNode = mediaRoot ? null : given.MediaStartNode ?? current.MediaStartNode,
+        };
     }
 
     /// <summary>
@@ -304,7 +345,7 @@ public static class UserGroupsCommand
     /// the risk of mis-ordering interchangeable options. Granular per-node permissions are a deferred
     /// follow-up, so they are not represented here.
     /// </summary>
-    private sealed class SharedGroupOptions
+    internal sealed class SharedGroupOptions
     {
         private readonly Option<string?> _icon = new("--icon")
         {
@@ -326,15 +367,15 @@ public static class UserGroupsCommand
             "--fallback-permission",
             "Default permission verbs applied where no node-specific permission is set."
         );
-        private readonly Option<bool> _allLanguages = new("--has-access-to-all-languages")
+        private readonly Option<bool?> _allLanguages = new("--has-access-to-all-languages")
         {
             Description = "Grant edit access to content in every language.",
         };
-        private readonly Option<bool> _documentRoot = new("--document-root-access")
+        private readonly Option<bool?> _documentRoot = new("--document-root-access")
         {
             Description = "Set the content start node to the tree root.",
         };
-        private readonly Option<bool> _mediaRoot = new("--media-root-access")
+        private readonly Option<bool?> _mediaRoot = new("--media-root-access")
         {
             Description = "Set the media start node to the tree root.",
         };
@@ -373,11 +414,11 @@ public static class UserGroupsCommand
                     || !result.TryGetValue(_mediaStart, out var mediaStart)
                 )
                     return;
-                if (result.GetValue(_documentRoot) && documentStart is not null)
+                if (result.GetValue(_documentRoot) == true && documentStart is not null)
                     result.AddError(
                         $"{_documentRoot.Name} and {_documentStart.Name} cannot be used together."
                     );
-                if (result.GetValue(_mediaRoot) && mediaStart is not null)
+                if (result.GetValue(_mediaRoot) == true && mediaStart is not null)
                     result.AddError(
                         $"{_mediaRoot.Name} and {_mediaStart.Name} cannot be used together."
                     );
@@ -408,20 +449,20 @@ public static class UserGroupsCommand
     /// <param name="Sections">The section aliases the group can access.</param>
     /// <param name="Languages">The culture ISO codes the group can edit.</param>
     /// <param name="FallbackPermissions">The default permission verbs.</param>
-    /// <param name="HasAccessToAllLanguages">Whether the group can edit every language.</param>
-    /// <param name="DocumentRootAccess">Whether the content start node is the tree root.</param>
-    /// <param name="MediaRootAccess">Whether the media start node is the tree root.</param>
+    /// <param name="HasAccessToAllLanguages">Whether the group can edit every language; null when not given.</param>
+    /// <param name="DocumentRootAccess">Whether the content start node is the tree root; null when not given.</param>
+    /// <param name="MediaRootAccess">Whether the media start node is the tree root; null when not given.</param>
     /// <param name="DocumentStartNode">The content start node, or null for none.</param>
     /// <param name="MediaStartNode">The media start node, or null for none.</param>
-    private readonly record struct SharedGroupValues(
+    internal readonly record struct SharedGroupValues(
         string? Icon,
         string? Description,
         IReadOnlyList<string> Sections,
         IReadOnlyList<string> Languages,
         IReadOnlyList<string> FallbackPermissions,
-        bool HasAccessToAllLanguages,
-        bool DocumentRootAccess,
-        bool MediaRootAccess,
+        bool? HasAccessToAllLanguages,
+        bool? DocumentRootAccess,
+        bool? MediaRootAccess,
         Guid? DocumentStartNode,
         Guid? MediaStartNode
     );

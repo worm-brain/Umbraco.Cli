@@ -30,7 +30,7 @@ public static class SearcherCommand
                 + "This is often empty (it is on Umbraco 17): every index can still be queried by its "
                 + "name - see 'umbraco indexer list'."
         );
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
@@ -67,7 +67,7 @@ public static class SearcherCommand
         };
         cmd.Add(nameArg);
         cmd.Add(termOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

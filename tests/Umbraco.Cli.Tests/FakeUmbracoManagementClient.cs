@@ -419,11 +419,18 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<Empty>> TrashMediaAsync(Guid id, CancellationToken ct = default) =>
         throw new NotImplementedException();
 
+    /// <summary>The (id, target) of the last media restore.</summary>
+    public (Guid Id, RestoreTarget? Target)? LastMediaRestore { get; private set; }
+
     public Task<UmbracoResponse<Empty>> RestoreMediaAsync(
         Guid id,
-        Guid? parentId = null,
+        RestoreTarget? target = null,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastMediaRestore = (id, target);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<Empty>> EmptyMediaRecycleBinAsync(CancellationToken ct = default) =>
         throw new NotImplementedException();

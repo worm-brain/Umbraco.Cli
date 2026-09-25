@@ -23,7 +23,7 @@ public static class ContentVersionsCommand
         };
         cmd.Add(idArg);
         cmd.Add(cultureOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

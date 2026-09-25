@@ -25,8 +25,8 @@ public static class TemplatesUpdateCommand
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var aliasOpt = new Option<string?>("--alias") { Description = "New alias." };
         var (contentOpt, contentFileOpt) = FileContentInput.Options(
-            "Razor view content (inline). Mutually exclusive with --content-file.",
-            "Path to a file whose contents become the Razor view."
+            "Razor view content (inline). Give this or --content-file, not both.",
+            "Path to a file whose contents become the Razor view, or - for stdin."
         );
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);

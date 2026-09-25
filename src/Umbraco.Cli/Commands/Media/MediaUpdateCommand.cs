@@ -38,6 +38,12 @@ public static class MediaUpdateCommand
                 "Replace the item's values and variants with the body's instead of merging into them. "
                 + "Anything absent from the body is cleared - the uploaded file included.",
         };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replaceOpt,
+            _ =>
+                "Replace this media item's values and variants, clearing anything the body leaves out (the file included)?"
+        );
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) with values and variants to merge; --name and "
                 + "--value are applied on top of it."

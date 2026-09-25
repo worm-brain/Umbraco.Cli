@@ -234,7 +234,7 @@
             {
               "name": "--skip",
               "aliases": [],
-              "description": "Number of items to skip for pagination.",
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -242,7 +242,7 @@
             {
               "name": "--take",
               "aliases": [],
-              "description": "Maximum number of items to return.",
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -296,6 +296,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -303,6 +304,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -357,7 +359,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --document-type blogPost --name \"Post\" --json-body ./body.json",
+          "description": "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --json-body ./body.json",
           "arguments": [],
           "options": [
             {
@@ -411,7 +413,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the full create request body (overrides other flags).",
+              "description": "Path to a JSON file (or - for stdin) containing the full create request body. --id and --template still apply; the other field flags go in the body instead.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -479,7 +481,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "destructiveWhen": "--replace"
         },
         {
           "name": "delete",
@@ -607,7 +610,8 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "destructiveWhen": "--replace"
             }
           ],
           "mutating": false,
@@ -671,6 +675,7 @@
                 {
                   "name": "--skip",
                   "aliases": [],
+                  "description": "Number of items to skip, for paging (default 0).",
                   "type": "int",
                   "required": false,
                   "hasDefault": true
@@ -678,6 +683,7 @@
                 {
                   "name": "--take",
                   "aliases": [],
+                  "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
                   "type": "int",
                   "required": false,
                   "hasDefault": true
@@ -1173,6 +1179,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -1180,6 +1187,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -1233,6 +1241,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -1240,6 +1249,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -1407,7 +1417,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "destructiveWhen": "--replace"
         },
         {
           "name": "folder",
@@ -1492,7 +1503,7 @@
         },
         {
           "name": "restore",
-          "description": "Restore a media item from the recycle bin.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-...",
+          "description": "Restore a media item from the recycle bin.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco media restore 3f7a8b2e-... --to-root",
           "arguments": [
             {
               "name": "id",
@@ -1508,10 +1519,18 @@
               "aliases": [
                 "--target"
               ],
-              "description": "Folder to restore under. Restores to the media root if omitted.",
+              "description": "Folder to restore under. Restores to the original parent if omitted.",
               "type": "guid",
               "required": false,
               "hasDefault": false
+            },
+            {
+              "name": "--to-root",
+              "aliases": [],
+              "description": "Restore to the media root instead of the original parent.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
             }
           ],
           "commands": [],
@@ -1620,6 +1639,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -1627,6 +1647,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -1774,7 +1795,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "destructiveWhen": "--replace"
         },
         {
           "name": "delete",
@@ -1822,6 +1844,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -1829,6 +1852,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -1976,7 +2000,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "destructiveWhen": "--replace"
         },
         {
           "name": "delete",
@@ -2024,6 +2049,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -2031,6 +2057,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -2190,7 +2217,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "destructiveWhen": "--replace"
         },
         {
           "name": "delete",
@@ -2253,6 +2281,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -2260,6 +2289,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -2597,6 +2627,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -2604,6 +2635,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -2654,7 +2686,7 @@
             {
               "name": "--content",
               "aliases": [],
-              "description": "Razor view content (inline). Mutually exclusive with --content-file.",
+              "description": "Razor view content (inline). Give this or --content-file, not both.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2662,7 +2694,7 @@
             {
               "name": "--content-file",
               "aliases": [],
-              "description": "Path to a file whose contents become the Razor view.",
+              "description": "Path to a file whose contents become the Razor view, or - for stdin.",
               "type": "file",
               "required": false,
               "hasDefault": false
@@ -2737,7 +2769,7 @@
             {
               "name": "--content",
               "aliases": [],
-              "description": "Razor view content (inline). Mutually exclusive with --content-file.",
+              "description": "Razor view content (inline). Give this or --content-file, not both.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2745,7 +2777,7 @@
             {
               "name": "--content-file",
               "aliases": [],
-              "description": "Path to a file whose contents become the Razor view.",
+              "description": "Path to a file whose contents become the Razor view, or - for stdin.",
               "type": "file",
               "required": false,
               "hasDefault": false
@@ -2754,7 +2786,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "destructiveWhen": "--replace"
         },
         {
           "name": "delete",
@@ -2793,6 +2826,7 @@
             {
               "name": "--group",
               "aliases": [],
+              "description": "Only members of this member group: its id or name.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2800,6 +2834,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -2807,6 +2842,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3002,6 +3038,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3009,6 +3046,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3174,7 +3212,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "destructiveWhen": "--replace"
         },
         {
           "name": "delete",
@@ -3222,6 +3261,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3229,6 +3269,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3323,6 +3364,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3330,6 +3372,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3544,6 +3587,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3551,6 +3595,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3741,6 +3786,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3748,6 +3794,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3800,7 +3847,7 @@
             {
               "name": "--content",
               "aliases": [],
-              "description": "Inline content. Mutually exclusive with --content-file.",
+              "description": "Inline content. Give this or --content-file, not both.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -3808,7 +3855,7 @@
             {
               "name": "--content-file",
               "aliases": [],
-              "description": "Read the content from this local file (takes precedence over --content).",
+              "description": "Read the content from this local file, or - for stdin.",
               "type": "file",
               "required": false,
               "hasDefault": false
@@ -3835,7 +3882,7 @@
             {
               "name": "--content",
               "aliases": [],
-              "description": "Inline content. Mutually exclusive with --content-file.",
+              "description": "Inline content. Give this or --content-file, not both.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -3843,7 +3890,7 @@
             {
               "name": "--content-file",
               "aliases": [],
-              "description": "Read the content from this local file (takes precedence over --content).",
+              "description": "Read the content from this local file, or - for stdin.",
               "type": "file",
               "required": false,
               "hasDefault": false
@@ -3899,6 +3946,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3906,6 +3954,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -3958,7 +4007,7 @@
             {
               "name": "--content",
               "aliases": [],
-              "description": "Inline content. Mutually exclusive with --content-file.",
+              "description": "Inline content. Give this or --content-file, not both.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -3966,7 +4015,7 @@
             {
               "name": "--content-file",
               "aliases": [],
-              "description": "Read the content from this local file (takes precedence over --content).",
+              "description": "Read the content from this local file, or - for stdin.",
               "type": "file",
               "required": false,
               "hasDefault": false
@@ -3993,7 +4042,7 @@
             {
               "name": "--content",
               "aliases": [],
-              "description": "Inline content. Mutually exclusive with --content-file.",
+              "description": "Inline content. Give this or --content-file, not both.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -4001,7 +4050,7 @@
             {
               "name": "--content-file",
               "aliases": [],
-              "description": "Read the content from this local file (takes precedence over --content).",
+              "description": "Read the content from this local file, or - for stdin.",
               "type": "file",
               "required": false,
               "hasDefault": false
@@ -4057,6 +4106,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4064,6 +4114,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4116,7 +4167,7 @@
             {
               "name": "--content",
               "aliases": [],
-              "description": "Inline content. Mutually exclusive with --content-file.",
+              "description": "Inline content. Give this or --content-file, not both.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -4124,7 +4175,7 @@
             {
               "name": "--content-file",
               "aliases": [],
-              "description": "Read the content from this local file (takes precedence over --content).",
+              "description": "Read the content from this local file, or - for stdin.",
               "type": "file",
               "required": false,
               "hasDefault": false
@@ -4151,7 +4202,7 @@
             {
               "name": "--content",
               "aliases": [],
-              "description": "Inline content. Mutually exclusive with --content-file.",
+              "description": "Inline content. Give this or --content-file, not both.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -4159,7 +4210,7 @@
             {
               "name": "--content-file",
               "aliases": [],
-              "description": "Read the content from this local file (takes precedence over --content).",
+              "description": "Read the content from this local file, or - for stdin.",
               "type": "file",
               "required": false,
               "hasDefault": false
@@ -4207,6 +4258,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4214,6 +4266,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4349,6 +4402,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4356,6 +4410,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4385,6 +4440,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4392,6 +4448,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4421,6 +4478,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4428,6 +4486,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4523,7 +4582,7 @@
               "description": "Grant edit access to content in every language.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": false
             },
             {
               "name": "--document-root-access",
@@ -4531,7 +4590,7 @@
               "description": "Set the content start node to the tree root.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": false
             },
             {
               "name": "--media-root-access",
@@ -4539,7 +4598,7 @@
               "description": "Set the media start node to the tree root.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": false
             },
             {
               "name": "--document-start-node",
@@ -4573,7 +4632,7 @@
         },
         {
           "name": "update",
-          "description": "Update a user group by id, alias or name. Unset options overwrite with their defaults, so pass the full desired state.",
+          "description": "Update a user group by id, alias or name. Omitted options keep their values.\n\nExamples:\n  umbraco user-group update editors --name \"Site editors\"\n  umbraco user-group update editors --section Umb.Section.Media --document-start-node <id>",
           "arguments": [
             {
               "name": "id",
@@ -4587,17 +4646,17 @@
             {
               "name": "--alias",
               "aliases": [],
-              "description": "Unique group alias.",
+              "description": "New group alias.",
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             },
             {
               "name": "--name",
               "aliases": [],
-              "description": "Group name.",
+              "description": "New group name.",
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             },
             {
@@ -4646,7 +4705,7 @@
               "description": "Grant edit access to content in every language.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": false
             },
             {
               "name": "--document-root-access",
@@ -4654,7 +4713,7 @@
               "description": "Set the content start node to the tree root.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": false
             },
             {
               "name": "--media-root-access",
@@ -4662,7 +4721,7 @@
               "description": "Set the media start node to the tree root.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": false
             },
             {
               "name": "--document-start-node",
@@ -4793,6 +4852,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4800,6 +4860,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4873,7 +4934,7 @@
         },
         {
           "name": "update",
-          "description": "Update a user-data entry by id.\n\nExample:\n  umbraco user-data update <id> --group myGroup --identifier theme --data light",
+          "description": "Update a user-data entry by id. Omitted options keep their values.\n\nExample:\n  umbraco user-data update <id> --data light",
           "arguments": [
             {
               "name": "id",
@@ -4887,17 +4948,17 @@
             {
               "name": "--group",
               "aliases": [],
-              "description": "Group.",
+              "description": "New group.",
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             },
             {
               "name": "--identifier",
               "aliases": [],
-              "description": "Identifier within the group.",
+              "description": "New identifier within the group.",
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             },
             {
@@ -4905,7 +4966,7 @@
               "aliases": [],
               "description": "New value to store.",
               "type": "string",
-              "required": true,
+              "required": false,
               "hasDefault": false
             }
           ],
@@ -4959,6 +5020,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -4966,6 +5028,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5052,7 +5115,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) with the full create body (overrides flags).",
+              "description": "Path to a JSON file (or - for stdin) with the full create body; the field flags go in the body instead.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -5144,7 +5207,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "destructiveWhen": "--replace"
         },
         {
           "name": "delete",
@@ -5372,6 +5436,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5379,6 +5444,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5444,6 +5510,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5451,6 +5518,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5509,6 +5577,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5516,6 +5585,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5561,6 +5631,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5568,6 +5639,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5608,6 +5680,7 @@
                 {
                   "name": "--skip",
                   "aliases": [],
+                  "description": "Number of items to skip, for paging (default 0).",
                   "type": "int",
                   "required": false,
                   "hasDefault": true
@@ -5615,6 +5688,7 @@
                 {
                   "name": "--take",
                   "aliases": [],
+                  "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
                   "type": "int",
                   "required": false,
                   "hasDefault": true
@@ -5713,7 +5787,7 @@
           "options": [],
           "commands": [],
           "mutating": true,
-          "destructive": true,
+          "destructive": false,
           "acceptsJsonBody": false
         }
       ],
@@ -5781,6 +5855,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5788,6 +5863,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5876,6 +5952,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5883,6 +5960,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5938,6 +6016,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5945,6 +6024,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5974,6 +6054,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -5981,6 +6062,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -6024,7 +6106,7 @@
           "options": [],
           "commands": [],
           "mutating": true,
-          "destructive": true,
+          "destructive": false,
           "acceptsJsonBody": false
         }
       ],
@@ -6046,6 +6128,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -6053,6 +6136,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -6087,6 +6171,7 @@
             {
               "name": "--skip",
               "aliases": [],
+              "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
               "hasDefault": true
@@ -6094,6 +6179,7 @@
             {
               "name": "--take",
               "aliases": [],
+              "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
               "hasDefault": true

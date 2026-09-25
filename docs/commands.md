@@ -134,7 +134,8 @@ umbraco content list [--parent <id>] [--skip <n>] [--take <n>]
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco content get <id>                                   # values, variants, template and state
-umbraco content create --document-type <alias> --name <name> [--culture <code>] [--json-body <file>] [--id <guid>] [--template <alias|id>]   # no --culture on a variant type: the default language
+umbraco content create --document-type <alias> --name <name> [--culture <code>] [--parent <id>] [--id <guid>] [--template <alias|id>]
+umbraco content create --json-body <file> [--id <guid>] [--template <alias|id>]   # the body carries type, name, parent and culture   # no --culture on a variant type: the default language
 umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
 umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; no --culture publishes every culture the item has

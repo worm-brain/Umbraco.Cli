@@ -79,15 +79,16 @@ public class CoverageFinaleCommandTests
     private const string Auth = "--host https://x --token t --output json";
 
     [Fact]
-    public async Task IndexerRebuild_NonInteractiveWithoutYes_Aborts()
+    public async Task IndexerRebuild_NonInteractiveWithoutYes_Runs()
     {
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
         var exit = await Run(root, $"{Auth} indexer rebuild ExternalIndex");
 
-        Assert.Equal(2, exit);
-        Assert.Empty(fake.IndexesRebuilt);
+        // A rebuild loses nothing, so cost alone does not gate it (docs/conventions.md 5.2).
+        Assert.Equal(0, exit);
+        Assert.Single(fake.IndexesRebuilt);
     }
 
     [Fact]

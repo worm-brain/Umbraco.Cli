@@ -15,19 +15,8 @@ public static class ContentListCommand
         {
             Description = "Filter by parent content item ID (UUID). Omit for root items.",
         };
-        var skipOpt = new Option<int>("--skip")
-        {
-            DefaultValueFactory = _ => 0,
-            Description = "Number of items to skip for pagination.",
-        };
-        var takeOpt = new Option<int>("--take")
-        {
-            DefaultValueFactory = _ => 20,
-            Description = "Maximum number of items to return.",
-        };
         cmd.Add(parentOpt);
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
 
         cmd.SetAction(
             (parseResult, ct) =>

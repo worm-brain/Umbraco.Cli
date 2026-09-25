@@ -31,7 +31,7 @@ public static class TagsCommand
         };
         cmd.Add(groupOpt);
         cmd.Add(cultureOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

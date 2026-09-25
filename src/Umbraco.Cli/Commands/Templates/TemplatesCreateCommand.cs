@@ -23,8 +23,8 @@ public static class TemplatesCreateCommand
         var nameOpt = new Option<string>("--name") { Required = true };
         var aliasOpt = new Option<string>("--alias") { Required = true };
         var (contentOpt, contentFileOpt) = FileContentInput.Options(
-            "Razor view content (inline). Mutually exclusive with --content-file.",
-            "Path to a file whose contents become the Razor view."
+            "Razor view content (inline). Give this or --content-file, not both.",
+            "Path to a file whose contents become the Razor view, or - for stdin."
         );
         var idOpt = new Option<Guid?>("--id")
         {

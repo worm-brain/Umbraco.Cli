@@ -19,7 +19,7 @@ public static class ContentCreateCommand
     /// <param name="json">The body text.</param>
     /// <param name="id">The <c>--id</c> value, or null.</param>
     /// <returns>The request.</returns>
-    /// <exception cref="InvalidOperationException">
+    /// <exception cref="InvalidInputException">
     /// The body is not a JSON object, names no document type, or its id contradicts <c>--id</c>.
     /// </exception>
     internal static CreateContentRequest ReadCreateRequest(string json, Guid? id)
@@ -59,7 +59,7 @@ public static class ContentCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --document-type blogPost --name \"Post\" --json-body ./body.json"
+            "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --json-body ./body.json"
         ).Mutating();
         // Not marked Required at parse level: a create can be driven by --document-type + --name
         // OR by --json-body OR short-circuited by --schema. The conditional requirement is
@@ -94,8 +94,8 @@ public static class ContentCreateCommand
                 + "default language and an invariant type gets none.",
         };
         var body = new JsonBodyOption(
-            "Path to a JSON file (or - for stdin) containing the full create request body "
-                + "(overrides other flags)."
+            "Path to a JSON file (or - for stdin) containing the full create request body. "
+                + "--id and --template still apply; the other field flags go in the body instead."
         );
         var templateOpt = new Option<string?>("--template")
         {
@@ -115,8 +115,24 @@ public static class ContentCreateCommand
         // parse error keeps usage help and a fast, local, argument-level failure.
         cmd.Validators.Add(result =>
         {
-            if (body.SchemaRequested(result) || body.HasBody(result))
+            if (body.SchemaRequested(result))
                 return;
+            if (body.HasBody(result))
+            {
+                // The body carries these; a flag beside it would be silently dropped
+                // (docs/conventions.md 4.5), so it is refused instead.
+                if (
+                    !string.IsNullOrEmpty(result.GetValue(typeOpt))
+                    || !string.IsNullOrEmpty(result.GetValue(nameOpt))
+                    || result.GetValue(parentOpt) is not null
+                    || result.GetValue(cultureOpt) is not null
+                )
+                    result.AddError(
+                        "--json-body carries the document type, name, parent and culture; put them "
+                            + "in the body rather than passing --document-type, --name, --parent or --culture."
+                    );
+                return;
+            }
             if (
                 string.IsNullOrEmpty(result.GetValue(typeOpt))
                 || string.IsNullOrEmpty(result.GetValue(nameOpt))

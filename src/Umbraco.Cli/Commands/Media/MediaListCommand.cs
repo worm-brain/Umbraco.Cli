@@ -15,7 +15,7 @@ public static class MediaListCommand
             Description = "Filter by parent media folder UUID. Omit for root media items.",
         };
         cmd.Add(parentOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
 
         cmd.SetAction(
             (parseResult, ct) =>

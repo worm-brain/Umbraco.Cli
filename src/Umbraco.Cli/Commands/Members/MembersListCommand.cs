@@ -10,14 +10,13 @@ public static class MembersListCommand
             "list",
             "List Umbraco members, optionally filtered by member group.\n\nExamples:\n  umbraco member list\n  umbraco member list --group Subscribers --output json"
         );
-        var groupOpt = new Option<string?>("--group");
-        var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };
-        // Must default to a positive page size: filter/member?take=0 returns HTTP 500
-        // (issue #39). Mirror the default used by the other list commands.
-        var takeOpt = new Option<int>("--take") { DefaultValueFactory = _ => 20 };
+        var groupOpt = new Option<string?>("--group")
+        {
+            Description = "Only members of this member group: its id or name.",
+        };
         cmd.Add(groupOpt);
-        cmd.Add(skipOpt);
-        cmd.Add(takeOpt);
+        // The shared default is positive, which matters here: filter/member?take=0 is an HTTP 500 (#39).
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

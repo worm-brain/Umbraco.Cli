@@ -77,6 +77,12 @@ public static class ContentDomainsCommand
             Description =
                 "Set exactly the domains given, removing any others. Without it they are merged in.",
         };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replaceOpt,
+            parseResult =>
+                $"Replace every domain of {parseResult.GetValue(idArg)}, removing the ones not given?"
+        );
         cmd.Add(idArg);
         cmd.Add(defaultOpt);
         cmd.Add(domainOpt);

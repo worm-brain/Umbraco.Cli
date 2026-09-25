@@ -44,7 +44,7 @@ public static class DocumentBlueprintCommand
             Description = "Parent folder UUID to list children of; omit for the tree root.",
         };
         cmd.Add(parentOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
@@ -141,7 +141,7 @@ public static class DocumentBlueprintCommand
                 + "every culture), --parent and --id; not --document-type, --culture or --json-body.",
         };
         var body = new JsonBodyOption(
-            "Path to a JSON file (or - for stdin) with the full create body (overrides flags)."
+            "Path to a JSON file (or - for stdin) with the full create body; the field flags go in the body instead."
         );
         var idOpt = new Option<Guid?>("--id")
         {
@@ -180,8 +180,24 @@ public static class DocumentBlueprintCommand
                     result.AddError("--from-document needs --name for the new blueprint.");
                 return;
             }
-            if (body.SchemaRequested(result) || body.HasBody(result))
+            if (body.SchemaRequested(result))
                 return;
+            if (body.HasBody(result))
+            {
+                // The body is the whole request; a flag beside it would be silently dropped.
+                if (
+                    !string.IsNullOrEmpty(result.GetValue(typeOpt))
+                    || !string.IsNullOrEmpty(result.GetValue(nameOpt))
+                    || result.GetValue(parentOpt) is not null
+                    || result.GetValue(idOpt) is not null
+                    || result.GetValue(cultureOpt) is not null
+                )
+                    result.AddError(
+                        "--json-body is the whole create request; put the document type, name, "
+                            + "parent, id and culture in it rather than passing them as flags."
+                    );
+                return;
+            }
             if (
                 string.IsNullOrEmpty(result.GetValue(typeOpt))
                 || string.IsNullOrEmpty(result.GetValue(nameOpt))
@@ -300,6 +316,11 @@ public static class DocumentBlueprintCommand
             Description =
                 "Replace the blueprint's values and variants with the ones given, instead of merging.",
         };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replaceOpt,
+            _ => "Replace this blueprint's values and variants, clearing anything not given?"
+        );
         cmd.Add(idArg);
         cmd.Add(nameOpt);
         cmd.Add(updateCultureOpt);

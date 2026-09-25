@@ -531,7 +531,7 @@ public class UmbracoManagementClientTests
         var id = Guid.NewGuid();
         var (client, handler) = ClientReturning("", HttpStatusCode.OK);
 
-        var result = await client.RestoreMediaAsync(id, ct: CancellationToken.None);
+        var result = await client.RestoreMediaAsync(id, RestoreTarget.Root, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Contains($"recycle-bin/media/{id}/restore", handler.LastRequestUri!.AbsoluteUri);

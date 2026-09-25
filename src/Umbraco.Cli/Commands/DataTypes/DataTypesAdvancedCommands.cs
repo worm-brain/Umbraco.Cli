@@ -50,7 +50,7 @@ public static class DataTypesAdvancedCommands
         );
         var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         // #247: the list envelope like every other list, not the raw paged model inside data.
         cmd.SetAction(
             (parseResult, ct) =>

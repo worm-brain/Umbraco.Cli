@@ -31,7 +31,7 @@ public static class RelationCommand
             Description = "The relation type ID to list relations for.",
         };
         cmd.Add(typeOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

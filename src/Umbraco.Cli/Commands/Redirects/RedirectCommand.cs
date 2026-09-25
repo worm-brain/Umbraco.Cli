@@ -42,7 +42,7 @@ public static class RedirectCommand
         };
         cmd.Add(contentOpt);
         cmd.Add(filterOpt);
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

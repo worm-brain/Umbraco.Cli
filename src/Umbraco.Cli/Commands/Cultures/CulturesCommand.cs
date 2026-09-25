@@ -21,7 +21,7 @@ public static class CulturesCommand
     private static Command BuildList(CommandExecutor executor)
     {
         var cmd = new Command("list", "List available cultures.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

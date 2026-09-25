@@ -27,7 +27,7 @@ public static class MediaFindCommand
         {
             Description = "With --name, scope the search to this folder's subtree.",
         };
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.Add(nameOpt);
         cmd.Add(pathOpt);
         cmd.Add(parentOpt);

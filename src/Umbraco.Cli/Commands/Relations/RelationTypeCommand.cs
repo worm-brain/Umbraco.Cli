@@ -26,7 +26,7 @@ public static class RelationTypeCommand
     private static Command BuildList(CommandExecutor executor)
     {
         var cmd = new Command("list", "List relation types.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

@@ -157,15 +157,16 @@ public class DiagnosticsCommandTests
     }
 
     [Fact]
-    public async Task ModelsBuilderBuild_NonInteractiveWithoutYes_Aborts()
+    public async Task ModelsBuilderBuild_NonInteractiveWithoutYes_Runs()
     {
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
         var exit = await Run(root, $"{Auth} models-builder build");
 
-        Assert.Equal(2, exit); // confirmation required (writes files), non-interactive
-        Assert.Equal(0, fake.ModelsBuiltCount);
+        // Regenerating generated files loses nothing, so it is not gated (docs/conventions.md 5.2).
+        Assert.Equal(0, exit);
+        Assert.Equal(1, fake.ModelsBuiltCount);
     }
 
     [Fact]

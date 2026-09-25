@@ -32,6 +32,12 @@ public static class ContentUpdateCommand
                 "Replace the item's values and variants with the body's instead of merging into them. "
                 + "Anything absent from the body is cleared.",
         };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replaceOpt,
+            _ =>
+                "Replace this content item's values and variants, clearing anything the body leaves out?"
+        );
         var templateOpt = new Option<string?>("--template")
         {
             Description =

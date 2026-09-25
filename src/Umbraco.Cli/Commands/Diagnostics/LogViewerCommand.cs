@@ -54,7 +54,7 @@ public static class LogViewerCommand
         {
             Description = "Order oldest-first (default is newest-first).",
         };
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.Add(levelOpt);
         cmd.Add(filterOpt);
         cmd.Add(startOpt);
@@ -88,7 +88,7 @@ public static class LogViewerCommand
     private static Command BuildLevels(CommandExecutor executor)
     {
         var cmd = new Command("levels", "List the configured loggers and their minimum levels.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
@@ -132,7 +132,7 @@ public static class LogViewerCommand
         var cmd = new Command("message-templates", "List the most common message templates.");
         var startOpt = new Option<DateTimeOffset?>("--start-date") { Description = "Range start." };
         var endOpt = new Option<DateTimeOffset?>("--end-date") { Description = "Range end." };
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.Add(startOpt);
         cmd.Add(endOpt);
         cmd.SetAction(
@@ -169,7 +169,7 @@ public static class LogViewerCommand
     private static Command BuildSavedSearchList(CommandExecutor executor)
     {
         var cmd = new Command("list", "List saved log searches.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

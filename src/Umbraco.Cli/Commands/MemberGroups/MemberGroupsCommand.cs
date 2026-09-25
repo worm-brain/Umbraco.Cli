@@ -30,7 +30,7 @@ public static class MemberGroupsCommand
     private static Command BuildList(CommandExecutor executor)
     {
         var cmd = new Command("list", "List member groups.");
-        var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(

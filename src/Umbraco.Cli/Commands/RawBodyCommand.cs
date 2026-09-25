@@ -187,6 +187,11 @@ public static class RawBodyCommand
                 "Send --json-body as the whole item, instead of merging its top-level keys into the "
                 + "current one. Keys the body leaves out are then removed or reset.",
         };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replace,
+            _ => $"Replace the whole {noun.Singular} with --json-body, removing what it leaves out?"
+        );
         cmd.Add(replace);
 
         cmd.Validators.Add(result =>
