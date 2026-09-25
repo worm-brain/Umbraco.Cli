@@ -5,8 +5,8 @@ using Umbraco.Cli.Client;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// #247: <c>data-types referenced-by</c> uses the list envelope with a readable <c>kind</c>, and
-/// data types say which folder they are in, with <c>data-types list --parent</c> to list one.
+/// #247: <c>data-type referenced-by</c> uses the list envelope with a readable <c>kind</c>, and
+/// data types say which folder they are in, with <c>data-type list --parent</c> to list one.
 /// </summary>
 public class DataTypeReferencesAndParentTests
 {

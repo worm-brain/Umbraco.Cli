@@ -5,19 +5,19 @@ using Umbraco.Cli.Infrastructure;
 namespace Umbraco.Cli.Commands.MemberGroups;
 
 /// <summary>
-/// Wires the <c>member-groups</c> noun and its list/get/create/update/delete verbs (issue #107).
+/// Wires the <c>member-group</c> noun and its list/get/create/update/delete verbs (issue #107).
 /// A member group is a simple named entity (id + name), so all five verbs live in this one file.
 /// </summary>
 public static class MemberGroupsCommand
 {
-    /// <summary>Builds the <c>member-groups</c> noun with its verbs.</summary>
+    /// <summary>Builds the <c>member-group</c> noun with its verbs.</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "member-groups",
-            "List, inspect, and manage Umbraco member groups.\n\nExamples:\n  umbraco member-groups list\n  umbraco member-groups create --name Editors"
+            "member-group",
+            "List, inspect, and manage Umbraco member groups.\n\nExamples:\n  umbraco member-group list\n  umbraco member-group create --name Editors"
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildGet(executor));
@@ -72,7 +72,7 @@ public static class MemberGroupsCommand
     {
         var cmd = new Command(
             "create",
-            "Create a member group.\n\nExample:\n  umbraco member-groups create --name Editors"
+            "Create a member group.\n\nExample:\n  umbraco member-group create --name Editors"
         ).Mutating();
         var nameOpt = new Option<string>("--name") { Required = true, Description = "Group name." };
         var idOpt = new Option<Guid?>("--id")

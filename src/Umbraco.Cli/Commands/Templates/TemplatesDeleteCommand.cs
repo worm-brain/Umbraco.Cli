@@ -4,17 +4,17 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
 
-/// <summary>Wires the <c>templates delete</c> command (issue #59).</summary>
+/// <summary>Wires the <c>template delete</c> command (issue #59).</summary>
 public static class TemplatesDeleteCommand
 {
-    /// <summary>Builds the <c>templates delete</c> command (destructive; gated by confirmation).</summary>
+    /// <summary>Builds the <c>template delete</c> command (destructive; gated by confirmation).</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
             "delete",
-            "Delete a Razor view template by id or alias.\n\nExample:\n  umbraco templates delete blogPost"
+            "Delete a Razor view template by id or alias.\n\nExample:\n  umbraco template delete blogPost"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.Template);
         cmd.Add(idArg);

@@ -175,7 +175,7 @@ reports (`content diff`, `schema diff`, `content apply`, `schema apply`), and a 
 | no way to tell what a `Changed` row changed | `"changes": ["values.title[en-US]", "state[da-DK]"]` (null for added/removed rows) |
 | no `meta.total` | `meta.total`, `skip: 0`, `hasMore: false` (a diff is complete) |
 | `content apply` rows `{operation, id, status}` | also `cultures` (for a publish/unpublish of a variant document), and the operations `publish`/`unpublish` |
-| `members get`/`list` `"groups": ["<id>"]` | `"groups": [{"id": "<id>", "name": "Subscribers"}]`, and `memberType.alias` is filled |
+| `member get`/`list` `"groups": ["<id>"]` | `"groups": [{"id": "<id>", "name": "Subscribers"}]`, and `memberType.alias` is filled |
 
 **What changed in schemaVersion 4**, if you are moving from `"3"`: only the **bulk** envelope.
 
@@ -190,7 +190,7 @@ reports (`content diff`, `schema diff`, `content apply`, `schema apply`), and a 
 | Before | Now |
 |---|---|
 | `"published": "True"` (string, from the table caption) | `"isPublished": true` |
-| `"default"` / `"mandatory"` on `languages list` | `"isDefault"` / `"isMandatory"` |
+| `"default"` / `"mandatory"` on `language list` | `"isDefault"` / `"isMandatory"` |
 | every list value was a string | booleans, numbers and dates keep their types |
 | `"code": 404` (exit code *or* HTTP status) | `"exitCode": 1` **and** `"httpStatus": 404` |
 | error `schemaVersion` at the top level, no `meta` | error carries `meta`, like every other envelope |
@@ -267,9 +267,9 @@ full auth story and profiles.
   `schema apply` are destructive only with `--prune`; the catalog says so with
   `"destructiveWhen": "--prune"`. Reversible writes - `move`, `copy`, `publish`,
   `redirect tracking enable` - never need `--yes`.
-- **Deleting a type that content uses needs `--force` as well as `--yes`.** `data-types delete`
-  (while in use), `member-types delete` (while it has members), and every `content-types` /
-  `media-types delete` (Umbraco cannot count their items) are refused with exit `2` unless
+- **Deleting a type that content uses needs `--force` as well as `--yes`.** `data-type delete`
+  (while in use), `member-type delete` (while it has members), and every `content-types` /
+  `media-type delete` (Umbraco cannot count their items) are refused with exit `2` unless
   `--force` is given - checked **before** any confirmation prompt, and under `--dry-run` too,
   since a refusal is what a real run would do. `schema apply --prune` applies the same check to
   every type it would delete; its `--dry-run` plan marks those steps `needs --force`.
@@ -343,10 +343,10 @@ the CLI alone:
 | `media get` | `values` carrying `umbracoWidth`/`umbracoHeight`/`umbracoBytes`/`umbracoExtension`, plus `urls` per culture |
 | `content-types`, `media-types`, `member-types`, `data-types`, `templates` `get` | the Management API body verbatim - `properties`, `containers`, `compositions`, `allowedTemplates`, `collection`, allowed children, per-property `validation`; a data type's `values`; a template's `content` - which is a valid `update --json-body` as it stands |
 
-`members get` returns the member's `groups` and `values` too
+`member get` returns the member's `groups` and `values` too
 ([#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)). `content get` and `media get`
 carry `parent` (read from the tree, because the by-id body has none; left out at the root), and
-`data-types list` rows carry their folder. List rows leave out `updateDate`, which the tree does
+`data-type list` rows carry their folder. List rows leave out `updateDate`, which the tree does
 not provide, rather than showing a default date.
 
 Type references (`contentType`, `mediaType`) carry a resolved `alias`
@@ -393,20 +393,20 @@ property editor expects.
 
 ### Authoring schema
 
-The scalar flags on `content-types create`, `data-types create/update` and
+The scalar flags on `document-type create`, `data-types create/update` and
 `member-types create/update` cannot express properties, groups, editor configuration, templates,
 compositions or culture variance. **Pass the Management API body instead**
 ([#161](https://github.com/worm-brain/Umbraco.Cli/issues/161),
 [#169](https://github.com/worm-brain/Umbraco.Cli/issues/169)):
 
 ```bash
-umbraco content-types get blogPost -o json | jq .data > t.json
+umbraco document-type get blogPost -o json | jq .data > t.json
 # ...edit t.json: add a property, a group, a template...
-umbraco content-types update blogPost --json-body t.json
+umbraco document-type update blogPost --json-body t.json
 ```
 
 `--json-body` is on `create` and `update` for `content-types`, `media-types`, `member-types` and
-`data-types`, and on `templates update`, and takes a file or `-` for stdin. `update` **merges the
+`data-types`, and on `template update`, and takes a file or `-` for stdin. `update` **merges the
 body's top-level keys** into the item, so a partial body is safe: a key you leave out keeps its
 value, a key you send replaces it whole. Pass `--replace` to send the body as the whole item. Run
 any of them with `--schema` to print a real type off the instance as a worked example - a real
@@ -434,7 +434,7 @@ umbraco media folder create --name Blog                     # id goes to media u
 
 # route /da/ to the Danish variant. Without domains, Umbraco logs "the root node was published
 # with multiple cultures, but no domains are configured" and serves nothing but the default.
-umbraco content domains set "$ID" --default en-US \
+umbraco content domain set "$ID" --default en-US \
   --domain example.com=en-US --domain example.com/da=da-DK
 ```
 
@@ -524,7 +524,7 @@ without changing anything (`"status": "dry-run"`). Use it to show a plan before 
 Create with a fixed `--id` so re-runs converge instead of duplicating:
 
 ```bash
-umbraco content-types create --name "Blog Post" --alias blogPost
+umbraco document-type create --name "Blog Post" --alias blogPost
 umbraco content create --content-type blogPost --name "Hello" --id 3f2a...  # same id each run
 ```
 

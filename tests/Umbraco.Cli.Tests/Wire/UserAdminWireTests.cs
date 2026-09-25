@@ -68,7 +68,7 @@ public class UserAdminWireTests
     [Fact]
     public async Task InviteUserAsync_GroupAliasAndName_AreSentAsTheirIds()
     {
-        // #215: groups can be named the way `user-groups list` shows them.
+        // #215: groups can be named the way `user-group list` shows them.
         var handler = Wire.Routed(("/user-group", TwoGroups));
 
         await Wire.Client(handler)

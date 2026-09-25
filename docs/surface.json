@@ -532,14 +532,14 @@
           "acceptsJsonBody": false
         },
         {
-          "name": "domains",
+          "name": "domain",
           "description": "Read and set a document's Culture and Hostnames bindings.",
           "arguments": [],
           "options": [],
           "commands": [
             {
               "name": "get",
-              "description": "Show a document's domains.\n\nExample:\n  umbraco content domains get 3f7a8b2e-...",
+              "description": "Show a document's domains.\n\nExample:\n  umbraco content domain get 3f7a8b2e-...",
               "arguments": [
                 {
                   "name": "id",
@@ -557,7 +557,7 @@
             },
             {
               "name": "set",
-              "description": "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domains set <id> --default en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domains set <id> --replace --domain example.com=en-US",
+              "description": "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domain set <id> --default en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domain set <id> --replace --domain example.com=en-US",
               "arguments": [
                 {
                   "name": "id",
@@ -1585,14 +1585,14 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "media-types",
-      "description": "List, inspect, and manage Umbraco media types.\n\nExamples:\n  umbraco media-types list\n  umbraco media-types get 3f7a8b2e-...\n  umbraco media-types create --name \"Custom Image\" --alias customImage",
+      "name": "media-type",
+      "description": "List, inspect, and manage Umbraco media types.\n\nExamples:\n  umbraco media-type list\n  umbraco media-type get 3f7a8b2e-...\n  umbraco media-type create --name \"Custom Image\" --alias customImage",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "list",
-          "description": "List media types defined in the Umbraco instance.\n\nExamples:\n  umbraco media-types list\n  umbraco media-types list --output json | jq '.[].name'",
+          "description": "List media types defined in the Umbraco instance.\n\nExamples:\n  umbraco media-type list\n  umbraco media-type list --output json | jq '.[].name'",
           "arguments": [],
           "options": [
             {
@@ -1617,7 +1617,7 @@
         },
         {
           "name": "get",
-          "description": "Get a media type by id or alias: the full Management API body, with its properties, groups and allowed child types. The output is a valid 'update --json-body'.\n\nExample:\n  umbraco media-types get brochure",
+          "description": "Get a media type by id or alias: the full Management API body, with its properties, groups and allowed child types. The output is a valid 'update --json-body'.\n\nExample:\n  umbraco media-type get brochure",
           "arguments": [
             {
               "name": "id",
@@ -1635,7 +1635,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new media type with a given name and alias.\n\nExamples:\n  umbraco media-types create --name \"Custom Image\" --alias customImage\n  umbraco media-types create --name \"Widget\" --alias widget --is-element\n  umbraco media-types create --name \"Doc\" --alias doc --allow-at-root --icon icon-document",
+          "description": "Create a new media type with a given name and alias.\n\nExamples:\n  umbraco media-type create --name \"Custom Image\" --alias customImage\n  umbraco media-type create --name \"Widget\" --alias widget --is-element\n  umbraco media-type create --name \"Doc\" --alias doc --allow-at-root --icon icon-document",
           "arguments": [],
           "options": [
             {
@@ -1713,7 +1713,7 @@
         },
         {
           "name": "update",
-          "description": "Update a media type from a Management API body - its properties, groups, allowed child types and icon. The body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type.\n\nExamples:\n  umbraco media-types get brochure -o json | jq .data > mt.json\n  # ...edit mt.json...\n  umbraco media-types update brochure --json-body mt.json\n  umbraco media-types update --schema",
+          "description": "Update a media type from a Management API body - its properties, groups, allowed child types and icon. The body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type.\n\nExamples:\n  umbraco media-type get brochure -o json | jq .data > mt.json\n  # ...edit mt.json...\n  umbraco media-type update brochure --json-body mt.json\n  umbraco media-type update --schema",
           "arguments": [
             {
               "name": "id",
@@ -1756,7 +1756,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a media type by id or alias.\n\nUmbraco deletes every media item of this type along with it, and cannot report how many there are, so the delete is refused unless --force is given.\n\nExample:\n  umbraco media-types delete brochure --force --yes",
+          "description": "Delete a media type by id or alias.\n\nUmbraco deletes every media item of this type along with it, and cannot report how many there are, so the delete is refused unless --force is given.\n\nExample:\n  umbraco media-type delete brochure --force --yes",
           "arguments": [
             {
               "name": "id",
@@ -1787,14 +1787,14 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "content-types",
-      "description": "List, inspect, and manage Umbraco document types (content types).\n\nExamples:\n  umbraco content-types list\n  umbraco content-types get textPage\n  umbraco content-types create --name \"Blog Post\" --alias blogPost",
+      "name": "document-type",
+      "description": "List, inspect, and manage Umbraco document types (content types).\n\nExamples:\n  umbraco document-type list\n  umbraco document-type get textPage\n  umbraco document-type create --name \"Blog Post\" --alias blogPost",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "list",
-          "description": "List all document types defined in the Umbraco instance.\n\nExamples:\n  umbraco content-types list\n  umbraco content-types list --output json | jq '.[].alias'",
+          "description": "List all document types defined in the Umbraco instance.\n\nExamples:\n  umbraco document-type list\n  umbraco document-type list --output json | jq '.[].alias'",
           "arguments": [],
           "options": [
             {
@@ -1819,7 +1819,7 @@
         },
         {
           "name": "get",
-          "description": "Get a document type by alias or UUID: the full Management API body, with its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco content-types get blogPost\n  umbraco content-types get blogPost -o json | jq .data > t.json",
+          "description": "Get a document type by alias or UUID: the full Management API body, with its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco document-type get blogPost\n  umbraco document-type get blogPost -o json | jq .data > t.json",
           "arguments": [
             {
               "name": "id",
@@ -1837,7 +1837,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new document type, from flags or from a full Management API body (--json-body). --schema prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco content-types create --schema -o json | jq .data > t.json\n  umbraco content-types create --json-body t.json\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home",
+          "description": "Create a new document type, from flags or from a full Management API body (--json-body). --schema prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco document-type create --schema -o json | jq .data > t.json\n  umbraco document-type create --json-body t.json\n  umbraco document-type create --name \"Blog Post\" --alias blogPost\n  umbraco document-type create --name \"Widget\" --alias widget --is-element\n  umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home",
           "arguments": [],
           "options": [
             {
@@ -1915,7 +1915,7 @@
         },
         {
           "name": "update",
-          "description": "Update a document type from a Management API body - its properties, groups, compositions, allowed templates and culture variance.\n\nThe body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type. Read it with get, edit, write it back:\n\nExamples:\n  umbraco content-types get blogPost -o json | jq .data > t.json\n  # ...edit t.json...\n  umbraco content-types update blogPost --json-body t.json\n  umbraco content-types update --schema",
+          "description": "Update a document type from a Management API body - its properties, groups, compositions, allowed templates and culture variance.\n\nThe body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type. Read it with get, edit, write it back:\n\nExamples:\n  umbraco document-type get blogPost -o json | jq .data > t.json\n  # ...edit t.json...\n  umbraco document-type update blogPost --json-body t.json\n  umbraco document-type update --schema",
           "arguments": [
             {
               "name": "id",
@@ -1958,7 +1958,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a document type by id or alias.\n\nUmbraco deletes every document of this type along with it, and cannot report how many there are, so the delete is refused unless --force is given.\n\nExample:\n  umbraco content-types delete blogPost --force --yes",
+          "description": "Delete a document type by id or alias.\n\nUmbraco deletes every document of this type along with it, and cannot report how many there are, so the delete is refused unless --force is given.\n\nExample:\n  umbraco document-type delete blogPost --force --yes",
           "arguments": [
             {
               "name": "id",
@@ -1989,14 +1989,14 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "data-types",
-      "description": "List, inspect, and manage Umbraco data types (property editors).\n\nExamples:\n  umbraco data-types list --output json\n  umbraco data-types create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox",
+      "name": "data-type",
+      "description": "List, inspect, and manage Umbraco data types (property editors).\n\nExamples:\n  umbraco data-type list --output json\n  umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "list",
-          "description": "List all data types (property editors) configured in the Umbraco instance.\n\nEach item on the page is read individually so it can carry its editorAlias, which is what decides a property's value format - so this costs one request per item returned. Use --take to bound it.\n\nExample:\n  umbraco data-types list --take 50",
+          "description": "List all data types (property editors) configured in the Umbraco instance.\n\nEach item on the page is read individually so it can carry its editorAlias, which is what decides a property's value format - so this costs one request per item returned. Use --take to bound it.\n\nExample:\n  umbraco data-type list --take 50",
           "arguments": [],
           "options": [
             {
@@ -2029,7 +2029,7 @@
         },
         {
           "name": "get",
-          "description": "Get a data type by name or UUID: the full Management API body, including its editor configuration. The output is a valid 'update --json-body'.\n\nA data type has no alias - 'editorAlias' names the property editor behind it, which many data types share - so the human-facing key is its name.\n\nExamples:\n  umbraco data-types get Textstring\n  umbraco data-types get 3f7a8b2e-...",
+          "description": "Get a data type by name or UUID: the full Management API body, including its editor configuration. The output is a valid 'update --json-body'.\n\nA data type has no alias - 'editorAlias' names the property editor behind it, which many data types share - so the human-facing key is its name.\n\nExamples:\n  umbraco data-type get Textstring\n  umbraco data-type get 3f7a8b2e-...",
           "arguments": [
             {
               "name": "id",
@@ -2047,7 +2047,7 @@
         },
         {
           "name": "create",
-          "description": "Create a data type (property editor configuration).\n\nExample:\n  umbraco data-types create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox",
+          "description": "Create a data type (property editor configuration).\n\nExample:\n  umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox",
           "arguments": [],
           "options": [
             {
@@ -2105,7 +2105,7 @@
         },
         {
           "name": "update",
-          "description": "Update a data type by name or id. Omitted fields (and editor configuration) are preserved. With --json-body, the body's top-level keys are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco data-types update Textstring --name \"My Text\"\n  umbraco data-types update Textstring --json-body dt.json",
+          "description": "Update a data type by name or id. Omitted fields (and editor configuration) are preserved. With --json-body, the body's top-level keys are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco data-type update Textstring --name \"My Text\"\n  umbraco data-type update Textstring --json-body dt.json",
           "arguments": [
             {
               "name": "id",
@@ -2172,7 +2172,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a data type by id or name.\n\nA data type that is in use is refused unless --force is given: Umbraco deletes every property that uses it, and all the values in those properties, with it.\n\nExample:\n  umbraco data-types delete \"Homepage Blocks\" --yes",
+          "description": "Delete a data type by id or name.\n\nA data type that is in use is refused unless --force is given: Umbraco deletes every property that uses it, and all the values in those properties, with it.\n\nExample:\n  umbraco data-type delete \"Homepage Blocks\" --yes",
           "arguments": [
             {
               "name": "id",
@@ -2217,7 +2217,7 @@
         },
         {
           "name": "referenced-by",
-          "description": "List what references a data type: the properties that use it, and the items holding values in it. Each row's 'kind' says what it is (e.g. documentTypePropertyType).\n\nExample:\n  umbraco data-types referenced-by Textstring",
+          "description": "List what references a data type: the properties that use it, and the items holding values in it. Each row's 'kind' says what it is (e.g. documentTypePropertyType).\n\nExample:\n  umbraco data-type referenced-by Textstring",
           "arguments": [
             {
               "name": "id",
@@ -2421,14 +2421,14 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "languages",
-      "description": "Manage the languages configured in the Umbraco instance.\n\nExamples:\n  umbraco languages list\n  umbraco languages create --culture fr-FR\n  umbraco languages delete fr-FR",
+      "name": "language",
+      "description": "Manage the languages configured in the Umbraco instance.\n\nExamples:\n  umbraco language list\n  umbraco language create --culture fr-FR\n  umbraco language delete fr-FR",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "list",
-          "description": "List all languages configured in the Umbraco instance.\n\nExample:\n  umbraco languages list --output json",
+          "description": "List all languages configured in the Umbraco instance.\n\nExample:\n  umbraco language list --output json",
           "arguments": [],
           "options": [],
           "commands": [],
@@ -2438,7 +2438,7 @@
         },
         {
           "name": "create",
-          "description": "Add a language.\n\nExamples:\n  umbraco languages create --culture da-DK\n  umbraco languages create --culture da-DK --fallback en-US --mandatory",
+          "description": "Add a language.\n\nExamples:\n  umbraco language create --culture da-DK\n  umbraco language create --culture da-DK --fallback en-US --mandatory",
           "arguments": [],
           "options": [
             {
@@ -2489,7 +2489,7 @@
         },
         {
           "name": "update",
-          "description": "Update a language by its ISO culture code. Omitted fields are preserved.\n\nExample:\n  umbraco languages update fr-FR --name \"French (France)\" --mandatory",
+          "description": "Update a language by its ISO culture code. Omitted fields are preserved.\n\nExample:\n  umbraco language update fr-FR --name \"French (France)\" --mandatory",
           "arguments": [
             {
               "name": "iso-code",
@@ -2540,7 +2540,7 @@
         },
         {
           "name": "delete",
-          "description": "Remove a language by its ISO culture code.\n\nExample:\n  umbraco languages delete fr-FR",
+          "description": "Remove a language by its ISO culture code.\n\nExample:\n  umbraco language delete fr-FR",
           "arguments": [
             {
               "name": "iso-code",
@@ -2562,14 +2562,14 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "templates",
-      "description": "List, inspect, and manage Razor view templates defined in the Umbraco instance.\n\nExamples:\n  umbraco templates list\n  umbraco templates create --name Home --alias home",
+      "name": "template",
+      "description": "List, inspect, and manage Razor view templates defined in the Umbraco instance.\n\nExamples:\n  umbraco template list\n  umbraco template create --name Home --alias home",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "list",
-          "description": "List all Razor view templates in the Umbraco instance.\n\nExample:\n  umbraco templates list --output json",
+          "description": "List all Razor view templates in the Umbraco instance.\n\nExample:\n  umbraco template list --output json",
           "arguments": [],
           "options": [
             {
@@ -2594,7 +2594,7 @@
         },
         {
           "name": "get",
-          "description": "Get a template by its alias or id, including the view file content.\n\nExamples:\n  umbraco templates get master\n  umbraco templates get master -o json | jq -r .data.content",
+          "description": "Get a template by its alias or id, including the view file content.\n\nExamples:\n  umbraco template get master\n  umbraco template get master -o json | jq -r .data.content",
           "arguments": [
             {
               "name": "alias",
@@ -2612,7 +2612,7 @@
         },
         {
           "name": "create",
-          "description": "Create a Razor view template.\n\nExamples:\n  umbraco templates create --name \"Blog Post\" --alias blogPost\n  umbraco templates create --name Home --alias home --content-file ./home.cshtml",
+          "description": "Create a Razor view template.\n\nExamples:\n  umbraco template create --name \"Blog Post\" --alias blogPost\n  umbraco template create --name Home --alias home --content-file ./home.cshtml",
           "arguments": [],
           "options": [
             {
@@ -2661,7 +2661,7 @@
         },
         {
           "name": "update",
-          "description": "Update a Razor view template by id or alias. Omitted fields are preserved. With --json-body, the body's top-level keys (as 'templates get' prints them) are merged into the template; --replace sends it as the whole template.\n\nExamples:\n  umbraco templates update blogPost --content-file ./blog-post.cshtml\n  umbraco templates get blogPost -o json | jq .data > t.json\n  umbraco templates update blogPost --json-body t.json",
+          "description": "Update a Razor view template by id or alias. Omitted fields are preserved. With --json-body, the body's top-level keys (as 'template get' prints them) are merged into the template; --replace sends it as the whole template.\n\nExamples:\n  umbraco template update blogPost --content-file ./blog-post.cshtml\n  umbraco template get blogPost -o json | jq .data > t.json\n  umbraco template update blogPost --json-body t.json",
           "arguments": [
             {
               "name": "id",
@@ -2736,7 +2736,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a Razor view template by id or alias.\n\nExample:\n  umbraco templates delete blogPost",
+          "description": "Delete a Razor view template by id or alias.\n\nExample:\n  umbraco template delete blogPost",
           "arguments": [
             {
               "name": "id",
@@ -2758,14 +2758,14 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "members",
-      "description": "Manage Umbraco front-end members (not back-office users).\n\nExamples:\n  umbraco members list\n  umbraco members create --email user@example.com --name \"Jane Doe\" --type Member\n  umbraco members delete <id>",
+      "name": "member",
+      "description": "Manage Umbraco front-end members (not back-office users).\n\nExamples:\n  umbraco member list\n  umbraco member create --email user@example.com --name \"Jane Doe\" --type Member\n  umbraco member delete <id>",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "list",
-          "description": "List Umbraco members, optionally filtered by member group.\n\nExamples:\n  umbraco members list\n  umbraco members list --group Subscribers --output json",
+          "description": "List Umbraco members, optionally filtered by member group.\n\nExamples:\n  umbraco member list\n  umbraco member list --group Subscribers --output json",
           "arguments": [],
           "options": [
             {
@@ -2797,7 +2797,7 @@
         },
         {
           "name": "get",
-          "description": "Get a member by their UUID.\n\nExample:\n  umbraco members get 3f7a8b2e-...",
+          "description": "Get a member by their UUID.\n\nExample:\n  umbraco member get 3f7a8b2e-...",
           "arguments": [
             {
               "name": "id",
@@ -2814,7 +2814,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new Umbraco member.\n\nExample:\n  umbraco members create --email user@example.com --name \"Jane Doe\" --type Member",
+          "description": "Create a new Umbraco member.\n\nExample:\n  umbraco member create --email user@example.com --name \"Jane Doe\" --type Member",
           "arguments": [],
           "options": [
             {
@@ -2863,7 +2863,7 @@
         },
         {
           "name": "update",
-          "description": "Update a member's email, name, or approved state by UUID.\n\nExamples:\n  umbraco members update 3f7a8b2e-... --name \"Jane Roe\"\n  umbraco members update 3f7a8b2e-... --email jane@example.com --approved",
+          "description": "Update a member's email, name, or approved state by UUID.\n\nExamples:\n  umbraco member update 3f7a8b2e-... --name \"Jane Roe\"\n  umbraco member update 3f7a8b2e-... --email jane@example.com --approved",
           "arguments": [
             {
               "name": "id",
@@ -2946,7 +2946,7 @@
         },
         {
           "name": "delete",
-          "description": "Permanently delete a member by UUID.\n\nExample:\n  umbraco members delete 3f7a8b2e-...",
+          "description": "Permanently delete a member by UUID.\n\nExample:\n  umbraco member delete 3f7a8b2e-...",
           "arguments": [
             {
               "name": "id",
@@ -2967,14 +2967,14 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "member-types",
-      "description": "List, inspect, and manage Umbraco member types.\n\nExamples:\n  umbraco member-types list\n  umbraco member-types get 3f7a8b2e-...\n  umbraco member-types create --name \"Author\" --alias author",
+      "name": "member-type",
+      "description": "List, inspect, and manage Umbraco member types.\n\nExamples:\n  umbraco member-type list\n  umbraco member-type get 3f7a8b2e-...\n  umbraco member-type create --name \"Author\" --alias author",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "list",
-          "description": "List member types defined in the Umbraco instance.\n\nExamples:\n  umbraco member-types list\n  umbraco member-types list --output json | jq '.[].name'",
+          "description": "List member types defined in the Umbraco instance.\n\nExamples:\n  umbraco member-type list\n  umbraco member-type list --output json | jq '.[].name'",
           "arguments": [],
           "options": [
             {
@@ -2999,7 +2999,7 @@
         },
         {
           "name": "get",
-          "description": "Get a member type by id or alias: the full Management API body, with its properties and groups. The output is a valid 'update --json-body'.\n\nExample:\n  umbraco member-types get siteMember",
+          "description": "Get a member type by id or alias: the full Management API body, with its properties and groups. The output is a valid 'update --json-body'.\n\nExample:\n  umbraco member-type get siteMember",
           "arguments": [
             {
               "name": "id",
@@ -3017,7 +3017,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new member type with a given name and alias.\n\nExamples:\n  umbraco member-types create --name \"Author\" --alias author\n  umbraco member-types create --name \"Subscriber\" --alias subscriber --icon icon-user",
+          "description": "Create a new member type with a given name and alias.\n\nExamples:\n  umbraco member-type create --name \"Author\" --alias author\n  umbraco member-type create --name \"Subscriber\" --alias subscriber --icon icon-user",
           "arguments": [],
           "options": [
             {
@@ -3081,7 +3081,7 @@
         },
         {
           "name": "update",
-          "description": "Update a member type by id or alias. Omitted fields (and the type's properties) are preserved. With --json-body, the body's top-level keys (properties and containers included) are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco member-types update siteMember --name \"Author\" --icon icon-user\n  umbraco member-types get siteMember -o json | jq .data > mt.json\n  umbraco member-types update siteMember --json-body mt.json",
+          "description": "Update a member type by id or alias. Omitted fields (and the type's properties) are preserved. With --json-body, the body's top-level keys (properties and containers included) are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco member-type update siteMember --name \"Author\" --icon icon-user\n  umbraco member-type get siteMember -o json | jq .data > mt.json\n  umbraco member-type update siteMember --json-body mt.json",
           "arguments": [
             {
               "name": "id",
@@ -3156,7 +3156,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a member type by id or alias.\n\nA member type that still has members is refused unless --force is given: Umbraco deletes its members with it.\n\nExample:\n  umbraco member-types delete siteMember --yes",
+          "description": "Delete a member type by id or alias.\n\nA member type that still has members is refused unless --force is given: Umbraco deletes its members with it.\n\nExample:\n  umbraco member-type delete siteMember --yes",
           "arguments": [
             {
               "name": "id",
@@ -3187,14 +3187,14 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "users",
-      "description": "Manage Umbraco back-office users (not front-end members).\n\nExamples:\n  umbraco users list\n  umbraco users invite --email editor@example.com --name \"John Smith\"\n  umbraco users get <id>",
+      "name": "user",
+      "description": "Manage Umbraco back-office users (not front-end members).\n\nExamples:\n  umbraco user list\n  umbraco user invite --email editor@example.com --name \"John Smith\"\n  umbraco user get <id>",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "list",
-          "description": "List Umbraco back-office users.\n\nExample:\n  umbraco users list --output json",
+          "description": "List Umbraco back-office users.\n\nExample:\n  umbraco user list --output json",
           "arguments": [],
           "options": [
             {
@@ -3219,7 +3219,7 @@
         },
         {
           "name": "get",
-          "description": "Get a back-office user by their UUID.\n\nExample:\n  umbraco users get 3f7a8b2e-...",
+          "description": "Get a back-office user by their UUID.\n\nExample:\n  umbraco user get 3f7a8b2e-...",
           "arguments": [
             {
               "name": "id",
@@ -3236,7 +3236,7 @@
         },
         {
           "name": "invite",
-          "description": "Send an email invitation to a new back-office user.\n\nUmbraco sends the invitation by email, so the site must have SMTP configured; without it the invite is refused and no user is created.\n\nExamples:\n  umbraco users invite --email editor@example.com --name \"Jane Smith\" --group editor\n  umbraco users invite --email admin@example.com --name \"Bob\" --group admin --group translator --message \"Welcome to the team!\"",
+          "description": "Send an email invitation to a new back-office user.\n\nUmbraco sends the invitation by email, so the site must have SMTP configured; without it the invite is refused and no user is created.\n\nExamples:\n  umbraco user invite --email editor@example.com --name \"Jane Smith\" --group editor\n  umbraco user invite --email admin@example.com --name \"Bob\" --group admin --group translator --message \"Welcome to the team!\"",
           "arguments": [],
           "options": [
             {
@@ -3499,14 +3499,14 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "webhooks",
-      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhooks list\n  umbraco webhooks create --url https://my.app/hook --events ContentPublished ContentUnpublished\n  umbraco webhooks delete <id>",
+      "name": "webhook",
+      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --events ContentPublished ContentUnpublished\n  umbraco webhook delete <id>",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "list",
-          "description": "List all webhook subscriptions configured in the Umbraco instance.\n\nExample:\n  umbraco webhooks list --output json",
+          "description": "List all webhook subscriptions configured in the Umbraco instance.\n\nExample:\n  umbraco webhook list --output json",
           "arguments": [],
           "options": [
             {
@@ -3581,7 +3581,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a webhook subscription by UUID.\n\nExample:\n  umbraco webhooks delete 3f7a8b2e-...",
+          "description": "Delete a webhook subscription by UUID.\n\nExample:\n  umbraco webhook delete 3f7a8b2e-...",
           "arguments": [
             {
               "name": "id",
@@ -4162,8 +4162,8 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "member-groups",
-      "description": "List, inspect, and manage Umbraco member groups.\n\nExamples:\n  umbraco member-groups list\n  umbraco member-groups create --name Editors",
+      "name": "member-group",
+      "description": "List, inspect, and manage Umbraco member groups.\n\nExamples:\n  umbraco member-group list\n  umbraco member-group create --name Editors",
       "arguments": [],
       "options": [],
       "commands": [
@@ -4212,7 +4212,7 @@
         },
         {
           "name": "create",
-          "description": "Create a member group.\n\nExample:\n  umbraco member-groups create --name Editors",
+          "description": "Create a member group.\n\nExample:\n  umbraco member-group create --name Editors",
           "arguments": [],
           "options": [
             {
@@ -4288,8 +4288,8 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "tags",
-      "description": "List tags, optionally filtered by group and culture.\n\nExamples:\n  umbraco tags list\n  umbraco tags list --group default --culture en-US",
+      "name": "tag",
+      "description": "List tags, optionally filtered by group and culture.\n\nExamples:\n  umbraco tag list\n  umbraco tag list --group default --culture en-US",
       "arguments": [],
       "options": [],
       "commands": [
@@ -4340,8 +4340,8 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "cultures",
-      "description": "List the cultures available on the instance.\n\nExample:\n  umbraco cultures list",
+      "name": "culture",
+      "description": "List the cultures available on the instance.\n\nExample:\n  umbraco culture list",
       "arguments": [],
       "options": [],
       "commands": [
@@ -4376,8 +4376,8 @@
       "acceptsJsonBody": false
     },
     {
-      "name": "user-groups",
-      "description": "List, inspect, and manage Umbraco user groups.\n\nExamples:\n  umbraco user-groups list\n  umbraco user-groups create --alias editors --name Editors --section Umb.Section.Content",
+      "name": "user-group",
+      "description": "List, inspect, and manage Umbraco user groups.\n\nExamples:\n  umbraco user-group list\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content",
       "arguments": [],
       "options": [],
       "commands": [
@@ -4408,7 +4408,7 @@
         },
         {
           "name": "get",
-          "description": "Get a user group by id, alias or name.\n\nExample:\n  umbraco user-groups get blogEditors",
+          "description": "Get a user group by id, alias or name.\n\nExample:\n  umbraco user-group get blogEditors",
           "arguments": [
             {
               "name": "id",
@@ -4426,7 +4426,7 @@
         },
         {
           "name": "create",
-          "description": "Create a user group.\n\nExample:\n  umbraco user-groups create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read",
+          "description": "Create a user group.\n\nExample:\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read",
           "arguments": [],
           "options": [
             {
@@ -4674,7 +4674,7 @@
         },
         {
           "name": "delete-many",
-          "description": "Delete several user groups in one call.\n\nExample:\n  umbraco user-groups delete-many --ids blogEditors newsEditors",
+          "description": "Delete several user groups in one call.\n\nExample:\n  umbraco user-group delete-many --ids blogEditors newsEditors",
           "arguments": [],
           "options": [
             {
@@ -4693,7 +4693,7 @@
         },
         {
           "name": "add-users",
-          "description": "Add users to a user group.\n\nExample:\n  umbraco user-groups add-users blogEditors --user <guid> --user <guid>",
+          "description": "Add users to a user group.\n\nExample:\n  umbraco user-group add-users blogEditors --user <guid> --user <guid>",
           "arguments": [
             {
               "name": "id",
@@ -4720,7 +4720,7 @@
         },
         {
           "name": "remove-users",
-          "description": "Remove users from a user group.\n\nExample:\n  umbraco user-groups remove-users blogEditors --user <guid>",
+          "description": "Remove users from a user group.\n\nExample:\n  umbraco user-group remove-users blogEditors --user <guid>",
           "arguments": [
             {
               "name": "id",

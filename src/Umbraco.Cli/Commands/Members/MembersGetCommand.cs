@@ -8,7 +8,7 @@ public static class MembersGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a member by their UUID.\n\nExample:\n  umbraco members get 3f7a8b2e-..."
+            "Get a member by their UUID.\n\nExample:\n  umbraco member get 3f7a8b2e-..."
         );
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);

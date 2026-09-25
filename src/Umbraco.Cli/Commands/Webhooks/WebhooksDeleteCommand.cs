@@ -9,7 +9,7 @@ public static class WebhooksDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a webhook subscription by UUID.\n\nExample:\n  umbraco webhooks delete 3f7a8b2e-..."
+            "Delete a webhook subscription by UUID.\n\nExample:\n  umbraco webhook delete 3f7a8b2e-..."
         ).Mutating();
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);

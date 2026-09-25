@@ -4,11 +4,11 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
 
-/// <summary>Wires the <c>templates create</c> command (issue #59).</summary>
+/// <summary>Wires the <c>template create</c> command (issue #59).</summary>
 public static class TemplatesCreateCommand
 {
     /// <summary>
-    /// Builds the <c>templates create</c> command. Content is the Razor view body; it defaults
+    /// Builds the <c>template create</c> command. Content is the Razor view body; it defaults
     /// to empty and can be supplied inline with <c>--content</c> or read from a file with
     /// <c>--content-file</c>.
     /// </summary>
@@ -18,7 +18,7 @@ public static class TemplatesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a Razor view template.\n\nExamples:\n  umbraco templates create --name \"Blog Post\" --alias blogPost\n  umbraco templates create --name Home --alias home --content-file ./home.cshtml"
+            "Create a Razor view template.\n\nExamples:\n  umbraco template create --name \"Blog Post\" --alias blogPost\n  umbraco template create --name Home --alias home --content-file ./home.cshtml"
         ).Mutating();
         var nameOpt = new Option<string>("--name") { Required = true };
         var aliasOpt = new Option<string>("--alias") { Required = true };

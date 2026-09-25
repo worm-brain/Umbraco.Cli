@@ -5,7 +5,7 @@ namespace Umbraco.Cli.Infrastructure;
 /// <summary>
 /// Generates a random password that satisfies Umbraco's default member/user password complexity
 /// policy: a minimum length plus at least one lowercase letter, one uppercase letter, one digit,
-/// and one non-alphanumeric character. Used when <c>members create</c> is not given an explicit
+/// and one non-alphanumeric character. Used when <c>member create</c> is not given an explicit
 /// <c>--password</c>, so a member can be provisioned non-interactively (#136) instead of failing
 /// with "The password did not meet the complexity requirements." The generated value is not
 /// returned by the API, so pass <c>--password</c> to set a password you need to know.

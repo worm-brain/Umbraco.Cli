@@ -41,7 +41,7 @@ public static class EntityKindText
     /// <returns>The key description.</returns>
     public static string KeyName(this EntityKind kind) => Describe(kind).By;
 
-    /// <summary>The command that lists the kind, e.g. <c>media-types list</c>.</summary>
+    /// <summary>The command that lists the kind, e.g. <c>media-type list</c>.</summary>
     /// <param name="kind">The kind.</param>
     /// <returns>The command, without the <c>umbraco</c> prefix.</returns>
     public static string ListCommand(this EntityKind kind) => Describe(kind).List;
@@ -49,13 +49,13 @@ public static class EntityKindText
     private static (string Noun, string By, string List) Describe(EntityKind kind) =>
         kind switch
         {
-            EntityKind.Template => ("template", "alias or name", "templates list"),
-            EntityKind.DocumentType => ("document type", "alias", "content-types list"),
-            EntityKind.MediaType => ("media type", "alias or name", "media-types list"),
-            EntityKind.MemberType => ("member type", "alias", "member-types list"),
-            EntityKind.DataType => ("data type", "name", "data-types list"),
-            EntityKind.UserGroup => ("user group", "alias or name", "user-groups list"),
-            EntityKind.MemberGroup => ("member group", "name", "member-groups list"),
+            EntityKind.Template => ("template", "alias or name", "template list"),
+            EntityKind.DocumentType => ("document type", "alias", "document-type list"),
+            EntityKind.MediaType => ("media type", "alias or name", "media-type list"),
+            EntityKind.MemberType => ("member type", "alias", "member-type list"),
+            EntityKind.DataType => ("data type", "name", "data-type list"),
+            EntityKind.UserGroup => ("user group", "alias or name", "user-group list"),
+            EntityKind.MemberGroup => ("member group", "name", "member-group list"),
             EntityKind.DictionaryItem => ("dictionary item", "key", "dictionary list"),
             _ => (kind.ToString(), "reference", "--help"),
         };

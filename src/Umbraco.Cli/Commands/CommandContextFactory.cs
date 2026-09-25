@@ -338,9 +338,12 @@ public sealed class CommandContextFactory
             ',',
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
         );
-        return entries.Any(entry =>
-            string.Equals(entry, group, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(entry, commandName, StringComparison.OrdinalIgnoreCase)
-        );
+        // An entry written before a rename (#268) still names the same commands, and no more.
+        return entries
+            .Select(LegacyNames.Canonical)
+            .Any(entry =>
+                string.Equals(entry, group, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(entry, commandName, StringComparison.OrdinalIgnoreCase)
+            );
     }
 }

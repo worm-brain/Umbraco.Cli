@@ -124,6 +124,15 @@ var root = CliRoot.Build(
 // (e.g. Serilog log-viewer filters like "@Level='Error'") are passed through verbatim.
 var parsed = root.Parse(args, CliParserConfiguration.Create());
 
+// Names renamed by #268 still run for one release, with a warning (LegacyNames). Re-parse after
+// each rewrite: a line can hold an old noun and an old sub-noun.
+while (LegacyNames.TryRewrite(parsed, args, out var rewritten, out var warning))
+{
+    Console.Error.WriteLine(warning);
+    args = rewritten;
+    parsed = root.Parse(args, CliParserConfiguration.Create());
+}
+
 // #167: System.CommandLine reports a parse error as plain text plus the help screen, whichever
 // output format was asked for - so `... -o json | jq` failed on the help text instead of reading
 // an error envelope. Emit the same envelope every other failure uses before handing over.

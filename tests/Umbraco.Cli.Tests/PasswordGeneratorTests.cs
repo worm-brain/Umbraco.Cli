@@ -4,7 +4,7 @@ namespace Umbraco.Cli.Tests;
 
 /// <summary>
 /// Tests for <see cref="PasswordGenerator"/>, which produces the fallback password for
-/// <c>members create</c> when none is supplied (#136). The generated value must satisfy
+/// <c>member create</c> when none is supplied (#136). The generated value must satisfy
 /// Umbraco's default complexity policy or the create is rejected.
 /// </summary>
 public class PasswordGeneratorTests

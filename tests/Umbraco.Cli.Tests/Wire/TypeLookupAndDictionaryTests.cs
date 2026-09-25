@@ -92,7 +92,7 @@ public class TypeLookupAndDictionaryTests
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains("NotARealDataType", result.ErrorMessage);
         // The message has to say what to do next, not just that it failed.
-        Assert.Contains("data-types list", result.ErrorMessage);
+        Assert.Contains("data-type list", result.ErrorMessage);
     }
 
     // ── #181: translations reported as saved that Umbraco discarded ───────────

@@ -2,17 +2,17 @@ using System.CommandLine;
 
 namespace Umbraco.Cli.Commands.Tags;
 
-/// <summary>Wires the read-only <c>tags</c> noun (issue #107).</summary>
+/// <summary>Wires the read-only <c>tag</c> noun (issue #107).</summary>
 public static class TagsCommand
 {
-    /// <summary>Builds the <c>tags</c> noun with its <c>list</c> verb.</summary>
+    /// <summary>Builds the <c>tag</c> noun with its <c>list</c> verb.</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "tags",
-            "List tags, optionally filtered by group and culture.\n\nExamples:\n  umbraco tags list\n  umbraco tags list --group default --culture en-US"
+            "tag",
+            "List tags, optionally filtered by group and culture.\n\nExamples:\n  umbraco tag list\n  umbraco tag list --group default --culture en-US"
         );
         cmd.Add(BuildList(executor));
         return cmd;

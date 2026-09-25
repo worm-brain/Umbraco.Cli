@@ -391,7 +391,7 @@ public class ContentWriteClientTests
     }
 
     /// <summary>
-    /// When specific cultures are given they are sent as the <c>cultures</c> list verbatim (and no
+    /// When specific cultures are given they are sent as the <c>culture</c> list verbatim (and no
     /// <c>"*"</c> wildcard is injected).
     /// </summary>
     [Fact]

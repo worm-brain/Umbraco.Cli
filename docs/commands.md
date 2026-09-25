@@ -159,8 +159,8 @@ umbraco content bulk publish [--file ids.txt] [--cultures <csv>]
 umbraco content bulk unpublish [--file ids.txt] [--cultures <csv>]   # takes offline; needs --yes; no --cultures = every culture
 
 # domains sub-noun (Culture and Hostnames):
-umbraco content domains get <id>
-umbraco content domains set <id> [--default <iso>] [--domain host=iso ...] [--replace]   # merges by hostname unless --replace
+umbraco content domain get <id>
+umbraco content domain set <id> [--default <iso>] [--domain host=iso ...] [--replace]   # merges by hostname unless --replace
 ```
 
 ### Domains: a multilingual site is not reachable without them
@@ -171,7 +171,7 @@ multiple cultures, but no domains are configured" and serves nothing but the def
 ([#180](https://github.com/worm-brain/Umbraco.Cli/issues/180)):
 
 ```bash
-umbraco content domains set <root-id> --default en-US \
+umbraco content domain set <root-id> --default en-US \
   --domain example.com=en-US --domain example.com/da=da-DK
 ```
 
@@ -345,24 +345,24 @@ deletes with the usual `media` verbs, and its id is what `media upload --parent`
 ## `media-types`
 
 ```bash
-umbraco media-types list
-umbraco media-types get <id|alias|name>                   # the full Management API body: properties, groups, allowed children
-umbraco media-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root]
-umbraco media-types create --json-body <file> [--id <guid>]
-umbraco media-types update <id|alias|name> --json-body <file> [--replace]   # merged into the type
-umbraco media-types delete <id|alias|name> --force                  # deletes every media item of the type too; --force always required, plus --yes non-interactively
+umbraco media-type list
+umbraco media-type get <id|alias|name>                   # the full Management API body: properties, groups, allowed children
+umbraco media-type create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root]
+umbraco media-type create --json-body <file> [--id <guid>]
+umbraco media-type update <id|alias|name> --json-body <file> [--replace]   # merged into the type
+umbraco media-type delete <id|alias|name> --force                  # deletes every media item of the type too; --force always required, plus --yes non-interactively
 ```
 
 ## `content-types`
 
 ```bash
-umbraco content-types list
-umbraco content-types get <alias|id>                       # the full Management API body - a valid update --json-body
-umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
-umbraco content-types create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns {id, name, alias}
-umbraco content-types update <alias|id> --json-body <file> [--replace]   # merged into the type; --replace sends the whole type
-umbraco content-types create --schema                      # print a real document type (a minimal one on an empty site) as a worked example (needs a host)
-umbraco content-types delete <id|alias> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
+umbraco document-type list
+umbraco document-type get <alias|id>                       # the full Management API body - a valid update --json-body
+umbraco document-type create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
+umbraco document-type create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns {id, name, alias}
+umbraco document-type update <alias|id> --json-body <file> [--replace]   # merged into the type; --replace sends the whole type
+umbraco document-type create --schema                      # print a real document type (a minimal one on an empty site) as a worked example (needs a host)
+umbraco document-type delete <id|alias> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
 ```
 
 ### Authoring a document type with properties
@@ -372,9 +372,9 @@ and culture variance are too structured for flags, so they go in a full body
 ([#161](https://github.com/worm-brain/Umbraco.Cli/issues/161)). Read one, edit it, write it back:
 
 ```bash
-umbraco content-types get blogPost -o json | jq .data > t.json
+umbraco document-type get blogPost -o json | jq .data > t.json
 # ...edit t.json: add a property, a group, a template...
-umbraco content-types update blogPost --json-body t.json
+umbraco document-type update blogPost --json-body t.json
 ```
 
 `--schema` on these verbs prints **a real type off the instance** rather than a hand-written
@@ -392,24 +392,24 @@ rather than failing. The same applies to `data-types`, `media-types`, `member-ty
 ## `data-types`
 
 ```bash
-umbraco data-types list [--parent <folder>]                # includes editorAlias (one read per item) and the folder as parent
-umbraco data-types get <name|id>                           # by NAME (a data type has no alias); the full body, configuration included
-umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
-umbraco data-types create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns {id, name}
-umbraco data-types update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
-umbraco data-types update <name|id> --json-body <file> [--replace]   # merged; the only way to set `values`
-umbraco data-types create --schema                         # print a real data type as a worked example (needs a host)
-umbraco data-types delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
-umbraco data-types is-used <id|name>                       # whether any content type uses it
-umbraco data-types referenced-by <id|name> [--skip <n>] [--take <n>]   # a list; each row's `kind` says what it is
-umbraco data-types copy <id|name> [--parent <folder>]      # omit --parent to copy to the root; returns the copy; --target works too
-umbraco data-types move <id|name> [--parent <folder>]      # omit --parent to move to the root; --target works too
+umbraco data-type list [--parent <folder>]                # includes editorAlias (one read per item) and the folder as parent
+umbraco data-type get <name|id>                           # by NAME (a data type has no alias); the full body, configuration included
+umbraco data-type create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
+umbraco data-type create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns {id, name}
+umbraco data-type update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
+umbraco data-type update <name|id> --json-body <file> [--replace]   # merged; the only way to set `values`
+umbraco data-type create --schema                         # print a real data type as a worked example (needs a host)
+umbraco data-type delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
+umbraco data-type is-used <id|name>                       # whether any content type uses it
+umbraco data-type referenced-by <id|name> [--skip <n>] [--take <n>]   # a list; each row's `kind` says what it is
+umbraco data-type copy <id|name> [--parent <folder>]      # omit --parent to copy to the root; returns the copy; --target works too
+umbraco data-type move <id|name> [--parent <folder>]      # omit --parent to move to the root; --target works too
 
 # folder sub-noun (organise data types in the tree):
-umbraco data-types folder get <id>
-umbraco data-types folder create --name <name> [--parent <folder>] [--id <guid>]
-umbraco data-types folder update <id> --name <name>
-umbraco data-types folder delete <id>                      # needs --yes non-interactively
+umbraco data-type folder get <id>
+umbraco data-type folder create --name <name> [--parent <folder>] [--id <guid>]
+umbraco data-type folder update <id> --name <name>
+umbraco data-type folder delete <id>                      # needs --yes non-interactively
 ```
 
 ### Configuring the editor (`values`)
@@ -421,7 +421,7 @@ editor-specific, so there is no fixed set of flags for it), which meant configur
 ([#169](https://github.com/worm-brain/Umbraco.Cli/issues/169)). Pass the body instead:
 
 ```bash
-umbraco data-types create --json-body categories.json
+umbraco data-type create --json-body categories.json
 ```
 
 ```json
@@ -438,31 +438,31 @@ Both `update` forms take the **name** or the id, as `get` does.
 ## `languages`
 
 ```bash
-umbraco languages list
-umbraco languages create --culture <code> [--default] [--mandatory] [--fallback <code>]
-umbraco languages update <iso-code> --name <name> [--default] [--mandatory] [--fallback <code>]
-umbraco languages delete <iso-code>                        # needs --yes non-interactively
+umbraco language list
+umbraco language create --culture <code> [--default] [--mandatory] [--fallback <code>]
+umbraco language update <iso-code> --name <name> [--default] [--mandatory] [--fallback <code>]
+umbraco language delete <iso-code>                        # needs --yes non-interactively
 ```
 
 ## `templates`
 
 ```bash
-umbraco templates list                                     # every template, nested ones too, with its alias
-umbraco templates get <id|alias>                          # includes the view `content`
-umbraco templates create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
-umbraco templates update <id|alias> [--name <name>] [--alias <alias>] [--content <razor> | --content-file <file>]   # omitted fields are kept
-umbraco templates update <id|alias> --json-body <file> [--replace]   # the body `templates get` prints, merged
-umbraco templates delete <id|alias>                        # needs --yes non-interactively
+umbraco template list                                     # every template, nested ones too, with its alias
+umbraco template get <id|alias>                          # includes the view `content`
+umbraco template create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
+umbraco template update <id|alias> [--name <name>] [--alias <alias>] [--content <razor> | --content-file <file>]   # omitted fields are kept
+umbraco template update <id|alias> --json-body <file> [--replace]   # the body `template get` prints, merged
+umbraco template delete <id|alias>                        # needs --yes non-interactively
 ```
 
 ## `members`
 
 ```bash
-umbraco members list [--group <name>]                      # filters by member group
-umbraco members get <id>                                   # UUID only; groups as [{id, name}], memberType.alias, property values
-umbraco members create --email <email> --name <name> --type <alias>
-umbraco members update <id> [--email <email>] [--name <name>] [--approved] [--username <name>] [--group <name|id> ...] [--value alias=value ...] [--new-password <pw>] [--unlock]
-umbraco members delete <id>                                # needs --yes non-interactively
+umbraco member list [--group <name>]                      # filters by member group
+umbraco member get <id>                                   # UUID only; groups as [{id, name}], memberType.alias, property values
+umbraco member create --email <email> --name <name> --type <alias>
+umbraco member update <id> [--email <email>] [--name <name>] [--approved] [--username <name>] [--group <name|id> ...] [--value alias=value ...] [--new-password <pw>] [--unlock]
+umbraco member delete <id>                                # needs --yes non-interactively
 ```
 
 `update` merges: only the fields you name change, and property values are matched on
@@ -480,47 +480,47 @@ dropped.
 ## `member-types`
 
 ```bash
-umbraco member-types list
-umbraco member-types get <id|alias>                       # the full body, properties and groups included
-umbraco member-types create --name <name> --alias <alias> [--icon <alias>]
-umbraco member-types create --json-body <file> [--id <guid>]
-umbraco member-types update <id|alias> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
-umbraco member-types update <id|alias> --json-body <file> [--replace]   # merged into the type
-umbraco member-types delete <id|alias> [--force]               # refused while it has members unless --force (deletes them); --yes non-interactively
+umbraco member-type list
+umbraco member-type get <id|alias>                       # the full body, properties and groups included
+umbraco member-type create --name <name> --alias <alias> [--icon <alias>]
+umbraco member-type create --json-body <file> [--id <guid>]
+umbraco member-type update <id|alias> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
+umbraco member-type update <id|alias> --json-body <file> [--replace]   # merged into the type
+umbraco member-type delete <id|alias> [--force]               # refused while it has members unless --force (deletes them); --yes non-interactively
 ```
 
 ## `member-groups`
 
 ```bash
-umbraco member-groups list
-umbraco member-groups get <id|name>
-umbraco member-groups create --name <name>
-umbraco member-groups update <id|name> --name <name>
-umbraco member-groups delete <id|name>                     # needs --yes non-interactively
+umbraco member-group list
+umbraco member-group get <id|name>
+umbraco member-group create --name <name>
+umbraco member-group update <id|name> --name <name>
+umbraco member-group delete <id|name>                     # needs --yes non-interactively
 ```
 
 ## `users`
 
 ```bash
-umbraco users list
-umbraco users get <id>
-umbraco users invite --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--message <text>]   # --group repeatable, at least one
+umbraco user list
+umbraco user get <id>
+umbraco user invite --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--message <text>]   # --group repeatable, at least one
 ```
 
-`users invite` needs SMTP configured on the site, because Umbraco emails the invitation; without it
+`user invite` needs SMTP configured on the site, because Umbraco emails the invitation; without it
 the invite is refused and no user is created. `--username` defaults to the email.
 
 ## `user-groups`
 
 ```bash
-umbraco user-groups list
-umbraco user-groups get <id|alias|name>
-umbraco user-groups create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--id <guid>]
-umbraco user-groups update <id|alias|name> --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>]
-umbraco user-groups delete <id|alias|name>                # needs --yes non-interactively
-umbraco user-groups delete-many --ids <id|alias|name>...  # bulk; needs --yes non-interactively
-umbraco user-groups add-users <id|alias|name> --user <id>...          # --user repeatable
-umbraco user-groups remove-users <id|alias|name> --user <id>...       # --user repeatable
+umbraco user-group list
+umbraco user-group get <id|alias|name>
+umbraco user-group create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--id <guid>]
+umbraco user-group update <id|alias|name> --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--language <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>]
+umbraco user-group delete <id|alias|name>                # needs --yes non-interactively
+umbraco user-group delete-many --ids <id|alias|name>...  # bulk; needs --yes non-interactively
+umbraco user-group add-users <id|alias|name> --user <id>...          # --user repeatable
+umbraco user-group remove-users <id|alias|name> --user <id>...       # --user repeatable
 ```
 
 Granular per-node permissions are a deferred follow-up: `create`/`update` set the scalar and
@@ -568,9 +568,9 @@ check as `create`.
 ## `webhooks`
 
 ```bash
-umbraco webhooks list
-umbraco webhooks create --url <url> --events <csv> [--name <name>] [--description <text>]
-umbraco webhooks delete <id>                               # needs --yes non-interactively
+umbraco webhook list
+umbraco webhook create --url <url> --events <csv> [--name <name>] [--description <text>]
+umbraco webhook delete <id>                               # needs --yes non-interactively
 ```
 
 ## `script` / `stylesheet` / `partial-view` (static files)
@@ -605,8 +605,8 @@ umbraco partial-view delete <path>                         # needs --yes non-int
 ## `tags` / `cultures` (read-only)
 
 ```bash
-umbraco tags list [--group <group>] [--culture <iso>]      # tags, with node counts
-umbraco cultures list                                      # available cultures (isoCode + name)
+umbraco tag list [--group <group>] [--culture <iso>]      # tags, with node counts
+umbraco culture list                                      # available cultures (isoCode + name)
 ```
 
 ## `server` (read-only)

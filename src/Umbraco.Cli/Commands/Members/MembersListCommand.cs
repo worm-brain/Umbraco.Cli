@@ -8,7 +8,7 @@ public static class MembersListCommand
     {
         var cmd = new Command(
             "list",
-            "List Umbraco members, optionally filtered by member group.\n\nExamples:\n  umbraco members list\n  umbraco members list --group Subscribers --output json"
+            "List Umbraco members, optionally filtered by member group.\n\nExamples:\n  umbraco member list\n  umbraco member list --group Subscribers --output json"
         );
         var groupOpt = new Option<string?>("--group");
         var skipOpt = new Option<int>("--skip") { DefaultValueFactory = _ => 0 };

@@ -8,7 +8,7 @@ public static class LanguagesListCommand
     {
         var cmd = new Command(
             "list",
-            "List all languages configured in the Umbraco instance.\n\nExample:\n  umbraco languages list --output json"
+            "List all languages configured in the Umbraco instance.\n\nExample:\n  umbraco language list --output json"
         );
         cmd.SetAction(
             (parseResult, ct) =>

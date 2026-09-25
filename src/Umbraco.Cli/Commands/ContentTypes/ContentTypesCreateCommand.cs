@@ -5,11 +5,11 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.ContentTypes;
 
-/// <summary>Wires the <c>content-types create</c> command.</summary>
+/// <summary>Wires the <c>document-type create</c> command.</summary>
 public static class ContentTypesCreateCommand
 {
     /// <summary>
-    /// Builds the <c>content-types create</c> command. The API requires an <c>icon</c>
+    /// Builds the <c>document-type create</c> command. The API requires an <c>icon</c>
     /// (issue #47); it defaults to a generic document icon and can be overridden with
     /// <c>--icon</c>. All other API-required fields (varies-by flags, cleanup policy,
     /// allowed-* collections) are defaulted by <see cref="CreateDocumentTypeRequest"/>.
@@ -20,7 +20,7 @@ public static class ContentTypesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new document type, from flags or from a full Management API body (--json-body). --schema prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco content-types create --schema -o json | jq .data > t.json\n  umbraco content-types create --json-body t.json\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
+            "Create a new document type, from flags or from a full Management API body (--json-body). --schema prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco document-type create --schema -o json | jq .data > t.json\n  umbraco document-type create --json-body t.json\n  umbraco document-type create --name \"Blog Post\" --alias blogPost\n  umbraco document-type create --name \"Widget\" --alias widget --is-element\n  umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
         ).Mutating();
         var nameOpt = new Option<string>("--name");
         var aliasOpt = new Option<string>("--alias");

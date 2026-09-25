@@ -69,7 +69,7 @@ types only; media and member types read every type's alias once, a few at a time
   given the item model carries no alias, and a CLI/agent tool needs the
   reference right more than it needs the round-trip. Note the tree root alone is
   *not* enough - types nested in folders would be invisible, which is also why
-  `content-types list` under-reports (issue #97).
+  `document-type list` under-reports (issue #97).
 
 This also fixes the currently **broken, untested** create-by-alias path (ADR
 0003 noted it serializes `documentType.id = Guid.Empty`).

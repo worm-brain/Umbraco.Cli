@@ -363,7 +363,7 @@ public record DomainBinding
 
 /// <summary>
 /// The complete set of domains for a document (#180). The API's PUT replaces, so this is not a
-/// patch - `content domains set` reads the current set first so a caller can add one without
+/// patch - `content domain set` reads the current set first so a caller can add one without
 /// restating the rest.
 /// </summary>
 public record SetDomainsRequest
@@ -983,8 +983,8 @@ public record DataTypeResponse
     public string? EditorUiAlias { get; init; }
 
     /// <summary>
-    /// The folder the data type is in (#247), from the data-type tree that <c>data-types list</c>
-    /// walks. Null at the root. (<c>data-types get</c> prints the raw by-id body, which has none.)
+    /// The folder the data type is in (#247), from the data-type tree that <c>data-type list</c>
+    /// walks. Null at the root. (<c>data-type get</c> prints the raw by-id body, which has none.)
     /// </summary>
     [JsonPropertyName("parent")]
     public ContentParentReference? Parent { get; init; }
@@ -1185,7 +1185,7 @@ public record MemberResponse
 
     /// <summary>
     /// The groups this member belongs to (#185), each with its name (#212) - the name is what
-    /// <c>members list --group</c> and <c>members update --group</c> take.
+    /// <c>member list --group</c> and <c>member update --group</c> take.
     /// </summary>
     [JsonPropertyName("groups")]
     public IEnumerable<MemberGroupRef>? Groups { get; init; }

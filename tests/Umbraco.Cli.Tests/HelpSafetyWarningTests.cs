@@ -15,7 +15,7 @@ namespace Umbraco.Cli.Tests;
 /// obligations: the write semantics of <c>content update</c> must be stated, including how to opt
 /// into the destructive one (#178/#179); and the help must agree with what the command actually
 /// does. The second one started as "must not advertise a capability the CLI lacks" - the false
-/// claims on <c>content-types get</c> (#160) and <c>media get</c> (#172) sent a test agent down a
+/// claims on <c>document-type get</c> (#160) and <c>media get</c> (#172) sent a test agent down a
 /// dead end in the 2026-09-23 round (#187). Phase 3 made both claims true, so these now assert the
 /// capability is described rather than absent; the point is that the two never drift apart.
 /// </summary>

@@ -99,7 +99,7 @@ public class TypeDeleteGuardTests
         var fake = new FakeUmbracoManagementClient();
         fake.UsedDataTypes[TypeId] = [("Blog Post", "Categories")];
 
-        var (exit, _) = await Run(fake, $"data-types delete {TypeId} --yes");
+        var (exit, _) = await Run(fake, $"data-type delete {TypeId} --yes");
 
         Assert.Equal(2, exit);
         Assert.Empty(fake.SchemaDeletedIds);
@@ -111,7 +111,7 @@ public class TypeDeleteGuardTests
         var fake = new FakeUmbracoManagementClient();
         fake.UsedDataTypes[TypeId] = [("Blog Post", "Categories")];
 
-        var (_, stderr) = await Run(fake, $"data-types delete {TypeId} --yes");
+        var (_, stderr) = await Run(fake, $"data-type delete {TypeId} --yes");
 
         // Read the envelope's message: the JSON writer escapes '>' on the wire.
         var message = System
@@ -131,7 +131,7 @@ public class TypeDeleteGuardTests
         fake.UsedDataTypes[TypeId] = [("Blog Post", "Categories")];
         var prompt = new RecordingYes();
 
-        var (exit, _) = await Run(fake, $"data-types delete {TypeId}", prompt);
+        var (exit, _) = await Run(fake, $"data-type delete {TypeId}", prompt);
 
         Assert.Equal(2, exit);
         Assert.False(prompt.Asked);
@@ -143,7 +143,7 @@ public class TypeDeleteGuardTests
         var fake = new FakeUmbracoManagementClient();
         var prompt = new RecordingYes();
 
-        var (exit, _) = await Run(fake, $"data-types delete {TypeId}", prompt);
+        var (exit, _) = await Run(fake, $"data-type delete {TypeId}", prompt);
 
         Assert.Equal(0, exit);
         Assert.True(prompt.Asked);
@@ -155,7 +155,7 @@ public class TypeDeleteGuardTests
         var fake = new FakeUmbracoManagementClient();
         fake.UsedDataTypes[TypeId] = [("Blog Post", "Categories")];
 
-        var (exit, _) = await Run(fake, $"--dry-run data-types delete {TypeId}");
+        var (exit, _) = await Run(fake, $"--dry-run data-type delete {TypeId}");
 
         Assert.Equal(2, exit);
         Assert.Empty(fake.SchemaDeletedIds);
@@ -167,7 +167,7 @@ public class TypeDeleteGuardTests
         var fake = new FakeUmbracoManagementClient();
         fake.UsedDataTypes[TypeId] = [("Blog Post", "Categories")];
 
-        var (exit, _) = await Run(fake, $"data-types delete {TypeId} --force --yes");
+        var (exit, _) = await Run(fake, $"data-type delete {TypeId} --force --yes");
 
         Assert.Equal(0, exit);
         Assert.Equal([TypeId], fake.SchemaDeletedIds);
@@ -178,7 +178,7 @@ public class TypeDeleteGuardTests
     {
         var fake = new FakeUmbracoManagementClient();
 
-        var (exit, _) = await Run(fake, $"data-types delete {TypeId} --yes");
+        var (exit, _) = await Run(fake, $"data-type delete {TypeId} --yes");
 
         Assert.Equal(0, exit);
         Assert.Equal([TypeId], fake.SchemaDeletedIds);
@@ -190,7 +190,7 @@ public class TypeDeleteGuardTests
         // --force overrides the in-use check, not the confirmation.
         var fake = new FakeUmbracoManagementClient();
 
-        var (exit, _) = await Run(fake, $"data-types delete {TypeId} --force");
+        var (exit, _) = await Run(fake, $"data-type delete {TypeId} --force");
 
         Assert.Equal(2, exit);
         Assert.Empty(fake.SchemaDeletedIds);
@@ -199,8 +199,8 @@ public class TypeDeleteGuardTests
     // ── document and media types (#253): Umbraco cannot count their items ─────
 
     [Theory]
-    [InlineData("content-types")]
-    [InlineData("media-types")]
+    [InlineData("document-type")]
+    [InlineData("media-type")]
     public async Task TypeDelete_WithoutForce_IsRefused(string noun)
     {
         var fake = new FakeUmbracoManagementClient();
@@ -212,8 +212,8 @@ public class TypeDeleteGuardTests
     }
 
     [Theory]
-    [InlineData("content-types")]
-    [InlineData("media-types")]
+    [InlineData("document-type")]
+    [InlineData("media-type")]
     public async Task TypeDelete_WithForce_Deletes(string noun)
     {
         var fake = new FakeUmbracoManagementClient();
@@ -232,7 +232,7 @@ public class TypeDeleteGuardTests
         var fake = new FakeUmbracoManagementClient();
         fake.MemberCountsByType[TypeId] = 3;
 
-        var (exit, stderr) = await Run(fake, $"member-types delete {TypeId} --yes");
+        var (exit, stderr) = await Run(fake, $"member-type delete {TypeId} --yes");
 
         Assert.Equal(2, exit);
         Assert.Contains("3 member(s)", stderr);
@@ -243,7 +243,7 @@ public class TypeDeleteGuardTests
     {
         var fake = new FakeUmbracoManagementClient();
 
-        var (exit, _) = await Run(fake, $"member-types delete {TypeId} --yes");
+        var (exit, _) = await Run(fake, $"member-type delete {TypeId} --yes");
 
         Assert.Equal(0, exit);
         Assert.Equal([TypeId], fake.SchemaDeletedIds);

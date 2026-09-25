@@ -4,11 +4,11 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
 
-/// <summary>Wires the <c>templates update</c> command (issue #59).</summary>
+/// <summary>Wires the <c>template update</c> command (issue #59).</summary>
 public static class TemplatesUpdateCommand
 {
     /// <summary>
-    /// Builds the <c>templates update</c> command. Only supplied options change; anything
+    /// Builds the <c>template update</c> command. Only supplied options change; anything
     /// omitted is preserved by the client's read-merge, so updating the name alone never blanks
     /// the Razor content. Content may be supplied inline (<c>--content</c>) or from a file
     /// (<c>--content-file</c>).
@@ -19,7 +19,7 @@ public static class TemplatesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a Razor view template by id or alias. Omitted fields are preserved. With --json-body, the body's top-level keys (as 'templates get' prints them) are merged into the template; --replace sends it as the whole template.\n\nExamples:\n  umbraco templates update blogPost --content-file ./blog-post.cshtml\n  umbraco templates get blogPost -o json | jq .data > t.json\n  umbraco templates update blogPost --json-body t.json"
+            "Update a Razor view template by id or alias. Omitted fields are preserved. With --json-body, the body's top-level keys (as 'template get' prints them) are merged into the template; --replace sends it as the whole template.\n\nExamples:\n  umbraco template update blogPost --content-file ./blog-post.cshtml\n  umbraco template get blogPost -o json | jq .data > t.json\n  umbraco template update blogPost --json-body t.json"
         ).Mutating();
         var options = RawBodyCommand.AddUpdateOptions(cmd, SchemaNoun.Templates, hasFlags: true);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };

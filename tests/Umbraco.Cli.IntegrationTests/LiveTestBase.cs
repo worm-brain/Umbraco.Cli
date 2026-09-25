@@ -64,7 +64,7 @@ public sealed class ScratchDocument : IDisposable
     {
         var alias = "clitestEffect" + Guid.NewGuid().ToString("N")[..8];
         var type = CliRunner.Run(
-            "content-types",
+            "document-type",
             "create",
             "--name",
             alias,
@@ -103,7 +103,7 @@ public sealed class ScratchDocument : IDisposable
         }
         catch
         {
-            CliRunner.Run("content-types", "delete", typeId, "--force", "--yes");
+            CliRunner.Run("document-type", "delete", typeId, "--force", "--yes");
             throw;
         }
     }
@@ -143,7 +143,7 @@ public sealed class ScratchDocument : IDisposable
     public void Dispose()
     {
         CliRunner.Run("content", "delete", Id, "--yes");
-        CliRunner.Run("content-types", "delete", DocumentTypeId, "--force", "--yes");
+        CliRunner.Run("document-type", "delete", DocumentTypeId, "--force", "--yes");
     }
 }
 
@@ -167,11 +167,11 @@ public sealed class ScratchTemplate : IDisposable
     public static ScratchTemplate Create()
     {
         var alias = "clitestTpl" + Guid.NewGuid().ToString("N")[..8];
-        var created = CliRunner.Run("templates", "create", "--name", alias, "--alias", alias);
+        var created = CliRunner.Run("template", "create", "--name", alias, "--alias", alias);
         Skip.IfNot(created.Ok, $"Could not create a scratch template: {created.Stderr}");
         return new ScratchTemplate(created.Data().GetProperty("id").GetString()!, alias);
     }
 
     /// <inheritdoc />
-    public void Dispose() => CliRunner.Run("templates", "delete", Id, "--yes");
+    public void Dispose() => CliRunner.Run("template", "delete", Id, "--yes");
 }

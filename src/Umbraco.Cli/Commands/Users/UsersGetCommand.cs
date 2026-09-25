@@ -8,7 +8,7 @@ public static class UsersGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a back-office user by their UUID.\n\nExample:\n  umbraco users get 3f7a8b2e-..."
+            "Get a back-office user by their UUID.\n\nExample:\n  umbraco user get 3f7a8b2e-..."
         );
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);

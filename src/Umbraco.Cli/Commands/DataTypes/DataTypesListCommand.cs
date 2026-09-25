@@ -8,7 +8,7 @@ public static class DataTypesListCommand
     {
         var cmd = new Command(
             "list",
-            "List all data types (property editors) configured in the Umbraco instance.\n\nEach item on the page is read individually so it can carry its editorAlias, which is what decides a property's value format - so this costs one request per item returned. Use --take to bound it.\n\nExample:\n  umbraco data-types list --take 50"
+            "List all data types (property editors) configured in the Umbraco instance.\n\nEach item on the page is read individually so it can carry its editorAlias, which is what decides a property's value format - so this costs one request per item returned. Use --take to bound it.\n\nExample:\n  umbraco data-type list --take 50"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         // #247: there was no way to see what a data-type folder holds.

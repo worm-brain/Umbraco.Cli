@@ -55,7 +55,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     public void ContentTypesList_ReturnsItems()
     {
         RequireLive();
-        Assert.True(CliRunner.Run("content-types", "list", "--take", "5").Ok);
+        Assert.True(CliRunner.Run("document-type", "list", "--take", "5").Ok);
     }
 
     [SkippableFact]
@@ -63,10 +63,10 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     {
         RequireLive();
 
-        // Regression for #135: data-types list used to return folder containers whose ids 404 on
-        // `data-types get` (only real, gettable data types should appear - folders excluded, types
+        // Regression for #135: data-type list used to return folder containers whose ids 404 on
+        // `data-type get` (only real, gettable data types should appear - folders excluded, types
         // nested inside folders included). So every id the list returns must be gettable.
-        var list = CliRunner.Run("data-types", "list", "--take", "10");
+        var list = CliRunner.Run("data-type", "list", "--take", "10");
         Assert.True(list.Ok, list.Stderr);
         var items = list.Data();
         Assert.Equal(JsonValueKind.Array, items.ValueKind);
@@ -75,10 +75,10 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         foreach (var item in items.EnumerateArray())
         {
             var id = item.GetProperty("id").GetString();
-            var get = CliRunner.Run("data-types", "get", id!);
+            var get = CliRunner.Run("data-type", "get", id!);
             Assert.True(
                 get.Ok,
-                $"data-types get {id} failed (folder leaked into list?): {get.Stderr}"
+                $"data-type get {id} failed (folder leaked into list?): {get.Stderr}"
             );
         }
     }
@@ -87,15 +87,15 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     public void TemplatesList_ReturnsItems()
     {
         RequireLive();
-        Assert.True(CliRunner.Run("templates", "list", "--take", "5").Ok);
+        Assert.True(CliRunner.Run("template", "list", "--take", "5").Ok);
     }
 
     [SkippableFact]
     public void MembersList_DefaultPaging_DoesNotError()
     {
         RequireLive();
-        // Regression guard for #39: a bare `members list` (no --take) must not 500.
-        var result = CliRunner.Run("members", "list");
+        // Regression guard for #39: a bare `member list` (no --take) must not 500.
+        var result = CliRunner.Run("member", "list");
         Assert.True(result.Ok, result.Stderr);
     }
 
@@ -103,7 +103,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     public void LanguagesList_ReturnsItems()
     {
         RequireLive();
-        var result = CliRunner.Run("languages", "list");
+        var result = CliRunner.Run("language", "list");
         Assert.True(result.Ok, result.Stderr);
         Assert.Equal(JsonValueKind.Array, result.Data().ValueKind);
     }
@@ -116,7 +116,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         // Pick a valid BCP-47 culture that is NOT already configured, so this is a genuine
         // new-language create rather than an "already exists" 400. The instance ships with a
         // few languages, so probe the list and take the first spare candidate.
-        var existing = CliRunner.Run("languages", "list");
+        var existing = CliRunner.Run("language", "list");
         Assert.True(existing.Ok, existing.Stderr);
         var iso = new[] { "fr-CA", "es-MX", "de-AT", "pt-BR", "en-AU", "nl-BE" }.FirstOrDefault(c =>
             !existing.Stdout.Contains($"\"{c}\"")
@@ -126,7 +126,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         // Create (now on the generated client). The create echoes the accepted request, so
         // isoCode/name come back populated rather than blank (guards #74 for this resource).
         var create = CliRunner.Run(
-            "languages",
+            "language",
             "create",
             "--culture",
             iso,
@@ -146,7 +146,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             // assertion above fails, so a failing run never leaks a language. A successful
             // delete also proves the create really persisted (deleting a missing iso fails).
             // --yes: delete is destructive and the harness runs non-interactively (#70).
-            var delete = CliRunner.Run("languages", "delete", iso, "--yes");
+            var delete = CliRunner.Run("language", "delete", iso, "--yes");
             Assert.True(delete.Ok, delete.Stderr);
         }
     }
@@ -177,16 +177,16 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     {
         RequireLive();
 
-        // Regression for #136: `members create` had no --password, so it sent an empty password
+        // Regression for #136: `member create` had no --password, so it sent an empty password
         // that the default complexity policy rejected with HTTP 400. It now generates a compliant
         // password when none is supplied. Create a throwaway member type, then a member with no
         // --password (the auto-generated path), and read it back.
-        // NOTE: this does not assert `members delete` - that returns HTTP 500 on Umbraco 17.x
+        // NOTE: this does not assert `member delete` - that returns HTTP 500 on Umbraco 17.x
         // (tracked separately); cleanup deletes the member best-effort and relies on the
         // member-type delete cascading to remove any member of that type.
         var mtAlias = "clitestMember" + Guid.NewGuid().ToString("N")[..8];
         var memberType = CliRunner.Run(
-            "member-types",
+            "member-type",
             "create",
             "--alias",
             mtAlias,
@@ -202,7 +202,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         {
             var email = $"clitest-{Guid.NewGuid():N}@example.com";
             var create = CliRunner.Run(
-                "members",
+                "member",
                 "create",
                 "--email",
                 email,
@@ -215,15 +215,15 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             memberId = create.Data().GetProperty("id").GetString();
             Assert.False(string.IsNullOrWhiteSpace(memberId));
 
-            var get = CliRunner.Run("members", "get", memberId!);
+            var get = CliRunner.Run("member", "get", memberId!);
             Assert.True(get.Ok, get.Stderr);
             Assert.Equal(memberId, get.Data().GetProperty("id").GetString());
         }
         finally
         {
             if (memberId is not null)
-                CliRunner.Run("members", "delete", memberId, "--yes");
-            CliRunner.Run("member-types", "delete", memberTypeId!, "--yes");
+                CliRunner.Run("member", "delete", memberId, "--yes");
+            CliRunner.Run("member-type", "delete", memberTypeId!, "--yes");
         }
     }
 
@@ -238,7 +238,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     public void WebhooksList_ReturnsItems()
     {
         RequireLive();
-        Assert.True(CliRunner.Run("webhooks", "list", "--take", "5").Ok);
+        Assert.True(CliRunner.Run("webhook", "list", "--take", "5").Ok);
     }
 
     [SkippableFact]
@@ -249,7 +249,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
 
         // A create with --dry-run must return a dry-run preview of the POST and change nothing.
         var dry = CliRunner.Run(
-            "webhooks",
+            "webhook",
             "create",
             "--url",
             marker,
@@ -266,7 +266,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Contains("webhook", request.GetProperty("url").GetString());
 
         // Nothing should have been created - the marker URL must not appear in the list.
-        var list = CliRunner.Run("webhooks", "list", "--take", "100");
+        var list = CliRunner.Run("webhook", "list", "--take", "100");
         Assert.True(list.Ok, list.Stderr);
         Assert.DoesNotContain(marker, list.Stdout);
     }
@@ -317,21 +317,21 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     /// <summary>
     /// Finds a document-type alias that exists on the live instance, or skips the test. The alias
     /// cannot be hard-coded: a dry-run content create now resolves the alias against the real
-    /// instance (#79), and every instance has a different schema. `content-types list` exposes only
+    /// instance (#79), and every instance has a different schema. `document-type list` exposes only
     /// name + id (and includes folders, whose ids 404 on get - see issue #97), so each candidate is
     /// read by-id until one yields an alias.
     /// </summary>
     /// <returns>The id and alias of an existing document type.</returns>
     private static (string Id, string Alias) FindDocumentType()
     {
-        var list = CliRunner.Run("content-types", "list", "--take", "50");
+        var list = CliRunner.Run("document-type", "list", "--take", "50");
         Skip.IfNot(list.Ok, $"Could not list content types: {list.Stderr}");
 
         foreach (var item in list.Data().EnumerateArray())
         {
             if (item.TryGetProperty("id", out var idProp) && idProp.GetString() is { } id)
             {
-                var get = CliRunner.Run("content-types", "get", id);
+                var get = CliRunner.Run("document-type", "get", id);
                 if (
                     get.Ok
                     && get.Data().TryGetProperty("alias", out var alias)
@@ -475,7 +475,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         // A write is refused (exit 2) and nothing is created.
         const string marker = "https://example.com/readonly-should-not-create";
         var create = CliRunner.Run(
-            "webhooks",
+            "webhook",
             "create",
             "--url",
             marker,
@@ -484,7 +484,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             "--readonly"
         );
         Assert.Equal(2, create.ExitCode);
-        var hooks = CliRunner.Run("webhooks", "list", "--take", "100");
+        var hooks = CliRunner.Run("webhook", "list", "--take", "100");
         Assert.DoesNotContain(marker, hooks.Stdout);
     }
 
@@ -500,7 +500,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             // In-list group runs.
             Assert.True(CliRunner.Run("content", "list", "--take", "1").Ok);
             // Out-of-list command is refused before running (exit 2).
-            Assert.Equal(2, CliRunner.Run("webhooks", "list", "--take", "1").ExitCode);
+            Assert.Equal(2, CliRunner.Run("webhook", "list", "--take", "1").ExitCode);
             // auth stays allowed regardless of the allow-list.
             Assert.True(CliRunner.Run("auth", "whoami").Ok);
         }
@@ -516,7 +516,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         RequireLive();
         // Create a webhook to attempt deleting.
         var create = CliRunner.Run(
-            "webhooks",
+            "webhook",
             "create",
             "--url",
             "https://example.com/confirm-gate-test",
@@ -530,15 +530,15 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         {
             // Delete without --yes: the harness runs non-interactively, so the destructive-op
             // gate (#70) must refuse (exit 2) and the webhook must still exist.
-            var refused = CliRunner.Run("webhooks", "delete", id);
+            var refused = CliRunner.Run("webhook", "delete", id);
             Assert.Equal(2, refused.ExitCode);
-            var list = CliRunner.Run("webhooks", "list", "--take", "100");
+            var list = CliRunner.Run("webhook", "list", "--take", "100");
             Assert.Contains(id, list.Stdout);
         }
         finally
         {
             // Clean up with --yes (the sanctioned bypass).
-            CliRunner.Run("webhooks", "delete", id, "--yes");
+            CliRunner.Run("webhook", "delete", id, "--yes");
         }
     }
 
@@ -549,7 +549,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
 
         // Create
         var create = CliRunner.Run(
-            "webhooks",
+            "webhook",
             "create",
             "--url",
             "https://example.com/integration-test-hook",
@@ -563,7 +563,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         try
         {
             // List should now include the new webhook.
-            var list = CliRunner.Run("webhooks", "list", "--take", "100");
+            var list = CliRunner.Run("webhook", "list", "--take", "100");
             Assert.True(list.Ok, list.Stderr);
             var found = list.Data()
                 .EnumerateArray()
@@ -574,7 +574,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         {
             // Delete (self-clean) - runs even if the assertions above fail.
             // --yes: delete is destructive and the harness runs non-interactively (#70).
-            var delete = CliRunner.Run("webhooks", "delete", id!, "--yes");
+            var delete = CliRunner.Run("webhook", "delete", id!, "--yes");
             Assert.True(delete.Ok, delete.Stderr);
         }
     }

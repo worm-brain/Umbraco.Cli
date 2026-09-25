@@ -259,7 +259,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         }
 
         throw new UnresolvedReferenceException(
-            $"No document type found with alias '{aliasOrId}'. Use 'umbraco content-types list' "
+            $"No document type found with alias '{aliasOrId}'. Use 'umbraco document-type list' "
                 + "to find one, or pass a document type id.",
             404
         );
@@ -645,7 +645,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// When no cultures are given, the document is read and the call mirrors publish (#235): a
     /// document that varies by culture gets every culture it has listed, because Umbraco 17.7
     /// rejects a culture-less body on it with <c>400 "Cannot publish invariant culture when the
-    /// document varies by culture."</c>. An invariant document gets the <c>cultures</c> field
+    /// document varies by culture."</c>. An invariant document gets the <c>culture</c> field
     /// omitted, which is how it is unpublished whole (#149). <c>"*"</c> is never sent: it is the
     /// invariant culture, not a wildcard (#158).
     /// </para>
@@ -1722,7 +1722,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <c>/data-type</c> collection). Folders are organisational containers whose ids 404 on
     /// <c>data-type get</c>, so the tree is walked to return only real data types - folders
     /// excluded, types nested inside folders included - then paged client-side (#135, mirroring
-    /// the #97 fix for content-types/media-types). The editor alias is not carried on tree
+    /// the #97 fix for document-type/media-type). The editor alias is not carried on tree
     /// items, so only id/name/editorUiAlias are populated for the list view.
     /// </summary>
     /// <param name="skip">Number of items to skip (paging).</param>
@@ -2364,7 +2364,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         }
 
         throw new UnresolvedReferenceException(
-            $"No member type found with alias '{aliasOrId}'. Use 'umbraco member-types list' "
+            $"No member type found with alias '{aliasOrId}'. Use 'umbraco member-type list' "
                 + "to find one, or pass a member type id.",
             404
         );

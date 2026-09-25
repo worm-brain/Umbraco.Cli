@@ -4,7 +4,7 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Users;
 
-/// <summary>Builds <c>users invite</c>: send an email invitation to a new back-office user.</summary>
+/// <summary>Builds <c>user invite</c>: send an email invitation to a new back-office user.</summary>
 public static class UsersInviteCommand
 {
     /// <summary>Builds the command.</summary>
@@ -18,8 +18,8 @@ public static class UsersInviteCommand
                 + "Umbraco sends the invitation by email, so the site must have SMTP configured; "
                 + "without it the invite is refused and no user is created.\n\n"
                 + "Examples:\n"
-                + "  umbraco users invite --email editor@example.com --name \"Jane Smith\" --group editor\n"
-                + "  umbraco users invite --email admin@example.com --name \"Bob\" --group admin --group translator --message \"Welcome to the team!\""
+                + "  umbraco user invite --email editor@example.com --name \"Jane Smith\" --group editor\n"
+                + "  umbraco user invite --email admin@example.com --name \"Bob\" --group admin --group translator --message \"Welcome to the team!\""
         ).Mutating();
         var emailOpt = new Option<string>("--email") { Required = true };
         var nameOpt = new Option<string>("--name") { Required = true };

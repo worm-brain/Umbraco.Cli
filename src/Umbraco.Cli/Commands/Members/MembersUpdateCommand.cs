@@ -4,11 +4,11 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Members;
 
-/// <summary>Wires the <c>members update</c> command (issue #59).</summary>
+/// <summary>Wires the <c>member update</c> command (issue #59).</summary>
 public static class MembersUpdateCommand
 {
     /// <summary>
-    /// Builds the <c>members update</c> command. Only the supplied options are changed — the
+    /// Builds the <c>member update</c> command. Only the supplied options are changed — the
     /// client reads the current member and merges them, so groups, property values and password
     /// are preserved (the member PUT is otherwise a full replace).
     /// </summary>
@@ -18,7 +18,7 @@ public static class MembersUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a member's email, name, or approved state by UUID.\n\nExamples:\n  umbraco members update 3f7a8b2e-... --name \"Jane Roe\"\n  umbraco members update 3f7a8b2e-... --email jane@example.com --approved"
+            "Update a member's email, name, or approved state by UUID.\n\nExamples:\n  umbraco member update 3f7a8b2e-... --name \"Jane Roe\"\n  umbraco member update 3f7a8b2e-... --email jane@example.com --approved"
         ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Member ID." };
         var emailOpt = new Option<string?>("--email") { Description = "New email address." };
@@ -65,7 +65,7 @@ public static class MembersUpdateCommand
                     parseResult,
                     async (client, c) =>
                     {
-                        // #212: --group took only GUIDs, although members list --group takes a
+                        // #212: --group took only GUIDs, although member list --group takes a
                         // name. Resolve every group before writing, so a typo changes nothing.
                         IReadOnlyList<Guid>? groups = null;
                         if (parseResult.GetValue(groupOpt) is { Length: > 0 } references)

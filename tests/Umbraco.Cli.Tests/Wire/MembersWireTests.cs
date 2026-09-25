@@ -150,7 +150,7 @@ public class MembersWireTests
         var body = handler.BodyOf(HttpMethod.Put, $"/member/{id}");
         Assert.False(
             body.AsObject().ContainsKey("newPassword"),
-            "members update must not touch the password unless --new-password was given."
+            "member update must not touch the password unless --new-password was given."
         );
     }
 

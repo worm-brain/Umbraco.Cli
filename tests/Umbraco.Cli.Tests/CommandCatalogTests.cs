@@ -296,7 +296,7 @@ public class CommandCatalogTests
     [Theory]
     [InlineData("content", "sort")]
     [InlineData("media", "sort")]
-    [InlineData("content", "domains", "set")]
+    [InlineData("content", "domain", "set")]
     [InlineData("document-blueprint", "from-document")]
     [InlineData("health", "run")]
     public void Describe_ShippedWritesWithNonStandardVerbs_AreMutating(params string[] path)

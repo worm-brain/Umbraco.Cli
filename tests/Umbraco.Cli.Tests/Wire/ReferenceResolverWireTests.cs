@@ -74,7 +74,7 @@ public class ReferenceResolverWireTests
         var result = await Wire.Client(Templates()).ResolveIdAsync(EntityKind.Template, "nope");
 
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);
-        Assert.Contains("umbraco templates list", result.ErrorMessage);
+        Assert.Contains("umbraco template list", result.ErrorMessage);
     }
 
     private static readonly Guid Brochure = Guid.Parse("22222222-0000-0000-0000-000000000001");
@@ -105,7 +105,7 @@ public class ReferenceResolverWireTests
     [Fact]
     public async Task GetMediaTypesAsync_FillsTheAlias()
     {
-        // #221: media-types list showed "alias": "" for every type.
+        // #221: media-type list showed "alias": "" for every type.
         var result = await Wire.Client(MediaTypes()).GetMediaTypesAsync(0, 20);
 
         Assert.Equal("brochure", Assert.Single(result.Data!.Items).Alias);

@@ -2,11 +2,11 @@ using System.CommandLine;
 
 namespace Umbraco.Cli.Commands.MemberTypes;
 
-/// <summary>Wires the <c>member-types list</c> command (issue #56).</summary>
+/// <summary>Wires the <c>member-type list</c> command (issue #56).</summary>
 public static class MemberTypesListCommand
 {
     /// <summary>
-    /// Builds the <c>member-types list</c> command. Backed by the member-type tree root, which
+    /// Builds the <c>member-type list</c> command. Backed by the member-type tree root, which
     /// exposes id/name/icon per item; alias and description require a single-item <c>get</c>.
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
@@ -15,7 +15,7 @@ public static class MemberTypesListCommand
     {
         var cmd = new Command(
             "list",
-            "List member types defined in the Umbraco instance.\n\nExamples:\n  umbraco member-types list\n  umbraco member-types list --output json | jq '.[].name'"
+            "List member types defined in the Umbraco instance.\n\nExamples:\n  umbraco member-type list\n  umbraco member-type list --output json | jq '.[].name'"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
         cmd.SetAction(

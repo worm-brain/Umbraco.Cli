@@ -192,7 +192,7 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// Every media type (folders excluded, nested types included) with its alias, read once per
-    /// client. Shared by the resolver and <c>media-types list</c> (#221).
+    /// client. Shared by the resolver and <c>media-type list</c> (#221).
     /// </summary>
     private async Task<List<MediaTypeResponse>> MediaTypesWithAliasAsync(CancellationToken ct) =>
         _mediaTypes ??= await TypesWithAliasAsync(
@@ -211,7 +211,7 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// Every member type (folders excluded, nested types included) with its alias, read once per
-    /// client, for <c>member-types list</c> (#213). The list read the tree root only before, so a
+    /// client, for <c>member-type list</c> (#213). The list read the tree root only before, so a
     /// type inside a folder was missing, and the alias was always <c>""</c>.
     /// </summary>
     private async Task<List<MemberTypeResponse>> MemberTypesWithAliasAsync(CancellationToken ct) =>

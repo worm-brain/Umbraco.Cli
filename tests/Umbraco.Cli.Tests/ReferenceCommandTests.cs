@@ -92,7 +92,7 @@ public class ReferenceCommandTests
         var fake = new FakeUmbracoManagementClient();
         fake.References[(EntityKind.Template, "blogPost")] = id;
 
-        var exit = await Run(fake, "templates delete blogPost --yes");
+        var exit = await Run(fake, "template delete blogPost --yes");
 
         Assert.Equal(0, exit);
         Assert.Equal([id], fake.SchemaDeletedIds);
@@ -105,7 +105,7 @@ public class ReferenceCommandTests
         var fake = new FakeUmbracoManagementClient();
         fake.References[(EntityKind.MemberType, "siteMember")] = id;
 
-        var exit = await Run(fake, "member-types delete siteMember --yes");
+        var exit = await Run(fake, "member-type delete siteMember --yes");
 
         Assert.Equal(0, exit);
         Assert.Equal([id], fake.SchemaDeletedIds);
@@ -120,7 +120,7 @@ public class ReferenceCommandTests
         fake.References[(EntityKind.MemberType, "siteMember")] = id;
         fake.MemberCountsByType[id] = 3;
 
-        var exit = await Run(fake, "member-types delete siteMember --yes");
+        var exit = await Run(fake, "member-type delete siteMember --yes");
 
         Assert.Equal(2, exit);
         Assert.Empty(fake.SchemaDeletedIds);
@@ -129,13 +129,13 @@ public class ReferenceCommandTests
     [Fact]
     public async Task UserGroupsGet_ByAlias_ReadsTheResolvedGroup()
     {
-        // #217: user-groups get blogEditors was a GUID parse error.
+        // #217: user-group get blogEditors was a GUID parse error.
         var id = Guid.NewGuid();
         var fake = new FakeUmbracoManagementClient();
         fake.References[(EntityKind.UserGroup, "blogEditors")] = id;
         fake.UserGroupList.Add(new UserGroupResponse { Id = id, Alias = "blogEditors" });
 
-        var exit = await Run(fake, "user-groups get blogEditors");
+        var exit = await Run(fake, "user-group get blogEditors");
 
         Assert.Equal(0, exit);
     }
@@ -148,7 +148,7 @@ public class ReferenceCommandTests
 
         await Run(
             fake,
-            $"user-groups create --alias blogEditors --name Blog --document-start-node {blog}"
+            $"user-group create --alias blogEditors --name Blog --document-start-node {blog}"
         );
 
         Assert.Equal(blog, Assert.Single(fake.UserGroupsCreated).DocumentStartNode);
@@ -157,12 +157,12 @@ public class ReferenceCommandTests
     [Fact]
     public async Task MembersUpdate_GroupByName_SendsTheResolvedIds()
     {
-        // #212: members update --group Subscribers was a GUID parse error.
+        // #212: member update --group Subscribers was a GUID parse error.
         var subscribers = Guid.NewGuid();
         var fake = new FakeUmbracoManagementClient();
         fake.References[(EntityKind.MemberGroup, "Subscribers")] = subscribers;
 
-        var exit = await Run(fake, $"members update {Guid.NewGuid()} --group Subscribers");
+        var exit = await Run(fake, $"member update {Guid.NewGuid()} --group Subscribers");
 
         Assert.Equal(0, exit);
         Assert.Equal([subscribers], fake.LastMemberUpdate!.Value.Request.Groups!);
@@ -173,7 +173,7 @@ public class ReferenceCommandTests
     {
         var fake = new FakeUmbracoManagementClient();
 
-        var exit = await Run(fake, $"members update {Guid.NewGuid()} --group Nope");
+        var exit = await Run(fake, $"member update {Guid.NewGuid()} --group Nope");
 
         Assert.Equal((1, false), (exit, fake.LastMemberUpdate.HasValue));
     }
@@ -267,7 +267,7 @@ public class ReferenceCommandTests
     {
         var fake = new FakeUmbracoManagementClient();
 
-        var exit = await Run(fake, "templates delete nope --yes");
+        var exit = await Run(fake, "template delete nope --yes");
 
         Assert.Equal((1, 0), (exit, fake.SchemaDeletedIds.Count));
     }

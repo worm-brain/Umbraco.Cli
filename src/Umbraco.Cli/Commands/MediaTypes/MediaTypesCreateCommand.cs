@@ -4,11 +4,11 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MediaTypes;
 
-/// <summary>Wires the <c>media-types create</c> command (issue #55).</summary>
+/// <summary>Wires the <c>media-type create</c> command (issue #55).</summary>
 public static class MediaTypesCreateCommand
 {
     /// <summary>
-    /// Builds the <c>media-types create</c> command. The API requires an <c>icon</c> and a full
+    /// Builds the <c>media-type create</c> command. The API requires an <c>icon</c> and a full
     /// field set (issue #47 parity); it defaults to a generic image icon and can be overridden
     /// with <c>--icon</c>. All other API-required fields are defaulted by
     /// <see cref="CreateMediaTypeRequest"/>.
@@ -19,7 +19,7 @@ public static class MediaTypesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new media type with a given name and alias.\n\nExamples:\n  umbraco media-types create --name \"Custom Image\" --alias customImage\n  umbraco media-types create --name \"Widget\" --alias widget --is-element\n  umbraco media-types create --name \"Doc\" --alias doc --allow-at-root --icon icon-document"
+            "Create a new media type with a given name and alias.\n\nExamples:\n  umbraco media-type create --name \"Custom Image\" --alias customImage\n  umbraco media-type create --name \"Widget\" --alias widget --is-element\n  umbraco media-type create --name \"Doc\" --alias doc --allow-at-root --icon icon-document"
         ).Mutating();
         var nameOpt = new Option<string>("--name");
         var aliasOpt = new Option<string>("--alias");

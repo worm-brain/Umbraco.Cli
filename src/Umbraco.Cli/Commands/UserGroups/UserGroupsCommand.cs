@@ -5,20 +5,20 @@ using Umbraco.Cli.Infrastructure;
 namespace Umbraco.Cli.Commands.UserGroups;
 
 /// <summary>
-/// Wires the <c>user-groups</c> noun (issue #109) and its verbs: list/get/create/update/delete,
+/// Wires the <c>user-group</c> noun (issue #109) and its verbs: list/get/create/update/delete,
 /// bulk delete-many, and add-users/remove-users membership. Granular per-node permissions are a
 /// deferred follow-up, so create/update expose only the scalar and string-list fields as options.
 /// </summary>
 public static class UserGroupsCommand
 {
-    /// <summary>Builds the <c>user-groups</c> noun with its verbs.</summary>
+    /// <summary>Builds the <c>user-group</c> noun with its verbs.</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "user-groups",
-            "List, inspect, and manage Umbraco user groups.\n\nExamples:\n  umbraco user-groups list\n  umbraco user-groups create --alias editors --name Editors --section Umb.Section.Content"
+            "user-group",
+            "List, inspect, and manage Umbraco user groups.\n\nExamples:\n  umbraco user-group list\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content"
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildGet(executor));
@@ -54,7 +54,7 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "get",
-            "Get a user group by id, alias or name.\n\nExample:\n  umbraco user-groups get blogEditors"
+            "Get a user group by id, alias or name.\n\nExample:\n  umbraco user-group get blogEditors"
         );
         var idArg = Reference.Argument(EntityKind.UserGroup);
         cmd.Add(idArg);
@@ -79,7 +79,7 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "create",
-            "Create a user group.\n\nExample:\n  umbraco user-groups create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read"
+            "Create a user group.\n\nExample:\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read"
         ).Mutating();
         var aliasOpt = new Option<string>("--alias")
         {
@@ -217,7 +217,7 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "delete-many",
-            "Delete several user groups in one call.\n\nExample:\n  umbraco user-groups delete-many --ids blogEditors newsEditors"
+            "Delete several user groups in one call.\n\nExample:\n  umbraco user-group delete-many --ids blogEditors newsEditors"
         ).Mutating();
         var idsOpt = ListOption
             .Strings("--ids", "The user groups to delete: ids, aliases or names.")
@@ -253,7 +253,7 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "add-users",
-            "Add users to a user group.\n\nExample:\n  umbraco user-groups add-users blogEditors --user <guid> --user <guid>"
+            "Add users to a user group.\n\nExample:\n  umbraco user-group add-users blogEditors --user <guid> --user <guid>"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
         var usersOpt = ListOption.Guids("--user", "User ID to add.").AsRequired();
@@ -282,7 +282,7 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "remove-users",
-            "Remove users from a user group.\n\nExample:\n  umbraco user-groups remove-users blogEditors --user <guid>"
+            "Remove users from a user group.\n\nExample:\n  umbraco user-group remove-users blogEditors --user <guid>"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
         var usersOpt = ListOption.Guids("--user", "User ID to remove.").AsRequired();

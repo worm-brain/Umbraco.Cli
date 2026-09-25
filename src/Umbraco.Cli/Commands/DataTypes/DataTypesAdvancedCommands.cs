@@ -6,7 +6,7 @@ using Umbraco.Cli.Infrastructure;
 namespace Umbraco.Cli.Commands.DataTypes;
 
 /// <summary>
-/// Advanced <c>data-types</c> verbs (issue #121): is-used, referenced-by, copy, move, and a
+/// Advanced <c>data-type</c> verbs (issue #121): is-used, referenced-by, copy, move, and a
 /// <c>folder</c> sub-noun (create/get/update/delete). copy/move and folder create/update/delete are
 /// writes; delete and folder delete are confirmation-gated.
 /// </summary>
@@ -46,7 +46,7 @@ public static class DataTypesAdvancedCommands
             "referenced-by",
             "List what references a data type: the properties that use it, and the items holding values in it. "
                 + "Each row's 'kind' says what it is (e.g. documentTypePropertyType).\n\n"
-                + "Example:\n  umbraco data-types referenced-by Textstring"
+                + "Example:\n  umbraco data-type referenced-by Textstring"
         );
         var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);

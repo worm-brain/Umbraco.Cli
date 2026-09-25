@@ -138,7 +138,7 @@ public class CoverageFinaleCommandTests
         var id = Guid.NewGuid();
         var target = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} --yes data-types move {id} --target {target}");
+        var exit = await Run(root, $"{Auth} --yes data-type move {id} --target {target}");
 
         Assert.Equal(0, exit);
         var (movedId, movedTarget) = Assert.Single(fake.DataTypesMoved);
@@ -153,7 +153,7 @@ public class CoverageFinaleCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
-        var exit = await Run(root, $"{Auth} data-types copy {Guid.NewGuid()}");
+        var exit = await Run(root, $"{Auth} data-type copy {Guid.NewGuid()}");
 
         Assert.Equal(0, exit);
         Assert.Single(fake.DataTypesCopied);
@@ -168,7 +168,7 @@ public class CoverageFinaleCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} data-types folder create --name Pickers --parent {parent}"
+            $"{Auth} data-type folder create --name Pickers --parent {parent}"
         );
 
         Assert.Equal(0, exit);
@@ -183,7 +183,7 @@ public class CoverageFinaleCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
-        var exit = await Run(root, $"{Auth} data-types folder delete {Guid.NewGuid()}");
+        var exit = await Run(root, $"{Auth} data-type folder delete {Guid.NewGuid()}");
 
         Assert.Equal(2, exit);
         Assert.Empty(fake.DataTypeFoldersDeleted);

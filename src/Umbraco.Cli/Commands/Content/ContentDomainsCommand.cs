@@ -5,7 +5,7 @@ using Umbraco.Cli.Infrastructure;
 namespace Umbraco.Cli.Commands.Content;
 
 /// <summary>
-/// Wires <c>content domains</c> (#180) - Culture and Hostnames.
+/// Wires <c>content domain</c> (#180) - Culture and Hostnames.
 /// <para>
 /// Nothing in the CLI covered domains, so a multilingual site could be built and published and
 /// still be unreachable in every culture but the default: Umbraco logs "the root node was
@@ -21,7 +21,7 @@ public static class ContentDomainsCommand
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "domains",
+            "domain",
             "Read and set a document's Culture and Hostnames bindings."
         );
         cmd.Add(BuildGet(executor));
@@ -29,14 +29,14 @@ public static class ContentDomainsCommand
         return cmd;
     }
 
-    /// <summary>Builds <c>content domains get</c>.</summary>
+    /// <summary>Builds <c>content domain get</c>.</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
     private static Command BuildGet(CommandExecutor executor)
     {
         var cmd = new Command(
             "get",
-            "Show a document's domains.\n\nExample:\n  umbraco content domains get 3f7a8b2e-..."
+            "Show a document's domains.\n\nExample:\n  umbraco content domain get 3f7a8b2e-..."
         );
         var idArg = new Argument<Guid>("id") { Description = "Document ID." };
         cmd.Add(idArg);
@@ -51,7 +51,7 @@ public static class ContentDomainsCommand
         return cmd;
     }
 
-    /// <summary>Builds <c>content domains set</c>.</summary>
+    /// <summary>Builds <c>content domain set</c>.</summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
     private static Command BuildSet(CommandExecutor executor)
@@ -59,7 +59,7 @@ public static class ContentDomainsCommand
         // A PUT under a verb the catalog's verb set does not know.
         var cmd = new Command(
             "set",
-            "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domains set <id> --default en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domains set <id> --replace --domain example.com=en-US"
+            "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domain set <id> --default en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domain set <id> --replace --domain example.com=en-US"
         ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Document ID." };
         var defaultOpt = new Option<string?>("--default")

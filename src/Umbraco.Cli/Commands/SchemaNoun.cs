@@ -22,7 +22,7 @@ public sealed record SchemaNoun(
     > ListIds
 )
 {
-    /// <summary>Document types (<c>content-types</c>).</summary>
+    /// <summary>Document types (<c>document-type</c>).</summary>
     public static readonly SchemaNoun DocumentTypes = new(
         EntityKind.DocumentType,
         "document types",

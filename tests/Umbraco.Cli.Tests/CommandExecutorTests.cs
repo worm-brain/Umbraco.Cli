@@ -532,7 +532,7 @@ public class CommandExecutorTests
         var (executor, parse) = Build(
             new FakeUmbracoManagementClient(),
             allowedCommands: "content,media",
-            command: "webhooks.list"
+            command: "webhook.list"
         );
 
         var (stdout, stderr, exit) = await Capture(() =>
@@ -625,7 +625,7 @@ public class CommandExecutorTests
             new FakeUmbracoManagementClient(),
             args: $"--host https://example.com --token tok --output json --config \"{bypassConfig}\"",
             allowedCommands: "content",
-            command: "webhooks.list"
+            command: "webhook.list"
         );
 
         var (_, stderr, exit) = await Capture(() =>
@@ -667,7 +667,7 @@ public class CommandExecutorTests
             new FakeUmbracoManagementClient(),
             args: $"--host https://example.com --token tok --output json --config \"{attackerConfig}\" --profile ghost",
             allowedCommands: "content",
-            command: "webhooks.list"
+            command: "webhook.list"
         );
 
         var (_, _, exit) = await Capture(() =>

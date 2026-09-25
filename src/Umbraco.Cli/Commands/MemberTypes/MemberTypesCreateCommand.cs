@@ -4,11 +4,11 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MemberTypes;
 
-/// <summary>Wires the <c>member-types create</c> command (issue #56).</summary>
+/// <summary>Wires the <c>member-type create</c> command (issue #56).</summary>
 public static class MemberTypesCreateCommand
 {
     /// <summary>
-    /// Builds the <c>member-types create</c> command. The API requires an <c>icon</c> and a
+    /// Builds the <c>member-type create</c> command. The API requires an <c>icon</c> and a
     /// full field set (issue #47 parity); it defaults to a generic member icon and can be
     /// overridden with <c>--icon</c>. All other API-required fields are defaulted by
     /// <see cref="CreateMemberTypeRequest"/>.
@@ -19,7 +19,7 @@ public static class MemberTypesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new member type with a given name and alias.\n\nExamples:\n  umbraco member-types create --name \"Author\" --alias author\n  umbraco member-types create --name \"Subscriber\" --alias subscriber --icon icon-user"
+            "Create a new member type with a given name and alias.\n\nExamples:\n  umbraco member-type create --name \"Author\" --alias author\n  umbraco member-type create --name \"Subscriber\" --alias subscriber --icon icon-user"
         ).Mutating();
         var nameOpt = new Option<string>("--name");
         var aliasOpt = new Option<string>("--alias");
