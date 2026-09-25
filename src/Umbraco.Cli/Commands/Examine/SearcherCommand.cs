@@ -15,7 +15,7 @@ public static class SearcherCommand
     {
         var cmd = new Command(
             "searcher",
-            "List Examine searchers and query them.\n\nExample:\n  umbraco searcher query ExternalSearcher --term news"
+            "List Examine searchers and query them.\n\nExample:\n  umbraco searcher query ExternalIndex --term news"
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildQuery(executor));

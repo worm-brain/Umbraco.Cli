@@ -18,7 +18,7 @@ public static class DataTypesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a data type by UUID. Omitted fields (and editor configuration) are preserved.\n\nExample:\n  umbraco data-types update 3f7a8b2e-... --name \"My Text\""
+            "Update a data type by name or id. Omitted fields (and editor configuration) are preserved.\n\nExample:\n  umbraco data-types update Textstring --name \"My Text\""
         );
         var idArg = new Argument<string?>("id")
         {

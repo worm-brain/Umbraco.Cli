@@ -95,8 +95,9 @@ faked with a large `--take`, which would be the same silent cap further out.
   `--exclude-root`, `--id`, `--level`, `--events`) - but not for the `key=value` options
   (`--value`, `--values`, `--domain`), whose values may contain a comma.
 - **An item can be named instead of given by id** wherever the syntax below says `<id|alias>`,
-  `<id|name>` or `<key|id>`. An alias is matched first, then a name, ignoring case. A name that
-  matches more than one item is refused, and the error lists each match's id.
+  `<id|name>` or `<key|id>`. An alias is matched first, then a name, ignoring case (document types
+  match their alias only). A name that matches more than one item is refused, and the error lists
+  each match's id.
 
 ## Discovery: `commands` and `--schema`
 
@@ -321,7 +322,7 @@ umbraco media list [--parent <id>]
 umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco media get <id>                                     # includes urls[] and file metadata in values[]; mediaType.alias is the real alias
-umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>] [--id <guid>] [--value alias=value]...  # staged via temporary-file
+umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <id|alias|name>] [--id <guid>] [--value alias=value]...  # staged via temporary-file
 # --id keeps the item's GUID across instances (content references media by id);
 # --value sets other properties, e.g. a custom media type's required fields
 umbraco media delete <id>                                  # permanent; needs --yes
@@ -440,7 +441,7 @@ umbraco languages delete <iso-code>                        # needs --yes non-int
 umbraco templates list                                     # every template, nested ones too, with its alias
 umbraco templates get <id|alias>
 umbraco templates create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
-umbraco templates update <id|alias> --name <name> --alias <alias> [--content <razor> | --content-file <file>]
+umbraco templates update <id|alias> [--name <name>] [--alias <alias>] [--content <razor> | --content-file <file>]   # omitted fields are kept
 umbraco templates delete <id|alias>                        # needs --yes non-interactively
 ```
 
@@ -448,7 +449,7 @@ umbraco templates delete <id|alias>                        # needs --yes non-int
 
 ```bash
 umbraco members list [--group <name>]                      # filters by member group
-umbraco members get <id>                                   # UUID only; includes groups and property values
+umbraco members get <id>                                   # UUID only; groups as [{id, name}], memberType.alias, property values
 umbraco members create --email <email> --name <name> --type <alias>
 umbraco members update <id> [--email <email>] [--name <name>] [--approved] [--username <name>] [--group <name|id> ...] [--value alias=value ...] [--new-password <pw>] [--unlock]
 umbraco members delete <id>                                # needs --yes non-interactively
@@ -490,7 +491,7 @@ umbraco member-groups delete <id|name>                     # needs --yes non-int
 
 ```bash
 umbraco users list
-umbraco users get <id|email>
+umbraco users get <id>
 umbraco users invite --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--message <text>]   # --group repeatable, at least one
 ```
 

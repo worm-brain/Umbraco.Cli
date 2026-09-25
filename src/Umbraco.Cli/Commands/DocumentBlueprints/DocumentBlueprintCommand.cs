@@ -233,7 +233,7 @@ public static class DocumentBlueprintCommand
                 + "Required unless --json-body or --schema is used.",
         };
         var body = new JsonBodyOption(
-            "Path to a JSON file (or - for stdin) with the full update body (overrides --name)."
+            "Path to a JSON file (or - for stdin) with the update body; merged into the blueprint unless --replace (overrides --name)."
         );
         // #242: content update merges and blueprint update replaced, so the same body lost fields
         // on one and not the other. Both merge now; --replace is the way to the old behaviour.
@@ -383,7 +383,7 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "move",
-            "Move a blueprint under a folder (or to the root when --target is omitted)."
+            "Move a blueprint under a folder (or to the root when --parent is omitted)."
         );
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         var targetOpt = new Option<Guid?>("--parent", "--target")

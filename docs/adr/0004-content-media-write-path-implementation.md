@@ -40,7 +40,8 @@ command. The same shape resolves member-type via its tree + by-id endpoints.
 
 The tree walk and every alias seen are cached per client instance, and the scan
 short-circuits on the first match, so the usual one-alias-per-invocation case
-stops as soon as it is found.
+stops as soon as it is found. (Since #250 Phase 3 that short-circuit is document
+types only; media and member types read every type's alias once, a few at a time.)
 
 - **Superseded first attempt (the search):** the original decision here was
   search-then-GET (`item/document-type/search?query=<alias>`). The open risk
@@ -58,6 +59,11 @@ stops as soon as it is found.
 - **Alternative rejected:** switch the CLI to match on *Name* - simpler (one
   search, no extra GET) and mirrors the media-type resolver, but a breaking
   change to a documented contract; developers know aliases, not display names.
+- **Amended (#250 Phase 3):** the template resolver had the same flaw - its item
+  search also indexes names only (#206) - and now walks the template tree and reads
+  the aliases from the item endpoint. All the resolvers are one `IReferenceResolver`:
+  alias first, then name, a name matching several items refused; document types stay
+  alias-only.
 - **Cost:** the tree walk plus one GET per candidate until the alias matches.
   Chattier than a search would have been, but it is the only correct option
   given the item model carries no alias, and a CLI/agent tool needs the

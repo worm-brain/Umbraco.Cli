@@ -133,7 +133,8 @@ reached (`unreachable`/`timeout`) or the version could not be determined.
 `invalid_argument` means the command line itself did not parse - a value of the wrong type, an
 unknown option, a missing argument - so no request was made. It covers parse errors only for now.
 Input the CLI rejects after parsing is not categorised this way yet: a malformed `--json-body`
-carries no `category`, and an alias that matches nothing is a 404 `request_rejected`. Other policy
+carries no `category`, an alias that matches nothing is a 404 `request_rejected`, and a name that
+matches several items is a 409 listing their ids. Other policy
 errors that never hit the API (auth, `--readonly`,
 cancellation) carry neither field.
 
@@ -448,13 +449,12 @@ bypasses every guardrail in section 9 - `--readonly` and the allow-list constrai
 `curl`. If you are the supervising process, that is the reason to prefer a CLI command once one
 exists.
 
-### Parse errors are not JSON
+### Parse errors are envelopes too
 
-An invalid argument (a non-GUID where a GUID is expected, a missing required option) is reported
-as **plain text on stderr plus help text on stdout**, ignoring `--output json`
-([#167](https://github.com/worm-brain/Umbraco.Cli/issues/167)). Piping such a run into `jq`
-fails with a parse error rather than yielding an error envelope. Check the exit code before
-parsing: `1` can mean either an API error (envelope on stderr) or a parse error (no envelope).
+An invalid argument is reported like any other error: an envelope with `category`
+`invalid_argument` and a message that says what was expected, e.g. `'Blog' is not valid for
+--parent: expected a GUID id.` ([#167](https://github.com/worm-brain/Umbraco.Cli/issues/167),
+#211).
 
 ## 9. Guardrails (for whoever supervises the agent)
 
