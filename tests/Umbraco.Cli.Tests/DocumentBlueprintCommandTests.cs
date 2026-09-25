@@ -178,7 +178,7 @@ public class DocumentBlueprintCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} document-blueprint from-document {source} --name Starter"
+            $"{Auth} document-blueprint create --from-document {source} --name Starter"
         );
 
         Assert.Equal(0, exit);

@@ -47,7 +47,7 @@ public static class HealthCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Show a health-check group and the checks it contains.");
+        var cmd = new Command("get", "Get a health-check group and the checks it contains.");
         var nameArg = new Argument<string>("name") { Description = "Health-check group name." };
         cmd.Add(nameArg);
         cmd.SetAction(

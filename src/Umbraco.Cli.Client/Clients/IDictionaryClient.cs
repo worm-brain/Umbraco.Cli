@@ -36,6 +36,20 @@ public interface IDictionaryClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Walks the dictionary beneath <paramref name="parentId"/> into a flat pre-order list, each
+    /// item carrying its depth and parent.
+    /// </summary>
+    /// <param name="parentId">The item whose subtree to walk; null walks from the root.</param>
+    /// <param name="maxDepth">The deepest level to descend to (1 = direct children).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The subtree, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<TreeItem>>> WalkDictionaryTreeAsync(
+        Guid? parentId,
+        int maxDepth,
+        CancellationToken ct = default
+    );
+
     /// <summary>Reparents a dictionary item under a new target (issue #110).</summary>
     /// <param name="id">The dictionary item id to move.</param>
     /// <param name="targetId">Target parent id; null moves the item to the dictionary root.</param>

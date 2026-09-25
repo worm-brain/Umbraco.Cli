@@ -18,7 +18,7 @@ public static class LogViewerCommand
     {
         var cmd = new Command(
             "log-viewer",
-            "Query the Umbraco logs.\n\nExamples:\n  umbraco log-viewer log --level Error --take 50\n  umbraco log-viewer level-count"
+            "Query the Umbraco logs.\n\nExamples:\n  umbraco log-viewer list --level Error --take 50\n  umbraco log-viewer level-count"
         );
         cmd.Add(BuildLog(executor));
         cmd.Add(BuildLevels(executor));
@@ -31,7 +31,7 @@ public static class LogViewerCommand
     private static Command BuildLog(CommandExecutor executor)
     {
         var cmd = new Command(
-            "log",
+            "list",
             "List log messages, optionally filtered by level/date/expression."
         );
         var levelOpt = ListOption.Enums<LogLevel>(

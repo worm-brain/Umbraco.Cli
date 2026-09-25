@@ -118,8 +118,8 @@ umbraco auth login [--host <url>] [--client-id <id>] [--client-secret <secret>]
 umbraco auth logout [--profile <name>]        # clears credentials; preserves the profile's allow-list
 umbraco auth whoami                           # the resolved identity
 umbraco auth doctor [--output json]           # diagnose host/TLS/credentials/auth/identity/version
-umbraco auth profiles                         # list credential profiles; * marks the default
-umbraco auth use <profile>                    # make a profile the default
+umbraco auth profile list                         # list credential profiles; * marks the default
+umbraco auth profile use <profile>                    # make a profile the default
 ```
 
 `auth doctor` runs a sequence of checks (host resolution, connectivity/TLS, credentials,
@@ -139,9 +139,9 @@ umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
 umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; no --culture publishes every culture the item has
 umbraco content unpublish <id> [--culture <csv>]          # takes offline; needs --yes; no --culture = every culture
-umbraco content versions <id> [--culture <code>]           # version history; no --culture = every culture, rows tagged `culture`
-umbraco content version <version-id>                       # one version, values included (diff before rollback)
-umbraco content rollback <version-id> [--culture <code>]   # restore a version
+umbraco content version list <id> [--culture <code>]           # version history; no --culture = every culture, rows tagged `culture`
+umbraco content version get <version-id>                       # one version, values included (diff before rollback)
+umbraco content version rollback <version-id> [--culture <code>]   # restore a version
 umbraco content trash <id>                                 # move to recycle bin (reversible)
 umbraco content restore <id> [--parent <id> | --to-root]   # restore from recycle bin; default = original parent
 umbraco content empty-recycle-bin                          # permanent; needs --yes
@@ -306,7 +306,7 @@ umbraco document-blueprint scaffold <id>                   # pre-filled create b
 umbraco document-blueprint create --document-type <alias|uuid> --name <name> [--culture <code>] [--parent <folder>] [--json-body <file>] [--schema] [--id <guid>]
 umbraco document-blueprint update <id> [--name <name> [--culture <code>]] [--json-body <file>] [--replace] [--schema]   # merges, like content update
 umbraco document-blueprint delete <id>                     # needs --yes non-interactively
-umbraco document-blueprint from-document <documentId> --name <name> [--parent <folder>] [--id <guid>]   # --name applies to every culture
+umbraco document-blueprint create --from-document <documentId> --name <name> [--parent <folder>] [--id <guid>]   # --name applies to every culture
 umbraco document-blueprint move <id> [--parent <folder>]   # omit --parent to move to the root; --target works too
 
 # folder sub-noun (organise blueprints in the tree):
@@ -541,8 +541,8 @@ umbraco user-data delete <key>                             # needs --yes non-int
 ## `dictionary`
 
 ```bash
-umbraco dictionary list
-umbraco dictionary tree [--parent <key|id>]                # browse the hierarchy: root, or children of --parent
+umbraco dictionary list [--parent <key|id>]                # one level: the root, or the direct children of --parent
+umbraco dictionary tree [--parent <key|id>] [--recursive] [--depth <n>]   # walk the hierarchy, like content tree
 umbraco dictionary get <id|key>
 umbraco dictionary create --key <key> [--value en-US=Hello --value da-DK=Hej] [--parent <key|id>]   # --parent creates under an item
 umbraco dictionary update <id|key> [--key <key>] [--value en-US=Home ...]   # merges by ISO code
@@ -628,7 +628,7 @@ umbraco health run <group>                                 # run the group (POST
 ## `log-viewer`
 
 ```bash
-umbraco log-viewer log [--level <Verbose|Debug|Information|Warning|Error|Fatal>]... [--filter <expr>] [--start-date <date>] [--end-date <date>] [--skip <n>] [--take <n>] [--asc]
+umbraco log-viewer list [--level <Verbose|Debug|Information|Warning|Error|Fatal>]... [--filter <expr>] [--start-date <date>] [--end-date <date>] [--skip <n>] [--take <n>] [--asc]
 umbraco log-viewer levels [--skip <n>] [--take <n>]        # loggers and their minimum levels
 umbraco log-viewer level-count [--start-date <date>] [--end-date <date>]   # message counts by level
 umbraco log-viewer message-templates [--skip <n>] [--take <n>] [--start-date <date>] [--end-date <date>]
@@ -645,7 +645,7 @@ time. Serilog filter expressions commonly start with `@` (e.g. `@Level='Error'`,
 expansion), so no escaping is needed:
 
 ```bash
-umbraco log-viewer log --filter "@Level='Error'"
+umbraco log-viewer list --filter "@Level='Error'"
 umbraco log-viewer saved-search create --name Errors --query "@Level='Error'"
 ```
 
@@ -667,7 +667,7 @@ umbraco manifest list [--scope All|Public|Private]         # default: All
 
 ```bash
 umbraco redirect list [--content-item <key>] [--filter <s>] [--skip <n>] [--take <n>]   # --content-item lists redirects to that document
-umbraco redirect status                                    # whether automatic URL-redirect tracking is enabled
+umbraco redirect tracking status                                    # whether automatic URL-redirect tracking is enabled
 umbraco redirect delete <id>                               # needs --yes non-interactively
 umbraco redirect tracking enable                           # site-wide toggle
 umbraco redirect tracking disable                          # site-wide toggle; needs --yes non-interactively

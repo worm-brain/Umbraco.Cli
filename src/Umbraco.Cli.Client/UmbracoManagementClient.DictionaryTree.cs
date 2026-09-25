@@ -27,47 +27,89 @@ public sealed partial class UmbracoManagementClient
         int skip = 0,
         int take = 100,
         CancellationToken ct = default
+    ) => GuardedApiAsync(ct, () => FetchDictionaryTreeAsync(parentId, skip, take, ct));
+
+    /// <summary>
+    /// Walks the dictionary beneath <paramref name="parentId"/> into a flat pre-order list, each
+    /// item carrying its depth and parent - the same walk <c>content tree</c> does.
+    /// </summary>
+    /// <param name="parentId">The item whose subtree to walk; null walks from the root.</param>
+    /// <param name="maxDepth">The deepest level to descend to (1 = direct children), clamped to the safety cap.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The subtree, or a mapped failure.</returns>
+    public Task<UmbracoResponse<IReadOnlyList<TreeItem>>> WalkDictionaryTreeAsync(
+        Guid? parentId,
+        int maxDepth,
+        CancellationToken ct = default
     ) =>
-        GuardedApiAsync(
+        GuardedApiAsync<IReadOnlyList<TreeItem>>(
             ct,
             async () =>
-            {
-                var tree = _api.Umbraco.Management.Api.V1.Tree.Dictionary;
-                var paged = parentId is { } pid
-                    ? await tree.Children.GetAsync(
-                        c =>
-                        {
-                            c.QueryParameters.ParentId = pid;
-                            c.QueryParameters.Skip = skip;
-                            c.QueryParameters.Take = take;
-                        },
-                        ct
-                    )
-                    : await tree.Root.GetAsync(
-                        c =>
-                        {
-                            c.QueryParameters.Skip = skip;
-                            c.QueryParameters.Take = take;
-                        },
-                        ct
-                    );
-                return new PagedResponse<DictionaryTreeItem>
-                {
-                    Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? [])
-                        .Select(i => new DictionaryTreeItem
-                        {
-                            Id = i.Id ?? Guid.Empty,
-                            Name = i.Name ?? "",
-                            HasChildren = i.HasChildren ?? false,
-                            Parent = i.Parent?.Id is { } pId
-                                ? new ContentParentReference { Id = pId }
-                                : null,
-                        })
-                        .ToList(),
-                };
-            }
+                await WalkTreeAsync<DictionaryTreeItem>(
+                    parentId,
+                    depth: 1,
+                    ClampDepth(maxDepth),
+                    async (parent, skip, take, c) =>
+                    {
+                        var page = await FetchDictionaryTreeAsync(parent, skip, take, c);
+                        return ((IReadOnlyList<DictionaryTreeItem>)page.Items.ToList(), page.Total);
+                    },
+                    i => (i.Id, i.Name, i.HasChildren),
+                    ct
+                )
         );
+
+    /// <summary>
+    /// One page of a dictionary tree level, unguarded, so both the paged read and the walk share it
+    /// and a failure keeps its own category.
+    /// </summary>
+    /// <param name="parentId">Parent id to list children of; null lists the root level.</param>
+    /// <param name="skip">Number of items to skip.</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The page.</returns>
+    private async Task<PagedResponse<DictionaryTreeItem>> FetchDictionaryTreeAsync(
+        Guid? parentId,
+        int skip,
+        int take,
+        CancellationToken ct
+    )
+    {
+        var tree = _api.Umbraco.Management.Api.V1.Tree.Dictionary;
+        var paged = parentId is { } pid
+            ? await tree.Children.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.ParentId = pid;
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            )
+            : await tree.Root.GetAsync(
+                c =>
+                {
+                    c.QueryParameters.Skip = skip;
+                    c.QueryParameters.Take = take;
+                },
+                ct
+            );
+        return new PagedResponse<DictionaryTreeItem>
+        {
+            Total = (int)(paged?.Total ?? 0),
+            Items = (paged?.Items ?? [])
+                .Select(i => new DictionaryTreeItem
+                {
+                    Id = i.Id ?? Guid.Empty,
+                    Name = i.Name ?? "",
+                    HasChildren = i.HasChildren ?? false,
+                    Parent = i.Parent?.Id is { } pId
+                        ? new ContentParentReference { Id = pId }
+                        : null,
+                })
+                .ToList(),
+        };
+    }
 
     /// <summary>
     /// Reparents a dictionary item via <c>PUT dictionary/{id}/move</c> (issue #110). A null target

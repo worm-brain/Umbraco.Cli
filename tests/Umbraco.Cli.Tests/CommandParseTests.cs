@@ -235,9 +235,7 @@ public class CommandParseTests
             "delete",
             "publish",
             "unpublish",
-            "versions",
             "version",
-            "rollback",
             "trash",
             "restore",
             "empty-recycle-bin",
@@ -283,28 +281,17 @@ public class CommandParseTests
     [InlineData("user-data", new[] { "list", "get", "create", "update", "delete" })]
     [InlineData(
         "document-blueprint",
-        new[]
-        {
-            "list",
-            "get",
-            "scaffold",
-            "create",
-            "update",
-            "delete",
-            "from-document",
-            "move",
-            "folder",
-        }
+        new[] { "list", "get", "scaffold", "create", "update", "delete", "move", "folder" }
     )]
     [InlineData("server", new[] { "status", "info", "configuration", "troubleshooting" })]
     [InlineData("health", new[] { "list", "get", "run" })]
     [InlineData(
         "log-viewer",
-        new[] { "log", "levels", "level-count", "message-templates", "saved-search" }
+        new[] { "list", "levels", "level-count", "message-templates", "saved-search" }
     )]
     [InlineData("models-builder", new[] { "dashboard", "status", "build" })]
     [InlineData("manifest", new[] { "list" })]
-    [InlineData("redirect", new[] { "list", "status", "delete", "tracking" })]
+    [InlineData("redirect", new[] { "list", "delete", "tracking" })]
     [InlineData("relation-type", new[] { "list", "get" })]
     [InlineData("relation", new[] { "list" })]
     [InlineData("indexer", new[] { "list", "get", "rebuild" })]
@@ -361,10 +348,10 @@ public class CommandParseTests
         "content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --publish-at 2026-01-01T09:00:00Z --unpublish-at 2026-02-01T18:30:00Z"
     )]
     [InlineData("content unpublish 3f7a8b2e-1234-5678-abcd-ef0123456789")]
-    [InlineData("content versions 3f7a8b2e-1234-5678-abcd-ef0123456789")]
-    [InlineData("content versions 3f7a8b2e-1234-5678-abcd-ef0123456789 --culture en-US")]
-    [InlineData("content version 3f7a8b2e-1234-5678-abcd-ef0123456789")]
-    [InlineData("content rollback 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("content version list 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("content version list 3f7a8b2e-1234-5678-abcd-ef0123456789 --culture en-US")]
+    [InlineData("content version get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("content version rollback 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content trash 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content restore 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData(
@@ -587,7 +574,7 @@ public class CommandParseTests
     [InlineData("document-blueprint update --schema")]
     [InlineData("document-blueprint delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData(
-        "document-blueprint from-document 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Starter"
+        "document-blueprint create --from-document 3f7a8b2e-1234-5678-abcd-ef0123456789 --name Starter"
     )]
     [InlineData("document-blueprint move 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData(
@@ -605,9 +592,9 @@ public class CommandParseTests
     [InlineData("health list")]
     [InlineData("health get \"Data Integrity\"")]
     [InlineData("health run Services")]
-    [InlineData("log-viewer log")]
-    [InlineData("log-viewer log --level Error --level Warning --take 50 --asc")]
-    [InlineData("log-viewer log --start-date 2026-01-01 --end-date 2026-02-01 --filter foo")]
+    [InlineData("log-viewer list")]
+    [InlineData("log-viewer list --level Error --level Warning --take 50 --asc")]
+    [InlineData("log-viewer list --start-date 2026-01-01 --end-date 2026-02-01 --filter foo")]
     [InlineData("log-viewer levels")]
     [InlineData("log-viewer level-count")]
     [InlineData("log-viewer message-templates")]
@@ -622,7 +609,7 @@ public class CommandParseTests
     [InlineData("redirect list")]
     [InlineData("redirect list --filter old --skip 0 --take 20")]
     [InlineData("redirect list --content-item 3f7a8b2e-1234-5678-abcd-ef0123456789")]
-    [InlineData("redirect status")]
+    [InlineData("redirect tracking status")]
     [InlineData("redirect delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("redirect tracking enable")]
     [InlineData("redirect tracking disable")]
@@ -657,6 +644,8 @@ public class CommandParseTests
     [InlineData("member-type delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("user list")]
     [InlineData("dictionary list")]
+    [InlineData("dictionary list --parent Blog")]
+    [InlineData("dictionary tree --recursive --depth 2")]
     [InlineData("webhook list")]
     [InlineData("auth login --host https://example.com --client-id foo --client-secret bar")]
     [InlineData("auth logout")]
@@ -718,13 +707,16 @@ public class CommandParseTests
     [InlineData("document-blueprint create --document-type textPage")] // missing --name
     [InlineData("document-blueprint update 3f7a8b2e-1234-5678-abcd-ef0123456789")] // needs --name or --json-body
     [InlineData("document-blueprint get not-a-uuid")]
-    [InlineData("document-blueprint from-document 3f7a8b2e-1234-5678-abcd-ef0123456789")] // missing --name
+    [InlineData("document-blueprint create --from-document 3f7a8b2e-1234-5678-abcd-ef0123456789")] // missing --name
+    [InlineData(
+        "document-blueprint create --from-document 3f7a8b2e-1234-5678-abcd-ef0123456789 --name S --document-type textPage"
+    )] // the document supplies the type; a second one conflicts
     [InlineData("document-blueprint folder create")] // missing --name
     [InlineData("health get")] // missing group name argument
     [InlineData("health run")] // missing group name argument
     [InlineData("log-viewer saved-search create --name Errors")] // missing required --query
-    [InlineData("log-viewer log --take abc")] // non-integer take
-    [InlineData("log-viewer log --level Nonsense")] // invalid log level rejected at parse time
+    [InlineData("log-viewer list --take abc")] // non-integer take
+    [InlineData("log-viewer list --level Nonsense")] // invalid log level rejected at parse time
     [InlineData("manifest list --scope Nonsense")] // invalid enum value
     [InlineData("redirect delete not-a-uuid")]
     [InlineData("relation-type get not-a-uuid")]
@@ -806,7 +798,7 @@ public class CommandParseTests
     // would fail to load and abort the parse.
 
     [Theory]
-    [InlineData("log-viewer log --filter @Level='Error'", "--filter", "@Level='Error'")]
+    [InlineData("log-viewer list --filter @Level='Error'", "--filter", "@Level='Error'")]
     [InlineData(
         "log-viewer saved-search create --name Errors --query @Exception",
         "--query",

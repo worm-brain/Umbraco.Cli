@@ -849,6 +849,24 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>The subtree <see cref="WalkDictionaryTreeAsync"/> returns.</summary>
+    public List<TreeItem> DictionaryWalk { get; } = [];
+
+    /// <summary>The (parent, maxDepth) of the last dictionary walk.</summary>
+    public (Guid? Parent, int MaxDepth)? LastDictionaryWalk { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<TreeItem>>> WalkDictionaryTreeAsync(
+        Guid? parentId,
+        int maxDepth,
+        CancellationToken ct = default
+    )
+    {
+        LastDictionaryWalk = (parentId, maxDepth);
+        return Task.FromResult(
+            UmbracoResponse<IReadOnlyList<TreeItem>>.Success(DictionaryWalk.ToList())
+        );
+    }
+
     public Task<UmbracoResponse<DictionaryItemResponse>> UpdateDictionaryItemAsync(
         Guid id,
         UpdateDictionaryItemRequest request,

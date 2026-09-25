@@ -97,7 +97,7 @@ public sealed class GlobalOptions
         new("--profile", new[] { "-p" })
         {
             Description =
-                "Named credential profile to use (see 'auth profiles'). "
+                "Named credential profile to use (see 'auth profile list'). "
                 + "Also settable with UMBRACO_PROFILE. Defaults to the configured default profile.",
             Recursive = true,
         };

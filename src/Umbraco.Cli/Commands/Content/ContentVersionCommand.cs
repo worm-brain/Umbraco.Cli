@@ -2,12 +2,12 @@ using System.CommandLine;
 
 namespace Umbraco.Cli.Commands.Content;
 
-/// <summary>Wires the <c>content version</c> command (#209).</summary>
+/// <summary>Wires the <c>content version get</c> command (#209).</summary>
 public static class ContentVersionCommand
 {
     /// <summary>
-    /// Builds the <c>content version</c> command: read one version of a document, with its
-    /// values, so it can be compared with the current document before <c>content rollback</c>.
+    /// Builds the <c>content version get</c> command: read one version of a document, with its
+    /// values, so it can be compared with the current document before <c>content version rollback</c>.
     /// It is a sibling of <c>versions</c> (like <c>rollback</c>) rather than a <c>versions get</c>
     /// subcommand, so <c>versions</c> stays a leaf in the command catalog.
     /// </summary>
@@ -16,11 +16,14 @@ public static class ContentVersionCommand
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
-            "version",
-            "Show one version of a content item, with its values. Take the id from 'content versions'."
-                + "\n\nExample:\n  umbraco content version 7c1d9e4a-..."
+            "get",
+            "Get one version of a content item, with its values. Take the id from 'content version list'."
+                + "\n\nExample:\n  umbraco content version get 7c1d9e4a-..."
         );
-        var idArg = new Argument<Guid>("version-id") { Description = "Version ID." };
+        var idArg = new Argument<Guid>("id")
+        {
+            Description = "The version's id, from 'content version list'.",
+        };
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>

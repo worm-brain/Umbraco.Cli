@@ -5,7 +5,7 @@ namespace Umbraco.Cli.Tests;
 
 /// <summary>
 /// Version history across cultures (#209). Umbraco lists no versions of a culture-variant document
-/// unless a culture is passed, so <c>content versions</c> with no <c>--culture</c> returned an
+/// unless a culture is passed, so <c>content version list</c> with no <c>--culture</c> returned an
 /// empty list that read as "no history". The client now lists every culture and tags each row.
 /// </summary>
 public class ContentVersionsWireTests
@@ -164,7 +164,7 @@ public class ContentVersionsWireTests
         handler.AssertNoRequest(HttpMethod.Get, $"/document/{DocumentId}");
     }
 
-    // ── one version (content version <id>) ───────────────────────────────────
+    // ── one version (content version get <id>) ───────────────────────────────────
 
     [Fact]
     public async Task GetDocumentVersionAsync_ReturnsTheRawBodyWithItsValues()

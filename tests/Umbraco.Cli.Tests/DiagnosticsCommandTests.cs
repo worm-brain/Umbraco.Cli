@@ -105,7 +105,7 @@ public class DiagnosticsCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} log-viewer log --level Error --level Warning --take 25"
+            $"{Auth} log-viewer list --level Error --level Warning --take 25"
         );
 
         Assert.Equal(0, exit);
@@ -121,7 +121,7 @@ public class DiagnosticsCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
-        var exit = await Run(root, $"{Auth} log-viewer log --asc");
+        var exit = await Run(root, $"{Auth} log-viewer list --asc");
 
         Assert.Equal(0, exit);
         Assert.False(fake.LastLogQuery!.Value.Descending);

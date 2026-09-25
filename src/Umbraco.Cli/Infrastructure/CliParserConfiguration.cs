@@ -16,7 +16,7 @@ public static class CliParserConfiguration
     /// <para>
     /// Serilog / Umbraco log-viewer filter expressions commonly start with <c>@</c> (for example
     /// <c>@Level='Error'</c> or <c>@Exception is not null</c>). With response files enabled,
-    /// <c>log-viewer log --filter "@Level='Error'"</c> would try to load a response file named
+    /// <c>log-viewer list --filter "@Level='Error'"</c> would try to load a response file named
     /// <c>Level='Error'</c>, fail, and abort the whole parse with an error. Disabling the replacer
     /// fixes this CLI-wide, not just for log-viewer (issue #115). The CLI never reads its arguments
     /// from response files, so nothing depends on the feature.

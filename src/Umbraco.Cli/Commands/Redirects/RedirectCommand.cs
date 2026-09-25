@@ -18,10 +18,9 @@ public static class RedirectCommand
     {
         var cmd = new Command(
             "redirect",
-            "List and manage tracked URL redirects.\n\nExamples:\n  umbraco redirect list --filter old-page\n  umbraco redirect status"
+            "List and manage tracked URL redirects.\n\nExamples:\n  umbraco redirect list --filter old-page\n  umbraco redirect tracking status"
         );
         cmd.Add(BuildList(executor));
-        cmd.Add(BuildStatus(executor));
         cmd.Add(BuildDelete(executor));
         cmd.Add(BuildTracking(executor));
         return cmd;
@@ -104,7 +103,12 @@ public static class RedirectCommand
 
     private static Command BuildTracking(CommandExecutor executor)
     {
-        var cmd = new Command("tracking", "Enable or disable automatic URL-redirect tracking.");
+        var cmd = new Command(
+            "tracking",
+            "Show, enable or disable automatic URL-redirect tracking."
+        );
+        // The tracking state is read here, beside the switches that change it.
+        cmd.Add(BuildStatus(executor));
         cmd.Add(BuildTrackingToggle(executor, "enable", enabled: true));
         cmd.Add(BuildTrackingToggle(executor, "disable", enabled: false));
         return cmd;

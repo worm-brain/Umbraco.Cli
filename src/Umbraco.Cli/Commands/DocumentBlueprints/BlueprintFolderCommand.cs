@@ -85,7 +85,7 @@ public static class BlueprintFolderCommand
 
     private static Command BuildUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Rename a blueprint folder by UUID.").Mutating();
+        var cmd = new Command("update", "Update a blueprint folder's name, by id.").Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         var nameOpt = new Option<string>("--name")
         {

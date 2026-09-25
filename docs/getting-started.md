@@ -112,8 +112,8 @@ Log in to several instances and switch between them without re-authenticating:
 umbraco auth login --profile prod  --host https://prod.example.com  --client-id <id> --client-secret <secret>
 umbraco auth login --profile stage --host https://stage.example.com --client-id <id> --client-secret <secret>
 
-umbraco auth profiles                     # list profiles; * marks the default
-umbraco auth use prod                      # make 'prod' the default
+umbraco auth profile list                     # list profiles; * marks the default
+umbraco auth profile use prod                      # make 'prod' the default
 umbraco content list --profile stage       # use a profile for one command
 UMBRACO_PROFILE=stage umbraco content list  # or via env
 umbraco auth logout --profile stage        # remove one profile

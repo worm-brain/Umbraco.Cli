@@ -6,7 +6,7 @@ using Umbraco.Cli.Infrastructure.Output;
 namespace Umbraco.Cli.Commands.Auth;
 
 /// <summary>
-/// The <c>auth profiles</c> command (#64): lists the saved credential profiles and marks which
+/// The <c>auth profile list</c> command (#64): lists the saved credential profiles and marks which
 /// one is the default.
 /// </summary>
 public static class ProfilesCommand
@@ -23,7 +23,7 @@ public static class ProfilesCommand
     )
     {
         var cmd = new Command(
-            "profiles",
+            "list",
             "List saved credential profiles and which one is the default."
         );
 

@@ -310,9 +310,9 @@ whole of an invariant one.
 
 Other commands pick a sensible culture when you name none. `content create` and
 `document-blueprint create` use the default language when the document type varies by culture.
-`content versions` lists every culture's history, newest first, and tags each row with the
-`culture` to pass to `content rollback --culture`. Use `content version <version-id>` to read a
-version's values before rolling back. `document-blueprint from-document --name` renames every
+`content version list` lists every culture's history, newest first, and tags each row with the
+`culture` to pass to `content version rollback --culture`. Use `content version get <version-id>` to read a
+version's values before rolling back. `document-blueprint create --from-document --name` renames every
 culture.
 
 `content restore <id>` puts the item back under the parent it was trashed from. Pass

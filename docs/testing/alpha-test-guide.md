@@ -108,7 +108,7 @@ All reads: `list`, `tree`, `find`, `get`, `status`, `info`, `configuration`, `tr
 
 ### Tier SCOPED-WRITE (allowed only on entities you created this run)
 `create`, `update`, `delete`, `trash`, `restore`, `move`, `sort`, `copy`, `publish`, `unpublish`,
-`publish-descendants`, `upload`, `add-users`/`remove-users`, `from-document`, `rollback`,
+`publish-descendants`, `upload`, `add-users`/`remove-users`, `create --from-document`, `rollback`,
 `bulk publish/unpublish/delete`, saved-search create/delete, `schema apply` / `content apply`.
 (`content`/`media sort` reorders children; `dictionary move` reparents an item.)
 Run these **only** against the `clitest` namespace and the fixed ids in the
@@ -124,7 +124,7 @@ prove the CLI works:
 - `models-builder build` - regenerates server-side source.
 - `indexer rebuild` - expensive; degrades search while it runs.
 - `redirect tracking enable` / `redirect tracking disable` - toggles a **site-wide** behaviour.
-  If tested, read `redirect status` first and **restore the original value** after.
+  If tested, read `redirect tracking status` first and **restore the original value** after.
 - `health run` - a POST that executes health checks (some checks may have side effects).
 
 If a DANGER command is skipped, still write a ledger row with `status: "SKIP"` and
@@ -411,7 +411,7 @@ envelope, record a finding `coverage.<noun>.<verb>` with the stderr message (thi
 
 ```bash
 umbraco content list ; umbraco content get <id>
-umbraco content versions <id>
+umbraco content version list <id>
 umbraco media list ; umbraco media get <id>
 umbraco document-type list ; umbraco document-type get <id|alias>
 umbraco media-type list ; umbraco media-type get <id>
@@ -432,9 +432,9 @@ umbraco stylesheet list ; umbraco partial-view list
 umbraco tag list ; umbraco culture list
 umbraco server status ; umbraco server info ; umbraco server configuration ; umbraco server troubleshooting
 umbraco health list ; umbraco health get <group>
-umbraco log-viewer log --take 5 ; umbraco log-viewer levels ; umbraco log-viewer level-count ; umbraco log-viewer message-templates ; umbraco log-viewer saved-search list
+umbraco log-viewer list --take 5 ; umbraco log-viewer levels ; umbraco log-viewer level-count ; umbraco log-viewer message-templates ; umbraco log-viewer saved-search list
 umbraco manifest list
-umbraco redirect list ; umbraco redirect status
+umbraco redirect list ; umbraco redirect tracking status
 umbraco relation-type list ; umbraco relation-type get <id> ; umbraco relation list --relation-type <relationTypeId>
 umbraco indexer list ; umbraco indexer get <name>
 umbraco searcher list ; umbraco searcher query <name> --term test
@@ -466,12 +466,12 @@ follow-up read, not just the write's own success envelope.
 5d. **Template flag (#162).** `content update $CLITEST_CONTENT_ROOT --json-body - --template <alias>` -> the read-back shows that template. An unknown alias must fail with a message naming it, not succeed silently.
 6. `content publish $CLITEST_CONTENT_ROOT` -> exit 0 **and the document actually reports published**. Check with `content get` (`isPublished: true`) or a Management API read of `variants[].state`. **Exit 0 alone is not a pass** - the #158 no-op returned exit 0 and `{"status":"success"}` while publishing nothing, for two releases. Then `content unpublish $CLITEST_CONTENT_ROOT --yes` -> exit 0, and confirm it is no longer published.
 6a. **Variant publish (#158).** On a culture-varying document, `content publish <id>` with no `--culture` must publish *every* culture, not 400. `"*"` is not a wildcard - it is the invariant culture - so a regression here shows up as `400 "Cannot publish invariant culture when the document varies by culture."`
-7. `content versions $CLITEST_CONTENT_ROOT` lists >= 2; `content rollback <versionId>` -> exit 0.
+7. `content version list $CLITEST_CONTENT_ROOT` lists >= 2; `content version rollback <versionId>` -> exit 0.
 8. `content trash $CLITEST_CONTENT_CHILD` -> exit 0 (in bin); `content restore $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (back).
 9. `content copy $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (record the copy's id and delete it in teardown).
 10. `content move` the copy to root then back -> exit 0.
 
-**E2 Document blueprint.** `document-blueprint from-document $CLITEST_CONTENT_ROOT --name "clitest BP" --id $CLITEST_BLUEPRINT`; then `get`, `scaffold`, `update`, and a folder create/update/delete.
+**E2 Document blueprint.** `document-blueprint create --from-document $CLITEST_CONTENT_ROOT --name "clitest BP" --id $CLITEST_BLUEPRINT`; then `get`, `scaffold`, `update`, and a folder create/update/delete.
 
 **E3 Media.** `media-type create ... --id $CLITEST_MEDIATYPE`; `media upload ./<small-file> --name "clitest media" --media-type "clitest MediaType" --id $CLITEST_MEDIA`; `get`; `trash`/`restore`; `move`.
 
@@ -551,7 +551,7 @@ Only if `RUN_DANGEROUS=1` **and** a human confirmed the instance is disposable. 
 | T-H-01 | `umbraco health run <group> --yes` | POST; low risk but may have side effects. Record results. |
 | T-H-02 | `umbraco indexer rebuild <name> --yes` | expensive; degrades search while running. |
 | T-H-03 | `umbraco models-builder status` then `models-builder build --yes` | regenerates server source; only where that is acceptable. |
-| T-H-04 | `redirect status` -> `redirect tracking disable --yes` -> `redirect status` -> **restore** to original (`enable`/`disable`) -> `redirect status` | site-wide toggle; you MUST restore the original value. |
+| T-H-04 | `redirect tracking status` -> `redirect tracking disable --yes` -> `redirect tracking status` -> **restore** to original (`enable`/`disable`) -> `redirect tracking status` | site-wide toggle; you MUST restore the original value. |
 | T-H-05 | `content empty-recycle-bin` / `media empty-recycle-bin` | default SKIP even here unless the bin is known to hold only your test items. |
 
 ---

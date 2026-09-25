@@ -7,7 +7,7 @@ namespace Umbraco.Cli.Commands.DocumentBlueprints;
 
 /// <summary>
 /// Wires the <c>document-blueprint</c> noun (issue #113) - content templates authors start new
-/// documents from. Verbs: list/get/create/update/delete, from-document scaffolding, move, scaffold
+/// documents from. Verbs: list/get/create (from flags, a body, or --from-document)/update/delete, move, scaffold
 /// preview, and a <c>folder</c> sub-noun. The create/update body mirrors <c>content create</c>
 /// (scalar flags + <c>--json-body</c> + <c>--schema</c>); get/scaffold/create emit raw JSON.
 /// </summary>
@@ -20,7 +20,7 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "document-blueprint",
-            "List, inspect, and manage Umbraco document blueprints (content templates).\n\nExamples:\n  umbraco document-blueprint list\n  umbraco document-blueprint from-document <documentId> --name \"Starter\""
+            "List, inspect, and manage Umbraco document blueprints (content templates).\n\nExamples:\n  umbraco document-blueprint list\n  umbraco document-blueprint create --from-document <id> --name \"Starter\""
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildGet(executor));
@@ -28,7 +28,6 @@ public static class DocumentBlueprintCommand
         cmd.Add(BuildCreate(executor));
         cmd.Add(BuildUpdate(executor));
         cmd.Add(BuildDelete(executor));
-        cmd.Add(BuildFromDocument(executor));
         cmd.Add(BuildMove(executor));
         cmd.Add(BlueprintFolderCommand.Build(executor));
         return cmd;
@@ -114,10 +113,11 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "create",
-            "Create a blueprint. Supply --json-body for full property control.\n\nExamples:\n  umbraco document-blueprint create --document-type textPage --name \"Starter\"\n  umbraco document-blueprint create --json-body ./bp.json"
+            "Create a blueprint from flags, a JSON body, or an existing document.\n\nExamples:\n  umbraco document-blueprint create --document-type textPage --name \"Starter\"\n  umbraco document-blueprint create --from-document <id> --name \"Starter\"\n  umbraco document-blueprint create --json-body ./bp.json"
         ).Mutating();
-        // Conditional requirement (mirrors content create): --document-type + --name, OR --json-body,
-        // OR --schema (describe-and-exit). Enforced by the validator below as a parse error.
+        // Conditional requirement (mirrors content create): --document-type + --name, OR
+        // --from-document + --name, OR --json-body, OR --schema (describe-and-exit). Enforced by the
+        // validator below as a parse error.
         var typeOpt = new Option<string>("--document-type")
         {
             Description =
@@ -132,6 +132,13 @@ public static class DocumentBlueprintCommand
         var parentOpt = new Option<Guid?>("--parent")
         {
             Description = "Parent folder UUID. Omit to create at the blueprint root.",
+        };
+        // Creating from something else is an option on create, not its own verb (docs/conventions.md 2).
+        var fromDocumentOpt = new Option<Guid?>("--from-document")
+        {
+            Description =
+                "Copy an existing document into the new blueprint. Takes --name (applied to "
+                + "every culture), --parent and --id; not --document-type, --culture or --json-body.",
         };
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) with the full create body (overrides flags)."
@@ -149,12 +156,30 @@ public static class DocumentBlueprintCommand
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);
         cmd.Add(parentOpt);
+        cmd.Add(fromDocumentOpt);
         body.AddTo(cmd);
         cmd.Add(idOpt);
         cmd.Add(cultureOpt);
 
         cmd.Validators.Add(result =>
         {
+            if (result.GetValue(fromDocumentOpt) is not null)
+            {
+                // The document supplies the type, values and cultures, so options that would set
+                // them conflict rather than being silently ignored.
+                if (
+                    !string.IsNullOrEmpty(result.GetValue(typeOpt))
+                    || body.HasBody(result)
+                    || result.GetValue(cultureOpt) is not null
+                )
+                    result.AddError(
+                        "--from-document copies the document's type, values and cultures; "
+                            + "drop --document-type, --json-body and --culture."
+                    );
+                else if (string.IsNullOrEmpty(result.GetValue(nameOpt)))
+                    result.AddError("--from-document needs --name for the new blueprint.");
+                return;
+            }
             if (body.SchemaRequested(result) || body.HasBody(result))
                 return;
             if (
@@ -175,6 +200,25 @@ public static class DocumentBlueprintCommand
                     JsonBodySchema.Print<CreateDocumentBlueprintRequest>();
                     return Task.FromResult(0);
                 }
+
+                if (parseResult.GetValue(fromDocumentOpt) is { } source)
+                    return executor.RunObjectAsync(
+                        parseResult,
+                        (client, c) =>
+                            client.CreateDocumentBlueprintFromDocumentAsync(
+                                new CreateBlueprintFromDocumentRequest
+                                {
+                                    Id = parseResult.GetValue(idOpt),
+                                    Document = source,
+                                    Name = parseResult.GetValue(nameOpt),
+                                    Parent = parseResult.GetValue(parentOpt) is { } p
+                                        ? new ContentParentReference { Id = p }
+                                        : null,
+                                },
+                                c
+                            ),
+                        ct
+                    );
 
                 return executor.RunObjectAsync(
                     parseResult,
@@ -342,54 +386,6 @@ public static class DocumentBlueprintCommand
                     (client, c) =>
                         client.DeleteDocumentBlueprintAsync(parseResult.GetValue(idArg), c),
                     "Blueprint deleted.",
-                    ct
-                )
-        );
-        return cmd;
-    }
-
-    private static Command BuildFromDocument(CommandExecutor executor)
-    {
-        // A POST (it creates a blueprint) under a compound verb the verb set does not know.
-        var cmd = new Command(
-            "from-document",
-            "Create a blueprint from an existing document.\n\nExample:\n  umbraco document-blueprint from-document <documentId> --name \"Starter\""
-        ).Mutating();
-        var docArg = new Argument<Guid>("documentId") { Description = "Source document ID." };
-        var nameOpt = new Option<string>("--name")
-        {
-            Required = true,
-            Description = "Name for the new blueprint, applied to every culture it has.",
-        };
-        var parentOpt = new Option<Guid?>("--parent")
-        {
-            Description = "Parent folder UUID. Omit for the blueprint root.",
-        };
-        var idOpt = new Option<Guid?>("--id")
-        {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
-        };
-        cmd.Add(docArg);
-        cmd.Add(nameOpt);
-        cmd.Add(parentOpt);
-        cmd.Add(idOpt);
-        cmd.SetAction(
-            (parseResult, ct) =>
-                executor.RunObjectAsync(
-                    parseResult,
-                    (client, c) =>
-                        client.CreateDocumentBlueprintFromDocumentAsync(
-                            new CreateBlueprintFromDocumentRequest
-                            {
-                                Id = parseResult.GetValue(idOpt),
-                                Document = parseResult.GetValue(docArg),
-                                Name = parseResult.GetValue(nameOpt),
-                                Parent = parseResult.GetValue(parentOpt) is { } p
-                                    ? new ContentParentReference { Id = p }
-                                    : null,
-                            },
-                            c
-                        ),
                     ct
                 )
         );

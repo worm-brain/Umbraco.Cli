@@ -36,7 +36,7 @@ public static class ContentDomainsCommand
     {
         var cmd = new Command(
             "get",
-            "Show a document's domains.\n\nExample:\n  umbraco content domain get 3f7a8b2e-..."
+            "Get a document's domains.\n\nExample:\n  umbraco content domain get 3f7a8b2e-..."
         );
         var idArg = new Argument<Guid>("id") { Description = "Document ID." };
         cmd.Add(idArg);

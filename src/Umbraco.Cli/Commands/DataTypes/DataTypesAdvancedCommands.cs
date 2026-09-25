@@ -235,7 +235,7 @@ public static class DataTypesAdvancedCommands
 
     private static Command BuildFolderUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Rename a data-type folder by UUID.").Mutating();
+        var cmd = new Command("update", "Update a data-type folder's name, by id.").Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         var nameOpt = new Option<string>("--name")
         {

@@ -4,7 +4,7 @@ using Umbraco.Cli.Client;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// <c>document-blueprint from-document</c> finishing what Umbraco 17.7 leaves undone (#240): the
+/// <c>document-blueprint create --from-document</c> finishing what Umbraco 17.7 leaves undone (#240): the
 /// blueprint lands at the root whatever <c>parent</c> says, only the default-language variant takes
 /// the new name, and the response has no top-level name.
 /// </summary>

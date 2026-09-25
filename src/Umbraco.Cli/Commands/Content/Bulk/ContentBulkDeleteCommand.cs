@@ -17,7 +17,7 @@ public static class ContentBulkDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Permanently delete many content items by id (ids from --file or stdin).\n\nExample:\n  umbraco content bulk delete --file ids.txt --yes"
+            "Delete many content items permanently, by id (ids from --file or stdin).\n\nExample:\n  umbraco content bulk delete --file ids.txt --yes"
         ).Mutating();
         var fileOpt = new Option<FileInfo?>("--file")
         {

@@ -151,7 +151,7 @@ public static class StaticFileCommand
         string humanName
     )
     {
-        var cmd = new Command("update", $"Replace a {noun}'s content (by path).").Mutating();
+        var cmd = new Command("update", $"Update a {noun}\'s content (by path).").Mutating();
         var pathArg = new Argument<string>("path") { Description = "The file path." };
         var (contentOpt, contentFileOpt) = FileContentInput.Options();
         cmd.Add(pathArg);

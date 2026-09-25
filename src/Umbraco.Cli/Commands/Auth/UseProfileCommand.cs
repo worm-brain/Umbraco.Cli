@@ -7,7 +7,7 @@ using Umbraco.Cli.Infrastructure.Output;
 namespace Umbraco.Cli.Commands.Auth;
 
 /// <summary>
-/// The <c>auth use</c> command (#64): switches the default credential profile so subsequent
+/// The <c>auth profile use</c> command (#64): switches the default credential profile so subsequent
 /// commands use it without <c>--profile</c>.
 /// </summary>
 public static class UseProfileCommand
@@ -51,7 +51,7 @@ public static class UseProfileCommand
                 writer.WriteError(
                     ExitCode.Failed,
                     FailureCategory.InvalidArgument,
-                    $"No profile named '{name}'. See 'umbraco auth profiles'.",
+                    $"No profile named '{name}'. See 'umbraco auth profile list'.",
                     CommandPath.Of(parseResult)
                 );
                 return Task.FromResult((int)ExitCode.Failed);

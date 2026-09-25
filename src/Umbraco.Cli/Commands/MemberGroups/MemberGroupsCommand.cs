@@ -102,7 +102,7 @@ public static class MemberGroupsCommand
 
     private static Command BuildUpdate(CommandExecutor executor)
     {
-        var cmd = new Command("update", "Rename a member group by id or name.").Mutating();
+        var cmd = new Command("update", "Update a member group's name by id or name.").Mutating();
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         var nameOpt = new Option<string>("--name") { Required = true, Description = "New name." };
         cmd.Add(idArg);

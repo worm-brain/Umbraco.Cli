@@ -9,7 +9,7 @@ public static class MembersDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Permanently delete a member by UUID.\n\nExample:\n  umbraco member delete 3f7a8b2e-..."
+            "Delete a member permanently, by id.\n\nExample:\n  umbraco member delete 3f7a8b2e-..."
         ).Mutating();
         var idArg = new Argument<Guid>("id");
         cmd.Add(idArg);

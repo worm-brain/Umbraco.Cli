@@ -564,7 +564,7 @@ public record PublishSchedule
 
 /// <summary>
 /// A single version of a document (issue #58). Returned when listing a document's version
-/// history; a version's <see cref="Id"/> is what <c>content rollback</c> targets.
+/// history; a version's <see cref="Id"/> is what <c>content version rollback</c> targets.
 /// </summary>
 public record DocumentVersionResponse
 {
@@ -573,7 +573,7 @@ public record DocumentVersionResponse
 
     /// <summary>
     /// The culture this version was listed under (#209): the one to pass to
-    /// <c>content rollback --culture</c>. Null for a document that is invariant.
+    /// <c>content version rollback --culture</c>. Null for a document that is invariant.
     /// </summary>
     [JsonPropertyName("culture")]
     public string? Culture { get; init; }

@@ -411,7 +411,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         RequireLive();
         // #64: profiles are listed with the default marked. The live config resolves to at
         // least one profile (a legacy flat config migrates to 'default').
-        var result = CliRunner.Run("auth", "profiles");
+        var result = CliRunner.Run("auth", "profile", "list");
         Assert.True(result.Ok, result.Stderr);
 
         var rows = result.Data().EnumerateArray().ToList();
@@ -424,7 +424,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     {
         RequireLive();
         // Discover the default profile name, then prove --profile <name> authenticates with it.
-        var profiles = CliRunner.Run("auth", "profiles");
+        var profiles = CliRunner.Run("auth", "profile", "list");
         Assert.True(profiles.Ok, profiles.Stderr);
         var defaultName = profiles
             .Data()

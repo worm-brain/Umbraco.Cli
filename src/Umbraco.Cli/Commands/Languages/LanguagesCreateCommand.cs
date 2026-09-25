@@ -19,7 +19,7 @@ public static class LanguagesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Add a language.\n\nExamples:\n  umbraco language create --culture da-DK\n  umbraco language create --culture da-DK --fallback en-US --mandatory"
+            "Create a language.\n\nExamples:\n  umbraco language create --culture da-DK\n  umbraco language create --culture da-DK --fallback en-US --mandatory"
         ).Mutating();
         var cultureOpt = new Option<string>("--culture")
         {

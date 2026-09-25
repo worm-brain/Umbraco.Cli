@@ -100,7 +100,7 @@ public sealed class CommandContextFactory
             output.WriteError(
                 ExitCode.Aborted,
                 FailureCategory.NotAuthenticated,
-                $"No profile named '{requestedProfile}'. See 'umbraco auth profiles'.",
+                $"No profile named '{requestedProfile}'. See 'umbraco auth profile list'.",
                 commandName
             );
             throw new CommandAbortedException();
