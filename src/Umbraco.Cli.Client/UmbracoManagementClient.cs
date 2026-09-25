@@ -912,54 +912,68 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     )
     {
-        // Guarded copy: POST the copy and resolve the new id from the 201 Location header.
+        var body = new Gen.CopyDocumentRequestModel
+        {
+            Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+            IncludeDescendants = includeDescendants,
+            RelateToOriginal = relateToOriginal,
+        };
+        return await CopyViaLocationAsync(
+            config => _api.Umbraco.Management.Api.V1.Document[id].Copy.PostAsync(body, config, ct),
+            newId => GetContentByIdAsync(newId, ct),
+            newId => new ContentItemResponse { Id = newId },
+            "document",
+            ct
+        );
+    }
+
+    /// <summary>
+    /// The shared shape of a copy (#91, #247): the server assigns the copy's id and returns it only
+    /// in the <c>201</c> <c>Location</c> header, which the generated methods throw away, so a
+    /// <see cref="NativeResponseHandler"/> captures the raw response. A 201 with no usable
+    /// <c>Location</c> is reported as a failure rather than a silent empty-id success, since the
+    /// point of a copy's output is the new id. The new item is then re-read for a full result; a
+    /// failed read still reports success with the id (the copy itself succeeded).
+    /// </summary>
+    /// <typeparam name="T">The copied item's response type.</typeparam>
+    /// <param name="post">Sends the copy, applying the given request configuration.</param>
+    /// <param name="hydrate">Re-reads the new item by id.</param>
+    /// <param name="fromId">The id-only result when the re-read fails.</param>
+    /// <param name="noun">The item kind, for the no-Location message.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The copy, or a mapped failure.</returns>
+    private static async Task<UmbracoResponse<T>> CopyViaLocationAsync<T>(
+        Func<Action<RequestConfiguration<DefaultQueryParameters>>, Task> post,
+        Func<Guid, Task<UmbracoResponse<T>>> hydrate,
+        Func<Guid, T> fromId,
+        string noun,
+        CancellationToken ct
+    )
+    {
         var copied = await GuardedApiAsync<Guid?>(
             ct,
             async () =>
             {
-                var body = new Gen.CopyDocumentRequestModel
-                {
-                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
-                    IncludeDescendants = includeDescendants,
-                    RelateToOriginal = relateToOriginal,
-                };
-                // The generated Copy endpoint throws the response away; attach a native response
-                // handler so we can read the 201 Location header - the only place the new id appears.
                 var capture = new NativeResponseHandler();
-                await _api
-                    .Umbraco.Management.Api.V1.Document[id]
-                    .Copy.PostAsync(
-                        body,
-                        config =>
-                            config.Options.Add(
-                                new ResponseHandlerOption { ResponseHandler = capture }
-                            ),
-                        ct
-                    );
+                await post(config =>
+                    config.Options.Add(new ResponseHandlerOption { ResponseHandler = capture })
+                );
                 return await CreatedIdAsync(capture, ct);
             }
         );
 
         if (!copied.IsSuccess)
-            return UmbracoResponse<ContentItemResponse>.Failure(
-                copied.StatusCode,
-                copied.ErrorMessage ?? "The copy request failed."
-            );
-
-        // #91: the whole point of copy is to surface the new id. If the server returned 201 but no
-        // usable Location, report it explicitly rather than as a silent empty-id success.
+            return UmbracoResponse<T>.FailureFrom(copied);
         if (copied.Data is not { } newId)
-            return UmbracoResponse<ContentItemResponse>.Failure(
+            return UmbracoResponse<T>.Failure(
                 502,
-                "The document was copied but the server did not return the new id (no Location header)."
+                $"The {noun} was copied but the server did not return the new id (no Location header)."
             );
 
-        // Best-effort hydration: re-read the new node for a full item. A failed read still reports
-        // success carrying the id we resolved (the copy itself succeeded).
-        var hydrated = await GetContentByIdAsync(newId, ct);
+        var hydrated = await hydrate(newId);
         return hydrated is { IsSuccess: true, Data: { } data }
-            ? UmbracoResponse<ContentItemResponse>.Success(data)
-            : UmbracoResponse<ContentItemResponse>.Success(new ContentItemResponse { Id = newId });
+            ? UmbracoResponse<T>.Success(data)
+            : UmbracoResponse<T>.Success(fromId(newId));
     }
 
     /// <summary>
