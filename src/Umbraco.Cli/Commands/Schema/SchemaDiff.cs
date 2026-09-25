@@ -23,6 +23,21 @@ public static class SchemaKinds
 
     /// <summary>Template kind tag.</summary>
     public const string Template = "template";
+
+    /// <summary>The client's <see cref="Umbraco.Cli.Client.EntityKind"/> for a snapshot kind tag.</summary>
+    /// <param name="kind">The kind tag, e.g. <see cref="DocumentType"/>.</param>
+    /// <returns>The entity kind.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The tag is not a schema kind.</exception>
+    public static Umbraco.Cli.Client.EntityKind EntityOf(string kind) =>
+        kind switch
+        {
+            DocumentType => Umbraco.Cli.Client.EntityKind.DocumentType,
+            MediaType => Umbraco.Cli.Client.EntityKind.MediaType,
+            MemberType => Umbraco.Cli.Client.EntityKind.MemberType,
+            DataType => Umbraco.Cli.Client.EntityKind.DataType,
+            Template => Umbraco.Cli.Client.EntityKind.Template,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a schema kind."),
+        };
 }
 
 /// <summary>

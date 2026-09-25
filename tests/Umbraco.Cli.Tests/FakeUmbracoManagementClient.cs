@@ -514,11 +514,6 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<MediaTypeResponse>> GetMediaTypeByIdAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) => throw new NotImplementedException();
-
     public Task<UmbracoResponse<MediaTypeResponse>> CreateMediaTypeAsync(
         CreateMediaTypeRequest request,
         CancellationToken ct = default
@@ -588,20 +583,6 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
-    /// <summary>The name or id passed to <see cref="GetDataTypeAsync"/>, for #159.</summary>
-    public string? LastDataTypeLookup { get; private set; }
-
-    public Task<UmbracoResponse<DataTypeResponse>> GetDataTypeAsync(
-        string nameOrId,
-        CancellationToken ct = default
-    )
-    {
-        LastDataTypeLookup = nameOrId;
-        return Task.FromResult(
-            UmbracoResponse<DataTypeResponse>.Success(new DataTypeResponse { Name = "Textstring" })
-        );
-    }
-
     public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
@@ -624,6 +605,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
         int skip = 0,
         int take = 20,
+        Guid? parentId = null,
         CancellationToken ct = default
     ) => Page(DataTypeList, skip, take);
 
@@ -646,18 +628,6 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
         string nameOrId,
         UpdateDataTypeRequest request,
-        CancellationToken ct = default
-    ) => throw new NotImplementedException();
-
-    public Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
-        string nameOrId,
-        JsonNode body,
-        CancellationToken ct = default
-    ) => throw new NotImplementedException();
-
-    public Task<UmbracoResponse<Empty>> UpdateDocumentTypeRawAsync(
-        string aliasOrId,
-        JsonNode body,
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
@@ -692,11 +662,6 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         int take = 20,
         CancellationToken ct = default
     ) => Page(TemplateList, skip, take);
-
-    public Task<UmbracoResponse<TemplateResponse>> GetTemplateByAliasAsync(
-        string alias,
-        CancellationToken ct = default
-    ) => throw new NotImplementedException();
 
     public Task<UmbracoResponse<TemplateResponse>> CreateTemplateAsync(
         CreateTemplateRequest request,
@@ -758,21 +723,28 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<MemberTypeResponse>> GetMemberTypeByIdAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) => throw new NotImplementedException();
-
     public Task<UmbracoResponse<MemberTypeResponse>> CreateMemberTypeAsync(
         CreateMemberTypeRequest request,
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The (id, request) of the last <see cref="UpdateMemberTypeAsync"/> call.</summary>
+    public (Guid Id, UpdateMemberTypeRequest Request)? LastMemberTypeUpdate { get; private set; }
+
+    /// <summary>Records the scalar update and answers with a bare success.</summary>
+    /// <param name="id">The member type id.</param>
+    /// <param name="request">The scalar changes.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A bare success.</returns>
     public Task<UmbracoResponse<Empty>> UpdateMemberTypeAsync(
         Guid id,
         UpdateMemberTypeRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastMemberTypeUpdate = (id, request);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<Empty>> DeleteMemberTypeAsync(
         Guid id,
@@ -924,13 +896,13 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     // record every write. A recorded write keeps the entity kind, the target id (null for a
     // create), and the exact body sent, so a test can assert both the plan and the payload.
 
-    /// <summary>Canned raw bodies returned by <see cref="GetDocumentTypeRawAsync"/>, keyed by id.</summary>
+    /// <summary>Canned raw bodies returned by <see cref="GetSchemaRawAsync"/> for document types, keyed by id.</summary>
     public Dictionary<Guid, JsonNode> DocumentTypeRaw { get; } = [];
 
-    /// <summary>Canned raw bodies returned by <see cref="GetDataTypeRawAsync"/>, keyed by id.</summary>
+    /// <summary>Canned raw bodies returned by <see cref="GetSchemaRawAsync"/> for data types, keyed by id.</summary>
     public Dictionary<Guid, JsonNode> DataTypeRaw { get; } = [];
 
-    /// <summary>Canned raw bodies returned by <see cref="GetTemplateRawAsync"/>, keyed by id.</summary>
+    /// <summary>Canned raw bodies returned by <see cref="GetSchemaRawAsync"/> for templates, keyed by id.</summary>
     public Dictionary<Guid, JsonNode> TemplateRaw { get; } = [];
 
     /// <summary>
@@ -943,10 +915,10 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>The ids <see cref="GetMemberTypeIdsAsync"/> enumerates (#186).</summary>
     public List<Guid> MemberTypeIds { get; } = [];
 
-    /// <summary>Canned raw bodies returned by <see cref="GetMediaTypeRawAsync"/>, keyed by id (#186).</summary>
+    /// <summary>Canned raw bodies returned by <see cref="GetSchemaRawAsync"/> for media types, keyed by id (#186).</summary>
     public Dictionary<Guid, JsonNode> MediaTypeRaw { get; } = [];
 
-    /// <summary>Canned raw bodies returned by <see cref="GetMemberTypeRawAsync"/>, keyed by id (#186).</summary>
+    /// <summary>Canned raw bodies returned by <see cref="GetSchemaRawAsync"/> for member types, keyed by id (#186).</summary>
     public Dictionary<Guid, JsonNode> MemberTypeRaw { get; } = [];
 
     /// <summary>One recorded raw write: entity kind, target id (null = create), and body sent.</summary>
@@ -991,6 +963,42 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(MemberTypeIds.ToList()));
 
+    /// <summary>The canned store and recorded-write tag for a schema kind.</summary>
+    /// <param name="kind">The kind.</param>
+    /// <returns>The store and the tag <see cref="RawWrites"/> uses.</returns>
+    private (Dictionary<Guid, JsonNode> Store, string Tag) SchemaStore(EntityKind kind) =>
+        kind switch
+        {
+            EntityKind.DocumentType => (DocumentTypeRaw, "documentType"),
+            EntityKind.DataType => (DataTypeRaw, "dataType"),
+            EntityKind.Template => (TemplateRaw, "template"),
+            EntityKind.MediaType => (MediaTypeRaw, "mediaType"),
+            EntityKind.MemberType => (MemberTypeRaw, "memberType"),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+
+    /// <summary>Returns the canned body for the kind and id, or a 404.</summary>
+    /// <param name="kind">The kind.</param>
+    /// <param name="id">The id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The body, or a 404.</returns>
+    public Task<UmbracoResponse<JsonNode>> GetSchemaRawAsync(
+        EntityKind kind,
+        Guid id,
+        CancellationToken ct = default
+    ) => Raw(SchemaStore(kind).Store, id);
+
+    /// <summary>Records the create in <see cref="RawWrites"/> (id null).</summary>
+    /// <param name="kind">The kind.</param>
+    /// <param name="body">The body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A success, or <see cref="RawWriteFailure"/>.</returns>
+    public Task<UmbracoResponse<Empty>> CreateSchemaRawAsync(
+        EntityKind kind,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite(SchemaStore(kind).Tag, null, body);
+
     private static Task<UmbracoResponse<JsonNode>> Raw(Dictionary<Guid, JsonNode> store, Guid id) =>
         Task.FromResult(
             store.TryGetValue(id, out var node)
@@ -1004,85 +1012,59 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(RawWriteFailure ?? UmbracoResponse<Empty>.Success(Empty.Value));
     }
 
-    public Task<UmbracoResponse<JsonNode>> GetDocumentTypeRawAsync(
+    /// <summary>The (id, request, replace) of the last <see cref="UpdateMediaAsync"/> call (#220).</summary>
+    public (Guid Id, UpdateMediaRequest Request, bool Replace)? LastMediaUpdate
+    {
+        get;
+        private set;
+    }
+
+    /// <summary>Records the update and answers with a bare item.</summary>
+    /// <param name="id">The media id.</param>
+    /// <param name="request">The update.</param>
+    /// <param name="replace">Whether it replaces.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A success carrying the id.</returns>
+    public Task<UmbracoResponse<MediaItemResponse>> UpdateMediaAsync(
         Guid id,
+        UpdateMediaRequest request,
+        bool replace = false,
         CancellationToken ct = default
-    ) => Raw(DocumentTypeRaw, id);
+    )
+    {
+        LastMediaUpdate = (id, request, replace);
+        return Task.FromResult(
+            UmbracoResponse<MediaItemResponse>.Success(new MediaItemResponse { Id = id })
+        );
+    }
 
-    public Task<UmbracoResponse<JsonNode>> GetDataTypeRawAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) => Raw(DataTypeRaw, id);
+    /// <summary>The (kind, id, body, replace) of the last <see cref="MergeSchemaItemAsync"/> call (#201).</summary>
+    public (EntityKind Kind, Guid Id, JsonNode Body, bool Replace)? LastSchemaMerge
+    {
+        get;
+        private set;
+    }
 
-    public Task<UmbracoResponse<JsonNode>> GetTemplateRawAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) => Raw(TemplateRaw, id);
-
-    public Task<UmbracoResponse<Empty>> CreateDocumentTypeRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    ) => RecordWrite("documentType", null, body);
-
-    public Task<UmbracoResponse<Empty>> UpdateDocumentTypeRawAsync(
-        Guid id,
-        JsonNode body,
-        CancellationToken ct = default
-    ) => RecordWrite("documentType", id, body);
-
-    public Task<UmbracoResponse<Empty>> CreateDataTypeRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    ) => RecordWrite("dataType", null, body);
-
-    public Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
-        Guid id,
-        JsonNode body,
-        CancellationToken ct = default
-    ) => RecordWrite("dataType", id, body);
-
-    public Task<UmbracoResponse<Empty>> CreateTemplateRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    ) => RecordWrite("template", null, body);
-
-    public Task<UmbracoResponse<Empty>> UpdateTemplateRawAsync(
-        Guid id,
-        JsonNode body,
-        CancellationToken ct = default
-    ) => RecordWrite("template", id, body);
-
-    public Task<UmbracoResponse<JsonNode>> GetMediaTypeRawAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) => Raw(MediaTypeRaw, id);
-
-    public Task<UmbracoResponse<JsonNode>> GetMemberTypeRawAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) => Raw(MemberTypeRaw, id);
-
-    public Task<UmbracoResponse<Empty>> CreateMediaTypeRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    ) => RecordWrite("mediaType", null, body);
-
-    public Task<UmbracoResponse<Empty>> UpdateMediaTypeRawAsync(
+    /// <summary>Records the merge and answers with a bare success.</summary>
+    /// <param name="kind">The schema kind.</param>
+    /// <param name="id">The item id.</param>
+    /// <param name="body">The body.</param>
+    /// <param name="replace">Whether the body replaces the item.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A bare success.</returns>
+    public Task<UmbracoResponse<Empty>> MergeSchemaItemAsync(
+        EntityKind kind,
         Guid id,
         JsonNode body,
+        bool replace = false,
         CancellationToken ct = default
-    ) => RecordWrite("mediaType", id, body);
-
-    public Task<UmbracoResponse<Empty>> CreateMemberTypeRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    ) => RecordWrite("memberType", null, body);
-
-    public Task<UmbracoResponse<Empty>> UpdateMemberTypeRawAsync(
-        Guid id,
-        JsonNode body,
-        CancellationToken ct = default
-    ) => RecordWrite("memberType", id, body);
+    )
+    {
+        // Recorded both ways: the round-trip tests look at the merge call, the apply tests at
+        // the write it amounts to (an apply update is a replace).
+        LastSchemaMerge = (kind, id, body, replace);
+        return RecordWrite(SchemaStore(kind).Tag, id, body);
+    }
 
     // ── Content snapshot raw-JSON access (IContentSnapshotClient, #100) ─────────
     // Mirrors the schema harness: DocumentTree drives enumeration, DocumentRaw hands out canned

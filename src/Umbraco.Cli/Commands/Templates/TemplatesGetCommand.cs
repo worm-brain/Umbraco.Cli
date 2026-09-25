@@ -1,27 +1,34 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.Templates;
 
+/// <summary>Wires <c>templates get</c>.</summary>
 public static class TemplatesGetCommand
 {
+    /// <summary>
+    /// Builds the command. It prints the template's verbatim Management API body (#250 Phase 5,
+    /// #207), which is the shape <c>templates update --json-body</c> takes back, so a
+    /// get -&gt; edit -&gt; update round-trip loses nothing.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
             "get",
-            "Get a template by its alias or id, including the view file content.\n\nExample:\n  umbraco templates get master\n  umbraco templates get 1a2b3c4d-....."
+            "Get a template by its alias or id, including the view file content.\n\nExamples:\n  umbraco templates get master\n  umbraco templates get master -o json | jq -r .data.content"
         );
-        var aliasArg = new Argument<string>("alias")
-        {
-            Description = "Template alias (e.g. master) or id (GUID).",
-        };
-        cmd.Add(aliasArg);
+        var idArg = Reference.Argument(EntityKind.Template, "alias");
+        cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunObjectAsync(
+                RawBodyCommand.RunGetAsync(
+                    executor,
                     parseResult,
                     "templates.get",
-                    (client, c) =>
-                        client.GetTemplateByAliasAsync(parseResult.GetValue(aliasArg)!, c),
+                    SchemaNoun.Templates,
+                    idArg,
                     ct
                 )
         );

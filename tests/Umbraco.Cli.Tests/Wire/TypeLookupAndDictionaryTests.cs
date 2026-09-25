@@ -58,7 +58,7 @@ public class TypeLookupAndDictionaryTests
     }
 
     [Fact]
-    public async Task GetDataTypeAsync_Name_ResolvesItThenReads()
+    public async Task ResolveIdAsync_DataTypeName_ResolvesToItsId()
     {
         var id = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var handler = Wire.Routed(
@@ -73,21 +73,20 @@ public class TypeLookupAndDictionaryTests
         );
 
         var result = await Wire.Client(handler)
-            .GetDataTypeAsync("Textstring", CancellationToken.None);
+            .ResolveIdAsync(EntityKind.DataType, "Textstring", CancellationToken.None);
 
         // By NAME, not alias: a data type has no alias - editorAlias names the editor behind it,
         // which many data types share, so it does not identify one.
-        Assert.True(result.IsSuccess, result.ErrorMessage);
-        Assert.Equal("Umbraco.TextBox", result.Data!.EditorAlias);
+        Assert.Equal(id, result.Data);
     }
 
     [Fact]
-    public async Task GetDataTypeAsync_UnknownName_FailsWithAUsableMessage()
+    public async Task ResolveIdAsync_UnknownDataTypeName_FailsWithAUsableMessage()
     {
         var handler = Wire.Routed(("item/data-type/search", """{ "total": 0, "items": [] }"""));
 
         var result = await Wire.Client(handler)
-            .GetDataTypeAsync("NotARealDataType", CancellationToken.None);
+            .ResolveIdAsync(EntityKind.DataType, "NotARealDataType", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(404, result.StatusCode);

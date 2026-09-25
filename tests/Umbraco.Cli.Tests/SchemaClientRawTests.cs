@@ -57,7 +57,7 @@ public class SchemaClientRawTests
     }
 
     [Fact]
-    public async Task GetDocumentTypeRawAsync_HitsByIdEndpoint_AndReturnsVerbatimBody()
+    public async Task GetSchemaRawDocumentType_HitsByIdEndpoint_AndReturnsVerbatimBody()
     {
         // The verbatim body carries the rich collections the lossy DocumentTypeResponse drops
         // (properties here) — the whole point of the raw read.
@@ -68,7 +68,11 @@ public class SchemaClientRawTests
             """;
         var (client, handler) = ClientReturning(json);
 
-        var result = await client.GetDocumentTypeRawAsync(id, CancellationToken.None);
+        var result = await client.GetSchemaRawAsync(
+            EntityKind.DocumentType,
+            id,
+            CancellationToken.None
+        );
 
         Assert.True(result.IsSuccess);
         Assert.Contains($"document-type/{id}", handler.LastRequestUri!.AbsoluteUri);
@@ -78,7 +82,7 @@ public class SchemaClientRawTests
     }
 
     [Fact]
-    public async Task GetDataTypeRawAsync_PreservesConfigValues()
+    public async Task GetSchemaRawDataType_PreservesConfigValues()
     {
         // DataTypeResponse has no "values" field; the raw read must keep it.
         var id = Guid.NewGuid();
@@ -88,7 +92,11 @@ public class SchemaClientRawTests
             """;
         var (client, handler) = ClientReturning(json);
 
-        var result = await client.GetDataTypeRawAsync(id, CancellationToken.None);
+        var result = await client.GetSchemaRawAsync(
+            EntityKind.DataType,
+            id,
+            CancellationToken.None
+        );
 
         Assert.True(result.IsSuccess);
         Assert.Contains($"data-type/{id}", handler.LastRequestUri!.AbsoluteUri);
@@ -96,7 +104,7 @@ public class SchemaClientRawTests
     }
 
     [Fact]
-    public async Task GetTemplateRawAsync_PreservesRazorContent()
+    public async Task GetSchemaRawTemplate_PreservesRazorContent()
     {
         var id = Guid.NewGuid();
         var json = $$"""
@@ -104,7 +112,11 @@ public class SchemaClientRawTests
             """;
         var (client, handler) = ClientReturning(json);
 
-        var result = await client.GetTemplateRawAsync(id, CancellationToken.None);
+        var result = await client.GetSchemaRawAsync(
+            EntityKind.Template,
+            id,
+            CancellationToken.None
+        );
 
         Assert.True(result.IsSuccess);
         Assert.Contains($"template/{id}", handler.LastRequestUri!.AbsoluteUri);
@@ -112,24 +124,32 @@ public class SchemaClientRawTests
     }
 
     [Fact]
-    public async Task GetDocumentTypeRawAsync_MapsHttpErrorToFailure()
+    public async Task GetSchemaRawDocumentType_MapsHttpErrorToFailure()
     {
         var (client, _) = ClientReturning("""{"title":"Not Found"}""", HttpStatusCode.NotFound);
 
-        var result = await client.GetDocumentTypeRawAsync(Guid.NewGuid(), CancellationToken.None);
+        var result = await client.GetSchemaRawAsync(
+            EntityKind.DocumentType,
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
 
         Assert.False(result.IsSuccess);
         Assert.Equal(404, result.StatusCode);
     }
 
     [Fact]
-    public async Task CreateDocumentTypeRawAsync_PostsBodyToCollectionEndpoint()
+    public async Task CreateSchemaRawDocumentType_PostsBodyToCollectionEndpoint()
     {
         // Umbraco writes return 201 with an empty body; the client treats 2xx-empty as success.
         var (client, handler) = ClientReturning("", HttpStatusCode.Created);
         var body = JsonNode.Parse("""{"alias":"blogPost","name":"Blog Post"}""")!;
 
-        var result = await client.CreateDocumentTypeRawAsync(body, CancellationToken.None);
+        var result = await client.CreateSchemaRawAsync(
+            EntityKind.DocumentType,
+            body,
+            CancellationToken.None
+        );
 
         Assert.True(result.IsSuccess);
         Assert.Equal(HttpMethod.Post, handler.LastMethod);
@@ -138,13 +158,19 @@ public class SchemaClientRawTests
     }
 
     [Fact]
-    public async Task UpdateTemplateRawAsync_PutsBodyToByIdEndpoint()
+    public async Task MergeSchemaRawTemplate_PutsBodyToByIdEndpoint()
     {
         var id = Guid.NewGuid();
         var (client, handler) = ClientReturning("", HttpStatusCode.OK);
         var body = JsonNode.Parse("""{"alias":"home","content":"@* changed *@"}""")!;
 
-        var result = await client.UpdateTemplateRawAsync(id, body, CancellationToken.None);
+        var result = await client.MergeSchemaItemAsync(
+            EntityKind.Template,
+            id,
+            body,
+            replace: true,
+            CancellationToken.None
+        );
 
         Assert.True(result.IsSuccess);
         Assert.Equal(HttpMethod.Put, handler.LastMethod);

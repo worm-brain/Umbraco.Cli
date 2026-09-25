@@ -358,50 +358,18 @@ public static class SchemaApplier
         var change = op.Change;
         return (op.Operation, change.Kind) switch
         {
-            ("create", SchemaKinds.DocumentType) => client.CreateDocumentTypeRawAsync(
+            // Creates and updates are the same call for every kind; only the endpoint differs.
+            // An update is a full replace (replace: true): the snapshot body is the whole item.
+            ("create", _) => client.CreateSchemaRawAsync(
+                SchemaKinds.EntityOf(change.Kind),
                 change.DesiredBody!,
                 ct
             ),
-            ("create", SchemaKinds.DataType) => client.CreateDataTypeRawAsync(
-                change.DesiredBody!,
-                ct
-            ),
-            ("create", SchemaKinds.Template) => client.CreateTemplateRawAsync(
-                change.DesiredBody!,
-                ct
-            ),
-            ("create", SchemaKinds.MediaType) => client.CreateMediaTypeRawAsync(
-                change.DesiredBody!,
-                ct
-            ),
-            ("create", SchemaKinds.MemberType) => client.CreateMemberTypeRawAsync(
-                change.DesiredBody!,
-                ct
-            ),
-
-            ("update", SchemaKinds.DocumentType) => client.UpdateDocumentTypeRawAsync(
+            ("update", _) => client.MergeSchemaItemAsync(
+                SchemaKinds.EntityOf(change.Kind),
                 change.CurrentId!.Value,
                 WithId(change.DesiredBody!, change.CurrentId!.Value),
-                ct
-            ),
-            ("update", SchemaKinds.DataType) => client.UpdateDataTypeRawAsync(
-                change.CurrentId!.Value,
-                WithId(change.DesiredBody!, change.CurrentId!.Value),
-                ct
-            ),
-            ("update", SchemaKinds.Template) => client.UpdateTemplateRawAsync(
-                change.CurrentId!.Value,
-                WithId(change.DesiredBody!, change.CurrentId!.Value),
-                ct
-            ),
-            ("update", SchemaKinds.MediaType) => client.UpdateMediaTypeRawAsync(
-                change.CurrentId!.Value,
-                WithId(change.DesiredBody!, change.CurrentId!.Value),
-                ct
-            ),
-            ("update", SchemaKinds.MemberType) => client.UpdateMemberTypeRawAsync(
-                change.CurrentId!.Value,
-                WithId(change.DesiredBody!, change.CurrentId!.Value),
+                replace: true,
                 ct
             ),
 

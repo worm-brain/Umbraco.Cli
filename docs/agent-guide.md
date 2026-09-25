@@ -43,9 +43,12 @@ compare `.data` only - `meta.timestamp` changes on every call.
 
 ## 2. Discover request bodies: `--schema`
 
-Any command that accepts a `--json-body` also accepts `--schema`, which prints the JSON Schema
-of that body and exits. It is local (no host/auth), it ignores `--output` (always a bare JSON
-Schema document, not the envelope), and it is never blocked by the allow-list or `--readonly`.
+Any command that accepts a `--json-body` also accepts `--schema`. For content, media, members and
+blueprints it prints the JSON Schema of that body and exits. It is local (no host/auth), it ignores
+`--output` (always a bare JSON Schema document, not the envelope), and it is never blocked by the
+allow-list or `--readonly`. The schema nouns (`content-types`, `media-types`, `member-types`,
+`data-types`, `templates`) are the exception: their body is the Management API's own, so
+`--schema` prints a real one off the instance instead (see "Authoring schema") and needs a host.
 
 ```bash
 umbraco content create --schema        # the shape of a content-create body
@@ -338,13 +341,13 @@ the CLI alone:
 |---|---|
 | `content get` | `values` (with each value's `editorAlias`), every `variant` and its publication `state`, and `template` |
 | `media get` | `values` carrying `umbracoWidth`/`umbracoHeight`/`umbracoBytes`/`umbracoExtension`, plus `urls` per culture |
-| `content-types get` | `properties`, `containers` (the groups/tabs), `compositions`, `allowedTemplates`, `defaultTemplate` |
-| `data-types get` | `values` - the editor configuration, e.g. a dropdown's items |
+| `content-types`, `media-types`, `member-types`, `data-types`, `templates` `get` | the Management API body verbatim - `properties`, `containers`, `compositions`, `allowedTemplates`, `collection`, allowed children, per-property `validation`; a data type's `values`; a template's `content` - which is a valid `update --json-body` as it stands |
 
 `members get` returns the member's `groups` and `values` too
-([#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)). One thing is still narrow: **no
-`get` returns an item's parent** - placement is not on the Management API's by-id body; use
-`content tree`, whose rows carry `parentId`.
+([#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)). `content get` and `media get`
+carry `parent` (read from the tree, because the by-id body has none; left out at the root), and
+`data-types list` rows carry their folder. List rows leave out `updateDate`, which the tree does
+not provide, rather than showing a default date.
 
 Type references (`contentType`, `mediaType`) carry a resolved `alias`
 ([#163](https://github.com/worm-brain/Umbraco.Cli/issues/163)). When it cannot be resolved the
@@ -402,10 +405,17 @@ umbraco content-types get blogPost -o json | jq .data > t.json
 umbraco content-types update blogPost --json-body t.json
 ```
 
-`--json-body` is on `content-types create/update` and `data-types create/update`, and takes a
-file or `-` for stdin. It is a **full replace**, so send the whole body. Run any of them with
-`--schema` to print a real type off the instance as a worked example - a real one rather than a
-hand-written schema, so it cannot drift from what the API accepts (which is why it needs a host).
+`--json-body` is on `create` and `update` for `content-types`, `media-types`, `member-types` and
+`data-types`, and on `templates update`, and takes a file or `-` for stdin. `update` **merges the
+body's top-level keys** into the item, so a partial body is safe: a key you leave out keeps its
+value, a key you send replaces it whole. Pass `--replace` to send the body as the whole item. Run
+any of them with `--schema` to print a real type off the instance as a worked example - a real
+one rather than a hand-written schema, so it cannot drift from what the API accepts (which is why
+it needs a host). On a site that has none yet, `--schema` prints a minimal valid body.
+
+A blueprint's scaffold is a valid content body: `document-blueprint scaffold <id> | umbraco
+content create --json-body -` creates a new item from it (its `documentType` is read as the
+`contentType`, and the blueprint's id is not reused).
 
 The snapshot round-trip is still the right tool for a **set** of types, or for moving schema
 between environments:

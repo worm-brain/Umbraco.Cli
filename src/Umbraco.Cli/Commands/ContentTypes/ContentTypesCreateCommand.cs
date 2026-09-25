@@ -19,9 +19,8 @@ public static class ContentTypesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new document type with a given name and alias.\n\nExamples:\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
+            "Create a new document type, from flags or from a full Management API body (--json-body). --schema prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco content-types create --schema -o json | jq .data > t.json\n  umbraco content-types create --json-body t.json\n  umbraco content-types create --name \"Blog Post\" --alias blogPost\n  umbraco content-types create --name \"Widget\" --alias widget --is-element\n  umbraco content-types create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
         );
-        var body = RawBodyCommand.AddBodyOptions(cmd);
         var nameOpt = new Option<string>("--name");
         var aliasOpt = new Option<string>("--alias");
         var descOpt = new Option<string?>("--description");
@@ -32,12 +31,13 @@ public static class ContentTypesCreateCommand
         };
         var isElementOpt = new Option<bool>("--is-element") { DefaultValueFactory = _ => false };
         var allowRootOpt = new Option<bool>("--allow-at-root") { DefaultValueFactory = _ => false };
-        var idOpt = new Option<Guid?>("--id")
-        {
-            Description =
-                "Optional client-supplied UUID for an idempotent create (#86). With --json-body it "
-                + "fills the body's id, and must match it if the body has one.",
-        };
+        var idOpt = IdOption();
+        var body = RawBodyCommand.AddCreateOptions(
+            cmd,
+            SchemaNoun.DocumentTypes,
+            nameOpt,
+            aliasOpt
+        );
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);
         cmd.Add(descOpt);
@@ -46,53 +46,15 @@ public static class ContentTypesCreateCommand
         cmd.Add(allowRootOpt);
         cmd.Add(idOpt);
 
-        // --name/--alias are required only for the flag-built create; a --json-body carries them
-        // itself, and --schema builds nothing at all.
-        cmd.Validators.Add(result =>
-        {
-            if (body.SchemaRequested(result) || body.HasBody(result))
-                return;
-            if (
-                string.IsNullOrEmpty(result.GetValue(nameOpt))
-                || string.IsNullOrEmpty(result.GetValue(aliasOpt))
-            )
-                result.AddError(
-                    "Supply --name and --alias, or a full body with --json-body. "
-                        + "Run with --schema to print a real document type as a starting point."
-                );
-        });
-
         cmd.SetAction(
             (parseResult, ct) =>
-            {
-                if (body.SchemaRequested(parseResult))
-                    return RawBodyCommand.RunSchemaAsync(
-                        executor,
-                        parseResult,
-                        "content-types.create",
-                        client => client.GetDocumentTypeIdsAsync,
-                        client => client.GetDocumentTypeRawAsync,
-                        "document types",
-                        ct
-                    );
-
-                if (body.HasBody(parseResult))
-                    return executor.RunObjectAsync(
-                        parseResult,
-                        "content-types.create",
-                        async (client, c) =>
-                            await RawBodyCommand.CreateAsync(
-                                await RawBodyCommand.ReadBodyAsync(body, parseResult, c),
-                                parseResult.GetValue(idOpt),
-                                client.CreateDocumentTypeRawAsync,
-                                c
-                            ),
-                        ct
-                    );
-
-                return executor.RunObjectAsync(
+                RawBodyCommand.RunCreateAsync(
+                    executor,
                     parseResult,
                     "content-types.create",
+                    SchemaNoun.DocumentTypes,
+                    body,
+                    idOpt,
                     (client, c) =>
                         client.CreateDocumentTypeAsync(
                             new CreateDocumentTypeRequest
@@ -108,10 +70,19 @@ public static class ContentTypesCreateCommand
                             c
                         ),
                     ct
-                );
-            }
+                )
         );
 
         return cmd;
     }
+
+    /// <summary>The <c>--id</c> option shared by the schema creates.</summary>
+    /// <returns>The option.</returns>
+    internal static Option<Guid?> IdOption() =>
+        new("--id")
+        {
+            Description =
+                "Optional client-supplied UUID for an idempotent create (#86). With --json-body it "
+                + "fills the body's id, and must match it if the body has one.",
+        };
 }

@@ -20,28 +20,32 @@ public static class MemberTypesCreateCommand
             "create",
             "Create a new member type with a given name and alias.\n\nExamples:\n  umbraco member-types create --name \"Author\" --alias author\n  umbraco member-types create --name \"Subscriber\" --alias subscriber --icon icon-user"
         );
-        var nameOpt = new Option<string>("--name") { Required = true };
-        var aliasOpt = new Option<string>("--alias") { Required = true };
+        var nameOpt = new Option<string>("--name");
+        var aliasOpt = new Option<string>("--alias");
         var descOpt = new Option<string?>("--description");
         var iconOpt = new Option<string>("--icon")
         {
             DefaultValueFactory = _ => "icon-user",
             Description = "Backoffice icon alias (e.g. icon-user).",
         };
-        var idOpt = new Option<Guid?>("--id")
-        {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
-        };
+        var idOpt = ContentTypes.ContentTypesCreateCommand.IdOption();
+        // #213/#221: a --json-body carries properties and groups the flags cannot.
+        var body = RawBodyCommand.AddCreateOptions(cmd, SchemaNoun.MemberTypes, nameOpt, aliasOpt);
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);
         cmd.Add(descOpt);
         cmd.Add(iconOpt);
         cmd.Add(idOpt);
+
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunObjectAsync(
+                RawBodyCommand.RunCreateAsync(
+                    executor,
                     parseResult,
                     "member-types.create",
+                    SchemaNoun.MemberTypes,
+                    body,
+                    idOpt,
                     (client, c) =>
                         client.CreateMemberTypeAsync(
                             new CreateMemberTypeRequest

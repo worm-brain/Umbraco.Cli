@@ -157,4 +157,21 @@ public interface IMediaClient
         IReadOnlyList<Guid> orderedChildIds,
         CancellationToken ct = default
     );
+
+    /// <summary>
+    /// Updates a media item's property values and names (#220). The item is read, the request's
+    /// values and variants are merged into it (matched on alias + culture + segment), and it is
+    /// written back, so anything not named - the uploaded file included - keeps its value.
+    /// </summary>
+    /// <param name="id">The media item id.</param>
+    /// <param name="request">The values and variants to set.</param>
+    /// <param name="replace">Replace the item's values and variants with the request's instead of merging.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The updated item, re-read, or a mapped failure.</returns>
+    Task<UmbracoResponse<MediaItemResponse>> UpdateMediaAsync(
+        Guid id,
+        UpdateMediaRequest request,
+        bool replace = false,
+        CancellationToken ct = default
+    );
 }

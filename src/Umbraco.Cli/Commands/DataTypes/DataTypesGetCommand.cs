@@ -1,26 +1,34 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
+/// <summary>Wires <c>data-types get</c>.</summary>
 public static class DataTypesGetCommand
 {
+    /// <summary>
+    /// Builds the command. It prints the data type's verbatim Management API body (#250 Phase 5,
+    /// #201), which is the shape <c>data-types update --json-body</c> takes back, so a
+    /// get -&gt; edit -&gt; update round-trip loses nothing.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
             "get",
-            "Get a data type by name or UUID, including its editor configuration.\n\nA data type has no alias - 'editorAlias' names the property editor behind it, which many data types share - so the human-facing key is its name.\n\nExamples:\n  umbraco data-types get Textstring\n  umbraco data-types get 3f7a8b2e-..."
+            "Get a data type by name or UUID: the full Management API body, including its editor configuration. The output is a valid 'update --json-body'.\n\nA data type has no alias - 'editorAlias' names the property editor behind it, which many data types share - so the human-facing key is its name.\n\nExamples:\n  umbraco data-types get Textstring\n  umbraco data-types get 3f7a8b2e-..."
         );
-        var idArg = new Argument<string>("id")
-        {
-            Description = "Data type name (e.g. Textstring) or UUID.",
-        };
+        var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunObjectAsync(
+                RawBodyCommand.RunGetAsync(
+                    executor,
                     parseResult,
                     "data-types.get",
-                    (client, c) => client.GetDataTypeAsync(parseResult.GetValue(idArg)!, c),
+                    SchemaNoun.DataTypes,
+                    idArg,
                     ct
                 )
         );

@@ -14,15 +14,6 @@ public interface IMemberTypeClient
         CancellationToken ct = default
     );
 
-    /// <summary>Gets a single member type by id, including its alias and description.</summary>
-    /// <param name="id">The member type id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The member type mapped to <see cref="MemberTypeResponse"/>.</returns>
-    Task<UmbracoResponse<MemberTypeResponse>> GetMemberTypeByIdAsync(
-        Guid id,
-        CancellationToken ct = default
-    );
-
     /// <summary>Creates a member type.</summary>
     /// <param name="request">The member type to create.</param>
     /// <param name="ct">Cancellation token.</param>

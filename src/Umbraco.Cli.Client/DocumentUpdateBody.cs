@@ -125,6 +125,56 @@ public static class DocumentUpdateBody
     }
 
     /// <summary>
+    /// Lays <paramref name="over"/> on <paramref name="under"/> with the rule <see cref="Merge"/>
+    /// uses for values: an entry with the same alias + culture + segment is replaced in place,
+    /// anything else is appended. For combining a body with command-line flags (#220) before the
+    /// merge, so both steps key entries the same way.
+    /// </summary>
+    /// <param name="under">The body's values.</param>
+    /// <param name="over">The values that win (e.g. from flags).</param>
+    /// <returns>The combined values.</returns>
+    public static List<ContentValue> Overlay(
+        IEnumerable<ContentValue> under,
+        IEnumerable<ContentValue> over
+    ) => OverlayBy(under, over, v => (v.Alias, v.Culture, v.Segment));
+
+    /// <summary>The variant twin of <see cref="Overlay(IEnumerable{ContentValue}, IEnumerable{ContentValue})"/>, keyed on culture + segment.</summary>
+    /// <param name="under">The body's variants.</param>
+    /// <param name="over">The variants that win.</param>
+    /// <returns>The combined variants.</returns>
+    public static List<ContentVariant> Overlay(
+        IEnumerable<ContentVariant> under,
+        IEnumerable<ContentVariant> over
+    ) => OverlayBy(under, over, v => (v.Culture, v.Segment));
+
+    /// <summary>Replace-in-place-else-append, on a key.</summary>
+    /// <typeparam name="T">The entry type.</typeparam>
+    /// <typeparam name="TKey">The key type.</typeparam>
+    /// <param name="under">The base entries.</param>
+    /// <param name="over">The winning entries.</param>
+    /// <param name="key">The key of an entry.</param>
+    /// <returns>The combined entries.</returns>
+    private static List<T> OverlayBy<T, TKey>(
+        IEnumerable<T> under,
+        IEnumerable<T> over,
+        Func<T, TKey> key
+    )
+    {
+        var result = under.ToList();
+        foreach (var entry in over)
+        {
+            var at = result.FindIndex(u =>
+                EqualityComparer<TKey>.Default.Equals(key(u), key(entry))
+            );
+            if (at >= 0)
+                result[at] = entry;
+            else
+                result.Add(entry);
+        }
+        return result;
+    }
+
+    /// <summary>
     /// Merges <paramref name="requested"/> into <paramref name="current"/>, keyed on
     /// <paramref name="keyFields"/>: a request entry replaces the entry with the same key or is
     /// appended. Every entry in the result is projected to <paramref name="keptFields"/>.

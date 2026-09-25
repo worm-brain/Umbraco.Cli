@@ -894,21 +894,6 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task GetMediaTypeByIdAsync_CallsByIdEndpoint()
-    {
-        var id = Guid.NewGuid();
-        var (client, handler) = ClientReturning(
-            $$"""{"id":"{{id}}","name":"Image","alias":"image"}"""
-        );
-
-        var result = await client.GetMediaTypeByIdAsync(id, CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal("image", result.Data!.Alias);
-        Assert.EndsWith($"/media-type/{id}", handler.LastRequestUri!.AbsolutePath);
-    }
-
-    [Fact]
     public async Task DeleteMediaTypeAsync_CallsDeleteEndpoint()
     {
         var id = Guid.NewGuid();
@@ -918,21 +903,6 @@ public class UmbracoManagementClientTests
 
         Assert.True(result.IsSuccess);
         Assert.EndsWith($"/media-type/{id}", handler.LastRequestUri!.AbsolutePath);
-    }
-
-    [Fact]
-    public async Task GetMemberTypeByIdAsync_CallsByIdEndpoint()
-    {
-        var id = Guid.NewGuid();
-        var (client, handler) = ClientReturning(
-            $$"""{"id":"{{id}}","name":"Author","alias":"author"}"""
-        );
-
-        var result = await client.GetMemberTypeByIdAsync(id, CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal("author", result.Data!.Alias);
-        Assert.EndsWith($"/member-type/{id}", handler.LastRequestUri!.AbsolutePath);
     }
 
     [Fact]
