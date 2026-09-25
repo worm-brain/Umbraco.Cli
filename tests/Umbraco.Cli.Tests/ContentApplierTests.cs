@@ -40,8 +40,7 @@ public class ContentApplierTests
         var result = await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: true,
-            dryRun: true,
+            new ContentApplyOptions(Prune: true, DryRun: true),
             CancellationToken.None
         );
 
@@ -62,8 +61,7 @@ public class ContentApplierTests
         await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new ContentApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -81,8 +79,7 @@ public class ContentApplierTests
         await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new ContentApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -99,8 +96,7 @@ public class ContentApplierTests
         var result = await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new ContentApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -121,8 +117,7 @@ public class ContentApplierTests
         await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: true,
-            dryRun: false,
+            new ContentApplyOptions(Prune: true, DryRun: false),
             CancellationToken.None
         );
 
@@ -173,10 +168,8 @@ public class ContentApplierTests
         await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: true,
-            dryRun: false,
-            CancellationToken.None,
-            exclude
+            new ContentApplyOptions(Prune: true, DryRun: false) { Exclude = exclude },
+            CancellationToken.None
         );
         return fake.CalledIds;
     }
@@ -243,8 +236,7 @@ public class ContentApplierTests
         var result = await ContentApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new ContentApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 

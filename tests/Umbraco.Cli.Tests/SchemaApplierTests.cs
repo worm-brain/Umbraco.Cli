@@ -63,8 +63,7 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: true,
+            new SchemaApplyOptions(Prune: false, DryRun: true),
             CancellationToken.None
         );
 
@@ -102,8 +101,7 @@ public class SchemaApplierTests
         await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -136,8 +134,7 @@ public class SchemaApplierTests
         await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -171,8 +168,7 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -209,10 +205,8 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: true,
-            dryRun: false,
-            CancellationToken.None,
-            force: true
+            new SchemaApplyOptions(Prune: true, DryRun: false, Force: true),
+            CancellationToken.None
         );
 
         Assert.True(result.IsSuccess);
@@ -246,8 +240,7 @@ public class SchemaApplierTests
             SchemaApplier.ApplyAsync(
                 fake,
                 RemovesDataType(id),
-                prune: true,
-                dryRun: false,
+                new SchemaApplyOptions(Prune: true, DryRun: false),
                 CancellationToken.None
             )
         );
@@ -263,8 +256,7 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             RemovesDataType(id),
-            prune: true,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: true, DryRun: false),
             CancellationToken.None
         );
 
@@ -302,8 +294,7 @@ public class SchemaApplierTests
         await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -343,8 +334,7 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -396,8 +386,7 @@ public class SchemaApplierTests
         await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: false,
-            dryRun: false,
+            new SchemaApplyOptions(Prune: false, DryRun: false),
             CancellationToken.None
         );
 
@@ -424,8 +413,7 @@ public class SchemaApplierTests
         var result = await SchemaApplier.ApplyAsync(
             fake,
             diff,
-            prune: true,
-            dryRun: true,
+            new SchemaApplyOptions(Prune: true, DryRun: true),
             CancellationToken.None
         );
 

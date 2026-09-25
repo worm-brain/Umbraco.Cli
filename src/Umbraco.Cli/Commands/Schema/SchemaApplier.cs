@@ -64,29 +64,26 @@ public sealed record SchemaApplyResult(
 public static class SchemaApplier
 {
     /// <summary>
-    /// Applies <paramref name="diff"/> to the live instance, or (when <paramref name="dryRun"/>)
-    /// returns the plan without writing anything.
+    /// Applies <paramref name="diff"/> to the live instance, or (under
+    /// <see cref="SchemaApplyOptions.DryRun"/>) returns the plan without writing anything.
     /// </summary>
     /// <param name="client">The management client.</param>
     /// <param name="diff">The diff to apply (already computed against the live instance).</param>
-    /// <param name="prune">When true, delete live entities the snapshot matched nothing to.</param>
-    /// <param name="dryRun">When true, compute the plan and write nothing.</param>
+    /// <param name="options">Whether to prune, whether to write, and whether to force in-use prunes.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <param name="force">When true, prune types even though content still uses them (#252).</param>
     /// <returns>The apply result, or the first write failure.</returns>
     /// <exception cref="SafetyRefusalException">
-    /// A real (not dry-run) prune would delete a type still in use, and <paramref name="force"/> is false.
-    /// Nothing has been applied.
+    /// A real (not dry-run) prune would delete a type still in use, and
+    /// <see cref="SchemaApplyOptions.Force"/> is false. Nothing has been applied.
     /// </exception>
     public static async Task<UmbracoResponse<SchemaApplyResult>> ApplyAsync(
         IUmbracoManagementClient client,
         SchemaDiff diff,
-        bool prune,
-        bool dryRun,
-        CancellationToken ct,
-        bool force = false
+        SchemaApplyOptions options,
+        CancellationToken ct
     )
     {
+        var (prune, dryRun, force) = options;
         var plan = BuildPlan(diff, prune);
 
         // #252: a pruned type that is still in use takes content with it (Umbraco cascades the

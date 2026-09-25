@@ -71,26 +71,23 @@ public static class ContentApplier
         };
 
     /// <summary>
-    /// Applies <paramref name="diff"/> to the live instance, or (when <paramref name="dryRun"/>)
+    /// Applies <paramref name="diff"/> to the live instance, or (under a dry run)
     /// returns the plan without writing anything.
     /// </summary>
     /// <param name="client">The management client.</param>
     /// <param name="diff">The diff to apply (already computed against the live instance).</param>
-    /// <param name="prune">When true, delete live documents the snapshot matched nothing to.</param>
-    /// <param name="dryRun">When true, compute the plan and write nothing.</param>
+    /// <param name="options">Whether to prune (and what to leave alone), and whether to write.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <param name="exclude">Documents a prune must leave alone (#225); null for none.</param>
     /// <returns>The apply result, or the first write failure.</returns>
     public static async Task<UmbracoResponse<ContentApplyResult>> ApplyAsync(
         IUmbracoManagementClient client,
         ContentDiff diff,
-        bool prune,
-        bool dryRun,
-        CancellationToken ct,
-        PruneExclusions? exclude = null
+        ContentApplyOptions options,
+        CancellationToken ct
     )
     {
-        var plan = BuildPlan(diff, prune, exclude ?? PruneExclusions.None);
+        var (prune, dryRun) = options;
+        var plan = BuildPlan(diff, prune, options.Exclude);
 
         if (dryRun)
         {

@@ -47,6 +47,13 @@ public static class SchemaApplyCommand
         cmd.Add(snapshotArg);
         cmd.Add(pruneOpt);
         cmd.Add(forceOpt);
+        // --force only overrides the prune's in-use check. Without --prune it would be silently
+        // ignored, which reads as "this apply is forced"; refuse it instead.
+        cmd.Validators.Add(result =>
+        {
+            if (result.GetValue(forceOpt) && !result.GetValue(pruneOpt))
+                result.AddError($"{forceOpt.Name} only applies with {pruneOpt.Name}.");
+        });
 
         // Prune can delete live schema, so it is gated behind the confirmation prompt (skipped
         // under --dry-run / --readonly by the executor). A non-prune apply only creates/updates
@@ -82,10 +89,12 @@ public static class SchemaApplyCommand
                         return await SchemaApplier.ApplyAsync(
                             ctx.Client,
                             diff.Data!,
-                            prune,
-                            ctx.DryRun,
-                            c,
-                            force: parseResult.GetValue(forceOpt)
+                            new SchemaApplyOptions(
+                                prune,
+                                ctx.DryRun,
+                                Force: parseResult.GetValue(forceOpt)
+                            ),
+                            c
                         );
                     },
                     (ctx, result) =>

@@ -122,6 +122,17 @@ public class CommandParseTests
         return root;
     }
 
+    [Theory]
+    [InlineData("content apply content.json --exclude-type contactSubmission")]
+    [InlineData("content apply content.json --exclude-root 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("schema apply schema.json --force")]
+    public void PruneOnlyOptionWithoutPrune_IsAParseError(string args)
+    {
+        // Review finding: these narrow or override a prune, and without --prune they were
+        // silently ignored, which reads as protection that is not there.
+        Assert.True(HasErrors(args));
+    }
+
     /// <summary>Every leaf command in the tree, with its dotted path (e.g. <c>content.delete</c>).</summary>
     private static IEnumerable<(string Path, Command Command)> Leaves(Command command, string path)
     {
@@ -477,6 +488,10 @@ public class CommandParseTests
     [InlineData("content apply content.json")]
     [InlineData("content apply content.json --dry-run")]
     [InlineData("content apply content.json --prune --yes")]
+    [InlineData(
+        "content apply content.json --prune --exclude-type contactSubmission --exclude-root 3f7a8b2e-1234-5678-abcd-ef0123456789 --yes"
+    )]
+    [InlineData("schema apply schema.json --prune --force --yes")]
     [InlineData("media trash 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("media restore 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("media empty-recycle-bin")]

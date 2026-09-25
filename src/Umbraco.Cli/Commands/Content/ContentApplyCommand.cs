@@ -59,6 +59,18 @@ public static class ContentApplyCommand
         cmd.Add(pruneOpt);
         cmd.Add(excludeTypeOpt);
         cmd.Add(excludeRootOpt);
+        // The exclusions only narrow a prune. Without --prune they would be silently ignored,
+        // which reads as "these are protected"; refuse them instead.
+        cmd.Validators.Add(result =>
+        {
+            var excludes =
+                result.GetValue(excludeTypeOpt) is { Length: > 0 }
+                || result.GetValue(excludeRootOpt) is { Length: > 0 };
+            if (excludes && !result.GetValue(pruneOpt))
+                result.AddError(
+                    $"{excludeTypeOpt.Name} and {excludeRootOpt.Name} only apply with {pruneOpt.Name}."
+                );
+        });
 
         // Prune can delete live content, so it is gated behind the confirmation prompt (skipped
         // under --dry-run / --readonly by the executor). A non-prune apply only creates/updates
@@ -91,24 +103,24 @@ public static class ContentApplyCommand
                                 diff.ErrorMessage!
                             );
 
-                        var exclude = await ResolveExclusionsAsync(
-                            ctx.Client,
-                            parseResult.GetValue(excludeTypeOpt) ?? [],
-                            parseResult.GetValue(excludeRootOpt) ?? [],
-                            c
-                        );
-                        if (!exclude.IsSuccess)
-                            return UmbracoResponse<ContentApplyResult>.FailureFrom(exclude);
+                        var options = new ContentApplyOptions(prune, ctx.DryRun);
+                        // The exclusions only matter to a prune (the validator refuses them
+                        // without one), so an alias is only resolved when there is a prune.
+                        if (prune)
+                        {
+                            var exclude = await ResolveExclusionsAsync(
+                                ctx.Client,
+                                parseResult.GetValue(excludeTypeOpt) ?? [],
+                                parseResult.GetValue(excludeRootOpt) ?? [],
+                                c
+                            );
+                            if (!exclude.IsSuccess)
+                                return UmbracoResponse<ContentApplyResult>.FailureFrom(exclude);
+                            options = options with { Exclude = exclude.Data! };
+                        }
 
                         // ctx.DryRun is honoured inside the applier so the *whole* plan is previewed.
-                        return await ContentApplier.ApplyAsync(
-                            ctx.Client,
-                            diff.Data!,
-                            prune,
-                            ctx.DryRun,
-                            c,
-                            exclude.Data
-                        );
+                        return await ContentApplier.ApplyAsync(ctx.Client, diff.Data!, options, c);
                     },
                     (ctx, result) =>
                         ctx.Output.WriteTable(
