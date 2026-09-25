@@ -117,4 +117,26 @@ public class ContentDiffEngineTests
         Assert.Empty(diff.Changed);
         Assert.False(diff.HasChanges); // apply cannot converge drift, so nothing to do
     }
+
+    [Fact]
+    public void Compare_OnlyInstanceDatesDiffer_IsUnchanged()
+    {
+        // #224: the same document on two instances always has different dates; that is not a change.
+        var id = Guid.NewGuid();
+        ContentNode At(string date) =>
+            new()
+            {
+                Id = id,
+                Body = JsonNode.Parse(
+                    $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"Home","updateDate":"{{date}}"}]}"""
+                )!,
+            };
+
+        var diff = ContentDiffEngine.Compare(
+            Snap(At("2026-09-01T00:00:00Z")),
+            Snap(At("2026-09-24T00:00:00Z"))
+        );
+
+        Assert.Equal(1, diff.Unchanged);
+    }
 }

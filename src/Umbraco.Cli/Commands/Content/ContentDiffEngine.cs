@@ -45,7 +45,12 @@ public static class ContentDiffEngine
             }
 
             matchedLiveIds.Add(d.Id);
-            var bodyDiffers = !JsonNode.DeepEquals(d.Body, live.Body);
+            // Normalised on both sides at compare time, not at export, so a snapshot written by an
+            // older CLI (verbatim bodies) still compares clean (#224).
+            var bodyDiffers = !JsonNode.DeepEquals(
+                ContentBodyNormaliser.Normalise(d.Body),
+                ContentBodyNormaliser.Normalise(live.Body)
+            );
             var parentDiffers = d.Parent != live.Parent;
 
             if (bodyDiffers)

@@ -213,14 +213,15 @@ public static class ContentApplier
         change.Change switch
         {
             // Create carries the document's own id (GUID-primary) already in the body; inject the
-            // captured parent so it lands in the right place.
+            // captured parent so it lands in the right place. Both writes send the normalised body
+            // (#224): the dates, flags and state are the source's, and are the server's to set.
             ContentChangeKind.Added => client.CreateDocumentRawAsync(
-                WithParent(change.DesiredBody!, change.Parent),
+                WithParent(ContentBodyNormaliser.Normalise(change.DesiredBody!), change.Parent),
                 ct
             ),
             ContentChangeKind.Changed => client.UpdateDocumentRawAsync(
                 change.Id,
-                change.DesiredBody!,
+                ContentBodyNormaliser.Normalise(change.DesiredBody!),
                 ct
             ),
             ContentChangeKind.Removed => client.DeleteContentAsync(change.Id, ct),

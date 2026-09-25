@@ -88,6 +88,36 @@ public class ContentApplierTests
     }
 
     [Fact]
+    public async Task ApplyAsync_Update_SendsTheNormalisedBody()
+    {
+        // #224: the source's dates and state are not the target's to be told.
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        var change = new ContentDocumentChange(ContentChangeKind.Changed, id)
+        {
+            DesiredBody = JsonNode.Parse(
+                $$"""{"id":"{{id}}","isTrashed":false,"variants":[{"culture":null,"name":"Y","state":"Published","updateDate":"2026-09-01T00:00:00Z"}]}"""
+            )!,
+        };
+
+        await ContentApplier.ApplyAsync(
+            fake,
+            Diff(changed: [change]),
+            new ContentApplyOptions(Prune: false, DryRun: false),
+            CancellationToken.None
+        );
+
+        var body = Assert.Single(fake.RawWrites).Body!;
+        Assert.Equal(
+            """{"id":"%ID%","variants":[{"culture":null,"name":"Y"}]}""".Replace(
+                "%ID%",
+                id.ToString()
+            ),
+            body.ToJsonString()
+        );
+    }
+
+    [Fact]
     public async Task ApplyAsync_PruneOff_IgnoresRemovals()
     {
         var fake = new FakeUmbracoManagementClient { DeleteContentHandler = _ => Ok() };
