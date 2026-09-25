@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
@@ -17,12 +18,12 @@ public static class DataTypesDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a data type by UUID.\n\n"
+            "Delete a data type by id or name.\n\n"
                 + "A data type that is in use is refused unless --force is given: Umbraco deletes "
                 + "every property that uses it, and all the values in those properties, with it.\n\n"
-                + "Example:\n  umbraco data-types delete 3f7a8b2e-... --yes"
+                + "Example:\n  umbraco data-types delete \"Homepage Blocks\" --yes"
         );
-        var idArg = new Argument<Guid>("id") { Description = "Data type ID." };
+        var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
         InUseGuard.Protect(
             cmd,
@@ -38,7 +39,13 @@ public static class DataTypesDeleteCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "data-types.delete",
-                    (client, c) => client.DeleteDataTypeAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client.WithResolvedAsync(
+                            EntityKind.DataType,
+                            parseResult.GetValue(idArg)!,
+                            id => client.DeleteDataTypeAsync(id, c),
+                            c
+                        ),
                     "Data type deleted.",
                     ct
                 )

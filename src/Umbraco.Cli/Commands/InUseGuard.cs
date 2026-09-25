@@ -57,12 +57,12 @@ public static class InUseGuard
     /// </summary>
     /// <param name="command">The delete command.</param>
     /// <param name="kind">The <see cref="SchemaKinds"/> value of the type it deletes.</param>
-    /// <param name="idArg">The command's id argument.</param>
+    /// <param name="idArg">The command's <c>&lt;id|alias&gt;</c> argument.</param>
     /// <param name="forceDescription">Help text for <c>--force</c>, saying what it deletes along with the type.</param>
     public static void Protect(
         Command command,
         string kind,
-        Argument<Guid> idArg,
+        Argument<string> idArg,
         string forceDescription
     )
     {
@@ -73,13 +73,33 @@ public static class InUseGuard
             {
                 if (parseResult.GetValue(force))
                     return null;
-                var reason = await ReasonAsync(client, kind, parseResult.GetValue(idArg), ct);
+                // A reference that does not resolve is not a safety question: the delete itself
+                // then fails with the resolver's 404, which says what was not found.
+                var id = await client.ResolveIdAsync(
+                    EntityKindOf(kind),
+                    parseResult.GetValue(idArg)!,
+                    ct
+                );
+                if (!id.IsSuccess)
+                    return null;
+                var reason = await ReasonAsync(client, kind, id.Data, ct);
                 return reason is null
                     ? null
                     : $"{reason} Nothing was deleted. Re-run with {ForceOption} to delete it anyway.";
             }
         );
     }
+
+    /// <summary>The resolver kind for a <see cref="SchemaKinds"/> value.</summary>
+    private static EntityKind EntityKindOf(string kind) =>
+        kind switch
+        {
+            SchemaKinds.DataType => EntityKind.DataType,
+            SchemaKinds.MemberType => EntityKind.MemberType,
+            SchemaKinds.MediaType => EntityKind.MediaType,
+            SchemaKinds.Template => EntityKind.Template,
+            _ => EntityKind.DocumentType,
+        };
 
     /// <summary>Why deleting data type <paramref name="id"/> would lose content, or null when nothing uses it.</summary>
     private static async Task<string?> DataTypeAsync(

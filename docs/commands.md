@@ -308,7 +308,7 @@ umbraco document-blueprint folder delete <id>              # needs --yes non-int
 umbraco media list [--parent <id>]
 umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
-umbraco media get <id>                                     # includes urls[] and file metadata in values[]
+umbraco media get <id>                                     # includes urls[] and file metadata in values[]; mediaType.alias is the real alias
 umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <name|id>] [--id <guid>] [--value alias=value]...  # staged via temporary-file
 # --id keeps the item's GUID across instances (content references media by id);
 # --value sets other properties, e.g. a custom media type's required fields
@@ -331,9 +331,9 @@ deletes with the usual `media` verbs, and its id is what `media upload --parent`
 
 ```bash
 umbraco media-types list
-umbraco media-types get <id>
+umbraco media-types get <id|alias|name>
 umbraco media-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root]
-umbraco media-types delete <id> --force                    # deletes every media item of the type too; --force always required, plus --yes non-interactively
+umbraco media-types delete <id|alias|name> --force                  # deletes every media item of the type too; --force always required, plus --yes non-interactively
 ```
 
 ## `content-types`
@@ -345,7 +345,7 @@ umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--i
 umbraco content-types create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns {id, name, alias}
 umbraco content-types update <alias|id> --json-body <file> # full replace
 umbraco content-types create --schema                      # print a real document type as a worked example (needs a host)
-umbraco content-types delete <id> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
+umbraco content-types delete <id|alias> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
 ```
 
 ### Authoring a document type with properties
@@ -377,7 +377,7 @@ umbraco data-types create --json-body <file> [--id <guid>]  # full body, includi
 umbraco data-types update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
 umbraco data-types update <name|id> --json-body <file>     # full replace, the only way to set `values`
 umbraco data-types create --schema                         # print a real data type as a worked example (needs a host)
-umbraco data-types delete <id> [--force]                   # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
+umbraco data-types delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-types is-used <id>                            # whether any content type uses it
 umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
 umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root; returns the copy
@@ -458,10 +458,10 @@ dropped.
 
 ```bash
 umbraco member-types list
-umbraco member-types get <id>
+umbraco member-types get <id|alias>
 umbraco member-types create --name <name> --alias <alias> [--icon <alias>]
-umbraco member-types update <id> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
-umbraco member-types delete <id> [--force]                 # refused while it has members unless --force (deletes them); --yes non-interactively
+umbraco member-types update <id|alias> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
+umbraco member-types delete <id|alias> [--force]               # refused while it has members unless --force (deletes them); --yes non-interactively
 ```
 
 ## `member-groups`

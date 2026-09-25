@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.MemberTypes;
 
@@ -12,16 +13,22 @@ public static class MemberTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a member type by UUID, including its alias and description.\n\nExample:\n  umbraco member-types get 3f7a8b2e-..."
+            "Get a member type by id or alias, including its alias and description.\n\nExample:\n  umbraco member-types get siteMember"
         );
-        var idArg = new Argument<Guid>("id");
+        var idArg = Reference.Argument(EntityKind.MemberType);
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
                     "member-types.get",
-                    (client, c) => client.GetMemberTypeByIdAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client.WithResolvedAsync(
+                            EntityKind.MemberType,
+                            parseResult.GetValue(idArg)!,
+                            id => client.GetMemberTypeByIdAsync(id, c),
+                            c
+                        ),
                     ct
                 )
         );

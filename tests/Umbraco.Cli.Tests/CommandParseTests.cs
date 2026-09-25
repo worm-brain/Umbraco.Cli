@@ -534,6 +534,13 @@ public class CommandParseTests
     [InlineData("templates delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("templates delete blogPost")] // #206: <id|alias>
     [InlineData("templates update blogPost --name \"Blog post\"")]
+    [InlineData("media-types get brochure")] // #221
+    [InlineData("media-types delete brochure --force")]
+    [InlineData("member-types get siteMember")] // #213
+    [InlineData("member-types update siteMember --name Author")]
+    [InlineData("member-types delete siteMember")]
+    [InlineData("content-types delete blogPost --force")]
+    [InlineData("data-types delete \"Homepage Blocks\"")]
     [InlineData("dictionary delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("dictionary tree")]
     [InlineData("dictionary tree --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
@@ -742,10 +749,7 @@ public class CommandParseTests
     [InlineData("content get not-a-uuid")]
     [InlineData("content delete not-a-uuid")]
     [InlineData("media-types create --name OnlyName")] // missing required --alias
-    [InlineData("media-types get not-a-uuid")]
     [InlineData("member-types create --alias onlyAlias")] // missing required --name
-    [InlineData("member-types get not-a-uuid")]
-    [InlineData("member-types update not-a-uuid --name Author")] // id must be a uuid
     [InlineData("user-groups create --name NoAlias")] // missing required --alias
     [InlineData("user-groups create --alias noName")] // missing required --name
     [InlineData("user-groups get not-a-uuid")]

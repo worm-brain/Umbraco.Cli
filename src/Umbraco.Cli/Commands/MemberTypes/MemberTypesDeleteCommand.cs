@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
@@ -18,12 +19,12 @@ public static class MemberTypesDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a member type by UUID.\n\n"
+            "Delete a member type by id or alias.\n\n"
                 + "A member type that still has members is refused unless --force is given: Umbraco "
                 + "deletes its members with it.\n\n"
-                + "Example:\n  umbraco member-types delete 3f7a8b2e-... --yes"
+                + "Example:\n  umbraco member-types delete siteMember --yes"
         );
-        var idArg = new Argument<Guid>("id");
+        var idArg = Reference.Argument(EntityKind.MemberType);
         cmd.Add(idArg);
         InUseGuard.Protect(
             cmd,
@@ -39,7 +40,13 @@ public static class MemberTypesDeleteCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "member-types.delete",
-                    (client, c) => client.DeleteMemberTypeAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client.WithResolvedAsync(
+                            EntityKind.MemberType,
+                            parseResult.GetValue(idArg)!,
+                            id => client.DeleteMemberTypeAsync(id, c),
+                            c
+                        ),
                     "Member type deleted.",
                     ct
                 )

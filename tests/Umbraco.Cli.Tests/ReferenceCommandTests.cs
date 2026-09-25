@@ -97,6 +97,34 @@ public class ReferenceCommandTests
     }
 
     [Fact]
+    public async Task MemberTypesDelete_ByAlias_ChecksAndDeletesTheResolvedType()
+    {
+        var id = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.MemberType, "siteMember")] = id;
+
+        var exit = await Run(fake, "member-types delete siteMember --yes");
+
+        Assert.Equal(0, exit);
+        Assert.Equal([id], fake.SchemaDeletedIds);
+    }
+
+    [Fact]
+    public async Task MemberTypesDelete_ByAliasOfATypeWithMembers_IsRefused()
+    {
+        // The in-use guard must count the members of the type the alias resolves to.
+        var id = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.MemberType, "siteMember")] = id;
+        fake.MemberCountsByType[id] = 3;
+
+        var exit = await Run(fake, "member-types delete siteMember --yes");
+
+        Assert.Equal(2, exit);
+        Assert.Empty(fake.SchemaDeletedIds);
+    }
+
+    [Fact]
     public async Task TemplatesDelete_UnknownAlias_FailsWithoutDeleting()
     {
         var fake = new FakeUmbracoManagementClient();

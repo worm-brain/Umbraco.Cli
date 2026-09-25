@@ -138,26 +138,25 @@ public sealed partial class UmbracoManagementClient
             })
             .ToList();
 
-    /// <summary>Media-type id to name, for #163.</summary>
-    private readonly Dictionary<Guid, string> _mediaTypeNameById = [];
+    /// <summary>Media-type id to alias, for #163 / #222.</summary>
+    private readonly Dictionary<Guid, string> _mediaTypeAliasById = [];
 
     /// <summary>
-    /// Resolves a media type's name from its id (#163), cached for the client's life. The name,
-    /// not the alias, because that is the vocabulary the write side accepts.
+    /// Resolves a media type's alias from its id (#163, #222), cached for the client's life.
     /// </summary>
     /// <param name="id">The media type id.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The name, or null when it could not be read.</returns>
-    private Task<string?> MediaTypeNameAsync(Guid id, CancellationToken ct) =>
+    /// <returns>The alias, or null when it could not be read.</returns>
+    private Task<string?> MediaTypeAliasAsync(Guid id, CancellationToken ct) =>
         CachedTypeLabelAsync(
-            _mediaTypeNameById,
+            _mediaTypeAliasById,
             id,
             async token =>
                 (
                     await _api
                         .Umbraco.Management.Api.V1.MediaType[id]
                         .GetAsync(cancellationToken: token)
-                )?.Name,
+                )?.Alias,
             ct
         );
 

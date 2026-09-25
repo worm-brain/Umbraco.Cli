@@ -1158,24 +1158,23 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     .GetAsync(cancellationToken: ct);
                 var variant = (m?.Variants ?? []).FirstOrDefault();
 
-                // The media type's name and the item's URLs are two independent follow-up reads.
+                // The media type's alias and the item's URLs are two independent follow-up reads.
                 // Started together rather than awaited inside the initializer below, where the
                 // ordering would be invisible and they would run one after the other.
-                var nameTask = m?.MediaType?.Id is { } typeId
-                    ? MediaTypeNameAsync(typeId, ct)
+                var aliasTask = m?.MediaType?.Id is { } typeId
+                    ? MediaTypeAliasAsync(typeId, ct)
                     : Task.FromResult<string?>(null);
                 var urlsTask = MediaUrlsAsync(id, ct);
-                await Task.WhenAll(nameTask, urlsTask);
+                await Task.WhenAll(aliasTask, urlsTask);
 
                 return new MediaItemResponse
                 {
                     Id = m?.Id ?? id,
                     Name = variant?.Name ?? "",
-                    // The NAME, not the alias: `media upload --media-type` resolves media types
-                    // by name (see ResolveMediaTypeIdAsync), so emitting the alias here would hand
-                    // back a value the write side cannot accept whenever the two differ.
+                    // The real alias (#222; this used to be the name, because upload matched names
+                    // only). Upload now takes the alias or the name, so the value round-trips.
                     MediaType = m?.MediaType?.Id is { } mtId
-                        ? new ContentTypeRef { Id = mtId, Alias = nameTask.Result }
+                        ? new ContentTypeRef { Id = mtId, Alias = aliasTask.Result }
                         : null,
                     CreateDate = variant?.CreateDate ?? default,
                     UpdateDate = variant?.UpdateDate ?? default,
@@ -1432,7 +1431,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <summary>
     /// Lists media types from <c>tree/media-type/root</c> (issue #55; no flat
     /// <c>/media-type</c> collection, mirroring document types). Tree items expose only
-    /// id/name/icon — alias and description require a single-item GET.
+    /// id/name/icon, so the alias costs one by-id read per type, cached for the client's life.
     /// </summary>
     /// <param name="skip">Number of items to skip (paging).</param>
     /// <param name="take">Maximum number of items to return.</param>
@@ -1447,9 +1446,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                // #97: walk the media-type tree keeping only real types (folders excluded, nested
-                // types included), then page client-side. Mirrors GetDocumentTypesAsync.
-                var all = await CollectTreeLeavesAsync(FetchMediaTypeTreeAsync, ct);
+                // #97: every real type (folders excluded, nested types included), paged
+                // client-side; #221: with its alias, which was always "".
+                var all = await MediaTypesWithAliasAsync(ct);
                 return new PagedResponse<MediaTypeResponse>
                 {
                     Total = all.Count,
@@ -2812,25 +2811,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var paged = await _api.Umbraco.Management.Api.V1.Tree.MemberType.Root.GetAsync(
-                    c =>
-                    {
-                        c.QueryParameters.Skip = skip;
-                        c.QueryParameters.Take = take;
-                    },
-                    ct
-                );
+                // #213: every member type, folders walked, with its alias; paged client-side.
+                var all = await MemberTypesWithAliasAsync(ct);
                 return new PagedResponse<MemberTypeResponse>
                 {
-                    Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? [])
-                        .Select(i => new MemberTypeResponse
-                        {
-                            Id = i.Id ?? Guid.Empty,
-                            Name = i.Name ?? "",
-                            Icon = i.Icon,
-                        })
-                        .ToList(),
+                    Total = all.Count,
+                    Items = all.Skip(skip).Take(take).ToList(),
                 };
             }
         );

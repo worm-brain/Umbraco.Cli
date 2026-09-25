@@ -15,7 +15,8 @@ public sealed partial class UmbracoManagementClient
     private const int TemplateItemBatch = 40;
 
     private List<ReferenceCandidate>? _templateCandidates;
-    private List<ReferenceCandidate>? _mediaTypeCandidates;
+    private List<MediaTypeResponse>? _mediaTypes;
+    private List<MemberTypeResponse>? _memberTypes;
     private List<ReferenceCandidate>? _memberGroupCandidates;
     private List<ReferenceCandidate>? _dictionaryCandidates;
 
@@ -160,21 +161,103 @@ public sealed partial class UmbracoManagementClient
     /// Every media type, with its alias. Neither the tree nor the item models carry the alias, so
     /// each type costs one by-id read; there are rarely more than a couple of dozen.
     /// </summary>
-    private async Task<List<ReferenceCandidate>> MediaTypeCandidatesAsync(CancellationToken ct)
+    private async Task<List<ReferenceCandidate>> MediaTypeCandidatesAsync(CancellationToken ct) =>
+        [
+            .. (await MediaTypesWithAliasAsync(ct)).Select(t => new ReferenceCandidate(
+                t.Id,
+                t.Alias,
+                t.Name
+            )),
+        ];
+
+    /// <summary>
+    /// Every media type (folders excluded, nested types included) with its alias, read once per
+    /// client. Shared by the resolver and <c>media-types list</c> (#221).
+    /// </summary>
+    private async Task<List<MediaTypeResponse>> MediaTypesWithAliasAsync(CancellationToken ct)
     {
-        if (_mediaTypeCandidates is not null)
-            return _mediaTypeCandidates;
+        if (_mediaTypes is not null)
+            return _mediaTypes;
 
         var types = await CollectTreeLeavesAsync(FetchMediaTypeTreeAsync, ct);
-        var candidates = new List<ReferenceCandidate>();
+        var withAlias = new List<MediaTypeResponse>();
         foreach (var type in types)
         {
             var full = await _api
                 .Umbraco.Management.Api.V1.MediaType[type.Id]
                 .GetAsync(cancellationToken: ct);
-            candidates.Add(new ReferenceCandidate(type.Id, full?.Alias, type.Name));
+            withAlias.Add(type with { Alias = full?.Alias ?? "" });
+            if (full?.Alias is { } alias)
+                _mediaTypeAliasById[type.Id] = alias;
         }
-        return _mediaTypeCandidates = candidates;
+        return _mediaTypes = withAlias;
+    }
+
+    /// <summary>
+    /// Every member type (folders excluded, nested types included) with its alias, read once per
+    /// client, for <c>member-types list</c> (#213). The list read the tree root only before, so a
+    /// type inside a folder was missing, and the alias was always <c>""</c>.
+    /// </summary>
+    private async Task<List<MemberTypeResponse>> MemberTypesWithAliasAsync(CancellationToken ct)
+    {
+        if (_memberTypes is not null)
+            return _memberTypes;
+
+        var types = await CollectTreeLeavesAsync<MemberTypeResponse>(
+            async (parentId, skip, take, c) =>
+            {
+                var items = parentId is null
+                    ? (
+                        await _api.Umbraco.Management.Api.V1.Tree.MemberType.Root.GetAsync(
+                            q =>
+                            {
+                                q.QueryParameters.Skip = skip;
+                                q.QueryParameters.Take = take;
+                            },
+                            c
+                        )
+                    )?.Items
+                    : (
+                        await _api.Umbraco.Management.Api.V1.Tree.MemberType.Children.GetAsync(
+                            q =>
+                            {
+                                q.QueryParameters.ParentId = parentId;
+                                q.QueryParameters.Skip = skip;
+                                q.QueryParameters.Take = take;
+                            },
+                            c
+                        )
+                    )?.Items;
+                return
+                [
+                    .. (items ?? [])
+                        .Where(i => i.Id is not null)
+                        .Select(i =>
+                            (
+                                i.Id!.Value,
+                                i.IsFolder ?? false,
+                                new MemberTypeResponse
+                                {
+                                    Id = i.Id!.Value,
+                                    Name = i.Name ?? "",
+                                    Icon = i.Icon,
+                                }
+                            )
+                        ),
+                ];
+            },
+            ct
+        );
+
+        var withAlias = new List<MemberTypeResponse>();
+        foreach (var type in types)
+        {
+            var full = await _api
+                .Umbraco.Management.Api.V1.MemberType[type.Id]
+                .GetAsync(cancellationToken: ct);
+            withAlias.Add(type with { Alias = full?.Alias ?? "" });
+        }
+        return _memberTypes = withAlias;
     }
 
     /// <summary>Resolves a user group alias or name (#217).</summary>

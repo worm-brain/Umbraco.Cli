@@ -103,6 +103,39 @@ public class ReferenceResolverWireTests
     }
 
     [Fact]
+    public async Task GetMediaTypesAsync_FillsTheAlias()
+    {
+        // #221: media-types list showed "alias": "" for every type.
+        var result = await Wire.Client(MediaTypes()).GetMediaTypesAsync(0, 20);
+
+        Assert.Equal("brochure", Assert.Single(result.Data!.Items).Alias);
+    }
+
+    [Fact]
+    public async Task GetMemberTypesAsync_ListsTypesInsideFoldersWithTheirAliases()
+    {
+        // #213: the list read the tree root only and never filled the alias.
+        var folder = Guid.NewGuid();
+        var author = Guid.NewGuid();
+        var handler = Wire.Routed(
+            (
+                "tree/member-type/root",
+                $$"""{"total":1,"items":[{"id":"{{folder}}","name":"Site","isFolder":true}]}"""
+            ),
+            (
+                "tree/member-type/children",
+                $$"""{"total":1,"items":[{"id":"{{author}}","name":"Author","isFolder":false}]}"""
+            ),
+            ($"member-type/{author}", $$"""{"id":"{{author}}","alias":"author","name":"Author"}""")
+        );
+
+        var result = await Wire.Client(handler).GetMemberTypesAsync(0, 20);
+
+        var type = Assert.Single(result.Data!.Items);
+        Assert.Equal((author, "author"), (type.Id, type.Alias));
+    }
+
+    [Fact]
     public async Task ResolveIdAsync_TwoDataTypesWithTheName_IsRefusedWithBothIds()
     {
         var a = Guid.NewGuid();
