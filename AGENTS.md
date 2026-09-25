@@ -130,7 +130,10 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
 - **`UmbracoResponse<T>`** is the uniform envelope (`IsSuccess`, `Data`, `StatusCode`,
   `ErrorMessage`) returned by every client method - never throws for HTTP-level errors.
 - **`UmbracoAuthService`** fetches and caches the client-credentials token (thread-safe,
-  refreshes 5 min before expiry).
+  refreshes at a tenth of the token's lifetime, at most 60 s, before expiry), keyed by host,
+  client id and a secret fingerprint. The CLI gives it a `FileTokenCache` so tokens outlive the
+  process (#248; off with `UMBRACO_NO_TOKEN_CACHE=1`), and `TokenRefreshHandler` retries a
+  request once with a new token on a 401.
 - The generated client is produced by Kiota from `spec/management.json` and checked in, so
   building needs no live Umbraco instance. Regenerate with `./scripts/regen-client.ps1` (and
   refresh the spec first with `./scripts/fetch-spec.ps1` if needed).

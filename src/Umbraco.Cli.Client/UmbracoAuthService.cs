@@ -1,10 +1,18 @@
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Umbraco.Cli.Client;
 
 /// <summary>
 /// Fetches and caches OAuth2 Client Credentials tokens from the Umbraco
 /// back-office token endpoint.  Thread-safe; refreshes transparently.
+/// <para>
+/// Tokens are cached per host, client id and secret: in memory, and in an optional
+/// <see cref="ITokenCache"/> that outlives the process (#248). The secret is part of the key as a
+/// SHA-256 fingerprint, so a changed or mistyped secret never picks up a token issued to the old
+/// one - it has to authenticate, and fail, like it would without a cache.
+/// </para>
 /// </summary>
 public sealed class UmbracoAuthService
 {
@@ -13,23 +21,45 @@ public sealed class UmbracoAuthService
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly TimeProvider _time;
-    private string? _cachedToken;
+    private readonly ITokenCache? _cache;
 
-    // When the cached token stops being reused. Worked out once, when the token arrives, so the
+    // In-memory tokens by cache key. RefreshAt is worked out once, when the token arrives, so the
     // margin can be sized against that token's own lifetime (#251).
-    private DateTimeOffset _refreshAt = DateTimeOffset.MinValue;
+    private readonly Dictionary<string, CachedToken> _tokens = [];
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     /// <summary>Creates the service.</summary>
     /// <param name="httpClientFactory">Creates the client used for the token request.</param>
     /// <param name="timeProvider">The clock; <see cref="TimeProvider.System"/> when omitted. Tests pass a fake.</param>
+    /// <param name="cache">Where tokens outlive the process (#248); null keeps them in memory only.</param>
     public UmbracoAuthService(
         IHttpClientFactory httpClientFactory,
-        TimeProvider? timeProvider = null
+        TimeProvider? timeProvider = null,
+        ITokenCache? cache = null
     )
     {
         _httpClientFactory = httpClientFactory;
         _time = timeProvider ?? TimeProvider.System;
+        _cache = cache;
+    }
+
+    /// <summary>
+    /// The cache key for a set of credentials: the host (without a trailing slash, lower-cased),
+    /// the client id, and the first 16 bytes of the secret's SHA-256 in hex. The secret itself is
+    /// never part of anything written to disk.
+    /// </summary>
+    /// <param name="host">The Umbraco base URL.</param>
+    /// <param name="clientId">The API user's client id.</param>
+    /// <param name="clientSecret">The API user's client secret.</param>
+    /// <returns>The key.</returns>
+    internal static string CacheKey(string host, string clientId, string clientSecret)
+    {
+        var fingerprint = Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(clientSecret)),
+            0,
+            16
+        );
+        return $"{host.TrimEnd('/').ToLowerInvariant()}|{clientId}|{fingerprint}";
     }
 
     /// <summary>
@@ -50,27 +80,34 @@ public sealed class UmbracoAuthService
     }
 
     /// <summary>
-    /// Returns a valid bearer token. A cached token is reused until shortly before it expires
-    /// (see <see cref="RefreshMargin"/>); after that a new one is requested.
+    /// Returns a valid bearer token. A cached token - in memory, then in the
+    /// <see cref="ITokenCache"/> - is reused until shortly before it expires (see
+    /// <see cref="RefreshMargin"/>); after that a new one is requested and cached.
     /// </summary>
     /// <param name="host">The Umbraco base URL.</param>
     /// <param name="clientId">The API user's client id.</param>
     /// <param name="clientSecret">The API user's client secret.</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <param name="fresh">
+    /// Skip both caches and exchange the credentials, for callers whose point is to test them
+    /// (<c>auth login</c>, <c>auth doctor</c>). The new token is still cached.
+    /// </param>
     /// <returns>The bearer token.</returns>
     /// <exception cref="UmbracoAuthException">The token request failed, timed out, could not reach the host, or returned an unreadable body.</exception>
     public async Task<string> GetTokenAsync(
         string host,
         string clientId,
         string clientSecret,
-        CancellationToken ct = default
+        CancellationToken ct = default,
+        bool fresh = false
     )
     {
+        var key = CacheKey(host, clientId, clientSecret);
         await _lock.WaitAsync(ct);
         try
         {
-            if (_cachedToken is not null && _time.GetUtcNow() < _refreshAt)
-                return _cachedToken;
+            if (!fresh && Reusable(key) is { } reusable)
+                return reusable;
 
             var http = _httpClientFactory.CreateClient();
             var tokenUrl =
@@ -110,9 +147,13 @@ public sealed class UmbracoAuthService
                     ?? throw new UmbracoAuthException(0, "Empty token response");
 
                 var lifetime = TimeSpan.FromSeconds(token.ExpiresIn);
-                _cachedToken = token.AccessToken;
-                _refreshAt = _time.GetUtcNow() + lifetime - RefreshMargin(lifetime);
-                return _cachedToken;
+                var cached = new CachedToken(
+                    token.AccessToken,
+                    _time.GetUtcNow() + lifetime - RefreshMargin(lifetime)
+                );
+                _tokens[key] = cached;
+                _cache?.Write(key, cached);
+                return cached.AccessToken;
             }
             catch (HttpRequestException ex)
             {
@@ -147,14 +188,41 @@ public sealed class UmbracoAuthService
         }
     }
 
-    /// <summary>Drops the cached token, so the next <see cref="GetTokenAsync"/> requests a new one.</summary>
-    public void Invalidate()
+    /// <summary>
+    /// A still-fresh token for <paramref name="key"/>: the in-memory one, else the persistent
+    /// cache's (which is then kept in memory too). Null when neither has a fresh one.
+    /// </summary>
+    /// <param name="key">The cache key.</param>
+    /// <returns>The token, or null.</returns>
+    private string? Reusable(string key)
     {
+        var now = _time.GetUtcNow();
+        if (_tokens.TryGetValue(key, out var inMemory) && now < inMemory.RefreshAt)
+            return inMemory.AccessToken;
+        if (_cache?.Read(key) is { } persisted && now < persisted.RefreshAt)
+        {
+            _tokens[key] = persisted;
+            return persisted.AccessToken;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Drops the cached token for these credentials, in memory and in the persistent cache, so the
+    /// next <see cref="GetTokenAsync"/> requests a new one. Used when the server rejects a cached
+    /// token with a 401 (#248) - it was revoked, or the server's signing keys changed.
+    /// </summary>
+    /// <param name="host">The Umbraco base URL.</param>
+    /// <param name="clientId">The API user's client id.</param>
+    /// <param name="clientSecret">The API user's client secret.</param>
+    public void Invalidate(string host, string clientId, string clientSecret)
+    {
+        var key = CacheKey(host, clientId, clientSecret);
         _lock.Wait();
         try
         {
-            _cachedToken = null;
-            _refreshAt = DateTimeOffset.MinValue;
+            _tokens.Remove(key);
+            _cache?.Remove(key);
         }
         finally
         {

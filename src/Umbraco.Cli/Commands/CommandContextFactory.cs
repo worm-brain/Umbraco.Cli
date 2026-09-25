@@ -15,14 +15,24 @@ public sealed class CommandContextFactory
     private readonly GlobalOptions _globalOptions;
     private readonly IUmbracoManagementClientFactory _clientFactory;
     private readonly MutationInterceptState _mutationState;
+    private readonly TokenRefreshState _tokenRefresh;
 
+    /// <summary>Creates the factory.</summary>
+    /// <param name="configStore">The default config store.</param>
+    /// <param name="authService">Exchanges client credentials for tokens.</param>
+    /// <param name="httpClientFactory">Creates the Management API client.</param>
+    /// <param name="globalOptions">The recursive global options.</param>
+    /// <param name="clientFactory">Wraps the HTTP client in the management client.</param>
+    /// <param name="mutationState">The per-run dry-run/read-only policy.</param>
+    /// <param name="tokenRefresh">The per-run 401 refresh state (#248); a private one when omitted, as in tests with no handler pipeline.</param>
     public CommandContextFactory(
         ConfigStore configStore,
         UmbracoAuthService authService,
         IHttpClientFactory httpClientFactory,
         GlobalOptions globalOptions,
         IUmbracoManagementClientFactory clientFactory,
-        MutationInterceptState mutationState
+        MutationInterceptState mutationState,
+        TokenRefreshState? tokenRefresh = null
     )
     {
         _configStore = configStore;
@@ -31,6 +41,7 @@ public sealed class CommandContextFactory
         _globalOptions = globalOptions;
         _clientFactory = clientFactory;
         _mutationState = mutationState;
+        _tokenRefresh = tokenRefresh ?? new TokenRefreshState();
     }
 
     /// <summary>
@@ -109,6 +120,8 @@ public sealed class CommandContextFactory
         if (!string.IsNullOrEmpty(tokenOverride))
         {
             bearerToken = tokenOverride;
+            // A --token is the caller's; there is nothing to renew it with.
+            _tokenRefresh.Reset(null);
         }
         else
         {
@@ -134,6 +147,15 @@ public sealed class CommandContextFactory
                 output.WriteError(2, $"Authentication failed: {ex.Message}");
                 throw new CommandAbortedException();
             }
+
+            // A cached token can be rejected before it expires (#248): drop it and exchange the
+            // credentials again, from the HTTP pipeline, for the one request that got the 401.
+            var (clientId, clientSecret) = (config.ClientId!, config.ClientSecret!);
+            _tokenRefresh.Reset(c =>
+            {
+                _authService.Invalidate(host, clientId, clientSecret);
+                return _authService.GetTokenAsync(host, clientId, clientSecret, c);
+            });
         }
 
         // Set the interception policy for this invocation (after auth, so the OAuth token
@@ -203,7 +225,7 @@ public sealed class CommandContextFactory
     /// <summary>Whether an environment-variable value should be read as "on" (1/true/yes).</summary>
     /// <param name="value">The raw environment value.</param>
     /// <returns>True for a truthy value.</returns>
-    private static bool IsTruthy(string? value)
+    internal static bool IsTruthy(string? value)
     {
         // Trim so a stray trailing space (easy to introduce in a Windows `set VAR=1 `) does not
         // silently disable the guardrail.

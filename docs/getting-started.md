@@ -136,6 +136,21 @@ Override the location with `--config <path>`. Environment variables (`UMBRACO_HO
 `UMBRACO_CLIENT_ID` / `UMBRACO_CLIENT_SECRET`) take precedence over the file, per field, so you
 can keep a saved default and override one value for a single run.
 
+### The token cache
+
+Access tokens (valid for about five minutes) are cached between runs, so a script running many
+commands exchanges its credentials once rather than per command. The cache is a separate,
+owner-only file in the per-user local data folder:
+
+- **Windows:** `%LOCALAPPDATA%\Umbraco\token-cache.json`
+- **macOS:** `~/Library/Application Support/Umbraco/token-cache.json`
+- **Linux:** `~/.local/share/Umbraco/token-cache.json`
+
+It is keyed by host, client id and a fingerprint of the secret (never the secret itself), so a
+changed secret always re-authenticates. A token the server rejects is dropped and renewed
+automatically. Set `UMBRACO_NO_TOKEN_CACHE=1` to turn the cache off (for example on a shared
+build agent). `auth login` and `auth doctor` always exchange the credentials afresh.
+
 ## 8. First commands
 
 ```bash
