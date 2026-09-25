@@ -64,14 +64,12 @@ public static class ContentApplyCommand
         // under --dry-run / --readonly by the executor). A non-prune apply only creates/updates
         // and is not gated, which is why the prompt is null without --prune. The prompt says what
         // is easy to miss: content created on the target goes too.
-        cmd.Destructive(
-            parseResult =>
-                parseResult.GetValue(pruneOpt)
-                    ? "This will DELETE live documents that are not present in the snapshot, "
-                        + "including any created on this instance since the export (form "
-                        + "submissions, drafts). Run with --dry-run first to see them."
-                    : null,
-            when: pruneOpt.Name
+        cmd.DestructiveWith(
+            pruneOpt,
+            _ =>
+                "This will DELETE live documents that are not present in the snapshot, "
+                + "including any created on this instance since the export (form "
+                + "submissions, drafts). Run with --dry-run first to see them."
         );
         cmd.SetAction(
             (parseResult, ct) =>

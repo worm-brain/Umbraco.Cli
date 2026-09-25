@@ -29,24 +29,39 @@ public static class CommandSafety
     /// </summary>
     /// <typeparam name="TCommand">The command type, returned for chaining.</typeparam>
     /// <param name="command">The leaf command.</param>
-    /// <param name="prompt">
-    /// Builds the confirmation text from the parsed command line. Returning null means this
-    /// particular invocation is not destructive and runs without confirmation - e.g.
-    /// <c>apply</c> without <c>--prune</c>.
-    /// </param>
-    /// <param name="when">
-    /// For a command that is only destructive with a given option, that option's name (e.g.
-    /// <c>--prune</c>), so the catalog can say so. Null when it is always destructive.
-    /// </param>
+    /// <param name="prompt">Builds the confirmation text from the parsed command line.</param>
     /// <returns>The same command.</returns>
     public static TCommand Destructive<TCommand>(
         this TCommand command,
-        Func<ParseResult, string?> prompt,
-        string? when = null
+        Func<ParseResult, string> prompt
     )
         where TCommand : Command
     {
-        Declarations.AddOrUpdate(command, new Declaration(prompt, when));
+        Declarations.AddOrUpdate(command, new Declaration(prompt, When: null));
+        return command;
+    }
+
+    /// <summary>
+    /// Declares <paramref name="command"/> destructive only when <paramref name="flag"/> is set -
+    /// e.g. <c>apply</c> with <c>--prune</c>. The condition and the option the catalog names both
+    /// come from <paramref name="flag"/>, so they cannot disagree.
+    /// </summary>
+    /// <typeparam name="TCommand">The command type, returned for chaining.</typeparam>
+    /// <param name="command">The leaf command.</param>
+    /// <param name="flag">The option that makes the command destructive.</param>
+    /// <param name="prompt">Builds the confirmation text when <paramref name="flag"/> is set.</param>
+    /// <returns>The same command.</returns>
+    public static TCommand DestructiveWith<TCommand>(
+        this TCommand command,
+        Option<bool> flag,
+        Func<ParseResult, string> prompt
+    )
+        where TCommand : Command
+    {
+        Declarations.AddOrUpdate(
+            command,
+            new Declaration(p => p.GetValue(flag) ? prompt(p) : null, flag.Name)
+        );
         return command;
     }
 

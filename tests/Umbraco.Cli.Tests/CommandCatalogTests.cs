@@ -159,7 +159,7 @@ public class CommandCatalogTests
         // `apply` is only destructive with --prune: reporting destructive: true would say every
         // apply needs --yes, which is untrue.
         var root = new RootCommand();
-        root.Add(new Command("apply").Destructive(_ => null, when: "--prune"));
+        root.Add(new Command("apply").DestructiveWith(new Option<bool>("--prune"), _ => "Prune?"));
 
         var node = Assert.Single(CommandCatalog.Describe(root).Commands);
 

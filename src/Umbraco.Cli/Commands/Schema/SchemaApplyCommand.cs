@@ -51,13 +51,11 @@ public static class SchemaApplyCommand
         // Prune can delete live schema, so it is gated behind the confirmation prompt (skipped
         // under --dry-run / --readonly by the executor). A non-prune apply only creates/updates
         // and is not gated, which is why the prompt is null without --prune.
-        cmd.Destructive(
-            parseResult =>
-                parseResult.GetValue(pruneOpt)
-                    ? "This will DELETE live document types, data types, and templates that are "
-                        + "not present in the snapshot."
-                    : null,
-            when: pruneOpt.Name
+        cmd.DestructiveWith(
+            pruneOpt,
+            _ =>
+                "This will DELETE live document, media and member types, data types and "
+                + "templates that are not present in the snapshot."
         );
         cmd.SetAction(
             (parseResult, ct) =>
