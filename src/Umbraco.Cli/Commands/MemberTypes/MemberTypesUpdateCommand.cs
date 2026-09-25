@@ -1,15 +1,16 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MemberTypes;
 
-/// <summary>Wires the <c>member-types update</c> command (issue #56).</summary>
+/// <summary>Wires <c>member-types update</c>.</summary>
 public static class MemberTypesUpdateCommand
 {
     /// <summary>
-    /// Builds the <c>member-types update</c> command. Only supplied options change; anything
-    /// omitted - including the type's properties, containers and compositions, which are never
-    /// exposed here - is preserved by the client's raw-JSON read-merge.
+    /// Builds the command. The flags change the type's scalars and keep everything else; a
+    /// <c>--json-body</c> (#213) carries properties and groups too, merged into the type like
+    /// <c>content-types update</c>.
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
@@ -17,9 +18,14 @@ public static class MemberTypesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a member type by id or alias. Omitted fields (and the type's properties) are preserved.\n\nExample:\n  umbraco member-types update siteMember --name \"Author\" --icon icon-user"
+            "Update a member type by id or alias. Omitted fields (and the type's properties) are preserved. With --json-body, the body's top-level keys (properties and containers included) are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco member-types update siteMember --name \"Author\" --icon icon-user\n  umbraco member-types get siteMember -o json | jq .data > mt.json\n  umbraco member-types update siteMember --json-body mt.json"
         );
-        var idArg = Reference.Argument(EntityKind.MemberType);
+        // Optional at parse level only so --schema can run without it; the validator requires it.
+        var idArg = new Argument<string?>("id")
+        {
+            Description = "Member type alias or UUID. Required unless --schema is used.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var aliasOpt = new Option<string?>("--alias") { Description = "New alias." };
         var descOpt = new Option<string?>("--description") { Description = "New description." };
@@ -32,15 +38,55 @@ public static class MemberTypesUpdateCommand
         cmd.Add(aliasOpt);
         cmd.Add(descOpt);
         cmd.Add(iconOpt);
+        var body = RawBodyCommand.AddBodyOptions(cmd);
+        var replace = RawBodyCommand.AddReplaceOption(cmd);
+
+        cmd.Validators.Add(result =>
+        {
+            if (body.SchemaRequested(result))
+                return;
+            if (string.IsNullOrEmpty(result.GetValue(idArg)))
+                result.AddError(
+                    "Supply the member type alias or id. "
+                        + "Run with --schema to print a real member type as a starting point."
+                );
+        });
+
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunMessageAsync(
+            {
+                if (body.SchemaRequested(parseResult))
+                    return RawBodyCommand.RunSchemaAsync(
+                        executor,
+                        parseResult,
+                        "member-types.update",
+                        client => client.GetMemberTypeIdsAsync,
+                        client => client.GetMemberTypeRawAsync,
+                        "member types",
+                        ct
+                    );
+
+                var reference = parseResult.GetValue(idArg)!;
+                if (body.HasBody(parseResult))
+                    return RawBodyCommand.RunMergeAsync(
+                        executor,
+                        parseResult,
+                        "member-types.update",
+                        EntityKind.MemberType,
+                        reference,
+                        body,
+                        replace,
+                        "Member type updated.",
+                        ct
+                    );
+
+                return executor.RunMessageAsync(
                     parseResult,
                     "member-types.update",
                     (client, c) =>
-                        idArg.WithResolvedAsync(
-                            parseResult,
-                            client,
+                        client.WithResolvedAsync(
+                            EntityKind.MemberType,
+                            reference,
                             id =>
                                 client.UpdateMemberTypeAsync(
                                     id,
@@ -57,7 +103,8 @@ public static class MemberTypesUpdateCommand
                         ),
                     "Member type updated.",
                     ct
-                )
+                );
+            }
         );
 
         return cmd;

@@ -768,11 +768,23 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The (id, request) of the last <see cref="UpdateMemberTypeAsync"/> call.</summary>
+    public (Guid Id, UpdateMemberTypeRequest Request)? LastMemberTypeUpdate { get; private set; }
+
+    /// <summary>Records the scalar update and answers with a bare success.</summary>
+    /// <param name="id">The member type id.</param>
+    /// <param name="request">The scalar changes.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A bare success.</returns>
     public Task<UmbracoResponse<Empty>> UpdateMemberTypeAsync(
         Guid id,
         UpdateMemberTypeRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastMemberTypeUpdate = (id, request);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<Empty>> DeleteMemberTypeAsync(
         Guid id,
@@ -1051,6 +1063,32 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         JsonNode body,
         CancellationToken ct = default
     ) => RecordWrite("template", id, body);
+
+    /// <summary>The (kind, id, body, replace) of the last <see cref="MergeSchemaItemAsync"/> call (#201).</summary>
+    public (EntityKind Kind, Guid Id, JsonNode Body, bool Replace)? LastSchemaMerge
+    {
+        get;
+        private set;
+    }
+
+    /// <summary>Records the merge and answers with a bare success.</summary>
+    /// <param name="kind">The schema kind.</param>
+    /// <param name="id">The item id.</param>
+    /// <param name="body">The body.</param>
+    /// <param name="replace">Whether the body replaces the item.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A bare success.</returns>
+    public Task<UmbracoResponse<Empty>> MergeSchemaItemAsync(
+        EntityKind kind,
+        Guid id,
+        JsonNode body,
+        bool replace = false,
+        CancellationToken ct = default
+    )
+    {
+        LastSchemaMerge = (kind, id, body, replace);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<JsonNode>> GetMediaTypeRawAsync(
         Guid id,

@@ -195,4 +195,23 @@ public interface ISchemaClient
         JsonNode body,
         CancellationToken ct = default
     );
+
+    /// <summary>
+    /// Writes a schema item back from a body of the shape its raw GET returns (#201). By default
+    /// the item is read and the body's top-level keys are laid over it, so a key the body leaves
+    /// out keeps its value; <paramref name="replace"/> sends the body as the whole item instead.
+    /// </summary>
+    /// <param name="kind">The schema kind: a document, media or member type, a data type, or a template.</param>
+    /// <param name="id">The item id.</param>
+    /// <param name="body">The body; must be a JSON object.</param>
+    /// <param name="replace">Send the body as the whole item rather than merging it.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> MergeSchemaItemAsync(
+        EntityKind kind,
+        Guid id,
+        JsonNode body,
+        bool replace = false,
+        CancellationToken ct = default
+    );
 }

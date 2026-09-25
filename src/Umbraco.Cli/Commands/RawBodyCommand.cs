@@ -73,6 +73,103 @@ public static class RawBodyCommand
         );
 
     /// <summary>
+    /// Adds <c>--replace</c> to a schema <c>update</c>: by default the body is merged into the
+    /// item (#250 Phase 5), and this sends it as the whole item instead.
+    /// </summary>
+    /// <param name="cmd">The command to add it to.</param>
+    /// <returns>The option.</returns>
+    public static Option<bool> AddReplaceOption(Command cmd)
+    {
+        var replace = new Option<bool>("--replace")
+        {
+            Description =
+                "Send --json-body as the whole item, instead of merging its top-level keys into the "
+                + "current one. Keys the body leaves out are then removed or reset.",
+        };
+        cmd.Add(replace);
+        return replace;
+    }
+
+    /// <summary>
+    /// Runs a schema <c>get</c>: resolves the reference and prints the item's verbatim Management
+    /// API body, which is exactly the shape <c>update --json-body</c> takes back (#201).
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The command name for the output envelope.</param>
+    /// <param name="idArg">The <c>&lt;id|alias&gt;</c> argument.</param>
+    /// <param name="getRaw">Reads one item verbatim by id, given a client.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The command's exit code.</returns>
+    public static Task<int> RunGetAsync(
+        CommandExecutor executor,
+        ParseResult parseResult,
+        string commandName,
+        ReferenceArgument idArg,
+        Func<
+            IUmbracoManagementClient,
+            Func<Guid, CancellationToken, Task<UmbracoResponse<JsonNode>>>
+        > getRaw,
+        CancellationToken ct
+    ) =>
+        executor.RunObjectAsync(
+            parseResult,
+            commandName,
+            (client, c) =>
+                idArg.WithResolvedAsync(parseResult, client, id => getRaw(client)(id, c), c),
+            ct
+        );
+
+    /// <summary>
+    /// Runs a schema <c>update --json-body</c>: resolves the reference, then merges the body into
+    /// the item (or replaces it with <c>--replace</c>) through one read-modify-write.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The command name for the output envelope.</param>
+    /// <param name="kind">The schema kind.</param>
+    /// <param name="reference">The item's id, alias or name, as given.</param>
+    /// <param name="body">The body option handle.</param>
+    /// <param name="replace">The <c>--replace</c> option.</param>
+    /// <param name="message">The success message.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The command's exit code.</returns>
+    public static Task<int> RunMergeAsync(
+        CommandExecutor executor,
+        ParseResult parseResult,
+        string commandName,
+        EntityKind kind,
+        string reference,
+        JsonBodyOption body,
+        Option<bool> replace,
+        string message,
+        CancellationToken ct
+    ) =>
+        executor.RunMessageAsync(
+            parseResult,
+            commandName,
+            async (client, c) =>
+            {
+                var json = await ReadBodyAsync(body, parseResult, c);
+                return await client.WithResolvedAsync(
+                    kind,
+                    reference,
+                    id =>
+                        client.MergeSchemaItemAsync(
+                            kind,
+                            id,
+                            json,
+                            parseResult.GetValue(replace),
+                            c
+                        ),
+                    c
+                );
+            },
+            message,
+            ct
+        );
+
+    /// <summary>
     /// Reads the <c>--json-body</c> source and parses it, failing with a message that says which
     /// input was bad rather than a bare parser exception.
     /// </summary>

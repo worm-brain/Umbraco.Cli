@@ -18,7 +18,7 @@ public static class DataTypesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a data type by name or id. Omitted fields (and editor configuration) are preserved.\n\nExample:\n  umbraco data-types update Textstring --name \"My Text\""
+            "Update a data type by name or id. Omitted fields (and editor configuration) are preserved. With --json-body, the body's top-level keys are merged into the type; --replace sends it as the whole type.\n\nExamples:\n  umbraco data-types update Textstring --name \"My Text\"\n  umbraco data-types update Textstring --json-body dt.json"
         );
         var idArg = new Argument<string?>("id")
         {
@@ -26,6 +26,7 @@ public static class DataTypesUpdateCommand
             Arity = ArgumentArity.ZeroOrOne,
         };
         var body = RawBodyCommand.AddBodyOptions(cmd);
+        var replace = RawBodyCommand.AddReplaceOption(cmd);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var editorAliasOpt = new Option<string?>("--editor-alias")
         {
@@ -67,15 +68,14 @@ public static class DataTypesUpdateCommand
 
                 // Both branches address the type by name or id (#159); the client resolves.
                 if (body.HasBody(parseResult))
-                    return executor.RunMessageAsync(
+                    return RawBodyCommand.RunMergeAsync(
+                        executor,
                         parseResult,
                         "data-types.update",
-                        async (client, c) =>
-                            await client.UpdateDataTypeRawAsync(
-                                parseResult.GetValue(idArg)!,
-                                await RawBodyCommand.ReadBodyAsync(body, parseResult, c),
-                                c
-                            ),
+                        EntityKind.DataType,
+                        parseResult.GetValue(idArg)!,
+                        body,
+                        replace,
                         "Data type updated.",
                         ct
                     );

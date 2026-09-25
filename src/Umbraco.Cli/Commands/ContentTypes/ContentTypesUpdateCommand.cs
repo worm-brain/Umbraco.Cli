@@ -22,7 +22,7 @@ public static class ContentTypesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a document type from a full Management API body - its properties, groups, compositions, allowed templates and culture variance.\n\nThe body replaces the type, so read it first and edit what you get:\n\nExamples:\n  umbraco content-types get blogPost -o json | jq .data > t.json\n  # ...edit t.json...\n  umbraco content-types update blogPost --json-body t.json\n  umbraco content-types update --schema"
+            "Update a document type from a Management API body - its properties, groups, compositions, allowed templates and culture variance.\n\nThe body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type. Read it with get, edit, write it back:\n\nExamples:\n  umbraco content-types get blogPost -o json | jq .data > t.json\n  # ...edit t.json...\n  umbraco content-types update blogPost --json-body t.json\n  umbraco content-types update --schema"
         );
         var idArg = new Argument<string?>("id")
         {
@@ -31,6 +31,7 @@ public static class ContentTypesUpdateCommand
         };
         cmd.Add(idArg);
         var body = RawBodyCommand.AddBodyOptions(cmd);
+        var replace = RawBodyCommand.AddReplaceOption(cmd);
 
         cmd.Validators.Add(result =>
         {
@@ -57,17 +58,16 @@ public static class ContentTypesUpdateCommand
                         ct
                     );
 
-                // The alias the rest of the noun accepts (#159) is resolved by the client, so a
-                // caller never has to look an id up just to write back what they just read.
-                return executor.RunMessageAsync(
+                // The alias the rest of the noun accepts (#159) is resolved here, so a caller
+                // never has to look an id up just to write back what they just read.
+                return RawBodyCommand.RunMergeAsync(
+                    executor,
                     parseResult,
                     "content-types.update",
-                    async (client, c) =>
-                        await client.UpdateDocumentTypeRawAsync(
-                            parseResult.GetValue(idArg)!,
-                            await RawBodyCommand.ReadBodyAsync(body, parseResult, c),
-                            c
-                        ),
+                    EntityKind.DocumentType,
+                    parseResult.GetValue(idArg)!,
+                    body,
+                    replace,
                     "Document type updated.",
                     ct
                 );
