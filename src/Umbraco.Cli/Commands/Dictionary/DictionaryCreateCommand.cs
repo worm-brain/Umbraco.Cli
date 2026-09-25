@@ -10,7 +10,7 @@ public static class DictionaryCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Nav.Home\" --values en-US=Home --values da-DK=Hjem --values fr-FR=Accueil"
+            "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --values en-US=Home --values da-DK=Hjem --values fr-FR=Accueil"
         );
         var keyOpt = new Option<string>("--key") { Required = true };
         // --values accepts isoCode=value pairs (en-US=Hello da-DK=Hej); the isoCode must be the full culture code (#181)
@@ -24,11 +24,11 @@ public static class DictionaryCreateCommand
         {
             Description = "Optional client-supplied UUID for an idempotent create (#86).",
         };
-        var parentOpt = new Option<Guid?>("--parent")
-        {
-            Description =
-                "Optional parent item ID to create this item under. Creates at the root if omitted (#110).",
-        };
+        var parentOpt = Reference.Option(
+            "--parent",
+            EntityKind.DictionaryItem,
+            "The item to create this one under; creates at the root if omitted (#110)"
+        );
         cmd.Add(keyOpt);
         cmd.Add(valuesOpt);
         cmd.Add(idOpt);
@@ -49,21 +49,26 @@ public static class DictionaryCreateCommand
                         Translation = p.Value,
                     });
 
-                var parent = parseResult.GetValue(parentOpt);
                 return executor.RunObjectAsync(
                     parseResult,
                     "dictionary.create",
                     (client, c) =>
-                        client.CreateDictionaryItemAsync(
-                            new CreateDictionaryItemRequest
-                            {
-                                Id = parseResult.GetValue(idOpt),
-                                Name = parseResult.GetValue(keyOpt)!,
-                                Translations = translations,
-                                Parent = parent is { } p
-                                    ? new ContentParentReference { Id = p }
-                                    : null,
-                            },
+                        client.WithResolvedOptionalAsync(
+                            EntityKind.DictionaryItem,
+                            parseResult.GetValue(parentOpt),
+                            parent =>
+                                client.CreateDictionaryItemAsync(
+                                    new CreateDictionaryItemRequest
+                                    {
+                                        Id = parseResult.GetValue(idOpt),
+                                        Name = parseResult.GetValue(keyOpt)!,
+                                        Translations = translations,
+                                        Parent = parent is { } p
+                                            ? new ContentParentReference { Id = p }
+                                            : null,
+                                    },
+                                    c
+                                ),
                             c
                         ),
                     ct

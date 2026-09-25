@@ -555,6 +555,11 @@ public class CommandParseTests
         "dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 1a2b3c4d-1234-5678-abcd-ef0123456789"
     )]
     [InlineData("dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --target optional (to root)
+    [InlineData("dictionary move Blog.Tags --target Blog")] // #211: keys everywhere
+    [InlineData("dictionary update Blog.MinRead --values da-DK=Min")]
+    [InlineData("dictionary delete Blog.MinRead")]
+    [InlineData("dictionary tree --parent Blog")]
+    [InlineData("dictionary create --key Blog.MinRead --parent Blog")]
     [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name \"Jane Roe\"")]
     [InlineData("members update 3f7a8b2e-1234-5678-abcd-ef0123456789 --approved")]
     [InlineData(

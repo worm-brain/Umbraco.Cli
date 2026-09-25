@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
@@ -12,13 +13,13 @@ public static class DictionaryTreeCommand
     {
         var cmd = new Command(
             "tree",
-            "Browse the dictionary hierarchy. Lists the root level, or the direct children of --parent.\n\nExamples:\n  umbraco dictionary tree\n  umbraco dictionary tree --parent 1a2b3c4d-... --output json"
+            "Browse the dictionary hierarchy. Lists the root level, or the direct children of --parent.\n\nExamples:\n  umbraco dictionary tree\n  umbraco dictionary tree --parent Blog --output json"
         );
-        var parentOpt = new Option<Guid?>("--parent")
-        {
-            Description =
-                "Parent item ID whose direct children to list. Lists the root level if omitted.",
-        };
+        var parentOpt = Reference.Option(
+            "--parent",
+            EntityKind.DictionaryItem,
+            "The item whose direct children to list; lists the root level if omitted"
+        );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
         cmd.Add(parentOpt);
         cmd.SetAction(
@@ -27,10 +28,10 @@ public static class DictionaryTreeCommand
                     parseResult,
                     "dictionary.tree",
                     (client, skip, take, c) =>
-                        client.GetDictionaryTreeAsync(
+                        client.WithResolvedOptionalAsync(
+                            EntityKind.DictionaryItem,
                             parseResult.GetValue(parentOpt),
-                            skip,
-                            take,
+                            parent => client.GetDictionaryTreeAsync(parent, skip, take, c),
                             c
                         ),
                     ["ID", "Name", "Parent ID", "Has Children"],

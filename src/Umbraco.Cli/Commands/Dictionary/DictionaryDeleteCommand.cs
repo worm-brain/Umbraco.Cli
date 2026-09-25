@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Dictionary;
@@ -13,9 +14,9 @@ public static class DictionaryDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a dictionary item by UUID.\n\nExample:\n  umbraco dictionary delete 3f7a8b2e-..."
+            "Delete a dictionary item by id or key.\n\nExample:\n  umbraco dictionary delete Blog.MinRead"
         );
-        var idArg = new Argument<Guid>("id") { Description = "Dictionary item ID." };
+        var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
             $"Permanently delete dictionary item {parseResult.GetValue(idArg)}? This cannot be undone."
@@ -25,7 +26,13 @@ public static class DictionaryDeleteCommand
                 executor.RunMessageAsync(
                     parseResult,
                     "dictionary.delete",
-                    (client, c) => client.DeleteDictionaryItemAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        client.WithResolvedAsync(
+                            EntityKind.DictionaryItem,
+                            parseResult.GetValue(idArg)!,
+                            id => client.DeleteDictionaryItemAsync(id, c),
+                            c
+                        ),
                     "Dictionary item deleted.",
                     ct
                 )

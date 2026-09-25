@@ -136,6 +136,28 @@ public static class ReferenceResolverExtensions
             : UmbracoResponse<Guid?>.FailureFrom(id);
     }
 
+    /// <summary>
+    /// Resolves an optional reference (null stays null), then runs <paramref name="call"/> with it.
+    /// </summary>
+    /// <typeparam name="T">The call's payload type.</typeparam>
+    /// <param name="resolver">The resolver.</param>
+    /// <param name="kind">What kind of item the reference names.</param>
+    /// <param name="reference">An id, alias, name or key; null for none.</param>
+    /// <param name="call">The call, given the id or null.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The call's response, or the resolution failure.</returns>
+    public static async Task<UmbracoResponse<T>> WithResolvedOptionalAsync<T>(
+        this IReferenceResolver resolver,
+        EntityKind kind,
+        string? reference,
+        Func<Guid?, Task<UmbracoResponse<T>>> call,
+        CancellationToken ct = default
+    )
+    {
+        var id = await resolver.ResolveOptionalAsync(kind, reference, ct);
+        return id.IsSuccess ? await call(id.Data) : UmbracoResponse<T>.FailureFrom(id);
+    }
+
     /// <summary>Resolves several references, stopping at the first that fails.</summary>
     /// <param name="resolver">The resolver.</param>
     /// <param name="kind">What kind of item the references name.</param>

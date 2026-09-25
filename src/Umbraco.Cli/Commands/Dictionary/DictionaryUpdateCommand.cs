@@ -20,9 +20,9 @@ public static class DictionaryUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped (#181).\n\nExamples:\n  umbraco dictionary update 3f7a8b2e-... --values da-DK=Hjem\n  umbraco dictionary update 3f7a8b2e-... --key \"Nav.HomePage\" --values en-US=Home"
+            "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped (#181).\n\nExamples:\n  umbraco dictionary update Blog.MinRead --values da-DK=Hjem\n  umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --values en-US=Home"
         );
-        var idArg = new Argument<Guid>("id") { Description = "Dictionary item ID." };
+        var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
         var keyOpt = new Option<string?>("--key")
         {
             Description = "New key/name for the item. Omit to keep the current one.",
@@ -66,13 +66,19 @@ public static class DictionaryUpdateCommand
                     parseResult,
                     "dictionary.update",
                     (client, c) =>
-                        client.UpdateDictionaryItemAsync(
-                            parseResult.GetValue(idArg),
-                            new UpdateDictionaryItemRequest
-                            {
-                                Name = parseResult.GetValue(keyOpt),
-                                Translations = translations,
-                            },
+                        client.WithResolvedAsync(
+                            EntityKind.DictionaryItem,
+                            parseResult.GetValue(idArg)!,
+                            id =>
+                                client.UpdateDictionaryItemAsync(
+                                    id,
+                                    new UpdateDictionaryItemRequest
+                                    {
+                                        Name = parseResult.GetValue(keyOpt),
+                                        Translations = translations,
+                                    },
+                                    c
+                                ),
                             c
                         ),
                     ct

@@ -177,6 +177,33 @@ public class ReferenceCommandTests
     }
 
     [Fact]
+    public async Task DictionaryMove_ByKeys_MovesTheResolvedItemUnderTheResolvedParent()
+    {
+        // #211: moving 16 items needed a tree lookup for every id, and every parent's id.
+        var (tags, blog) = (Guid.NewGuid(), Guid.NewGuid());
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.DictionaryItem, "Blog.Tags")] = tags;
+        fake.References[(EntityKind.DictionaryItem, "Blog")] = blog;
+
+        var exit = await Run(fake, "dictionary move Blog.Tags --target Blog");
+
+        Assert.Equal(0, exit);
+        Assert.Equal([(tags, (Guid?)blog)], fake.DictionaryItemsMoved);
+    }
+
+    [Fact]
+    public async Task DictionaryCreate_UnderAParentKey_CreatesUnderTheResolvedParent()
+    {
+        var blog = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.DictionaryItem, "Blog")] = blog;
+
+        await Run(fake, "dictionary create --key Blog.MinRead --parent Blog");
+
+        Assert.Equal(blog, Assert.Single(fake.DictionaryItemsCreated).Parent!.Id);
+    }
+
+    [Fact]
     public async Task TemplatesDelete_UnknownAlias_FailsWithoutDeleting()
     {
         var fake = new FakeUmbracoManagementClient();

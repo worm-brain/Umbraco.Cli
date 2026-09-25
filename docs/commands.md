@@ -518,12 +518,12 @@ umbraco user-data delete <key>                             # needs --yes non-int
 
 ```bash
 umbraco dictionary list
-umbraco dictionary tree [--parent <id>]                    # browse the hierarchy: root, or children of --parent
-umbraco dictionary get <key>
-umbraco dictionary create --key <key> [--values en-US=Hello --values da-DK=Hej] [--parent <id>]   # --parent creates under an item
-umbraco dictionary update <id> [--key <key>] [--values en-US=Home ...]   # merges by ISO code
-umbraco dictionary move <id> [--target <id>]               # reparent; omit --target to move to the root
-umbraco dictionary delete <id>                             # needs --yes non-interactively
+umbraco dictionary tree [--parent <key|id>]                # browse the hierarchy: root, or children of --parent
+umbraco dictionary get <key|id>
+umbraco dictionary create --key <key> [--values en-US=Hello --values da-DK=Hej] [--parent <key|id>]   # --parent creates under an item
+umbraco dictionary update <key|id> [--key <key>] [--values en-US=Home ...]   # merges by ISO code
+umbraco dictionary move <key|id> [--target <key|id>]       # reparent; omit --target to move to the root
+umbraco dictionary delete <key|id>                         # needs --yes non-interactively
 ```
 
 **Use full ISO codes in `--values`** (`en-US`, not `en`). Umbraco matches them against the
