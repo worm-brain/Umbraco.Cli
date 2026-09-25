@@ -390,10 +390,10 @@ umbraco data-types update <name|id> [--name <name>] [--editor-alias <alias>] [--
 umbraco data-types update <name|id> --json-body <file>     # full replace, the only way to set `values`
 umbraco data-types create --schema                         # print a real data type as a worked example (needs a host)
 umbraco data-types delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
-umbraco data-types is-used <id>                            # whether any content type uses it
-umbraco data-types referenced-by <id> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
-umbraco data-types copy <id> [--target <folder>]           # omit --target to copy to the root; returns the copy
-umbraco data-types move <id> [--target <folder>]           # omit --target to move to the root; --parent works too
+umbraco data-types is-used <id|name>                       # whether any content type uses it
+umbraco data-types referenced-by <id|name> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
+umbraco data-types copy <id|name> [--target <folder>]      # omit --target to copy to the root; returns the copy
+umbraco data-types move <id|name> [--target <folder>]      # omit --target to move to the root; --parent works too
 
 # folder sub-noun (organise data types in the tree):
 umbraco data-types folder get <id>
@@ -693,7 +693,7 @@ umbraco imaging resize-urls --id <guid>... [--width <px>] [--height <px>] [--mod
 ## `property-type` (read-only)
 
 ```bash
-umbraco property-type is-used --content-type <id> --alias <alias>
+umbraco property-type is-used --content-type <id|alias> --alias <alias>
 ```
 
 ## `schema` (export / diff / apply)

@@ -541,6 +541,9 @@ public class CommandParseTests
     [InlineData("member-types delete siteMember")]
     [InlineData("content-types delete blogPost --force")]
     [InlineData("data-types delete \"Homepage Blocks\"")]
+    [InlineData("data-types is-used Tags")] // data types by name everywhere
+    [InlineData("data-types copy Tags --target 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("property-type is-used --content-type blogPost --alias bodyText")]
     [InlineData("user-groups get blogEditors")] // #217
     [InlineData("user-groups delete-many --ids blogEditors newsEditors")]
     [InlineData(
@@ -823,7 +826,7 @@ public class CommandParseTests
     [InlineData("imaging resize-urls")] // missing required --id
     [InlineData("imaging resize-urls --id 3f7a8b2e-1234-5678-abcd-ef0123456789 --mode Nonsense")] // invalid enum
     [InlineData("property-type is-used --alias bodyText")] // missing required --content-type
-    [InlineData("data-types is-used not-a-uuid")]
+    [InlineData("data-types folder get not-a-uuid")] // folders have no name lookup
     [InlineData("data-types folder create")] // missing required --name
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
