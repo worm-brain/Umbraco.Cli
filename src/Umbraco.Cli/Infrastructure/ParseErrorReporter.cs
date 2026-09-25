@@ -49,7 +49,7 @@ public static class ParseErrorReporter
         }
 
         var writer = OutputWriterFactory.Create(requested);
-        var message = string.Join(" ", parsed.Errors.Select(e => e.Message));
+        var message = string.Join(" ", parsed.Errors.Select(e => Humanise(e.Message)));
         // The dotted name, matching meta.command everywhere else - "content.list", not "list".
         var path = new List<string>();
         for (
@@ -71,4 +71,41 @@ public static class ParseErrorReporter
         );
         return 1;
     }
+
+    // System.CommandLine's conversion error: "Cannot parse argument 'x' for option '--parent' as
+    // expected type 'System.Nullable`1[System.Guid]'." (or "for command 'get'" for a positional).
+    private static readonly System.Text.RegularExpressions.Regex ConversionError = new(
+        @"Cannot parse argument '(?<value>.*?)' for (?<kind>option|command) '(?<name>.*?)' as expected type '(?:System\.Nullable`1\[)?(?<type>[\w.]+?)\]?'\.",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant
+    );
+
+    /// <summary>
+    /// Rewrites System.CommandLine's type-conversion error into words a user can act on (#211):
+    /// "'Blog' is not valid for --parent: expected a GUID id." rather than a .NET type name such as
+    /// <c>System.Nullable`1[System.Guid]</c>. Any other message is returned as it is.
+    /// </summary>
+    /// <param name="message">A parse error message.</param>
+    /// <returns>The message to show.</returns>
+    internal static string Humanise(string message) =>
+        ConversionError.Replace(
+            message,
+            m =>
+                m.Groups["kind"].Value == "option"
+                    ? $"'{m.Groups["value"].Value}' is not valid for {m.Groups["name"].Value}: expected {Expected(m.Groups["type"].Value)}."
+                    // A positional argument: System.CommandLine names the command, not the argument.
+                    : $"'{m.Groups["value"].Value}' is not a valid argument for {m.Groups["name"].Value}: expected {Expected(m.Groups["type"].Value)}."
+        );
+
+    /// <summary>How to describe a value of a .NET type to a user.</summary>
+    private static string Expected(string type) =>
+        type switch
+        {
+            "System.Guid" => "a GUID id",
+            "System.Int32" or "System.Int64" => "a whole number",
+            "System.Boolean" => "true or false",
+            "System.DateTimeOffset" or "System.DateTime" =>
+                "an ISO 8601 date and time, e.g. 2026-10-01T09:00:00Z",
+            "System.Decimal" or "System.Double" => "a number",
+            _ => $"a {type[(type.LastIndexOf('.') + 1)..]} value",
+        };
 }
