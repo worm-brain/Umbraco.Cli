@@ -328,6 +328,26 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>Body returned by <see cref="GetDocumentVersionAsync"/>; the version ids read are in <see cref="CalledIds"/>.</summary>
+    public JsonNode? DocumentVersionBody { get; set; }
+
+    /// <summary>Returns <see cref="DocumentVersionBody"/>, or a 404 when unset.</summary>
+    /// <param name="versionId">The version id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The configured body, or a 404.</returns>
+    public Task<UmbracoResponse<JsonNode>> GetDocumentVersionAsync(
+        Guid versionId,
+        CancellationToken ct = default
+    )
+    {
+        CalledIds.Add(versionId);
+        return Task.FromResult(
+            DocumentVersionBody is { } body
+                ? UmbracoResponse<JsonNode>.Success(body)
+                : UmbracoResponse<JsonNode>.Failure(404, "Version not found.")
+        );
+    }
+
     public Task<UmbracoResponse<Empty>> RollbackDocumentVersionAsync(
         Guid versionId,
         string? culture = null,

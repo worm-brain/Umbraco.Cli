@@ -525,6 +525,13 @@ public record DocumentVersionResponse
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
 
+    /// <summary>
+    /// The culture this version was listed under (#209): the one to pass to
+    /// <c>content rollback --culture</c>. Null for a document that is invariant.
+    /// </summary>
+    [JsonPropertyName("culture")]
+    public string? Culture { get; init; }
+
     [JsonPropertyName("versionDate")]
     public DateTimeOffset VersionDate { get; init; }
 

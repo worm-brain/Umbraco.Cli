@@ -23,6 +23,7 @@ public static class ContentCommand
         cmd.Add(ContentDomainsCommand.Build(executor));
         cmd.Add(ContentUnpublishCommand.Build(executor));
         cmd.Add(ContentVersionsCommand.Build(executor));
+        cmd.Add(ContentVersionCommand.Build(executor));
         cmd.Add(ContentRollbackCommand.Build(executor));
         cmd.Add(ContentTrashCommand.Build(executor));
         cmd.Add(ContentRestoreCommand.Build(executor));
