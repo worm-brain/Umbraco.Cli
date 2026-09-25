@@ -64,7 +64,7 @@ Every successful command emits this envelope on **stdout**:
 {
   "status": "success",
   "data": { },
-  "meta": { "command": "content.list", "durationMs": 142, "schemaVersion": "3" }
+  "meta": { "command": "content.list", "durationMs": 142, "schemaVersion": "4" }
 }
 ```
 
@@ -76,7 +76,7 @@ names, same types - and its `meta` says how much more there is:
   "status": "success",
   "data": [ { "id": "...", "name": "Home", "isPublished": true } ],
   "meta": {
-    "command": "content.list", "durationMs": 142, "schemaVersion": "3",
+    "command": "content.list", "durationMs": 142, "schemaVersion": "4",
     "total": 37, "skip": 0, "take": 20, "hasMore": true
   }
 }
@@ -98,7 +98,7 @@ Errors go to **stderr**:
   "exitCode": 1,
   "httpStatus": 404,
   "message": "Content item not found",
-  "meta": { "command": "content.get", "schemaVersion": "3" }
+  "meta": { "command": "content.get", "schemaVersion": "4" }
 }
 ```
 
@@ -120,7 +120,7 @@ line that does not parse carries a `category` too (`invalid_argument`, below), b
   "message": "The Umbraco server returned an internal error (HTTP 500). This is a server-side problem, not a rejected request; check the Umbraco logs.",
   "category": "server_error",
   "serverVersion": "17.3.5",
-  "meta": { "command": "content.get", "schemaVersion": "3" }
+  "meta": { "command": "content.get", "schemaVersion": "4" }
 }
 ```
 
@@ -151,7 +151,7 @@ schemaVersion 3, the one exception to that rule.
 - The field names above (`status`, `data`, `meta`, `command`, `durationMs`, `schemaVersion`,
   the error `exitCode`/`httpStatus`/`message`, and the error `category`/`serverVersion`) are part
   of the contract and are never renamed silently.
-- `meta.schemaVersion` (currently `"3"`) is bumped **only** on a breaking change - a renamed or
+- `meta.schemaVersion` (currently `"4"`) is bumped **only** on a breaking change - a renamed or
   removed field, or a changed meaning. New fields can appear without a bump.
 - Therefore: **ignore unknown fields**, and if you want to be defensive, gate on
   `meta.schemaVersion`.
@@ -160,6 +160,14 @@ schemaVersion 3, the one exception to that rule.
   serialized from the same objects `get` returns, rather than from the human table.
 - An absent `meta` field means **unknown**, never a default. A list with no `total` is one whose
   source could not count, not one that is complete.
+
+**What changed in schemaVersion 4**, if you are moving from `"3"`: only the **bulk** envelope.
+
+| Before | Now |
+|---|---|
+| bulk `status` always `"success"`, even when every item failed | `"success"`, `"partial"` (some failed), `"error"` (all failed) or `"dry-run"` |
+| no counts | `meta.summary`: `{succeeded, failed, dryRun}` |
+| a bulk `--dry-run` item was `{id, status}` | it also carries `request`: `{method, url, body}` |
 
 **What changed in schemaVersion 3**, if you are moving from `"2"`:
 
@@ -506,7 +514,10 @@ umbraco content apply content.json --dry-run
 ### Bulk operations from a query
 
 Bulk commands read ids one per line from `--file` or stdin, and report each id independently in
-the `data` results array (`{id, status, error}`); the exit code is `1` if any item failed.
+the `data` results array (`{id, status, error}`); the exit code is `1` if any item failed. The
+envelope's `status` says how the batch went - `success`, `partial`, `error` (every item failed)
+or `dry-run` - with the counts in `meta.summary`, and it is written to stdout in every case.
+Under `--dry-run` each item carries the `request` it would have sent.
 
 ```bash
 umbraco content list --fields id | jq -r '.data[].id' | umbraco content bulk publish

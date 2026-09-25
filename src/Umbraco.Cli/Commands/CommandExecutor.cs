@@ -14,7 +14,74 @@ namespace Umbraco.Cli.Commands;
 /// <param name="Id">The id as it appeared in the input (so a malformed line is echoed back).</param>
 /// <param name="Status">The per-item outcome: <c>success</c>, <c>error</c>, or <c>dry-run</c>.</param>
 /// <param name="Error">The failure message when <see cref="Status"/> is <c>error</c>; otherwise null.</param>
-public sealed record BulkItemResult(string Id, string Status, string? Error);
+/// <param name="Request">Under <c>--dry-run</c>, the request that would have been sent for this id (#236); otherwise null.</param>
+public sealed record BulkItemResult(
+    string Id,
+    string Status,
+    string? Error,
+    BulkRequest? Request = null
+);
+
+/// <summary>A request a bulk <c>--dry-run</c> would have sent for one item (#236).</summary>
+/// <param name="Method">The HTTP method.</param>
+/// <param name="Url">The absolute request URL.</param>
+/// <param name="Body">The body - parsed JSON when it is valid JSON, the raw text otherwise - or null.</param>
+public sealed record BulkRequest(string Method, string Url, object? Body)
+{
+    /// <summary>Builds the request from a captured dry run, nesting a JSON body as JSON.</summary>
+    /// <param name="method">The HTTP method.</param>
+    /// <param name="url">The absolute request URL.</param>
+    /// <param name="body">The raw body, or null.</param>
+    /// <returns>The request.</returns>
+    public static BulkRequest From(string method, string url, string? body)
+    {
+        object? parsed = null;
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            try
+            {
+                parsed = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(
+                    body
+                );
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                parsed = body;
+            }
+        }
+        return new BulkRequest(method, url, parsed);
+    }
+}
+
+/// <summary>
+/// How a bulk run went overall (#236): the counts, and the envelope status they imply.
+/// </summary>
+/// <param name="Succeeded">Items that succeeded.</param>
+/// <param name="Failed">Items that failed.</param>
+/// <param name="DryRun">Items previewed under <c>--dry-run</c>.</param>
+public sealed record BulkSummary(int Succeeded, int Failed, int DryRun)
+{
+    /// <summary>Counts the outcomes in <paramref name="results"/>.</summary>
+    /// <param name="results">The per-item results.</param>
+    /// <returns>The summary.</returns>
+    public static BulkSummary Of(IReadOnlyList<BulkItemResult> results) =>
+        new(
+            results.Count(r => r.Status == "success"),
+            results.Count(r => r.Status == "error"),
+            results.Count(r => r.Status == "dry-run")
+        );
+
+    /// <summary>
+    /// The envelope status: <c>error</c> when every item failed, <c>partial</c> when some did,
+    /// <c>dry-run</c> when items were previewed and none failed, <c>success</c> otherwise. Before
+    /// #236 it was always <c>success</c>, even when every item failed and the exit code was 1.
+    /// </summary>
+    public string Status =>
+        Failed > 0 && Succeeded == 0 && DryRun == 0 ? "error"
+        : Failed > 0 ? "partial"
+        : DryRun > 0 ? "dry-run"
+        : "success";
+}
 
 /// <summary>
 /// Runs the pipeline shared by every API-backed command: build the context (auth,
@@ -335,11 +402,18 @@ public sealed class CommandExecutor
                     anyFailed = true;
                 }
             }
-            catch (DryRunException)
+            catch (DryRunException dry)
             {
-                // Under --dry-run each write is aborted before it is sent; record the preview
-                // intent per id rather than printing N request envelopes.
-                results.Add(new BulkItemResult(raw, "dry-run", null));
+                // Under --dry-run each write is aborted before it is sent; record the request it
+                // would have been (#236) on the item, rather than printing N request envelopes.
+                results.Add(
+                    new BulkItemResult(
+                        raw,
+                        "dry-run",
+                        null,
+                        BulkRequest.From(dry.Method, dry.Url, dry.Body)
+                    )
+                );
             }
             catch (ReadOnlyModeException)
             {
@@ -357,7 +431,7 @@ public sealed class CommandExecutor
             }
         }
 
-        ctx.Output.WriteSuccess(results, ctx.CommandName, ctx.Stopwatch.ElapsedMilliseconds);
+        ctx.Output.WriteBulk(results, ctx.CommandName, ctx.Stopwatch.ElapsedMilliseconds);
         return anyFailed ? 1 : 0;
     }
 

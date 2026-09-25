@@ -75,6 +75,33 @@ public sealed class HumanOutputWriter : IOutputWriter
         AnsiConsole.MarkupLine($"[green]✓[/] {Markup.Escape(message)}");
     }
 
+    /// <inheritdoc />
+    public void WriteBulk(
+        IReadOnlyList<Commands.BulkItemResult> results,
+        string? commandName = null,
+        long? durationMs = null
+    )
+    {
+        // One line per item, then the counts: a plain "Done" hid every failure (#236).
+        foreach (var r in results)
+        {
+            var line = r.Status switch
+            {
+                "success" => $"[green]✓[/] {Markup.Escape(r.Id)}",
+                "dry-run" when r.Request is { } q =>
+                    $"[yellow]●[/] {Markup.Escape(r.Id)}  would send {Markup.Escape(q.Method)} {Markup.Escape(q.Url)}",
+                "dry-run" => $"[yellow]●[/] {Markup.Escape(r.Id)}  (dry run)",
+                _ => $"[red]✗[/] {Markup.Escape(r.Id)}  {Markup.Escape(r.Error ?? "failed")}",
+            };
+            AnsiConsole.MarkupLine(line);
+        }
+        var s = Commands.BulkSummary.Of(results);
+        AnsiConsole.MarkupLine(
+            $"{s.Succeeded} succeeded, {s.Failed} failed"
+                + (s.DryRun > 0 ? $", {s.DryRun} previewed" : "")
+        );
+    }
+
     public void WriteDryRun(string method, string url, string? body)
     {
         AnsiConsole.MarkupLine(
