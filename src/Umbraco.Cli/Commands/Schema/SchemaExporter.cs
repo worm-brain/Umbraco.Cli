@@ -30,21 +30,21 @@ public static class SchemaExporter
     {
         var docTypes = await CollectAsync(
             () => client.GetDocumentTypeIdsAsync(ct),
-            id => client.GetDocumentTypeRawAsync(id, ct)
+            id => client.GetSchemaRawAsync(EntityKind.DocumentType, id, ct)
         );
         if (!docTypes.IsSuccess)
             return Fail(docTypes);
 
         var dataTypes = await CollectAsync(
             () => client.GetDataTypeIdsAsync(ct),
-            id => client.GetDataTypeRawAsync(id, ct)
+            id => client.GetSchemaRawAsync(EntityKind.DataType, id, ct)
         );
         if (!dataTypes.IsSuccess)
             return Fail(dataTypes);
 
         var templates = await CollectAsync(
             () => client.GetTemplateIdsAsync(ct),
-            id => client.GetTemplateRawAsync(id, ct)
+            id => client.GetSchemaRawAsync(EntityKind.Template, id, ct)
         );
         if (!templates.IsSuccess)
             return Fail(templates);
@@ -53,14 +53,14 @@ public static class SchemaExporter
         // not carry, so authoring either one meant a direct Management API call.
         var mediaTypes = await CollectAsync(
             () => client.GetMediaTypeIdsAsync(ct),
-            id => client.GetMediaTypeRawAsync(id, ct)
+            id => client.GetSchemaRawAsync(EntityKind.MediaType, id, ct)
         );
         if (!mediaTypes.IsSuccess)
             return Fail(mediaTypes);
 
         var memberTypes = await CollectAsync(
             () => client.GetMemberTypeIdsAsync(ct),
-            id => client.GetMemberTypeRawAsync(id, ct)
+            id => client.GetSchemaRawAsync(EntityKind.MemberType, id, ct)
         );
         if (!memberTypes.IsSuccess)
             return Fail(memberTypes);

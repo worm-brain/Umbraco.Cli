@@ -144,6 +144,7 @@ public class SchemaRoundTripCommandTests
     [InlineData("data-types", EntityKind.DataType)]
     [InlineData("media-types", EntityKind.MediaType)]
     [InlineData("member-types", EntityKind.MemberType)]
+    [InlineData("templates", EntityKind.Template)]
     public async Task Update_JsonBody_MergesIntoTheResolvedItem(string noun, EntityKind kind)
     {
         var fake = new FakeUmbracoManagementClient();

@@ -18,53 +18,46 @@ public static class TemplatesUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a Razor view template by id or alias. Omitted fields are preserved.\n\nExample:\n  umbraco templates update blogPost --content-file ./blog-post.cshtml"
+            "Update a Razor view template by id or alias. Omitted fields are preserved. With --json-body, the body's top-level keys (as 'templates get' prints them) are merged into the template; --replace sends it as the whole template.\n\nExamples:\n  umbraco templates update blogPost --content-file ./blog-post.cshtml\n  umbraco templates get blogPost -o json | jq .data > t.json\n  umbraco templates update blogPost --json-body t.json"
         );
-        var idArg = Reference.Argument(EntityKind.Template);
+        var options = RawBodyCommand.AddUpdateOptions(cmd, SchemaNoun.Templates, hasFlags: true);
         var nameOpt = new Option<string?>("--name") { Description = "New name." };
         var aliasOpt = new Option<string?>("--alias") { Description = "New alias." };
         var (contentOpt, contentFileOpt) = FileContentInput.Options(
             "Razor view content (inline). Mutually exclusive with --content-file.",
             "Path to a file whose contents become the Razor view."
         );
-        cmd.Add(idArg);
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);
         cmd.Add(contentOpt);
         cmd.Add(contentFileOpt);
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunMessageAsync(
+                RawBodyCommand.RunUpdateAsync(
+                    executor,
                     parseResult,
                     "templates.update",
-                    async (client, c) =>
-                    {
-                        // null content => preserve existing (read-merge in the client). Only a
-                        // supplied --content/--content-file replaces the Razor body.
-                        var content = await FileContentInput.ReadAsync(
-                            parseResult,
-                            contentOpt,
-                            contentFileOpt,
-                            ct
-                        );
-                        return await idArg.WithResolvedAsync(
-                            parseResult,
-                            client,
-                            id =>
-                                client.UpdateTemplateAsync(
-                                    id,
-                                    new UpdateTemplateRequest
-                                    {
-                                        Name = parseResult.GetValue(nameOpt),
-                                        Alias = parseResult.GetValue(aliasOpt),
-                                        Content = content,
-                                    },
+                    SchemaNoun.Templates,
+                    options,
+                    "Template updated.",
+                    async (client, id, c) =>
+                        await client.UpdateTemplateAsync(
+                            id,
+                            new UpdateTemplateRequest
+                            {
+                                Name = parseResult.GetValue(nameOpt),
+                                Alias = parseResult.GetValue(aliasOpt),
+                                // null content => preserve existing (read-merge in the client). Only
+                                // a supplied --content/--content-file replaces the Razor body.
+                                Content = await FileContentInput.ReadAsync(
+                                    parseResult,
+                                    contentOpt,
+                                    contentFileOpt,
                                     c
                                 ),
+                            },
                             c
-                        );
-                    },
-                    "Template updated.",
+                        ),
                     ct
                 )
         );

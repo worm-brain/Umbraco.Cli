@@ -20,49 +20,18 @@ public static class MediaTypesUpdateCommand
             "update",
             "Update a media type from a Management API body - its properties, groups, allowed child types and icon. The body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type.\n\nExamples:\n  umbraco media-types get brochure -o json | jq .data > mt.json\n  # ...edit mt.json...\n  umbraco media-types update brochure --json-body mt.json\n  umbraco media-types update --schema"
         );
-        var idArg = new Argument<string?>("id")
-        {
-            Description = "Media type alias or UUID. Required unless --schema is used.",
-            Arity = ArgumentArity.ZeroOrOne,
-        };
-        cmd.Add(idArg);
-        var body = RawBodyCommand.AddBodyOptions(cmd);
-        var replace = RawBodyCommand.AddReplaceOption(cmd);
-
-        cmd.Validators.Add(result =>
-        {
-            if (body.SchemaRequested(result))
-                return;
-            if (string.IsNullOrEmpty(result.GetValue(idArg)) || !body.HasBody(result))
-                result.AddError(
-                    "Supply the media type and --json-body. "
-                        + "Run with --schema to print a real media type as a starting point."
-                );
-        });
-
+        var options = RawBodyCommand.AddUpdateOptions(cmd, SchemaNoun.MediaTypes, hasFlags: false);
         cmd.SetAction(
             (parseResult, ct) =>
-                body.SchemaRequested(parseResult)
-                    ? RawBodyCommand.RunSchemaAsync(
-                        executor,
-                        parseResult,
-                        "media-types.update",
-                        client => client.GetMediaTypeIdsAsync,
-                        client => client.GetMediaTypeRawAsync,
-                        "media types",
-                        ct
-                    )
-                    : RawBodyCommand.RunMergeAsync(
-                        executor,
-                        parseResult,
-                        "media-types.update",
-                        EntityKind.MediaType,
-                        parseResult.GetValue(idArg)!,
-                        body,
-                        replace,
-                        "Media type updated.",
-                        ct
-                    )
+                RawBodyCommand.RunUpdateAsync(
+                    executor,
+                    parseResult,
+                    "media-types.update",
+                    SchemaNoun.MediaTypes,
+                    options,
+                    "Media type updated.",
+                    ct
+                )
         );
 
         return cmd;

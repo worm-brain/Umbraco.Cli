@@ -9,11 +9,6 @@ public interface ITemplateClient
         CancellationToken ct = default
     );
 
-    Task<UmbracoResponse<TemplateResponse>> GetTemplateByAliasAsync(
-        string alias,
-        CancellationToken ct = default
-    );
-
     /// <summary>Creates a template (issue #59).</summary>
     /// <param name="request">The template to create.</param>
     /// <param name="ct">Cancellation token.</param>

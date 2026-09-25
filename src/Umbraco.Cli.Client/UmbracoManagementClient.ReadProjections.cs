@@ -274,50 +274,63 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// Fills each row's document-type alias (#202): tree rows carry only the type id, so a list
-    /// said <c>contentType: {id}</c> where <c>get</c> said <c>{id, alias}</c>. One cached read per
-    /// distinct type, made one at a time because the alias cache is not thread-safe.
+    /// said <c>contentType: {id}</c> where <c>get</c> said <c>{id, alias}</c>.
     /// </summary>
     /// <param name="rows">The mapped rows.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The rows, with aliases filled where they could be read.</returns>
-    private async Task<List<ContentItemResponse>> WithDocumentTypeAliasesAsync(
+    private Task<List<ContentItemResponse>> WithDocumentTypeAliasesAsync(
         IEnumerable<ContentItemResponse> rows,
         CancellationToken ct
-    )
-    {
-        var result = new List<ContentItemResponse>();
-        foreach (var row in rows)
-            result.Add(
-                row.ContentType is { } type
-                    ? row with
-                    {
-                        ContentType = type with
-                        {
-                            Alias = await DocumentTypeAliasAsync(type.Id, ct),
-                        },
-                    }
-                    : row
-            );
-        return result;
-    }
+    ) =>
+        WithTypeAliasesAsync(
+            rows,
+            r => r.ContentType,
+            (r, type) => r with { ContentType = type },
+            DocumentTypeAliasAsync,
+            ct
+        );
 
     /// <summary>The media twin of <see cref="WithDocumentTypeAliasesAsync"/> (#202).</summary>
     /// <param name="rows">The mapped rows.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The rows, with aliases filled where they could be read.</returns>
-    private async Task<List<MediaItemResponse>> WithMediaTypeAliasesAsync(
+    private Task<List<MediaItemResponse>> WithMediaTypeAliasesAsync(
         IEnumerable<MediaItemResponse> rows,
+        CancellationToken ct
+    ) =>
+        WithTypeAliasesAsync(
+            rows,
+            r => r.MediaType,
+            (r, type) => r with { MediaType = type },
+            MediaTypeAliasAsync,
+            ct
+        );
+
+    /// <summary>
+    /// Fills a type alias on each row from a cached lookup: one read per distinct type, made one
+    /// at a time because the alias caches are not thread-safe.
+    /// </summary>
+    /// <typeparam name="TRow">The row type.</typeparam>
+    /// <param name="rows">The rows.</param>
+    /// <param name="typeOf">Reads a row's type reference.</param>
+    /// <param name="withType">Returns the row with a new type reference.</param>
+    /// <param name="aliasOf">The cached alias lookup.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The rows, with aliases filled.</returns>
+    private static async Task<List<TRow>> WithTypeAliasesAsync<TRow>(
+        IEnumerable<TRow> rows,
+        Func<TRow, ContentTypeRef?> typeOf,
+        Func<TRow, ContentTypeRef, TRow> withType,
+        Func<Guid, CancellationToken, Task<string?>> aliasOf,
         CancellationToken ct
     )
     {
-        var result = new List<MediaItemResponse>();
+        var result = new List<TRow>();
         foreach (var row in rows)
             result.Add(
-                row.MediaType is { } type
-                    ? row with
-                    {
-                        MediaType = type with { Alias = await MediaTypeAliasAsync(type.Id, ct) },
-                    }
+                typeOf(row) is { } type
+                    ? withType(row, type with { Alias = await aliasOf(type.Id, ct) })
                     : row
             );
         return result;
@@ -325,41 +338,56 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// A document's parent (#205). <c>GET /document/{id}</c> has no parent field, so it is read from
-    /// <c>GET /tree/document/ancestors</c>: the item's own tree entry names its parent. Best-effort -
-    /// a failed read leaves the parent out rather than failing the <c>get</c>.
+    /// <c>GET /tree/document/ancestors</c>. Best-effort - a failed read leaves the parent out rather
+    /// than failing the <c>get</c>.
     /// </summary>
     /// <param name="id">The document id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The parent, or null at the root or when it could not be read.</returns>
-    private async Task<ContentParentReference?> DocumentParentAsync(Guid id, CancellationToken ct)
-    {
-        try
-        {
-            var chain = await _api.Umbraco.Management.Api.V1.Tree.Document.Ancestors.GetAsync(
-                c => c.QueryParameters.DescendantId = id,
-                ct
-            );
-            return ParentIn(chain?.Select(a => (a.Id, a.Parent?.Id)), id);
-        }
-        catch (ApiException)
-        {
-            return null;
-        }
-    }
+    private Task<ContentParentReference?> DocumentParentAsync(Guid id, CancellationToken ct) =>
+        ParentFromTreeAsync(
+            id,
+            async token =>
+                (
+                    await _api.Umbraco.Management.Api.V1.Tree.Document.Ancestors.GetAsync(
+                        c => c.QueryParameters.DescendantId = id,
+                        token
+                    )
+                )?.Select(a => (a.Id, a.Parent?.Id)),
+            ct
+        );
 
     /// <summary>A media item's parent (#205); see <see cref="DocumentParentAsync"/>.</summary>
     /// <param name="id">The media item id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The parent, or null at the root or when it could not be read.</returns>
-    private async Task<ContentParentReference?> MediaParentAsync(Guid id, CancellationToken ct)
+    private Task<ContentParentReference?> MediaParentAsync(Guid id, CancellationToken ct) =>
+        ParentFromTreeAsync(
+            id,
+            async token =>
+                (
+                    await _api.Umbraco.Management.Api.V1.Tree.Media.Ancestors.GetAsync(
+                        c => c.QueryParameters.DescendantId = id,
+                        token
+                    )
+                )?.Select(a => (a.Id, a.Parent?.Id)),
+            ct
+        );
+
+    /// <summary>Reads an ancestor chain and picks the parent out of it, best-effort.</summary>
+    /// <param name="id">The item.</param>
+    /// <param name="chain">Reads the chain as (id, parent id) pairs.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parent, or null at the root or when the chain could not be read.</returns>
+    private static async Task<ContentParentReference?> ParentFromTreeAsync(
+        Guid id,
+        Func<CancellationToken, Task<IEnumerable<(Guid? Id, Guid? ParentId)>?>> chain,
+        CancellationToken ct
+    )
     {
         try
         {
-            var chain = await _api.Umbraco.Management.Api.V1.Tree.Media.Ancestors.GetAsync(
-                c => c.QueryParameters.DescendantId = id,
-                ct
-            );
-            return ParentIn(chain?.Select(a => (a.Id, a.Parent?.Id)), id);
+            return ParentIn(await chain(ct), id);
         }
         catch (ApiException)
         {

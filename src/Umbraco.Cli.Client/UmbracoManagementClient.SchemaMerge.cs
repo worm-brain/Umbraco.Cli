@@ -14,6 +14,34 @@ namespace Umbraco.Cli.Client;
 public sealed partial class UmbracoManagementClient
 {
     /// <inheritdoc />
+    public Task<UmbracoResponse<JsonNode>> GetSchemaRawAsync(
+        EntityKind kind,
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () => GetRawJsonAsync($"umbraco/management/api/v1/{SchemaSegment(kind)}/{id}", ct)
+        );
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> CreateSchemaRawAsync(
+        EntityKind kind,
+        JsonNode body,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            () =>
+                SendRawJsonAsync(
+                    Method.POST,
+                    $"umbraco/management/api/v1/{SchemaSegment(kind)}",
+                    body,
+                    ct
+                )
+        );
+
+    /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> MergeSchemaItemAsync(
         EntityKind kind,
         Guid id,

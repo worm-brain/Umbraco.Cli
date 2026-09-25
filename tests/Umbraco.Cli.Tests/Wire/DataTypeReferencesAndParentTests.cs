@@ -57,14 +57,6 @@ public class DataTypeReferencesAndParentTests
         Assert.Equal((0, 0), (rows.Total, rows.Items.Count()));
     }
 
-    [Fact]
-    public void OwnerAlias_MemberTypeProperty_IsTheMemberType()
-    {
-        var row = DataTypeReferenceRows.From(JsonNode.Parse(Raw)).Items.ElementAt(1);
-
-        Assert.Equal("author", DataTypeReferenceRows.OwnerAlias(row));
-    }
-
     // ── parent ────────────────────────────────────────────────────────────────
 
     private static readonly Guid Folder = Guid.NewGuid();

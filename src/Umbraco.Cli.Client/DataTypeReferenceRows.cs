@@ -25,17 +25,6 @@ public static class DataTypeReferenceRows
         return new PagedResponse<JsonObject> { Total = total, Items = items };
     }
 
-    /// <summary>
-    /// The owning type's alias for a property-type reference (the document, media or member type
-    /// the property is on), for the human table.
-    /// </summary>
-    /// <param name="row">A row from <see cref="From"/>.</param>
-    /// <returns>The owner's alias, or an empty string.</returns>
-    public static string OwnerAlias(JsonObject row) =>
-        (row["documentType"] ?? row["mediaType"] ?? row["memberType"])?[
-            "alias"
-        ]?.GetValue<string?>() ?? "";
-
     /// <summary>Copies one item, replacing <c>$type</c> with <c>kind</c>.</summary>
     /// <param name="item">The raw item.</param>
     /// <returns>The row.</returns>

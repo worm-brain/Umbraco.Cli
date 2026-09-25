@@ -24,54 +24,22 @@ public static class ContentTypesUpdateCommand
             "update",
             "Update a document type from a Management API body - its properties, groups, compositions, allowed templates and culture variance.\n\nThe body's top-level keys are merged into the type, so a key you leave out keeps its value; --replace sends the body as the whole type. Read it with get, edit, write it back:\n\nExamples:\n  umbraco content-types get blogPost -o json | jq .data > t.json\n  # ...edit t.json...\n  umbraco content-types update blogPost --json-body t.json\n  umbraco content-types update --schema"
         );
-        var idArg = new Argument<string?>("id")
-        {
-            Description = "Document type alias or UUID. Required unless --schema is used.",
-            Arity = ArgumentArity.ZeroOrOne,
-        };
-        cmd.Add(idArg);
-        var body = RawBodyCommand.AddBodyOptions(cmd);
-        var replace = RawBodyCommand.AddReplaceOption(cmd);
-
-        cmd.Validators.Add(result =>
-        {
-            if (body.SchemaRequested(result))
-                return;
-            if (string.IsNullOrEmpty(result.GetValue(idArg)) || !body.HasBody(result))
-                result.AddError(
-                    "Supply the document type and --json-body. "
-                        + "Run with --schema to print a real document type as a starting point."
-                );
-        });
-
+        var options = RawBodyCommand.AddUpdateOptions(
+            cmd,
+            SchemaNoun.DocumentTypes,
+            hasFlags: false
+        );
         cmd.SetAction(
             (parseResult, ct) =>
-            {
-                if (body.SchemaRequested(parseResult))
-                    return RawBodyCommand.RunSchemaAsync(
-                        executor,
-                        parseResult,
-                        "content-types.update",
-                        client => client.GetDocumentTypeIdsAsync,
-                        client => client.GetDocumentTypeRawAsync,
-                        "document types",
-                        ct
-                    );
-
-                // The alias the rest of the noun accepts (#159) is resolved here, so a caller
-                // never has to look an id up just to write back what they just read.
-                return RawBodyCommand.RunMergeAsync(
+                RawBodyCommand.RunUpdateAsync(
                     executor,
                     parseResult,
                     "content-types.update",
-                    EntityKind.DocumentType,
-                    parseResult.GetValue(idArg)!,
-                    body,
-                    replace,
+                    SchemaNoun.DocumentTypes,
+                    options,
                     "Document type updated.",
                     ct
-                );
-            }
+                )
         );
 
         return cmd;

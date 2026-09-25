@@ -28,60 +28,6 @@ public sealed partial class UmbracoManagementClient
         );
 
     /// <inheritdoc />
-    public Task<UmbracoResponse<DataTypeResponse>> GetDataTypeAsync(
-        string nameOrId,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var id = await IdOfAsync(EntityKind.DataType, nameOrId, ct);
-                return await ReadDataTypeAsync(id, ct);
-            }
-        );
-
-    /// <inheritdoc />
-    public Task<UmbracoResponse<Empty>> UpdateDocumentTypeRawAsync(
-        string aliasOrId,
-        System.Text.Json.Nodes.JsonNode body,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var id = await IdOfAsync(EntityKind.DocumentType, aliasOrId, ct);
-                return await SendRawJsonAsync(
-                    Method.PUT,
-                    $"umbraco/management/api/v1/document-type/{id}",
-                    body,
-                    ct
-                );
-            }
-        );
-
-    /// <inheritdoc />
-    public Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
-        string nameOrId,
-        System.Text.Json.Nodes.JsonNode body,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var id = await IdOfAsync(EntityKind.DataType, nameOrId, ct);
-                return await SendRawJsonAsync(
-                    Method.PUT,
-                    $"umbraco/management/api/v1/data-type/{id}",
-                    body,
-                    ct
-                );
-            }
-        );
-
-    /// <inheritdoc />
     public async Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
         string nameOrId,
         UpdateDataTypeRequest request,

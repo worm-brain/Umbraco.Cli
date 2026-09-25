@@ -14,15 +14,6 @@ public interface IMediaTypeClient
         CancellationToken ct = default
     );
 
-    /// <summary>Gets a single media type by id, including its alias and description.</summary>
-    /// <param name="id">The media type id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The media type mapped to <see cref="MediaTypeResponse"/>.</returns>
-    Task<UmbracoResponse<MediaTypeResponse>> GetMediaTypeByIdAsync(
-        Guid id,
-        CancellationToken ct = default
-    );
-
     /// <summary>Creates a media type.</summary>
     /// <param name="request">The media type to create.</param>
     /// <param name="ct">Cancellation token.</param>

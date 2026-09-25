@@ -46,14 +46,9 @@ public static class ContentCreateCommand
             obj.Deserialize<CreateContentRequest>()
             ?? throw new InvalidOperationException("Invalid JSON body.");
 
-        return id switch
+        return request with
         {
-            null => request,
-            { } flag when request.Id is { } fromBody && fromBody != flag =>
-                throw new InvalidOperationException(
-                    $"--id {flag} does not match the id {fromBody} in --json-body. Give one, or make them agree."
-                ),
-            { } flag => request with { Id = flag },
+            Id = RawBodyCommand.ReconcileId(id, request.Id),
         };
     }
 

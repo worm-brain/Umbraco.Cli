@@ -27,8 +27,8 @@ public static class ContentTypesGetCommand
                     executor,
                     parseResult,
                     "content-types.get",
+                    SchemaNoun.DocumentTypes,
                     idArg,
-                    client => client.GetDocumentTypeRawAsync,
                     ct
                 )
         );

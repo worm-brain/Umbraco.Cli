@@ -27,8 +27,8 @@ public static class MediaTypesGetCommand
                     executor,
                     parseResult,
                     "media-types.get",
+                    SchemaNoun.MediaTypes,
                     idArg,
-                    client => client.GetMediaTypeRawAsync,
                     ct
                 )
         );

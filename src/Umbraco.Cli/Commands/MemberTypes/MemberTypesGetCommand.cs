@@ -27,8 +27,8 @@ public static class MemberTypesGetCommand
                     executor,
                     parseResult,
                     "member-types.get",
+                    SchemaNoun.MemberTypes,
                     idArg,
-                    client => client.GetMemberTypeRawAsync,
                     ct
                 )
         );

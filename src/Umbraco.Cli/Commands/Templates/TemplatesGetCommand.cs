@@ -27,8 +27,8 @@ public static class TemplatesGetCommand
                     executor,
                     parseResult,
                     "templates.get",
+                    SchemaNoun.Templates,
                     idArg,
-                    client => client.GetTemplateRawAsync,
                     ct
                 )
         );

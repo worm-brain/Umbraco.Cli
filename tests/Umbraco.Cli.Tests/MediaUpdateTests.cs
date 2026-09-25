@@ -192,8 +192,28 @@ public class MediaUpdateTests
         );
 
         Assert.Equal(
-            ["summary=S", "title=Flag"],
+            ["title=Flag", "summary=S"],
             fake.LastMediaUpdate!.Value.Request.Values.Select(v => $"{v.Alias}={v.Value}")
+        );
+    }
+
+    [Fact]
+    public async Task Update_ValueFlag_LeavesTheBodysCultureSpecificValueAlone()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        await Run(
+            fake,
+            $"update {Id} --json-body {{body}} --value title=Flag",
+            """{ "values": [ { "alias": "title", "culture": "da-DK", "value": "Dansk" } ] }"""
+        );
+
+        // Keyed like the merge (alias + culture + segment): the invariant flag is a new entry.
+        Assert.Equal(
+            ["title/da-DK=Dansk", "title/=Flag"],
+            fake.LastMediaUpdate!.Value.Request.Values.Select(v =>
+                $"{v.Alias}/{v.Culture}={v.Value}"
+            )
         );
     }
 

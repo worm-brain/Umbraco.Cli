@@ -27,8 +27,8 @@ public static class DataTypesGetCommand
                     executor,
                     parseResult,
                     "data-types.get",
+                    SchemaNoun.DataTypes,
                     idArg,
-                    client => client.GetDataTypeRawAsync,
                     ct
                 )
         );

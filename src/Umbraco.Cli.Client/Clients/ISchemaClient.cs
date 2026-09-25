@@ -48,67 +48,6 @@ public interface ISchemaClient
     /// <returns>Every template id, or a mapped failure.</returns>
     Task<UmbracoResponse<IReadOnlyList<Guid>>> GetTemplateIdsAsync(CancellationToken ct = default);
 
-    /// <summary>Reads the verbatim <c>GET /document-type/{id}</c> body.</summary>
-    /// <param name="id">The document type id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The raw JSON body, or a mapped failure.</returns>
-    Task<UmbracoResponse<JsonNode>> GetDocumentTypeRawAsync(
-        Guid id,
-        CancellationToken ct = default
-    );
-
-    /// <summary>Reads the verbatim <c>GET /data-type/{id}</c> body.</summary>
-    /// <param name="id">The data type id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The raw JSON body, or a mapped failure.</returns>
-    Task<UmbracoResponse<JsonNode>> GetDataTypeRawAsync(Guid id, CancellationToken ct = default);
-
-    /// <summary>Reads the verbatim <c>GET /template/{id}</c> body.</summary>
-    /// <param name="id">The template id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The raw JSON body, or a mapped failure.</returns>
-    Task<UmbracoResponse<JsonNode>> GetTemplateRawAsync(Guid id, CancellationToken ct = default);
-
-    /// <summary>Creates a document type by POSTing a verbatim request body (<c>POST /document-type</c>).</summary>
-    /// <param name="body">The full document-type JSON body (including a client-supplied <c>id</c>).</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> CreateDocumentTypeRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
-    /// <summary>Updates a document type by PUTting a verbatim body (<c>PUT /document-type/{id}</c>, full replace).</summary>
-    /// <param name="id">The document type id.</param>
-    /// <param name="body">The full replacement document-type JSON body.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> UpdateDocumentTypeRawAsync(
-        Guid id,
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
-    /// <summary>Creates a data type by POSTing a verbatim request body (<c>POST /data-type</c>).</summary>
-    /// <param name="body">The full data-type JSON body (including a client-supplied <c>id</c> and <c>values</c>).</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> CreateDataTypeRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
-    /// <summary>Updates a data type by PUTting a verbatim body (<c>PUT /data-type/{id}</c>, full replace).</summary>
-    /// <param name="id">The data type id.</param>
-    /// <param name="body">The full replacement data-type JSON body.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
-        Guid id,
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
     /// <summary>Creates a template by POSTing a verbatim request body (<c>POST /template</c>).</summary>
     /// <param name="body">The full template JSON body (including a client-supplied <c>id</c> and Razor <c>content</c>).</param>
     /// <param name="ct">Cancellation token.</param>
@@ -128,74 +67,6 @@ public interface ISchemaClient
         CancellationToken ct = default
     );
 
-    /// <summary>Reads a media type's verbatim body (<c>GET /media-type/{id}</c>).</summary>
-    /// <param name="id">The media type id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The raw body, or a mapped failure.</returns>
-    Task<UmbracoResponse<JsonNode>> GetMediaTypeRawAsync(Guid id, CancellationToken ct = default);
-
-    /// <summary>Reads a member type's verbatim body (<c>GET /member-type/{id}</c>).</summary>
-    /// <param name="id">The member type id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The raw body, or a mapped failure.</returns>
-    Task<UmbracoResponse<JsonNode>> GetMemberTypeRawAsync(Guid id, CancellationToken ct = default);
-
-    /// <summary>Creates a media type from a verbatim body (<c>POST /media-type</c>).</summary>
-    /// <param name="body">The full media-type JSON body.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> CreateMediaTypeRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
-    /// <summary>Replaces a media type from a verbatim body (<c>PUT /media-type/{id}</c>).</summary>
-    /// <param name="id">The media type id.</param>
-    /// <param name="body">The full replacement body.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> UpdateMediaTypeRawAsync(
-        Guid id,
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
-    /// <summary>Creates a member type from a verbatim body (<c>POST /member-type</c>).</summary>
-    /// <param name="body">The full member-type JSON body.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> CreateMemberTypeRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
-    /// <summary>Replaces a member type from a verbatim body (<c>PUT /member-type/{id}</c>).</summary>
-    /// <param name="id">The member type id.</param>
-    /// <param name="body">The full replacement body.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> UpdateMemberTypeRawAsync(
-        Guid id,
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
-    Task<UmbracoResponse<Empty>> CreateTemplateRawAsync(
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
-    /// <summary>Updates a template by PUTting a verbatim body (<c>PUT /template/{id}</c>, full replace).</summary>
-    /// <param name="id">The template id.</param>
-    /// <param name="body">The full replacement template JSON body.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> UpdateTemplateRawAsync(
-        Guid id,
-        JsonNode body,
-        CancellationToken ct = default
-    );
-
     /// <summary>
     /// Writes a schema item back from a body of the shape its raw GET returns (#201). By default
     /// the item is read and the body's top-level keys are laid over it, so a key the body leaves
@@ -212,6 +83,35 @@ public interface ISchemaClient
         Guid id,
         JsonNode body,
         bool replace = false,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Reads a schema item's verbatim Management API body (<c>GET /{kind}/{id}</c>): what
+    /// <c>get</c> prints and <c>schema export</c> writes, and the shape
+    /// <see cref="MergeSchemaItemAsync"/> takes back.
+    /// </summary>
+    /// <param name="kind">The schema kind.</param>
+    /// <param name="id">The item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The raw JSON body, or a mapped failure.</returns>
+    Task<UmbracoResponse<JsonNode>> GetSchemaRawAsync(
+        EntityKind kind,
+        Guid id,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Creates a schema item by POSTing a verbatim Management API body (<c>POST /{kind}</c>). The
+    /// endpoint returns no body; the caller settles the id in the body first.
+    /// </summary>
+    /// <param name="kind">The schema kind.</param>
+    /// <param name="body">The create body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> CreateSchemaRawAsync(
+        EntityKind kind,
+        JsonNode body,
         CancellationToken ct = default
     );
 }

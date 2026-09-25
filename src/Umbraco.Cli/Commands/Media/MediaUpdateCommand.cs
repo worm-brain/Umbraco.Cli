@@ -96,28 +96,26 @@ public static class MediaUpdateCommand
                             ) ?? throw new InvalidOperationException("Invalid JSON body.")
                             : new UpdateMediaRequest();
 
-                        // Flags win over the body, the way an explicit flag beats a file.
-                        var flagValues = KeyValuePairs
-                            .Parse(parseResult.GetValue(valueOpt))
-                            .Select(p => new ContentValue { Alias = p.Key, Value = p.Value })
-                            .ToList();
+                        // Flags win over the body, the way an explicit flag beats a file, and are
+                        // laid on it with the merge's own key (alias + culture + segment), so a
+                        // flag replaces only the invariant entry it names.
                         request = request with
                         {
-                            Values =
-                            [
-                                .. request.Values.Where(v =>
-                                    !flagValues.Any(f =>
-                                        string.Equals(
-                                            f.Alias,
-                                            v.Alias,
-                                            StringComparison.OrdinalIgnoreCase
-                                        )
-                                    )
-                                ),
-                                .. flagValues,
-                            ],
+                            Values = DocumentUpdateBody.Overlay(
+                                request.Values,
+                                KeyValuePairs
+                                    .Parse(parseResult.GetValue(valueOpt))
+                                    .Select(p => new ContentValue
+                                    {
+                                        Alias = p.Key,
+                                        Value = p.Value,
+                                    })
+                            ),
                             Variants = parseResult.GetValue(nameOpt) is { Length: > 0 } name
-                                ? [new ContentVariant { Name = name }]
+                                ? DocumentUpdateBody.Overlay(
+                                    request.Variants,
+                                    [new ContentVariant { Name = name }]
+                                )
                                 : request.Variants,
                         };
 

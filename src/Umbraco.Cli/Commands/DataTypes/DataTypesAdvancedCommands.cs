@@ -63,19 +63,9 @@ public static class DataTypesAdvancedCommands
                             parseResult,
                             client,
                             async id =>
-                            {
-                                var raw = await client.GetDataTypeReferencedByRawAsync(
-                                    id,
-                                    skip,
-                                    take,
-                                    c
-                                );
-                                return raw.IsSuccess
-                                    ? UmbracoResponse<PagedResponse<JsonObject>>.Success(
-                                        DataTypeReferenceRows.From(raw.Data)
-                                    )
-                                    : UmbracoResponse<PagedResponse<JsonObject>>.FailureFrom(raw);
-                            },
+                                (
+                                    await client.GetDataTypeReferencedByRawAsync(id, skip, take, c)
+                                ).Map(DataTypeReferenceRows.From),
                             c
                         ),
                     ["Kind", "Alias", "Name", "On"],
@@ -85,7 +75,7 @@ public static class DataTypesAdvancedCommands
                             r["kind"]?.GetValue<string?>() ?? "",
                             r["alias"]?.GetValue<string?>() ?? "",
                             r["name"]?.GetValue<string?>() ?? "",
-                            DataTypeReferenceRows.OwnerAlias(r),
+                            OwnerAlias(r),
                         },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
@@ -94,6 +84,17 @@ public static class DataTypesAdvancedCommands
         );
         return cmd;
     }
+
+    /// <summary>
+    /// The owning type's alias for a property-type reference (the document, media or member type
+    /// the property is on), for the human table's last column.
+    /// </summary>
+    /// <param name="row">A <c>referenced-by</c> row.</param>
+    /// <returns>The owner's alias, or an empty string.</returns>
+    private static string OwnerAlias(JsonObject row) =>
+        (row["documentType"] ?? row["mediaType"] ?? row["memberType"])?[
+            "alias"
+        ]?.GetValue<string?>() ?? "";
 
     /// <summary>Builds the <c>copy</c> verb.</summary>
     /// <param name="executor">The shared command executor.</param>
