@@ -9,11 +9,11 @@ public static class ContentPublishCommand
     {
         var cmd = new Command(
             "publish",
-            "Publish a content item, making it live. Optionally target specific cultures.\n\nExamples:\n  umbraco content publish 3f7a8b2e-...\n  umbraco content publish 3f7a8b2e-... --cultures en-US da-DK"
+            "Publish a content item, making it live. Optionally target specific cultures.\n\nExamples:\n  umbraco content publish 3f7a8b2e-...\n  umbraco content publish 3f7a8b2e-... --culture en-US da-DK"
         ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         var culturesOpt = ListOption.Strings(
-            "--cultures",
+            "--culture",
             "ISO culture codes to publish (e.g. en-US da-DK). Publishes all cultures if omitted."
         );
         var publishAtOpt = new Option<DateTimeOffset?>("--publish-at")
@@ -65,7 +65,7 @@ public static class ContentPublishCommand
     /// </summary>
     /// <param name="publishAt">When the publish is scheduled for, or null to publish now.</param>
     /// <param name="unpublishAt">When an unpublish is scheduled for, or null for none.</param>
-    /// <param name="cultures">The cultures named with <c>--cultures</c>, if any.</param>
+    /// <param name="cultures">The cultures named with <c>--culture</c>, if any.</param>
     /// <returns>The message.</returns>
     private static string SuccessMessage(
         DateTimeOffset? publishAt,

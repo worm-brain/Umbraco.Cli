@@ -17,13 +17,13 @@ public class ListOptionTests
     }
 
     [Theory]
-    [InlineData("--cultures en-US,da-DK")]
-    [InlineData("--cultures en-US da-DK")]
-    [InlineData("--cultures en-US --cultures da-DK")]
-    [InlineData("--cultures \" en-US , da-DK ,\"")] // spaces and a trailing comma are tidied away
+    [InlineData("--culture en-US,da-DK")]
+    [InlineData("--culture en-US da-DK")]
+    [InlineData("--culture en-US --culture da-DK")]
+    [InlineData("--culture \" en-US , da-DK ,\"")] // spaces and a trailing comma are tidied away
     public void Strings_CommasSpacesAndRepeats_AllGiveTheSameList(string args)
     {
-        var option = ListOption.Strings("--cultures", "Cultures.");
+        var option = ListOption.Strings("--culture", "Cultures.");
 
         Assert.Equal(["en-US", "da-DK"], Parse(option, args).GetValue(option)!);
     }
@@ -32,19 +32,19 @@ public class ListOptionTests
     public void Guids_CommaSeparated_AreParsed()
     {
         var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
-        var option = ListOption.Guids("--children", "Children.");
+        var option = ListOption.Guids("--order", "Children.");
 
-        Assert.Equal([a, b], Parse(option, $"--children {a},{b}").GetValue(option)!);
+        Assert.Equal([a, b], Parse(option, $"--order {a},{b}").GetValue(option)!);
     }
 
     [Fact]
     public void Guids_AnInvalidItem_IsAParseErrorNamingIt()
     {
-        var option = ListOption.Guids("--children", "Children.");
+        var option = ListOption.Guids("--order", "Children.");
 
-        var error = Assert.Single(Parse(option, $"--children {Guid.NewGuid()},nope").Errors);
+        var error = Assert.Single(Parse(option, $"--order {Guid.NewGuid()},nope").Errors);
 
-        Assert.Equal("--children expects GUID ids. Not understood: nope.", error.Message);
+        Assert.Equal("--order expects GUID ids. Not understood: nope.", error.Message);
     }
 
     [Fact]

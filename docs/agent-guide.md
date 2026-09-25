@@ -303,9 +303,9 @@ effect, or use the workaround.
 
 ### Publishing
 
-`content publish <id>` with no `--cultures` reads the document and publishes every culture it
+`content publish <id>` with no `--culture` reads the document and publishes every culture it
 has. Name cultures explicitly to publish a subset. `content unpublish` (and `bulk unpublish`)
-works the same way: no `--cultures` unpublishes every culture of a variant document, and the
+works the same way: no `--culture` unpublishes every culture of a variant document, and the
 whole of an invariant one.
 
 Other commands pick a sensible culture when you name none. `content create` and
@@ -525,7 +525,7 @@ Create with a fixed `--id` so re-runs converge instead of duplicating:
 
 ```bash
 umbraco document-type create --name "Blog Post" --alias blogPost
-umbraco content create --content-type blogPost --name "Hello" --id 3f2a...  # same id each run
+umbraco content create --document-type blogPost --name "Hello" --id 3f2a...  # same id each run
 ```
 
 ### Move schema between environments

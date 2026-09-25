@@ -97,7 +97,6 @@ public class CommandParseTests
             "template.delete",
             "user-data.delete",
             "user-group.delete",
-            "user-group.delete-many",
             "webhook.delete",
         ];
 
@@ -134,13 +133,13 @@ public class CommandParseTests
     // ── Conditional requirement + --schema (#61) ─────────────────────────────
 
     [Theory]
-    [InlineData("content create")] // missing --content-type/--name and no --json-body
+    [InlineData("content create")] // missing --document-type/--name and no --json-body
     [InlineData("content update")] // missing id and --json-body
     public void WriteCommand_MissingRequiredInput_IsParseError(string args) =>
         Assert.True(HasErrors(args));
 
     [Theory]
-    [InlineData("content create --content-type textPage --name About")]
+    [InlineData("content create --document-type textPage --name About")]
     [InlineData("content create --json-body body.json")]
     [InlineData("content create --schema")] // --schema bypasses the requirement
     [InlineData("content update 3f7a8b2e-1234-5678-abcd-ef0123456789 --json-body u.json")]
@@ -149,7 +148,7 @@ public class CommandParseTests
     [InlineData(
         "content update 3f7a8b2e-1234-5678-abcd-ef0123456789 --json-body u.json --template blogPost"
     )]
-    [InlineData("content create --content-type textPage --name About --template blogPost")]
+    [InlineData("content create --document-type textPage --name About --template blogPost")]
     // #159: these take a human key now, not only a UUID.
     [InlineData("document-type get blogPost")]
     [InlineData("data-type get Textstring")]
@@ -166,7 +165,7 @@ public class CommandParseTests
         Assert.False(HasErrors(args));
 
     [Theory]
-    [InlineData("content sort")] // --children is required (#88)
+    [InlineData("content sort")] // --order is required (#88)
     [InlineData("content sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789")]
     [InlineData("media sort")]
     public void Sort_MissingChildren_IsParseError(string args) => Assert.True(HasErrors(args));
@@ -279,17 +278,7 @@ public class CommandParseTests
     [InlineData("culture", new[] { "list" })]
     [InlineData(
         "user-group",
-        new[]
-        {
-            "list",
-            "get",
-            "create",
-            "update",
-            "delete",
-            "delete-many",
-            "add-users",
-            "remove-users",
-        }
+        new[] { "list", "get", "create", "update", "delete", "add-users", "remove-users" }
     )]
     [InlineData("user-data", new[] { "list", "get", "create", "update", "delete" })]
     [InlineData(
@@ -389,16 +378,14 @@ public class CommandParseTests
     [InlineData("content move 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("content copy 3f7a8b2e-1234-5678-abcd-ef0123456789 --include-descendants")]
     [InlineData(
-        "content sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --children 3f7a8b2e-1234-5678-abcd-ef0123456789 9c4d5e6f-1234-5678-abcd-ef0123456789"
+        "content sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --order 3f7a8b2e-1234-5678-abcd-ef0123456789 9c4d5e6f-1234-5678-abcd-ef0123456789"
     )]
-    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --parent optional (reorder the root)
-    [InlineData(
-        "content publish-descendants 3f7a8b2e-1234-5678-abcd-ef0123456789 --cultures en-US"
-    )]
+    [InlineData("content sort --order 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --parent optional (reorder the root)
+    [InlineData("content publish-descendants 3f7a8b2e-1234-5678-abcd-ef0123456789 --culture en-US")]
     [InlineData("content publish-descendants 3f7a8b2e-1234-5678-abcd-ef0123456789 --wait")]
     [InlineData("content bulk delete --file ids.txt")]
     [InlineData("content bulk delete")] // reads stdin at run time
-    [InlineData("content bulk publish --cultures en-US")]
+    [InlineData("content bulk publish --culture en-US")]
     [InlineData("content bulk unpublish --file ids.txt")]
     [InlineData("content export")]
     [InlineData("content export --out content.json")]
@@ -419,7 +406,7 @@ public class CommandParseTests
         "media move 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 1a2b3c4d-1234-5678-abcd-ef0123456789"
     )]
     [InlineData(
-        "media sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --children 3f7a8b2e-1234-5678-abcd-ef0123456789 9c4d5e6f-1234-5678-abcd-ef0123456789"
+        "media sort --parent 1a2b3c4d-1234-5678-abcd-ef0123456789 --order 3f7a8b2e-1234-5678-abcd-ef0123456789 9c4d5e6f-1234-5678-abcd-ef0123456789"
     )]
     [InlineData("media list")]
     [InlineData("media tree")]
@@ -463,9 +450,9 @@ public class CommandParseTests
     [InlineData("data-type delete \"Homepage Blocks\"")]
     [InlineData("data-type is-used Tags")] // data types by name everywhere
     [InlineData("data-type copy Tags --target 3f7a8b2e-1234-5678-abcd-ef0123456789")]
-    [InlineData("property-type is-used --content-type blogPost --alias bodyText")]
+    [InlineData("property-type is-used --document-type blogPost --alias bodyText")]
     [InlineData("user-group get blogEditors")] // #217
-    [InlineData("user-group delete-many --ids blogEditors newsEditors")]
+    [InlineData("user-group delete blogEditors newsEditors")]
     [InlineData(
         "user-group create --alias blogEditors --name \"Blog editors\" --document-start-node 3f7a8b2e-1234-5678-abcd-ef0123456789"
     )]
@@ -479,13 +466,13 @@ public class CommandParseTests
     )]
     [InlineData("dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --target optional (to root)
     [InlineData(
-        "content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789,1a2b3c4d-1234-5678-abcd-ef0123456789"
+        "content sort --order 3f7a8b2e-1234-5678-abcd-ef0123456789,1a2b3c4d-1234-5678-abcd-ef0123456789"
     )] // #232
     [InlineData(
         "content sort --parent 3f7a8b2e-1234-5678-abcd-ef0123456789 --by publishDate --desc"
     )]
     [InlineData("media sort --by name")]
-    [InlineData("content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --cultures en-US,da-DK")] // #231
+    [InlineData("content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --culture en-US,da-DK")] // #231
     [InlineData(
         "content move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 3f7a8b2e-1234-5678-abcd-ef0123456789"
     )] // #242: --target and --parent both work
@@ -500,13 +487,13 @@ public class CommandParseTests
         "document-blueprint move 3f7a8b2e-1234-5678-abcd-ef0123456789 --parent 3f7a8b2e-1234-5678-abcd-ef0123456789"
     )]
     [InlineData(
-        "user-data update 3f7a8b2e-1234-5678-abcd-ef0123456789 --group g --identifier i --value v"
+        "user-data update 3f7a8b2e-1234-5678-abcd-ef0123456789 --group g --identifier i --data v"
     )] // #242: positional key
     [InlineData(
         "document-blueprint update 3f7a8b2e-1234-5678-abcd-ef0123456789 --name X --replace"
     )]
     [InlineData("dictionary move Blog.Tags --target Blog")] // #211: keys everywhere
-    [InlineData("dictionary update Blog.MinRead --values da-DK=Min")]
+    [InlineData("dictionary update Blog.MinRead --value da-DK=Min")]
     [InlineData("dictionary delete Blog.MinRead")]
     [InlineData("dictionary tree --parent Blog")]
     [InlineData("dictionary create --key Blog.MinRead --parent Blog")]
@@ -519,10 +506,10 @@ public class CommandParseTests
     [InlineData("data-type update 3f7a8b2e-1234-5678-abcd-ef0123456789")] // all fields optional (read-merge)
     [InlineData("language update fr-FR")] // all fields optional (read-merge)
     [InlineData(
-        "webhook create --url https://x.com/h --events A --id 3f7a8b2e-1234-5678-abcd-ef0123456789"
+        "webhook create --url https://x.com/h --event A --id 3f7a8b2e-1234-5678-abcd-ef0123456789"
     )] // #86 --id
     [InlineData(
-        "webhook create --url https://x.com/h --events A --name Hook --description \"on publish\""
+        "webhook create --url https://x.com/h --event A --name Hook --description \"on publish\""
     )] // #80 --name/--description
     [InlineData("dictionary create --key K --id 3f7a8b2e-1234-5678-abcd-ef0123456789")] // #86 --id
     [InlineData("media-type create --name X --alias x --id 3f7a8b2e-1234-5678-abcd-ef0123456789")] // #86 --id
@@ -556,7 +543,7 @@ public class CommandParseTests
     [InlineData("user-group get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("user-group create --alias editors --name Editors")]
     [InlineData(
-        "user-group create --alias editors --name Editors --section Umb.Section.Content --section Umb.Section.Media --language en-US --fallback-permission Umb.Document.Read --has-access-to-all-languages --document-root-access"
+        "user-group create --alias editors --name Editors --section Umb.Section.Content --section Umb.Section.Media --culture en-US --fallback-permission Umb.Document.Read --has-access-to-all-languages --document-root-access"
     )]
     [InlineData("user-group create --alias e --name E --id 3f7a8b2e-1234-5678-abcd-ef0123456789")] // #86 --id
     [InlineData(
@@ -564,7 +551,7 @@ public class CommandParseTests
     )]
     [InlineData("user-group delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData(
-        "user-group delete-many --ids 3f7a8b2e-1234-5678-abcd-ef0123456789 1a2b3c4d-1234-5678-abcd-ef0123456789"
+        "user-group delete 3f7a8b2e-1234-5678-abcd-ef0123456789 1a2b3c4d-1234-5678-abcd-ef0123456789"
     )]
     [InlineData(
         "user-group add-users 3f7a8b2e-1234-5678-abcd-ef0123456789 --user 1a2b3c4d-1234-5678-abcd-ef0123456789"
@@ -575,12 +562,12 @@ public class CommandParseTests
     [InlineData("user-data list")]
     [InlineData("user-data list --group myGroup --identifier theme --skip 0 --take 10")]
     [InlineData("user-data get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
-    [InlineData("user-data create --group myGroup --identifier theme --value dark")]
+    [InlineData("user-data create --group myGroup --identifier theme --data dark")]
     [InlineData(
-        "user-data create --group g --identifier i --value v --key 3f7a8b2e-1234-5678-abcd-ef0123456789"
+        "user-data create --group g --identifier i --data v --id 3f7a8b2e-1234-5678-abcd-ef0123456789"
     )] // #86 --key
     [InlineData(
-        "user-data update --key 3f7a8b2e-1234-5678-abcd-ef0123456789 --group g --identifier i --value light"
+        "user-data update 3f7a8b2e-1234-5678-abcd-ef0123456789 --group g --identifier i --data light"
     )]
     [InlineData("user-data delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("document-blueprint list")]
@@ -619,7 +606,7 @@ public class CommandParseTests
     [InlineData("health get \"Data Integrity\"")]
     [InlineData("health run Services")]
     [InlineData("log-viewer log")]
-    [InlineData("log-viewer log --level Error --level Warning --take 50 --ascending")]
+    [InlineData("log-viewer log --level Error --level Warning --take 50 --asc")]
     [InlineData("log-viewer log --start-date 2026-01-01 --end-date 2026-02-01 --filter foo")]
     [InlineData("log-viewer levels")]
     [InlineData("log-viewer level-count")]
@@ -634,25 +621,25 @@ public class CommandParseTests
     [InlineData("manifest list --scope Public")]
     [InlineData("redirect list")]
     [InlineData("redirect list --filter old --skip 0 --take 20")]
-    [InlineData("redirect list --content 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("redirect list --content-item 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("redirect status")]
     [InlineData("redirect delete 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("redirect tracking enable")]
     [InlineData("redirect tracking disable")]
     [InlineData("relation-type list")]
     [InlineData("relation-type get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
-    [InlineData("relation list --type 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("relation list --relation-type 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("indexer list")]
     [InlineData("indexer get ExternalIndex")]
     [InlineData("indexer rebuild ExternalIndex")]
     [InlineData("searcher list")]
     [InlineData("searcher query ExternalSearcher --term news")]
-    [InlineData("imaging resize-urls --id 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("imaging resize-urls 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData(
-        "imaging resize-urls --id 3f7a8b2e-1234-5678-abcd-ef0123456789 --width 300 --height 200 --mode Crop --format webp"
+        "imaging resize-urls 3f7a8b2e-1234-5678-abcd-ef0123456789 --width 300 --height 200 --mode Crop --format webp"
     )]
     [InlineData(
-        "property-type is-used --content-type 3f7a8b2e-1234-5678-abcd-ef0123456789 --alias bodyText"
+        "property-type is-used --document-type 3f7a8b2e-1234-5678-abcd-ef0123456789 --alias bodyText"
     )]
     [InlineData("data-type is-used 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("data-type referenced-by 3f7a8b2e-1234-5678-abcd-ef0123456789")]
@@ -710,20 +697,22 @@ public class CommandParseTests
     [InlineData("content delete not-a-uuid")]
     [InlineData("media-type create --name OnlyName")] // missing required --alias
     [InlineData("member-type create --alias onlyAlias")] // missing required --name
-    [InlineData("user-data update --group g --identifier i --value v")] // #242: no key at all
-    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789 --by name")] // #232: an explicit order and a field conflict
-    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789 --desc")] // --desc needs --by
+    [InlineData("user-data update --group g --identifier i --data v")] // no id at all
+    [InlineData("content sort --order 3f7a8b2e-1234-5678-abcd-ef0123456789 --by name")] // #232: an explicit order and a field conflict
+    [InlineData("content sort --order 3f7a8b2e-1234-5678-abcd-ef0123456789 --desc")] // --desc needs --by
     [InlineData("media sort --by publishDate")] // media has no publish date
-    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789,nope")]
+    [InlineData("content sort --order 3f7a8b2e-1234-5678-abcd-ef0123456789,nope")]
     [InlineData("user-group create --name NoAlias")] // missing required --alias
     [InlineData("user-group create --alias noName")] // missing required --name
     [InlineData(
         "user-group update editors --alias editors --name Editors --document-root-access --document-start-node 3f7a8b2e-1234-5678-abcd-ef0123456789"
     )] // #217: a start node and root access conflict
-    [InlineData("user-group delete-many")] // missing required --ids
+    [InlineData("user-group delete")] // at least one id is required
     [InlineData("user-group add-users 3f7a8b2e-1234-5678-abcd-ef0123456789")] // missing required --user
     [InlineData("user-data create --group g --identifier i")] // missing required --value
-    [InlineData("user-data update --group g --identifier i --value v")] // missing required --key
+    [InlineData(
+        "user-data update --key 3f7a8b2e-1234-5678-abcd-ef0123456789 --group g --identifier i --data v"
+    )] // --key is gone; the id is positional
     [InlineData("user-data get not-a-uuid")]
     [InlineData("document-blueprint create")] // needs --document-type + --name, or --json-body/--schema
     [InlineData("document-blueprint create --document-type textPage")] // missing --name
@@ -739,13 +728,13 @@ public class CommandParseTests
     [InlineData("manifest list --scope Nonsense")] // invalid enum value
     [InlineData("redirect delete not-a-uuid")]
     [InlineData("relation-type get not-a-uuid")]
-    [InlineData("relation list")] // --type is required
-    [InlineData("relation list --type not-a-uuid")]
+    [InlineData("relation list")] // --relation-type is required
+    [InlineData("relation list --relation-type not-a-uuid")]
     [InlineData("indexer get")] // missing name argument
     [InlineData("searcher query ExternalSearcher")] // missing required --term
-    [InlineData("imaging resize-urls")] // missing required --id
-    [InlineData("imaging resize-urls --id 3f7a8b2e-1234-5678-abcd-ef0123456789 --mode Nonsense")] // invalid enum
-    [InlineData("property-type is-used --alias bodyText")] // missing required --content-type
+    [InlineData("imaging resize-urls")] // at least one id is required
+    [InlineData("imaging resize-urls 3f7a8b2e-1234-5678-abcd-ef0123456789 --mode Nonsense")] // invalid enum
+    [InlineData("property-type is-used --alias bodyText")] // missing required --document-type
     [InlineData("data-type folder get not-a-uuid")] // folders have no name lookup
     [InlineData("data-type folder create")] // missing required --name
     [InlineData("template update --name X")] // id now optional at parse level; the validator requires it
@@ -778,15 +767,15 @@ public class CommandParseTests
     // refusal, and the message that names the offending token.
 
     [Theory]
-    [InlineData("dictionary create --key Nav.Home --values en-US", "en-US")]
-    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --values Home", "Home")]
+    [InlineData("dictionary create --key Nav.Home --value en-US", "en-US")]
+    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value Home", "Home")]
     [InlineData("member update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company", "company")]
     [InlineData("media upload ./b.pdf --value title", "title")]
     [InlineData(
         "content domain set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com",
         "example.com"
     )]
-    [InlineData("dictionary create --key Nav.Home --values =Home", "=Home")]
+    [InlineData("dictionary create --key Nav.Home --value =Home", "=Home")]
     public void PairOption_WithoutAnEquals_IsRejectedAndNamesTheToken(string args, string token)
     {
         var error = Assert.Single(Parse(args).Errors, e => e.Message.Contains("Not understood"));
@@ -798,8 +787,8 @@ public class CommandParseTests
     }
 
     [Theory]
-    [InlineData("dictionary create --key Nav.Home --values en-US=Home")]
-    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --values da-DK=Hjem")]
+    [InlineData("dictionary create --key Nav.Home --value en-US=Home")]
+    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value da-DK=Hjem")]
     [InlineData("member update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company=Acme")]
     // An empty value is legitimate - it is how a property is cleared.
     [InlineData("member update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company=")]

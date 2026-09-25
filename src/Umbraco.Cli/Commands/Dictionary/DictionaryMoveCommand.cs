@@ -16,7 +16,7 @@ public static class DictionaryMoveCommand
             "move",
             "Move a dictionary item under a new parent.\n\nExamples:\n  umbraco dictionary move Blog.Tags --parent Blog\n  umbraco dictionary move Blog.Tags   # to the dictionary root"
         ).Mutating();
-        var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
+        var idArg = Reference.Argument(EntityKind.DictionaryItem);
         var targetOpt = Reference.Option(
             "--parent",
             EntityKind.DictionaryItem,

@@ -20,9 +20,9 @@ public static class LanguagesUpdateCommand
             "update",
             "Update a language by its ISO culture code. Omitted fields are preserved.\n\nExample:\n  umbraco language update fr-FR --name \"French (France)\" --mandatory"
         ).Mutating();
-        var isoArg = new Argument<string>("iso-code")
+        var isoArg = new Argument<string>("id")
         {
-            Description = "ISO culture code of the language to update (e.g. fr-FR).",
+            Description = "The language's ISO code (e.g. fr-FR).",
         };
         var nameOpt = new Option<string?>("--name")
         {

@@ -31,15 +31,15 @@ public static class RedirectCommand
     {
         var cmd = new Command(
             "list",
-            "List redirects. With --content, lists redirects pointing at that document."
+            "List redirects. With --content-item, lists redirects pointing at that document."
         );
-        var contentOpt = new Option<Guid?>("--content")
+        var contentOpt = new Option<Guid?>("--content-item")
         {
             Description = "List redirects for this destination document (content key).",
         };
         var filterOpt = new Option<string?>("--filter")
         {
-            Description = "Filter redirects by URL text (ignored with --content).",
+            Description = "Filter redirects by URL text (ignored with --content-item).",
         };
         cmd.Add(contentOpt);
         cmd.Add(filterOpt);

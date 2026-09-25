@@ -23,7 +23,7 @@ public static class ContentBulkUnpublishCommand
             Description = "File of ids (one per line). Reads stdin when omitted.",
         };
         var culturesOpt = ListOption.Strings(
-            "--cultures",
+            "--culture",
             "ISO culture codes to unpublish. Unpublishes all cultures if omitted."
         );
         cmd.Add(fileOpt);

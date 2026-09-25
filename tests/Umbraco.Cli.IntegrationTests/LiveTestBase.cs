@@ -79,12 +79,12 @@ public sealed class ScratchDocument : IDisposable
         try
         {
             string[] args = templateAlias is null
-                ? ["content", "create", "--content-type", alias, "--name", name]
+                ? ["content", "create", "--document-type", alias, "--name", name]
                 :
                 [
                     "content",
                     "create",
-                    "--content-type",
+                    "--document-type",
                     alias,
                     "--name",
                     name,

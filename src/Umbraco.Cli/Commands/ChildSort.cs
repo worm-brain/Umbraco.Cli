@@ -36,11 +36,11 @@ public sealed record SortCandidate(
 
 /// <summary>
 /// <c>sort --by</c> (#232): the common case - order a blog's posts by publish date, newest first -
-/// used to need a get-per-child script to build the <c>--children</c> list by hand.
+/// used to need a get-per-child script to build the <c>--order</c> list by hand.
 /// </summary>
 public static class ChildSort
 {
-    /// <summary>The <c>--children</c> / <c>--by</c> / <c>--desc</c> options shared by both sort commands.</summary>
+    /// <summary>The <c>--order</c> / <c>--by</c> / <c>--desc</c> options shared by both sort commands.</summary>
     /// <param name="Children">The explicit order.</param>
     /// <param name="By">The key to order by instead.</param>
     /// <param name="Descending">Whether <c>--by</c> orders descending.</param>
@@ -51,7 +51,7 @@ public static class ChildSort
     )
     {
         /// <summary>
-        /// The order to send: <c>--children</c> as given, or every child ordered by <c>--by</c>.
+        /// The order to send: <c>--order</c> as given, or every child ordered by <c>--by</c>.
         /// </summary>
         /// <typeparam name="TChild">The noun's child item.</typeparam>
         /// <param name="parseResult">The parsed command line.</param>
@@ -144,8 +144,8 @@ public static class ChildSort
     }
 
     /// <summary>
-    /// Adds <c>--children</c>, <c>--by</c> and <c>--desc</c>, and requires exactly one of
-    /// <c>--children</c> and <c>--by</c>.
+    /// Adds <c>--order</c>, <c>--by</c> and <c>--desc</c>, and requires exactly one of
+    /// <c>--order</c> and <c>--by</c>.
     /// </summary>
     /// <param name="cmd">The sort command.</param>
     /// <param name="noun">What the children are, for the help text (e.g. <c>content</c>).</param>
@@ -154,7 +154,7 @@ public static class ChildSort
     public static Options AddTo(Command cmd, string noun, params SortKey[] keys)
     {
         var children = ListOption.Guids(
-            "--children",
+            "--order",
             $"Child {noun} ids in the desired order (first gets sort order 0)."
         );
         var by = new Option<SortKey?>("--by")
@@ -195,7 +195,7 @@ public static class ChildSort
             var (hasChildren, hasBy) = (ids is { Length: > 0 }, key is not null);
             if (hasChildren == hasBy)
                 result.AddError(
-                    "Give either --children (an explicit order) or --by (a field to order by)."
+                    "Give either --order (an explicit order) or --by (a field to order by)."
                 );
             else if (descending && !hasBy)
                 result.AddError("--desc only applies with --by.");

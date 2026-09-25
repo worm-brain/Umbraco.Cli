@@ -50,7 +50,7 @@ public static class LogViewerCommand
         {
             Description = "Only messages on/before this date.",
         };
-        var ascendingOpt = new Option<bool>("--ascending")
+        var ascendingOpt = new Option<bool>("--asc")
         {
             Description = "Order oldest-first (default is newest-first).",
         };

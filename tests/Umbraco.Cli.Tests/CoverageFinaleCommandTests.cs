@@ -121,7 +121,7 @@ public class CoverageFinaleCommandTests
         var root = BuildRoot(fake);
         var id = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} imaging resize-urls --id {id} --width 300 --mode Crop");
+        var exit = await Run(root, $"{Auth} imaging resize-urls {id} --width 300 --mode Crop");
 
         Assert.Equal(0, exit);
         Assert.NotNull(fake.LastResizeUrls);
@@ -198,7 +198,7 @@ public class CoverageFinaleCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} property-type is-used --content-type {ctId} --alias bodyText"
+            $"{Auth} property-type is-used --document-type {ctId} --alias bodyText"
         );
 
         Assert.Equal(0, exit);

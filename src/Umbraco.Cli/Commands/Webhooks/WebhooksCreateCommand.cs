@@ -11,7 +11,7 @@ public static class WebhooksCreateCommand
         var cmd = new Command("create", "Create a webhook.").Mutating();
         var urlOpt = new Option<string>("--url") { Required = true };
         var eventsOpt = ListOption
-            .Strings("--events", "Event names to subscribe to, e.g. ContentPublished,MediaSaved.")
+            .Strings("--event", "Event names to subscribe to, e.g. ContentPublished,MediaSaved.")
             .AsRequired();
         var idOpt = new Option<Guid?>("--id")
         {

@@ -8,7 +8,7 @@ public static class WebhooksCommand
     {
         var cmd = new Command(
             "webhook",
-            "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --events ContentPublished ContentUnpublished\n  umbraco webhook delete <id>"
+            "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event ContentPublished ContentUnpublished\n  umbraco webhook delete <id>"
         );
         cmd.Add(WebhooksListCommand.Build(executor));
         cmd.Add(WebhooksCreateCommand.Build(executor));

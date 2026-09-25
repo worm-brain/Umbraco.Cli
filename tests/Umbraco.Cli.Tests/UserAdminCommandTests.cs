@@ -89,7 +89,7 @@ public class UserAdminCommandTests
             root,
             $"{Auth} user-group create --alias editors --name Editors "
                 + "--section Umb.Section.Content --section Umb.Section.Media "
-                + "--language en-US --fallback-permission Umb.Document.Read "
+                + "--culture en-US --fallback-permission Umb.Document.Read "
                 + "--has-access-to-all-languages --document-root-access"
         );
 
@@ -105,14 +105,14 @@ public class UserAdminCommandTests
     }
 
     [Fact]
-    public async Task UserGroupsDeleteMany_MapsIdsList()
+    public async Task UserGroupsDelete_SeveralIds_DeletesThemInOneCall()
     {
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
         var a = Guid.NewGuid();
         var b = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} --yes user-group delete-many --ids {a} {b}");
+        var exit = await Run(root, $"{Auth} --yes user-group delete {a} {b}");
 
         Assert.Equal(0, exit);
         var ids = Assert.Single(fake.UserGroupsBulkDeleted);
@@ -173,7 +173,7 @@ public class UserAdminCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} user-data create --group myGroup --identifier theme --value dark"
+            $"{Auth} user-data create --group myGroup --identifier theme --data dark"
         );
 
         Assert.Equal(0, exit);
@@ -192,7 +192,7 @@ public class UserAdminCommandTests
 
         var exit = await Run(
             root,
-            $"{Auth} user-data update --key {key} --group g --identifier i --value light"
+            $"{Auth} user-data update {key} --group g --identifier i --data light"
         );
 
         Assert.Equal(0, exit);

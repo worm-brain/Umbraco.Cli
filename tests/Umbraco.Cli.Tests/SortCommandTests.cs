@@ -11,7 +11,7 @@ namespace Umbraco.Cli.Tests;
 
 /// <summary>
 /// Command-layer behaviour of the content/media <c>sort</c> verbs (#88): the ordered
-/// <c>--children</c> list and optional <c>--parent</c> are threaded through to the client in the
+/// <c>--order</c> list and optional <c>--parent</c> are threaded through to the client in the
 /// order the user typed them. Client HTTP behaviour is covered separately by <see cref="SortClientTests"/>.
 /// </summary>
 [Collection("ConsoleCapture")]
@@ -82,7 +82,7 @@ public class SortCommandTests
         var b = Guid.NewGuid();
         var c = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} content sort --parent {parent} --children {a} {b} {c}");
+        var exit = await Run(root, $"{Auth} content sort --parent {parent} --order {a} {b} {c}");
 
         Assert.Equal(0, exit);
         var (parentId, children) = Assert.Single(fake.ContentSorted);
@@ -98,7 +98,7 @@ public class SortCommandTests
         var a = Guid.NewGuid();
         var b = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} content sort --children {a} {b}");
+        var exit = await Run(root, $"{Auth} content sort --order {a} {b}");
 
         Assert.Equal(0, exit);
         var (parentId, children) = Assert.Single(fake.ContentSorted);
@@ -115,7 +115,7 @@ public class SortCommandTests
         var a = Guid.NewGuid();
         var b = Guid.NewGuid();
 
-        var exit = await Run(root, $"{Auth} media sort --parent {parent} --children {a} {b}");
+        var exit = await Run(root, $"{Auth} media sort --parent {parent} --order {a} {b}");
 
         Assert.Equal(0, exit);
         var (parentId, children) = Assert.Single(fake.MediaSorted);

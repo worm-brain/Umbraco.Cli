@@ -59,10 +59,10 @@ public static class ContentDomainsCommand
         // A PUT under a verb the catalog's verb set does not know.
         var cmd = new Command(
             "set",
-            "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domain set <id> --default en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domain set <id> --replace --domain example.com=en-US"
+            "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domain set <id> --default-culture en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domain set <id> --replace --domain example.com=en-US"
         ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Document ID." };
-        var defaultOpt = new Option<string?>("--default")
+        var defaultOpt = new Option<string?>("--default-culture")
         {
             Description =
                 "ISO code served when no domain matches. Omit to leave the current default alone.",
@@ -86,7 +86,9 @@ public static class ContentDomainsCommand
         {
             var domains = result.GetValue(domainOpt) ?? [];
             if (domains.Length == 0 && string.IsNullOrEmpty(result.GetValue(defaultOpt)))
-                result.AddError("Supply --domain and/or --default; there is nothing to set.");
+                result.AddError(
+                    "Supply --domain and/or --default-culture; there is nothing to set."
+                );
         });
         KeyValuePairs.Validate(
             cmd,

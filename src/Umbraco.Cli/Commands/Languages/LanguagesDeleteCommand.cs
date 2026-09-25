@@ -11,9 +11,9 @@ public static class LanguagesDeleteCommand
             "delete",
             "Remove a language by its ISO culture code.\n\nExample:\n  umbraco language delete fr-FR"
         ).Mutating();
-        var isoArg = new Argument<string>("iso-code")
+        var isoArg = new Argument<string>("id")
         {
-            Description = "ISO culture code of the language to remove (e.g. en-US, fr-FR).",
+            Description = "The language's ISO code (e.g. en-US, fr-FR).",
         };
         cmd.Add(isoArg);
         cmd.Destructive(parseResult =>

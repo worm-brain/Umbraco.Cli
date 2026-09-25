@@ -121,7 +121,7 @@ public class DiagnosticsCommandTests
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 
-        var exit = await Run(root, $"{Auth} log-viewer log --ascending");
+        var exit = await Run(root, $"{Auth} log-viewer log --asc");
 
         Assert.Equal(0, exit);
         Assert.False(fake.LastLogQuery!.Value.Descending);

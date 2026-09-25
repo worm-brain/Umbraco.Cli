@@ -214,7 +214,7 @@ public class ReferenceCommandTests
             PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
         };
 
-        await Run(fake, $"content publish {Guid.NewGuid()} --cultures en-US,da-DK");
+        await Run(fake, $"content publish {Guid.NewGuid()} --culture en-US,da-DK");
 
         Assert.Equal(["en-US", "da-DK"], Assert.Single(fake.StateCalls).Cultures!);
     }

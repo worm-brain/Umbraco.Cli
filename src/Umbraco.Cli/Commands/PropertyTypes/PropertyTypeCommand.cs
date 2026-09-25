@@ -18,7 +18,7 @@ public static class PropertyTypeCommand
     {
         var cmd = new Command(
             "property-type",
-            "Inspect property-type usage.\n\nExample:\n  umbraco property-type is-used --content-type blogPost --alias bodyText"
+            "Inspect property-type usage.\n\nExample:\n  umbraco property-type is-used --document-type blogPost --alias bodyText"
         );
         cmd.Add(BuildIsUsed(executor));
         return cmd;
@@ -29,7 +29,7 @@ public static class PropertyTypeCommand
         var cmd = new Command("is-used", "Check whether a property is in use.");
         var contentTypeOpt = Reference
             .Option(
-                "--content-type",
+                "--document-type",
                 EntityKind.DocumentType,
                 "The document type the property belongs to"
             )

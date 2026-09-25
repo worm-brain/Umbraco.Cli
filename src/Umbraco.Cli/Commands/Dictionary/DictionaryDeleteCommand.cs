@@ -16,7 +16,7 @@ public static class DictionaryDeleteCommand
             "delete",
             "Delete a dictionary item by id or key.\n\nExample:\n  umbraco dictionary delete Blog.MinRead"
         ).Mutating();
-        var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
+        var idArg = Reference.Argument(EntityKind.DictionaryItem);
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
             $"Permanently delete dictionary item {parseResult.GetValue(idArg)}? This cannot be undone."

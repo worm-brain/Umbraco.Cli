@@ -19,7 +19,7 @@ public static class TemplatesGetCommand
             "get",
             "Get a template by its alias or id, including the view file content.\n\nExamples:\n  umbraco template get master\n  umbraco template get master -o json | jq -r .data.content"
         );
-        var idArg = Reference.Argument(EntityKind.Template, "alias");
+        var idArg = Reference.Argument(EntityKind.Template);
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>

@@ -20,7 +20,7 @@ public static class ContentBulkPublishCommand
             Description = "File of ids (one per line). Reads stdin when omitted.",
         };
         var culturesOpt = ListOption.Strings(
-            "--cultures",
+            "--culture",
             "ISO culture codes to publish. Publishes all cultures if omitted."
         );
         cmd.Add(fileOpt);

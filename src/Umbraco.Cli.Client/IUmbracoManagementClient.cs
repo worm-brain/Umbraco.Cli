@@ -9,7 +9,7 @@ namespace Umbraco.Cli.Client;
 /// This interface can be backed by either the hand-crafted HttpClient
 /// implementation (default) or a Kiota-generated client once you have
 /// a running Umbraco instance:
-///   kiota generate --language csharp \
+///   kiota generate --culture csharp \
 ///     --openapi http://localhost:5000/umbraco/swagger/management/swagger.json \
 ///     --output src/Umbraco.Cli.Client/Generated \
 ///     --namespace-name Umbraco.Cli.Client \

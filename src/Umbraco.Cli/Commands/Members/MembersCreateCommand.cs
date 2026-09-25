@@ -10,11 +10,11 @@ public static class MembersCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new Umbraco member.\n\nExample:\n  umbraco member create --email user@example.com --name \"Jane Doe\" --type Member"
+            "Create a new Umbraco member.\n\nExample:\n  umbraco member create --email user@example.com --name \"Jane Doe\" --member-type Member"
         ).Mutating();
         var emailOpt = new Option<string>("--email") { Required = true };
         var nameOpt = new Option<string>("--name") { Required = true };
-        var typeOpt = new Option<string>("--type")
+        var typeOpt = new Option<string>("--member-type")
         {
             Description = "Alias of the member type (e.g. Member).",
             Required = true,

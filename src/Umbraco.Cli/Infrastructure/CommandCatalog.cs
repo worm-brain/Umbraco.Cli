@@ -153,7 +153,7 @@ public static class CommandCatalog
     private static string FriendlyType(Type type)
     {
         var t = Nullable.GetUnderlyingType(type) ?? type;
-        // A multi-valued option/argument (e.g. --events) surfaces as "string[]" rather than
+        // A multi-valued option/argument (e.g. --event) surfaces as "string[]" rather than
         // the CLR "String[]".
         if (t.IsArray)
             return FriendlyType(t.GetElementType()!) + "[]";

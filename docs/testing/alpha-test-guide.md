@@ -385,7 +385,7 @@ Verifies the agent safety rails. These are high-value: a broken guardrail is a `
 
 | ID | Command | Expect |
 |---|---|---|
-| T-C-01 | `umbraco content create --content-type clitestDocType --name "x" --readonly` | refused; exit `2`; error says read-only. No entity created. |
+| T-C-01 | `umbraco content create --document-type clitestDocType --name "x" --readonly` | refused; exit `2`; error says read-only. No entity created. |
 | T-C-02 | `UMBRACO_READONLY=1 umbraco content delete <any> ` | refused; exit `2`. |
 | T-C-03 | read under readonly: `umbraco content list --readonly` | exit 0 (reads unaffected). |
 | T-C-04 | `UMBRACO_ALLOWED_COMMANDS=media umbraco content list` | blocked; exit `2` (content not in allow-list). |
@@ -394,7 +394,7 @@ Verifies the agent safety rails. These are high-value: a broken guardrail is a `
 | T-C-07 | `UMBRACO_ALLOWED_COMMANDS=" " umbraco content list` | explicit lockdown; blocked; exit `2` (present-but-blank != unset). |
 | T-C-08 | `UMBRACO_ALLOWED_COMMANDS=content.list umbraco content get <id>` | blocked; exit `2` (full-name entry allows only `content.list`). |
 | T-C-09 | destructive without TTY and without `--yes`: `echo "" | umbraco content delete <test-id>` (piped) | refused; exit `2`; nothing deleted. |
-| T-C-10 | `--dry-run` on a write: `umbraco webhook create --url https://x --events x --dry-run` | exit 0; `{status:"dry-run", request:{method,url,body}}`; **no** webhook created (verify via list). |
+| T-C-10 | `--dry-run` on a write: `umbraco webhook create --url https://x --event x --dry-run` | exit 0; `{status:"dry-run", request:{method,url,body}}`; **no** webhook created (verify via list). |
 | T-C-11 | idempotent create: run the same `create --id <fixed>` twice | second run does not create a duplicate (list count unchanged); both exit 0 or the second is a clean no-op/upsert. Record behaviour. |
 
 ---
@@ -435,11 +435,11 @@ umbraco health list ; umbraco health get <group>
 umbraco log-viewer log --take 5 ; umbraco log-viewer levels ; umbraco log-viewer level-count ; umbraco log-viewer message-templates ; umbraco log-viewer saved-search list
 umbraco manifest list
 umbraco redirect list ; umbraco redirect status
-umbraco relation-type list ; umbraco relation-type get <id> ; umbraco relation list --type <relationTypeId>
+umbraco relation-type list ; umbraco relation-type get <id> ; umbraco relation list --relation-type <relationTypeId>
 umbraco indexer list ; umbraco indexer get <name>
 umbraco searcher list ; umbraco searcher query <name> --term test
 umbraco imaging resize-urls --id <mediaGuid> --width 100
-umbraco property-type is-used --content-type <id> --alias <alias>
+umbraco property-type is-used --document-type <id> --alias <alias>
 ```
 
 Also verify **help** for every command: `umbraco <cmd> --help` exits 0 and is non-empty
@@ -457,15 +457,15 @@ follow-up read, not just the write's own success envelope.
 
 1. `data-type create --name "clitest DataType" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox --id $CLITEST_DATATYPE` -> exit 0.
 2. `document-type create --name "clitest DocType" --alias clitestDocType --id $CLITEST_DOCTYPE` (allow at root) -> exit 0. (If root-allow needs a `--json-body`, build it and use `--schema` to validate the body first.)
-3. `content create --content-type clitestDocType --name "clitest Root" --id $CLITEST_CONTENT_ROOT` -> exit 0; `content get $CLITEST_CONTENT_ROOT` shows the name.
-4. `content create --content-type clitestDocType --name "clitest Child" --parent $CLITEST_CONTENT_ROOT --id $CLITEST_CONTENT_CHILD` -> exit 0; parent is the root.
+3. `content create --document-type clitestDocType --name "clitest Root" --id $CLITEST_CONTENT_ROOT` -> exit 0; `content get $CLITEST_CONTENT_ROOT` shows the name.
+4. `content create --document-type clitestDocType --name "clitest Child" --parent $CLITEST_CONTENT_ROOT --id $CLITEST_CONTENT_CHILD` -> exit 0; parent is the root.
 5. `content update $CLITEST_CONTENT_ROOT --json-body -` (change the name) -> exit 0; a `get` reflects the new name. **If the get shows the old value, that is `content.update.no-op`.**
 5a. **Merge (#179).** Give the doc type a second property, set both, then `content update` naming only the first. Read the document back from the Management API (`GET /umbraco/management/api/v1/document/{id}`, since `content get` returns no values - #168). **The second property must still hold its value.** If it is empty, that is `content.update.clobbers-unlisted`.
 5b. **Template preservation (#178).** Confirm `template` is still set on that same read-back. **If it is null, that is `content.update.drops-template`** - the bug that 404'd every page in the 2026-09-23 round.
 5c. **Replace opt-out.** Repeat 5a with `--replace`; this time the second property *must* be cleared, and the template must *still* be set.
 5d. **Template flag (#162).** `content update $CLITEST_CONTENT_ROOT --json-body - --template <alias>` -> the read-back shows that template. An unknown alias must fail with a message naming it, not succeed silently.
 6. `content publish $CLITEST_CONTENT_ROOT` -> exit 0 **and the document actually reports published**. Check with `content get` (`isPublished: true`) or a Management API read of `variants[].state`. **Exit 0 alone is not a pass** - the #158 no-op returned exit 0 and `{"status":"success"}` while publishing nothing, for two releases. Then `content unpublish $CLITEST_CONTENT_ROOT --yes` -> exit 0, and confirm it is no longer published.
-6a. **Variant publish (#158).** On a culture-varying document, `content publish <id>` with no `--cultures` must publish *every* culture, not 400. `"*"` is not a wildcard - it is the invariant culture - so a regression here shows up as `400 "Cannot publish invariant culture when the document varies by culture."`
+6a. **Variant publish (#158).** On a culture-varying document, `content publish <id>` with no `--culture` must publish *every* culture, not 400. `"*"` is not a wildcard - it is the invariant culture - so a regression here shows up as `400 "Cannot publish invariant culture when the document varies by culture."`
 7. `content versions $CLITEST_CONTENT_ROOT` lists >= 2; `content rollback <versionId>` -> exit 0.
 8. `content trash $CLITEST_CONTENT_CHILD` -> exit 0 (in bin); `content restore $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (back).
 9. `content copy $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (record the copy's id and delete it in teardown).
@@ -479,16 +479,16 @@ follow-up read, not just the write's own success envelope.
 
 **E5 Localization.** `language create --culture fr-FR` (pick a culture the site does not
 already have; languages are keyed by iso-code, there is no `--id`); `language update fr-FR
---name "clitest French"`; delete in teardown. `dictionary create --key clitest --values
+--name "clitest French"`; delete in teardown. `dictionary create --key clitest --value
 en=Hello --id $CLITEST_DICT`; `get`; delete in teardown.
 
-**E6 Users & groups.** `user-group create --alias clitestGroup --name "clitest Group" --id $CLITEST_USERGROUP`; `add-users`/`remove-users` with an existing user id (read from `user list`); `update`; delete-many in teardown. `user invite` -> record but note it sends an email; prefer a throwaway address or SKIP with `note:"sends-email"` on a shared instance.
+**E6 Users & groups.** `user-group create --alias clitestGroup --name "clitest Group" --id $CLITEST_USERGROUP`; `add-users`/`remove-users` with an existing user id (read from `user list`); `update`; `delete` in teardown. `user invite` -> record but note it sends an email; prefer a throwaway address or SKIP with `note:"sends-email"` on a shared instance.
 
 **E7 Members.** `member-type create --alias clitestMemberType --name "clitest MT"`; `member create --email clitest@example.com --name "clitest Member" --type clitestMemberType --id $CLITEST_MEMBER`; `update --approved`; `member-group create --name "clitest MG" --id $CLITEST_MEMBERGROUP`.
 
-**E8 Webhooks.** `webhook create --url https://example.com/hook --events "Umbraco.ContentPublish" --name "clitest hook" --id $CLITEST_WEBHOOK`; `list` shows it; delete in teardown.
+**E8 Webhooks.** `webhook create --url https://example.com/hook --event "Umbraco.ContentPublish" --name "clitest hook" --id $CLITEST_WEBHOOK`; `list` shows it; delete in teardown.
 
-**E9 user-data.** `user-data create --group clitest --identifier clitest-1 --value "v" --key $CLITEST_USERDATA`; `get`; `update`; delete in teardown.
+**E9 user-data.** `user-data create --group clitest --identifier clitest-1 --data "v" --id $CLITEST_USERDATA`; `get`; `update`; delete in teardown.
 
 **E10 log-viewer saved search.** `saved-search create --name clitest-errors --query "@Level='Error'"`; `list` shows it; delete in teardown.
 

@@ -7,7 +7,7 @@
 ## Context
 
 Every bug in the alpha.1 live test was a real endpoint/shape/param mismatch that the
-fake-client unit tests could not catch (and the `member list` `take=0` -> 500 regression
+fake-client unit tests could not catch (and the `members list` `take=0` -> 500 regression
 slipped through even after the rewrite). We need end-to-end tests that drive the real CLI
 against a real Umbraco Management API.
 
@@ -33,7 +33,7 @@ Add a separate test project `tests/Umbraco.Cli.IntegrationTests` that:
   `Skip.IfNot`. This keeps the solution-wide `dotnet test` green in CI (where no instance
   exists yet) while running fully on a developer machine or a provisioned CI instance.
 - Covers list/get/create/delete across the command surface, including a self-cleaning
-  create->list->delete round-trip (webhooks) and the `member list` default-paging case
+  create->list->delete round-trip (webhooks) and the `members list` default-paging case
   that regressed.
 
 A dedicated CI job that provisions Umbraco and sets the instance env will land with the

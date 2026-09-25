@@ -208,7 +208,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
                 email,
                 "--name",
                 "clitest member",
-                "--type",
+                "--member-type",
                 mtAlias
             );
             Assert.True(create.Ok, create.Stderr); // was HTTP 400 (empty password) before #136
@@ -253,7 +253,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             "create",
             "--url",
             marker,
-            "--events",
+            "--event",
             "ContentPublished",
             "--dry-run"
         );
@@ -479,7 +479,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             "create",
             "--url",
             marker,
-            "--events",
+            "--event",
             "ContentPublished",
             "--readonly"
         );
@@ -520,7 +520,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             "create",
             "--url",
             "https://example.com/confirm-gate-test",
-            "--events",
+            "--event",
             "ContentPublished"
         );
         Assert.True(create.Ok, create.Stderr);
@@ -553,7 +553,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             "create",
             "--url",
             "https://example.com/integration-test-hook",
-            "--events",
+            "--event",
             "ContentPublished"
         );
         Assert.True(create.Ok, create.Stderr);

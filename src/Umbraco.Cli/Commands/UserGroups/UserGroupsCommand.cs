@@ -6,7 +6,7 @@ namespace Umbraco.Cli.Commands.UserGroups;
 
 /// <summary>
 /// Wires the <c>user-group</c> noun (issue #109) and its verbs: list/get/create/update/delete,
-/// bulk delete-many, and add-users/remove-users membership. Granular per-node permissions are a
+/// delete of one or several groups, and add-users/remove-users membership. Granular per-node permissions are a
 /// deferred follow-up, so create/update expose only the scalar and string-list fields as options.
 /// </summary>
 public static class UserGroupsCommand
@@ -25,7 +25,6 @@ public static class UserGroupsCommand
         cmd.Add(BuildCreate(executor));
         cmd.Add(BuildUpdate(executor));
         cmd.Add(BuildDelete(executor));
-        cmd.Add(BuildDeleteMany(executor));
         cmd.Add(BuildAddUsers(executor));
         cmd.Add(BuildRemoveUsers(executor));
         return cmd;
@@ -187,44 +186,29 @@ public static class UserGroupsCommand
         return cmd;
     }
 
+    /// <summary>
+    /// Builds <c>user-group delete &lt;id&gt;...</c>: one or more groups, by id, alias or name
+    /// (docs/conventions.md 3.3 - several known targets are a variadic positional, not a
+    /// <c>delete-many</c> verb).
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command("delete", "Delete a user group by id, alias or name.").Mutating();
-        var idArg = Reference.Argument(EntityKind.UserGroup);
-        cmd.Add(idArg);
-        cmd.Destructive(parseResult =>
-            $"Permanently delete user group {parseResult.GetValue(idArg)}?"
-        );
-        cmd.SetAction(
-            (parseResult, ct) =>
-                executor.RunMessageAsync(
-                    parseResult,
-                    (client, c) =>
-                        idArg.WithResolvedAsync(
-                            parseResult,
-                            client,
-                            id => client.DeleteUserGroupAsync(id, c),
-                            c
-                        ),
-                    "User group deleted.",
-                    ct
-                )
-        );
-        return cmd;
-    }
-
-    private static Command BuildDeleteMany(CommandExecutor executor)
-    {
         var cmd = new Command(
-            "delete-many",
-            "Delete several user groups in one call.\n\nExample:\n  umbraco user-group delete-many --ids blogEditors newsEditors"
+            "delete",
+            "Delete one or more user groups by id, alias or name.\n\nExamples:\n  umbraco user-group delete blogEditors\n  umbraco user-group delete blogEditors newsEditors --yes"
         ).Mutating();
-        var idsOpt = ListOption
-            .Strings("--ids", "The user groups to delete: ids, aliases or names.")
-            .AsRequired();
-        cmd.Add(idsOpt);
+        var idsArg = new Argument<string[]>("id")
+        {
+            Description = "The user groups to delete: each an id, alias or name.",
+            Arity = ArgumentArity.OneOrMore,
+        };
+        cmd.Add(idsArg);
         cmd.Destructive(parseResult =>
-            $"Permanently delete {parseResult.GetValue(idsOpt)!.Length} user group(s)?"
+            parseResult.GetValue(idsArg)! is [var only]
+                ? $"Permanently delete user group {only}?"
+                : $"Permanently delete {parseResult.GetValue(idsArg)!.Length} user groups?"
         );
         cmd.SetAction(
             (parseResult, ct) =>
@@ -235,14 +219,16 @@ public static class UserGroupsCommand
                         // Resolve every reference before deleting any, so a typo deletes nothing.
                         var ids = await client.ResolveIdsAsync(
                             EntityKind.UserGroup,
-                            parseResult.GetValue(idsOpt)!,
+                            parseResult.GetValue(idsArg)!,
                             c
                         );
-                        return ids.IsSuccess
-                            ? await client.DeleteUserGroupsAsync([.. ids.Data!], c)
-                            : UmbracoResponse<Empty>.FailureFrom(ids);
+                        if (!ids.IsSuccess)
+                            return UmbracoResponse<Empty>.FailureFrom(ids);
+                        return ids.Data! is [var one]
+                            ? await client.DeleteUserGroupAsync(one, c)
+                            : await client.DeleteUserGroupsAsync([.. ids.Data!], c);
                     },
-                    "User groups deleted.",
+                    "User group(s) deleted.",
                     ct
                 )
         );
@@ -333,7 +319,7 @@ public static class UserGroupsCommand
             "Section aliases the group can access."
         );
         private readonly Option<string[]> _languages = ListOption.Strings(
-            "--language",
+            "--culture",
             "Culture ISO codes the group can edit."
         );
         private readonly Option<string[]> _fallback = ListOption.Strings(

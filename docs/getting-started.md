@@ -157,7 +157,7 @@ build agent). `auth login` and `auth doctor` always exchange the credentials afr
 umbraco content list                                   # list content (human table in a terminal)
 umbraco content list --output json | jq '.data[].name' # JSON for scripting
 umbraco content get <id>                               # one item
-umbraco content create --content-type blogPost --name "Hello World"
+umbraco content create --document-type blogPost --name "Hello World"
 umbraco commands                                       # the entire command tree as JSON
 ```
 

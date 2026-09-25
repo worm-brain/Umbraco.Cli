@@ -203,7 +203,7 @@
     },
     {
       "name": "content",
-      "description": "Manage Umbraco content items (create, read, update, delete, publish).\n\nExamples:\n  umbraco content list --output json\n  umbraco content get <id>\n  umbraco content create --content-type textPage --name \"My Page\"\n  umbraco content publish <id>",
+      "description": "Manage Umbraco content items (create, read, update, delete, publish).\n\nExamples:\n  umbraco content list --output json\n  umbraco content get <id>\n  umbraco content create --document-type textPage --name \"My Page\"\n  umbraco content publish <id>",
       "arguments": [],
       "options": [],
       "commands": [
@@ -346,11 +346,11 @@
         },
         {
           "name": "create",
-          "description": "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --content-type textPage --name \"About\"\n  umbraco content create --content-type textPage --name \"Child\" --parent <id>\n  umbraco content create --content-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --content-type blogPost --name \"Post\" --json-body ./body.json",
+          "description": "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --document-type blogPost --name \"Post\" --json-body ./body.json",
           "arguments": [],
           "options": [
             {
-              "name": "--content-type",
+              "name": "--document-type",
               "aliases": [],
               "description": "Alias of the document type to create (e.g. textPage, blogPost). Required unless --json-body or --schema is used.",
               "type": "string",
@@ -490,7 +490,7 @@
         },
         {
           "name": "publish",
-          "description": "Publish a content item, making it live. Optionally target specific cultures.\n\nExamples:\n  umbraco content publish 3f7a8b2e-...\n  umbraco content publish 3f7a8b2e-... --cultures en-US da-DK",
+          "description": "Publish a content item, making it live. Optionally target specific cultures.\n\nExamples:\n  umbraco content publish 3f7a8b2e-...\n  umbraco content publish 3f7a8b2e-... --culture en-US da-DK",
           "arguments": [
             {
               "name": "id",
@@ -502,7 +502,7 @@
           ],
           "options": [
             {
-              "name": "--cultures",
+              "name": "--culture",
               "aliases": [],
               "description": "ISO culture codes to publish (e.g. en-US da-DK). Publishes all cultures if omitted. Repeat the option, or separate values with commas.",
               "type": "string[]",
@@ -557,7 +557,7 @@
             },
             {
               "name": "set",
-              "description": "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domain set <id> --default en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domain set <id> --replace --domain example.com=en-US",
+              "description": "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domain set <id> --default-culture en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domain set <id> --replace --domain example.com=en-US",
               "arguments": [
                 {
                   "name": "id",
@@ -569,7 +569,7 @@
               ],
               "options": [
                 {
-                  "name": "--default",
+                  "name": "--default-culture",
                   "aliases": [],
                   "description": "ISO code served when no domain matches. Omit to leave the current default alone.",
                   "type": "string",
@@ -605,7 +605,7 @@
         },
         {
           "name": "unpublish",
-          "description": "Unpublish a content item, taking it offline. Optionally target specific cultures.\n\nExamples:\n  umbraco content unpublish 3f7a8b2e-...\n  umbraco content unpublish 3f7a8b2e-... --cultures en-US",
+          "description": "Unpublish a content item, taking it offline. Optionally target specific cultures.\n\nExamples:\n  umbraco content unpublish 3f7a8b2e-...\n  umbraco content unpublish 3f7a8b2e-... --culture en-US",
           "arguments": [
             {
               "name": "id",
@@ -617,7 +617,7 @@
           ],
           "options": [
             {
-              "name": "--cultures",
+              "name": "--culture",
               "aliases": [],
               "description": "ISO culture codes to unpublish. Unpublishes all cultures if omitted. Repeat the option, or separate values with commas.",
               "type": "string[]",
@@ -812,7 +812,7 @@
         },
         {
           "name": "sort",
-          "description": "Reorder a parent's child content items, into the order given (first = top) or by a field.\n\nExamples:\n  umbraco content sort --parent 1a2b3c4d-... --children 3f7a...,9c4d...,2e6f...\n  umbraco content sort --parent 1a2b3c4d-... --by publishDate --desc   # newest first\n  umbraco content sort --by name   # the content root, A to Z",
+          "description": "Reorder a parent's child content items, into the order given (first = top) or by a field.\n\nExamples:\n  umbraco content sort --parent 1a2b3c4d-... --order 3f7a...,9c4d...,2e6f...\n  umbraco content sort --parent 1a2b3c4d-... --by publishDate --desc   # newest first\n  umbraco content sort --by name   # the content root, A to Z",
           "arguments": [],
           "options": [
             {
@@ -824,7 +824,7 @@
               "hasDefault": false
             },
             {
-              "name": "--children",
+              "name": "--order",
               "aliases": [],
               "description": "Child content ids in the desired order (first gets sort order 0). Repeat the option, or separate values with commas.",
               "type": "guid[]",
@@ -900,7 +900,7 @@
         },
         {
           "name": "publish-descendants",
-          "description": "Publish a content item and its descendants.\n\nExamples:\n  umbraco content publish-descendants 3f7a8b2e-...\n  umbraco content publish-descendants 3f7a8b2e-... --include-unpublished --cultures en-US",
+          "description": "Publish a content item and its descendants.\n\nExamples:\n  umbraco content publish-descendants 3f7a8b2e-...\n  umbraco content publish-descendants 3f7a8b2e-... --include-unpublished --culture en-US",
           "arguments": [
             {
               "name": "id",
@@ -912,7 +912,7 @@
           ],
           "options": [
             {
-              "name": "--cultures",
+              "name": "--culture",
               "aliases": [],
               "description": "ISO culture codes to publish. Publishes all cultures if omitted. Repeat the option, or separate values with commas.",
               "type": "string[]",
@@ -980,7 +980,7 @@
                   "hasDefault": false
                 },
                 {
-                  "name": "--cultures",
+                  "name": "--culture",
                   "aliases": [],
                   "description": "ISO culture codes to publish. Publishes all cultures if omitted. Repeat the option, or separate values with commas.",
                   "type": "string[]",
@@ -1007,7 +1007,7 @@
                   "hasDefault": false
                 },
                 {
-                  "name": "--cultures",
+                  "name": "--culture",
                   "aliases": [],
                   "description": "ISO culture codes to unpublish. Unpublishes all cultures if omitted. Repeat the option, or separate values with commas.",
                   "type": "string[]",
@@ -1538,7 +1538,7 @@
         },
         {
           "name": "sort",
-          "description": "Reorder a folder's child media items, into the order given (first = top) or by a field.\n\nExamples:\n  umbraco media sort --parent 1a2b3c4d-... --children 3f7a...,9c4d...,2e6f...\n  umbraco media sort --parent 1a2b3c4d-... --by name\n  umbraco media sort --by createDate --desc   # the media root, newest first",
+          "description": "Reorder a folder's child media items, into the order given (first = top) or by a field.\n\nExamples:\n  umbraco media sort --parent 1a2b3c4d-... --order 3f7a...,9c4d...,2e6f...\n  umbraco media sort --parent 1a2b3c4d-... --by name\n  umbraco media sort --by createDate --desc   # the media root, newest first",
           "arguments": [],
           "options": [
             {
@@ -1550,7 +1550,7 @@
               "hasDefault": false
             },
             {
-              "name": "--children",
+              "name": "--order",
               "aliases": [],
               "description": "Child media ids in the desired order (first gets sort order 0). Repeat the option, or separate values with commas.",
               "type": "guid[]",
@@ -2492,8 +2492,8 @@
           "description": "Update a language by its ISO culture code. Omitted fields are preserved.\n\nExample:\n  umbraco language update fr-FR --name \"French (France)\" --mandatory",
           "arguments": [
             {
-              "name": "iso-code",
-              "description": "ISO culture code of the language to update (e.g. fr-FR).",
+              "name": "id",
+              "description": "The language's ISO code (e.g. fr-FR).",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -2543,8 +2543,8 @@
           "description": "Remove a language by its ISO culture code.\n\nExample:\n  umbraco language delete fr-FR",
           "arguments": [
             {
-              "name": "iso-code",
-              "description": "ISO culture code of the language to remove (e.g. en-US, fr-FR).",
+              "name": "id",
+              "description": "The language's ISO code (e.g. en-US, fr-FR).",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -2597,7 +2597,7 @@
           "description": "Get a template by its alias or id, including the view file content.\n\nExamples:\n  umbraco template get master\n  umbraco template get master -o json | jq -r .data.content",
           "arguments": [
             {
-              "name": "alias",
+              "name": "id",
               "description": "The template's id, or its alias or name.",
               "type": "string",
               "required": true,
@@ -2814,7 +2814,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new Umbraco member.\n\nExample:\n  umbraco member create --email user@example.com --name \"Jane Doe\" --type Member",
+          "description": "Create a new Umbraco member.\n\nExample:\n  umbraco member create --email user@example.com --name \"Jane Doe\" --member-type Member",
           "arguments": [],
           "options": [
             {
@@ -2832,7 +2832,7 @@
               "hasDefault": false
             },
             {
-              "name": "--type",
+              "name": "--member-type",
               "aliases": [],
               "description": "Alias of the member type (e.g. Member).",
               "type": "string",
@@ -3289,7 +3289,7 @@
     },
     {
       "name": "dictionary",
-      "description": "Manage Umbraco dictionary items (translations for static text).\n\nExamples:\n  umbraco dictionary list\n  umbraco dictionary create --key \"Common.Search\" --values en-US=Search --values da-DK=Søg\n  umbraco dictionary get Common.Search",
+      "description": "Manage Umbraco dictionary items (translations for static text).\n\nExamples:\n  umbraco dictionary list\n  umbraco dictionary create --key \"Common.Search\" --value en-US=Search --value da-DK=Søg\n  umbraco dictionary get Common.Search",
       "arguments": [],
       "options": [],
       "commands": [
@@ -3356,8 +3356,8 @@
           "description": "Get a dictionary item and its translations by key or id.\n\nExample:\n  umbraco dictionary get Common.Search\n  umbraco dictionary get 1a2b3c4d-.....",
           "arguments": [
             {
-              "name": "key",
-              "description": "Dictionary item key (name) or id (GUID).",
+              "name": "id",
+              "description": "The dictionary item's id, or its key.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -3371,7 +3371,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --values en-US=Home --values da-DK=Hjem --values fr-FR=Accueil",
+          "description": "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil",
           "arguments": [],
           "options": [
             {
@@ -3382,9 +3382,9 @@
               "hasDefault": false
             },
             {
-              "name": "--values",
+              "name": "--value",
               "aliases": [],
-              "description": "Translation pairs in isoCode=value format, using the full culture code. Repeat for multiple languages: --values en-US=Home --values da-DK=Hjem",
+              "description": "Translation pairs in isoCode=value format, using the full culture code. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -3413,10 +3413,10 @@
         },
         {
           "name": "update",
-          "description": "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped (#181).\n\nExamples:\n  umbraco dictionary update Blog.MinRead --values da-DK=Hjem\n  umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --values en-US=Home",
+          "description": "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped (#181).\n\nExamples:\n  umbraco dictionary update Blog.MinRead --value da-DK=Hjem\n  umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --value en-US=Home",
           "arguments": [
             {
-              "name": "key",
+              "name": "id",
               "description": "The dictionary item's id, or its key.",
               "type": "string",
               "required": true,
@@ -3433,9 +3433,9 @@
               "hasDefault": false
             },
             {
-              "name": "--values",
+              "name": "--value",
               "aliases": [],
-              "description": "Translation pairs in lang=value format. Repeat for multiple languages: --values en-US=Home --values da-DK=Hjem",
+              "description": "Translation pairs in lang=value format. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -3451,7 +3451,7 @@
           "description": "Move a dictionary item under a new parent.\n\nExamples:\n  umbraco dictionary move Blog.Tags --parent Blog\n  umbraco dictionary move Blog.Tags   # to the dictionary root",
           "arguments": [
             {
-              "name": "key",
+              "name": "id",
               "description": "The dictionary item's id, or its key.",
               "type": "string",
               "required": true,
@@ -3480,7 +3480,7 @@
           "description": "Delete a dictionary item by id or key.\n\nExample:\n  umbraco dictionary delete Blog.MinRead",
           "arguments": [
             {
-              "name": "key",
+              "name": "id",
               "description": "The dictionary item's id, or its key.",
               "type": "string",
               "required": true,
@@ -3500,7 +3500,7 @@
     },
     {
       "name": "webhook",
-      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --events ContentPublished ContentUnpublished\n  umbraco webhook delete <id>",
+      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event ContentPublished ContentUnpublished\n  umbraco webhook delete <id>",
       "arguments": [],
       "options": [],
       "commands": [
@@ -3542,7 +3542,7 @@
               "hasDefault": false
             },
             {
-              "name": "--events",
+              "name": "--event",
               "aliases": [],
               "description": "Event names to subscribe to, e.g. ContentPublished,MediaSaved. Repeat the option, or separate values with commas.",
               "type": "string[]",
@@ -4470,7 +4470,7 @@
               "hasDefault": false
             },
             {
-              "name": "--language",
+              "name": "--culture",
               "aliases": [],
               "description": "Culture ISO codes the group can edit. Repeat the option, or separate values with commas.",
               "type": "string[]",
@@ -4593,7 +4593,7 @@
               "hasDefault": false
             },
             {
-              "name": "--language",
+              "name": "--culture",
               "aliases": [],
               "description": "Culture ISO codes the group can edit. Repeat the option, or separate values with commas.",
               "type": "string[]",
@@ -4656,36 +4656,17 @@
         },
         {
           "name": "delete",
-          "description": "Delete a user group by id, alias or name.",
+          "description": "Delete one or more user groups by id, alias or name.\n\nExamples:\n  umbraco user-group delete blogEditors\n  umbraco user-group delete blogEditors newsEditors --yes",
           "arguments": [
             {
               "name": "id",
-              "description": "The user group's id, or its alias or name.",
-              "type": "string",
-              "required": true,
-              "hasDefault": false
-            }
-          ],
-          "options": [],
-          "commands": [],
-          "mutating": true,
-          "destructive": true,
-          "acceptsJsonBody": false
-        },
-        {
-          "name": "delete-many",
-          "description": "Delete several user groups in one call.\n\nExample:\n  umbraco user-group delete-many --ids blogEditors newsEditors",
-          "arguments": [],
-          "options": [
-            {
-              "name": "--ids",
-              "aliases": [],
-              "description": "The user groups to delete: ids, aliases or names. Repeat the option, or separate values with commas.",
+              "description": "The user groups to delete: each an id, alias or name.",
               "type": "string[]",
               "required": true,
               "hasDefault": false
             }
           ],
+          "options": [],
           "commands": [],
           "mutating": true,
           "destructive": true,
@@ -4752,7 +4733,7 @@
     },
     {
       "name": "user-data",
-      "description": "List, inspect, and manage the authenticated user's key/value data.\n\nExamples:\n  umbraco user-data list --group myGroup\n  umbraco user-data create --group myGroup --identifier theme --value dark",
+      "description": "List, inspect, and manage the authenticated user's key/value data.\n\nExamples:\n  umbraco user-data list --group myGroup\n  umbraco user-data create --group myGroup --identifier theme --data dark",
       "arguments": [],
       "options": [],
       "commands": [
@@ -4799,11 +4780,11 @@
         },
         {
           "name": "get",
-          "description": "Get a user-data entry by key.",
+          "description": "Get a user-data entry by id.",
           "arguments": [
             {
-              "name": "key",
-              "description": "Entry key.",
+              "name": "id",
+              "description": "The entry's id (its key).",
               "type": "guid",
               "required": true,
               "hasDefault": false
@@ -4817,7 +4798,7 @@
         },
         {
           "name": "create",
-          "description": "Create a user-data entry.\n\nExample:\n  umbraco user-data create --group myGroup --identifier theme --value dark",
+          "description": "Create a user-data entry.\n\nExample:\n  umbraco user-data create --group myGroup --identifier theme --data dark",
           "arguments": [],
           "options": [
             {
@@ -4837,7 +4818,7 @@
               "hasDefault": false
             },
             {
-              "name": "--value",
+              "name": "--data",
               "aliases": [],
               "description": "Value to store.",
               "type": "string",
@@ -4845,9 +4826,9 @@
               "hasDefault": false
             },
             {
-              "name": "--key",
+              "name": "--id",
               "aliases": [],
-              "description": "Optional client-supplied UUID for an idempotent create (#86).",
+              "description": "Optional client-supplied UUID for an idempotent create.",
               "type": "guid",
               "required": false,
               "hasDefault": false
@@ -4860,25 +4841,17 @@
         },
         {
           "name": "update",
-          "description": "Update a user-data entry by key.\n\nExample:\n  umbraco user-data update <key> --group myGroup --identifier theme --value light",
+          "description": "Update a user-data entry by id.\n\nExample:\n  umbraco user-data update <id> --group myGroup --identifier theme --data light",
           "arguments": [
             {
-              "name": "key",
-              "description": "Key of the entry to update.",
+              "name": "id",
+              "description": "The entry's id (its key).",
               "type": "guid",
-              "required": false,
+              "required": true,
               "hasDefault": false
             }
           ],
           "options": [
-            {
-              "name": "--key",
-              "aliases": [],
-              "description": "Key of the entry to update (the same as the positional key).",
-              "type": "guid",
-              "required": false,
-              "hasDefault": false
-            },
             {
               "name": "--group",
               "aliases": [],
@@ -4896,7 +4869,7 @@
               "hasDefault": false
             },
             {
-              "name": "--value",
+              "name": "--data",
               "aliases": [],
               "description": "New value to store.",
               "type": "string",
@@ -4911,11 +4884,11 @@
         },
         {
           "name": "delete",
-          "description": "Delete a user-data entry by key.",
+          "description": "Delete a user-data entry by id.",
           "arguments": [
             {
-              "name": "key",
-              "description": "Entry key.",
+              "name": "id",
+              "description": "The entry's id (its key).",
               "type": "guid",
               "required": true,
               "hasDefault": false
@@ -5518,7 +5491,7 @@
               "hasDefault": false
             },
             {
-              "name": "--ascending",
+              "name": "--asc",
               "aliases": [],
               "description": "Order oldest-first (default is newest-first).",
               "type": "flag",
@@ -5789,11 +5762,11 @@
       "commands": [
         {
           "name": "list",
-          "description": "List redirects. With --content, lists redirects pointing at that document.",
+          "description": "List redirects. With --content-item, lists redirects pointing at that document.",
           "arguments": [],
           "options": [
             {
-              "name": "--content",
+              "name": "--content-item",
               "aliases": [],
               "description": "List redirects for this destination document (content key).",
               "type": "guid",
@@ -5803,7 +5776,7 @@
             {
               "name": "--filter",
               "aliases": [],
-              "description": "Filter redirects by URL text (ignored with --content).",
+              "description": "Filter redirects by URL text (ignored with --content-item).",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -5948,7 +5921,7 @@
     },
     {
       "name": "relation",
-      "description": "List relations of a relation type.\n\nExample:\n  umbraco relation list --type <relationTypeId>",
+      "description": "List relations of a relation type.\n\nExample:\n  umbraco relation list --relation-type <relationTypeId>",
       "arguments": [],
       "options": [],
       "commands": [
@@ -5958,7 +5931,7 @@
           "arguments": [],
           "options": [
             {
-              "name": "--type",
+              "name": "--relation-type",
               "aliases": [],
               "description": "The relation type ID to list relations for.",
               "type": "guid",
@@ -6141,23 +6114,23 @@
     },
     {
       "name": "imaging",
-      "description": "Generate resized image URLs for media items.\n\nExample:\n  umbraco imaging resize-urls --id <guid> --width 300 --height 200 --mode Crop",
+      "description": "Generate resized image URLs for media items.\n\nExample:\n  umbraco imaging resize-urls <id> --width 300 --height 200 --mode Crop",
       "arguments": [],
       "options": [],
       "commands": [
         {
           "name": "resize-urls",
-          "description": "Get resized URLs for one or more media items.",
-          "arguments": [],
-          "options": [
+          "description": "Get resized URLs for one or more media items.\n\nExamples:\n  umbraco imaging resize-urls <id> --width 300\n  umbraco imaging resize-urls <id> <id> --width 300 --height 200 --mode Crop --format webp",
+          "arguments": [
             {
-              "name": "--id",
-              "aliases": [],
-              "description": "Media item ID. Repeat the option, or separate values with commas.",
+              "name": "id",
+              "description": "The media items to resize: one or more ids.",
               "type": "guid[]",
               "required": true,
               "hasDefault": false
-            },
+            }
+          ],
+          "options": [
             {
               "name": "--width",
               "aliases": [],
@@ -6203,7 +6176,7 @@
     },
     {
       "name": "property-type",
-      "description": "Inspect property-type usage.\n\nExample:\n  umbraco property-type is-used --content-type blogPost --alias bodyText",
+      "description": "Inspect property-type usage.\n\nExample:\n  umbraco property-type is-used --document-type blogPost --alias bodyText",
       "arguments": [],
       "options": [],
       "commands": [
@@ -6213,7 +6186,7 @@
           "arguments": [],
           "options": [
             {
-              "name": "--content-type",
+              "name": "--document-type",
               "aliases": [],
               "description": "The document type the property belongs to: its id, or its alias.",
               "type": "string",

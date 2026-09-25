@@ -109,7 +109,7 @@ public class PublishScheduleCommandTests
     {
         // #239: a scheduled publish said "Content item published." while the item stayed a draft.
         var message = await MessageOf(
-            $"{Auth} content publish {Guid.NewGuid()} --publish-at 2026-01-01T09:00:00Z --cultures en-US da-DK"
+            $"{Auth} content publish {Guid.NewGuid()} --publish-at 2026-01-01T09:00:00Z --culture en-US da-DK"
         );
 
         Assert.Equal("Scheduled to publish at 2026-01-01T09:00:00Z (en-US, da-DK).", message);

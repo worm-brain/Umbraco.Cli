@@ -9,7 +9,7 @@ public static class MediaSortCommand
 {
     /// <summary>
     /// Builds the <c>media sort</c> command: reorder a folder's children, either into an explicit
-    /// order (<c>--children</c>) or by a field (<c>--by</c>, #232).
+    /// order (<c>--order</c>) or by a field (<c>--by</c>, #232).
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The configured command.</returns>
@@ -19,7 +19,7 @@ public static class MediaSortCommand
             "sort",
             "Reorder a folder's child media items, into the order given (first = top) or by a field.\n\n"
                 + "Examples:\n"
-                + "  umbraco media sort --parent 1a2b3c4d-... --children 3f7a...,9c4d...,2e6f...\n"
+                + "  umbraco media sort --parent 1a2b3c4d-... --order 3f7a...,9c4d...,2e6f...\n"
                 + "  umbraco media sort --parent 1a2b3c4d-... --by name\n"
                 + "  umbraco media sort --by createDate --desc   # the media root, newest first"
         );

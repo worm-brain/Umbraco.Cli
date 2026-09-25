@@ -10,14 +10,14 @@ public static class DictionaryCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --values en-US=Home --values da-DK=Hjem --values fr-FR=Accueil"
+            "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil"
         ).Mutating();
         var keyOpt = new Option<string>("--key") { Required = true };
-        // --values accepts isoCode=value pairs (en-US=Hello da-DK=Hej); the isoCode must be the full culture code (#181)
-        var valuesOpt = new Option<string[]>("--values")
+        // --value accepts isoCode=value pairs (en-US=Hello da-DK=Hej); the isoCode must be the full culture code (#181)
+        var valuesOpt = new Option<string[]>("--value")
         {
             Description =
-                "Translation pairs in isoCode=value format, using the full culture code. Repeat for multiple languages: --values en-US=Home --values da-DK=Hjem",
+                "Translation pairs in isoCode=value format, using the full culture code. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem",
             AllowMultipleArgumentsPerToken = true,
         };
         var idOpt = new Option<Guid?>("--id")
@@ -36,7 +36,7 @@ public static class DictionaryCreateCommand
         KeyValuePairs.Validate(
             cmd,
             valuesOpt,
-            "--values must be isoCode=translation, e.g. en-US=Home"
+            "--value must be isoCode=translation, e.g. en-US=Home"
         );
         cmd.SetAction(
             (parseResult, ct) =>
