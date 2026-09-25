@@ -388,23 +388,22 @@ public static class UserGroupsCommand
             cmd.Add(_documentStart);
             cmd.Add(_mediaStart);
             // A start node and root access say opposite things; refuse rather than pick one.
-            ListOption.ValidateParsed(
-                cmd,
-                result =>
-                {
-                    if (
-                        result.GetValue(_documentRoot)
-                        && result.GetValue(_documentStart) is not null
-                    )
-                        result.AddError(
-                            $"{_documentRoot.Name} and {_documentStart.Name} cannot be used together."
-                        );
-                    if (result.GetValue(_mediaRoot) && result.GetValue(_mediaStart) is not null)
-                        result.AddError(
-                            $"{_mediaRoot.Name} and {_mediaStart.Name} cannot be used together."
-                        );
-                }
-            );
+            cmd.Validators.Add(result =>
+            {
+                if (
+                    !result.TryGetValue(_documentStart, out var documentStart)
+                    || !result.TryGetValue(_mediaStart, out var mediaStart)
+                )
+                    return;
+                if (result.GetValue(_documentRoot) && documentStart is not null)
+                    result.AddError(
+                        $"{_documentRoot.Name} and {_documentStart.Name} cannot be used together."
+                    );
+                if (result.GetValue(_mediaRoot) && mediaStart is not null)
+                    result.AddError(
+                        $"{_mediaRoot.Name} and {_mediaStart.Name} cannot be used together."
+                    );
+            });
         }
 
         /// <summary>Reads the shared option values off a parsed command line.</summary>

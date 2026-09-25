@@ -183,20 +183,23 @@ public static class ChildSort
         cmd.Add(children);
         cmd.Add(by);
         cmd.Add(desc);
-        ListOption.ValidateParsed(
-            cmd,
-            result =>
-            {
-                var hasChildren = result.GetValue(children) is { Length: > 0 };
-                var hasBy = result.GetValue(by) is not null;
-                if (hasChildren == hasBy)
-                    result.AddError(
-                        "Give either --children (an explicit order) or --by (a field to order by)."
-                    );
-                else if (result.GetValue(desc) && !hasBy)
-                    result.AddError("--desc only applies with --by.");
-            }
-        );
+        cmd.Validators.Add(result =>
+        {
+            // A malformed value has its own parse error; the rule then has nothing to add.
+            if (
+                !result.TryGetValue(children, out var ids)
+                || !result.TryGetValue(by, out var key)
+                || !result.TryGetValue(desc, out var descending)
+            )
+                return;
+            var (hasChildren, hasBy) = (ids is { Length: > 0 }, key is not null);
+            if (hasChildren == hasBy)
+                result.AddError(
+                    "Give either --children (an explicit order) or --by (a field to order by)."
+                );
+            else if (descending && !hasBy)
+                result.AddError("--desc only applies with --by.");
+        });
         return new Options(children, by, desc);
     }
 

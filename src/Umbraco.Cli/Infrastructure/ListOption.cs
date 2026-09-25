@@ -58,40 +58,6 @@ public static class ListOption
             aliases
         );
 
-    /// <summary>
-    /// Runs a validator only when the options it reads parsed cleanly. Reading an option that
-    /// failed to parse throws inside a validator, and its parse error is already reported, so a
-    /// cross-option rule has nothing to add.
-    /// </summary>
-    /// <param name="cmd">The command.</param>
-    /// <param name="validate">The cross-option rule.</param>
-    public static void ValidateParsed(
-        Command cmd,
-        Action<System.CommandLine.Parsing.CommandResult> validate
-    ) =>
-        cmd.Validators.Add(result =>
-        {
-            try
-            {
-                validate(result);
-            }
-            catch (InvalidOperationException)
-            {
-                // An option did not parse; its own error says why.
-            }
-        });
-
-    /// <summary>Marks an option required, for options built by a factory rather than an initializer.</summary>
-    /// <typeparam name="TOption">The option type, kept so a subclass keeps its members.</typeparam>
-    /// <param name="option">The option.</param>
-    /// <returns>The same option.</returns>
-    public static TOption AsRequired<TOption>(this TOption option)
-        where TOption : Option
-    {
-        option.Required = true;
-        return option;
-    }
-
     /// <summary>A list of <typeparamref name="T"/> parsed by <paramref name="parse"/>.</summary>
     /// <typeparam name="T">The item type.</typeparam>
     /// <param name="name">The option name.</param>

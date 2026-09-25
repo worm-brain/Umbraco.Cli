@@ -160,17 +160,18 @@ public static class UserDataCommand
         };
         cmd.Add(keyArg);
         cmd.Add(keyOpt);
-        ListOption.ValidateParsed(
-            cmd,
-            result =>
-            {
-                var (positional, option) = (result.GetValue(keyArg), result.GetValue(keyOpt));
-                if (positional is null && option is null)
-                    result.AddError("Give the entry's key: 'user-data update <key> ...'.");
-                else if (positional is not null && option is not null && positional != option)
-                    result.AddError("The positional key and --key disagree; give one.");
-            }
-        );
+        cmd.Validators.Add(result =>
+        {
+            if (
+                !result.TryGetValue(keyArg, out var positional)
+                || !result.TryGetValue(keyOpt, out var option)
+            )
+                return;
+            if (positional is null && option is null)
+                result.AddError("Give the entry's key: 'user-data update <key> ...'.");
+            else if (positional is not null && option is not null && positional != option)
+                result.AddError("The positional key and --key disagree; give one.");
+        });
         cmd.Add(groupOpt);
         cmd.Add(identifierOpt);
         cmd.Add(valueOpt);
