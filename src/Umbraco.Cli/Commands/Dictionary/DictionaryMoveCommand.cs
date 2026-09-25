@@ -13,14 +13,14 @@ public static class DictionaryMoveCommand
     {
         var cmd = new Command(
             "move",
-            "Move a dictionary item under a new parent.\n\nExamples:\n  umbraco dictionary move Blog.Tags --target Blog\n  umbraco dictionary move Blog.Tags   # to the dictionary root"
+            "Move a dictionary item under a new parent.\n\nExamples:\n  umbraco dictionary move Blog.Tags --parent Blog\n  umbraco dictionary move Blog.Tags   # to the dictionary root"
         );
         var idArg = Reference.Argument(EntityKind.DictionaryItem, "key");
         var targetOpt = Reference.Option(
-            "--target",
+            "--parent",
             EntityKind.DictionaryItem,
             "The new parent; moves to the dictionary root if omitted",
-            "--parent"
+            "--target"
         );
         cmd.Add(idArg);
         cmd.Add(targetOpt);

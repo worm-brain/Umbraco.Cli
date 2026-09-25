@@ -80,9 +80,9 @@ public static class DataTypesAdvancedCommands
     {
         var cmd = new Command("copy", "Copy a data type, optionally under a target folder.");
         var idArg = Reference.Argument(EntityKind.DataType);
-        var targetOpt = new Option<Guid?>("--target", "--parent")
+        var targetOpt = new Option<Guid?>("--parent", "--target")
         {
-            Description = "Destination folder UUID; omit to copy to the root.",
+            Description = "Destination folder UUID; omit to copy to the root. --target works too.",
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);
@@ -113,9 +113,9 @@ public static class DataTypesAdvancedCommands
     {
         var cmd = new Command("move", "Move a data type under a folder (or to the root).");
         var idArg = Reference.Argument(EntityKind.DataType);
-        var targetOpt = new Option<Guid?>("--target", "--parent")
+        var targetOpt = new Option<Guid?>("--parent", "--target")
         {
-            Description = "Destination folder UUID; omit to move to the root.",
+            Description = "Destination folder UUID; omit to move to the root. --target works too.",
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);

@@ -386,9 +386,9 @@ public static class DocumentBlueprintCommand
             "Move a blueprint under a folder (or to the root when --target is omitted)."
         );
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
-        var targetOpt = new Option<Guid?>("--target", "--parent")
+        var targetOpt = new Option<Guid?>("--parent", "--target")
         {
-            Description = "Destination folder UUID; omit to move to the root.",
+            Description = "Destination folder UUID; omit to move to the root. --target works too.",
         };
         cmd.Add(idArg);
         cmd.Add(targetOpt);

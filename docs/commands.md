@@ -305,7 +305,7 @@ umbraco document-blueprint create --document-type <alias|uuid> --name <name> [--
 umbraco document-blueprint update <id> [--name <name>] [--json-body <file>] [--replace] [--schema]   # merges, like content update
 umbraco document-blueprint delete <id>                     # needs --yes non-interactively
 umbraco document-blueprint from-document <documentId> --name <name> [--parent <folder>] [--id <guid>]
-umbraco document-blueprint move <id> [--target <folder>]   # omit --target to move to the root; --parent works too
+umbraco document-blueprint move <id> [--parent <folder>]   # omit --parent to move to the root; --target works too
 
 # folder sub-noun (organise blueprints in the tree):
 umbraco document-blueprint folder get <id>
@@ -392,8 +392,8 @@ umbraco data-types create --schema                         # print a real data t
 umbraco data-types delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-types is-used <id|name>                       # whether any content type uses it
 umbraco data-types referenced-by <id|name> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
-umbraco data-types copy <id|name> [--target <folder>]      # omit --target to copy to the root; returns the copy
-umbraco data-types move <id|name> [--target <folder>]      # omit --target to move to the root; --parent works too
+umbraco data-types copy <id|name> [--parent <folder>]      # omit --parent to copy to the root; returns the copy; --target works too
+umbraco data-types move <id|name> [--parent <folder>]      # omit --parent to move to the root; --target works too
 
 # folder sub-noun (organise data types in the tree):
 umbraco data-types folder get <id>
@@ -534,7 +534,7 @@ umbraco dictionary tree [--parent <key|id>]                # browse the hierarch
 umbraco dictionary get <key|id>
 umbraco dictionary create --key <key> [--values en-US=Hello --values da-DK=Hej] [--parent <key|id>]   # --parent creates under an item
 umbraco dictionary update <key|id> [--key <key>] [--values en-US=Home ...]   # merges by ISO code
-umbraco dictionary move <key|id> [--target <key|id>]       # reparent; omit --target to move to the root
+umbraco dictionary move <key|id> [--parent <key|id>]       # reparent; omit --parent to move to the root; --target works too
 umbraco dictionary delete <key|id>                         # needs --yes non-interactively
 ```
 
