@@ -624,6 +624,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
         int skip = 0,
         int take = 20,
+        Guid? parentId = null,
         CancellationToken ct = default
     ) => Page(DataTypeList, skip, take);
 

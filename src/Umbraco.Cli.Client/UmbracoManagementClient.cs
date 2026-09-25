@@ -1753,11 +1753,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// </summary>
     /// <param name="skip">Number of items to skip (paging).</param>
     /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="parentId">Only the direct children of this folder; null lists every data type.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A paged list of data types mapped to <see cref="DataTypeResponse"/>.</returns>
     public Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
         int skip = 0,
         int take = 20,
+        Guid? parentId = null,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -1802,6 +1804,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                                             Id = i.Id!.Value,
                                             Name = i.Name ?? "",
                                             EditorUiAlias = i.EditorUiAlias,
+                                            Parent = i.Parent?.Id is { } pId
+                                                ? new ContentParentReference { Id = pId }
+                                                : null,
                                         }
                                     )
                                 ),
@@ -1813,7 +1818,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 // tells a caller a property's value shape (#174) - the reason the test round
                 // needed it. It is not on the tree, so the page is hydrated by id. Only the
                 // requested page, never the whole tree, so the cost is bounded by --take.
-                var page = all.Skip(skip).Take(take).ToList();
+                // --parent (#247): a folder's direct children, from the tree parent each leaf has.
+                var page = all.Where(d => parentId is null || d.Parent?.Id == parentId)
+                    .Skip(skip)
+                    .Take(take)
+                    .ToList();
 
                 // Concurrently, in bounded batches: serially this was one round trip per item,
                 // so --take 100 meant 100 in a row.
@@ -1825,7 +1834,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     hydrated.AddRange(await Task.WhenAll(batch));
                 }
 
-                return new PagedResponse<DataTypeResponse> { Total = all.Count, Items = hydrated };
+                return new PagedResponse<DataTypeResponse>
+                {
+                    Total = parentId is null ? all.Count : all.Count(d => d.Parent?.Id == parentId),
+                    Items = hydrated,
+                };
             }
         );
 
@@ -1853,7 +1866,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     {
         try
         {
-            return await ReadDataTypeAsync(item.Id, ct);
+            // The by-id body has no parent; keep the one the tree gave (#247).
+            return await ReadDataTypeAsync(item.Id, ct) with { Parent = item.Parent };
         }
         catch (ApiException)
         {

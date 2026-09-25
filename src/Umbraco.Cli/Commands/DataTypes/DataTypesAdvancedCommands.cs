@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
@@ -44,29 +45,50 @@ public static class DataTypesAdvancedCommands
     {
         var cmd = new Command(
             "referenced-by",
-            "List what references a data type (raw JSON; the references are a mixed set of kinds)."
+            "List what references a data type: the properties that use it, and the items holding values in it. "
+                + "Each row's 'kind' says what it is (e.g. documentTypePropertyType).\n\n"
+                + "Example:\n  umbraco data-types referenced-by Textstring"
         );
         var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 100);
+        // #247: the list envelope like every other list, not the raw paged model inside data.
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunObjectAsync(
+                executor.RunPagedAsync(
                     parseResult,
                     "data-types.referenced-by",
-                    (client, c) =>
+                    (client, skip, take, c) =>
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id =>
-                                client.GetDataTypeReferencedByRawAsync(
+                            async id =>
+                            {
+                                var raw = await client.GetDataTypeReferencedByRawAsync(
                                     id,
-                                    parseResult.GetValue(skipOpt),
-                                    parseResult.GetValue(takeOpt),
+                                    skip,
+                                    take,
                                     c
-                                ),
+                                );
+                                return raw.IsSuccess
+                                    ? UmbracoResponse<PagedResponse<JsonObject>>.Success(
+                                        DataTypeReferenceRows.From(raw.Data)
+                                    )
+                                    : UmbracoResponse<PagedResponse<JsonObject>>.FailureFrom(raw);
+                            },
                             c
                         ),
+                    ["Kind", "Alias", "Name", "On"],
+                    r =>
+                        new[]
+                        {
+                            r["kind"]?.GetValue<string?>() ?? "",
+                            r["alias"]?.GetValue<string?>() ?? "",
+                            r["name"]?.GetValue<string?>() ?? "",
+                            DataTypeReferenceRows.OwnerAlias(r),
+                        },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
                     ct
                 )
         );

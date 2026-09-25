@@ -926,6 +926,13 @@ public record DataTypeResponse
     public string? EditorUiAlias { get; init; }
 
     /// <summary>
+    /// The folder the data type is in (#247), from the data-type tree. Null at the root, and on
+    /// <c>get</c>, whose by-id body carries no parent.
+    /// </summary>
+    [JsonPropertyName("parent")]
+    public ContentParentReference? Parent { get; init; }
+
+    /// <summary>
     /// The editor's configuration (#170): a dropdown's items, a picker's filters, an RTE's
     /// toolbar. The write path already reads and merges these so an update cannot wipe them - this
     /// simply stops the read from hiding them.
