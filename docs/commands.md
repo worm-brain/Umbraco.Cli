@@ -643,9 +643,13 @@ umbraco manifest list [--scope All|Public|Private]         # default: All
 umbraco redirect list [--content <key>] [--filter <s>] [--skip <n>] [--take <n>]   # --content lists redirects to that document
 umbraco redirect status                                    # whether automatic URL-redirect tracking is enabled
 umbraco redirect delete <id>                               # needs --yes non-interactively
-umbraco redirect tracking enable                           # site-wide toggle; needs --yes non-interactively
+umbraco redirect tracking enable                           # site-wide toggle
 umbraco redirect tracking disable                          # site-wide toggle; needs --yes non-interactively
 ```
+
+Both toggles re-read the status afterwards and fail if it did not change. On Umbraco 17 the API
+accepts the request and can leave tracking as it was, because it is set by configuration
+(`Umbraco:CMS:WebRouting:DisableRedirectUrlTracking` in appsettings, then restart).
 
 ## `relation-type` / `relation` (read-only)
 

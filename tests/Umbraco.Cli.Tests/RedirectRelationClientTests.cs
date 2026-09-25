@@ -99,17 +99,51 @@ public class RedirectRelationClientTests
         Assert.EndsWith($"/redirect-management/{id}", handler.LastUri!.AbsolutePath);
     }
 
+    /// <summary>A handler whose status re-read reports <paramref name="statusAfter"/>.</summary>
+    private static RoutingHandler TrackingHandler(string statusAfter) =>
+        new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                $$"""{"status":"{{statusAfter}}","userIsAdmin":true}"""
+            )
+            .When(_ => true, HttpStatusCode.OK, "");
+
     [Fact]
     public async Task SetRedirectTrackingAsync_PostsStatusQuery()
     {
-        var (client, handler) = ClientReturning("");
+        var handler = TrackingHandler("Disabled");
 
-        var result = await client.SetRedirectTrackingAsync(false, CancellationToken.None);
+        await Wire.Client(handler).SetRedirectTrackingAsync(false, CancellationToken.None);
+
+        var post = handler.AssertRequested(HttpMethod.Post, "/redirect-management/status");
+        Assert.Contains("status=Disabled", post.Uri.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task SetRedirectTrackingAsync_StatusChanged_Succeeds()
+    {
+        var handler = TrackingHandler("Disabled");
+
+        var result = await Wire.Client(handler)
+            .SetRedirectTrackingAsync(false, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(HttpMethod.Post, handler.LastMethod);
-        Assert.EndsWith("/redirect-management/status", handler.LastUri!.AbsolutePath);
-        Assert.Contains("status=Disabled", handler.LastUri.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task SetRedirectTrackingAsync_UmbracoKeptTheOldStatus_FailsAndNamesTheSetting()
+    {
+        // #249: Umbraco 17 answers the POST with 200 and leaves tracking enabled; the CLI used
+        // to report success anyway.
+        var handler = TrackingHandler("Enabled");
+
+        var result = await Wire.Client(handler)
+            .SetRedirectTrackingAsync(false, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(FailureCategory.UnexpectedResponse, result.Category);
+        Assert.Contains("DisableRedirectUrlTracking", result.ErrorMessage);
     }
 
     [Fact]
