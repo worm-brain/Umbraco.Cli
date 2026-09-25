@@ -302,7 +302,7 @@ create` (scalar flags OR `--json-body` OR `--schema`).
 ```bash
 umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>]   # --parent lists a folder's children
 umbraco document-blueprint get <id>                        # raw JSON (full fidelity)
-umbraco document-blueprint scaffold <id>                   # pre-filled create template Umbraco would use
+umbraco document-blueprint scaffold <id>                   # pre-filled create body; pipe it into content create --json-body -
 umbraco document-blueprint create --document-type <alias|uuid> --name <name> [--culture <code>] [--parent <folder>] [--json-body <file>] [--schema] [--id <guid>]
 umbraco document-blueprint update <id> [--name <name> [--culture <code>]] [--json-body <file>] [--replace] [--schema]   # merges, like content update
 umbraco document-blueprint delete <id>                     # needs --yes non-interactively
@@ -324,6 +324,7 @@ umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; ea
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco media get <id>                                     # includes urls[] and file metadata in values[]; mediaType.alias is the real alias
 umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <id|alias|name>] [--id <guid>] [--value alias=value]...  # staged via temporary-file
+umbraco media update <id> [--name <name>] [--value alias=value]... [--json-body <file>] [--replace]   # merged like content update; the file is kept
 # --id keeps the item's GUID across instances (content references media by id);
 # --value sets other properties, e.g. a custom media type's required fields
 umbraco media delete <id>                                  # permanent; needs --yes
@@ -345,8 +346,10 @@ deletes with the usual `media` verbs, and its id is what `media upload --parent`
 
 ```bash
 umbraco media-types list
-umbraco media-types get <id|alias|name>
+umbraco media-types get <id|alias|name>                   # the full Management API body: properties, groups, allowed children
 umbraco media-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root]
+umbraco media-types create --json-body <file> [--id <guid>]
+umbraco media-types update <id|alias|name> --json-body <file> [--replace]   # merged into the type
 umbraco media-types delete <id|alias|name> --force                  # deletes every media item of the type too; --force always required, plus --yes non-interactively
 ```
 
@@ -354,11 +357,11 @@ umbraco media-types delete <id|alias|name> --force                  # deletes ev
 
 ```bash
 umbraco content-types list
-umbraco content-types get <alias|id>                       # includes properties, groups, templates
+umbraco content-types get <alias|id>                       # the full Management API body - a valid update --json-body
 umbraco content-types create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
 umbraco content-types create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns {id, name, alias}
-umbraco content-types update <alias|id> --json-body <file> # full replace
-umbraco content-types create --schema                      # print a real document type as a worked example (needs a host)
+umbraco content-types update <alias|id> --json-body <file> [--replace]   # merged into the type; --replace sends the whole type
+umbraco content-types create --schema                      # print a real document type (a minimal one on an empty site) as a worked example (needs a host)
 umbraco content-types delete <id|alias> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
 ```
 
@@ -378,22 +381,27 @@ umbraco content-types update blogPost --json-body t.json
 JSON Schema, so the example cannot drift from what the API actually accepts. That is why it
 needs a host, unlike `--schema` on `content create`.
 
-`update` is a full replace, so send the whole body - not a patch. Both verbs take the alias or
-the id.
+`get` prints the Management API body verbatim, so its output is a valid `--json-body` as it
+stands. `update` merges the body's **top-level keys** into the type: a key you leave out keeps
+its value, and a key you send replaces it whole (a `properties` array is the complete list, not a
+delta). `--replace` sends the body as the whole type instead. The type's own id always wins over
+an `id` in the body. On a site with no document types yet, `--schema` prints a minimal valid body
+rather than failing. The same applies to `data-types`, `media-types`, `member-types` and
+`templates`. All take the alias (or name) or the id.
 
 ## `data-types`
 
 ```bash
-umbraco data-types list                                    # includes editorAlias (one read per item)
-umbraco data-types get <name|id>                           # by NAME (a data type has no alias); includes its configuration
+umbraco data-types list [--parent <folder>]                # includes editorAlias (one read per item) and the folder as parent
+umbraco data-types get <name|id>                           # by NAME (a data type has no alias); the full body, configuration included
 umbraco data-types create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-types create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns {id, name}
 umbraco data-types update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
-umbraco data-types update <name|id> --json-body <file>     # full replace, the only way to set `values`
+umbraco data-types update <name|id> --json-body <file> [--replace]   # merged; the only way to set `values`
 umbraco data-types create --schema                         # print a real data type as a worked example (needs a host)
 umbraco data-types delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-types is-used <id|name>                       # whether any content type uses it
-umbraco data-types referenced-by <id|name> [--skip <n>] [--take <n>]   # raw JSON; mixed reference kinds
+umbraco data-types referenced-by <id|name> [--skip <n>] [--take <n>]   # a list; each row's `kind` says what it is
 umbraco data-types copy <id|name> [--parent <folder>]      # omit --parent to copy to the root; returns the copy; --target works too
 umbraco data-types move <id|name> [--parent <folder>]      # omit --parent to move to the root; --target works too
 
@@ -440,9 +448,10 @@ umbraco languages delete <iso-code>                        # needs --yes non-int
 
 ```bash
 umbraco templates list                                     # every template, nested ones too, with its alias
-umbraco templates get <id|alias>
+umbraco templates get <id|alias>                          # includes the view `content`
 umbraco templates create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
 umbraco templates update <id|alias> [--name <name>] [--alias <alias>] [--content <razor> | --content-file <file>]   # omitted fields are kept
+umbraco templates update <id|alias> --json-body <file> [--replace]   # the body `templates get` prints, merged
 umbraco templates delete <id|alias>                        # needs --yes non-interactively
 ```
 
@@ -472,9 +481,11 @@ dropped.
 
 ```bash
 umbraco member-types list
-umbraco member-types get <id|alias>
+umbraco member-types get <id|alias>                       # the full body, properties and groups included
 umbraco member-types create --name <name> --alias <alias> [--icon <alias>]
+umbraco member-types create --json-body <file> [--id <guid>]
 umbraco member-types update <id|alias> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
+umbraco member-types update <id|alias> --json-body <file> [--replace]   # merged into the type
 umbraco member-types delete <id|alias> [--force]               # refused while it has members unless --force (deletes them); --yes non-interactively
 ```
 

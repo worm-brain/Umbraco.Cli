@@ -17,6 +17,7 @@ public static class MediaTypesCommand
         cmd.Add(MediaTypesListCommand.Build(executor));
         cmd.Add(MediaTypesGetCommand.Build(executor));
         cmd.Add(MediaTypesCreateCommand.Build(executor));
+        cmd.Add(MediaTypesUpdateCommand.Build(executor));
         cmd.Add(MediaTypesDeleteCommand.Build(executor));
         return cmd;
     }

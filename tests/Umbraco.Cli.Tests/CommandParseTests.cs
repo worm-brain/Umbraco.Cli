@@ -748,6 +748,12 @@ public class CommandParseTests
     [InlineData("property-type is-used --alias bodyText")] // missing required --content-type
     [InlineData("data-types folder get not-a-uuid")] // folders have no name lookup
     [InlineData("data-types folder create")] // missing required --name
+    [InlineData("templates update --name X")] // id now optional at parse level; the validator requires it
+    [InlineData("member-types update --name X")]
+    [InlineData("media-types update")] // no id and no --json-body
+    [InlineData("media-types update brochure")] // no --json-body (it has no flags)
+    [InlineData("content-types update blogPost --replace")] // --replace needs a body
+    [InlineData("media-types create --name OnlyName")] // --alias missing and no body
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]

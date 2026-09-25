@@ -16,7 +16,7 @@ namespace Umbraco.Cli.Tests;
 public class SchemaAuthoringTests
 {
     [Fact]
-    public async Task CreateDocumentTypeRawAsync_SendsTheBodyVerbatim()
+    public async Task CreateSchemaRawDocumentType_SendsTheBodyVerbatim()
     {
         var handler = Wire.Blank();
         var body = JsonNode.Parse(
@@ -32,7 +32,7 @@ public class SchemaAuthoringTests
         )!;
 
         var result = await Wire.Client(handler)
-            .CreateDocumentTypeRawAsync(body, CancellationToken.None);
+            .CreateSchemaRawAsync(EntityKind.DocumentType, body, CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
         // Verbatim: nothing between the caller's body and the API, which is the point - a typed
@@ -44,7 +44,7 @@ public class SchemaAuthoringTests
     }
 
     [Fact]
-    public async Task UpdateDataTypeRawAsync_CanSetTheEditorConfiguration()
+    public async Task UpdateByReferenceDataType_CanSetTheEditorConfiguration()
     {
         var id = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var handler = Wire.Blank();
@@ -59,7 +59,14 @@ public class SchemaAuthoringTests
             """
         )!;
 
-        await Wire.Client(handler).UpdateDataTypeRawAsync(id, body, CancellationToken.None);
+        await Wire.Client(handler)
+            .MergeSchemaItemAsync(
+                EntityKind.DataType,
+                id,
+                body,
+                replace: true,
+                CancellationToken.None
+            );
 
         // #169: `values` is the dropdown's items. The typed update deliberately never exposed it,
         // so setting it needed a schema round-trip.
@@ -74,7 +81,7 @@ public class SchemaAuthoringTests
     // ── addressing a type by the key a human has (#159), resolved by the client ──
 
     [Fact]
-    public async Task UpdateDocumentTypeRawAsync_ByAlias_ResolvesItThenPutsToTheResolvedId()
+    public async Task UpdateByReferenceDocumentType_ByAlias_ResolvesItThenPutsToTheResolvedId()
     {
         var id = Guid.Parse("44444444-4444-4444-4444-444444444444");
         var handler = Wire.Routed(
@@ -83,7 +90,8 @@ public class SchemaAuthoringTests
         );
 
         var result = await Wire.Client(handler)
-            .UpdateDocumentTypeRawAsync(
+            .UpdateByReferenceAsync(
+                EntityKind.DocumentType,
                 "blogPost",
                 JsonNode.Parse("""{ "alias": "blogPost", "name": "Blog Post" }""")!,
                 CancellationToken.None
@@ -98,12 +106,13 @@ public class SchemaAuthoringTests
     }
 
     [Fact]
-    public async Task UpdateDocumentTypeRawAsync_UnknownAlias_FailsWithoutWriting()
+    public async Task UpdateByReferenceDocumentType_UnknownAlias_FailsWithoutWriting()
     {
         var handler = Wire.Routed(("tree/document-type", """{ "total": 0, "items": [] }"""));
 
         var result = await Wire.Client(handler)
-            .UpdateDocumentTypeRawAsync(
+            .UpdateByReferenceAsync(
+                EntityKind.DocumentType,
                 "noSuchType",
                 JsonNode.Parse("""{ "alias": "noSuchType" }""")!,
                 CancellationToken.None
@@ -118,7 +127,7 @@ public class SchemaAuthoringTests
     }
 
     [Fact]
-    public async Task UpdateDataTypeRawAsync_ByName_ResolvesItThenPutsToTheResolvedId()
+    public async Task UpdateByReferenceDataType_ByName_ResolvesItThenPutsToTheResolvedId()
     {
         var id = Guid.Parse("55555555-5555-5555-5555-555555555555");
         var handler = Wire.Routed(
@@ -129,7 +138,8 @@ public class SchemaAuthoringTests
         );
 
         var result = await Wire.Client(handler)
-            .UpdateDataTypeRawAsync(
+            .UpdateByReferenceAsync(
+                EntityKind.DataType,
                 "Blog Categories",
                 JsonNode.Parse("""{ "name": "Blog Categories" }""")!,
                 CancellationToken.None
@@ -197,9 +207,8 @@ public class SchemaAuthoringTests
         var client = Wire.Client(handler);
 
         var example = await Umbraco.Cli.Commands.RawBodyCommand.ExampleAsync(
-            client.GetDocumentTypeIdsAsync,
-            client.GetDocumentTypeRawAsync,
-            "document types",
+            client,
+            Umbraco.Cli.Commands.SchemaNoun.DocumentTypes,
             CancellationToken.None
         );
 
@@ -210,20 +219,89 @@ public class SchemaAuthoringTests
     }
 
     [Fact]
-    public async Task Example_OnAnInstanceWithNone_SaysSoRatherThanFailingObscurely()
+    public async Task Example_OnAnInstanceWithNone_PrintsTheBuiltInMinimalBody()
     {
         var handler = Wire.Routed(("tree/document-type", """{ "total": 0, "items": [] }"""));
         var client = Wire.Client(handler);
 
         var example = await Umbraco.Cli.Commands.RawBodyCommand.ExampleAsync(
-            client.GetDocumentTypeIdsAsync,
-            client.GetDocumentTypeRawAsync,
-            "document types",
+            client,
+            Umbraco.Cli.Commands.SchemaNoun.DocumentTypes,
             CancellationToken.None
         );
 
-        Assert.False(example.IsSuccess);
-        Assert.Contains("no document types", example.ErrorMessage);
+        // #200: a fresh site is when the shape is most needed, so it gets a body, not a 404.
+        Assert.True(example.IsSuccess, example.ErrorMessage);
+        Assert.Equal("myDocumentType", example.Data!["alias"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Example_KindWithNoBuiltInBody_SaysSoRatherThanFailingObscurely()
+    {
+        var client = Wire.Client(Wire.Routed(("tree/template", """{ "total": 0, "items": [] }""")));
+
+        var example = await Umbraco.Cli.Commands.RawBodyCommand.ExampleAsync(
+            client,
+            Umbraco.Cli.Commands.SchemaNoun.Templates,
+            CancellationToken.None
+        );
+
+        Assert.Equal(404, example.StatusCode);
         Assert.Contains("Create one first", example.ErrorMessage);
     }
+
+    /// <summary>
+    /// The built-in bodies are a second definition of the create shape, which is the kind of copy
+    /// that goes stale; this ties each one to the spec the client is generated from.
+    /// </summary>
+    [Theory]
+    [InlineData(EntityKind.DocumentType, "CreateDocumentTypeRequestModel")]
+    [InlineData(EntityKind.MediaType, "CreateMediaTypeRequestModel")]
+    [InlineData(EntityKind.MemberType, "CreateMemberTypeRequestModel")]
+    [InlineData(EntityKind.DataType, "CreateDataTypeRequestModel")]
+    public void MinimalBody_CarriesEveryFieldTheSpecRequires(EntityKind kind, string model)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Umbraco.Cli.sln")))
+            dir = dir.Parent;
+        var spec = System.Text.Json.Nodes.JsonNode.Parse(
+            File.ReadAllText(Path.Combine(dir!.FullName, "spec", "management.json"))
+        )!;
+        var required = spec["components"]!["schemas"]![model]!["required"]!
+            .AsArray()
+            .Select(r => r!.GetValue<string>())
+            .ToList();
+
+        var body = Umbraco.Cli.Commands.RawBodyCommand.MinimalBody(kind)!.AsObject();
+
+        Assert.Empty(required.Where(r => !body.ContainsKey(r)));
+    }
+}
+
+/// <summary>
+/// Resolve-then-replace, the composition <c>update --json-body --replace</c> makes out of the
+/// resolver and <see cref="UmbracoManagementClient.MergeSchemaItemAsync"/> (#159, #201).
+/// </summary>
+internal static class SchemaUpdateByReference
+{
+    /// <summary>Resolves <paramref name="reference"/> and replaces that item with <paramref name="body"/>.</summary>
+    /// <param name="client">The client.</param>
+    /// <param name="kind">The schema kind.</param>
+    /// <param name="reference">The id, alias or name.</param>
+    /// <param name="body">The body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The write's result, or the resolution failure.</returns>
+    public static Task<UmbracoResponse<Empty>> UpdateByReferenceAsync(
+        this UmbracoManagementClient client,
+        EntityKind kind,
+        string reference,
+        JsonNode body,
+        CancellationToken ct
+    ) =>
+        client.WithResolvedAsync(
+            kind,
+            reference,
+            id => client.MergeSchemaItemAsync(kind, id, body, replace: true, ct),
+            ct
+        );
 }

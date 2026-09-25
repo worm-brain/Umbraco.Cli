@@ -6,19 +6,7 @@ public interface IDataTypeClient
     Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
         int skip = 0,
         int take = 20,
-        CancellationToken ct = default
-    );
-
-    /// <summary>
-    /// Gets a data type by its name or its id (#159). A data type has no alias - <c>editorAlias</c>
-    /// names the <i>editor</i> behind it, not the type - so the human-facing key is the name, as
-    /// it is for media types.
-    /// </summary>
-    /// <param name="nameOrId">The data type name (e.g. <c>Textstring</c>) or its id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The data type, or a mapped failure.</returns>
-    Task<UmbracoResponse<DataTypeResponse>> GetDataTypeAsync(
-        string nameOrId,
+        Guid? parentId = null,
         CancellationToken ct = default
     );
 
@@ -58,21 +46,6 @@ public interface IDataTypeClient
     Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
         string nameOrId,
         UpdateDataTypeRequest request,
-        CancellationToken ct = default
-    );
-
-    /// <summary>
-    /// Replaces a data type addressed by name or id with a verbatim body (#169), resolving the
-    /// name as <see cref="UpdateDataTypeAsync(string, UpdateDataTypeRequest, CancellationToken)"/>
-    /// does.
-    /// </summary>
-    /// <param name="nameOrId">The data type name or its id.</param>
-    /// <param name="body">The full replacement data-type JSON body.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    Task<UmbracoResponse<Empty>> UpdateDataTypeRawAsync(
-        string nameOrId,
-        System.Text.Json.Nodes.JsonNode body,
         CancellationToken ct = default
     );
 

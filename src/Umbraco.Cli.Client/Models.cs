@@ -131,6 +131,18 @@ public record UmbracoResponse<T>
             };
 
     /// <summary>
+    /// Maps a success's payload with <paramref name="map"/>, or carries a failure through
+    /// unchanged - the one place the "success: map, failure: re-wrap" branch is written.
+    /// </summary>
+    /// <typeparam name="TOut">The mapped payload type.</typeparam>
+    /// <param name="map">Maps the payload; only called on a success.</param>
+    /// <returns>The mapped success, or the same failure.</returns>
+    public UmbracoResponse<TOut> Map<TOut>(Func<T, TOut> map) =>
+        IsSuccess
+            ? UmbracoResponse<TOut>.Success(map(Data!))
+            : UmbracoResponse<TOut>.FailureFrom(this);
+
+    /// <summary>
     /// Best-effort category from a status code, for callers that do not pass one explicitly.
     /// A status of 0 (no response) defaults to <see cref="FailureCategory.Unreachable"/>; the
     /// timeout path sets <see cref="FailureCategory.Timeout"/> itself.
@@ -220,8 +232,12 @@ public record ContentItemResponse
     [JsonPropertyName("createDate")]
     public DateTimeOffset CreateDate { get; init; }
 
+    /// <summary>
+    /// When the item was last saved. Null (and so left out of JSON) on list and tree rows, which
+    /// the Management API returns without it (#202) - a default date read as a real one.
+    /// </summary>
     [JsonPropertyName("updateDate")]
-    public DateTimeOffset UpdateDate { get; init; }
+    public DateTimeOffset? UpdateDate { get; init; }
 
     /// <summary>
     /// The item's property values (#168). Null when the item was read from a list or tree walk,
@@ -564,8 +580,12 @@ public record MediaItemResponse
     [JsonPropertyName("createDate")]
     public DateTimeOffset CreateDate { get; init; }
 
+    /// <summary>
+    /// When the item was last saved. Null (and so left out of JSON) on list and tree rows, which
+    /// the Management API returns without it (#202) - a default date read as a real one.
+    /// </summary>
     [JsonPropertyName("updateDate")]
-    public DateTimeOffset UpdateDate { get; init; }
+    public DateTimeOffset? UpdateDate { get; init; }
 
     /// <summary>
     /// The item's property values (#172). This is where the file actually lives: Umbraco keeps
@@ -809,6 +829,21 @@ public record MediaVariant
     public string Name { get; init; } = "";
 }
 
+/// <summary>
+/// A media update (#220): values and variants merged into the item, matched like
+/// <see cref="UpdateContentRequest"/> on alias + culture + segment.
+/// </summary>
+public record UpdateMediaRequest
+{
+    /// <summary>Property values to set; any value not named keeps its current one.</summary>
+    [JsonPropertyName("values")]
+    public IEnumerable<ContentValue> Values { get; init; } = [];
+
+    /// <summary>Variants (names) to set; any variant not named keeps its current one.</summary>
+    [JsonPropertyName("variants")]
+    public IEnumerable<ContentVariant> Variants { get; init; } = [];
+}
+
 /// <summary>A single media property value (e.g. <c>umbracoFile</c> pointing at a staged temporary file).</summary>
 public record MediaValue
 {
@@ -916,6 +951,13 @@ public record DataTypeResponse
 
     [JsonPropertyName("editorUiAlias")]
     public string? EditorUiAlias { get; init; }
+
+    /// <summary>
+    /// The folder the data type is in (#247), from the data-type tree that <c>data-types list</c>
+    /// walks. Null at the root. (<c>data-types get</c> prints the raw by-id body, which has none.)
+    /// </summary>
+    [JsonPropertyName("parent")]
+    public ContentParentReference? Parent { get; init; }
 
     /// <summary>
     /// The editor's configuration (#170): a dropdown's items, a picker's filters, an RTE's

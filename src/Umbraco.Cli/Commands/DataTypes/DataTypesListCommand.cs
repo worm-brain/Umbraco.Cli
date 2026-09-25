@@ -11,12 +11,19 @@ public static class DataTypesListCommand
             "List all data types (property editors) configured in the Umbraco instance.\n\nEach item on the page is read individually so it can carry its editorAlias, which is what decides a property's value format - so this costs one request per item returned. Use --take to bound it.\n\nExample:\n  umbraco data-types list --take 50"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd, defaultTake: 20);
+        // #247: there was no way to see what a data-type folder holds.
+        var parentOpt = new Option<Guid?>("--parent")
+        {
+            Description = "List only the data types directly inside this folder (its UUID).",
+        };
+        cmd.Add(parentOpt);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
                     "data-types.list",
-                    (client, skip, take, c) => client.GetDataTypesAsync(skip, take, c),
+                    (client, skip, take, c) =>
+                        client.GetDataTypesAsync(skip, take, parseResult.GetValue(parentOpt), c),
                     // #176: editorAlias is what decides a property's value shape (#174), so the
                     // list carries it even though the tree items do not - the client hydrates
                     // each one. See the note in the command description about the cost.

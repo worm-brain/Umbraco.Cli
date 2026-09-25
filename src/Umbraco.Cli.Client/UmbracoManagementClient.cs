@@ -139,7 +139,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return new PagedResponse<ContentItemResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? []).Select(MapDocumentTreeItem).ToList(),
+                    Items = await WithDocumentTypeAliasesAsync(
+                        (paged?.Items ?? []).Select(MapDocumentTreeItem),
+                        ct
+                    ),
                 };
             }
         );
@@ -181,8 +184,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                             is Gen.DocumentVariantStateModel.Published
                                 or Gen.DocumentVariantStateModel.PublishedPendingChanges
                     ),
+                    // #205: the by-id body has no parent at all, so it comes from the tree.
+                    Parent = await DocumentParentAsync(id, ct),
                     CreateDate = variant?.CreateDate ?? default,
-                    UpdateDate = variant?.UpdateDate ?? default,
+                    UpdateDate = variant?.UpdateDate,
                     // #168: the whole document, not a summary of its first variant. Without these
                     // a get -> edit -> update round-trip is impossible through the CLI alone.
                     Values = MapValueResponses(d?.Values),
@@ -972,7 +977,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return new PagedResponse<MediaItemResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? []).Select(MapMediaTreeItem).ToList(),
+                    Items = await WithMediaTypeAliasesAsync(
+                        (paged?.Items ?? []).Select(MapMediaTreeItem),
+                        ct
+                    ),
                 };
             }
         );
@@ -1004,7 +1012,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     ? MediaTypeAliasAsync(typeId, ct)
                     : Task.FromResult<string?>(null);
                 var urlsTask = MediaUrlsAsync(id, ct);
-                await Task.WhenAll(aliasTask, urlsTask);
+                // #205: the by-id body has no parent; the tree does.
+                var parentTask = MediaParentAsync(id, ct);
+                await Task.WhenAll(aliasTask, urlsTask, parentTask);
 
                 return new MediaItemResponse
                 {
@@ -1016,7 +1026,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         ? new ContentTypeRef { Id = mtId, Alias = aliasTask.Result }
                         : null,
                     CreateDate = variant?.CreateDate ?? default,
-                    UpdateDate = variant?.UpdateDate ?? default,
+                    Parent = parentTask.Result,
+                    UpdateDate = variant?.UpdateDate,
                     // #172: width, height, bytes and extension are all in values[]; they were
                     // being fetched and thrown away on every read.
                     Values = MapMediaValueResponses(m?.Values),
@@ -1404,34 +1415,6 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         ];
     }
 
-    /// <summary>Gets a single media type by id (issue #55). Reads <c>GET /media-type/{id}</c>.</summary>
-    /// <param name="id">The media type id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The media type mapped to <see cref="MediaTypeResponse"/>.</returns>
-    public Task<UmbracoResponse<MediaTypeResponse>> GetMediaTypeByIdAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var m = await _api
-                    .Umbraco.Management.Api.V1.MediaType[id]
-                    .GetAsync(cancellationToken: ct);
-                return new MediaTypeResponse
-                {
-                    Id = m?.Id ?? id,
-                    Name = m?.Name ?? "",
-                    Alias = m?.Alias ?? "",
-                    Description = m?.Description,
-                    Icon = m?.Icon,
-                    IsElement = m?.IsElement ?? false,
-                    AllowedAsRoot = m?.AllowedAsRoot ?? false,
-                };
-            }
-        );
-
     /// <summary>
     /// Creates a media type via <c>POST media-type</c> (generated client, issue #55). The id is
     /// client-generated (Umbraco 14+ accepts a supplied GUID), so the created type is echoed
@@ -1743,11 +1726,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// </summary>
     /// <param name="skip">Number of items to skip (paging).</param>
     /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="parentId">Only the direct children of this folder; null lists every data type.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A paged list of data types mapped to <see cref="DataTypeResponse"/>.</returns>
     public Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
         int skip = 0,
         int take = 20,
+        Guid? parentId = null,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -1755,9 +1740,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             async () =>
             {
                 var all = await CollectTreeLeavesAsync<DataTypeResponse>(
-                    async (parentId, s, t, c) =>
+                    async (node, s, t, c) =>
                     {
-                        var items = parentId is null
+                        var items = node is null
                             ? (
                                 await _api.Umbraco.Management.Api.V1.Tree.DataType.Root.GetAsync(
                                     q =>
@@ -1772,7 +1757,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                                 await _api.Umbraco.Management.Api.V1.Tree.DataType.Children.GetAsync(
                                     q =>
                                     {
-                                        q.QueryParameters.ParentId = parentId;
+                                        q.QueryParameters.ParentId = node;
                                         q.QueryParameters.Skip = s;
                                         q.QueryParameters.Take = t;
                                     },
@@ -1792,6 +1777,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                                             Id = i.Id!.Value,
                                             Name = i.Name ?? "",
                                             EditorUiAlias = i.EditorUiAlias,
+                                            Parent = i.Parent?.Id is { } pId
+                                                ? new ContentParentReference { Id = pId }
+                                                : null,
                                         }
                                     )
                                 ),
@@ -1803,7 +1791,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 // tells a caller a property's value shape (#174) - the reason the test round
                 // needed it. It is not on the tree, so the page is hydrated by id. Only the
                 // requested page, never the whole tree, so the cost is bounded by --take.
-                var page = all.Skip(skip).Take(take).ToList();
+                // --parent (#247): a folder's direct children, from the tree parent each leaf has.
+                var scoped = parentId is null ? all : [.. all.Where(d => d.Parent?.Id == parentId)];
+                var page = scoped.Skip(skip).Take(take).ToList();
 
                 // Concurrently, in bounded batches: serially this was one round trip per item,
                 // so --take 100 meant 100 in a row.
@@ -1815,7 +1805,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     hydrated.AddRange(await Task.WhenAll(batch));
                 }
 
-                return new PagedResponse<DataTypeResponse> { Total = all.Count, Items = hydrated };
+                return new PagedResponse<DataTypeResponse>
+                {
+                    Total = scoped.Count,
+                    Items = hydrated,
+                };
             }
         );
 
@@ -1843,7 +1837,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     {
         try
         {
-            return await ReadDataTypeAsync(item.Id, ct);
+            // The by-id body has no parent; keep the one the tree gave (#247).
+            return await ReadDataTypeAsync(item.Id, ct) with { Parent = item.Parent };
         }
         catch (ApiException)
         {
@@ -2156,40 +2151,6 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                                 Alias = t.Alias ?? "",
                             }),
                     ],
-                };
-            }
-        );
-
-    /// <summary>
-    /// Gets a single template by alias OR id (issue #44 — there is no <c>GET /template?alias=</c>
-    /// endpoint; Umbraco only exposes <c>GET /template/{id}</c>). A GUID argument is used
-    /// directly; otherwise the alias is resolved to an id via <c>item/template/search</c>
-    /// (matched case-insensitively on the exact alias) before the by-id fetch.
-    /// </summary>
-    /// <param name="aliasOrId">The template alias (e.g. "master") or its id (GUID).</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The template mapped to <see cref="TemplateResponse"/>.</returns>
-    public Task<UmbracoResponse<TemplateResponse>> GetTemplateByAliasAsync(
-        string aliasOrId,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var id = await IdOfAsync(EntityKind.Template, aliasOrId, ct);
-
-                var t = await _api
-                    .Umbraco.Management.Api.V1.Template[id]
-                    .GetAsync(cancellationToken: ct);
-                return new TemplateResponse
-                {
-                    Id = t?.Id ?? id,
-                    Name = t?.Name ?? "",
-                    Alias = t?.Alias ?? "",
-                    MasterTemplate = t?.MasterTemplate?.Id is { } mid
-                        ? new ContentTypeReference { Id = mid }
-                        : null,
                 };
             }
         );
@@ -2710,32 +2671,6 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 {
                     Total = all.Count,
                     Items = all.Skip(skip).Take(take).ToList(),
-                };
-            }
-        );
-
-    /// <summary>Gets a single member type by id (issue #56). Reads <c>GET /member-type/{id}</c>.</summary>
-    /// <param name="id">The member type id.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The member type mapped to <see cref="MemberTypeResponse"/>.</returns>
-    public Task<UmbracoResponse<MemberTypeResponse>> GetMemberTypeByIdAsync(
-        Guid id,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var m = await _api
-                    .Umbraco.Management.Api.V1.MemberType[id]
-                    .GetAsync(cancellationToken: ct);
-                return new MemberTypeResponse
-                {
-                    Id = m?.Id ?? id,
-                    Name = m?.Name ?? "",
-                    Alias = m?.Alias ?? "",
-                    Description = m?.Description,
-                    Icon = m?.Icon,
                 };
             }
         );

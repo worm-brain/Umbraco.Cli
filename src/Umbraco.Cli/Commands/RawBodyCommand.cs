@@ -6,19 +6,26 @@ using Umbraco.Cli.Infrastructure;
 namespace Umbraco.Cli.Commands;
 
 /// <summary>
-/// Wiring for the schema commands that accept a full Management API body (#161/#169).
+/// Wiring for the schema commands that accept a full Management API body (#161/#169, #250 Phase 5).
 /// <para>
 /// A document type's properties and groups, and a data type's editor configuration, are too
 /// structured to express as flags - which is why authoring either one meant a
 /// <c>schema export -&gt; jq -&gt; schema apply</c> round-trip through the whole instance. These
 /// commands take the body directly and hand it to the raw client, so the shape a caller edits is
-/// the shape the API defines, with nothing in between to drift.
+/// the shape the API defines, with nothing in between to drift. <c>get</c> prints that same shape,
+/// and <c>update --json-body</c> merges it back (#201).
 /// </para>
 /// <para>
-/// <c>--schema</c> reads a real type off the instance and prints it as a worked example. That
-/// makes it host-requiring, unlike the typed <c>--schema</c> on <c>content create</c> - a
-/// deliberate trade: a hand-written schema beside a passthrough body is a second definition that
-/// goes stale silently, which is the failure this whole plan keeps finding.
+/// <c>--schema</c> reads a real item off the instance and prints it as a worked example. That makes
+/// it host-requiring, unlike the typed <c>--schema</c> on <c>content create</c> - a deliberate
+/// trade: a hand-written schema beside a passthrough body is a second definition that goes stale
+/// silently. The one exception is an instance with none to copy (#200), where a minimal body is
+/// printed instead; a test ties each minimal body to the spec so it cannot drift.
+/// </para>
+/// <para>
+/// Each schema verb states only its own flags. The <c>--json-body</c> / <c>--schema</c> /
+/// <c>--replace</c> options, their validation and the three-way branch (schema, body, flags) live
+/// here once, keyed by a <see cref="SchemaNoun"/>.
 /// </para>
 /// </summary>
 public static class RawBodyCommand
@@ -38,39 +45,367 @@ public static class RawBodyCommand
         return body;
     }
 
+    // ── get ──────────────────────────────────────────────────────────────────
+
     /// <summary>
-    /// Runs the <c>--schema</c> branch: prints a real entity of this kind off the instance.
-    /// Identical at all four schema verbs, so it lives here rather than four times over.
+    /// Runs a schema <c>get</c>: resolves the reference and prints the item's verbatim Management
+    /// API body, which is exactly the shape <c>update --json-body</c> takes back (#201).
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
     /// <param name="commandName">The command name for the output envelope.</param>
-    /// <param name="listIds">Lists the ids of this kind, given a client.</param>
-    /// <param name="getRaw">Reads one verbatim by id, given a client.</param>
-    /// <param name="kind">The noun, for the error when the instance has none.</param>
+    /// <param name="noun">The schema noun.</param>
+    /// <param name="idArg">The <c>&lt;id|alias&gt;</c> argument.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The command's exit code.</returns>
+    public static Task<int> RunGetAsync(
+        CommandExecutor executor,
+        ParseResult parseResult,
+        string commandName,
+        SchemaNoun noun,
+        ReferenceArgument idArg,
+        CancellationToken ct
+    ) =>
+        executor.RunObjectAsync(
+            parseResult,
+            commandName,
+            (client, c) =>
+                idArg.WithResolvedAsync(
+                    parseResult,
+                    client,
+                    id => client.GetSchemaRawAsync(noun.Kind, id, c),
+                    c
+                ),
+            ct
+        );
+
+    // ── create ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Adds <c>--json-body</c> / <c>--schema</c> to a schema <c>create</c>, with the rule that the
+    /// flag-built create needs <paramref name="required"/> unless a body (which carries them
+    /// itself) or <c>--schema</c> (which builds nothing) is given.
+    /// </summary>
+    /// <param name="cmd">The command.</param>
+    /// <param name="noun">The schema noun, for the message.</param>
+    /// <param name="required">The flags the flag-built create needs.</param>
+    /// <returns>The body option handle.</returns>
+    public static JsonBodyOption AddCreateOptions(
+        Command cmd,
+        SchemaNoun noun,
+        params Option<string>[] required
+    )
+    {
+        var body = AddBodyOptions(cmd);
+        cmd.Validators.Add(result =>
+        {
+            if (body.SchemaRequested(result) || body.HasBody(result))
+                return;
+            if (required.Any(o => string.IsNullOrEmpty(result.GetValue(o))))
+                result.AddError(
+                    $"Supply {Join(required.Select(o => o.Name))}, or a full body with --json-body. "
+                        + $"Run with --schema to print a real {noun.Singular} as a starting point."
+                );
+        });
+        return body;
+    }
+
+    /// <summary>
+    /// Runs a schema <c>create</c>: <c>--schema</c> prints an example, a <c>--json-body</c> is
+    /// POSTed raw with its id settled first (#204), and otherwise <paramref name="flagCreate"/>
+    /// builds it from the flags.
+    /// </summary>
+    /// <typeparam name="T">What the flag-built create returns.</typeparam>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The command name for the output envelope.</param>
+    /// <param name="noun">The schema noun.</param>
+    /// <param name="body">The body option handle, from <see cref="AddCreateOptions"/>.</param>
+    /// <param name="idOpt">The <c>--id</c> option.</param>
+    /// <param name="flagCreate">The flag-built create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The command's exit code.</returns>
+    public static Task<int> RunCreateAsync<T>(
+        CommandExecutor executor,
+        ParseResult parseResult,
+        string commandName,
+        SchemaNoun noun,
+        JsonBodyOption body,
+        Option<Guid?> idOpt,
+        Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> flagCreate,
+        CancellationToken ct
+    )
+    {
+        if (body.SchemaRequested(parseResult))
+            return RunSchemaAsync(executor, parseResult, commandName, noun, ct);
+
+        if (body.HasBody(parseResult))
+            return executor.RunObjectAsync(
+                parseResult,
+                commandName,
+                async (client, c) =>
+                    await CreateAsync(
+                        await ReadBodyAsync(body, parseResult, c),
+                        parseResult.GetValue(idOpt),
+                        (json, token) => client.CreateSchemaRawAsync(noun.Kind, json, token),
+                        c
+                    ),
+                ct
+            );
+
+        return executor.RunObjectAsync(parseResult, commandName, flagCreate, ct);
+    }
+
+    // ── update ───────────────────────────────────────────────────────────────
+
+    /// <summary>The options a schema <c>update</c> adds; see <see cref="AddUpdateOptions"/>.</summary>
+    /// <param name="Id">The optional <c>&lt;id|alias&gt;</c> argument (optional so <c>--schema</c> runs without it).</param>
+    /// <param name="Body">The body option handle.</param>
+    /// <param name="Replace">The <c>--replace</c> option.</param>
+    public sealed record UpdateOptions(
+        Argument<string?> Id,
+        JsonBodyOption Body,
+        Option<bool> Replace
+    );
+
+    /// <summary>
+    /// Adds the id argument, <c>--json-body</c> / <c>--schema</c> and <c>--replace</c> to a schema
+    /// <c>update</c>, with the rule that an update needs the id (unless <c>--schema</c>) and, when
+    /// the verb has no flags of its own, a body.
+    /// </summary>
+    /// <param name="cmd">The command. The id argument is added first, so it is positional 0.</param>
+    /// <param name="noun">The schema noun, for help and messages.</param>
+    /// <param name="hasFlags">Whether the verb can update from flags alone.</param>
+    /// <returns>The added options.</returns>
+    public static UpdateOptions AddUpdateOptions(Command cmd, SchemaNoun noun, bool hasFlags)
+    {
+        var id = new Argument<string?>("id")
+        {
+            Description =
+                $"The {noun.Singular}'s id, or its {noun.Kind.KeyName()}. Required unless --schema is used.",
+            Arity = ArgumentArity.ZeroOrOne,
+        };
+        cmd.Add(id);
+        var body = AddBodyOptions(cmd);
+        var replace = new Option<bool>("--replace")
+        {
+            Description =
+                "Send --json-body as the whole item, instead of merging its top-level keys into the "
+                + "current one. Keys the body leaves out are then removed or reset.",
+        };
+        cmd.Add(replace);
+
+        cmd.Validators.Add(result =>
+        {
+            if (body.SchemaRequested(result))
+                return;
+            if (string.IsNullOrEmpty(result.GetValue(id)))
+                result.AddError(
+                    $"Supply the {noun.Singular}. Run with --schema to print a real one as a starting point."
+                );
+            else if (!hasFlags && !body.HasBody(result))
+                result.AddError(
+                    $"Supply --json-body. Run with --schema to print a real {noun.Singular} as a starting point."
+                );
+            else if (result.GetValue(replace) && !body.HasBody(result))
+                result.AddError(
+                    "--replace needs --json-body: it sends the body as the whole item."
+                );
+        });
+        return new UpdateOptions(id, body, replace);
+    }
+
+    /// <summary>
+    /// Runs a schema <c>update</c>: <c>--schema</c> prints an example, a <c>--json-body</c> is
+    /// merged into the item (or replaces it with <c>--replace</c>) through one read-modify-write,
+    /// and otherwise <paramref name="flagUpdate"/> applies the flags to the resolved id.
+    /// </summary>
+    /// <typeparam name="T">What the flag-built update returns.</typeparam>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The command name for the output envelope.</param>
+    /// <param name="noun">The schema noun.</param>
+    /// <param name="options">The options from <see cref="AddUpdateOptions"/>.</param>
+    /// <param name="message">The success message.</param>
+    /// <param name="flagUpdate">The flag-built update, given the resolved id; null when the verb has no flags.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The command's exit code.</returns>
+    public static Task<int> RunUpdateAsync<T>(
+        CommandExecutor executor,
+        ParseResult parseResult,
+        string commandName,
+        SchemaNoun noun,
+        UpdateOptions options,
+        string message,
+        Func<
+            IUmbracoManagementClient,
+            Guid,
+            CancellationToken,
+            Task<UmbracoResponse<T>>
+        >? flagUpdate,
+        CancellationToken ct
+    )
+    {
+        if (options.Body.SchemaRequested(parseResult))
+            return RunSchemaAsync(executor, parseResult, commandName, noun, ct);
+
+        // The alias the rest of the noun accepts (#159) is resolved here, so a caller never has
+        // to look an id up just to write back what they just read.
+        var reference = parseResult.GetValue(options.Id)!;
+        if (options.Body.HasBody(parseResult) || flagUpdate is null)
+            return executor.RunMessageAsync(
+                parseResult,
+                commandName,
+                async (client, c) =>
+                {
+                    var json = await ReadBodyAsync(options.Body, parseResult, c);
+                    return await client.WithResolvedAsync(
+                        noun.Kind,
+                        reference,
+                        id =>
+                            client.MergeSchemaItemAsync(
+                                noun.Kind,
+                                id,
+                                json,
+                                parseResult.GetValue(options.Replace),
+                                c
+                            ),
+                        c
+                    );
+                },
+                message,
+                ct
+            );
+
+        return executor.RunMessageAsync(
+            parseResult,
+            commandName,
+            (client, c) =>
+                client.WithResolvedAsync(noun.Kind, reference, id => flagUpdate(client, id, c), c),
+            message,
+            ct
+        );
+    }
+
+    /// <summary>A shorthand for a schema <c>update</c> that has no flags of its own.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The command name for the output envelope.</param>
+    /// <param name="noun">The schema noun.</param>
+    /// <param name="options">The options from <see cref="AddUpdateOptions"/>.</param>
+    /// <param name="message">The success message.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The command's exit code.</returns>
+    public static Task<int> RunUpdateAsync(
+        CommandExecutor executor,
+        ParseResult parseResult,
+        string commandName,
+        SchemaNoun noun,
+        UpdateOptions options,
+        string message,
+        CancellationToken ct
+    ) =>
+        RunUpdateAsync<Empty>(executor, parseResult, commandName, noun, options, message, null, ct);
+
+    // ── --schema ─────────────────────────────────────────────────────────────
+
+    /// <summary>Runs the <c>--schema</c> branch: prints a real item of this kind off the instance.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <param name="commandName">The command name for the output envelope.</param>
+    /// <param name="noun">The schema noun.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The command's exit code.</returns>
     public static Task<int> RunSchemaAsync(
         CommandExecutor executor,
         ParseResult parseResult,
         string commandName,
-        Func<
-            IUmbracoManagementClient,
-            Func<CancellationToken, Task<UmbracoResponse<IReadOnlyList<Guid>>>>
-        > listIds,
-        Func<
-            IUmbracoManagementClient,
-            Func<Guid, CancellationToken, Task<UmbracoResponse<JsonNode>>>
-        > getRaw,
-        string kind,
+        SchemaNoun noun,
         CancellationToken ct
     ) =>
         executor.RunObjectAsync(
             parseResult,
             commandName,
-            (client, c) => ExampleAsync(listIds(client), getRaw(client), kind, c),
+            (client, c) => ExampleAsync(client, noun, c),
             ct
         );
+
+    /// <summary>
+    /// Reads an existing item of this kind and returns it as a worked example for
+    /// <c>--schema</c>, or the built-in minimal body when the instance has none (#200).
+    /// </summary>
+    /// <param name="client">The client.</param>
+    /// <param name="noun">The schema noun.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An example body, or a failure explaining why there is none.</returns>
+    public static async Task<UmbracoResponse<JsonNode>> ExampleAsync(
+        IUmbracoManagementClient client,
+        SchemaNoun noun,
+        CancellationToken ct
+    )
+    {
+        var ids = await noun.ListIds(client, ct);
+        if (!ids.IsSuccess)
+            return UmbracoResponse<JsonNode>.FailureFrom(ids);
+
+        // A fresh site has no types to show - which is exactly when the shape is most needed - so
+        // fall back to a minimal body that carries the fields the create endpoint requires.
+        if (ids.Data is not { Count: > 0 } found)
+            return MinimalBody(noun.Kind) is { } minimal
+                ? UmbracoResponse<JsonNode>.Success(minimal)
+                : UmbracoResponse<JsonNode>.Failure(
+                    404,
+                    $"This instance has no {noun.Plural} to use as an example. Create one first, or "
+                        + "write the body against the Umbraco Management API reference."
+                );
+
+        // The lowest id, so the same instance prints the same example every run - "whatever the
+        // API returned first" is not reproducible, and --schema output gets diffed.
+        return await client.GetSchemaRawAsync(noun.Kind, found.Order().First(), ct);
+    }
+
+    /// <summary>
+    /// The smallest valid create body for a schema kind, for <c>--schema</c> on an instance that has
+    /// none to copy (#200). Each carries exactly the properties the Management API spec marks as
+    /// required on the create model, with empty collections where it wants a list.
+    /// </summary>
+    /// <param name="kind">The schema kind.</param>
+    /// <returns>A fresh body, or null when there is no built-in one for the kind.</returns>
+    internal static JsonNode? MinimalBody(EntityKind kind) =>
+        kind switch
+        {
+            EntityKind.DocumentType => JsonNode.Parse(
+                """
+                { "alias": "myDocumentType", "name": "My document type", "icon": "icon-document",
+                  "allowedAsRoot": true, "isElement": false, "variesByCulture": false, "variesBySegment": false,
+                  "properties": [], "containers": [], "allowedDocumentTypes": [], "compositions": [],
+                  "allowedTemplates": [], "cleanup": { "preventCleanup": false } }
+                """
+            ),
+            EntityKind.MediaType => JsonNode.Parse(
+                """
+                { "alias": "myMediaType", "name": "My media type", "icon": "icon-picture",
+                  "allowedAsRoot": true, "isElement": false, "variesByCulture": false, "variesBySegment": false,
+                  "properties": [], "containers": [], "allowedMediaTypes": [], "compositions": [] }
+                """
+            ),
+            EntityKind.MemberType => JsonNode.Parse(
+                """
+                { "alias": "myMemberType", "name": "My member type", "icon": "icon-user",
+                  "allowedAsRoot": false, "isElement": false, "variesByCulture": false, "variesBySegment": false,
+                  "properties": [], "containers": [], "compositions": [] }
+                """
+            ),
+            EntityKind.DataType => JsonNode.Parse(
+                """
+                { "name": "My text", "editorAlias": "Umbraco.TextBox",
+                  "editorUiAlias": "Umb.PropertyEditorUi.TextBox", "values": [] }
+                """
+            ),
+            _ => null,
+        };
+
+    // ── body handling ────────────────────────────────────────────────────────
 
     /// <summary>
     /// Reads the <c>--json-body</c> source and parses it, failing with a message that says which
@@ -126,56 +461,40 @@ public static class RawBodyCommand
                 $"The --json-body id {other.ToJsonString()} is not a UUID."
             ),
         };
-        // Two different ids is a contradiction; picking either would create the item somewhere
-        // the caller did not expect.
-        if (id is { } flag && bodyId is { } fromBody && flag != fromBody)
-            throw new InvalidOperationException(
-                $"--id {flag} does not match the id {fromBody} in --json-body. Give one, or make them agree."
-            );
-
-        var resolved = id ?? bodyId ?? Guid.NewGuid();
+        var resolved = ReconcileId(id, bodyId) ?? Guid.NewGuid();
         obj["id"] = resolved.ToString();
 
         var created = await create(obj, ct);
-        return created.IsSuccess
-            ? UmbracoResponse<RawCreated>.Success(
-                new RawCreated(resolved, Text(obj, "name"), Text(obj, "alias"))
-            )
-            : UmbracoResponse<RawCreated>.FailureFrom(created);
+        return created.Map(_ => new RawCreated(resolved, Text(obj, "name"), Text(obj, "alias")));
     }
+
+    /// <summary>
+    /// The id a create should use given <c>--id</c> and the body's own: either one, or neither.
+    /// Two different ids is a contradiction; picking either would create the item somewhere the
+    /// caller did not expect. Shared with <c>content create</c> (#241).
+    /// </summary>
+    /// <param name="flag">The <c>--id</c> value.</param>
+    /// <param name="fromBody">The body's id.</param>
+    /// <returns>The id to use, or null when neither was given.</returns>
+    /// <exception cref="InvalidOperationException">The two are both given and differ.</exception>
+    internal static Guid? ReconcileId(Guid? flag, Guid? fromBody) =>
+        flag is { } f && fromBody is { } b && f != b
+            ? throw new InvalidOperationException(
+                $"--id {f} does not match the id {b} in --json-body. Give one, or make them agree."
+            )
+            : flag ?? fromBody;
 
     private static string? Text(JsonObject obj, string name) =>
         obj[name] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
 
-    /// <summary>
-    /// Reads an existing entity of this kind and returns it as a worked example for
-    /// <c>--schema</c>.
-    /// </summary>
-    /// <param name="listIds">Lists the ids of this kind.</param>
-    /// <param name="getRaw">Reads one verbatim by id.</param>
-    /// <param name="kind">The noun, for the error when the instance has none.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An example body, or a failure explaining why there is none.</returns>
-    public static async Task<UmbracoResponse<JsonNode>> ExampleAsync(
-        Func<CancellationToken, Task<UmbracoResponse<IReadOnlyList<Guid>>>> listIds,
-        Func<Guid, CancellationToken, Task<UmbracoResponse<JsonNode>>> getRaw,
-        string kind,
-        CancellationToken ct
-    )
+    /// <summary>Joins option names for a message: <c>--a</c>, <c>--a and --b</c>, <c>--a, --b and --c</c>.</summary>
+    /// <param name="names">The names.</param>
+    /// <returns>The joined text.</returns>
+    private static string Join(IEnumerable<string> names)
     {
-        var ids = await listIds(ct);
-        if (!ids.IsSuccess)
-            return UmbracoResponse<JsonNode>.FailureFrom(ids);
-
-        if (ids.Data is not { Count: > 0 } found)
-            return UmbracoResponse<JsonNode>.Failure(
-                404,
-                $"This instance has no {kind} to use as an example. Create one first, or write "
-                    + "the body against the Umbraco Management API reference."
-            );
-
-        // The lowest id, so the same instance prints the same example every run - "whatever the
-        // API returned first" is not reproducible, and --schema output gets diffed.
-        return await getRaw(found.Order().First(), ct);
+        var list = names.ToList();
+        return list.Count <= 1
+            ? string.Concat(list)
+            : string.Join(", ", list.Take(list.Count - 1)) + " and " + list[^1];
     }
 }

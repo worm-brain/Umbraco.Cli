@@ -20,8 +20,8 @@ public static class MediaTypesCreateCommand
             "create",
             "Create a new media type with a given name and alias.\n\nExamples:\n  umbraco media-types create --name \"Custom Image\" --alias customImage\n  umbraco media-types create --name \"Widget\" --alias widget --is-element\n  umbraco media-types create --name \"Doc\" --alias doc --allow-at-root --icon icon-document"
         );
-        var nameOpt = new Option<string>("--name") { Required = true };
-        var aliasOpt = new Option<string>("--alias") { Required = true };
+        var nameOpt = new Option<string>("--name");
+        var aliasOpt = new Option<string>("--alias");
         var descOpt = new Option<string?>("--description");
         var iconOpt = new Option<string>("--icon")
         {
@@ -30,10 +30,9 @@ public static class MediaTypesCreateCommand
         };
         var isElementOpt = new Option<bool>("--is-element") { DefaultValueFactory = _ => false };
         var allowRootOpt = new Option<bool>("--allow-at-root") { DefaultValueFactory = _ => false };
-        var idOpt = new Option<Guid?>("--id")
-        {
-            Description = "Optional client-supplied UUID for an idempotent create (#86).",
-        };
+        var idOpt = ContentTypes.ContentTypesCreateCommand.IdOption();
+        // #213/#221: a --json-body carries properties and groups the flags cannot.
+        var body = RawBodyCommand.AddCreateOptions(cmd, SchemaNoun.MediaTypes, nameOpt, aliasOpt);
         cmd.Add(nameOpt);
         cmd.Add(aliasOpt);
         cmd.Add(descOpt);
@@ -41,11 +40,16 @@ public static class MediaTypesCreateCommand
         cmd.Add(isElementOpt);
         cmd.Add(allowRootOpt);
         cmd.Add(idOpt);
+
         cmd.SetAction(
             (parseResult, ct) =>
-                executor.RunObjectAsync(
+                RawBodyCommand.RunCreateAsync(
+                    executor,
                     parseResult,
                     "media-types.create",
+                    SchemaNoun.MediaTypes,
+                    body,
+                    idOpt,
                     (client, c) =>
                         client.CreateMediaTypeAsync(
                             new CreateMediaTypeRequest
