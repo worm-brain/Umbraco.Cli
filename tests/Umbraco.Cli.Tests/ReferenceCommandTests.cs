@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands;
+using Umbraco.Cli.Commands.Content;
 using Umbraco.Cli.Commands.Dictionary;
 using Umbraco.Cli.Commands.MediaTypes;
 using Umbraco.Cli.Commands.MemberGroups;
@@ -54,6 +55,7 @@ public class ReferenceCommandTests
         var executor = new CommandExecutor(factory, new NonInteractivePrompt());
         var root = new RootCommand();
         global.AddTo(root);
+        root.Add(ContentCommand.Build(executor));
         root.Add(TemplatesCommand.Build(executor));
         root.Add(MediaTypesCommand.Build(executor));
         root.Add(MemberTypesCommand.Build(executor));
@@ -201,6 +203,35 @@ public class ReferenceCommandTests
         await Run(fake, "dictionary create --key Blog.MinRead --parent Blog");
 
         Assert.Equal(blog, Assert.Single(fake.DictionaryItemsCreated).Parent!.Id);
+    }
+
+    [Fact]
+    public async Task ContentPublish_CommaSeparatedCultures_PublishesEachCulture()
+    {
+        // #231: en-US,da-DK was sent as one culture and Umbraco answered 400.
+        var fake = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+
+        await Run(fake, $"content publish {Guid.NewGuid()} --cultures en-US,da-DK");
+
+        Assert.Equal(["en-US", "da-DK"], Assert.Single(fake.StateCalls).Cultures!);
+    }
+
+    [Fact]
+    public async Task ContentSort_ByName_SortsTheChildrenAToZ()
+    {
+        // #232: sorting by a field used to need a get-per-child script.
+        var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+        var fake = new FakeUmbracoManagementClient();
+        fake.ContentChildren.Add(new ContentItemResponse { Id = a, Name = "Zebra" });
+        fake.ContentChildren.Add(new ContentItemResponse { Id = b, Name = "Aardvark" });
+
+        var exit = await Run(fake, "content sort --by name");
+
+        Assert.Equal(0, exit);
+        Assert.Equal([b, a], Assert.Single(fake.ContentSorted).OrderedChildIds);
     }
 
     [Fact]

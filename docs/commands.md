@@ -86,6 +86,18 @@ faked with a large `--take`, which would be the same silent cap further out.
 
 ---
 
+### Lists and references work the same everywhere
+
+- **A list option takes commas, spaces or repeats.** `--cultures en-US,da-DK`,
+  `--cultures en-US da-DK` and `--cultures en-US --cultures da-DK` are the same. This holds for
+  every option that takes several values (`--cultures`, `--children`, `--group`, `--ids`,
+  `--user`, `--section`, `--language`, `--fallback-permission`, `--exclude-type`,
+  `--exclude-root`, `--id`, `--level`, `--events`) - but not for the `key=value` options
+  (`--value`, `--values`, `--domain`), whose values may contain a comma.
+- **An item can be named instead of given by id** wherever the syntax below says `<id|alias>`,
+  `<id|name>` or `<key|id>`. An alias is matched first, then a name, ignoring case. A name that
+  matches more than one item is refused, and the error lists each match's id.
+
 ## Discovery: `commands` and `--schema`
 
 ```bash
@@ -132,7 +144,7 @@ umbraco content trash <id>                                 # move to recycle bin
 umbraco content restore <id> [--parent <id>]               # restore from recycle bin
 umbraco content empty-recycle-bin                          # permanent; needs --yes
 umbraco content move <id> [--parent <id>]
-umbraco content sort [--parent <id>] --children <id> <id> ...   # reorder a parent's children (order given = sort order)
+umbraco content sort [--parent <id>] (--children <id>,<id>... | --by name|createDate|updateDate|publishDate [--desc])   # reorder a parent's children
 umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # returns the copy, with its new id
 umbraco content publish-descendants <id> [--cultures <csv>] [--include-unpublished] [--wait]   # --wait polls to completion
 umbraco content export [--root <id>] [--out <file>]        # dump subtree/site to a snapshot
@@ -317,7 +329,7 @@ umbraco media trash <id>                                   # move to recycle bin
 umbraco media restore <id> [--parent <id>]
 umbraco media empty-recycle-bin                            # permanent; needs --yes
 umbraco media move <id> [--parent <id>]
-umbraco media sort [--parent <id>] --children <id> <id> ...   # reorder a parent folder's children
+umbraco media sort [--parent <id>] (--children <id>,<id>... | --by name|createDate|updateDate [--desc])   # reorder a folder's children
 
 # folder sub-noun (organise uploads):
 umbraco media folder create --name <name> [--parent <id>] [--id <guid>]

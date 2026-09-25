@@ -224,12 +224,9 @@ public static class UserGroupsCommand
             "delete-many",
             "Delete several user groups in one call.\n\nExample:\n  umbraco user-groups delete-many --ids blogEditors newsEditors"
         );
-        var idsOpt = new Option<string[]>("--ids")
-        {
-            Required = true,
-            AllowMultipleArgumentsPerToken = true,
-            Description = "The user groups to delete: ids, aliases or names.",
-        };
+        var idsOpt = ListOption
+            .Strings("--ids", "The user groups to delete: ids, aliases or names.")
+            .AsRequired();
         cmd.Add(idsOpt);
         cmd.Destructive(parseResult =>
             $"Permanently delete {parseResult.GetValue(idsOpt)!.Length} user group(s)?"
@@ -265,12 +262,7 @@ public static class UserGroupsCommand
             "Add users to a user group.\n\nExample:\n  umbraco user-groups add-users blogEditors --user <guid> --user <guid>"
         );
         var idArg = Reference.Argument(EntityKind.UserGroup);
-        var usersOpt = new Option<Guid[]>("--user")
-        {
-            Required = true,
-            AllowMultipleArgumentsPerToken = true,
-            Description = "User ID to add (repeat for several).",
-        };
+        var usersOpt = ListOption.Guids("--user", "User ID to add.").AsRequired();
         cmd.Add(idArg);
         cmd.Add(usersOpt);
         cmd.SetAction(
@@ -300,12 +292,7 @@ public static class UserGroupsCommand
             "Remove users from a user group.\n\nExample:\n  umbraco user-groups remove-users blogEditors --user <guid>"
         );
         var idArg = Reference.Argument(EntityKind.UserGroup);
-        var usersOpt = new Option<Guid[]>("--user")
-        {
-            Required = true,
-            AllowMultipleArgumentsPerToken = true,
-            Description = "User ID to remove (repeat for several).",
-        };
+        var usersOpt = ListOption.Guids("--user", "User ID to remove.").AsRequired();
         cmd.Add(idArg);
         cmd.Add(usersOpt);
         cmd.SetAction(
@@ -349,22 +336,18 @@ public static class UserGroupsCommand
         {
             Description = "Free-text description.",
         };
-        private readonly Option<string[]> _sections = new("--section")
-        {
-            AllowMultipleArgumentsPerToken = true,
-            Description = "Section alias the group can access (repeat for several).",
-        };
-        private readonly Option<string[]> _languages = new("--language")
-        {
-            AllowMultipleArgumentsPerToken = true,
-            Description = "Culture ISO code the group can edit (repeat for several).",
-        };
-        private readonly Option<string[]> _fallback = new("--fallback-permission")
-        {
-            AllowMultipleArgumentsPerToken = true,
-            Description =
-                "Default permission verb applied where no node-specific permission is set.",
-        };
+        private readonly Option<string[]> _sections = ListOption.Strings(
+            "--section",
+            "Section aliases the group can access."
+        );
+        private readonly Option<string[]> _languages = ListOption.Strings(
+            "--language",
+            "Culture ISO codes the group can edit."
+        );
+        private readonly Option<string[]> _fallback = ListOption.Strings(
+            "--fallback-permission",
+            "Default permission verbs applied where no node-specific permission is set."
+        );
         private readonly Option<bool> _allLanguages = new("--has-access-to-all-languages")
         {
             Description = "Grant edit access to content in every language.",
@@ -405,17 +388,23 @@ public static class UserGroupsCommand
             cmd.Add(_documentStart);
             cmd.Add(_mediaStart);
             // A start node and root access say opposite things; refuse rather than pick one.
-            cmd.Validators.Add(result =>
-            {
-                if (result.GetValue(_documentRoot) && result.GetValue(_documentStart) is not null)
-                    result.AddError(
-                        $"{_documentRoot.Name} and {_documentStart.Name} cannot be used together."
-                    );
-                if (result.GetValue(_mediaRoot) && result.GetValue(_mediaStart) is not null)
-                    result.AddError(
-                        $"{_mediaRoot.Name} and {_mediaStart.Name} cannot be used together."
-                    );
-            });
+            ListOption.ValidateParsed(
+                cmd,
+                result =>
+                {
+                    if (
+                        result.GetValue(_documentRoot)
+                        && result.GetValue(_documentStart) is not null
+                    )
+                        result.AddError(
+                            $"{_documentRoot.Name} and {_documentStart.Name} cannot be used together."
+                        );
+                    if (result.GetValue(_mediaRoot) && result.GetValue(_mediaStart) is not null)
+                        result.AddError(
+                            $"{_mediaRoot.Name} and {_mediaStart.Name} cannot be used together."
+                        );
+                }
+            );
         }
 
         /// <summary>Reads the shared option values off a parsed command line.</summary>

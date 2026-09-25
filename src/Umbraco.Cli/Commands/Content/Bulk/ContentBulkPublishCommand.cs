@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content.Bulk;
 
@@ -18,11 +19,10 @@ public static class ContentBulkPublishCommand
         {
             Description = "File of ids (one per line). Reads stdin when omitted.",
         };
-        var culturesOpt = new Option<string[]>("--cultures")
-        {
-            Description = "ISO culture codes to publish. Publishes all cultures if omitted.",
-            AllowMultipleArgumentsPerToken = true,
-        };
+        var culturesOpt = ListOption.Strings(
+            "--cultures",
+            "ISO culture codes to publish. Publishes all cultures if omitted."
+        );
         cmd.Add(fileOpt);
         cmd.Add(culturesOpt);
         cmd.SetAction(

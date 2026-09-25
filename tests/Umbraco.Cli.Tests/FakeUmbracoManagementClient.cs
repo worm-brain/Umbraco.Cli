@@ -14,12 +14,24 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>What <see cref="GetContentAsync"/> lists, whatever the parent (seeded by a test).</summary>
+    public List<ContentItemResponse> ContentChildren { get; } = [];
+
     public Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> GetContentAsync(
         Guid? parentId = null,
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<ContentItemResponse>>.Success(
+                new PagedResponse<ContentItemResponse>
+                {
+                    Total = ContentChildren.Count,
+                    Items = [.. ContentChildren.Skip(skip).Take(take)],
+                }
+            )
+        );
 
     // Configurable exemplar used by the executor tests.
     public UmbracoResponse<ContentItemResponse>? ContentByIdResponse { get; set; }

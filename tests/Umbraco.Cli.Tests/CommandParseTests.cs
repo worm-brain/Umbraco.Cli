@@ -555,6 +555,14 @@ public class CommandParseTests
         "dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789 --target 1a2b3c4d-1234-5678-abcd-ef0123456789"
     )]
     [InlineData("dictionary move 3f7a8b2e-1234-5678-abcd-ef0123456789")] // --target optional (to root)
+    [InlineData(
+        "content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789,1a2b3c4d-1234-5678-abcd-ef0123456789"
+    )] // #232
+    [InlineData(
+        "content sort --parent 3f7a8b2e-1234-5678-abcd-ef0123456789 --by publishDate --desc"
+    )]
+    [InlineData("media sort --by name")]
+    [InlineData("content publish 3f7a8b2e-1234-5678-abcd-ef0123456789 --cultures en-US,da-DK")] // #231
     [InlineData("dictionary move Blog.Tags --target Blog")] // #211: keys everywhere
     [InlineData("dictionary update Blog.MinRead --values da-DK=Min")]
     [InlineData("dictionary delete Blog.MinRead")]
@@ -760,6 +768,10 @@ public class CommandParseTests
     [InlineData("content delete not-a-uuid")]
     [InlineData("media-types create --name OnlyName")] // missing required --alias
     [InlineData("member-types create --alias onlyAlias")] // missing required --name
+    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789 --by name")] // #232: an explicit order and a field conflict
+    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789 --desc")] // --desc needs --by
+    [InlineData("media sort --by publishDate")] // media has no publish date
+    [InlineData("content sort --children 3f7a8b2e-1234-5678-abcd-ef0123456789,nope")]
     [InlineData("user-groups create --name NoAlias")] // missing required --alias
     [InlineData("user-groups create --alias noName")] // missing required --name
     [InlineData(

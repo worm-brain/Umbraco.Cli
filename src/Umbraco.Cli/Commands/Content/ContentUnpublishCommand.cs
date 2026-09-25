@@ -20,11 +20,10 @@ public static class ContentUnpublishCommand
             "Unpublish a content item, taking it offline. Optionally target specific cultures.\n\nExamples:\n  umbraco content unpublish 3f7a8b2e-...\n  umbraco content unpublish 3f7a8b2e-... --cultures en-US"
         );
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
-        var culturesOpt = new Option<string[]>("--cultures")
-        {
-            Description = "ISO culture codes to unpublish. Unpublishes all cultures if omitted.",
-            AllowMultipleArgumentsPerToken = true,
-        };
+        var culturesOpt = ListOption.Strings(
+            "--cultures",
+            "ISO culture codes to unpublish. Unpublishes all cultures if omitted."
+        );
         cmd.Add(idArg);
         cmd.Add(culturesOpt);
 

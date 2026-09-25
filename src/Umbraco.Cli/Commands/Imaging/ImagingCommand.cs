@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Imaging;
 
@@ -24,12 +25,7 @@ public static class ImagingCommand
     private static Command BuildResizeUrls(CommandExecutor executor)
     {
         var cmd = new Command("resize-urls", "Get resized URLs for one or more media items.");
-        var idOpt = new Option<Guid[]>("--id")
-        {
-            Required = true,
-            AllowMultipleArgumentsPerToken = true,
-            Description = "Media item ID (repeat for several).",
-        };
+        var idOpt = ListOption.Guids("--id", "Media item ID.").AsRequired();
         var widthOpt = new Option<int?>("--width") { Description = "Target width in pixels." };
         var heightOpt = new Option<int?>("--height") { Description = "Target height in pixels." };
         var modeOpt = new Option<ImageResizeMode?>("--mode")
