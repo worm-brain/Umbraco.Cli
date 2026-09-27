@@ -336,7 +336,9 @@ whole of an invariant one.
 
 Other commands pick a sensible culture when you name none. `content create` and
 `document-blueprint create` use the default language when the document type varies by culture.
-`content version list` lists every culture's history, newest first, and tags each row with the
+In `content update` and `document-blueprint update`, a variant with no `culture` renames the
+default-language variant. It is refused if the item has no variant in that language. Values with
+no `culture` are left as sent. `content version list` lists every culture's history, newest first, and tags each row with the
 `culture` to pass to `content version rollback --culture`. Use `content version get <version-id>` to read a
 version's values before rolling back. `document-blueprint create --from-document --name` renames every
 culture.

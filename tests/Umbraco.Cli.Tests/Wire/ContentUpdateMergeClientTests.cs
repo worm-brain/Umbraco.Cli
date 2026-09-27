@@ -189,10 +189,23 @@ public class ContentUpdateMergeClientTests
     }
 
     [Fact]
-    public async Task UpdateContentAsync_VariantWithNoCultureOnAVaryingDocument_Fails()
+    public async Task UpdateContentAsync_VariantWithNoCultureAndNoDefaultLanguageVariant_Fails()
     {
+        // The document has only en-US, but the default language is da-DK (#264): there is no
+        // default-language variant to rename, so the guard refuses and names the cultures.
         var id = Guid.NewGuid();
-        var handler = Handler(id, Guid.NewGuid());
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/language"),
+                HttpStatusCode.OK,
+                """{ "total": 1, "items": [ { "isoCode": "da-DK", "isDefault": true } ] }"""
+            )
+            .When(r => r.Method == HttpMethod.Put, HttpStatusCode.OK, "")
+            .When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                ExistingDocument(id, Guid.NewGuid())
+            );
         var client = Wire.Client(handler);
 
         var result = await client.UpdateContentAsync(

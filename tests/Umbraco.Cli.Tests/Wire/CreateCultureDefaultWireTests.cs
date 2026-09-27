@@ -210,4 +210,77 @@ public class CreateCultureDefaultWireTests
         Assert.Equal(400, result.StatusCode);
         handler.AssertNoRequest(HttpMethod.Put, $"/document-blueprint/{id}");
     }
+
+    // content update gets the same culture default as blueprint update (#264).
+
+    /// <summary>A document handler whose GET returns variants in the given cultures (null = invariant).</summary>
+    /// <param name="cultures">The document's variant cultures.</param>
+    /// <returns>The handler.</returns>
+    private static RoutingHandler DocumentHandler(params string?[] cultures)
+    {
+        var variants = string.Join(
+            ",",
+            cultures.Select(c =>
+                c is null
+                    ? """{ "culture": null, "segment": null, "name": "Old" }"""
+                    : $$"""{ "culture": "{{c}}", "segment": null, "name": "Old {{c}}" }"""
+            )
+        );
+        return new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.Contains("/language"),
+                HttpStatusCode.OK,
+                Languages
+            )
+            .When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                $$"""{ "values": [], "variants": [{{variants}}] }"""
+            )
+            .When(_ => true, HttpStatusCode.OK, "");
+    }
+
+    /// <summary>The variant names in the document PUT, keyed by culture ("" for invariant).</summary>
+    private static Dictionary<string, string> PutNames(RoutingHandler handler, Guid id) =>
+        handler.BodyOf(HttpMethod.Put, $"/document/{id}")["variants"]!
+            .AsArray()
+            .ToDictionary(
+                v => v!["culture"]?.GetValue<string>() ?? "",
+                v => v!["name"]!.GetValue<string>()
+            );
+
+    [Fact]
+    public async Task UpdateContentAsync_VariantDocumentRenamedWithNoCulture_RenamesTheDefaultLanguage()
+    {
+        var id = Guid.NewGuid();
+        var handler = DocumentHandler("en-US", "da-DK");
+
+        await Wire.Client(handler)
+            .UpdateContentAsync(
+                id,
+                new UpdateContentRequest { Variants = [new ContentVariant { Name = "New" }] },
+                ct: CancellationToken.None
+            );
+
+        Assert.Equal(
+            new Dictionary<string, string> { ["en-US"] = "New", ["da-DK"] = "Old da-DK" },
+            PutNames(handler, id)
+        );
+    }
+
+    [Fact]
+    public async Task UpdateContentAsync_InvariantDocumentRenamedWithNoCulture_StaysInvariant()
+    {
+        var id = Guid.NewGuid();
+        var handler = DocumentHandler((string?)null);
+
+        await Wire.Client(handler)
+            .UpdateContentAsync(
+                id,
+                new UpdateContentRequest { Variants = [new ContentVariant { Name = "New" }] },
+                ct: CancellationToken.None
+            );
+
+        Assert.Equal(new Dictionary<string, string> { [""] = "New" }, PutNames(handler, id));
+    }
 }
