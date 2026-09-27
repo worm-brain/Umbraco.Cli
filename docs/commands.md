@@ -163,9 +163,9 @@ umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-
 umbraco content unpublish <id> [--culture <csv>]          # takes offline; needs --yes; no --culture = every culture
 umbraco content version list <id> [--culture <code>]           # version history; no --culture = every culture, rows tagged `culture`
 umbraco content version get <id>                           # one version (its id from version list), values included
-umbraco content version rollback <id> [--culture <code>]   # restore a version
+umbraco content version rollback <id> [--culture <code>] [--publish]   # draft only unless --publish; see below
 umbraco content trash <id>                                 # move to recycle bin (reversible)
-umbraco content restore <id> [--parent <id> | --to-root]   # restore from recycle bin; default = original parent
+umbraco content restore <id> [--parent <id> | --to-root] [--publish]   # comes back unpublished, last in sort order; default = original parent
 umbraco content empty-recycle-bin                          # permanent; needs --yes
 umbraco content move <id> [--parent <id>]                  # --target works too
 umbraco content sort [--parent <id>] (--order <id>,<id>... | --by name|createDate|updateDate|publishDate [--desc])   # reorder a parent's children
@@ -183,6 +183,31 @@ umbraco content bulk unpublish [--file ids.txt] [--culture <csv>]   # takes offl
 # domain sub-noun (Culture and Hostnames):
 umbraco content domain get <id>
 umbraco content domain set <id> [--default-culture <iso>] [--domain host=iso ...] [--replace]   # merges by hostname; --replace needs --yes
+```
+
+### Rollback and restore leave the live site alone
+
+Both follow Umbraco's model, which surprises people used to "undo"
+([#233](https://github.com/worm-brain/Umbraco.Cli/issues/233)):
+
+- **Rollback only changes the draft.** The item shows as `PublishedPendingChanges` and the live
+  site keeps serving the published version until you publish. Pass `--publish` to publish the
+  document straight after: the rolled-back culture with `--culture`, otherwise every culture it
+  has. If the publish fails, the rollback has still happened; the error says so.
+- **Pick the version from the flags, not the date.** `content version list` marks the current
+  draft (`isCurrentDraftVersion`, the `Draft` column) and the current published version
+  (`isCurrentPublishedVersion`, `Published`). The two can carry the same `versionDate`, and
+  rolling back to the published one is a no-op when the bad edit was already published: pick
+  the newest row older than both.
+- **Restore brings an item back unpublished, last in its parent's sort order.** Pass `--publish`
+  to publish it (every culture it has) and use `content sort` to put it back in place.
+  `media restore` also appends to the end; media has no publish state, so it has no
+  `--publish`.
+
+```bash
+umbraco content version list <id> --culture en-US          # find the row older than Draft/Published
+umbraco content version rollback <version-id> --culture en-US --publish
+umbraco content restore <id> --publish
 ```
 
 ### Domains: a multilingual site is not reachable without them

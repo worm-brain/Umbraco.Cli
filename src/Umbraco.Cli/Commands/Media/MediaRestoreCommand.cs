@@ -18,7 +18,7 @@ public static class MediaRestoreCommand
     {
         var cmd = new Command(
             "restore",
-            "Restore a media item from the recycle bin.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco media restore 3f7a8b2e-... --to-root"
+            "Restore a media item from the recycle bin.\n\nThe item comes back last in its parent's sort order; use 'media sort' to reorder.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco media restore 3f7a8b2e-... --to-root"
         ).Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Trashed media item ID." };
         var parentOpt = new Option<Guid?>("--parent", "--target")

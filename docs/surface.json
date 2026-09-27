@@ -714,7 +714,7 @@
             },
             {
               "name": "rollback",
-              "description": "Roll a content item back to a previous version.\n\nThe ID is a version ID from 'content version list', not the content ID.\n\nExamples:\n  umbraco content version rollback 7a1c2d3e-...\n  umbraco content version rollback 7a1c2d3e-... --culture en-US",
+              "description": "Roll a content item back to a previous version.\n\nThe ID is a version ID from 'content version list', not the content ID. A rollback only changes the draft: the live site keeps the published version until you publish, or pass --publish.\n\nExamples:\n  umbraco content version rollback 7a1c2d3e-...\n  umbraco content version rollback 7a1c2d3e-... --culture en-US\n  umbraco content version rollback 7a1c2d3e-... --culture en-US --publish",
               "arguments": [
                 {
                   "name": "id",
@@ -732,6 +732,14 @@
                   "type": "string",
                   "required": false,
                   "hasDefault": false
+                },
+                {
+                  "name": "--publish",
+                  "aliases": [],
+                  "description": "Publish the document after the rollback (the rolled-back culture, or every culture when --culture is omitted).",
+                  "type": "flag",
+                  "required": false,
+                  "hasDefault": true
                 }
               ],
               "commands": [],
@@ -764,7 +772,7 @@
         },
         {
           "name": "restore",
-          "description": "Restore a content item from the recycle bin.\n\nExamples:\n  umbraco content restore 3f7a8b2e-...\n  umbraco content restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content restore 3f7a8b2e-... --to-root",
+          "description": "Restore a content item from the recycle bin.\n\nThe item comes back unpublished and last in its parent's sort order. Pass --publish to publish it, and use 'content sort' to reorder.\n\nExamples:\n  umbraco content restore 3f7a8b2e-...\n  umbraco content restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content restore 3f7a8b2e-... --to-root\n  umbraco content restore 3f7a8b2e-... --publish",
           "arguments": [
             {
               "name": "id",
@@ -789,6 +797,14 @@
               "name": "--to-root",
               "aliases": [],
               "description": "Restore to the content root instead of the original parent.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--publish",
+              "aliases": [],
+              "description": "Publish the item after restoring it (every culture it has).",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -1505,7 +1521,7 @@
         },
         {
           "name": "restore",
-          "description": "Restore a media item from the recycle bin.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco media restore 3f7a8b2e-... --to-root",
+          "description": "Restore a media item from the recycle bin.\n\nThe item comes back last in its parent's sort order; use 'media sort' to reorder.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco media restore 3f7a8b2e-... --to-root",
           "arguments": [
             {
               "name": "id",

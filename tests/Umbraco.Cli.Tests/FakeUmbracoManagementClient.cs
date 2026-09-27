@@ -360,11 +360,23 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>The (version id, culture) of the last <see cref="RollbackDocumentVersionAsync"/> call (#233).</summary>
+    public (Guid VersionId, string? Culture)? LastRollback { get; private set; }
+
+    /// <summary>Records the call and answers with a bare success.</summary>
+    /// <param name="versionId">The version rolled back to.</param>
+    /// <param name="culture">The culture rolled back.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A bare success.</returns>
     public Task<UmbracoResponse<Empty>> RollbackDocumentVersionAsync(
         Guid versionId,
         string? culture = null,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastRollback = (versionId, culture);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> GetMediaAsync(
         Guid? parentId = null,
