@@ -162,7 +162,9 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
   data); its call returns data via `.Then(ItemRef.Of(id))` or `.ThenRead(...)` - a write that
   returns nothing does not compile. `meta.command` is derived from the tree: never type it. Help
   text follows [`docs/conventions.md`](docs/conventions.md) section 8, which `HelpTextTests`
-  enforces. (Folder and class names such as `ContentTypes/` predate the singular nouns.)
+  enforces. That includes checking that every `Examples:` line parses against the tree, using the
+  8.5 placeholders, and that `docs/commands.md` names only real command paths and options.
+  (Folder and class names such as `ContentTypes/` predate the singular nouns.)
 - Errors are data, not exceptions: return `UmbracoResponse.Failure(...)` from the client; let
   `CommandExecutor` translate to exit codes. Do not `Console.WriteLine`/`throw` from commands
   for expected failures.

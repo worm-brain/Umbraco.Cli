@@ -394,7 +394,8 @@ Verifies the agent safety rails. These are high-value: a broken guardrail is a `
 | T-C-07 | `UMBRACO_ALLOWED_COMMANDS=" " umbraco content list` | explicit lockdown; blocked; exit `2` (present-but-blank != unset). |
 | T-C-08 | `UMBRACO_ALLOWED_COMMANDS=content.list umbraco content get <id>` | blocked; exit `2` (full-name entry allows only `content.list`). |
 | T-C-09 | destructive without TTY and without `--yes`: `echo "" | umbraco content delete <test-id>` (piped) | refused; exit `2`; nothing deleted. |
-| T-C-10 | `--dry-run` on a write: `umbraco webhook create --url https://x --event x --dry-run` | exit 0; `{status:"dry-run", request:{method,url,body}}`; **no** webhook created (verify via list). |
+| T-C-10 | `--dry-run` on a write: `umbraco webhook create --url https://x --event Umbraco.ContentPublish --dry-run` | exit 0; `{status:"dry-run", data:{method,url,body}}`; **no** webhook created (verify via list). |
+| T-C-10a | unknown event alias (#234): `umbraco webhook create --url https://x --event Umbraco.ContentPublsh --dry-run` | refused (400); the message names `'Umbraco.ContentPublsh' (did you mean 'Umbraco.ContentPublish'?)`; nothing created. |
 | T-C-11 | idempotent create: run the same `create --id <fixed>` twice | second run does not create a duplicate (list count unchanged); both exit 0 or the second is a clean no-op/upsert. Record behaviour. |
 
 ---
@@ -466,8 +467,8 @@ follow-up read, not just the write's own success envelope.
 5d. **Template flag (#162).** `content update $CLITEST_CONTENT_ROOT --json-body - --template <alias>` -> the read-back shows that template. An unknown alias must fail with a message naming it, not succeed silently.
 6. `content publish $CLITEST_CONTENT_ROOT` -> exit 0 **and the document actually reports published**. Check with `content get` (`isPublished: true`) or a Management API read of `variants[].state`. **Exit 0 alone is not a pass** - the #158 no-op returned exit 0 and `{"status":"success"}` while publishing nothing, for two releases. Then `content unpublish $CLITEST_CONTENT_ROOT --yes` -> exit 0, and confirm it is no longer published.
 6a. **Variant publish (#158).** On a culture-varying document, `content publish <id>` with no `--culture` must publish *every* culture, not 400. `"*"` is not a wildcard - it is the invariant culture - so a regression here shows up as `400 "Cannot publish invariant culture when the document varies by culture."`
-7. `content version list $CLITEST_CONTENT_ROOT` lists >= 2; `content version rollback <versionId>` -> exit 0.
-8. `content trash $CLITEST_CONTENT_CHILD` -> exit 0 (in bin); `content restore $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (back).
+7. `content version list $CLITEST_CONTENT_ROOT` lists >= 2; `content version rollback <versionId>` -> exit 0. The rollback changes only the draft: the `isCurrentPublishedVersion` row is unchanged. Repeat with `--publish` and confirm the rolled-back values are live (#233).
+8. `content trash $CLITEST_CONTENT_CHILD` -> exit 0 (in bin); `content restore $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (back). The restored item is unpublished and last in its parent's sort order; with `--publish` it is published (#233).
 9. `content copy $CLITEST_CONTENT_CHILD --parent $CLITEST_CONTENT_ROOT` -> exit 0 (record the copy's id and delete it in teardown).
 10. `content move` the copy to root then back -> exit 0.
 
@@ -486,7 +487,7 @@ en=Hello --id $CLITEST_DICT`; `get`; delete in teardown.
 
 **E7 Members.** `member-type create --alias clitestMemberType --name "clitest MT"`; `member create --email clitest@example.com --name "clitest Member" --type clitestMemberType --id $CLITEST_MEMBER`; `update --approved`; `member-group create --name "clitest MG" --id $CLITEST_MEMBERGROUP`.
 
-**E8 Webhooks.** `webhook create --url https://example.com/hook --event "Umbraco.ContentPublish" --name "clitest hook" --id $CLITEST_WEBHOOK`; `list` shows it; delete in teardown.
+**E8 Webhooks.** `webhook create --url https://example.com/hook --event "Umbraco.ContentPublish" --name "clitest hook" --id $CLITEST_WEBHOOK`; `list` shows it; delete in teardown. `webhook event list` includes `Umbraco.ContentPublish`, and `create --event Umbraco.Nope` is refused with a did-you-mean (#234).
 
 **E9 user-data.** `user-data create --group clitest --identifier clitest-1 --data "v" --id $CLITEST_USERDATA`; `get`; `update`; delete in teardown.
 
