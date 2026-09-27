@@ -50,7 +50,7 @@ public sealed partial class UmbracoManagementClient
             async () =>
             {
                 if (body.DeepClone() is not JsonObject payload)
-                    throw BadRequest("The language body was not a JSON object.");
+                    throw InvalidArgument("The language body was not a JSON object.");
                 // The update model has no isoCode: the route names the language.
                 payload.Remove("isoCode");
                 await SendRawJsonAsync(

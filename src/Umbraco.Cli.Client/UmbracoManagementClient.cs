@@ -3261,6 +3261,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         {
             return UmbracoResponse<T>.Success(await action());
         }
+        catch (InvalidArgumentException ex)
+        {
+            // Input refused client-side before any request (#280): invalid_argument, no status.
+            return UmbracoResponse<T>.Failure(0, ex.Message, FailureCategory.InvalidArgument);
+        }
         catch (UnresolvedReferenceException ex)
         {
             // An alias/name the caller typed matched nothing (or too much): the input is wrong,
@@ -3363,6 +3368,14 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <returns>An exception <see cref="GuardedApiAsync{T}"/> maps to a rejected request.</returns>
     private static ApiException BadRequest(string message) =>
         new(message) { ResponseStatusCode = 400 };
+
+    /// <summary>
+    /// A refusal of the caller's own input, made before anything is sent (#280). Use
+    /// <see cref="BadRequest"/> instead when the input may be fine and something else failed.
+    /// </summary>
+    /// <param name="message">What was wrong with the input.</param>
+    /// <returns>The exception to throw.</returns>
+    private static InvalidArgumentException InvalidArgument(string message) => new(message);
 
     /// <summary>
     /// Produces a legible message for a Kiota <see cref="ApiException"/>. When the server returns
