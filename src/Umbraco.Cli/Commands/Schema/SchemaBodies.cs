@@ -51,6 +51,28 @@ public static class SchemaBodies
             : null;
 
     /// <summary>
+    /// A dictionary body with its parent translated to the target's id: when the parent was matched
+    /// to a live item with another id (by key, across instances), the copy names that live id, so
+    /// the create or move lands under the right item. An unmatched parent (one the same apply
+    /// creates with its snapshot id) is left as it is.
+    /// </summary>
+    /// <param name="body">A body shaped by <see cref="DictionaryItem"/>.</param>
+    /// <param name="liveIds">Each matched snapshot id's live id.</param>
+    /// <returns><paramref name="body"/>, or a copy with the parent translated.</returns>
+    public static JsonNode WithLiveParent(JsonNode body, IReadOnlyDictionary<Guid, Guid> liveIds)
+    {
+        if (
+            ParentOf(body) is not { } parent
+            || !liveIds.TryGetValue(parent, out var live)
+            || live == parent
+        )
+            return body;
+        var clone = body.DeepClone();
+        clone["parent"] = new JsonObject { ["id"] = live.ToString() };
+        return clone;
+    }
+
+    /// <summary>
     /// A copy of a dictionary body without its <c>parent</c>: the update takes only the name and
     /// translations, and a parent change is a separate move.
     /// </summary>

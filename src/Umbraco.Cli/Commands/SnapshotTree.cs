@@ -24,6 +24,28 @@ public static class SnapshotTree
         return clone;
     }
 
+    /// <summary>
+    /// The removed items with a kept item somewhere under them. Removing one (a delete cascades; a
+    /// trash moves the subtree) would take the kept item along, so a prune leaves it in place. A
+    /// kept item sits under a removed one when the snapshot places it elsewhere, which apply does
+    /// not act on (placement drift).
+    /// </summary>
+    /// <param name="removed">The items a prune would remove.</param>
+    /// <param name="parents">Every live item's parent.</param>
+    /// <returns>The removed items to leave alone.</returns>
+    public static HashSet<Guid> AncestorsOfKept(
+        IReadOnlySet<Guid> removed,
+        IReadOnlyDictionary<Guid, Guid?> parents
+    )
+    {
+        var protectedIds = new HashSet<Guid>();
+        foreach (var id in parents.Keys.Where(id => !removed.Contains(id)))
+        foreach (var ancestor in Lineage(id, parents).Skip(1))
+            if (removed.Contains(ancestor))
+                protectedIds.Add(ancestor);
+        return protectedIds;
+    }
+
     /// <summary>An item id followed by its ancestors' ids, nearest first.</summary>
     /// <param name="id">The item id.</param>
     /// <param name="parents">Every live item's parent.</param>

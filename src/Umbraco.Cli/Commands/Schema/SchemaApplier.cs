@@ -158,21 +158,31 @@ public static class SchemaApplier
         var blocked = new Dictionary<Op, string>();
         var deletes = plan.Where(o => o.Operation == "delete").ToList();
 
-        // A dictionary delete takes the item's children with it. Children the prune deletes too
-        // are expected; any other child (one the snapshot keeps) would be lost by surprise.
+        // A dictionary delete takes the item's children with it. A child is expected to go when
+        // the prune deletes it too, or safe when this apply moves it to another parent first
+        // (updates run before deletes). Any other child is one the snapshot keeps where it is,
+        // and would be lost by surprise.
         var prunedDictionary = deletes
             .Where(o => o.Change.Kind == SchemaKinds.DictionaryItem)
             .Select(o => o.Change.CurrentId!.Value)
             .ToHashSet();
-        var liveChildren = new Dictionary<Guid, List<Guid>>();
+        var movedAway = plan.Where(o =>
+                o.Operation == "update"
+                && o.Change.Kind == SchemaKinds.DictionaryItem
+                && SchemaBodies.ParentOf(o.Change.DesiredBody)
+                    != SchemaBodies.ParentOf(o.Change.CurrentBody)
+            )
+            .Select(o => o.Change.CurrentId!.Value)
+            .ToHashSet();
+        // Null when the tree could not be read: an unknown is not a yes, so every pruned item
+        // then needs --force.
+        Dictionary<Guid, List<Guid>>? liveChildren = null;
         if (prunedDictionary.Count > 0)
         {
             var entries = await client.GetDictionaryEntriesAsync(ct);
-            // An unknown is not a yes: without the tree, every pruned item needs --force.
-            if (!entries.IsSuccess)
-                foreach (var id in prunedDictionary)
-                    liveChildren[id] = [Guid.Empty];
-            else
+            if (entries.IsSuccess)
+            {
+                liveChildren = [];
                 foreach (var entry in entries.Data!)
                 {
                     if (entry.ParentId is not { } parent)
@@ -181,6 +191,7 @@ public static class SchemaApplier
                         liveChildren[parent] = list = [];
                     list.Add(entry.Id);
                 }
+            }
         }
 
         foreach (var op in deletes)
@@ -191,7 +202,10 @@ public static class SchemaApplier
                 SchemaKinds.Language =>
                     $"Deleting language {change.Identity} also deletes every culture variant and "
                         + "dictionary translation in that language.",
-                SchemaKinds.DictionaryItem => KeptChildren(change, liveChildren, prunedDictionary),
+                SchemaKinds.DictionaryItem => liveChildren is null
+                    ? $"Could not read the dictionary tree to check whether '{change.Identity}' "
+                        + "has children."
+                    : KeptChildren(change, liveChildren, prunedDictionary, movedAway),
                 // The same check the single deletes run, so a prune and a delete agree.
                 _ => await InUseGuard.ReasonAsync(client, change.Kind, change.CurrentId!.Value, ct),
             };
@@ -202,25 +216,24 @@ public static class SchemaApplier
     }
 
     /// <summary>
-    /// Why deleting a dictionary item would also delete children the prune keeps, or null when
-    /// every child is pruned too (or it has none).
+    /// Why deleting a dictionary item would also delete children the snapshot keeps under it, or
+    /// null when every child is pruned too, moved elsewhere by this apply, or there are none.
     /// </summary>
     /// <param name="change">The removed dictionary item.</param>
-    /// <param name="liveChildren">Each live item's children (<see cref="Guid.Empty"/> when the tree could not be read).</param>
+    /// <param name="liveChildren">Each live item's children.</param>
     /// <param name="pruned">Every dictionary item the prune deletes.</param>
+    /// <param name="movedAway">Every dictionary item this apply moves to another parent.</param>
     /// <returns>The reason, or null.</returns>
     private static string? KeptChildren(
         SchemaEntityChange change,
         Dictionary<Guid, List<Guid>> liveChildren,
-        HashSet<Guid> pruned
+        HashSet<Guid> pruned,
+        HashSet<Guid> movedAway
     )
     {
-        var id = change.CurrentId!.Value;
-        if (!liveChildren.TryGetValue(id, out var children))
+        if (!liveChildren.TryGetValue(change.CurrentId!.Value, out var children))
             return null;
-        if (children.Contains(Guid.Empty))
-            return $"Could not read the dictionary tree to check whether '{change.Identity}' has children.";
-        var kept = children.Count(c => !pruned.Contains(c));
+        var kept = children.Count(c => !pruned.Contains(c) && !movedAway.Contains(c));
         return kept == 0
             ? null
             : $"Dictionary item '{change.Identity}' has {kept} child item(s) the snapshot keeps. "

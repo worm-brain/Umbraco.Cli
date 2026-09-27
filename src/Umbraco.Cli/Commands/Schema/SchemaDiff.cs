@@ -157,6 +157,15 @@ public sealed record SchemaKindDiff(
     [JsonIgnore]
     public bool HasChanges => Added.Count > 0 || Changed.Count > 0 || Removed.Count > 0;
 
+    /// <summary>
+    /// For every matched pair that has an id on both sides, the live id of the snapshot id. A
+    /// key match across instances usually pairs different ids, so a reference to a same-kind item
+    /// (a dictionary item's parent) is translated through this before it is written. Not
+    /// serialized.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<Guid, Guid> LiveIds { get; init; } = new Dictionary<Guid, Guid>();
+
     /// <summary>A kind with no entities on either side.</summary>
     public static SchemaKindDiff None { get; } = new([], [], [], [], 0);
 }

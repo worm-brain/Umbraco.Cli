@@ -58,17 +58,25 @@ public static class MediaApplier
     /// <summary>One planned step.</summary>
     /// <param name="Operation">The step.</param>
     /// <param name="Change">The diff entry it came from.</param>
-    private sealed record Step(MediaOperation Operation, MediaItemChange Change)
+    /// <param name="Skipped">
+    /// A trash the prune does not run, because something the snapshot keeps is under the item.
+    /// Reported as <c>skipped</c> so the plan accounts for every removed row the diff lists.
+    /// </param>
+    private sealed record Step(
+        MediaOperation Operation,
+        MediaItemChange Change,
+        bool Skipped = false
+    )
     {
         /// <summary>The step as reported.</summary>
-        /// <param name="status">The status.</param>
+        /// <param name="status">The status, unless the step is skipped.</param>
         /// <returns>The action row.</returns>
         public MediaAction ToAction(string status) =>
             new(
                 Operation,
                 Change.Id,
                 Operation != MediaOperation.Trash && Change.FileChanged ? Change.File?.Name : null,
-                status
+                Skipped ? "skipped" : status
             );
     }
 
@@ -98,11 +106,17 @@ public static class MediaApplier
         var done = new List<MediaAction>();
         foreach (var step in plan)
         {
+            if (step.Skipped)
+            {
+                done.Add(step.ToAction("skipped"));
+                continue;
+            }
             var result = await ExecuteAsync(client, snapshot, step, ct);
             if (!result.IsSuccess)
             {
+                var applied = done.Count(a => a.Status != "skipped");
                 var doneSummary =
-                    done.Count == 0 ? "no changes were applied" : $"{done.Count} change(s) applied";
+                    applied == 0 ? "no changes were applied" : $"{applied} change(s) applied";
                 return UmbracoResponse<MediaApplyResult>.Failure(
                     result.StatusCode,
                     $"Apply failed on {step.Operation.ToString().ToLowerInvariant()} media item "
@@ -135,30 +149,19 @@ public static class MediaApplier
 
         if (prune)
         {
-            var kept = AncestorsOfKept(diff);
+            // Trashing an item moves its subtree too, so one with a kept item under it stays.
+            var protectedIds = SnapshotTree.AncestorsOfKept(
+                diff.Removed.Select(r => r.Id).ToHashSet(),
+                diff.LiveParents
+            );
             // Removed items are in live pre-order; reversed, children go before their parents.
             for (var i = items.Count - 1; i >= 0; i--)
-                if (items[i].Change == ContentChangeKind.Removed && !kept.Contains(items[i].Id))
-                    plan.Add(new Step(MediaOperation.Trash, items[i]));
+                if (items[i].Change == ContentChangeKind.Removed)
+                    plan.Add(
+                        new Step(MediaOperation.Trash, items[i], protectedIds.Contains(items[i].Id))
+                    );
         }
         return plan;
-    }
-
-    /// <summary>
-    /// The removed items with a kept item somewhere under them: trashing one would move the kept
-    /// item to the recycle bin with it.
-    /// </summary>
-    /// <param name="diff">The diff, with the live parents.</param>
-    /// <returns>The ids of removed items to leave alone.</returns>
-    private static HashSet<Guid> AncestorsOfKept(MediaDiff diff)
-    {
-        var removed = diff.Removed.Select(r => r.Id).ToHashSet();
-        var kept = new HashSet<Guid>();
-        foreach (var id in diff.LiveParents.Keys.Where(id => !removed.Contains(id)))
-        foreach (var ancestor in SnapshotTree.Lineage(id, diff.LiveParents).Skip(1))
-            if (removed.Contains(ancestor))
-                kept.Add(ancestor);
-        return kept;
     }
 
     /// <summary>Runs one step.</summary>

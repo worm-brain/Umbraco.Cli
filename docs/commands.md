@@ -389,7 +389,8 @@ umbraco media apply ./media-snapshot --prune --yes         # also trash what the
 - **A directory, not a file** - `media.json` holds each item as `{ id, parent, body, file }` in tree
   pre-order, and `files/<id>/<name>` holds the files. `--out` is required, and the snapshot cannot
   be piped (`-` is refused). Export into a new or empty directory, or over an earlier media export,
-  which it replaces.
+  which it replaces only once the new export is complete (a failed export leaves it as it was).
+  A snapshot whose file paths leave `files/` is refused.
 - **What is compared** - the item body without what differs on every instance (the file's `src`
   folder, the server-computed size, dimensions and extension, dates, `isTrashed`, `flags`), and the
   file by name and size. `--verify-files` also downloads each live file and compares SHA-256.
@@ -399,7 +400,7 @@ umbraco media apply ./media-snapshot --prune --yes         # also trash what the
   moves an item (`Drifted` rows are reported only).
 - **Prune trashes** - `--prune` moves omitted items (within the snapshot's scope) to the recycle
   bin, children first; `media restore` brings one back. An item with something the snapshot keeps
-  under it is left alone.
+  under it is left alone and shows as `skipped`.
 - **Limits** - files are downloaded from the configured host only (never a CDN on another host,
   which would receive the token). Only `umbracoFile` is carried as a file. An item whose id is in
   the target's recycle bin cannot be created until it is restored or the bin emptied.
@@ -796,7 +797,8 @@ How it works:
 - **In-use prunes are refused** - before the first write, `--prune` checks every item it would
   delete. A data type still in use, a member type with members, any document or media type
   (Umbraco cannot say how many items use one), any language (its content variants and dictionary
-  translations go with it), and a dictionary item with children the snapshot keeps are refused
+  translations go with it), and a dictionary item with children the snapshot keeps under it
+  (not ones this apply moves elsewhere) are refused
   unless `--force` is given, and then nothing at all is applied. `--dry-run` shows those deletes
   as `needs --force`. The default language and user groups Umbraco marks undeletable are never
   deleted: diff lists them as `Skipped` with the reason.
@@ -819,7 +821,10 @@ How it works:
   (alias for document, media and member types, templates and user groups; name for data types,
   dictionary items and member groups; ISO code for languages, which have no id), so a
   snapshot is idempotent against
-  its own instance and portable to another. An id-only-vs-key match is flagged `idMismatch`.
+  its own instance and portable to another. A key match whose ids differ is flagged
+  `idMismatch`, and the id difference alone is not a change (apply cannot change an id). A
+  dictionary item's parent is translated to the target's id, so a tree created by hand on each
+  instance matches by key and applies under the right parents.
 - **Safety** - `apply` respects the global guardrails: `--dry-run` previews and writes nothing,
   `--readonly` blocks it, and `--prune` requires confirmation / `--yes`. Writes run in dependency
   order (languages -> dictionary items -> member groups -> data types -> templates -> media types
@@ -866,7 +871,9 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
 - **Prune a subtree, not the whole site** - a whole-tree `--prune` also deletes everything created
   on the target since the export: form submissions, editors' drafts. Export with `--root` to
   prune one subtree, and use `--exclude-type <alias|id>` / `--exclude-root <id>` (both repeatable)
-  to leave content alone. An excluded document's removed ancestors are kept too, because deleting
+  to leave content alone. A removed document with a kept document still under it (one the
+  snapshot places elsewhere) is not deleted either - apply does not move documents, and the delete
+  would cascade - and shows as `skipped`. An excluded document's removed ancestors are kept too, because deleting
   a document deletes everything under it. Run `--dry-run` first.
 - **Safety** - `apply` respects the global guardrails; it creates, updates and publishes/unpublishes by
   default and requires **both** `--prune` and `--yes` to delete. Creates run parent-first, then

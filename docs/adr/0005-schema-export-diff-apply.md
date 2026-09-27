@@ -54,13 +54,16 @@ Ship `umbraco schema export`, `umbraco schema diff <file>`, and
 > - **Languages have no id**, so they match on `isoCode` alone (§2's GUID pass finds nothing).
 >   The diff counts a live entity as matched by position, not by id, so an id-less match is
 >   not also a prune candidate.
+> - **Ids across instances.** A key-matched pair whose ids differ is not a change for the id
+>   alone (apply cannot change an id; before this, such a pair was rewritten on every apply). A
+>   dictionary item's parent is translated to the target's id before comparing and writing.
 > - **Two kinds are shaped, not verbatim** (§1). A dictionary item's read has no parent, so
 >   export adds `parent` (and sorts translations by ISO code for a stable compare); a parent
 >   change is applied as a move. A user group drops its start nodes and per-document
 >   permissions, which name content on one instance; apply writes the snapshot over the target's
 >   own values for those.
 > - **Prune has more guards** (§4). Deleting a language, or a dictionary item with children the
->   snapshot keeps, needs `--force`. The default language and user groups Umbraco marks
+>   snapshot keeps under it (not ones the same apply moves elsewhere), needs `--force`. The default language and user groups Umbraco marks
 >   undeletable are reported as skipped, never deleted.
 > Order: languages -> dictionary items -> member groups -> the types -> user groups (their
 > property permissions name document types); prune runs in reverse, dictionary children first.

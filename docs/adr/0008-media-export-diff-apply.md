@@ -32,9 +32,11 @@ snapshot argument of `diff`/`apply` is the directory (or its `media.json`); `-` 
 `invalid_argument`. This is the one pipeline whose `--out` is a directory - recorded in
 `docs/conventions.md`.
 
-Export refuses a non-empty directory that is not an earlier media export, and replaces an earlier
-export whole (its index and files are removed first, the new index is written last), so a failed
-export never leaves an index describing files that are not there.
+Export refuses a non-empty directory that is not an earlier media export (its `media.json` must
+parse as one, and nothing else may be there). It writes into a sibling staging directory and swaps
+the result in only when it is complete, so a failed export leaves an earlier snapshot as it was.
+Because a snapshot may come from someone else and apply uploads the files it names, a file path
+that leaves `files/` is refused on load.
 
 Alternative rejected: store only metadata and download each file from the source at apply time.
 It needs the source instance reachable (and authenticated) from wherever apply runs, which is the
@@ -69,7 +71,8 @@ compares SHA-256.
 deleting them: content that uses an item can get it back with `media restore`. It is still
 declared destructive (`--yes`): until restored, the pages using those items stop showing them.
 A removed item with a kept item under it is left alone, since trashing it would take the kept
-item along.
+item along, and is reported as a `skipped` step. The content pipeline now does the same for
+deletes, which cascade.
 
 ### 6. Downloads stay on the configured host
 

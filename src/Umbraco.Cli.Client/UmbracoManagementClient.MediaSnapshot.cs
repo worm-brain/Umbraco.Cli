@@ -133,7 +133,8 @@ public sealed partial class UmbracoManagementClient
                     HttpMethod = Method.GET,
                     URI = MediaFileUri(src),
                 };
-                var stream =
+                // Disposed so each download releases its connection; an export can make hundreds.
+                await using var stream =
                     await _adapter.SendPrimitiveAsync<Stream>(request, RawErrorMapping, ct)
                     ?? throw new ApiException($"The media file '{src}' was empty.")
                     {

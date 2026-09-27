@@ -16,16 +16,20 @@ public static class MediaExporter
 {
     /// <summary>
     /// Exports the media subtree beneath <paramref name="root"/> (the whole tree when null) into
-    /// <paramref name="directory"/>: each file under <c>files/{id}/</c>, then the index. The index is
-    /// written last and any earlier one removed first, so a failed export never leaves an index
-    /// describing files that are not there.
+    /// <paramref name="directory"/>: <c>media.json</c> and each file under <c>files/{id}/</c>.
+    /// <para>
+    /// The export is written to a sibling staging directory and swapped in only once it is
+    /// complete, so a failed export (a lost connection, a missing file) leaves the directory as it
+    /// was - an earlier snapshot included. Only an empty directory or an earlier media export is
+    /// replaced; any other content is refused before anything is read.
+    /// </para>
     /// </summary>
     /// <param name="client">The management client.</param>
     /// <param name="root">The subtree root, or null for the whole media tree.</param>
     /// <param name="directory">The snapshot directory; created if missing.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The snapshot written, or the first failure.</returns>
-    /// <exception cref="InvalidInputException">The directory holds other files and no earlier snapshot.</exception>
+    /// <exception cref="InvalidInputException">The directory holds something other than an earlier media export.</exception>
     public static async Task<UmbracoResponse<MediaSnapshot>> ExportAsync(
         IUmbracoManagementClient client,
         Guid? root,
@@ -33,9 +37,52 @@ public static class MediaExporter
         CancellationToken ct
     )
     {
-        var full = Path.GetFullPath(directory);
-        PrepareDirectory(full);
+        var target = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+        CheckTarget(target);
 
+        var staging = Path.Combine(
+            Path.GetDirectoryName(target)
+                ?? throw new InvalidInputException(
+                    "Export into a directory, not the root of a drive."
+                ),
+            $".{Path.GetFileName(target)}.export-{Guid.NewGuid():N}"
+        );
+        Directory.CreateDirectory(staging);
+        try
+        {
+            var written = await WriteAsync(client, root, staging, ct);
+            if (!written.IsSuccess)
+                return written;
+            SwapIn(staging, target);
+            return UmbracoResponse<MediaSnapshot>.Success(
+                new MediaSnapshot
+                {
+                    Root = written.Data!.Root,
+                    Items = written.Data!.Items,
+                    Directory = target,
+                }
+            );
+        }
+        finally
+        {
+            if (Directory.Exists(staging))
+                Directory.Delete(staging, recursive: true);
+        }
+    }
+
+    /// <summary>Writes a complete snapshot into <paramref name="full"/>, an empty directory.</summary>
+    /// <param name="client">The management client.</param>
+    /// <param name="root">The subtree root, or null.</param>
+    /// <param name="full">The directory to write into.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The snapshot, or the first failure.</returns>
+    private static async Task<UmbracoResponse<MediaSnapshot>> WriteAsync(
+        IUmbracoManagementClient client,
+        Guid? root,
+        string full,
+        CancellationToken ct
+    )
+    {
         var live = await ReadAsync(client, root, ct);
         if (!live.IsSuccess)
             return UmbracoResponse<MediaSnapshot>.Failure(live.StatusCode, live.ErrorMessage!);
@@ -213,36 +260,75 @@ public static class MediaExporter
     }
 
     /// <summary>
-    /// Makes <paramref name="directory"/> ready for an export: created when missing; when it holds
-    /// an earlier snapshot, that snapshot's index and files are removed; any other non-empty
-    /// directory is refused rather than written into.
+    /// Refuses an export target that holds anything but an earlier media export: a directory with
+    /// other files, or one whose <c>media.json</c> is not a media snapshot (some other tool's file
+    /// of that name). A missing or empty directory is fine.
     /// </summary>
-    /// <param name="directory">The full path.</param>
-    /// <exception cref="InvalidInputException">The directory holds files that are not a snapshot.</exception>
-    private static void PrepareDirectory(string directory)
+    /// <param name="target">The full path.</param>
+    /// <exception cref="InvalidInputException">The directory is not safe to replace.</exception>
+    private static void CheckTarget(string target)
     {
-        if (!Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
+        if (!Directory.Exists(target) || !Directory.EnumerateFileSystemEntries(target).Any())
             return;
-        }
 
-        var index = Path.Combine(directory, MediaSnapshot.IndexFileName);
+        var index = Path.Combine(target, MediaSnapshot.IndexFileName);
         if (!File.Exists(index))
+            throw new InvalidInputException(
+                $"'{target}' is not empty and holds no {MediaSnapshot.IndexFileName}. "
+                    + "Export into an empty or new directory, or over an earlier media export."
+            );
+        try
         {
-            if (Directory.EnumerateFileSystemEntries(directory).Any())
-                throw new InvalidInputException(
-                    $"'{directory}' is not empty and holds no {MediaSnapshot.IndexFileName}. "
-                        + "Export into an empty or new directory, or over an earlier media export."
-                );
+            MediaSnapshot.FromJson(File.ReadAllText(index), target);
+        }
+        catch (System.Text.Json.JsonException e)
+        {
+            throw new InvalidInputException(
+                $"'{target}' holds a {MediaSnapshot.IndexFileName} that is not a media export "
+                    + $"({e.Message}), so it is not replaced."
+            );
+        }
+
+        // Only the snapshot's own index and files are replaced, so nothing else may be there.
+        var others = Directory
+            .EnumerateFileSystemEntries(target)
+            .Select(Path.GetFileName)
+            .Where(n =>
+                n is not MediaSnapshot.IndexFileName and not MediaSnapshot.FilesDirectoryName
+            )
+            .ToList();
+        if (others.Count > 0)
+            throw new InvalidInputException(
+                $"'{target}' holds an earlier media export and other files too "
+                    + $"({string.Join(", ", others.Take(3))}). Export into its own directory."
+            );
+    }
+
+    /// <summary>
+    /// Replaces the target's snapshot with the staged one: moved whole when the target does not
+    /// exist, otherwise the target's index and files are replaced by the staged ones.
+    /// </summary>
+    /// <param name="staging">The complete staged snapshot.</param>
+    /// <param name="target">The export directory.</param>
+    private static void SwapIn(string staging, string target)
+    {
+        if (!Directory.Exists(target))
+        {
+            Directory.Move(staging, target);
             return;
         }
 
-        // An earlier export: replace it whole, so no file from it lingers.
-        File.Delete(index);
-        var files = Path.Combine(directory, MediaSnapshot.FilesDirectoryName);
+        var index = Path.Combine(target, MediaSnapshot.IndexFileName);
+        var files = Path.Combine(target, MediaSnapshot.FilesDirectoryName);
+        if (File.Exists(index))
+            File.Delete(index);
         if (Directory.Exists(files))
             Directory.Delete(files, recursive: true);
+
+        var stagedFiles = Path.Combine(staging, MediaSnapshot.FilesDirectoryName);
+        if (Directory.Exists(stagedFiles))
+            Directory.Move(stagedFiles, files);
+        File.Move(Path.Combine(staging, MediaSnapshot.IndexFileName), index);
     }
 
     /// <summary>A file name safe to write on any OS; <c>file</c> when nothing usable is left.</summary>

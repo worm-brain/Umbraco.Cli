@@ -143,6 +143,27 @@ public sealed class MediaSnapshot
         var snapshot =
             obj.Deserialize<MediaSnapshot>(SerializerOptions)
             ?? throw new JsonException("The snapshot could not be parsed.");
+
+        // A snapshot can come from someone else, and apply uploads the files it names: a path
+        // that leaves files/ ("../../.ssh/id_rsa") would send an arbitrary local file to the
+        // instance. Only paths inside the snapshot's own files directory are accepted.
+        var filesRoot =
+            System.IO.Path.GetFullPath(System.IO.Path.Combine(directory, FilesDirectoryName))
+            + System.IO.Path.DirectorySeparatorChar;
+        foreach (var file in snapshot.Items.Select(i => i.File).OfType<MediaFile>())
+        {
+            var resolved = System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(
+                    directory,
+                    file.Path.Replace('/', System.IO.Path.DirectorySeparatorChar)
+                )
+            );
+            if (!resolved.StartsWith(filesRoot, StringComparison.OrdinalIgnoreCase))
+                throw new JsonException(
+                    $"The snapshot names the file '{file.Path}', which is outside its "
+                        + $"{FilesDirectoryName} directory."
+                );
+        }
         return new MediaSnapshot
         {
             Root = snapshot.Root,

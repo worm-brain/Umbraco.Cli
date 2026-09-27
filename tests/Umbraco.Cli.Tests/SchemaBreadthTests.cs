@@ -590,4 +590,122 @@ public class SchemaBreadthTests
             () => Assert.Equal([members], fake.MemberGroupsDeleted)
         );
     }
+
+    // ── dictionary across instances (ids differ, names match) ──────────────────
+
+    [Fact]
+    public void Compare_NameMatchedTreeWithOtherIds_IsUnchanged()
+    {
+        // Arrange: the same Blog > Blog.Title tree, created by hand on each instance.
+        var (sourceParent, sourceChild) = (Guid.NewGuid(), Guid.NewGuid());
+        var (targetParent, targetChild) = (Guid.NewGuid(), Guid.NewGuid());
+        var desired = new SchemaSnapshot
+        {
+            DictionaryItems =
+            [
+                Dictionary(sourceParent, "Blog"),
+                Dictionary(sourceChild, "Blog.Title", sourceParent),
+            ],
+        };
+        var live = new SchemaSnapshot
+        {
+            DictionaryItems =
+            [
+                Dictionary(targetParent, "Blog"),
+                Dictionary(targetChild, "Blog.Title", targetParent),
+            ],
+        };
+
+        // Act
+        var diff = SchemaDiffEngine.Compare(desired, live);
+
+        // Assert: the id mismatch alone is not a change, so a re-apply does nothing.
+        Assert.Multiple(
+            () => Assert.Empty(diff.DictionaryItems.Changed),
+            () => Assert.Equal(2, diff.DictionaryItems.Unchanged)
+        );
+    }
+
+    [Fact]
+    public async Task ApplyAsync_NewChildOfANameMatchedParent_IsCreatedUnderTheTargetsParent()
+    {
+        // Arrange
+        var (sourceParent, targetParent, child) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var diff = SchemaDiffEngine.Compare(
+            new SchemaSnapshot
+            {
+                DictionaryItems =
+                [
+                    Dictionary(sourceParent, "Blog"),
+                    Dictionary(child, "Blog.Title", sourceParent),
+                ],
+            },
+            new SchemaSnapshot { DictionaryItems = [Dictionary(targetParent, "Blog")] }
+        );
+        var fake = new FakeUmbracoManagementClient();
+
+        // Act
+        await Apply(fake, diff);
+
+        // Assert
+        var created = Assert.Single(fake.RawWrites, w => w.Kind == "dictionaryItem");
+        Assert.Equal(targetParent, SchemaBodies.ParentOf(created.Body));
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PruneParentWhoseChildIsMovedAway_NeedsNoForce()
+    {
+        // Arrange: live Old > Title; the snapshot keeps Title but under Blog, and drops Old.
+        var (old, title, blog) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var fake = new FakeUmbracoManagementClient();
+        fake.DictionaryEntries.Add(new DictionaryEntry(old, null));
+        fake.DictionaryEntries.Add(new DictionaryEntry(title, old));
+        fake.DictionaryEntries.Add(new DictionaryEntry(blog, null));
+        var diff = SchemaDiffEngine.Compare(
+            new SchemaSnapshot
+            {
+                DictionaryItems = [Dictionary(blog, "Blog"), Dictionary(title, "Title", blog)],
+            },
+            new SchemaSnapshot
+            {
+                DictionaryItems =
+                [
+                    Dictionary(old, "Old"),
+                    Dictionary(title, "Title", old),
+                    Dictionary(blog, "Blog"),
+                ],
+            }
+        );
+
+        // Act
+        var result = await Apply(fake, diff, prune: true);
+
+        // Assert: the move runs before the delete, so the child is not lost.
+        Assert.Multiple(
+            () => Assert.True(result.IsSuccess, result.ErrorMessage),
+            () => Assert.Equal((title, (Guid?)blog), Assert.Single(fake.DictionaryItemsMoved)),
+            () => Assert.Equal([old], fake.DictionaryItemsDeleted)
+        );
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PruneDictionaryWhenTheTreeCannotBeRead_IsRefused()
+    {
+        var parent = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient
+        {
+            DictionaryEntriesFailure = UmbracoResponse<IReadOnlyList<DictionaryEntry>>.Failure(
+                500,
+                "boom"
+            ),
+        };
+        var diff = Diff() with
+        {
+            DictionaryItems = Removes(
+                Removed(SchemaKinds.DictionaryItem, "Blog", parent, Dictionary(parent, "Blog"))
+            ),
+        };
+
+        await Assert.ThrowsAsync<SafetyRefusalException>(() => Apply(fake, diff, prune: true));
+    }
 }

@@ -255,7 +255,7 @@ public sealed class MediaSnapshotTests : IDisposable
         var stale = Path.Combine(_dir, "files", Guid.NewGuid().ToString(), "old.jpg");
         Directory.CreateDirectory(Path.GetDirectoryName(stale)!);
         File.WriteAllText(stale, "old");
-        File.WriteAllText(Path.Combine(_dir, MediaSnapshot.IndexFileName), "{}");
+        File.WriteAllText(Path.Combine(_dir, MediaSnapshot.IndexFileName), EarlierIndex);
 
         // Act
         await MediaExporter.ExportAsync(
@@ -267,6 +267,70 @@ public sealed class MediaSnapshotTests : IDisposable
 
         // Assert
         Assert.False(File.Exists(stale));
+    }
+
+    /// <summary>An index an earlier export wrote (no items).</summary>
+    private const string EarlierIndex = """{"mediaVersion":"1","items":[]}""";
+
+    [Fact]
+    public async Task ExportAsync_FailedExport_LeavesTheEarlierSnapshotInPlace()
+    {
+        // Arrange: an earlier export, then a live item whose file cannot be downloaded.
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(Path.Combine(_dir, MediaSnapshot.IndexFileName), EarlierIndex);
+        var image = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient();
+        fake.MediaSnapshotTree.Add(new ContentTreeNode(image, null));
+        fake.MediaRaw[image] = Image(image, "/media/abc/missing.jpg", 10);
+
+        // Act
+        var result = await MediaExporter.ExportAsync(fake, null, _dir, CancellationToken.None);
+
+        // Assert
+        Assert.Multiple(
+            () => Assert.False(result.IsSuccess),
+            () =>
+                Assert.Equal(
+                    EarlierIndex,
+                    File.ReadAllText(Path.Combine(_dir, MediaSnapshot.IndexFileName))
+                ),
+            () =>
+                Assert.Empty(
+                    Directory.EnumerateDirectories(
+                        Path.GetDirectoryName(_dir)!,
+                        $".{Path.GetFileName(_dir)}.export-*"
+                    )
+                )
+        );
+    }
+
+    [Fact]
+    public async Task ExportAsync_IntoADirectoryWithAnotherToolsMediaJson_IsRefused()
+    {
+        // Another tool's media.json must not pass for an earlier export (whose files/ is replaced).
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(Path.Combine(_dir, MediaSnapshot.IndexFileName), """{"assets":[]}""");
+
+        await Assert.ThrowsAsync<InvalidInputException>(() =>
+            MediaExporter.ExportAsync(
+                new FakeUmbracoManagementClient(),
+                null,
+                _dir,
+                CancellationToken.None
+            )
+        );
+    }
+
+    [Fact]
+    public void FromJson_FilePathOutsideFiles_IsRefused()
+    {
+        // A snapshot from someone else must not make apply upload an arbitrary local file.
+        var json = $$"""
+            {"mediaVersion":"1","items":[{"id":"{{Guid.NewGuid()}}","body":{},
+              "file":{"path":"../../.ssh/id_rsa","name":"id_rsa","bytes":1,"sha256":""} } ] }
+            """;
+
+        Assert.Throws<JsonException>(() => MediaSnapshot.FromJson(json, _dir));
     }
 
     // ── diff ───────────────────────────────────────────────────────────────────
@@ -537,6 +601,36 @@ public sealed class MediaSnapshotTests : IDisposable
 
         // Assert
         Assert.Equal([older, old], fake.MediaTrashed);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_Prune_ReportsTheSparedAncestorAsSkipped()
+    {
+        // Kept is in the snapshot at the root, but still lives under Shelf, which is not.
+        var shelf = Guid.NewGuid();
+        var kept = Guid.NewGuid();
+        var snapshot = new MediaSnapshot
+        {
+            Directory = _dir,
+            Items = [new MediaNode { Id = kept, Body = Folder(kept) }],
+        };
+        var live = new List<MediaNode>
+        {
+            Live(shelf, null, Folder(shelf)),
+            Live(kept, shelf, snapshot.Items[0].Body),
+        };
+
+        var result = await MediaApplier.ApplyAsync(
+            new FakeUmbracoManagementClient(),
+            snapshot,
+            MediaDiffEngine.Compare(snapshot, live),
+            true,
+            false,
+            CancellationToken.None
+        );
+
+        var trash = Assert.Single(result.Data!.Actions, a => a.Operation == MediaOperation.Trash);
+        Assert.Equal((shelf, "skipped"), (trash.Id, trash.Status));
     }
 
     [Fact]

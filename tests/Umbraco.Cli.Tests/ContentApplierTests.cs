@@ -154,6 +154,35 @@ public class ContentApplierTests
         Assert.Equal(new[] { c, b, a }, fake.CalledIds);
     }
 
+    [Fact]
+    public async Task ApplyAsync_Prune_SkipsTheParentOfAKeptDocument()
+    {
+        // Arrange: Kept is in the snapshot (placed elsewhere, which apply does not act on) but
+        // still lives under Old, which the snapshot drops. Deleting Old would cascade to Kept.
+        var fake = new FakeUmbracoManagementClient { DeleteContentHandler = _ => Ok() };
+        Guid old = Guid.NewGuid(),
+            kept = Guid.NewGuid();
+        var diff = Diff(removed: [Removed(old)]) with
+        {
+            LiveParents = new Dictionary<Guid, Guid?> { [old] = null, [kept] = old },
+        };
+
+        // Act
+        var result = await ContentApplier.ApplyAsync(
+            fake,
+            diff,
+            new ContentApplyOptions(Prune: true, DryRun: false),
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Multiple(
+            () => Assert.Empty(fake.CalledIds),
+            () => Assert.Equal("skipped", Assert.Single(result.Data!.Actions).Status),
+            () => Assert.Equal(0, result.Data!.Deleted)
+        );
+    }
+
     // ── prune exclusions (#225) ───────────────────────────────────────────────
     // A staging site: Contact (in the snapshot) holds two form submissions created on staging,
     // and Blog (in the snapshot) holds a staging-only post. All three are prune candidates.
