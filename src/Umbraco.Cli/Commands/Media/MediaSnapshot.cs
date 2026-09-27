@@ -48,7 +48,24 @@ public sealed class MediaNode
     /// <summary>The item's file, or null when it holds none.</summary>
     [JsonPropertyName("file")]
     public MediaFile? File { get; init; }
+
+    /// <summary>
+    /// Set when the item names a file the source site would not serve - gone (404) or protected
+    /// by the site (403) - so the snapshot holds the item without it. Omitted otherwise.
+    /// </summary>
+    [JsonPropertyName("fileUnavailable")]
+    public UnavailableFile? FileUnavailable { get; init; }
 }
+
+/// <summary>A file the source site would not serve at export (#226).</summary>
+/// <param name="Id">The media item id.</param>
+/// <param name="Src">The file's <c>src</c>.</param>
+/// <param name="Status">The HTTP status the site answered: 404 (gone) or 403 (protected).</param>
+public sealed record UnavailableFile(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("src")] string Src,
+    [property: JsonPropertyName("status")] int Status
+);
 
 /// <summary>
 /// A portable dump of a media subtree (#226, ADR 0008): every item's verbatim body and placement

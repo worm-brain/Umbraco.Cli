@@ -222,13 +222,34 @@ public sealed class MediaSnapshotTests : IDisposable
         var image = Guid.NewGuid();
         var fake = new FakeUmbracoManagementClient();
         fake.MediaSnapshotTree.Add(new ContentTreeNode(image, null));
-        fake.MediaRaw[image] = Image(image, "/media/abc/missing.jpg", 10);
+        fake.MediaRaw[image] = Image(image, "/media/abc/broken.jpg", 10);
+        fake.MediaFileErrors["/media/abc/broken.jpg"] = 500;
 
         var result = await MediaExporter.ExportAsync(fake, null, _dir, CancellationToken.None);
 
         Assert.Multiple(
             () => Assert.False(result.IsSuccess),
             () => Assert.False(File.Exists(Path.Combine(_dir, MediaSnapshot.IndexFileName)))
+        );
+    }
+
+    [Fact]
+    public async Task ExportAsync_FileTheSiteNoLongerHas_ExportsTheItemFlagged()
+    {
+        // A long-lived site often has media records whose file is gone (a 404). One such item
+        // must not make the whole library unexportable.
+        var image = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient();
+        fake.MediaSnapshotTree.Add(new ContentTreeNode(image, null));
+        fake.MediaRaw[image] = Image(image, "/media/abc/gone.jpg", 10);
+
+        var result = await MediaExporter.ExportAsync(fake, null, _dir, CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        var item = Assert.Single(result.Data!.Items);
+        Assert.Multiple(
+            () => Assert.Equal(404, item.FileUnavailable?.Status),
+            () => Assert.Null(item.File)
         );
     }
 
@@ -281,7 +302,8 @@ public sealed class MediaSnapshotTests : IDisposable
         var image = Guid.NewGuid();
         var fake = new FakeUmbracoManagementClient();
         fake.MediaSnapshotTree.Add(new ContentTreeNode(image, null));
-        fake.MediaRaw[image] = Image(image, "/media/abc/missing.jpg", 10);
+        fake.MediaRaw[image] = Image(image, "/media/abc/broken.jpg", 10);
+        fake.MediaFileErrors["/media/abc/broken.jpg"] = 500;
 
         // Act
         var result = await MediaExporter.ExportAsync(fake, null, _dir, CancellationToken.None);

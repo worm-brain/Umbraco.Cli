@@ -7,8 +7,19 @@ namespace Umbraco.Cli.Commands.Media;
 /// <param name="Items">Number of media items exported (folders included).</param>
 /// <param name="Files">Number of files downloaded.</param>
 /// <param name="Bytes">Total size of the files.</param>
+/// <param name="UnavailableFiles">
+/// The files the site would not serve (404 gone, 403 protected). Their items are exported without
+/// them: apply creates such an item without a file, and leaves an existing one's file alone.
+/// Empty when every file was downloaded.
+/// </param>
 /// <param name="Path">The absolute path of the snapshot directory.</param>
-public sealed record MediaExportSummary(int Items, int Files, long Bytes, string Path);
+public sealed record MediaExportSummary(
+    int Items,
+    int Files,
+    long Bytes,
+    IReadOnlyList<UnavailableFile> UnavailableFiles,
+    string Path
+);
 
 /// <summary>Wires the <c>media export</c> command (#226, ADR 0008).</summary>
 public static class MediaExportCommand
@@ -65,6 +76,11 @@ public static class MediaExportCommand
                                 snapshot.Items.Count,
                                 files.Count,
                                 files.Sum(f => f.Bytes),
+                                [
+                                    .. snapshot
+                                        .Items.Select(i => i.FileUnavailable)
+                                        .OfType<UnavailableFile>(),
+                                ],
                                 snapshot.Directory
                             ),
                             ctx.CommandName,

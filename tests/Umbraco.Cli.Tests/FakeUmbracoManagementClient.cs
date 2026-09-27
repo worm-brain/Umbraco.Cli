@@ -439,6 +439,9 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>Every file staged, in order: its name, content and the id it was given.</summary>
     public List<(string FileName, byte[] Content, Guid Id)> StagedFiles { get; } = [];
 
+    /// <summary>Downloads that fail with the given status, keyed by <c>src</c> (a missing <see cref="MediaFiles"/> entry is a 404).</summary>
+    public Dictionary<string, int> MediaFileErrors { get; } = [];
+
     /// <summary>How many downloads were made.</summary>
     public int MediaDownloads { get; private set; }
 
@@ -489,6 +492,8 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     )
     {
         MediaDownloads++;
+        if (MediaFileErrors.TryGetValue(src, out var status))
+            return UmbracoResponse<Empty>.Failure(status, $"Failed: {src}");
         if (!MediaFiles.TryGetValue(src, out var bytes))
             return UmbracoResponse<Empty>.Failure(404, $"Not found: {src}");
         await destination.WriteAsync(bytes, ct);

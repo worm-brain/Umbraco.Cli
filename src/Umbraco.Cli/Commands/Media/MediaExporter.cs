@@ -116,16 +116,33 @@ public static class MediaExporter
             );
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
+            UmbracoResponse<Empty> download;
             await using (var output = File.Create(path))
+                download = await client.DownloadMediaFileAsync(src, output, ct);
+            if (download.StatusCode is 404 or 403)
             {
-                var download = await client.DownloadMediaFileAsync(src, output, ct);
-                if (!download.IsSuccess)
-                    return UmbracoResponse<MediaSnapshot>.Failure(
-                        download.StatusCode,
-                        $"Could not download the file of media item {node.Id} ({src}): "
-                            + download.ErrorMessage
-                    );
+                // The site will not serve this file: it is gone (a 404, common on long-lived
+                // sites) or protected by the site (a 403 - the Management API token is not a site
+                // login, and the API has no file download). The item is exported without it and
+                // flagged, rather than making the whole library unexportable; export lists these.
+                File.Delete(path);
+                items.Add(
+                    new MediaNode
+                    {
+                        Id = node.Id,
+                        Parent = node.Parent,
+                        Body = node.Body,
+                        FileUnavailable = new UnavailableFile(node.Id, src, download.StatusCode),
+                    }
+                );
+                continue;
             }
+            if (!download.IsSuccess)
+                return UmbracoResponse<MediaSnapshot>.Failure(
+                    download.StatusCode,
+                    $"Could not download the file of media item {node.Id} ({src}): "
+                        + download.ErrorMessage
+                );
 
             items.Add(
                 new MediaNode
