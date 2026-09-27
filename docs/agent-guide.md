@@ -151,13 +151,13 @@ The rest never reach the API, so they carry no `httpStatus` and no `serverVersio
 
 | `category` | Exit | Meaning |
 |---|---|---|
-| `invalid_argument` | 1 | Your input: a command line that does not parse, a malformed or contradictory `--json-body`, two inputs for one value, an alias or name that matches nothing (or several items - the message lists their ids), a file that is not there. |
+| `invalid_argument` | 1 | Your input: a command line that does not parse, a malformed or contradictory `--json-body`, two inputs for one value, an alias or name that matches nothing (or several items - the message lists their ids), a value the instance does not recognise (a webhook `--event` alias, a dictionary ISO code), a file that is not there. |
 | `internal` | 1 | An unexpected error inside the CLI - a bug to report. |
 | `not_authenticated` | 2 | No host, no credentials, an unknown `--profile`, or authentication failed. |
 | `not_allowed` | 2 | The command is not in the allow-list. |
 | `readonly` | 2 | A write blocked by `--readonly` / `UMBRACO_READONLY`. |
 | `confirmation_required` | 2 | A destructive command run non-interactively without `--yes`. |
-| `refused` | 2 | A pre-flight check refused (e.g. deleting an in-use type without `--force`). |
+| `refused` | 2 | A pre-flight check refused: a delete that would take or orphan something else (an in-use type, data type or template, a group with members or users, a dictionary item with children, any language) without `--force`. |
 | `cancelled` | 2 | You declined the confirmation prompt. |
 
 A write command run with `--dry-run` uses a distinct status and does not touch the server:
