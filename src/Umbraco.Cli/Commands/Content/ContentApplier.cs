@@ -212,32 +212,16 @@ public static class ContentApplier
         {
             var excluded =
                 removed.DocumentTypeId is { } type && exclude.DocumentTypeIds.Contains(type)
-                || Lineage(removed.Id, diff.LiveParents).Any(exclude.Roots.Contains);
+                || SnapshotTree.Lineage(removed.Id, diff.LiveParents).Any(exclude.Roots.Contains);
             if (!excluded)
                 continue;
 
             // Keep it, and every removed ancestor, so no delete cascades down onto it.
-            foreach (var id in Lineage(removed.Id, diff.LiveParents))
+            foreach (var id in SnapshotTree.Lineage(removed.Id, diff.LiveParents))
                 if (removedIds.Contains(id))
                     kept.Add(id);
         }
         return kept;
-    }
-
-    /// <summary>A document id followed by its ancestors' ids, nearest first.</summary>
-    /// <param name="id">The document id.</param>
-    /// <param name="parents">Every live document's parent.</param>
-    /// <returns>The id and its ancestors.</returns>
-    private static IEnumerable<Guid> Lineage(Guid id, IReadOnlyDictionary<Guid, Guid?> parents)
-    {
-        // The guard stops a cycle in a malformed snapshot from looping forever.
-        var seen = new HashSet<Guid>();
-        for (
-            Guid? current = id;
-            current is { } c && seen.Add(c);
-            current = parents.GetValueOrDefault(c)
-        )
-            yield return c;
     }
 
     /// <summary>Runs a single step against the client, dispatched on its operation.</summary>
@@ -258,7 +242,7 @@ public static class ContentApplier
             // captured parent so it lands in the right place. The body is the normalised one the
             // diff compared (#224): the dates, flags and state are the source's, not the target's.
             ContentOperation.Create => client.CreateDocumentRawAsync(
-                WithParent(change.DesiredBody!, change.Parent),
+                SnapshotTree.WithParent(change.DesiredBody!, change.Parent),
                 ct
             ),
             ContentOperation.Update => client.UpdateDocumentRawAsync(
@@ -282,21 +266,5 @@ public static class ContentApplier
                 $"{step.Operation} is not an executable apply operation."
             ),
         };
-    }
-
-    /// <summary>
-    /// Returns a clone of <paramref name="body"/> with its top-level <c>parent</c> set for a create:
-    /// <c>{ "id": &lt;parent&gt; }</c>, or <c>null</c> for a content-root document. The raw GET body
-    /// does not carry a parent, so create supplies it here. The original node is not mutated (it may
-    /// be shared with the diff output).
-    /// </summary>
-    /// <param name="body">The snapshot document body.</param>
-    /// <param name="parent">The parent id, or null for the content root.</param>
-    /// <returns>A cloned body carrying the parent reference.</returns>
-    private static JsonNode WithParent(JsonNode body, Guid? parent)
-    {
-        var clone = body.DeepClone();
-        clone["parent"] = parent is { } p ? new JsonObject { ["id"] = p.ToString() } : null;
-        return clone;
     }
 }

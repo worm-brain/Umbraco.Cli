@@ -124,6 +124,7 @@ public class CommandParseTests
                 "document-blueprint.update --replace",
                 "document-type.update --replace",
                 "media-type.update --replace",
+                "media.apply --prune",
                 "media.update --replace",
                 "member-type.update --replace",
                 "schema.apply --prune",

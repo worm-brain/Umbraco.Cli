@@ -27,6 +27,9 @@ Project-specific terms. Add entries as concepts are introduced.
   (`{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[] }`).
   The
   round-trippable, portable representation that `diff` and `apply` consume.
+- **Media snapshot** — the directory `media export` writes: `media.json` (each media item's
+  verbatim body, parent and file entry, in tree pre-order) plus `files/<id>/<name>`. A directory
+  because the files are binary. See [ADR 0008](adr/0008-media-export-diff-apply.md).
 - **Raw-JSON passthrough** — the snapshot fidelity decision: capture each
   entity's verbatim get-by-id body rather than a re-modelled projection, because
   the CLI's own response records are **lossy** (drop doc-type properties/

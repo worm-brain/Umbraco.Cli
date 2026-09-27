@@ -416,8 +416,84 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<Empty>> DeleteMediaAsync(Guid id, CancellationToken ct = default) =>
         throw new NotImplementedException();
 
-    public Task<UmbracoResponse<Empty>> TrashMediaAsync(Guid id, CancellationToken ct = default) =>
-        throw new NotImplementedException();
+    /// <summary>Ids passed to <see cref="TrashMediaAsync"/>, in call order (#226).</summary>
+    public List<Guid> MediaTrashed { get; } = [];
+
+    public Task<UmbracoResponse<Empty>> TrashMediaAsync(Guid id, CancellationToken ct = default)
+    {
+        MediaTrashed.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    // ── Media snapshot (IMediaSnapshotClient, #226) ────────────────────────────
+
+    /// <summary>The placements <see cref="GetMediaSnapshotTreeAsync"/> returns, in order.</summary>
+    public List<ContentTreeNode> MediaSnapshotTree { get; } = [];
+
+    /// <summary>Canned raw media bodies, keyed by id.</summary>
+    public Dictionary<Guid, JsonNode> MediaRaw { get; } = [];
+
+    /// <summary>The bytes <see cref="DownloadMediaFileAsync"/> serves, keyed by <c>src</c>; a missing one is a 404.</summary>
+    public Dictionary<string, byte[]> MediaFiles { get; } = [];
+
+    /// <summary>Every file staged, in order: its name, content and the id it was given.</summary>
+    public List<(string FileName, byte[] Content, Guid Id)> StagedFiles { get; } = [];
+
+    /// <summary>How many downloads were made.</summary>
+    public int MediaDownloads { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<ContentTreeNode>>> GetMediaSnapshotTreeAsync(
+        Guid? root = null,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<IReadOnlyList<ContentTreeNode>>.Success(MediaSnapshotTree.ToList())
+        );
+
+    public Task<UmbracoResponse<JsonNode>> GetMediaRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => Raw(MediaRaw, id);
+
+    /// <summary>Records the create in <see cref="RawWrites"/> as kind <c>media</c>.</summary>
+    public Task<UmbracoResponse<Empty>> CreateMediaRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("media", null, body);
+
+    /// <summary>Records the update in <see cref="RawWrites"/> as kind <c>media</c>.</summary>
+    public Task<UmbracoResponse<Empty>> UpdateMediaRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("media", id, body);
+
+    public async Task<UmbracoResponse<Guid>> StageTemporaryFileAsync(
+        Stream content,
+        string fileName,
+        string contentType,
+        CancellationToken ct = default
+    )
+    {
+        using var copy = new MemoryStream();
+        await content.CopyToAsync(copy, ct);
+        var id = Guid.NewGuid();
+        StagedFiles.Add((fileName, copy.ToArray(), id));
+        return UmbracoResponse<Guid>.Success(id);
+    }
+
+    public async Task<UmbracoResponse<Empty>> DownloadMediaFileAsync(
+        string src,
+        Stream destination,
+        CancellationToken ct = default
+    )
+    {
+        MediaDownloads++;
+        if (!MediaFiles.TryGetValue(src, out var bytes))
+            return UmbracoResponse<Empty>.Failure(404, $"Not found: {src}");
+        await destination.WriteAsync(bytes, ct);
+        return UmbracoResponse<Empty>.Success(Empty.Value);
+    }
 
     /// <summary>The (id, target) of the last media restore.</summary>
     public (Guid Id, RestoreTarget? Target)? LastMediaRestore { get; private set; }

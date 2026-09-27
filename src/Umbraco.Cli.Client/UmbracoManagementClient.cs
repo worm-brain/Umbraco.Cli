@@ -1116,17 +1116,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 // Step 1: resolve the media type to an id (GUID passthrough, else name search).
                 var mediaTypeId = await IdOfAsync(EntityKind.MediaType, mediaType, ct);
 
-                // Step 2: stage the file bytes to the temporary-file endpoint (multipart form with
-                // a client-generated "Id" part and the "File" part). The Kiota MultipartBody needs
-                // the request adapter to resolve the per-part serializers.
-                var temporaryFileId = Guid.NewGuid();
-                var multipart = new MultipartBody { RequestAdapter = _adapter };
-                multipart.AddOrReplacePart("Id", "text/plain", temporaryFileId.ToString());
-                multipart.AddOrReplacePart("File", contentType, fileStream, fileName);
-                await _api.Umbraco.Management.Api.V1.TemporaryFile.PostAsync(
-                    multipart,
-                    cancellationToken: ct
-                );
+                // Step 2: stage the file bytes to the temporary-file endpoint (shared with the
+                // media snapshot's apply, #226).
+                var temporaryFileId = await StageFileAsync(fileStream, fileName, contentType, ct);
 
                 // Step 3: create the media item, pointing umbracoFile at the staged temp file. The
                 // value shape ({ temporaryFileId }) maps to an UntypedNode like any property value.

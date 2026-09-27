@@ -359,11 +359,50 @@ umbraco media sort [--parent <id>] (--order <id>,<id>... | --by name|createDate|
 
 # folder sub-noun (organise uploads):
 umbraco media folder create --name <name> [--parent <id>] [--id <guid>]
+
+# promotion pipeline (keeps every item's GUID; see below):
+umbraco media export --out <dir> [--root <id>]             # media.json + files/<id>/<name>
+umbraco media diff <dir> [--verify-files]                  # read-only
+umbraco media apply <dir> [--verify-files] [--prune] [--dry-run]   # --prune trashes, needs --yes
 ```
 
 A media folder is an ordinary media item of the **Folder** media type, so it moves, trashes and
 deletes with the usual `media` verbs, and its id is what `media upload --parent` takes
 ([#171](https://github.com/worm-brain/Umbraco.Cli/issues/171)).
+
+### `media` export / diff / apply
+
+Moves media between environments with the same GUIDs, so content that references media by id
+keeps pointing at it ([#226](https://github.com/worm-brain/Umbraco.Cli/issues/226),
+[ADR 0008](adr/0008-media-export-diff-apply.md)). Run it after `schema apply` (media types must
+exist) and before `content apply`.
+
+```bash
+umbraco media export --out ./media-snapshot                # every item and file
+umbraco media export --root <id> -O ./blog-images          # a subtree (root included)
+umbraco media diff ./media-snapshot                        # read-only
+umbraco media apply ./media-snapshot --dry-run             # preview the plan
+umbraco media apply ./media-snapshot                       # create + update, uploading files
+umbraco media apply ./media-snapshot --prune --yes         # also trash what the snapshot omits
+```
+
+- **A directory, not a file** - `media.json` holds each item as `{ id, parent, body, file }` in tree
+  pre-order, and `files/<id>/<name>` holds the files. `--out` is required, and the snapshot cannot
+  be piped (`-` is refused). Export into a new or empty directory, or over an earlier media export,
+  which it replaces.
+- **What is compared** - the item body without what differs on every instance (the file's `src`
+  folder, the server-computed size, dimensions and extension, dates, `isTrashed`, `flags`), and the
+  file by name and size. `--verify-files` also downloads each live file and compares SHA-256.
+  A changed file shows as `file` in `changes`.
+- **Apply** - creates in pre-order with the snapshot id and parent, staging each file through
+  `/temporary-file`; updates replace the body, uploading the file only when it changed. It never
+  moves an item (`Drifted` rows are reported only).
+- **Prune trashes** - `--prune` moves omitted items (within the snapshot's scope) to the recycle
+  bin, children first; `media restore` brings one back. An item with something the snapshot keeps
+  under it is left alone.
+- **Limits** - files are downloaded from the configured host only (never a CDN on another host,
+  which would receive the token). Only `umbracoFile` is carried as a file. An item whose id is in
+  the target's recycle bin cannot be created until it is restored or the bin emptied.
 
 ## `media-type`
 

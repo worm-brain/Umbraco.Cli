@@ -590,6 +590,17 @@ umbraco content diff content.json
 umbraco content apply content.json --dry-run
 ```
 
+Content references media by id, so promote the media first with the media pipeline, which keeps
+every item's GUID and carries its file ([commands.md](commands.md#media-export--diff--apply)). The
+order is schema, then media, then content:
+
+```bash
+umbraco schema export --out schema.json && umbraco media export --out ./media && umbraco content export --out content.json   # source
+umbraco schema apply schema.json && umbraco media apply ./media && umbraco content apply content.json                       # target
+```
+
+A media snapshot is a directory (`media.json` plus `files/`), so it cannot be piped.
+
 ### Bulk operations from a query
 
 Bulk commands read ids one per line from `--file` or stdin, and report each id independently in

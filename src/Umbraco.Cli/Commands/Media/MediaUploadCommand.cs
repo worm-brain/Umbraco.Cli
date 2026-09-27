@@ -102,7 +102,10 @@ public static class MediaUploadCommand
         return cmd;
     }
 
-    private static string MimeTypeFor(string ext) =>
+    /// <summary>The MIME type to upload a file with, by extension; unknown ones are sent as octet-stream.</summary>
+    /// <param name="ext">The file extension, with its dot.</param>
+    /// <returns>The MIME type.</returns>
+    internal static string MimeTypeFor(string ext) =>
         ext.ToLowerInvariant() switch
         {
             ".jpg" or ".jpeg" => "image/jpeg",
