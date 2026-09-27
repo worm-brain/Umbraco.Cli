@@ -714,7 +714,7 @@
             },
             {
               "name": "rollback",
-              "description": "Roll a content item back to a previous version.\n\nThe ID is a version ID from 'content version list', not the content ID.\n\nExamples:\n  umbraco content version rollback 7a1c2d3e-...\n  umbraco content version rollback 7a1c2d3e-... --culture en-US",
+              "description": "Roll a content item back to a previous version.\n\nThe ID is a version ID from 'content version list', not the content ID. A rollback only changes the draft: the live site keeps the published version until you publish, or pass --publish.\n\nExamples:\n  umbraco content version rollback 7a1c2d3e-...\n  umbraco content version rollback 7a1c2d3e-... --culture en-US\n  umbraco content version rollback 7a1c2d3e-... --culture en-US --publish",
               "arguments": [
                 {
                   "name": "id",
@@ -732,6 +732,14 @@
                   "type": "string",
                   "required": false,
                   "hasDefault": false
+                },
+                {
+                  "name": "--publish",
+                  "aliases": [],
+                  "description": "Publish the document after the rollback (the rolled-back culture, or every culture when --culture is omitted).",
+                  "type": "flag",
+                  "required": false,
+                  "hasDefault": true
                 }
               ],
               "commands": [],
@@ -764,7 +772,7 @@
         },
         {
           "name": "restore",
-          "description": "Restore a content item from the recycle bin.\n\nExamples:\n  umbraco content restore 3f7a8b2e-...\n  umbraco content restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content restore 3f7a8b2e-... --to-root",
+          "description": "Restore a content item from the recycle bin.\n\nThe item comes back unpublished and last in its parent's sort order. Pass --publish to publish it, and use 'content sort' to reorder.\n\nExamples:\n  umbraco content restore 3f7a8b2e-...\n  umbraco content restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content restore 3f7a8b2e-... --to-root\n  umbraco content restore 3f7a8b2e-... --publish",
           "arguments": [
             {
               "name": "id",
@@ -789,6 +797,14 @@
               "name": "--to-root",
               "aliases": [],
               "description": "Restore to the content root instead of the original parent.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--publish",
+              "aliases": [],
+              "description": "Publish the item after restoring it (every culture it has).",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -840,7 +856,7 @@
         },
         {
           "name": "sort",
-          "description": "Sort a parent's child content items, in the order given or by a field.\n\nWith --order the first id goes to the top.\n\nExamples:\n  umbraco content sort --parent 1a2b3c4d-... --order 3f7a...,9c4d...,2e6f...\n  umbraco content sort --parent 1a2b3c4d-... --by publishDate --desc   # newest first\n  umbraco content sort --by name   # the content root, A to Z",
+          "description": "Sort a parent's child content items, in the order given or by a field.\n\nWith --order the first id goes to the top.\n\nExamples:\n  umbraco content sort --parent 1a2b3c4d-... --order 3f7a8b2e-...,9c4d1e2f-...,2e6f3a4b-...\n  umbraco content sort --parent 1a2b3c4d-... --by publishDate --desc   # newest first\n  umbraco content sort --by name   # the content root, A to Z",
           "arguments": [],
           "options": [
             {
@@ -1505,7 +1521,7 @@
         },
         {
           "name": "restore",
-          "description": "Restore a media item from the recycle bin.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco media restore 3f7a8b2e-... --to-root",
+          "description": "Restore a media item from the recycle bin.\n\nThe item comes back last in its parent's sort order; use 'media sort' to reorder.\n\nExamples:\n  umbraco media restore 3f7a8b2e-...\n  umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco media restore 3f7a8b2e-... --to-root",
           "arguments": [
             {
               "name": "id",
@@ -1581,7 +1597,7 @@
         },
         {
           "name": "sort",
-          "description": "Sort a folder's child media items, in the order given or by a field.\n\nWith --order the first id goes to the top.\n\nExamples:\n  umbraco media sort --parent 1a2b3c4d-... --order 3f7a...,9c4d...,2e6f...\n  umbraco media sort --parent 1a2b3c4d-... --by name\n  umbraco media sort --by createDate --desc   # the media root, newest first",
+          "description": "Sort a folder's child media items, in the order given or by a field.\n\nWith --order the first id goes to the top.\n\nExamples:\n  umbraco media sort --parent 1a2b3c4d-... --order 3f7a8b2e-...,9c4d1e2f-...,2e6f3a4b-...\n  umbraco media sort --parent 1a2b3c4d-... --by name\n  umbraco media sort --by createDate --desc   # the media root, newest first",
           "arguments": [],
           "options": [
             {
@@ -3435,7 +3451,7 @@
     },
     {
       "name": "user",
-      "description": "Manage Umbraco backoffice users (not front-end members).\n\nExamples:\n  umbraco user list\n  umbraco user invite --email editor@example.com --name \"John Smith\"\n  umbraco user get <id>",
+      "description": "Manage Umbraco backoffice users (not front-end members).\n\nExamples:\n  umbraco user list\n  umbraco user invite --email editor@example.com --name \"John Smith\" --group editor\n  umbraco user get <id>",
       "arguments": [],
       "options": [],
       "commands": [
@@ -3766,7 +3782,7 @@
     },
     {
       "name": "webhook",
-      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook delete <id>",
+      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook delete <id>\n  umbraco webhook event list",
       "arguments": [],
       "options": [],
       "commands": [
@@ -3813,7 +3829,7 @@
             {
               "name": "--event",
               "aliases": [],
-              "description": "Umbraco event aliases to subscribe to, e.g. Umbraco.ContentPublish or Umbraco.MediaSave. Repeat the option, or separate values with commas.",
+              "description": "Umbraco event aliases to subscribe to, e.g. Umbraco.ContentPublish or Umbraco.MediaSave. Checked against the instance's events; see 'webhook event list'. Repeat the option, or separate values with commas.",
               "type": "string[]",
               "required": true,
               "hasDefault": false
@@ -3864,6 +3880,44 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "event",
+          "description": "List the webhook events this instance can fire.\n\nExamples:\n  umbraco webhook event list",
+          "arguments": [],
+          "options": [],
+          "commands": [
+            {
+              "name": "list",
+              "description": "List the event aliases that 'webhook create --event' accepts.\n\nExamples:\n  umbraco webhook event list\n  umbraco webhook event list -o json | jq -r '.data.items[].alias'",
+              "arguments": [],
+              "options": [
+                {
+                  "name": "--skip",
+                  "aliases": [],
+                  "description": "Number of items to skip, for paging (default 0).",
+                  "type": "int",
+                  "required": false,
+                  "hasDefault": true
+                },
+                {
+                  "name": "--take",
+                  "aliases": [],
+                  "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
+                  "type": "int",
+                  "required": false,
+                  "hasDefault": true
+                }
+              ],
+              "commands": [],
+              "mutating": false,
+              "destructive": false,
+              "acceptsJsonBody": false
+            }
+          ],
+          "mutating": false,
+          "destructive": false,
           "acceptsJsonBody": false
         }
       ],
@@ -6189,7 +6243,7 @@
     },
     {
       "name": "relation",
-      "description": "List relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relationTypeId>",
+      "description": "List relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relation-type-id>",
       "arguments": [],
       "options": [],
       "commands": [

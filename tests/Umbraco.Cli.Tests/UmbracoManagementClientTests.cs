@@ -347,7 +347,11 @@ public class UmbracoManagementClientTests
     {
         // #80: name/description are sent in the request body and echoed on the response (the
         // 201 has an empty body, so the echo is what the command reports).
-        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+        // The create checks its events against GET webhook/events first (#234).
+        var routes = Wire.Routed(
+            ("/webhook/events", """{ "items": [ { "alias": "ContentPublished" } ] }""")
+        );
+        var client = Wire.Client(routes);
 
         var result = await client.CreateWebhookAsync(
             new CreateWebhookRequest
@@ -363,7 +367,7 @@ public class UmbracoManagementClientTests
         Assert.True(result.IsSuccess);
         Assert.Equal("My Hook", result.Data!.Name);
         Assert.Equal("Fires on publish", result.Data.Description);
-        Assert.Contains("My Hook", handler.RequestBodies[0]!); // sent, not just echoed
+        Assert.Contains("My Hook", routes.RawBodyOf(HttpMethod.Post, "/webhook")); // sent, not just echoed
     }
 
     [Fact]
@@ -372,7 +376,11 @@ public class UmbracoManagementClientTests
         // #86: a caller-supplied id enables idempotent creates — it must be used verbatim
         // (and appear in the request body) rather than a fresh GUID being generated.
         var id = Guid.NewGuid();
-        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+        // The create checks its events against GET webhook/events first (#234).
+        var routes = Wire.Routed(
+            ("/webhook/events", """{ "items": [ { "alias": "ContentPublished" } ] }""")
+        );
+        var client = Wire.Client(routes);
 
         var result = await client.CreateWebhookAsync(
             new CreateWebhookRequest
@@ -386,7 +394,7 @@ public class UmbracoManagementClientTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(id, result.Data!.Id);
-        Assert.Contains(id.ToString(), handler.RequestBodies[0]!);
+        Assert.Contains(id.ToString(), routes.RawBodyOf(HttpMethod.Post, "/webhook"));
     }
 
     [Fact]
@@ -1118,7 +1126,11 @@ public class UmbracoManagementClientTests
         // client supplies the id up front (Umbraco 14+ accepts a client GUID) and echoes the
         // accepted request, so the create reports success with a non-empty id and the request
         // fields populated instead of a blank payload (guards #74).
-        var (client, _) = ClientReturning("", HttpStatusCode.Created);
+        // The create checks its events against GET webhook/events first (#234).
+        var routes = Wire.Routed(
+            ("/webhook/events", """{ "items": [ { "alias": "ContentPublished" } ] }""")
+        );
+        var client = Wire.Client(routes);
 
         var result = await client.CreateWebhookAsync(
             new CreateWebhookRequest

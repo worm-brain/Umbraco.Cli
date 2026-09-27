@@ -112,6 +112,91 @@ public class ContentUpdateCommandTests
         Assert.Null(fake.LastRestore);
     }
 
+    // --publish on restore and rollback (#233): both writes leave the live site as it was.
+
+    [Fact]
+    public async Task Restore_WithPublish_PublishesTheRestoredItemInEveryCulture()
+    {
+        var fake = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+
+        await RunAsync(fake, $"content restore {Id} --publish", "{}");
+
+        Assert.Equal(("publish", Id, (List<string>?)null), Assert.Single(fake.StateCalls));
+    }
+
+    [Fact]
+    public async Task Restore_WithoutPublish_LeavesTheItemUnpublished()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        await RunAsync(fake, $"content restore {Id}", "{}");
+
+        Assert.Empty(fake.StateCalls);
+    }
+
+    [Fact]
+    public async Task Restore_WithPublish_PublishFailure_ExitsNonZero()
+    {
+        var fake = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = _ => UmbracoResponse<Empty>.Failure(400, "Missing title"),
+        };
+
+        var exit = await RunAsync(fake, $"content restore {Id} --publish", "{}");
+
+        Assert.NotEqual(0, exit);
+    }
+
+    private static readonly Guid VersionId = Guid.Parse("7a1c2d3e-1234-5678-abcd-ef0123456789");
+
+    [Fact]
+    public async Task Rollback_WithPublish_PublishesTheVersionsDocumentInThatCulture()
+    {
+        var fake = new FakeUmbracoManagementClient
+        {
+            VersionDocumentId = Id,
+            PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+
+        await RunAsync(
+            fake,
+            $"content version rollback {VersionId} --culture en-US --publish",
+            "{}"
+        );
+
+        var call = Assert.Single(fake.StateCalls);
+        Assert.Equal(
+            ("publish", Id, "en-US"),
+            (call.Operation, call.Id, Assert.Single(call.Cultures!))
+        );
+    }
+
+    [Fact]
+    public async Task Rollback_WithPublish_UnknownVersion_RollsNothingBack()
+    {
+        // VersionDocumentId unset: the version read 404s, before anything is written.
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(fake, $"content version rollback {VersionId} --publish", "{}");
+
+        Assert.NotEqual(0, exit);
+        Assert.Null(fake.LastRollback);
+    }
+
+    [Fact]
+    public async Task Rollback_WithoutPublish_OnlyRollsBack()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        await RunAsync(fake, $"content version rollback {VersionId} --culture en-US", "{}");
+
+        Assert.Equal((VersionId, "en-US"), fake.LastRollback);
+        Assert.Empty(fake.StateCalls);
+    }
+
     // content create shares this harness: --culture (#228) is a flag on the same noun.
 
     [Fact]

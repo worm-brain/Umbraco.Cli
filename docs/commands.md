@@ -163,9 +163,9 @@ umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-
 umbraco content unpublish <id> [--culture <csv>]          # takes offline; needs --yes; no --culture = every culture
 umbraco content version list <id> [--culture <code>]           # version history; no --culture = every culture, rows tagged `culture`
 umbraco content version get <id>                           # one version (its id from version list), values included
-umbraco content version rollback <id> [--culture <code>]   # restore a version
+umbraco content version rollback <id> [--culture <code>] [--publish]   # draft only unless --publish; see below
 umbraco content trash <id>                                 # move to recycle bin (reversible)
-umbraco content restore <id> [--parent <id> | --to-root]   # restore from recycle bin; default = original parent
+umbraco content restore <id> [--parent <id> | --to-root] [--publish]   # comes back unpublished, last in sort order; default = original parent
 umbraco content empty-recycle-bin                          # permanent; needs --yes
 umbraco content move <id> [--parent <id>]                  # --target works too
 umbraco content sort [--parent <id>] (--order <id>,<id>... | --by name|createDate|updateDate|publishDate [--desc])   # reorder a parent's children
@@ -183,6 +183,31 @@ umbraco content bulk unpublish [--file ids.txt] [--culture <csv>]   # takes offl
 # domain sub-noun (Culture and Hostnames):
 umbraco content domain get <id>
 umbraco content domain set <id> [--default-culture <iso>] [--domain host=iso ...] [--replace]   # merges by hostname; --replace needs --yes
+```
+
+### Rollback and restore leave the live site alone
+
+Both follow Umbraco's model, which surprises people used to "undo"
+([#233](https://github.com/worm-brain/Umbraco.Cli/issues/233)):
+
+- **Rollback only changes the draft.** The item shows as `PublishedPendingChanges` and the live
+  site keeps serving the published version until you publish. Pass `--publish` to publish the
+  document straight after: the rolled-back culture with `--culture`, otherwise every culture it
+  has. If the publish fails, the rollback has still happened; the error says so.
+- **Pick the version from the flags, not the date.** `content version list` marks the current
+  draft (`isCurrentDraftVersion`, the `Draft` column) and the current published version
+  (`isCurrentPublishedVersion`, `Published`). The two can carry the same `versionDate`, and
+  rolling back to the published one is a no-op when the bad edit was already published: pick
+  the newest row older than both.
+- **Restore brings an item back unpublished, last in its parent's sort order.** Pass `--publish`
+  to publish it (every culture it has) and use `content sort` to put it back in place.
+  `media restore` also appends to the end; media has no publish state, so it has no
+  `--publish`.
+
+```bash
+umbraco content version list <id> --culture en-US          # find the row older than Draft/Published
+umbraco content version rollback <version-id> --culture en-US --publish
+umbraco content restore <id> --publish
 ```
 
 ### Domains: a multilingual site is not reachable without them
@@ -281,6 +306,8 @@ then use the matching shape below. Verified against Umbraco 17.7.0.
 | Numeric | `5` |
 | True/false | `true` |
 | Content picker | `"<document guid>"` |
+| Block List (`Umbraco.BlockList`) | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
+| Block Grid (`Umbraco.BlockGrid`) | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
 
 `key` on a media picker entry is the **picker entry's own** new GUID, not the media item's -
 `mediaKey` carries the media id. Generate a fresh one per entry.
@@ -311,6 +338,91 @@ default. The `--template` flag overrides whatever the body says.
 A property that does not itself vary by culture takes `culture: null` even on a document that
 does. If a value is rejected or silently ignored, read the document back from the Management API
 and copy the `culture`/`segment` pairing it reports.
+
+### Block List and Block Grid
+
+A block editor needs three things: an **element type** for each kind of block, a **data type**
+that lists the allowed blocks, and a **property value** that holds the blocks themselves
+([#219](https://github.com/worm-brain/Umbraco.Cli/issues/219)). The Block List shapes below were
+verified by creating them on Umbraco 17.7.0 and reading them back.
+
+**1. Element type.** A normal `document-type create --json-body` with `"isElement": true`. Its
+properties are the block's fields.
+
+**2. Data type** (`editorAlias` `Umbraco.BlockList`, `editorUiAlias`
+`Umb.PropertyEditorUi.BlockList`), via `data-type create --json-body`:
+
+```json
+{
+  "name": "Page Sections",
+  "editorAlias": "Umbraco.BlockList",
+  "editorUiAlias": "Umb.PropertyEditorUi.BlockList",
+  "values": [
+    { "alias": "blocks", "value": [
+      { "contentElementTypeKey": "<element type id>", "label": "{umbValue: title}",
+        "editorSize": "medium", "forceHideContentEditorInOverlay": false }
+    ] },
+    { "alias": "validationLimit", "value": { "min": 0, "max": 10 } },
+    { "alias": "useSingleBlockMode", "value": false },
+    { "alias": "useLiveEditing", "value": false },
+    { "alias": "useInlineEditingAsDefault", "value": false }
+  ]
+}
+```
+
+Add `"settingsElementTypeKey": "<element type id>"` to a block to give it settings.
+
+**3. Property value.** The `value` of the property's entry in `values[]`:
+
+```json
+{
+  "layout": { "Umbraco.BlockList": [ { "contentKey": "<k1>" } ] },
+  "contentData": [
+    { "key": "<k1>", "contentTypeKey": "<element type id>",
+      "values": [ { "alias": "title", "value": "Hello", "culture": null, "segment": null } ] }
+  ],
+  "settingsData": [],
+  "expose": [ { "contentKey": "<k1>", "culture": null, "segment": null } ]
+}
+```
+
+- `key` / `contentKey` is a **new GUID per block**, generated by you. `layout` sets the order;
+  `contentData` holds the fields.
+- **A block missing from `expose` is not published.** Add one `expose` entry per block and per
+  culture it should appear in.
+- On a variant property, send one value entry per culture, each with its own blocks. The
+  element's own values take `culture: null` when the element type is invariant.
+- With settings, add `"settingsKey": "<s1>"` to the layout item and a matching
+  `{ "key": "<s1>", "contentTypeKey": "<settings type id>", "values": [...] }` to `settingsData`.
+
+**Block Grid** (`Umbraco.BlockGrid`, `Umb.PropertyEditorUi.BlockGrid`) works the same way,
+with a grid added on top. The data type's `blocks` entries also carry layout rules, and there
+are optional `blockGroups` and `gridColumns` (12 by default):
+
+```json
+{ "alias": "blocks", "value": [
+  { "contentElementTypeKey": "<element type id>", "allowAtRoot": true, "allowInAreas": false,
+    "columnSpanOptions": [], "rowMinSpan": 1, "rowMaxSpan": 1, "editorSize": "medium",
+    "areas": [ { "key": "<area guid>", "alias": "main", "columnSpan": 12, "rowSpan": 1,
+                 "minAllowed": 0, "specifiedAllowance": [] } ] }
+] }
+```
+
+Its value uses `"layout": { "Umbraco.BlockGrid": [...] }`, and each layout item carries its size
+and any nested areas:
+
+```json
+{ "contentKey": "<k1>", "settingsKey": null, "columnSpan": 12, "rowSpan": 1,
+  "areas": [ { "key": "<area guid from the data type>", "items": [ { "contentKey": "<k2>", "settingsKey": null, "columnSpan": 12, "rowSpan": 1, "areas": [] } ] } ] }
+```
+
+`contentData`, `settingsData` and `expose` are the same as for Block List, with every block
+listed, nested ones included.
+
+The Block Grid shapes were read off an existing Umbraco 17.3.5 site, not written from scratch.
+After the first write, read the item back with `content get` and compare. Sites migrated from
+older versions can return `contentUdi` / `settingsUdi` on layout items. Those fields are legacy;
+write `contentKey` / `settingsKey`.
 
 The `export` / `diff` / `apply` trio has its own section:
 [content (export / diff / apply)](#content-export--diff--apply).
@@ -506,6 +618,10 @@ umbraco data-type create --json-body categories.json
 
 Both `update` forms take the **name** or the id, as `get` does.
 
+For the Block List and Block Grid configuration (`blocks`, `validationLimit`, areas), and the
+property value that goes with it, see
+[Block List and Block Grid](#block-list-and-block-grid).
+
 ## `language`
 
 ```bash
@@ -642,7 +758,14 @@ check as `create`.
 umbraco webhook list
 umbraco webhook create --url <url> --event <name>... [--name <name>] [--description <text>]   # --event repeatable
 umbraco webhook delete <id>                               # needs --yes non-interactively
+umbraco webhook event list                                # the aliases --event accepts
 ```
+
+`--event` takes Umbraco's event **aliases** (`Umbraco.ContentPublish`, `Umbraco.MediaSave`),
+not display names. Umbraco saves a webhook with an unknown event but never fires it, so
+`create` checks every alias against `GET /webhook/events` first. An unknown alias is refused
+with the nearest real one suggested, and the create is also refused when the event list can't
+be read ([#234](https://github.com/worm-brain/Umbraco.Cli/issues/234)).
 
 ## `script` / `stylesheet` / `partial-view` (static files)
 

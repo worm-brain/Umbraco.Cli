@@ -26,7 +26,7 @@ public class SurfaceSnapshotTests
     public void Surface_MatchesCommittedSnapshot()
     {
         // Arrange
-        var path = Path.Combine(RepoRoot(), "docs", "surface.json");
+        var path = Path.Combine(TestPaths.RepoRoot(), "docs", "surface.json");
         var actual = Render();
 
         // Opt-in regeneration: the only sanctioned way to change the committed file.
@@ -77,17 +77,5 @@ public class SurfaceSnapshotTests
                 return $"first difference at line {i + 1}: expected '{el.Trim()}', got '{al.Trim()}'";
         }
         return "no difference";
-    }
-
-    /// <summary>Walks up from the test output folder to the directory holding AGENTS.md.</summary>
-    /// <returns>The repository root.</returns>
-    /// <exception cref="InvalidOperationException">No ancestor directory contains AGENTS.md.</exception>
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "AGENTS.md")))
-            dir = dir.Parent;
-        return dir?.FullName
-            ?? throw new InvalidOperationException("Could not find the repo root (AGENTS.md).");
     }
 }

@@ -360,11 +360,40 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>The document <see cref="GetVersionDocumentIdAsync"/> answers with; null answers 404.</summary>
+    public Guid? VersionDocumentId { get; set; }
+
+    /// <summary>Returns <see cref="VersionDocumentId"/>, or a 404 when unset.</summary>
+    /// <param name="versionId">The version id (ignored).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The configured document id, or a 404.</returns>
+    public Task<UmbracoResponse<Guid>> GetVersionDocumentIdAsync(
+        Guid versionId,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            VersionDocumentId is { } id
+                ? UmbracoResponse<Guid>.Success(id)
+                : UmbracoResponse<Guid>.Failure(404, "Version not found.")
+        );
+
+    /// <summary>The (version id, culture) of the last <see cref="RollbackDocumentVersionAsync"/> call (#233).</summary>
+    public (Guid VersionId, string? Culture)? LastRollback { get; private set; }
+
+    /// <summary>Records the call and answers with a bare success.</summary>
+    /// <param name="versionId">The version rolled back to.</param>
+    /// <param name="culture">The culture rolled back.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A bare success.</returns>
     public Task<UmbracoResponse<Empty>> RollbackDocumentVersionAsync(
         Guid versionId,
         string? culture = null,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LastRollback = (versionId, culture);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> GetMediaAsync(
         Guid? parentId = null,
@@ -1022,6 +1051,29 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         Guid id,
         CancellationToken ct = default
     ) => throw new NotImplementedException();
+
+    /// <summary>The events <see cref="GetWebhookEventsAsync"/> returns.</summary>
+    public List<WebhookEvent> WebhookEvents { get; } = [];
+
+    /// <summary>Returns <see cref="WebhookEvents"/> as one page.</summary>
+    /// <param name="skip">Ignored.</param>
+    /// <param name="take">Ignored.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The canned events.</returns>
+    public Task<UmbracoResponse<PagedResponse<WebhookEvent>>> GetWebhookEventsAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<WebhookEvent>>.Success(
+                new PagedResponse<WebhookEvent>
+                {
+                    Total = WebhookEvents.Count,
+                    Items = WebhookEvents.ToList(),
+                }
+            )
+        );
 
     // ── Schema raw-JSON access (ISchemaClient, #68) ────────────────────────────
     // Backing stores let export tests hand out canned bodies (keyed by id) and apply tests

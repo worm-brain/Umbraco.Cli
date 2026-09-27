@@ -341,6 +341,12 @@ Other commands pick a sensible culture when you name none. `content create` and
 version's values before rolling back. `document-blueprint create --from-document --name` renames every
 culture.
 
+A rollback only changes the draft, and `content restore` brings an item back unpublished and
+last in its parent's sort order, so neither changes the live site. Add `--publish` to either
+to publish afterwards. In `content version list`, choose the version by its
+`isCurrentDraftVersion` / `isCurrentPublishedVersion` flags rather than by date, because the
+current draft and the current published version can share a `versionDate`.
+
 `content restore <id>` puts the item back under the parent it was trashed from. Pass
 `--parent <id>` to choose another parent, or `--to-root` for the content root.
 

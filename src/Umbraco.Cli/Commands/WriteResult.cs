@@ -33,6 +33,43 @@ public sealed record ItemRefs(IReadOnlyList<string> Ids)
 /// <summary>Turns a write that returns nothing into one that returns its <c>data</c>.</summary>
 public static class WriteResult
 {
+    /// <summary>
+    /// Awaits <paramref name="write"/> and, when it succeeded, publishes <paramref name="documentId"/>:
+    /// the <c>--publish</c> step of <c>content version rollback</c> and <c>content restore</c> (#233),
+    /// neither of which changes the live site on its own. A failed publish says the write itself
+    /// landed, so a caller does not retry the write.
+    /// </summary>
+    /// <param name="write">The rollback or restore.</param>
+    /// <param name="client">The client to publish with.</param>
+    /// <param name="documentId">The document to publish.</param>
+    /// <param name="cultures">Cultures to publish; null publishes every culture the document has.</param>
+    /// <param name="done">What the write did, for the partial-failure message (e.g. "Rolled back").</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The write's failure, the publish's failure, or a success.</returns>
+    public static async Task<UmbracoResponse<Empty>> ThenPublishAsync(
+        this Task<UmbracoResponse<Empty>> write,
+        IUmbracoManagementClient client,
+        Guid documentId,
+        IEnumerable<string>? cultures,
+        string done,
+        CancellationToken ct
+    )
+    {
+        var result = await write;
+        if (!result.IsSuccess)
+            return result;
+
+        var published = await client.PublishContentAsync(documentId, cultures, ct: ct);
+        return published.IsSuccess
+            ? published
+            : UmbracoResponse<Empty>.Failure(
+                published.StatusCode,
+                $"{done}, but publishing failed: {published.ErrorMessage} "
+                    + $"Run 'umbraco content publish {documentId}' to retry the publish.",
+                published.Category
+            );
+    }
+
     /// <summary>On success, the result is <paramref name="data"/>; a failure carries through.</summary>
     /// <typeparam name="T">The data type.</typeparam>
     /// <param name="write">The write.</param>
