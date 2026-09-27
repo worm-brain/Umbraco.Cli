@@ -662,6 +662,8 @@ public class CommandParseTests
     [InlineData("dictionary list --parent Blog")]
     [InlineData("dictionary tree --recursive --depth 2")]
     [InlineData("webhook list")]
+    [InlineData("webhook event list")]
+    [InlineData("webhook event list --take 50")]
     [InlineData("auth login --host https://example.com --client-id foo --client-secret bar")]
     [InlineData("auth logout")]
     [InlineData("auth whoami")]

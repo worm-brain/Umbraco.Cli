@@ -3766,7 +3766,7 @@
     },
     {
       "name": "webhook",
-      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook delete <id>",
+      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook delete <id>\n  umbraco webhook event list",
       "arguments": [],
       "options": [],
       "commands": [
@@ -3813,7 +3813,7 @@
             {
               "name": "--event",
               "aliases": [],
-              "description": "Umbraco event aliases to subscribe to, e.g. Umbraco.ContentPublish or Umbraco.MediaSave. Repeat the option, or separate values with commas.",
+              "description": "Umbraco event aliases to subscribe to, e.g. Umbraco.ContentPublish or Umbraco.MediaSave. Checked against the instance's events; see 'webhook event list'. Repeat the option, or separate values with commas.",
               "type": "string[]",
               "required": true,
               "hasDefault": false
@@ -3864,6 +3864,44 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "event",
+          "description": "List the webhook events this instance can fire.\n\nExamples:\n  umbraco webhook event list",
+          "arguments": [],
+          "options": [],
+          "commands": [
+            {
+              "name": "list",
+              "description": "List the event aliases that 'webhook create --event' accepts.\n\nExamples:\n  umbraco webhook event list\n  umbraco webhook event list -o json | jq -r '.data.items[].alias'",
+              "arguments": [],
+              "options": [
+                {
+                  "name": "--skip",
+                  "aliases": [],
+                  "description": "Number of items to skip, for paging (default 0).",
+                  "type": "int",
+                  "required": false,
+                  "hasDefault": true
+                },
+                {
+                  "name": "--take",
+                  "aliases": [],
+                  "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
+                  "type": "int",
+                  "required": false,
+                  "hasDefault": true
+                }
+              ],
+              "commands": [],
+              "mutating": false,
+              "destructive": false,
+              "acceptsJsonBody": false
+            }
+          ],
+          "mutating": false,
+          "destructive": false,
           "acceptsJsonBody": false
         }
       ],

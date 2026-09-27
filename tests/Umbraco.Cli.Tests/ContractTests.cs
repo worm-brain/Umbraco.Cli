@@ -82,6 +82,7 @@ public class ContractTests
         "GET /umbraco/management/api/v1/webhook",
         "POST /umbraco/management/api/v1/webhook",
         "DELETE /umbraco/management/api/v1/webhook/{id}",
+        "GET /umbraco/management/api/v1/webhook/events",
         // ── Key Kiota read endpoints (compiler-guarded, listed for documentation) ─
         "GET /umbraco/management/api/v1/user/current",
         "GET /umbraco/management/api/v1/language",

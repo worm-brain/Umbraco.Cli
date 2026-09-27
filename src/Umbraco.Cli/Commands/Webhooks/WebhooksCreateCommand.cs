@@ -20,7 +20,7 @@ public static class WebhooksCreateCommand
         var eventsOpt = ListOption
             .Strings(
                 "--event",
-                "Umbraco event aliases to subscribe to, e.g. Umbraco.ContentPublish or Umbraco.MediaSave."
+                "Umbraco event aliases to subscribe to, e.g. Umbraco.ContentPublish or Umbraco.MediaSave. Checked against the instance's events; see 'webhook event list'."
             )
             .AsRequired();
         var idOpt = new Option<Guid?>("--id")

@@ -1023,6 +1023,29 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The events <see cref="GetWebhookEventsAsync"/> returns.</summary>
+    public List<WebhookEvent> WebhookEvents { get; } = [];
+
+    /// <summary>Returns <see cref="WebhookEvents"/> as one page.</summary>
+    /// <param name="skip">Ignored.</param>
+    /// <param name="take">Ignored.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The canned events.</returns>
+    public Task<UmbracoResponse<PagedResponse<WebhookEvent>>> GetWebhookEventsAsync(
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<WebhookEvent>>.Success(
+                new PagedResponse<WebhookEvent>
+                {
+                    Total = WebhookEvents.Count,
+                    Items = WebhookEvents.ToList(),
+                }
+            )
+        );
+
     // ── Schema raw-JSON access (ISchemaClient, #68) ────────────────────────────
     // Backing stores let export tests hand out canned bodies (keyed by id) and apply tests
     // record every write. A recorded write keeps the entity kind, the target id (null for a

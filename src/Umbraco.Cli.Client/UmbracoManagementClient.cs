@@ -3155,7 +3155,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// client-generated (Umbraco 14+ accepts a supplied GUID), so the created webhook is
     /// echoed back with its id and the accepted request fields without a follow-up read
     /// (the <c>201</c> response body is empty). The request's event names (strings) are
-    /// echoed as <see cref="WebhookEvent"/> objects to match the read shape (#46).
+    /// echoed as <see cref="WebhookEvent"/> objects to match the read shape (#46). Every event
+    /// alias is checked against the instance's events first (#234); an unknown one refuses the
+    /// create with a 400 instead of saving a webhook that never fires.
     /// </summary>
     /// <param name="request">The webhook to create.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -3168,6 +3170,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
+                await GuardWebhookEventsAsync(request.Events, ct);
+
                 var id = request.Id ?? Guid.NewGuid();
                 var body = new Gen.CreateWebhookRequestModel
                 {

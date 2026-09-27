@@ -284,7 +284,10 @@ public class MediaAndContentAncillaryWireTests
     [Fact]
     public async Task CreateWebhookAsync_SendsUrlEventsAndHeaders()
     {
-        var handler = Wire.Blank();
+        // The create checks its events against GET webhook/events first (#234).
+        var handler = Wire.Routed(
+            ("/webhook/events", """{ "items": [ { "alias": "Umbraco.ContentPublish" } ] }""")
+        );
 
         await Wire.Client(handler)
             .CreateWebhookAsync(

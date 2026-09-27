@@ -642,7 +642,14 @@ check as `create`.
 umbraco webhook list
 umbraco webhook create --url <url> --event <name>... [--name <name>] [--description <text>]   # --event repeatable
 umbraco webhook delete <id>                               # needs --yes non-interactively
+umbraco webhook event list                                # the aliases --event accepts
 ```
+
+`--event` takes Umbraco's event **aliases** (`Umbraco.ContentPublish`, `Umbraco.MediaSave`),
+not display names. Umbraco saves a webhook with an unknown event but never fires it, so
+`create` checks every alias against `GET /webhook/events` first. An unknown alias is refused
+with the nearest real one suggested, and the create is also refused when the event list can't
+be read ([#234](https://github.com/worm-brain/Umbraco.Cli/issues/234)).
 
 ## `script` / `stylesheet` / `partial-view` (static files)
 
