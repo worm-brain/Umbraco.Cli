@@ -30,6 +30,21 @@ public sealed class FileTokenCacheTests : IDisposable
     }
 
     [Fact]
+    public void RemoveByPrefix_DropsMatchingKeysOnly()
+    {
+        var token = new CachedToken("abc", Now.AddMinutes(4));
+        Cache().Write("https://a|client|one", token);
+        Cache().Write("https://a|client-2|one", token);
+
+        Cache().RemoveByPrefix("https://a|client|");
+
+        Assert.Equal(
+            (null, token),
+            (Cache().Read("https://a|client|one"), Cache().Read("https://a|client-2|one"))
+        );
+    }
+
+    [Fact]
     public void Read_AfterWriteFromAnotherInstance_ReturnsTheToken()
     {
         var token = new CachedToken("abc", Now.AddMinutes(4));

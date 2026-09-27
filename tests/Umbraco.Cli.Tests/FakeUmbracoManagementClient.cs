@@ -798,6 +798,60 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>The document types using each template, for <see cref="GetTemplateUsageAsync"/> (#269).</summary>
+    public Dictionary<Guid, List<TemplateUser>> TemplateUsers { get; } = [];
+
+    /// <summary>How many times <see cref="GetTemplateUsageAsync"/> was called.</summary>
+    public int TemplateUsageReads { get; private set; }
+
+    /// <summary>Returns <see cref="TemplateUsers"/>.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The usage map.</returns>
+    public Task<
+        UmbracoResponse<IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>>
+    > GetTemplateUsageAsync(CancellationToken ct = default)
+    {
+        TemplateUsageReads++;
+        return Task.FromResult(
+            UmbracoResponse<IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>>.Success(
+                TemplateUsers.ToDictionary(
+                    kv => kv.Key,
+                    kv => (IReadOnlyList<TemplateUser>)kv.Value
+                )
+            )
+        );
+    }
+
+    /// <summary>Member counts by member group id, for <see cref="CountMembersInGroupAsync"/> (#269).</summary>
+    public Dictionary<Guid, int> MemberCountsByGroup { get; } = [];
+
+    /// <summary>Returns <see cref="MemberCountsByGroup"/> for the group (0 when unset).</summary>
+    /// <param name="memberGroupId">The member group id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The count.</returns>
+    public Task<UmbracoResponse<int>> CountMembersInGroupAsync(
+        Guid memberGroupId,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<int>.Success(MemberCountsByGroup.GetValueOrDefault(memberGroupId))
+        );
+
+    /// <summary>User counts by user group id, for <see cref="CountUsersInGroupAsync"/> (#269).</summary>
+    public Dictionary<Guid, int> UserCountsByGroup { get; } = [];
+
+    /// <summary>Returns <see cref="UserCountsByGroup"/> for the group (0 when unset).</summary>
+    /// <param name="userGroupId">The user group id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The count.</returns>
+    public Task<UmbracoResponse<int>> CountUsersInGroupAsync(
+        Guid userGroupId,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<int>.Success(UserCountsByGroup.GetValueOrDefault(userGroupId))
+        );
+
     public Task<UmbracoResponse<Empty>> DeleteTemplateAsync(Guid id, CancellationToken ct = default)
     {
         SchemaDeletedIds.Add(id);

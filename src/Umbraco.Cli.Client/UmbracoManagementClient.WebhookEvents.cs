@@ -60,9 +60,8 @@ public sealed partial class UmbracoManagementClient
     /// </summary>
     /// <param name="events">The requested event aliases.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="ApiException">
-    /// An alias is blank or unknown, or the event list could not be read (all mapped to 400).
-    /// </exception>
+    /// <exception cref="InvalidArgumentException">An alias is blank or unknown (invalid_argument).</exception>
+    /// <exception cref="ApiException">The event list could not be read (mapped to 400).</exception>
     private async Task GuardWebhookEventsAsync(IEnumerable<string> events, CancellationToken ct)
     {
         var requested = events.ToList();
@@ -70,7 +69,7 @@ public sealed partial class UmbracoManagementClient
             return;
 
         if (requested.Any(string.IsNullOrWhiteSpace))
-            throw BadRequest("A webhook event alias cannot be empty.");
+            throw new InvalidArgumentException("A webhook event alias cannot be empty.");
 
         var known = await KnownWebhookEventAliasesAsync(ct);
 
@@ -92,7 +91,7 @@ public sealed partial class UmbracoManagementClient
                 ? $"'{u}' (did you mean '{nearest}'?)"
                 : $"'{u}'"
         );
-        throw BadRequest(
+        throw new InvalidArgumentException(
             $"Unknown webhook event {string.Join(", ", described)}. Umbraco would save the webhook "
                 + "but never fire it. Run 'umbraco webhook event list' for the valid aliases."
         );

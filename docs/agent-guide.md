@@ -151,13 +151,13 @@ The rest never reach the API, so they carry no `httpStatus` and no `serverVersio
 
 | `category` | Exit | Meaning |
 |---|---|---|
-| `invalid_argument` | 1 | Your input: a command line that does not parse, a malformed or contradictory `--json-body`, two inputs for one value, an alias or name that matches nothing (or several items - the message lists their ids), a file that is not there. |
+| `invalid_argument` | 1 | Your input: a command line that does not parse, a malformed or contradictory `--json-body`, two inputs for one value, an alias or name that matches nothing (or several items - the message lists their ids), a value the instance does not recognise (a webhook `--event` alias, a dictionary ISO code), a file that is not there. |
 | `internal` | 1 | An unexpected error inside the CLI - a bug to report. |
 | `not_authenticated` | 2 | No host, no credentials, an unknown `--profile`, or authentication failed. |
 | `not_allowed` | 2 | The command is not in the allow-list. |
 | `readonly` | 2 | A write blocked by `--readonly` / `UMBRACO_READONLY`. |
 | `confirmation_required` | 2 | A destructive command run non-interactively without `--yes`. |
-| `refused` | 2 | A pre-flight check refused (e.g. deleting an in-use type without `--force`). |
+| `refused` | 2 | A pre-flight check refused: a delete that would take or orphan something else (an in-use type, data type or template, a group with members or users, a dictionary item with children, any language) without `--force`. |
 | `cancelled` | 2 | You declined the confirmation prompt. |
 
 A write command run with `--dry-run` uses a distinct status and does not touch the server:
@@ -336,7 +336,9 @@ whole of an invariant one.
 
 Other commands pick a sensible culture when you name none. `content create` and
 `document-blueprint create` use the default language when the document type varies by culture.
-`content version list` lists every culture's history, newest first, and tags each row with the
+In `content update` and `document-blueprint update`, a variant with no `culture` renames the
+default-language variant. It is refused if the item has no variant in that language. Values with
+no `culture` are left as sent. `content version list` lists every culture's history, newest first, and tags each row with the
 `culture` to pass to `content version rollback --culture`. Use `content version get <version-id>` to read a
 version's values before rolling back. `document-blueprint create --from-document --name` renames every
 culture.

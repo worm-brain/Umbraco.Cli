@@ -162,8 +162,6 @@ Each exception is deliberate or tracked; don't copy it.
 - `user-group add-users` / `remove-users` are verb-noun compounds (membership has no better home
   yet).
 - `property-type is-used` is a top-level noun with one verb and no `list`/`get`.
-- Deletes that cascade without a `--force` guard (templates, languages, member groups, user
-  groups, dictionary items) - tracked in #269.
 
 ## Changelog
 
@@ -175,6 +173,11 @@ Each exception is deliberate or tracked; don't copy it.
 - **2026-09-27** - 2 and 4.5: `media export/diff/apply` (#226) takes a snapshot **directory**, so
   its `--out` is required and names a directory, and its `<snapshot>` does not accept `-`. The
   files are binary and cannot travel in the envelope or on stdin.
+- **2026-09-27** - 5.2 applied to the remaining cascading deletes (#269). Template, member-group,
+  user-group and dictionary deletes are refused while something uses them or they have
+  children; language delete always needs `--force`. `schema apply --prune` runs the same checks.
+  The section 9 exception is removed. Folder deletes are not guarded, because Umbraco already refuses a
+  non-empty folder.
 - **2026-09-27** - 8.5: examples must parse, from a closed placeholder vocabulary; checked by
   `HelpTextTests`, which also checks the command paths and options in `docs/commands.md`
   (#250 Phase 7).

@@ -14,10 +14,18 @@ public static class TemplatesDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a Razor view template by id or alias.\n\nExamples:\n  umbraco template delete blogPost"
+            "Delete a Razor view template by id or alias.\n\n"
+                + "A template that a document type allows or defaults to is refused unless --force is given: "
+                + "those document types, and their documents, would be left without it.\n\n"
+                + "Examples:\n  umbraco template delete blogPost --yes\n  umbraco template delete blogPost --force --yes"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.Template);
         cmd.Add(idArg);
+        InUseGuard.Protect(
+            cmd,
+            idArg,
+            "Delete even though document types use the template, leaving them without it."
+        );
         cmd.Destructive(parseResult =>
             $"Permanently delete template {parseResult.GetValue(idArg)}? This cannot be undone."
         );

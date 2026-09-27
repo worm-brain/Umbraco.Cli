@@ -29,7 +29,15 @@ public static class AuthCommand
                 authService
             )
         );
-        cmd.Add(LogoutCommand.Build(global.Output, global.Config, global.Profile, configStore));
+        cmd.Add(
+            LogoutCommand.Build(
+                global.Output,
+                global.Config,
+                global.Profile,
+                configStore,
+                authService
+            )
+        );
         // Saved credential profiles are one sub-resource: a noun, not two verbs (docs/conventions.md 1.4).
         var profile = new Command(
             "profile",

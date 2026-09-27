@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MemberTypes;
@@ -28,7 +27,6 @@ public static class MemberTypesDeleteCommand
         cmd.Add(idArg);
         InUseGuard.Protect(
             cmd,
-            SchemaKinds.MemberType,
             idArg,
             "Delete the member type even though it has members, deleting them too."
         );

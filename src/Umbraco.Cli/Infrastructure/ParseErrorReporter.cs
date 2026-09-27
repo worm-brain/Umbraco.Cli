@@ -22,11 +22,13 @@ public static class ParseErrorReporter
     /// <summary>
     /// Whether the parse result is really a help or version request. Those carry parse "errors"
     /// for the missing arguments they skipped, but the user asked for help and should get it.
+    /// <c>-v</c> is not in the list: it is <c>--verbose</c>, and <c>--version</c> has no short
+    /// alias (#271).
     /// </summary>
     /// <param name="parsed">The parse result.</param>
     /// <returns>True when help or version was requested.</returns>
     public static bool IsHelpOrVersion(ParseResult parsed) =>
-        parsed.Tokens.Any(t => t.Value is "--help" or "-h" or "-?" or "/?" or "--version" or "-v");
+        parsed.Tokens.Any(t => t.Value is "--help" or "-h" or "-?" or "/?" or "--version");
 
     /// <summary>
     /// Writes the parse errors as an error envelope and returns the exit code.

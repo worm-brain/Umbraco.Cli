@@ -129,6 +129,30 @@ public class TypeLookupAndDictionaryTests
     }
 
     [Fact]
+    public async Task CreateDictionaryItemAsync_UnknownIsoCode_IsAnInvalidArgumentWithNoStatus()
+    {
+        // #280: nothing reached Umbraco, so this is the caller's input, not a server rejection.
+        var handler = Wire.Routed(
+            ("/language", """{ "total": 1, "items": [ { "isoCode": "en-US" } ] }""")
+        );
+
+        var result = await Wire.Client(handler)
+            .CreateDictionaryItemAsync(
+                new CreateDictionaryItemRequest
+                {
+                    Name = "Blog.ReadMore",
+                    Translations =
+                    [
+                        new DictionaryTranslation { IsoCode = "da", Translation = "x" },
+                    ],
+                },
+                CancellationToken.None
+            );
+
+        Assert.Equal((FailureCategory.InvalidArgument, 0), (result.Category, result.StatusCode));
+    }
+
+    [Fact]
     public async Task CreateDictionaryItemAsync_KnownIsoCodes_Proceeds()
     {
         var handler = Wire.Routed(

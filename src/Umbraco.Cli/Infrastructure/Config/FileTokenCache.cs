@@ -73,6 +73,19 @@ public sealed class FileTokenCache : ITokenCache
             Save(entries);
     }
 
+    /// <inheritdoc />
+    public void RemoveByPrefix(string prefix)
+    {
+        var entries = Load();
+        var doomed = entries
+            .Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+            .ToList();
+        foreach (var key in doomed)
+            entries.Remove(key);
+        if (doomed.Count > 0)
+            Save(entries);
+    }
+
     private Dictionary<string, CachedToken> Load()
     {
         try

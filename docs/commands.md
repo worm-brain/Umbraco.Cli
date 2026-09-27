@@ -628,7 +628,7 @@ property value that goes with it, see
 umbraco language list
 umbraco language create --culture <code> [--default] [--mandatory] [--fallback <code>]
 umbraco language update <id> [--name <name>] [--default] [--mandatory] [--fallback <code>]   # <id> is the ISO code; omitted fields are kept
-umbraco language delete <id>                        # needs --yes non-interactively
+umbraco language delete <id> --force                # --force always required (deletes the culture's variants and translations), plus --yes non-interactively
 ```
 
 ## `template`
@@ -639,7 +639,7 @@ umbraco template get <id|alias>                          # includes the view `co
 umbraco template create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
 umbraco template update <id|alias> [--name <name>] [--alias <alias>] [--content <razor> | --content-file <file>]   # omitted fields are kept
 umbraco template update <id|alias> --json-body <file> [--replace]   # the body `template get` prints, merged; --replace needs --yes
-umbraco template delete <id|alias>                        # needs --yes non-interactively
+umbraco template delete <id|alias> [--force]              # refused while a document type allows or defaults to it unless --force; --yes non-interactively
 ```
 
 ## `member`
@@ -683,7 +683,7 @@ umbraco member-group list
 umbraco member-group get <id|name>
 umbraco member-group create --name <name>
 umbraco member-group update <id|name> --name <name>
-umbraco member-group delete <id|name>                     # needs --yes non-interactively
+umbraco member-group delete <id|name> [--force]           # refused while it has members unless --force; --yes non-interactively
 ```
 
 ## `user`
@@ -704,7 +704,7 @@ umbraco user-group list
 umbraco user-group get <id|alias|name>
 umbraco user-group create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--id <guid>]
 umbraco user-group update <id|alias|name> [--alias <alias>] [--name <name>] [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>]
-umbraco user-group delete <id|alias|name>...             # one or several; needs --yes non-interactively
+umbraco user-group delete <id|alias|name>... [--force]   # one or several; refused while any has users unless --force; --yes non-interactively
 umbraco user-group add-users <id|alias|name> --user <id>...          # --user repeatable
 umbraco user-group remove-users <id|alias|name> --user <id>...       # --user repeatable
 ```
@@ -735,7 +735,7 @@ umbraco dictionary get <id|key>
 umbraco dictionary create --key <key> [--value en-US=Hello --value da-DK=Hej] [--parent <key|id>]   # --parent creates under an item
 umbraco dictionary update <id|key> [--key <key>] [--value en-US=Home ...]   # merges by ISO code
 umbraco dictionary move <id|key> [--parent <key|id>]       # reparent; omit --parent to move to the root; --target works too
-umbraco dictionary delete <id|key>                         # needs --yes non-interactively
+umbraco dictionary delete <id|key> [--force]               # refused while it has child items unless --force; --yes non-interactively
 ```
 
 **Use full ISO codes in `--value`** (`en-US`, not `en`). Umbraco matches them against the

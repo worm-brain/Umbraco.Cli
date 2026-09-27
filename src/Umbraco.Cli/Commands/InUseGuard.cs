@@ -1,20 +1,24 @@
 using System.CommandLine;
 using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands;
 
 /// <summary>
-/// Checks whether deleting a type would take content with it, before the delete is sent
-/// (#246, #252, #253).
+/// Checks whether a delete would take or orphan something else, before it is sent
+/// (#246, #252, #253, #269; docs/conventions.md 5.2).
 /// <para>
-/// Umbraco carries out a type delete by cascading it: a data type takes every property that uses
-/// it and the values stored in them, a member type takes its members, and a document or media type
-/// takes every item of that type. The backoffice warns first; the CLI must be at least as careful.
-/// <see cref="ReasonAsync"/> is the one check, shared by the single deletes (through
-/// <see cref="Protect"/>) and by <c>schema apply --prune</c>.
+/// Umbraco carries out these deletes by cascading them: a data type takes every property that uses
+/// it and the values stored in them, a member type takes its members, a document or media type
+/// takes every item of that type, a dictionary item takes its children, and a language takes every
+/// variant and translation in it. Deleting a template, member group or user group leaves what used
+/// it pointing at nothing. The backoffice warns first; the CLI must be at least as careful.
+/// <see cref="ReasonAsync"/> is the per-item check the single deletes run (through
+/// <see cref="Protect"/> and <see cref="ProtectEach"/>). <c>schema apply --prune</c> runs it too,
+/// except where the plan changes the answer: a dictionary item's children, or a template's users,
+/// that the same prune deletes. Those use <see cref="TemplateReason"/> and the prune's own
+/// dictionary rule.
 /// </para>
 /// </summary>
 public static class InUseGuard
@@ -26,43 +30,139 @@ public static class InUseGuard
     public const string ForceOption = "--force";
 
     /// <summary>
-    /// Why deleting the <paramref name="kind"/> <paramref name="id"/> would destroy more than the
-    /// type itself, or null when it is safe. A failed check is a reason too: an unknown is not a
-    /// yes. Document and media types always have a reason, because Umbraco has no endpoint that
-    /// says how many items use one.
+    /// Why deleting the <paramref name="kind"/> <paramref name="id"/> would destroy or orphan more
+    /// than the item itself, or null when it is safe. A failed check is a reason too: an unknown is
+    /// not a yes. Document and media types always have a reason, because Umbraco has no endpoint
+    /// that says how many items use one. Languages are not id-keyed; see <see cref="LanguageReason"/>.
     /// </summary>
     /// <param name="client">The client to check with.</param>
-    /// <param name="kind">A <see cref="SchemaKinds"/> value. Kinds whose delete cascades to nothing (templates) are always safe.</param>
-    /// <param name="id">The type id.</param>
+    /// <param name="kind">What the id names.</param>
+    /// <param name="id">The item id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The reason, or null.</returns>
     public static Task<string?> ReasonAsync(
         IUmbracoManagementClient client,
-        string kind,
+        EntityKind kind,
         Guid id,
         CancellationToken ct
     ) =>
         kind switch
         {
-            SchemaKinds.DataType => DataTypeAsync(client, id, ct),
-            SchemaKinds.MemberType => MemberTypeAsync(client, id, ct),
-            SchemaKinds.DocumentType => Task.FromResult<string?>(Uncountable("document", id)),
-            SchemaKinds.MediaType => Task.FromResult<string?>(Uncountable("media", id)),
+            EntityKind.DataType => DataTypeAsync(client, id, ct),
+            EntityKind.MemberType => MemberTypeAsync(client, id, ct),
+            EntityKind.DocumentType => Task.FromResult<string?>(Uncountable("document", id)),
+            EntityKind.MediaType => Task.FromResult<string?>(Uncountable("media", id)),
+            EntityKind.Template => TemplateAsync(client, id, ct),
+            EntityKind.MemberGroup => MemberGroupAsync(client, id, ct),
+            EntityKind.UserGroup => UserGroupAsync(client, id, ct),
+            EntityKind.DictionaryItem => DictionaryItemAsync(client, id, ct),
             _ => Task.FromResult<string?>(null),
         };
 
     /// <summary>
-    /// Adds <c>--force</c> to a type-delete command and has the executor refuse the delete, before
-    /// it is confirmed, while <see cref="ReasonAsync"/> finds a reason and <c>--force</c> is not given.
+    /// Why deleting template <paramref name="id"/> would leave document types without it, or null
+    /// when none of <paramref name="users"/> uses it. The prune passes the users left once the
+    /// document types it also deletes are taken out.
+    /// </summary>
+    /// <param name="id">The template id.</param>
+    /// <param name="users">The document types that allow the template or default to it.</param>
+    /// <returns>The reason, or null.</returns>
+    public static string? TemplateReason(Guid id, IReadOnlyCollection<TemplateUser> users) =>
+        users.Count == 0
+            ? null
+            : $"Template {id} is used by {Summarise([.. users.Select(u => u.Name)])}. Deleting it "
+                + "leaves those document types, and the documents that render with it, without it.";
+
+    /// <summary>
+    /// Why deleting a language is never safe to do by default: Umbraco deletes every culture variant
+    /// and dictionary translation in it, and has no endpoint that says whether there are any. So a
+    /// language delete, and a language prune, always need <c>--force</c> (#269).
+    /// </summary>
+    /// <param name="isoCode">The language's ISO code.</param>
+    /// <returns>The reason.</returns>
+    public static string LanguageReason(string isoCode) =>
+        $"Deleting language {isoCode} also deletes every culture variant and dictionary "
+        + "translation in that language.";
+
+    /// <summary>
+    /// Adds <c>--force</c> to a delete command and has the executor refuse the delete, before it is
+    /// confirmed, while <see cref="ReasonAsync"/> finds a reason for the item the argument names
+    /// and <c>--force</c> is not given.
     /// </summary>
     /// <param name="command">The delete command.</param>
-    /// <param name="kind">The <see cref="SchemaKinds"/> value of the type it deletes.</param>
-    /// <param name="idArg">The command's <c>&lt;id|alias&gt;</c> argument.</param>
-    /// <param name="forceDescription">Help text for <c>--force</c>, saying what it deletes along with the type.</param>
-    public static void Protect(
+    /// <param name="idArg">The command's <c>&lt;id|alias&gt;</c> argument; its kind picks the check.</param>
+    /// <param name="forceDescription">Help text for <c>--force</c>, saying what else the delete removes.</param>
+    public static void Protect(Command command, ReferenceArgument idArg, string forceDescription) =>
+        Refuse(
+            command,
+            async (parseResult, client, ct) =>
+            {
+                // A reference that does not resolve is not a safety question: the delete itself
+                // then fails with the resolver's 404, which says what was not found.
+                var id = await idArg.ResolveAsync(parseResult, client, ct);
+                return id.IsSuccess ? await ReasonAsync(client, idArg.Kind, id.Data, ct) : null;
+            },
+            forceDescription
+        );
+
+    /// <summary>
+    /// <see cref="Protect"/> for a delete of several items at once: the references are resolved
+    /// once, each item is checked (in parallel), and every reason found is reported.
+    /// </summary>
+    /// <param name="command">The delete command.</param>
+    /// <param name="kind">What the references name.</param>
+    /// <param name="idsArg">The command's variadic <c>&lt;id&gt;...</c> argument.</param>
+    /// <param name="forceDescription">Help text for <c>--force</c>, saying what else the delete removes.</param>
+    public static void ProtectEach(
         Command command,
-        string kind,
-        ReferenceArgument idArg,
+        EntityKind kind,
+        Argument<string[]> idsArg,
+        string forceDescription
+    ) =>
+        Refuse(
+            command,
+            async (parseResult, client, ct) =>
+            {
+                // A reference that does not resolve is left to the delete, which reports it.
+                var ids = await client.ResolveIdsAsync(kind, parseResult.GetValue(idsArg)!, ct);
+                if (!ids.IsSuccess)
+                    return null;
+                var reasons = await Task.WhenAll(
+                    ids.Data!.Select(id => ReasonAsync(client, kind, id, ct))
+                );
+                return reasons.OfType<string>().ToList() is { Count: > 0 } found
+                    ? string.Join(" ", found)
+                    : null;
+            },
+            forceDescription
+        );
+
+    /// <summary>
+    /// Adds <c>--force</c> to a delete that is never safe by default, because nothing can say what
+    /// it would take with it (a language), and refuses the delete without it.
+    /// </summary>
+    /// <param name="command">The delete command.</param>
+    /// <param name="reason">The reason, from the parsed command line.</param>
+    /// <param name="forceDescription">Help text for <c>--force</c>, saying what else the delete removes.</param>
+    public static void RequireForce(
+        Command command,
+        Func<ParseResult, string> reason,
+        string forceDescription
+    ) =>
+        Refuse(
+            command,
+            (parseResult, _, _) => Task.FromResult<string?>(reason(parseResult)),
+            forceDescription
+        );
+
+    /// <summary>
+    /// Adds <c>--force</c> and registers the refusal: the executor runs <paramref name="reason"/>
+    /// after connecting and before the confirmation prompt, and refuses when it returns one and
+    /// <c>--force</c> is not given.
+    /// </summary>
+    private static void Refuse(
+        Command command,
+        Func<ParseResult, IUmbracoManagementClient, CancellationToken, Task<string?>> reason,
         string forceDescription
     )
     {
@@ -73,15 +173,10 @@ public static class InUseGuard
             {
                 if (parseResult.GetValue(force))
                     return null;
-                // A reference that does not resolve is not a safety question: the delete itself
-                // then fails with the resolver's 404, which says what was not found.
-                var id = await idArg.ResolveAsync(parseResult, client, ct);
-                if (!id.IsSuccess)
-                    return null;
-                var reason = await ReasonAsync(client, kind, id.Data, ct);
-                return reason is null
+                var why = await reason(parseResult, client, ct);
+                return why is null
                     ? null
-                    : $"{reason} Nothing was deleted. Re-run with {ForceOption} to delete it anyway.";
+                    : $"{why} Nothing was deleted. Re-run with {ForceOption} to delete it anyway.";
             }
         );
     }
@@ -120,6 +215,67 @@ public static class InUseGuard
         return count.Data == 0
             ? null
             : $"Member type {id} has {count.Data} member(s). Deleting it also deletes them.";
+    }
+
+    /// <summary>Why deleting template <paramref name="id"/> would orphan document types, or null when none use it.</summary>
+    private static async Task<string?> TemplateAsync(
+        ITemplateClient client,
+        Guid id,
+        CancellationToken ct
+    )
+    {
+        var usage = await client.GetTemplateUsageAsync(ct);
+        if (!usage.IsSuccess)
+            return CouldNotCheck("template", id, usage.ErrorMessage);
+        return TemplateReason(id, usage.Data!.GetValueOrDefault(id) ?? []);
+    }
+
+    /// <summary>Why deleting member group <paramref name="id"/> would drop members from it, or null when it is empty.</summary>
+    private static async Task<string?> MemberGroupAsync(
+        IMemberGroupClient client,
+        Guid id,
+        CancellationToken ct
+    )
+    {
+        var count = await client.CountMembersInGroupAsync(id, ct);
+        if (!count.IsSuccess)
+            return CouldNotCheck("member group", id, count.ErrorMessage);
+        return count.Data == 0
+            ? null
+            : $"Member group {id} has {count.Data} member(s). Deleting it removes their "
+                + "membership and any access rules that name the group.";
+    }
+
+    /// <summary>Why deleting user group <paramref name="id"/> would take access from users, or null when it is empty.</summary>
+    private static async Task<string?> UserGroupAsync(
+        IUserGroupClient client,
+        Guid id,
+        CancellationToken ct
+    )
+    {
+        var count = await client.CountUsersInGroupAsync(id, ct);
+        if (!count.IsSuccess)
+            return CouldNotCheck("user group", id, count.ErrorMessage);
+        return count.Data == 0
+            ? null
+            : $"User group {id} has {count.Data} user(s). Deleting it takes away the sections "
+                + "and permissions it grants them.";
+    }
+
+    /// <summary>Why deleting dictionary item <paramref name="id"/> would delete children, or null when it has none.</summary>
+    private static async Task<string?> DictionaryItemAsync(
+        IDictionaryClient client,
+        Guid id,
+        CancellationToken ct
+    )
+    {
+        var children = await client.GetDictionaryTreeAsync(id, 0, 1, ct);
+        if (!children.IsSuccess)
+            return CouldNotCheck("dictionary item", id, children.ErrorMessage);
+        return children.Data!.Total == 0
+            ? null
+            : $"Dictionary item {id} has {children.Data.Total} child item(s). Deleting it also "
+                + "deletes them and their translations.";
     }
 
     /// <summary>The reason for a type whose items Umbraco cannot count (document, media).</summary>

@@ -59,7 +59,41 @@ public sealed class UmbracoAuthService
             0,
             16
         );
-        return $"{host.TrimEnd('/').ToLowerInvariant()}|{clientId}|{fingerprint}";
+        return $"{CacheKeyPrefix(host, clientId)}{fingerprint}";
+    }
+
+    /// <summary>The part of <see cref="CacheKey"/> shared by every secret for one host and client id.</summary>
+    /// <param name="host">The Umbraco base URL.</param>
+    /// <param name="clientId">The API user's client id.</param>
+    /// <returns>The key prefix, ending in the separator so one client id is not a prefix of another.</returns>
+    internal static string CacheKeyPrefix(string host, string clientId) =>
+        $"{host.TrimEnd('/').ToLowerInvariant()}|{clientId}|";
+
+    /// <summary>
+    /// Drops every cached token for a host and client id, in memory and in the persistent cache,
+    /// whichever secret fetched it (#260). <c>auth logout</c> calls this so that no usable bearer
+    /// token for the profile is left on disk.
+    /// </summary>
+    /// <param name="host">The Umbraco base URL.</param>
+    /// <param name="clientId">The API user's client id.</param>
+    public void ForgetCachedTokens(string host, string clientId)
+    {
+        var prefix = CacheKeyPrefix(host, clientId);
+        _lock.Wait();
+        try
+        {
+            foreach (
+                var key in _tokens
+                    .Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+                    .ToList()
+            )
+                _tokens.Remove(key);
+            _cache?.RemoveByPrefix(prefix);
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     /// <summary>

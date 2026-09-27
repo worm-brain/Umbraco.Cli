@@ -54,7 +54,7 @@ public class WebhookEventsWireTests
 
         var result = await Create(handler, "Umbraco.ContentPublish", "ContentPublished");
 
-        Assert.Equal(400, result.StatusCode);
+        Assert.False(result.IsSuccess);
         handler.AssertNoRequest(HttpMethod.Post, "/webhook");
     }
 
@@ -66,6 +66,28 @@ public class WebhookEventsWireTests
         var result = await Create(handler, "ContentPublished");
 
         Assert.Contains("did you mean 'Umbraco.ContentPublish'", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CreateWebhookAsync_UnknownAlias_IsAnInvalidArgumentWithNoStatus()
+    {
+        // #280: nothing reached Umbraco, so this is the caller's input, not a server rejection.
+        var handler = Wire.Routed(("/webhook/events", Events));
+
+        var result = await Create(handler, "ContentPublished");
+
+        Assert.Equal((FailureCategory.InvalidArgument, 0), (result.Category, result.StatusCode));
+    }
+
+    [Fact]
+    public async Task CreateWebhookAsync_EventListUnreadable_KeepsTheRejectedCategory()
+    {
+        // The input may be fine; the check itself failed, so it is not an invalid argument.
+        var handler = Wire.Routed(("/webhook/events", """{ "total": 0, "items": [] }"""));
+
+        var result = await Create(handler, "Umbraco.ContentPublish");
+
+        Assert.Equal(FailureCategory.RequestRejected, result.Category);
     }
 
     [Fact]

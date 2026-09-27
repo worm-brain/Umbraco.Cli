@@ -6,13 +6,25 @@ using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Auth;
 
+/// <summary>Wires <c>auth logout</c>.</summary>
 public static class LogoutCommand
 {
+    /// <summary>
+    /// Builds <c>auth logout</c>: removes the profile's stored credentials and, when it held any,
+    /// every cached access token for its host and client id (#260).
+    /// </summary>
+    /// <param name="outputOption">The global <c>--output</c> option.</param>
+    /// <param name="configOption">The global <c>--config</c> option.</param>
+    /// <param name="profileOption">The global <c>--profile</c> option.</param>
+    /// <param name="configStore">The default config store.</param>
+    /// <param name="authService">Holds the token caches to clear.</param>
+    /// <returns>The command.</returns>
     public static Command Build(
         Option<string?> outputOption,
         Option<string?> configOption,
         Option<string?> profileOption,
-        ConfigStore configStore
+        ConfigStore configStore,
+        UmbracoAuthService authService
     )
     {
         var cmd = new Command(
@@ -34,7 +46,15 @@ public static class LogoutCommand
                 // guardrail (only its credentials are cleared) so logout cannot silently drop it
                 // (#83); otherwise the profile is removed, and the file when it was the last.
                 var where = string.IsNullOrWhiteSpace(profile) ? "" : $" (profile '{profile}')";
-                switch (store.Logout(profile))
+
+                // The removed profile is what was saved (no UMBRACO_* overrides). Its cached tokens
+                // are keyed by its host and client id, and one left behind stays usable until it
+                // expires.
+                var (outcome, removed) = store.Logout(profile);
+                if (removed is { Host: { Length: > 0 } host, ClientId: { Length: > 0 } clientId })
+                    authService.ForgetCachedTokens(host, clientId);
+
+                switch (outcome)
                 {
                     case ConfigStore.LogoutOutcome.Removed:
                         writer.WriteMessage(

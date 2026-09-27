@@ -146,7 +146,8 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             // assertion above fails, so a failing run never leaks a language. A successful
             // delete also proves the create really persisted (deleting a missing iso fails).
             // --yes: delete is destructive and the harness runs non-interactively (#70).
-            var delete = CliRunner.Run("language", "delete", iso, "--yes");
+            // A language delete always needs --force (#269).
+            var delete = CliRunner.Run("language", "delete", iso, "--force", "--yes");
             Assert.True(delete.Ok, delete.Stderr);
         }
     }

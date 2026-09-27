@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.ContentTypes;
@@ -26,12 +25,7 @@ public static class ContentTypesDeleteCommand
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.DocumentType);
         cmd.Add(idArg);
-        InUseGuard.Protect(
-            cmd,
-            SchemaKinds.DocumentType,
-            idArg,
-            "Delete the document type and every document of that type."
-        );
+        InUseGuard.Protect(cmd, idArg, "Delete the document type and every document of that type.");
         cmd.Destructive(parseResult =>
             $"Permanently delete document type {parseResult.GetValue(idArg)}? This cannot be undone."
         );

@@ -279,11 +279,11 @@ umbraco document-type delete "$CLITEST_DOCTYPE" --yes || true
 umbraco media delete "$CLITEST_MEDIA" --yes || true
 umbraco media-type delete "$CLITEST_MEDIATYPE" --yes || true
 umbraco data-type delete "$CLITEST_DATATYPE" --yes || true
-umbraco user-group delete "$CLITEST_USERGROUP" --yes || true
-umbraco language delete "$CLITEST_LANG" --yes || true
-umbraco dictionary delete "$CLITEST_DICT" --yes || true
+umbraco user-group delete "$CLITEST_USERGROUP" --force --yes || true
+umbraco language delete "$CLITEST_LANG" --force --yes || true      # always needs --force (#269)
+umbraco dictionary delete "$CLITEST_DICT" --force --yes || true
 umbraco webhook delete "$CLITEST_WEBHOOK" --yes || true
-umbraco member-group delete "$CLITEST_MEMBERGROUP" --yes || true
+umbraco member-group delete "$CLITEST_MEMBERGROUP" --force --yes || true
 umbraco member delete "$CLITEST_MEMBER" --yes || true
 umbraco script delete "clitest/clitest.js" --yes || true
 umbraco stylesheet delete "clitest/clitest.css" --yes || true

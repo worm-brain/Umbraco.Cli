@@ -14,10 +14,17 @@ public static class DictionaryDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a dictionary item by id or key.\n\nExamples:\n  umbraco dictionary delete Blog.MinRead"
+            "Delete a dictionary item by id or key.\n\n"
+                + "An item with child items is refused unless --force is given: Umbraco deletes the children with it.\n\n"
+                + "Examples:\n  umbraco dictionary delete Blog.MinRead --yes\n  umbraco dictionary delete Blog --force --yes"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.DictionaryItem);
         cmd.Add(idArg);
+        InUseGuard.Protect(
+            cmd,
+            idArg,
+            "Delete even though the item has child items, deleting them and their translations too."
+        );
         cmd.Destructive(parseResult =>
             $"Permanently delete dictionary item {parseResult.GetValue(idArg)}? This cannot be undone."
         );

@@ -1,5 +1,10 @@
 namespace Umbraco.Cli.Client;
 
+/// <summary>A document type that uses a template (see <see cref="ITemplateClient.GetTemplateUsageAsync"/>).</summary>
+/// <param name="DocumentTypeId">The document type id.</param>
+/// <param name="Name">Its name, for messages.</param>
+public sealed record TemplateUser(Guid DocumentTypeId, string Name);
+
 /// <summary>Template read access.</summary>
 public interface ITemplateClient
 {
@@ -34,4 +39,15 @@ public interface ITemplateClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> DeleteTemplateAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Which document types use each template, by allowing it or defaulting to it (#269). Umbraco
+    /// has no referenced-by endpoint for templates, so this reads every document type once, in
+    /// batches; a template no document type uses has no entry.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The document types keyed by template id, or a mapped failure.</returns>
+    Task<
+        UmbracoResponse<IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>>
+    > GetTemplateUsageAsync(CancellationToken ct = default);
 }

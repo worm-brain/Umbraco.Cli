@@ -591,6 +591,77 @@ public class SchemaBreadthTests
         );
     }
 
+    [Fact]
+    public async Task ApplyAsync_PruneUserGroupWithUsers_IsRefusedWithoutForce()
+    {
+        // #269: prune runs the same check as user-group delete, and refuses the whole apply.
+        var users = Guid.NewGuid();
+        var diff = Diff() with
+        {
+            UserGroups = Removes(
+                Removed(SchemaKinds.UserGroup, "writers", users, UserGroup(users, "writers"))
+            ),
+        };
+        var fake = new FakeUmbracoManagementClient();
+        fake.UserCountsByGroup[users] = 4;
+
+        await Assert.ThrowsAsync<SafetyRefusalException>(() => Apply(fake, diff, prune: true));
+        Assert.Empty(fake.UserGroupsDeleted);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PruneTemplateUsedOnlyByAPrunedDocumentType_DoesNotBlameTheTemplate()
+    {
+        // #269: the prune deletes the page type too, so its template is not "in use". The document
+        // type still needs --force on its own (Umbraco cannot count its items).
+        var (page, template) = (Guid.NewGuid(), Guid.NewGuid());
+        var diff = Diff() with
+        {
+            DocumentTypes = Removes(
+                Removed(
+                    SchemaKinds.DocumentType,
+                    "page",
+                    page,
+                    new JsonObject { ["id"] = page.ToString() }
+                )
+            ),
+            Templates = Removes(
+                Removed(
+                    SchemaKinds.Template,
+                    "page",
+                    template,
+                    new JsonObject { ["id"] = template.ToString() }
+                )
+            ),
+        };
+        var fake = new FakeUmbracoManagementClient();
+        fake.TemplateUsers[template] = [new TemplateUser(page, "Page")];
+
+        var refusal = await Assert.ThrowsAsync<SafetyRefusalException>(() =>
+            Apply(fake, diff, prune: true)
+        );
+
+        Assert.DoesNotContain($"Template {template}", refusal.Message);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PruneSeveralTemplates_ReadsTheUsageOnce()
+    {
+        var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+        var diff = Diff() with
+        {
+            Templates = Removes(
+                Removed(SchemaKinds.Template, "a", a, new JsonObject { ["id"] = a.ToString() }),
+                Removed(SchemaKinds.Template, "b", b, new JsonObject { ["id"] = b.ToString() })
+            ),
+        };
+        var fake = new FakeUmbracoManagementClient();
+
+        await Apply(fake, diff, prune: true);
+
+        Assert.Equal(1, fake.TemplateUsageReads);
+    }
+
     // ── dictionary across instances (ids differ, names match) ──────────────────
 
     [Fact]

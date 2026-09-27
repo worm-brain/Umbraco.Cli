@@ -148,10 +148,18 @@ public static class MemberGroupsCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a member group by id or name.\n\nExamples:\n  umbraco member-group delete Subscribers --yes"
+            "Delete a member group by id or name.\n\n"
+                + "A group with members is refused unless --force is given: they lose the membership, "
+                + "and access rules that name the group stop matching anyone.\n\n"
+                + "Examples:\n  umbraco member-group delete Subscribers --yes\n  umbraco member-group delete Subscribers --force --yes"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         cmd.Add(idArg);
+        InUseGuard.Protect(
+            cmd,
+            idArg,
+            "Delete even though the group has members, removing their membership."
+        );
         cmd.Destructive(parseResult =>
             $"Permanently delete member group {parseResult.GetValue(idArg)}?"
         );

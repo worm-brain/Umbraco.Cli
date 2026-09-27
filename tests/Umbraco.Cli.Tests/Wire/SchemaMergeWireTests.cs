@@ -112,7 +112,8 @@ public class SchemaMergeWireTests
                 ct: CancellationToken.None
             );
 
-        Assert.Equal(400, result.StatusCode);
+        // #280: the caller's input, refused before sending, so invalid_argument rather than a 400.
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         handler.AssertNoRequest(HttpMethod.Put, $"/document-type/{Id}");
     }
 

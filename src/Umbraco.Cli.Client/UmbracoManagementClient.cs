@@ -451,12 +451,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 // A variant that names no culture gets the default language when the type
                 // varies by culture (#228); an invariant type keeps the null culture. The type is
                 // read only when a variant needs it.
-                var variants = NeedsCulture(request.Variants)
-                    ? WithCulture(
-                        request.Variants,
-                        await DocumentTypeCultureAsync(documentTypeId, ct)
-                    )
-                    : request.Variants;
+                var variants = await FillCultureAsync(
+                    request.Variants,
+                    () => DocumentTypeCultureAsync(documentTypeId, ct)
+                );
 
                 // CreateDocumentBody (not the raw generated model) so that `template` is
                 // always serialized: Umbraco 17+ requires the property to be present on a
@@ -3261,10 +3259,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         {
             return UmbracoResponse<T>.Success(await action());
         }
-        catch (UnresolvedReferenceException ex)
+        catch (InvalidArgumentException ex)
         {
-            // An alias/name the caller typed matched nothing (or too much): the input is wrong,
-            // not the request, so it is invalid_argument with no HTTP status (#256).
+            // The caller's input is what needs fixing - an alias that matched nothing (#256), an
+            // unknown event alias, a body that is not an object (#280) - so invalid_argument with
+            // no HTTP status, rather than a server rejection.
             return UmbracoResponse<T>.Failure(0, ex.Message, FailureCategory.InvalidArgument);
         }
         catch (Gen.ProblemDetails pd)

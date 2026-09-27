@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DataTypes;
@@ -27,7 +26,6 @@ public static class DataTypesDeleteCommand
         cmd.Add(idArg);
         InUseGuard.Protect(
             cmd,
-            SchemaKinds.DataType,
             idArg,
             "Delete even though the data type is in use, removing the properties that use it and their values."
         );

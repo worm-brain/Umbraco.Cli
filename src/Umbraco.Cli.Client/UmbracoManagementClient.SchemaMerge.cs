@@ -54,7 +54,9 @@ public sealed partial class UmbracoManagementClient
             async () =>
             {
                 if (body is not JsonObject patch)
-                    throw BadRequest("--json-body did not contain a JSON object.");
+                    throw new InvalidArgumentException(
+                        "--json-body did not contain a JSON object."
+                    );
 
                 var path = $"umbraco/management/api/v1/{SchemaSegment(kind)}/{id}";
                 var merged = replace

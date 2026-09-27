@@ -173,5 +173,6 @@ public sealed class ScratchTemplate : IDisposable
     }
 
     /// <inheritdoc />
-    public void Dispose() => CliRunner.Run("template", "delete", Id, "--yes");
+    // --force: cleanup must not be refused if a test left a document type pointing at it (#269).
+    public void Dispose() => CliRunner.Run("template", "delete", Id, "--force", "--yes");
 }

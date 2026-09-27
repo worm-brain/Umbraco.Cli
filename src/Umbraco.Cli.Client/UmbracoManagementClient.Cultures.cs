@@ -101,7 +101,7 @@ public sealed partial class UmbracoManagementClient
             return null;
 
         return await DefaultCultureAsync(ct)
-            ?? throw BadRequest(
+            ?? throw new InvalidArgumentException(
                 "This document type varies by culture and no default language was found; pass --culture."
             );
     }
@@ -130,31 +130,31 @@ public sealed partial class UmbracoManagementClient
             : null;
     }
 
-    /// <summary>Whether any variant names no culture, i.e. whether a resolver needs to be asked at all.</summary>
-    /// <param name="variants">The requested variants.</param>
-    /// <returns>True when at least one variant has no culture.</returns>
-    private static bool NeedsCulture(IEnumerable<ContentVariant> variants) =>
-        variants.Any(v => string.IsNullOrEmpty(v.Culture));
-
     /// <summary>
-    /// Gives every culture-less variant <paramref name="culture"/>; variants that name one, and
-    /// every variant when <paramref name="culture"/> is null, are returned unchanged.
+    /// The one fill step: gives every culture-less variant the culture <paramref name="resolve"/>
+    /// returns. <paramref name="resolve"/> is only called when some variant names no culture, so a
+    /// request that names all its cultures costs no extra read; when it returns null (an invariant
+    /// type or item, or no default-language variant), every variant is returned unchanged.
     /// </summary>
     /// <param name="variants">The requested variants.</param>
-    /// <param name="culture">The culture to fill in, or null to fill nothing.</param>
-    /// <returns>The variants, with the culture filled in.</returns>
-    private static List<ContentVariant> WithCulture(
+    /// <param name="resolve">Works out the culture to fill in: one of the resolvers above.</param>
+    /// <returns>The variants, with the culture filled in where it was missing.</returns>
+    private static async Task<List<ContentVariant>> FillCultureAsync(
         IEnumerable<ContentVariant> variants,
-        string? culture
-    ) =>
-        variants
-            .Select(v =>
-                culture is not null && string.IsNullOrEmpty(v.Culture)
-                    ? v with
-                    {
-                        Culture = culture,
-                    }
-                    : v
-            )
-            .ToList();
+        Func<Task<string?>> resolve
+    )
+    {
+        var requested = variants.ToList();
+        if (!requested.Any(v => string.IsNullOrEmpty(v.Culture)))
+            return requested;
+        var culture = await resolve();
+        return culture is null
+            ? requested
+            :
+            [
+                .. requested.Select(v =>
+                    string.IsNullOrEmpty(v.Culture) ? v with { Culture = culture } : v
+                ),
+            ];
+    }
 }
