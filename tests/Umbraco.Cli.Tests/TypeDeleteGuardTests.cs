@@ -3,8 +3,13 @@ using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.ContentTypes;
 using Umbraco.Cli.Commands.DataTypes;
+using Umbraco.Cli.Commands.Dictionary;
+using Umbraco.Cli.Commands.Languages;
 using Umbraco.Cli.Commands.MediaTypes;
+using Umbraco.Cli.Commands.MemberGroups;
 using Umbraco.Cli.Commands.MemberTypes;
+using Umbraco.Cli.Commands.Templates;
+using Umbraco.Cli.Commands.UserGroups;
 using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Http;
@@ -71,6 +76,11 @@ public class TypeDeleteGuardTests
         root.Add(ContentTypesCommand.Build(executor));
         root.Add(MediaTypesCommand.Build(executor));
         root.Add(MemberTypesCommand.Build(executor));
+        root.Add(TemplatesCommand.Build(executor));
+        root.Add(LanguagesCommand.Build(executor));
+        root.Add(MemberGroupsCommand.Build(executor));
+        root.Add(UserGroupsCommand.Build(executor));
+        root.Add(DictionaryCommand.Build(executor));
 
         var (outWriter, errWriter) = (new StringWriter(), new StringWriter());
         var (origOut, origErr) = (Console.Out, Console.Error);
@@ -247,5 +257,116 @@ public class TypeDeleteGuardTests
 
         Assert.Equal(0, exit);
         Assert.Equal([TypeId], fake.SchemaDeletedIds);
+    }
+
+    // ── cascading deletes (#269, docs/conventions.md 5.2) ────────────────────
+
+    /// <summary>The error envelope's message.</summary>
+    private static string Message(string stderr) =>
+        System.Text.Json.JsonDocument.Parse(stderr).RootElement.GetProperty("message").GetString()!;
+
+    [Fact]
+    public async Task TemplateDelete_UsedByADocumentType_IsRefusedNamingIt()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.TemplateUsers[TypeId] = ["Blog Post"];
+
+        var (exit, stderr) = await Run(fake, $"template delete {TypeId} --yes");
+
+        Assert.Equal(
+            (2, true, true),
+            (exit, fake.SchemaDeletedIds.Count == 0, Message(stderr).Contains("Blog Post"))
+        );
+    }
+
+    [Fact]
+    public async Task TemplateDelete_Unused_Deletes()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var (exit, _) = await Run(fake, $"template delete {TypeId} --yes");
+
+        Assert.Equal((0, TypeId), (exit, Assert.Single(fake.SchemaDeletedIds)));
+    }
+
+    [Fact]
+    public async Task LanguageDelete_WithoutForce_IsRefused()
+    {
+        // Nothing says whether a culture has content, so a language delete always needs --force.
+        var fake = new FakeUmbracoManagementClient();
+
+        var (exit, _) = await Run(fake, "language delete fr-FR --yes");
+
+        Assert.Equal((2, 0), (exit, fake.LanguagesDeleted.Count));
+    }
+
+    [Fact]
+    public async Task LanguageDelete_WithForce_Deletes()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var (exit, _) = await Run(fake, "language delete fr-FR --force --yes");
+
+        Assert.Equal((0, "fr-FR"), (exit, Assert.Single(fake.LanguagesDeleted)));
+    }
+
+    [Fact]
+    public async Task MemberGroupDelete_WithMembers_IsRefused()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.MemberCountsByGroup[TypeId] = 3;
+
+        var (exit, _) = await Run(fake, $"member-group delete {TypeId} --yes");
+
+        Assert.Equal((2, 0), (exit, fake.MemberGroupsDeleted.Count));
+    }
+
+    [Fact]
+    public async Task MemberGroupDelete_WithMembersAndForce_Deletes()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.MemberCountsByGroup[TypeId] = 3;
+
+        var (exit, _) = await Run(fake, $"member-group delete {TypeId} --force --yes");
+
+        Assert.Equal((0, TypeId), (exit, Assert.Single(fake.MemberGroupsDeleted)));
+    }
+
+    [Fact]
+    public async Task UserGroupDelete_OneOfSeveralHasUsers_DeletesNone()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var empty = Guid.NewGuid();
+        fake.UserCountsByGroup[TypeId] = 2;
+
+        var (exit, _) = await Run(fake, $"user-group delete {empty} {TypeId} --yes");
+
+        Assert.Equal(
+            (2, 0, 0),
+            (exit, fake.UserGroupsDeleted.Count, fake.UserGroupsBulkDeleted.Count)
+        );
+    }
+
+    [Fact]
+    public async Task DictionaryDelete_WithChildren_IsRefused()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.DictionaryTreeItems.Add(
+            new DictionaryTreeItem { Id = Guid.NewGuid(), Name = "Blog.Title" }
+        );
+
+        var (exit, _) = await Run(fake, $"dictionary delete {TypeId} --yes");
+
+        Assert.Equal((2, 0), (exit, fake.DictionaryItemsDeleted.Count));
+    }
+
+    [Fact]
+    public async Task DictionaryDelete_NoChildren_Deletes()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var (exit, _) = await Run(fake, $"dictionary delete {TypeId} --yes");
+
+        Assert.Equal((0, TypeId), (exit, Assert.Single(fake.DictionaryItemsDeleted)));
     }
 }

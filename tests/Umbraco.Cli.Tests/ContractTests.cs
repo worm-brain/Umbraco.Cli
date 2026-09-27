@@ -95,6 +95,8 @@ public class ContractTests
         "GET /umbraco/management/api/v1/tree/data-type/root",
         "GET /umbraco/management/api/v1/tree/template/root",
         "GET /umbraco/management/api/v1/filter/member",
+        "GET /umbraco/management/api/v1/filter/user",
+        "GET /umbraco/management/api/v1/document-type/batch",
         "GET /umbraco/management/api/v1/document/{id}",
         "GET /umbraco/management/api/v1/media/{id}",
         "GET /umbraco/management/api/v1/member/{id}",

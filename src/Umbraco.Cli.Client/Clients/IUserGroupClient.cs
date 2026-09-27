@@ -52,6 +52,18 @@ public interface IUserGroupClient
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> DeleteUserGroupAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>
+    /// Counts the users in a user group (<c>GET filter/user?userGroupIds</c>), who would lose the
+    /// access it grants if it were deleted (#269).
+    /// </summary>
+    /// <param name="userGroupId">The user group id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The number of users in the group, or a mapped failure.</returns>
+    Task<UmbracoResponse<int>> CountUsersInGroupAsync(
+        Guid userGroupId,
+        CancellationToken ct = default
+    );
+
     /// <summary>Deletes several user groups in one call (collection-level bulk delete).</summary>
     /// <param name="ids">The user group ids to delete.</param>
     /// <param name="ct">Cancellation token.</param>

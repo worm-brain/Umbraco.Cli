@@ -142,8 +142,9 @@ public static class SchemaApplier
 
     /// <summary>
     /// The planned deletes that would take more than the item with them, each with the reason
-    /// (#252, #227). Templates, member groups and user groups are not checked: deleting one leaves
-    /// content in place.
+    /// (#252, #227, #269). The same checks the single deletes run, so a prune and a delete agree;
+    /// dictionary items are checked against the plan instead, since a child the prune also deletes
+    /// or moves away is expected to go.
     /// </summary>
     /// <param name="client">The client to check with.</param>
     /// <param name="plan">The ordered plan.</param>
@@ -199,9 +200,7 @@ public static class SchemaApplier
             var change = op.Change;
             var reason = change.Kind switch
             {
-                SchemaKinds.Language =>
-                    $"Deleting language {change.Identity} also deletes every culture variant and "
-                        + "dictionary translation in that language.",
+                SchemaKinds.Language => InUseGuard.LanguageReason(change.Identity),
                 SchemaKinds.DictionaryItem => liveChildren is null
                     ? $"Could not read the dictionary tree to check whether '{change.Identity}' "
                         + "has children."

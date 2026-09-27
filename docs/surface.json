@@ -2761,7 +2761,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a language by its ISO code.\n\nExamples:\n  umbraco language delete fr-FR",
+          "description": "Delete a language by its ISO code.\n\nAlways needs --force: Umbraco deletes every culture variant and dictionary translation in the language with it.\n\nExamples:\n  umbraco language delete fr-FR --force --yes",
           "arguments": [
             {
               "name": "id",
@@ -2771,7 +2771,16 @@
               "hasDefault": false
             }
           ],
-          "options": [],
+          "options": [
+            {
+              "name": "--force",
+              "aliases": [],
+              "description": "Delete the language, and every culture variant and dictionary translation in it.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            }
+          ],
           "commands": [],
           "mutating": true,
           "destructive": true,
@@ -2970,7 +2979,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a Razor view template by id or alias.\n\nExamples:\n  umbraco template delete blogPost",
+          "description": "Delete a Razor view template by id or alias.\n\nA template that a document type allows or defaults to is refused unless --force is given: those document types, and their documents, would be left without it.\n\nExamples:\n  umbraco template delete blogPost --yes\n  umbraco template delete blogPost --force --yes",
           "arguments": [
             {
               "name": "id",
@@ -2980,7 +2989,16 @@
               "hasDefault": false
             }
           ],
-          "options": [],
+          "options": [
+            {
+              "name": "--force",
+              "aliases": [],
+              "description": "Delete even though document types use the template, leaving them without it.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            }
+          ],
           "commands": [],
           "mutating": true,
           "destructive": true,
@@ -3759,7 +3777,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a dictionary item by id or key.\n\nExamples:\n  umbraco dictionary delete Blog.MinRead",
+          "description": "Delete a dictionary item by id or key.\n\nAn item with child items is refused unless --force is given: Umbraco deletes the children with it.\n\nExamples:\n  umbraco dictionary delete Blog.MinRead --yes\n  umbraco dictionary delete Blog --force --yes",
           "arguments": [
             {
               "name": "id",
@@ -3769,7 +3787,16 @@
               "hasDefault": false
             }
           ],
-          "options": [],
+          "options": [
+            {
+              "name": "--force",
+              "aliases": [],
+              "description": "Delete even though the item has child items, deleting them and their translations too.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            }
+          ],
           "commands": [],
           "mutating": true,
           "destructive": true,
@@ -4598,7 +4625,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a member group by id or name.\n\nExamples:\n  umbraco member-group delete Subscribers --yes",
+          "description": "Delete a member group by id or name.\n\nA group with members is refused unless --force is given: they lose the membership, and access rules that name the group stop matching anyone.\n\nExamples:\n  umbraco member-group delete Subscribers --yes\n  umbraco member-group delete Subscribers --force --yes",
           "arguments": [
             {
               "name": "id",
@@ -4608,7 +4635,16 @@
               "hasDefault": false
             }
           ],
-          "options": [],
+          "options": [
+            {
+              "name": "--force",
+              "aliases": [],
+              "description": "Delete even though the group has members, removing their membership.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            }
+          ],
           "commands": [],
           "mutating": true,
           "destructive": true,
@@ -4994,7 +5030,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete one or more user groups by id, alias or name.\n\nExamples:\n  umbraco user-group delete blogEditors\n  umbraco user-group delete blogEditors newsEditors --yes",
+          "description": "Delete one or more user groups by id, alias or name.\n\nA group with users is refused unless --force is given: they lose the sections and permissions it grants.\n\nExamples:\n  umbraco user-group delete blogEditors\n  umbraco user-group delete blogEditors newsEditors --yes\n  umbraco user-group delete blogEditors --force --yes",
           "arguments": [
             {
               "name": "id",
@@ -5004,7 +5040,16 @@
               "hasDefault": false
             }
           ],
-          "options": [],
+          "options": [
+            {
+              "name": "--force",
+              "aliases": [],
+              "description": "Delete even though the groups have users, taking away what the groups grant them.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            }
+          ],
           "commands": [],
           "mutating": true,
           "destructive": true,

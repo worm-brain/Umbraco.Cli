@@ -591,6 +591,24 @@ public class SchemaBreadthTests
         );
     }
 
+    [Fact]
+    public async Task ApplyAsync_PruneUserGroupWithUsers_IsRefusedWithoutForce()
+    {
+        // #269: prune runs the same check as user-group delete, and refuses the whole apply.
+        var users = Guid.NewGuid();
+        var diff = Diff() with
+        {
+            UserGroups = Removes(
+                Removed(SchemaKinds.UserGroup, "writers", users, UserGroup(users, "writers"))
+            ),
+        };
+        var fake = new FakeUmbracoManagementClient();
+        fake.UserCountsByGroup[users] = 4;
+
+        await Assert.ThrowsAsync<SafetyRefusalException>(() => Apply(fake, diff, prune: true));
+        Assert.Empty(fake.UserGroupsDeleted);
+    }
+
     // ── dictionary across instances (ids differ, names match) ──────────────────
 
     [Fact]

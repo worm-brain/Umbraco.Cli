@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.UserGroups;
@@ -244,7 +245,9 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete one or more user groups by id, alias or name.\n\nExamples:\n  umbraco user-group delete blogEditors\n  umbraco user-group delete blogEditors newsEditors --yes"
+            "Delete one or more user groups by id, alias or name.\n\n"
+                + "A group with users is refused unless --force is given: they lose the sections and permissions it grants.\n\n"
+                + "Examples:\n  umbraco user-group delete blogEditors\n  umbraco user-group delete blogEditors newsEditors --yes\n  umbraco user-group delete blogEditors --force --yes"
         ).Mutating();
         var idsArg = new Argument<string[]>("id")
         {
@@ -252,6 +255,28 @@ public static class UserGroupsCommand
             Arity = ArgumentArity.OneOrMore,
         };
         cmd.Add(idsArg);
+        InUseGuard.Protect(
+            cmd,
+            async (parseResult, client, ct) =>
+            {
+                // A reference that does not resolve is left to the delete, which reports it.
+                var ids = await client.ResolveIdsAsync(
+                    EntityKind.UserGroup,
+                    parseResult.GetValue(idsArg)!,
+                    ct
+                );
+                if (!ids.IsSuccess)
+                    return null;
+                var reasons = new List<string>();
+                foreach (var id in ids.Data!)
+                    if (
+                        await InUseGuard.ReasonAsync(client, SchemaKinds.UserGroup, id, ct) is { } r
+                    )
+                        reasons.Add(r);
+                return reasons.Count == 0 ? null : string.Join(" ", reasons);
+            },
+            "Delete even though the groups have users, taking away what the groups grant them."
+        );
         cmd.Destructive(parseResult =>
             parseResult.GetValue(idsArg)! is [var only]
                 ? $"Permanently delete user group {only}?"

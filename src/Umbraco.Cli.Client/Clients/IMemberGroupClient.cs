@@ -48,6 +48,18 @@ public interface IMemberGroupClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> DeleteMemberGroupAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Counts the members in a member group (<c>GET filter/member?memberGroupName</c>), which a
+    /// delete would drop from it (#269).
+    /// </summary>
+    /// <param name="memberGroupId">The member group id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The number of members in the group, or a mapped failure.</returns>
+    Task<UmbracoResponse<int>> CountMembersInGroupAsync(
+        Guid memberGroupId,
+        CancellationToken ct = default
+    );
 }
 
 /// <summary>Read-only tag listing (issue #107).</summary>
