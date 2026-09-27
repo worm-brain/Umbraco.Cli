@@ -128,6 +128,22 @@ public sealed class ConfigStore
         WriteFile(file);
     }
 
+    /// <summary>
+    /// The profile exactly as stored, with no <c>UMBRACO_*</c> overrides, or null when there is no
+    /// such profile or the file cannot be read. Logout needs what was saved, not what the
+    /// environment would substitute (#260).
+    /// </summary>
+    /// <param name="profileName">The profile; null means the file's default.</param>
+    /// <returns>The stored profile, or null.</returns>
+    public CliConfig? StoredProfile(string? profileName = null)
+    {
+        var file = ReadFile();
+        if (file is null)
+            return null;
+        var name = string.IsNullOrWhiteSpace(profileName) ? file.EffectiveDefault : profileName;
+        return file.Profiles.GetValueOrDefault(name);
+    }
+
     /// <summary>Lists the profile names and which one is the default.</summary>
     /// <returns>The profile names and the default profile name.</returns>
     public (IReadOnlyList<string> Names, string Default) ListProfiles()

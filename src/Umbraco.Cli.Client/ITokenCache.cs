@@ -27,6 +27,13 @@ public interface ITokenCache
     /// <summary>Removes the entry for <paramref name="key"/>, if any.</summary>
     /// <param name="key">The cache key.</param>
     void Remove(string key);
+
+    /// <summary>
+    /// Removes every entry whose key starts with <paramref name="prefix"/> (ordinal). Logout uses it
+    /// to drop a profile's tokens whatever secret they were fetched with (#260).
+    /// </summary>
+    /// <param name="prefix">The key prefix.</param>
+    void RemoveByPrefix(string prefix);
 }
 
 /// <summary>A cached bearer token.</summary>

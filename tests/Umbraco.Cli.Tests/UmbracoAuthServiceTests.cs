@@ -219,6 +219,12 @@ public class UmbracoAuthServiceTests
         public void Write(string key, CachedToken token) => Entries[key] = token;
 
         public void Remove(string key) => Entries.Remove(key);
+
+        public void RemoveByPrefix(string prefix)
+        {
+            foreach (var key in Entries.Keys.Where(k => k.StartsWith(prefix)).ToList())
+                Entries.Remove(key);
+        }
     }
 
     private static UmbracoAuthService Process(
@@ -226,6 +232,21 @@ public class UmbracoAuthServiceTests
         ITokenCache cache,
         TimeProvider? clock = null
     ) => new(new SingleClientFactory(new HttpClient(handler)), clock, cache);
+
+    [Fact]
+    public async Task ForgetCachedTokens_NextRequest_FetchesANewToken()
+    {
+        // #260: after logout, no cached token for that host and client id is reused.
+        var handler = new CountingTokenHandler(299);
+        var cache = new MemoryTokenCache();
+        var auth = Process(handler, cache);
+        await auth.GetTokenAsync("https://x", "client", "secret");
+
+        auth.ForgetCachedTokens("https://x/", "client");
+        await auth.GetTokenAsync("https://x", "client", "secret");
+
+        Assert.Equal(2, handler.Requests);
+    }
 
     [Fact]
     public async Task GetTokenAsync_SecondProcess_ReusesTheCachedToken()
