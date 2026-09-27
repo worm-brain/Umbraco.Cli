@@ -127,4 +127,13 @@ public class ParseErrorReporterTests
 
         Assert.False(ParseErrorReporter.IsHelpOrVersion(root.Parse("content get notAGuid")));
     }
+
+    [Fact]
+    public void IsHelpOrVersion_VerboseShortFlag_IsNotAVersionRequest()
+    {
+        // #271: -v is --verbose, so a mistake made with -v still gets the error envelope.
+        var (root, _) = BuildRoot();
+
+        Assert.False(ParseErrorReporter.IsHelpOrVersion(root.Parse("content get notAGuid -v")));
+    }
 }
