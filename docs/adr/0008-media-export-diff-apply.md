@@ -90,3 +90,7 @@ refused rather than fetched, because the request carries the access token.
 - An item whose GUID is in the target's recycle bin diffs as `Added`, and its create fails; restore
   or empty the recycle bin first.
 - Files served from another host (a CDN, blob storage with its own domain) cannot be exported yet.
+- A file the site will not serve - gone (404) or protected by the site (403) - is not exported:
+  its item is, flagged `fileUnavailable`, and the export lists them. Failing instead would make
+  any long-lived library (records whose files are gone) or any site with protected documents
+  unexportable; the Management API has no file download to fall back on.

@@ -401,6 +401,11 @@ umbraco media apply ./media-snapshot --prune --yes         # also trash what the
 - **Prune trashes** - `--prune` moves omitted items (within the snapshot's scope) to the recycle
   bin, children first; `media restore` brings one back. An item with something the snapshot keeps
   under it is left alone and shows as `skipped`.
+- **Files the site will not serve** - a file that is gone (404) or that the site protects (403;
+  the Management API token is not a site login) cannot be downloaded. Its item is exported
+  without it, marked `fileUnavailable` in `media.json`, and listed in the export's
+  `unavailableFiles`. Apply creates such an item without a file and leaves an existing one's file
+  alone. Any other download failure stops the export.
 - **Limits** - files are downloaded from the configured host only (never a CDN on another host,
   which would receive the token). Only `umbracoFile` is carried as a file. An item whose id is in
   the target's recycle bin cannot be created until it is restored or the bin emptied.
