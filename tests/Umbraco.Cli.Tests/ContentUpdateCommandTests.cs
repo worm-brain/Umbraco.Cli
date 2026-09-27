@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.Content;
@@ -158,7 +157,7 @@ public class ContentUpdateCommandTests
     {
         var fake = new FakeUmbracoManagementClient
         {
-            DocumentVersionBody = JsonNode.Parse($$"""{ "document": { "id": "{{Id}}" } }"""),
+            VersionDocumentId = Id,
             PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
         };
 
@@ -178,7 +177,7 @@ public class ContentUpdateCommandTests
     [Fact]
     public async Task Rollback_WithPublish_UnknownVersion_RollsNothingBack()
     {
-        // DocumentVersionBody unset: the version read 404s, before anything is written.
+        // VersionDocumentId unset: the version read 404s, before anything is written.
         var fake = new FakeUmbracoManagementClient();
 
         var exit = await RunAsync(fake, $"content version rollback {VersionId} --publish", "{}");

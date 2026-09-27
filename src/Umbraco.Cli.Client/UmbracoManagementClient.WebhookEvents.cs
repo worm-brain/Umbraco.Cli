@@ -11,10 +11,10 @@ namespace Umbraco.Cli.Client;
 public sealed partial class UmbracoManagementClient
 {
     /// <summary>
-    /// Page size for the full event read. Umbraco ships a few dozen events; this leaves room for
-    /// package-registered ones without paging.
+    /// Page size for the full event read. Umbraco ships a few dozen events, so one page normally
+    /// holds them all; <see cref="KnownWebhookEventAliasesAsync"/> pages on if it does not.
     /// </summary>
-    private const int AllWebhookEvents = 1000;
+    private const int WebhookEventPage = 1000;
 
     /// <summary>Lists the webhook events this instance can fire, via <c>GET webhook/events</c>.</summary>
     /// <param name="skip">Number of items to skip (paging).</param>
@@ -83,12 +83,12 @@ public sealed partial class UmbracoManagementClient
                     + "fires it, so the request was not sent."
             );
 
-        var unknown = requested.Where(e => !known.Contains(e, StringComparer.Ordinal)).ToList();
+        var unknown = requested.Where(e => !known.Contains(e)).ToList();
         if (unknown.Count == 0)
             return;
 
         var described = unknown.Select(u =>
-            NearestWebhookEvent(u, known) is { } nearest
+            NearestWebhookEvent(u, [.. known]) is { } nearest
                 ? $"'{u}' (did you mean '{nearest}'?)"
                 : $"'{u}'"
         );
@@ -98,33 +98,33 @@ public sealed partial class UmbracoManagementClient
         );
     }
 
-    /// <summary>Every event alias the instance knows, or null when the list could not be read.</summary>
+    /// <summary>
+    /// Every event alias the instance knows, read through <see cref="GetWebhookEventsAsync"/>, or
+    /// null when the list could not be read. A failed read (a 403, a transport error) is reported by
+    /// the guard as "could not check" rather than as the events endpoint's own error, which would
+    /// read as the create itself failing.
+    /// </summary>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The distinct aliases; null on a failed or empty read.</returns>
-    private async Task<List<string>?> KnownWebhookEventAliasesAsync(CancellationToken ct)
+    private async Task<HashSet<string>?> KnownWebhookEventAliasesAsync(CancellationToken ct)
     {
-        try
+        var aliases = new HashSet<string>(StringComparer.Ordinal);
+        for (var skip = 0; ; skip += WebhookEventPage)
         {
-            var page = await _api.Umbraco.Management.Api.V1.Webhook.Events.GetAsync(
-                c => c.QueryParameters.Take = AllWebhookEvents,
-                ct
-            );
-            var aliases = (page?.Items ?? [])
-                .Select(e => e.Alias)
-                .Where(a => !string.IsNullOrWhiteSpace(a))
-                .Select(a => a!)
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
+            var page = await GetWebhookEventsAsync(skip, WebhookEventPage, ct);
+            if (!page.IsSuccess)
+                return null;
 
-            // Umbraco always registers its core events, so an empty list means the read failed.
-            return aliases.Count == 0 ? null : aliases;
+            var items = page.Data!.Items.ToList();
+            aliases.UnionWith(
+                items.Select(e => e.Alias).Where(a => !string.IsNullOrWhiteSpace(a)).Select(a => a!)
+            );
+            if (items.Count == 0 || skip + items.Count >= page.Data.Total)
+                break;
         }
-        catch (Exception ex) when (ex is ApiException or HttpRequestException)
-        {
-            // A 403 or transport failure here is reported as "could not check", not as the
-            // events endpoint's own error, which would read as the create itself failing.
-            return null;
-        }
+
+        // Umbraco always registers its core events, so an empty list means the read failed.
+        return aliases.Count == 0 ? null : aliases;
     }
 
     /// <summary>

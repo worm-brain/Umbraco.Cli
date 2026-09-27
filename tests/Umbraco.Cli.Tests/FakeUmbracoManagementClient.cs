@@ -360,6 +360,23 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>The document <see cref="GetVersionDocumentIdAsync"/> answers with; null answers 404.</summary>
+    public Guid? VersionDocumentId { get; set; }
+
+    /// <summary>Returns <see cref="VersionDocumentId"/>, or a 404 when unset.</summary>
+    /// <param name="versionId">The version id (ignored).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The configured document id, or a 404.</returns>
+    public Task<UmbracoResponse<Guid>> GetVersionDocumentIdAsync(
+        Guid versionId,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            VersionDocumentId is { } id
+                ? UmbracoResponse<Guid>.Success(id)
+                : UmbracoResponse<Guid>.Failure(404, "Version not found.")
+        );
+
     /// <summary>The (version id, culture) of the last <see cref="RollbackDocumentVersionAsync"/> call (#233).</summary>
     public (Guid VersionId, string? Culture)? LastRollback { get; private set; }
 

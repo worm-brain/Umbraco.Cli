@@ -31,7 +31,7 @@ public class ApiBodySchemaTests
     public void EmbeddedSchemas_MatchTheSpec()
     {
         // Arrange
-        var root = RepoRoot();
+        var root = TestPaths.RepoRoot();
         var path = Path.Combine(root, "src", "Umbraco.Cli", "Schemas", "api-bodies.json");
         var spec = JsonNode.Parse(File.ReadAllText(Path.Combine(root, "spec", "management.json")))!;
         // Indented JSON uses the platform newline; the committed file is LF.
@@ -186,13 +186,5 @@ public class ApiBodySchemaTests
             }
         }
         return obj;
-    }
-
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "AGENTS.md")))
-            dir = dir.Parent;
-        return dir!.FullName;
     }
 }

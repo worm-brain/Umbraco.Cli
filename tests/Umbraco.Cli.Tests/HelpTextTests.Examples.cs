@@ -5,13 +5,13 @@ using Umbraco.Cli.Infrastructure;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// Examples that run (#250 cause 7). Help and doc examples were never executed, so they drifted
-/// from the parser: renamed options, GUID-typed arguments given a name, invented event aliases.
-/// These tests parse every <c>Examples:</c> line in the shipped tree with the production parser,
-/// and check that every command and option named in <c>docs/commands.md</c> exists. Placeholders
-/// come from the closed vocabulary in docs/conventions.md section 8.
+/// Rule 8.5 of docs/conventions.md: examples that run (#250 cause 7). Help and doc examples were
+/// never executed, so they drifted from the parser - renamed options, GUID-typed arguments given a
+/// name, invented event aliases. These tests parse every <c>Examples:</c> line in the shipped tree
+/// with the production parser, and check that every command and option named in
+/// <c>docs/commands.md</c> exists. Placeholders come from the closed vocabulary in 8.5.
 /// </summary>
-public partial class HelpExampleTests
+public partial class HelpTextTests
 {
     /// <summary>The GUID a truncated id or an id placeholder stands for.</summary>
     private const string SampleId = "3f7a8b2e-1234-5678-abcd-ef0123456789";
@@ -31,38 +31,28 @@ public partial class HelpExampleTests
         ["<secret>"] = "s3cret",
     };
 
-    /// <summary>The real tree, built once: parsing does not change it.</summary>
+    /// <summary>The real tree to parse against, built once: parsing does not change it.</summary>
     private static readonly RootCommand Root = TestCliRoot.Build();
 
     [Fact]
     public void EveryHelpExample_ParsesWithTheRealParser()
     {
-        var failures = new List<string>();
-        foreach (var (path, line) in HelpExamples())
-        {
-            foreach (var segment in UmbracoSegments(line))
-            {
-                var args = Substitute(segment, out var unknown);
-                if (unknown.Count > 0)
-                {
-                    failures.Add(
-                        $"{path}: `{line}` uses unknown placeholder(s) {string.Join(", ", unknown)}"
-                    );
-                    continue;
-                }
-
-                var errors = Root.Parse(args, CliParserConfiguration.Create()).Errors;
-                if (errors.Count > 0)
-                    failures.Add(
-                        $"{path}: `{line}` -> {string.Join("; ", errors.Select(e => e.Message))}"
-                    );
-            }
-        }
-
-        Assert.True(
-            failures.Count == 0,
-            $"Help examples that do not parse ({failures.Count}):\n  "
-                + string.Join("\n  ", failures)
+        AssertNone(
+            HelpExamples()
+                .SelectMany(e => UmbracoSegments(e.Line).Select(s => (e.Path, e.Line, Segment: s)))
+                .Select(e =>
+                    (e.Path, e.Line, Args: Substitute(e.Segment, out var unknown), unknown)
+                )
+                .Select(e =>
+                    e.unknown.Count > 0
+                        ? $"{e.Path}: `{e.Line}` uses unknown placeholder(s) {string.Join(", ", e.unknown)}"
+                    : Root.Parse(e.Args, CliParserConfiguration.Create()).Errors
+                        is { Count: > 0 } errors
+                        ? $"{e.Path}: `{e.Line}` -> {string.Join("; ", errors.Select(x => x.Message))}"
+                    : null
+                )
+                .OfType<string>(),
+            "Help example that does not parse"
         );
     }
 
@@ -71,15 +61,11 @@ public partial class HelpExampleTests
     {
         // A line with no umbraco command in it is prose that slipped into the block, or a
         // command for some other tool, and would otherwise pass unchecked.
-        var failures = HelpExamples()
-            .Where(e => !e.Line.StartsWith('#') && !UmbracoSegments(e.Line).Any())
-            .Select(e => $"{e.Path}: `{e.Line}`")
-            .ToList();
-
-        Assert.True(
-            failures.Count == 0,
-            $"Example lines with no umbraco command ({failures.Count}):\n  "
-                + string.Join("\n  ", failures)
+        AssertNone(
+            HelpExamples()
+                .Where(e => !e.Line.StartsWith('#') && UmbracoSegments(e.Line).Count == 0)
+                .Select(e => $"{e.Path}: `{e.Line}`"),
+            "Example line with no umbraco command"
         );
     }
 
@@ -88,31 +74,10 @@ public partial class HelpExampleTests
     {
         // docs/commands.md lines are synopses ([--opt <x>], <id|alias>, ...), not runnable, so
         // this checks the parts that go stale on a rename: the command path and the option names.
-        var failures = new List<string>();
-        foreach (var line in CommandsDocLines())
-        foreach (var segment in DocSegments(line))
-        {
-            var tokens = segment.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToList();
-            var (command, consumed) = Resolve(tokens);
-            var next = tokens.Skip(consumed).FirstOrDefault();
-
-            // A bare word straight after a group is a subcommand that does not exist.
-            if (command.Subcommands.Count > 0 && next is not null && IsBareWord(next))
-            {
-                failures.Add($"`{line}`: no command '{next}' under '{Path(tokens, consumed)}'");
-                continue;
-            }
-
-            var valid = OptionNames(tokens, consumed);
-            foreach (var option in tokens.Skip(consumed).Select(OptionToken).OfType<string>())
-                if (!valid.Contains(option))
-                    failures.Add($"`{line}`: '{Path(tokens, consumed)}' has no option {option}");
-        }
-
-        Assert.True(
-            failures.Count == 0,
-            $"docs/commands.md lines naming a missing command or option ({failures.Count}):\n  "
-                + string.Join("\n  ", failures)
+        AssertNone(
+            CommandsDocLines()
+                .SelectMany(line => DocSegments(line).SelectMany(s => DocProblems(line, s))),
+            "docs/commands.md line naming a missing command or option"
         );
     }
 
@@ -175,26 +140,25 @@ public partial class HelpExampleTests
     /// Every example line in the tree, with the command it belongs to. An <c>Examples:</c> block is
     /// the run of two-space-indented lines after the heading; prose may follow a blank line.
     /// </summary>
-    private static IEnumerable<(string Path, string Line)> HelpExamples()
+    private static IEnumerable<(string Path, string Line)> HelpExamples() =>
+        Commands()
+            .SelectMany(c =>
+                ExampleBlock(c.Node.Description ?? "").Select(line => (c.Path, line.Trim()))
+            );
+
+    /// <summary>The indented lines under a description's <c>Examples:</c> heading.</summary>
+    /// <param name="description">A command's full description.</param>
+    /// <returns>The example lines, untrimmed; empty when there is no block.</returns>
+    private static IEnumerable<string> ExampleBlock(string description)
     {
-        return Walk(CommandCatalog.Describe(Root), "umbraco");
-
-        static IEnumerable<(string, string)> Walk(CommandCatalogNode node, string path)
-        {
-            var description = (node.Description ?? "").Replace("\r\n", "\n");
-            var start = description.IndexOf("\nExamples:\n", StringComparison.Ordinal);
-            if (start >= 0)
-                foreach (
-                    var line in description[(start + "\nExamples:\n".Length)..]
-                        .Split('\n')
-                        .TakeWhile(l => l.StartsWith("  ", StringComparison.Ordinal))
-                )
-                    yield return (path, line.Trim());
-
-            foreach (var child in node.Commands)
-            foreach (var example in Walk(child, $"{path} {child.Name}"))
-                yield return example;
-        }
+        const string heading = "\nExamples:\n";
+        var text = description.Replace("\r\n", "\n");
+        var start = text.IndexOf(heading, StringComparison.Ordinal);
+        return start < 0
+            ? []
+            : text[(start + heading.Length)..]
+                .Split('\n')
+                .TakeWhile(l => l.StartsWith("  ", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -221,8 +185,7 @@ public partial class HelpExampleTests
     /// <returns>The arguments to parse.</returns>
     private static string Substitute(string segment, out List<string> unknown)
     {
-        var args = segment["umbraco ".Length..];
-        args = TruncatedId().Replace(args, SampleId);
+        var args = TruncatedId().Replace(segment["umbraco ".Length..], SampleId);
 
         var missing = new List<string>();
         args = AnglePlaceholder()
@@ -247,9 +210,7 @@ public partial class HelpExampleTests
     {
         var inBash = false;
         foreach (
-            var raw in File.ReadLines(
-                System.IO.Path.Combine(SurfaceSnapshotTests.RepoRoot(), "docs", "commands.md")
-            )
+            var raw in File.ReadLines(Path.Combine(TestPaths.RepoRoot(), "docs", "commands.md"))
         )
         {
             var line = raw.Trim();
@@ -272,71 +233,71 @@ public partial class HelpExampleTests
             .Select(s => s.Trim())
             .Where(s => s.StartsWith("umbraco ", StringComparison.Ordinal));
 
+    /// <summary>
+    /// What is wrong with one synopsis segment: a bare word straight after a group (a subcommand
+    /// that does not exist), or an option the resolved command does not have.
+    /// </summary>
+    /// <param name="line">The whole line, for the message.</param>
+    /// <param name="segment">One umbraco segment of it.</param>
+    /// <returns>One message per problem; empty when the segment is sound.</returns>
+    private static IEnumerable<string> DocProblems(string line, string segment)
+    {
+        var tokens = segment.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToList();
+        var chain = Resolve(tokens);
+        var command = chain[^1];
+        var path = string.Join(' ', chain.Skip(1).Select(c => c.Name).Prepend("umbraco"));
+        var rest = tokens.Skip(chain.Count - 1).ToList();
+
+        if (
+            command.Subcommands.Count > 0
+            && rest.FirstOrDefault() is { } next
+            && BareWord().IsMatch(next)
+        )
+            return [$"`{line}`: no command '{next}' under '{path}'"];
+
+        var valid = OptionNames(chain);
+        return rest.Select(OptionToken)
+            .OfType<string>()
+            .Where(o => !valid.Contains(o))
+            .Select(o => $"`{line}`: '{path}' has no option {o}");
+    }
+
     /// <summary>Walks the tokens down the tree for as long as each names a subcommand.</summary>
     /// <param name="tokens">The tokens after <c>umbraco</c>.</param>
-    /// <returns>The deepest command reached, and how many tokens named it.</returns>
-    private static (Command Command, int Consumed) Resolve(List<string> tokens)
+    /// <returns>The commands walked through, root first; the last is the one the tokens name.</returns>
+    private static List<Command> Resolve(List<string> tokens)
     {
-        Command command = Root;
-        var consumed = 0;
-        while (
-            consumed < tokens.Count
-            && command.Subcommands.FirstOrDefault(c =>
-                c.Name == tokens[consumed] || c.Aliases.Contains(tokens[consumed])
-            )
-                is { } child
-        )
+        var chain = new List<Command> { Root };
+        foreach (var token in tokens)
         {
-            command = child;
-            consumed++;
+            if (
+                chain[^1]
+                    .Subcommands.FirstOrDefault(c => c.Name == token || c.Aliases.Contains(token))
+                is not { } child
+            )
+                break;
+            chain.Add(child);
         }
-        return (command, consumed);
+        return chain;
     }
 
     /// <summary>
-    /// Every option name valid on the command the tokens resolve to: its own options and aliases,
-    /// plus the recursive (global) options of every ancestor.
+    /// Every option name valid on the last command of <paramref name="chain"/>: its own options and
+    /// aliases, plus the recursive (global) options of every ancestor.
     /// </summary>
-    /// <param name="tokens">The tokens after <c>umbraco</c>.</param>
-    /// <param name="consumed">How many of them name the command.</param>
+    /// <param name="chain">The commands from the root down, as <see cref="Resolve"/> returns them.</param>
     /// <returns>The option names, e.g. <c>--parent</c>, <c>-o</c>.</returns>
-    private static HashSet<string> OptionNames(List<string> tokens, int consumed)
-    {
-        var names = new HashSet<string>(StringComparer.Ordinal);
-        Command command = Root;
-        for (var i = 0; i <= consumed; i++)
-        {
-            var own = i == consumed;
-            foreach (var option in command.Options.Where(o => own || o.Recursive))
-            {
-                names.Add(option.Name);
-                names.UnionWith(option.Aliases);
-            }
-            if (i < consumed)
-                command = command.Subcommands.First(c =>
-                    c.Name == tokens[i] || c.Aliases.Contains(tokens[i])
-                );
-        }
-        return names;
-    }
+    private static HashSet<string> OptionNames(List<Command> chain) =>
+        chain
+            .SelectMany((c, i) => c.Options.Where(o => i == chain.Count - 1 || o.Recursive))
+            .SelectMany(o => o.Aliases.Prepend(o.Name))
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>The option name at the start of a synopsis token (after any <c>[</c> or <c>(</c>).</summary>
     /// <param name="token">A token such as <c>[--parent</c> or <c>(--order</c>.</param>
     /// <returns>The option name, or null when the token is not an option.</returns>
     private static string? OptionToken(string token) =>
         OptionName().Match(token.TrimStart('[', '(')) is { Success: true } m ? m.Value : null;
-
-    /// <summary>Whether a token is a plain word (a would-be subcommand), not an option, placeholder or value.</summary>
-    /// <param name="token">The token.</param>
-    /// <returns>True for a lower-case word such as <c>list</c>.</returns>
-    private static bool IsBareWord(string token) => BareWord().IsMatch(token);
-
-    /// <summary>The command path the first <paramref name="consumed"/> tokens name, for messages.</summary>
-    /// <param name="tokens">The tokens after <c>umbraco</c>.</param>
-    /// <param name="consumed">How many name the command.</param>
-    /// <returns>E.g. <c>umbraco content version</c>.</returns>
-    private static string Path(List<string> tokens, int consumed) =>
-        string.Join(' ', tokens.Take(consumed).Prepend("umbraco"));
 
     /// <summary>A trailing shell comment: whitespace, <c>#</c>, then anything.</summary>
     [GeneratedRegex(@"\s+#.*$")]

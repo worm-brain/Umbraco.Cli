@@ -41,6 +41,7 @@ public class ContractTests
         "PUT /umbraco/management/api/v1/document/{id}/publish",
         "PUT /umbraco/management/api/v1/document/{id}/unpublish",
         "GET /umbraco/management/api/v1/document-version",
+        "GET /umbraco/management/api/v1/document-version/{id}",
         "POST /umbraco/management/api/v1/document-version/{id}/rollback",
         "PUT /umbraco/management/api/v1/document/{id}/move-to-recycle-bin",
         "PUT /umbraco/management/api/v1/document/{id}/move",

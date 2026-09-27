@@ -47,31 +47,29 @@ public static class ContentRollbackCommand
                     parseResult,
                     async (client, c) =>
                     {
-                        if (!publish)
-                            return await client
-                                .RollbackDocumentVersionAsync(versionId, culture, c)
-                                .Then(ItemRef.Of(versionId));
-
                         // The positional is a version id; publishing needs its document. Read it
                         // before rolling back so a bad id fails without changing anything.
-                        var document = await PublishAfterWrite.DocumentOfVersionAsync(
-                            client,
-                            versionId,
-                            c
-                        );
-                        if (!document.IsSuccess)
-                            return UmbracoResponse<ItemRef>.FailureFrom(document);
+                        Guid? documentId = null;
+                        if (publish)
+                        {
+                            var document = await client.GetVersionDocumentIdAsync(versionId, c);
+                            if (!document.IsSuccess)
+                                return UmbracoResponse<ItemRef>.FailureFrom(document);
+                            documentId = document.Data;
+                        }
 
-                        return await client
-                            .RollbackDocumentVersionAsync(versionId, culture, c)
-                            .ThenPublishAsync(
-                                client,
-                                document.Data,
-                                culture is null ? null : [culture],
-                                "Rolled back",
-                                c
-                            )
-                            .Then(ItemRef.Of(versionId));
+                        var rollback = client.RollbackDocumentVersionAsync(versionId, culture, c);
+                        return await (
+                            documentId is { } id
+                                ? rollback.ThenPublishAsync(
+                                    client,
+                                    id,
+                                    culture is null ? null : [culture],
+                                    "Rolled back",
+                                    c
+                                )
+                                : rollback
+                        ).Then(ItemRef.Of(versionId));
                     },
                     publish
                         ? "Content rolled back to the selected version and published."

@@ -131,6 +131,33 @@ public sealed partial class UmbracoManagementClient
             () => GetRawJsonAsync($"umbraco/management/api/v1/document-version/{versionId}", ct)
         );
 
+    /// <inheritdoc />
+    public async Task<UmbracoResponse<Guid>> GetVersionDocumentIdAsync(
+        Guid versionId,
+        CancellationToken ct = default
+    )
+    {
+        var version = await GuardedApiAsync(
+            ct,
+            () =>
+                _api
+                    .Umbraco.Management.Api.V1.DocumentVersion[versionId]
+                    .GetAsync(cancellationToken: ct)
+        );
+        if (!version.IsSuccess)
+            return UmbracoResponse<Guid>.FailureFrom(version);
+
+        // The server answered 200 without saying whose version it is: its answer, not the
+        // request, is at fault, hence unexpected_response.
+        return version.Data?.Document?.Id is { } id
+            ? UmbracoResponse<Guid>.Success(id)
+            : UmbracoResponse<Guid>.Failure(
+                200,
+                $"Umbraco returned version {versionId} without the document it belongs to.",
+                FailureCategory.UnexpectedResponse
+            );
+    }
+
     /// <summary>
     /// Rolls a document back to a previous version via <c>POST document-version/{id}/rollback</c>
     /// (generated client, issue #58). The endpoint returns no body.

@@ -124,6 +124,18 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// The document a version belongs to, via <c>GET document-version/{id}</c> (#233). A rollback
+    /// names a version, so this is how a caller finds the document to publish afterwards.
+    /// </summary>
+    /// <param name="versionId">The version id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The document id; a 404 when the version does not exist.</returns>
+    Task<UmbracoResponse<Guid>> GetVersionDocumentIdAsync(
+        Guid versionId,
+        CancellationToken ct = default
+    );
+
     /// <summary>Rolls a document back to a previous version (issue #58).</summary>
     /// <param name="versionId">The id of the version to roll back to.</param>
     /// <param name="culture">Culture to roll back; null for the invariant/default.</param>

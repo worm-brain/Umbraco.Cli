@@ -193,4 +193,28 @@ public class ContentVersionsWireTests
 
         Assert.Equal(404, result.StatusCode);
     }
+
+    // The document a version belongs to (#233): what rollback --publish publishes.
+
+    [Fact]
+    public async Task GetVersionDocumentIdAsync_ReturnsTheVersionsDocument()
+    {
+        var handler = Wire.Returning($$"""{ "document": { "id": "{{DocumentId}}" } }""");
+
+        var result = await Wire.Client(handler)
+            .GetVersionDocumentIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Equal(DocumentId, result.Data);
+    }
+
+    [Fact]
+    public async Task GetVersionDocumentIdAsync_NoDocumentInTheAnswer_IsAnUnexpectedResponse()
+    {
+        var handler = Wire.Returning("{}");
+
+        var result = await Wire.Client(handler)
+            .GetVersionDocumentIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Equal(FailureCategory.UnexpectedResponse, result.Category);
+    }
 }

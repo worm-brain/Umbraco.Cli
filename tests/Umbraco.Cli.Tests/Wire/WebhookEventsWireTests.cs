@@ -97,6 +97,31 @@ public class WebhookEventsWireTests
     }
 
     [Fact]
+    public async Task CreateWebhookAsync_AliasOnALaterPage_IsAccepted()
+    {
+        // More events than one page holds (packages register their own): the guard reads on
+        // rather than refusing an alias it never saw.
+        var handler = new RoutingHandler()
+            .When(
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith("/webhook/events")
+                    && r.RequestUri.Query.Contains("skip=0"),
+                HttpStatusCode.OK,
+                """{ "total": 1001, "items": [ { "alias": "Umbraco.ContentPublish" } ] }"""
+            )
+            .When(
+                r => r.RequestUri!.AbsolutePath.EndsWith("/webhook/events"),
+                HttpStatusCode.OK,
+                """{ "total": 1001, "items": [ { "alias": "Package.OrderPlaced" } ] }"""
+            )
+            .When(_ => true, HttpStatusCode.OK, "");
+
+        var result = await Create(handler, "Package.OrderPlaced");
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task CreateWebhookAsync_EmptyEventList_IsRefused()
     {
         var handler = Wire.Routed(("/webhook/events", """{ "total": 0, "items": [] }"""));

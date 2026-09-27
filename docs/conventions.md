@@ -150,7 +150,7 @@ disagree, this file wins; the older document is rationale that may be out of dat
    Shell around the command is fine: a trailing `# comment`, a pipe into or out of another
    program (`| jq ...`, `cat ids.txt |`), and a `> file` redirect are cut before parsing. A line
    that is only a comment is allowed. Adding a placeholder means adding it to the list here and
-   in `HelpExampleTests`.
+   in `HelpTextTests`.
 
 These rules are checked by unit tests over the command tree. The same tests check that every
 command path and option named in a `docs/commands.md` synopsis exists.
@@ -176,5 +176,5 @@ Each exception is deliberate or tracked; don't copy it.
   its `--out` is required and names a directory, and its `<snapshot>` does not accept `-`. The
   files are binary and cannot travel in the envelope or on stdin.
 - **2026-09-27** - 8.5: examples must parse, from a closed placeholder vocabulary; checked by
-  `HelpExampleTests`, which also checks the command paths and options in `docs/commands.md`
+  `HelpTextTests`, which also checks the command paths and options in `docs/commands.md`
   (#250 Phase 7).
