@@ -44,7 +44,8 @@ public class BulkIdsTests
     {
         // A producer that writes UTF-8 with a BOM (PowerShell, .NET's Encoding.UTF8) must not turn
         // the first id into garbage that fails as "not a valid GUID".
-        var bytes = System.Text.Encoding.UTF8.GetPreamble()
+        var bytes = System
+            .Text.Encoding.UTF8.GetPreamble()
             .Concat(System.Text.Encoding.UTF8.GetBytes("3f7a8b2e-1234-5678-abcd-ef0123456789\n"))
             .ToArray();
         using var reader = new StreamReader(

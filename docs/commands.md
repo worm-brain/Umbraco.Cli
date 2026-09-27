@@ -738,8 +738,8 @@ umbraco property-type is-used --document-type <id|alias> --alias <alias>
 
 ## `schema` (export / diff / apply)
 
-Dump the site's **schema** - document types, media types, member types, data types and
-templates - to a portable JSON snapshot, diff it against a live instance, and apply the difference. Complements uSync for CI
+Dump the site's **schema** - document types, media types, member types, data types,
+templates, languages, dictionary items, and member and user groups - to a portable JSON snapshot, diff it against a live instance, and apply the difference. Complements uSync for CI
 pipelines. (Issue #68; [ADR 0005](adr/0005-schema-export-diff-apply.md).)
 
 ```bash
@@ -749,30 +749,45 @@ umbraco schema export | umbraco schema diff -              # pipe an export stra
 umbraco schema apply schema.json --dry-run                 # preview the full apply plan
 umbraco schema apply schema.json                           # reconcile (create + update; never deletes by default)
 umbraco schema apply schema.json --prune --yes             # also delete live entities absent from the snapshot
-umbraco schema apply schema.json --prune --force --yes     # ...even types still in use (their content goes with them)
+umbraco schema apply schema.json --prune --force --yes     # ...even types in use, languages, dictionary parents
 ```
 
 How it works:
 
-- **In-use prunes are refused** - before the first write, `--prune` checks every type it would
-  delete. A data type still in use, a member type with members, and any document or media type
-  (Umbraco cannot say how many items use one) are refused unless `--force` is given, and then
-  nothing at all is applied. `--dry-run` shows those deletes as `needs --force`.
+- **In-use prunes are refused** - before the first write, `--prune` checks every item it would
+  delete. A data type still in use, a member type with members, any document or media type
+  (Umbraco cannot say how many items use one), any language (its content variants and dictionary
+  translations go with it), and a dictionary item with children the snapshot keeps are refused
+  unless `--force` is given, and then nothing at all is applied. `--dry-run` shows those deletes
+  as `needs --force`. The default language and user groups Umbraco marks undeletable are never
+  deleted: diff lists them as `Skipped` with the reason.
 - **Fidelity** - the snapshot stores each entity's verbatim Management-API body, so nothing is
   lost (document-type properties/compositions, data-type configuration, template Razor). The
   snapshot is
-  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[] }`.
-  Media types and member types joined in **snapshot version 2**
-  ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)); a version-1 file is refused rather than read as "this instance
-  should have no media or member types", which `apply --prune` would act on. Re-export.
+  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[] }`.
+  Media types and member types joined in snapshot version 2
+  ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)); languages, the dictionary and
+  member and user groups in **snapshot version 3**
+  ([#227](https://github.com/worm-brain/Umbraco.Cli/issues/227)). An older file is refused rather
+  than read as "this instance should have none of the newer kinds", which `apply --prune` would
+  act on. Re-export.
+- **Two kinds are shaped, not verbatim** - a dictionary item gets its `parent` (the item read has
+  none) and its translations sorted by ISO code. A user group leaves out its document and media
+  start nodes and its per-document permissions, since they name content on one instance; apply
+  keeps the target's own. Domains are not in the snapshot: set them per environment with
+  `content domain set`.
 - **Matching** - diff/apply pair a snapshot entity to a live one by **id first, then human key**
-  (alias for document, media and member types and templates, name for data types), so a
+  (alias for document, media and member types, templates and user groups; name for data types,
+  dictionary items and member groups; ISO code for languages, which have no id), so a
   snapshot is idempotent against
   its own instance and portable to another. An id-only-vs-key match is flagged `idMismatch`.
 - **Safety** - `apply` respects the global guardrails: `--dry-run` previews and writes nothing,
   `--readonly` blocks it, and `--prune` requires confirmation / `--yes`. Writes run in dependency
-  order (data types -> templates -> media types -> member types -> document types,
-  topologically sorted within each) and stop at the first failure; prune deletes in reverse.
+  order (languages -> dictionary items -> member groups -> data types -> templates -> media types
+  -> member types -> document types -> user groups, topologically sorted within each: a
+  language's fallback and a dictionary item's parent come first) and stop at the first failure;
+  prune deletes in reverse, dictionary children before their parents. A dictionary item whose
+  parent changed is moved.
 
 ## `content` (export / diff / apply)
 

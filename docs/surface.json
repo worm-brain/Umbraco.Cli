@@ -3787,7 +3787,7 @@
       "commands": [
         {
           "name": "export",
-          "description": "Export document types, data types, and templates to a portable JSON snapshot.\n\nExamples:\n  umbraco schema export --out schema.json\n  umbraco schema export | jq '.data.documentTypes | length'",
+          "description": "Export the schema to a portable JSON snapshot.\n\nCovers document, media and member types, data types, templates, languages, dictionary items, and member and user groups. User group start nodes and per-document permissions are left out: they name content on this instance.\n\nExamples:\n  umbraco schema export --out schema.json\n  umbraco schema export | jq '.data.documentTypes | length'",
           "arguments": [],
           "options": [
             {
@@ -3840,7 +3840,7 @@
             {
               "name": "--prune",
               "aliases": [],
-              "description": "Also DELETE live document, media and member types, data types and templates that the snapshot does not contain. Destructive: requires --yes when non-interactive. A type still in use is refused unless --force is given.",
+              "description": "Also DELETE live schema items (types, data types, templates, languages, dictionary items, member and user groups) that the snapshot does not contain. Destructive: requires --yes when non-interactive. A type still in use, a language, or a dictionary item with children the snapshot keeps is refused unless --force is given.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -3848,7 +3848,7 @@
             {
               "name": "--force",
               "aliases": [],
-              "description": "With --prune, delete types even though content still uses them. Umbraco deletes that content with them.",
+              "description": "With --prune, delete them anyway. Umbraco deletes what they take with them: the content of a type, a language's variants and translations, a dictionary item's children.",
               "type": "flag",
               "required": false,
               "hasDefault": true

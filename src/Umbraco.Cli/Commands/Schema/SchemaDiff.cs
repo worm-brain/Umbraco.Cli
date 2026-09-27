@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace Umbraco.Cli.Commands.Schema;
 
 /// <summary>
-/// The five schema entity-kind tags (issue #68, extended by #186), shared by the diff engine,
+/// The schema entity-kind tags (issue #68, extended by #186 and #227), shared by the diff engine,
 /// applier, and command output so the strings are defined once rather than re-declared per file.
 /// </summary>
 public static class SchemaKinds
@@ -24,10 +24,24 @@ public static class SchemaKinds
     /// <summary>Template kind tag.</summary>
     public const string Template = "template";
 
+    /// <summary>Language kind tag (#227). Languages are keyed by ISO code and have no id.</summary>
+    public const string Language = "language";
+
+    /// <summary>Dictionary item kind tag (#227), keyed by the item's key (its name).</summary>
+    public const string DictionaryItem = "dictionaryItem";
+
+    /// <summary>Member group kind tag (#227), keyed by name.</summary>
+    public const string MemberGroup = "memberGroup";
+
+    /// <summary>User group kind tag (#227), keyed by alias.</summary>
+    public const string UserGroup = "userGroup";
+
     /// <summary>The client's <see cref="Umbraco.Cli.Client.EntityKind"/> for a snapshot kind tag.</summary>
     /// <param name="kind">The kind tag, e.g. <see cref="DocumentType"/>.</param>
     /// <returns>The entity kind.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">The tag is not a schema kind.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The tag is not a schema kind, or is <see cref="Language"/>, which has no id and so no entity kind.
+    /// </exception>
     public static Umbraco.Cli.Client.EntityKind EntityOf(string kind) =>
         kind switch
         {
@@ -36,6 +50,9 @@ public static class SchemaKinds
             MemberType => Umbraco.Cli.Client.EntityKind.MemberType,
             DataType => Umbraco.Cli.Client.EntityKind.DataType,
             Template => Umbraco.Cli.Client.EntityKind.Template,
+            DictionaryItem => Umbraco.Cli.Client.EntityKind.DictionaryItem,
+            MemberGroup => Umbraco.Cli.Client.EntityKind.MemberGroup,
+            UserGroup => Umbraco.Cli.Client.EntityKind.UserGroup,
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a schema kind."),
         };
 }
@@ -68,9 +85,12 @@ public enum SchemaChangeKind
 /// the <see cref="DesiredBody"/> it also carries (but does not serialize) is what
 /// <c>apply</c> sends.
 /// </summary>
-/// <param name="Kind">The entity kind: <c>documentType</c>, <c>mediaType</c>, <c>memberType</c>, <c>dataType</c>, or <c>template</c>.</param>
+/// <param name="Kind">The entity kind: one of the <see cref="SchemaKinds"/> tags.</param>
 /// <param name="Change">How the entity differs.</param>
-/// <param name="Identity">The human identity (alias for doc types/templates, name for data types).</param>
+/// <param name="Identity">
+/// The human identity: the alias for types, templates and user groups, the name for data types,
+/// dictionary items and member groups, and the ISO code for languages.
+/// </param>
 /// <param name="DesiredId">The entity id in the snapshot, or null for a <see cref="SchemaChangeKind.Removed"/> entity.</param>
 /// <param name="CurrentId">The entity id in the live instance, or null for an <see cref="SchemaChangeKind.Added"/> entity.</param>
 /// <param name="IdMismatch">
@@ -109,6 +129,14 @@ public sealed record SchemaEntityChange(
     /// </summary>
     [JsonIgnore]
     public JsonNode? DesiredBody { get; init; }
+
+    /// <summary>
+    /// The live body, for a changed or removed entity (#227): a dictionary update moves the item
+    /// when its parent differs, and prune orders dictionary and language deletes by what they
+    /// point at. Not serialized. Null for an added or skipped entity.
+    /// </summary>
+    [JsonIgnore]
+    public JsonNode? CurrentBody { get; init; }
 }
 
 /// <summary>The diff for one entity kind, grouped by change. Unchanged entities are counted, not listed, to keep output lean.</summary>
@@ -128,6 +156,9 @@ public sealed record SchemaKindDiff(
     /// <summary>Whether this kind has any actionable difference (create/update/delete).</summary>
     [JsonIgnore]
     public bool HasChanges => Added.Count > 0 || Changed.Count > 0 || Removed.Count > 0;
+
+    /// <summary>A kind with no entities on either side.</summary>
+    public static SchemaKindDiff None { get; } = new([], [], [], [], 0);
 }
 
 /// <summary>
@@ -148,12 +179,34 @@ public sealed record SchemaDiff(
     SchemaKindDiff Templates
 )
 {
+    /// <summary>Language differences (#227).</summary>
+    public SchemaKindDiff Languages { get; init; } = SchemaKindDiff.None;
+
+    /// <summary>Dictionary item differences (#227).</summary>
+    public SchemaKindDiff DictionaryItems { get; init; } = SchemaKindDiff.None;
+
+    /// <summary>Member group differences (#227).</summary>
+    public SchemaKindDiff MemberGroups { get; init; } = SchemaKindDiff.None;
+
+    /// <summary>User group differences (#227).</summary>
+    public SchemaKindDiff UserGroups { get; init; } = SchemaKindDiff.None;
+
+    /// <summary>Every kind's diff, in the order the diff output lists them.</summary>
+    [JsonIgnore]
+    public IEnumerable<SchemaKindDiff> Kinds =>
+        [
+            DocumentTypes,
+            MediaTypes,
+            MemberTypes,
+            DataTypes,
+            Templates,
+            Languages,
+            DictionaryItems,
+            MemberGroups,
+            UserGroups,
+        ];
+
     /// <summary>Whether any kind has an actionable difference — i.e. apply would do something.</summary>
     [JsonIgnore]
-    public bool HasChanges =>
-        DocumentTypes.HasChanges
-        || MediaTypes.HasChanges
-        || MemberTypes.HasChanges
-        || DataTypes.HasChanges
-        || Templates.HasChanges;
+    public bool HasChanges => Kinds.Any(k => k.HasChanges);
 }

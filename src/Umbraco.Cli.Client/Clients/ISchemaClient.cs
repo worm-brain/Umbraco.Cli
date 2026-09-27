@@ -114,4 +114,66 @@ public interface ISchemaClient
         JsonNode body,
         CancellationToken ct = default
     );
+
+    /// <summary>
+    /// Reads every language's verbatim body (<c>GET /language</c>, every page; #227). The list
+    /// items are the whole language, so there is no per-item read. Languages have no id: the ISO
+    /// code is the key.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every language body, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetLanguagesRawAsync(
+        CancellationToken ct = default
+    );
+
+    /// <summary>Creates a language from a verbatim body (<c>POST /language</c>; #227).</summary>
+    /// <param name="body">The language body, carrying its <c>isoCode</c>.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> CreateLanguageRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Replaces a language from a verbatim body (<c>PUT /language/{isoCode}</c>; #227). The ISO
+    /// code is the route, so any <c>isoCode</c> in the body is not sent.
+    /// </summary>
+    /// <param name="isoCode">The language to update.</param>
+    /// <param name="body">The language body.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> UpdateLanguageRawAsync(
+        string isoCode,
+        JsonNode body,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Enumerates every dictionary item with its parent (<c>GET /dictionary</c>, every page;
+    /// #227). The item read (<c>GET /dictionary/{id}</c>) has no parent, so the snapshot takes it
+    /// from here.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every item's id and parent id (null at the root), or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<DictionaryEntry>>> GetDictionaryEntriesAsync(
+        CancellationToken ct = default
+    );
+
+    /// <summary>Enumerates every member group id (<c>GET /member-group</c>, every page; #227).</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every member group id, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMemberGroupIdsAsync(
+        CancellationToken ct = default
+    );
+
+    /// <summary>Enumerates every user group id (<c>GET /user-group</c>, every page; #227).</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every user group id, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<Guid>>> GetUserGroupIdsAsync(CancellationToken ct = default);
 }
+
+/// <summary>A dictionary item's place in the dictionary tree (#227).</summary>
+/// <param name="Id">The item id.</param>
+/// <param name="ParentId">The parent item id, or null at the root.</param>
+public sealed record DictionaryEntry(Guid Id, Guid? ParentId);

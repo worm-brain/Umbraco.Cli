@@ -70,7 +70,7 @@ public static class SchemaDiffCommand
     }
 
     /// <summary>
-    /// One row per actionable change (added, changed, removed, skipped) across all five kinds;
+    /// One row per actionable change (added, changed, removed, skipped) across every kind;
     /// unchanged entities are omitted to keep the output lean. Structured output serializes the
     /// <see cref="SchemaEntityChange"/> records themselves (#229).
     /// </summary>
@@ -81,14 +81,7 @@ public static class SchemaDiffCommand
             ? []
             :
             [
-                .. new[]
-                {
-                    diff.DocumentTypes,
-                    diff.MediaTypes,
-                    diff.MemberTypes,
-                    diff.DataTypes,
-                    diff.Templates,
-                }.SelectMany(kind =>
+                .. diff.Kinds.SelectMany(kind =>
                     kind.Added.Concat(kind.Changed).Concat(kind.Removed).Concat(kind.Skipped)
                 ),
             ];

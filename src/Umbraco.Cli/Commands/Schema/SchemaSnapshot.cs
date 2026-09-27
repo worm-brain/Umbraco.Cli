@@ -6,8 +6,8 @@ namespace Umbraco.Cli.Commands.Schema;
 
 /// <summary>
 /// A portable, round-trippable dump of an Umbraco instance's schema — every document type,
-/// media type, member type, data type, and template — as the **verbatim** Management-API JSON
-/// body of each entity
+/// media type, member type, data type, template, language, dictionary item, member group and
+/// user group — as the **verbatim** Management-API JSON body of each entity
 /// (issue #68 / ADR 0005 §1, "raw-JSON passthrough"). Produced by <c>schema export</c> and
 /// consumed by <c>schema diff</c> / <c>schema apply</c>.
 ///
@@ -19,7 +19,7 @@ namespace Umbraco.Cli.Commands.Schema;
 public sealed class SchemaSnapshot
 {
     /// <summary>
-    /// The snapshot **layout** version (currently <c>"2"</c>). Independent of the CLI output
+    /// The snapshot **layout** version (currently <c>"3"</c>). Independent of the CLI output
     /// envelope's <c>meta.schemaVersion</c> — this versions the file format so a future
     /// breaking change to the snapshot shape can be detected by <c>diff</c>/<c>apply</c>.
     /// </summary>
@@ -32,8 +32,12 @@ public sealed class SchemaSnapshot
     /// version-1 file is <b>refused</b> rather than read as an empty-for-those-kinds snapshot:
     /// <c>apply --prune</c> would diff the missing arrays as "delete every media type and member
     /// type on the instance". Re-export instead.
+    /// <para>
+    /// Bumped to <c>"3"</c> when languages, the dictionary and member and user groups joined it
+    /// (#227). A version-2 file is refused for the same reason.
+    /// </para>
     /// </remarks>
-    public const string CurrentVersion = "2";
+    public const string CurrentVersion = "3";
 
     /// <summary>Verbatim <c>GET /document-type/{id}</c> bodies, one per document type.</summary>
     [JsonPropertyName("documentTypes")]
@@ -54,6 +58,29 @@ public sealed class SchemaSnapshot
     /// <summary>Verbatim <c>GET /template/{id}</c> bodies, one per template.</summary>
     [JsonPropertyName("templates")]
     public List<JsonNode> Templates { get; init; } = [];
+
+    /// <summary>Verbatim <c>GET /language</c> items, one per language (#227). Keyed by <c>isoCode</c>.</summary>
+    [JsonPropertyName("languages")]
+    public List<JsonNode> Languages { get; init; } = [];
+
+    /// <summary>
+    /// <c>GET /dictionary/{id}</c> bodies, one per dictionary item (#227), with the item's
+    /// <c>parent</c> added (the item read has none) and its translations sorted by ISO code.
+    /// </summary>
+    [JsonPropertyName("dictionaryItems")]
+    public List<JsonNode> DictionaryItems { get; init; } = [];
+
+    /// <summary>Verbatim <c>GET /member-group/{id}</c> bodies, one per member group (#227).</summary>
+    [JsonPropertyName("memberGroups")]
+    public List<JsonNode> MemberGroups { get; init; } = [];
+
+    /// <summary>
+    /// <c>GET /user-group/{id}</c> bodies, one per user group (#227), without the parts that name
+    /// content on one instance: the document and media start nodes and the per-document
+    /// permissions. See <see cref="SchemaBodies.PortableUserGroup"/>.
+    /// </summary>
+    [JsonPropertyName("userGroups")]
+    public List<JsonNode> UserGroups { get; init; } = [];
 
     /// <summary>
     /// The <see cref="JsonSerializerOptions"/> used to read and write snapshot files: indented
@@ -81,6 +108,10 @@ public sealed class SchemaSnapshot
         "memberTypes",
         "dataTypes",
         "templates",
+        "languages",
+        "dictionaryItems",
+        "memberGroups",
+        "userGroups",
     ];
 
     /// <summary>
@@ -120,7 +151,8 @@ public sealed class SchemaSnapshot
         if (root is not JsonObject obj || !SnapshotMembers.Any(obj.ContainsKey))
             throw new JsonException(
                 "Not a schema snapshot: expected a 'schemaVersion' and/or "
-                    + "documentTypes/mediaTypes/memberTypes/dataTypes/templates arrays "
+                    + "documentTypes/mediaTypes/memberTypes/dataTypes/templates/languages/"
+                    + "dictionaryItems/memberGroups/userGroups arrays "
                     + "(produced by 'schema export')."
             );
 

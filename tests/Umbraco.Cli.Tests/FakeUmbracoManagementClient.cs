@@ -659,10 +659,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>ISO codes passed to <see cref="DeleteLanguageAsync"/>, in call order (#227).</summary>
+    public List<string> LanguagesDeleted { get; } = [];
+
     public Task<UmbracoResponse<Empty>> DeleteLanguageAsync(
         string isoCode,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LanguagesDeleted.Add(isoCode);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<TemplateResponse>>> GetTemplatesAsync(
         int skip = 0,
@@ -907,10 +914,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
 
+    /// <summary>Ids passed to <see cref="DeleteDictionaryItemAsync"/>, in call order (#227).</summary>
+    public List<Guid> DictionaryItemsDeleted { get; } = [];
+
     public Task<UmbracoResponse<Empty>> DeleteDictionaryItemAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        DictionaryItemsDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<WebhookResponse>>> GetWebhooksAsync(
         int skip = 0,
@@ -1011,8 +1025,79 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
             EntityKind.Template => (TemplateRaw, "template"),
             EntityKind.MediaType => (MediaTypeRaw, "mediaType"),
             EntityKind.MemberType => (MemberTypeRaw, "memberType"),
+            EntityKind.DictionaryItem => (DictionaryItemRaw, "dictionaryItem"),
+            EntityKind.MemberGroup => (MemberGroupRaw, "memberGroup"),
+            EntityKind.UserGroup => (UserGroupRaw, "userGroup"),
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
+
+    // ── Schema snapshot breadth (#227) ─────────────────────────────────────────
+
+    /// <summary>The bodies <see cref="GetLanguagesRawAsync"/> returns, in order (#227).</summary>
+    public List<JsonNode> LanguagesRaw { get; } = [];
+
+    /// <summary>The entries <see cref="GetDictionaryEntriesAsync"/> returns (#227).</summary>
+    public List<DictionaryEntry> DictionaryEntries { get; } = [];
+
+    /// <summary>When set, <see cref="GetDictionaryEntriesAsync"/> returns this failure instead.</summary>
+    public UmbracoResponse<IReadOnlyList<DictionaryEntry>>? DictionaryEntriesFailure { get; set; }
+
+    /// <summary>The ids <see cref="GetMemberGroupIdsAsync"/> enumerates (#227).</summary>
+    public List<Guid> MemberGroupIds { get; } = [];
+
+    /// <summary>The ids <see cref="GetUserGroupIdsAsync"/> enumerates (#227).</summary>
+    public List<Guid> UserGroupIds { get; } = [];
+
+    /// <summary>Canned raw dictionary item bodies, keyed by id (#227).</summary>
+    public Dictionary<Guid, JsonNode> DictionaryItemRaw { get; } = [];
+
+    /// <summary>Canned raw member group bodies, keyed by id (#227).</summary>
+    public Dictionary<Guid, JsonNode> MemberGroupRaw { get; } = [];
+
+    /// <summary>Canned raw user group bodies, keyed by id (#227).</summary>
+    public Dictionary<Guid, JsonNode> UserGroupRaw { get; } = [];
+
+    /// <summary>The (isoCode, body) of every <see cref="UpdateLanguageRawAsync"/> call, in order.</summary>
+    public List<(string IsoCode, JsonNode Body)> LanguageUpdates { get; } = [];
+
+    public Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetLanguagesRawAsync(
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<JsonNode>>.Success(LanguagesRaw.ToList()));
+
+    /// <summary>Records the create in <see cref="RawWrites"/> as kind <c>language</c>.</summary>
+    public Task<UmbracoResponse<Empty>> CreateLanguageRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("language", null, body);
+
+    /// <summary>Records the update in <see cref="LanguageUpdates"/> and <see cref="RawWrites"/>.</summary>
+    public Task<UmbracoResponse<Empty>> UpdateLanguageRawAsync(
+        string isoCode,
+        JsonNode body,
+        CancellationToken ct = default
+    )
+    {
+        LanguageUpdates.Add((isoCode, body));
+        return RecordWrite("language", null, body);
+    }
+
+    public Task<UmbracoResponse<IReadOnlyList<DictionaryEntry>>> GetDictionaryEntriesAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            DictionaryEntriesFailure
+                ?? UmbracoResponse<IReadOnlyList<DictionaryEntry>>.Success(
+                    DictionaryEntries.ToList()
+                )
+        );
+
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMemberGroupIdsAsync(
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(MemberGroupIds.ToList()));
+
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetUserGroupIdsAsync(
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(UserGroupIds.ToList()));
 
     /// <summary>Returns the canned body for the kind and id, or a 404.</summary>
     /// <param name="kind">The kind.</param>

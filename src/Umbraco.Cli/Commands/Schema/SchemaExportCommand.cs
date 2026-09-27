@@ -12,6 +12,10 @@ namespace Umbraco.Cli.Commands.Schema;
 /// <param name="MemberTypes">Number of member types exported (#186).</param>
 /// <param name="DataTypes">Number of data types exported.</param>
 /// <param name="Templates">Number of templates exported.</param>
+/// <param name="Languages">Number of languages exported (#227).</param>
+/// <param name="DictionaryItems">Number of dictionary items exported (#227).</param>
+/// <param name="MemberGroups">Number of member groups exported (#227).</param>
+/// <param name="UserGroups">Number of user groups exported (#227).</param>
 /// <param name="Path">The absolute path the snapshot was written to.</param>
 public sealed record SchemaExportSummary(
     int DocumentTypes,
@@ -19,6 +23,10 @@ public sealed record SchemaExportSummary(
     int MemberTypes,
     int DataTypes,
     int Templates,
+    int Languages,
+    int DictionaryItems,
+    int MemberGroups,
+    int UserGroups,
     string Path
 );
 
@@ -27,7 +35,8 @@ public static class SchemaExportCommand
 {
     /// <summary>
     /// Builds the <c>schema export</c> command: dumps every document type, media type, member
-    /// type, data type, and template to a portable snapshot. With no <c>--out</c> the snapshot is written to stdout
+    /// type, data type, template, language, dictionary item, member group and user group to a
+    /// portable snapshot. With no <c>--out</c> the snapshot is written to stdout
     /// inside the normal success envelope (pipe/redirect friendly); with <c>--out &lt;file&gt;</c>
     /// the bare snapshot is written to that file and a count summary is emitted.
     /// </summary>
@@ -37,7 +46,10 @@ public static class SchemaExportCommand
     {
         var cmd = new Command(
             "export",
-            "Export document types, data types, and templates to a portable JSON snapshot.\n\n"
+            "Export the schema to a portable JSON snapshot.\n\n"
+                + "Covers document, media and member types, data types, templates, languages, "
+                + "dictionary items, and member and user groups. User group start nodes and "
+                + "per-document permissions are left out: they name content on this instance.\n\n"
                 + "Examples:\n"
                 + "  umbraco schema export --out schema.json\n"
                 + "  umbraco schema export | jq '.data.documentTypes | length'"
@@ -80,6 +92,10 @@ public static class SchemaExportCommand
                                 snapshot.MemberTypes.Count,
                                 snapshot.DataTypes.Count,
                                 snapshot.Templates.Count,
+                                snapshot.Languages.Count,
+                                snapshot.DictionaryItems.Count,
+                                snapshot.MemberGroups.Count,
+                                snapshot.UserGroups.Count,
                                 outFile.FullName
                             ),
                             ctx.CommandName,

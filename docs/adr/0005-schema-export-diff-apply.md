@@ -49,6 +49,23 @@ Ship `umbraco schema export`, `umbraco schema diff <file>`, and
 > snapshot is refused on read rather than treated as having none of them, because
 > `apply --prune` would then delete every media type and member type on the instance.
 
+> **Amended (#227, snapshot version 3):** languages, dictionary items, and member and user
+> groups are carried too. Three departures from the rules below, each forced by the API:
+> - **Languages have no id**, so they match on `isoCode` alone (§2's GUID pass finds nothing).
+>   The diff counts a live entity as matched by position, not by id, so an id-less match is
+>   not also a prune candidate.
+> - **Two kinds are shaped, not verbatim** (§1). A dictionary item's read has no parent, so
+>   export adds `parent` (and sorts translations by ISO code for a stable compare); a parent
+>   change is applied as a move. A user group drops its start nodes and per-document
+>   permissions, which name content on one instance; apply writes the snapshot over the target's
+>   own values for those.
+> - **Prune has more guards** (§4). Deleting a language, or a dictionary item with children the
+>   snapshot keeps, needs `--force`. The default language and user groups Umbraco marks
+>   undeletable are reported as skipped, never deleted.
+> Order: languages -> dictionary items -> member groups -> the types -> user groups (their
+> property permissions name document types); prune runs in reverse, dictionary children first.
+> Domains stay out: they are per-environment hosts.
+
 ### 1. Fidelity: raw-JSON passthrough
 
 Export the **verbatim Management-API JSON** of each entity (the full get-by-id
