@@ -383,9 +383,11 @@ rather than "no alias".
 Two escape hatches remain useful:
 
 1. **`umbraco schema export`** returns the verbatim get-by-id body of every document type,
-   media type, member type, data type and template - full fidelity, no projection. This is the
-   right way to read schema, and it now covers all five kinds
-   ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)).
+   media type, member type, data type and template - full fidelity, no projection - plus every
+   language, dictionary item, and member and user group
+   ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186),
+   [#227](https://github.com/worm-brain/Umbraco.Cli/issues/227)). This is the right way to read
+   schema.
 2. **A direct Management API call** for everything else, using the same credentials - see
    "Getting a token for the direct calls above" below.
 
@@ -466,9 +468,14 @@ umbraco content domain set "$ID" --default en-US \
 
 Member types with properties and media types are in the snapshot too
 ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)), so the round-trip above reaches them
-as well. Note the snapshot format is now **version 2**: a version-1 file exported by an older
-CLI is refused, because reading it would look like "this instance should have no media or member
-types" and `apply --prune` would act on that. Re-export.
+as well. So are languages, the dictionary, and member and user groups
+([#227](https://github.com/worm-brain/Umbraco.Cli/issues/227)): a promotion no longer needs
+`language create`, a dictionary script or `member-group create --id` before `content apply`.
+User groups travel without their start nodes and per-document permissions, and apply keeps the
+target's own. Domains stay per environment (`content domain set`). Note the snapshot format is
+now **version 3**: a file exported by an older CLI is refused, because reading it would look like
+"this instance should have none of the newer kinds" and `apply --prune` would act on that.
+Re-export.
 
 ### Getting a token for the direct calls above
 
@@ -561,8 +568,9 @@ umbraco content create --document-type blogPost --name "Hello" --id 3f2a...  # s
 
 ### Move schema between environments
 
-Export every schema entity - document types, media types, member types, data types and
-templates - to a portable snapshot, diff it against a target, then apply. See [commands.md](commands.md#schema-export--diff--apply).
+Export every schema entity - document types, media types, member types, data types,
+templates, languages, dictionary items, and member and user groups - to a portable snapshot, diff
+it against a target, then apply. See [commands.md](commands.md#schema-export--diff--apply).
 
 ```bash
 umbraco schema export --out schema.json                 # from source
@@ -581,6 +589,17 @@ umbraco content export --root <id> --out content.json
 umbraco content diff content.json
 umbraco content apply content.json --dry-run
 ```
+
+Content references media by id, so promote the media first with the media pipeline, which keeps
+every item's GUID and carries its file ([commands.md](commands.md#media-export--diff--apply)). The
+order is schema, then media, then content:
+
+```bash
+umbraco schema export --out schema.json && umbraco media export --out ./media && umbraco content export --out content.json   # source
+umbraco schema apply schema.json && umbraco media apply ./media && umbraco content apply content.json                       # target
+```
+
+A media snapshot is a directory (`media.json` plus `files/`), so it cannot be piped.
 
 ### Bulk operations from a query
 

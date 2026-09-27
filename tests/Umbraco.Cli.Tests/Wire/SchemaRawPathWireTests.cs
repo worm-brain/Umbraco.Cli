@@ -31,6 +31,10 @@ public class SchemaRawPathWireTests
             { EntityKind.Template, "template" },
             { EntityKind.MediaType, "media-type" },
             { EntityKind.MemberType, "member-type" },
+            // #227: the snapshot's GUID-keyed newcomers ride the same path.
+            { EntityKind.DictionaryItem, "dictionary" },
+            { EntityKind.MemberGroup, "member-group" },
+            { EntityKind.UserGroup, "user-group" },
         };
 
     [Theory]

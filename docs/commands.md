@@ -359,11 +359,56 @@ umbraco media sort [--parent <id>] (--order <id>,<id>... | --by name|createDate|
 
 # folder sub-noun (organise uploads):
 umbraco media folder create --name <name> [--parent <id>] [--id <guid>]
+
+# promotion pipeline (keeps every item's GUID; see below):
+umbraco media export --out <dir> [--root <id>]             # media.json + files/<id>/<name>
+umbraco media diff <dir> [--verify-files]                  # read-only
+umbraco media apply <dir> [--verify-files] [--prune] [--dry-run]   # --prune trashes, needs --yes
 ```
 
 A media folder is an ordinary media item of the **Folder** media type, so it moves, trashes and
 deletes with the usual `media` verbs, and its id is what `media upload --parent` takes
 ([#171](https://github.com/worm-brain/Umbraco.Cli/issues/171)).
+
+### `media` export / diff / apply
+
+Moves media between environments with the same GUIDs, so content that references media by id
+keeps pointing at it ([#226](https://github.com/worm-brain/Umbraco.Cli/issues/226),
+[ADR 0008](adr/0008-media-export-diff-apply.md)). Run it after `schema apply` (media types must
+exist) and before `content apply`.
+
+```bash
+umbraco media export --out ./media-snapshot                # every item and file
+umbraco media export --root <id> -O ./blog-images          # a subtree (root included)
+umbraco media diff ./media-snapshot                        # read-only
+umbraco media apply ./media-snapshot --dry-run             # preview the plan
+umbraco media apply ./media-snapshot                       # create + update, uploading files
+umbraco media apply ./media-snapshot --prune --yes         # also trash what the snapshot omits
+```
+
+- **A directory, not a file** - `media.json` holds each item as `{ id, parent, body, file }` in tree
+  pre-order, and `files/<id>/<name>` holds the files. `--out` is required, and the snapshot cannot
+  be piped (`-` is refused). Export into a new or empty directory, or over an earlier media export,
+  which it replaces only once the new export is complete (a failed export leaves it as it was).
+  A snapshot whose file paths leave `files/` is refused.
+- **What is compared** - the item body without what differs on every instance (the file's `src`
+  folder, the server-computed size, dimensions and extension, dates, `isTrashed`, `flags`), and the
+  file by name and size. `--verify-files` also downloads each live file and compares SHA-256.
+  A changed file shows as `file` in `changes`.
+- **Apply** - creates in pre-order with the snapshot id and parent, staging each file through
+  `/temporary-file`; updates replace the body, uploading the file only when it changed. It never
+  moves an item (`Drifted` rows are reported only).
+- **Prune trashes** - `--prune` moves omitted items (within the snapshot's scope) to the recycle
+  bin, children first; `media restore` brings one back. An item with something the snapshot keeps
+  under it is left alone and shows as `skipped`.
+- **Files the site will not serve** - a file that is gone (404) or that the site protects (403;
+  the Management API token is not a site login) cannot be downloaded. Its item is exported
+  without it, marked `fileUnavailable` in `media.json`, and listed in the export's
+  `unavailableFiles`. Apply creates such an item without a file and leaves an existing one's file
+  alone. Any other download failure stops the export.
+- **Limits** - files are downloaded from the configured host only (never a CDN on another host,
+  which would receive the token). Only `umbracoFile` is carried as a file. An item whose id is in
+  the target's recycle bin cannot be created until it is restored or the bin emptied.
 
 ## `media-type`
 
@@ -738,8 +783,8 @@ umbraco property-type is-used --document-type <id|alias> --alias <alias>
 
 ## `schema` (export / diff / apply)
 
-Dump the site's **schema** - document types, media types, member types, data types and
-templates - to a portable JSON snapshot, diff it against a live instance, and apply the difference. Complements uSync for CI
+Dump the site's **schema** - document types, media types, member types, data types,
+templates, languages, dictionary items, and member and user groups - to a portable JSON snapshot, diff it against a live instance, and apply the difference. Complements uSync for CI
 pipelines. (Issue #68; [ADR 0005](adr/0005-schema-export-diff-apply.md).)
 
 ```bash
@@ -749,30 +794,49 @@ umbraco schema export | umbraco schema diff -              # pipe an export stra
 umbraco schema apply schema.json --dry-run                 # preview the full apply plan
 umbraco schema apply schema.json                           # reconcile (create + update; never deletes by default)
 umbraco schema apply schema.json --prune --yes             # also delete live entities absent from the snapshot
-umbraco schema apply schema.json --prune --force --yes     # ...even types still in use (their content goes with them)
+umbraco schema apply schema.json --prune --force --yes     # ...even types in use, languages, dictionary parents
 ```
 
 How it works:
 
-- **In-use prunes are refused** - before the first write, `--prune` checks every type it would
-  delete. A data type still in use, a member type with members, and any document or media type
-  (Umbraco cannot say how many items use one) are refused unless `--force` is given, and then
-  nothing at all is applied. `--dry-run` shows those deletes as `needs --force`.
+- **In-use prunes are refused** - before the first write, `--prune` checks every item it would
+  delete. A data type still in use, a member type with members, any document or media type
+  (Umbraco cannot say how many items use one), any language (its content variants and dictionary
+  translations go with it), and a dictionary item with children the snapshot keeps under it
+  (not ones this apply moves elsewhere) are refused
+  unless `--force` is given, and then nothing at all is applied. `--dry-run` shows those deletes
+  as `needs --force`. The default language and user groups Umbraco marks undeletable are never
+  deleted: diff lists them as `Skipped` with the reason.
 - **Fidelity** - the snapshot stores each entity's verbatim Management-API body, so nothing is
   lost (document-type properties/compositions, data-type configuration, template Razor). The
   snapshot is
-  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[] }`.
-  Media types and member types joined in **snapshot version 2**
-  ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)); a version-1 file is refused rather than read as "this instance
-  should have no media or member types", which `apply --prune` would act on. Re-export.
+  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[] }`.
+  Media types and member types joined in snapshot version 2
+  ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)); languages, the dictionary and
+  member and user groups in **snapshot version 3**
+  ([#227](https://github.com/worm-brain/Umbraco.Cli/issues/227)). An older file is refused rather
+  than read as "this instance should have none of the newer kinds", which `apply --prune` would
+  act on. Re-export.
+- **Two kinds are shaped, not verbatim** - a dictionary item gets its `parent` (the item read has
+  none) and its translations sorted by ISO code. A user group leaves out its document and media
+  start nodes and its per-document permissions, since they name content on one instance; apply
+  keeps the target's own. Domains are not in the snapshot: set them per environment with
+  `content domain set`.
 - **Matching** - diff/apply pair a snapshot entity to a live one by **id first, then human key**
-  (alias for document, media and member types and templates, name for data types), so a
+  (alias for document, media and member types, templates and user groups; name for data types,
+  dictionary items and member groups; ISO code for languages, which have no id), so a
   snapshot is idempotent against
-  its own instance and portable to another. An id-only-vs-key match is flagged `idMismatch`.
+  its own instance and portable to another. A key match whose ids differ is flagged
+  `idMismatch`, and the id difference alone is not a change (apply cannot change an id). A
+  dictionary item's parent is translated to the target's id, so a tree created by hand on each
+  instance matches by key and applies under the right parents.
 - **Safety** - `apply` respects the global guardrails: `--dry-run` previews and writes nothing,
   `--readonly` blocks it, and `--prune` requires confirmation / `--yes`. Writes run in dependency
-  order (data types -> templates -> media types -> member types -> document types,
-  topologically sorted within each) and stop at the first failure; prune deletes in reverse.
+  order (languages -> dictionary items -> member groups -> data types -> templates -> media types
+  -> member types -> document types -> user groups, topologically sorted within each: a
+  language's fallback and a dictionary item's parent come first) and stop at the first failure;
+  prune deletes in reverse, dictionary children before their parents. A dictionary item whose
+  parent changed is moved.
 
 ## `content` (export / diff / apply)
 
@@ -812,7 +876,9 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
 - **Prune a subtree, not the whole site** - a whole-tree `--prune` also deletes everything created
   on the target since the export: form submissions, editors' drafts. Export with `--root` to
   prune one subtree, and use `--exclude-type <alias|id>` / `--exclude-root <id>` (both repeatable)
-  to leave content alone. An excluded document's removed ancestors are kept too, because deleting
+  to leave content alone. A removed document with a kept document still under it (one the
+  snapshot places elsewhere) is not deleted either - apply does not move documents, and the delete
+  would cascade - and shows as `skipped`. An excluded document's removed ancestors are kept too, because deleting
   a document deletes everything under it. Run `--dry-run` first.
 - **Safety** - `apply` respects the global guardrails; it creates, updates and publishes/unpublishes by
   default and requires **both** `--prune` and `--yes` to delete. Creates run parent-first, then

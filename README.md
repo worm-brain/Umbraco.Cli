@@ -20,8 +20,8 @@ conversationally, use that.
 Umbraco.Cli is a **command-line tool** for a different job - terminals, shell scripts, and
 CI/CD. Reach for it to
 
-- **promote schema and content between environments** (`export -> diff -> apply` with drift
-  detection),
+- **promote schema, media and content between environments** (`export -> diff -> apply` with
+  drift detection, keeping GUIDs),
 - **run bulk operations** over many items from a file or a pipe,
 - **script the Management API** with deterministic JSON/CSV, exit codes, and Unix piping,
 - **stay in .NET** with no Node runtime (`dotnet tool install`).
@@ -33,10 +33,10 @@ An AI agent that prefers calling a subprocess can drive it too (see the
 
 ## What this is
 
-- **Environment sync** - export document types, media types, member types, data types and
-  templates (and content
-  subtrees) to a portable JSON snapshot, diff it against a live instance, and apply the
-  difference. Drift detection and environment promotion for CI; complements uSync.
+- **Environment sync** - export the schema (document, media and member types, data types,
+  templates, languages, dictionary, member and user groups), media with its files, and content
+  subtrees to portable snapshots, diff them against a live instance, and apply the difference
+  with the same GUIDs. Drift detection and environment promotion for CI; complements uSync.
 - **Bulk operations** - publish, unpublish, or delete many items from a file or stdin, each
   reported independently with its own status.
 - **Structured, scriptable output** - one versioned `{status, data, meta}` JSON envelope
@@ -50,8 +50,7 @@ An AI agent that prefers calling a subprocess can drive it too (see the
   user groups, redirects, relations, Examine, and diagnostics (server, health, log viewer,
   models builder, manifest). Every command is in [docs/commands.md](docs/commands.md). Writes
   cover domains, media folders, member groups and passwords, dictionary updates, and authoring
-  document types and data types in full via `--json-body`, and the schema snapshot carries
-  every type kind including media types and member types. Reads return the full item.
+  document types and data types in full via `--json-body`. Reads return the full item.
 - **.NET-native and cross-platform** - Windows, macOS, Linux via .NET 9; no Node runtime.
 
 ---

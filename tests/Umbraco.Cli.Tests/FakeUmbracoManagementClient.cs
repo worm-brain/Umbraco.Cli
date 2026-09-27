@@ -416,8 +416,89 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<Empty>> DeleteMediaAsync(Guid id, CancellationToken ct = default) =>
         throw new NotImplementedException();
 
-    public Task<UmbracoResponse<Empty>> TrashMediaAsync(Guid id, CancellationToken ct = default) =>
-        throw new NotImplementedException();
+    /// <summary>Ids passed to <see cref="TrashMediaAsync"/>, in call order (#226).</summary>
+    public List<Guid> MediaTrashed { get; } = [];
+
+    public Task<UmbracoResponse<Empty>> TrashMediaAsync(Guid id, CancellationToken ct = default)
+    {
+        MediaTrashed.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    // ── Media snapshot (IMediaSnapshotClient, #226) ────────────────────────────
+
+    /// <summary>The placements <see cref="GetMediaSnapshotTreeAsync"/> returns, in order.</summary>
+    public List<ContentTreeNode> MediaSnapshotTree { get; } = [];
+
+    /// <summary>Canned raw media bodies, keyed by id.</summary>
+    public Dictionary<Guid, JsonNode> MediaRaw { get; } = [];
+
+    /// <summary>The bytes <see cref="DownloadMediaFileAsync"/> serves, keyed by <c>src</c>; a missing one is a 404.</summary>
+    public Dictionary<string, byte[]> MediaFiles { get; } = [];
+
+    /// <summary>Every file staged, in order: its name, content and the id it was given.</summary>
+    public List<(string FileName, byte[] Content, Guid Id)> StagedFiles { get; } = [];
+
+    /// <summary>Downloads that fail with the given status, keyed by <c>src</c> (a missing <see cref="MediaFiles"/> entry is a 404).</summary>
+    public Dictionary<string, int> MediaFileErrors { get; } = [];
+
+    /// <summary>How many downloads were made.</summary>
+    public int MediaDownloads { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyList<ContentTreeNode>>> GetMediaSnapshotTreeAsync(
+        Guid? root = null,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<IReadOnlyList<ContentTreeNode>>.Success(MediaSnapshotTree.ToList())
+        );
+
+    public Task<UmbracoResponse<JsonNode>> GetMediaRawAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => Raw(MediaRaw, id);
+
+    /// <summary>Records the create in <see cref="RawWrites"/> as kind <c>media</c>.</summary>
+    public Task<UmbracoResponse<Empty>> CreateMediaRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("media", null, body);
+
+    /// <summary>Records the update in <see cref="RawWrites"/> as kind <c>media</c>.</summary>
+    public Task<UmbracoResponse<Empty>> UpdateMediaRawAsync(
+        Guid id,
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("media", id, body);
+
+    public async Task<UmbracoResponse<Guid>> StageTemporaryFileAsync(
+        Stream content,
+        string fileName,
+        string contentType,
+        CancellationToken ct = default
+    )
+    {
+        using var copy = new MemoryStream();
+        await content.CopyToAsync(copy, ct);
+        var id = Guid.NewGuid();
+        StagedFiles.Add((fileName, copy.ToArray(), id));
+        return UmbracoResponse<Guid>.Success(id);
+    }
+
+    public async Task<UmbracoResponse<Empty>> DownloadMediaFileAsync(
+        string src,
+        Stream destination,
+        CancellationToken ct = default
+    )
+    {
+        MediaDownloads++;
+        if (MediaFileErrors.TryGetValue(src, out var status))
+            return UmbracoResponse<Empty>.Failure(status, $"Failed: {src}");
+        if (!MediaFiles.TryGetValue(src, out var bytes))
+            return UmbracoResponse<Empty>.Failure(404, $"Not found: {src}");
+        await destination.WriteAsync(bytes, ct);
+        return UmbracoResponse<Empty>.Success(Empty.Value);
+    }
 
     /// <summary>The (id, target) of the last media restore.</summary>
     public (Guid Id, RestoreTarget? Target)? LastMediaRestore { get; private set; }
@@ -659,10 +740,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>ISO codes passed to <see cref="DeleteLanguageAsync"/>, in call order (#227).</summary>
+    public List<string> LanguagesDeleted { get; } = [];
+
     public Task<UmbracoResponse<Empty>> DeleteLanguageAsync(
         string isoCode,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        LanguagesDeleted.Add(isoCode);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<TemplateResponse>>> GetTemplatesAsync(
         int skip = 0,
@@ -907,10 +995,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
 
+    /// <summary>Ids passed to <see cref="DeleteDictionaryItemAsync"/>, in call order (#227).</summary>
+    public List<Guid> DictionaryItemsDeleted { get; } = [];
+
     public Task<UmbracoResponse<Empty>> DeleteDictionaryItemAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        DictionaryItemsDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<PagedResponse<WebhookResponse>>> GetWebhooksAsync(
         int skip = 0,
@@ -1011,8 +1106,79 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
             EntityKind.Template => (TemplateRaw, "template"),
             EntityKind.MediaType => (MediaTypeRaw, "mediaType"),
             EntityKind.MemberType => (MemberTypeRaw, "memberType"),
+            EntityKind.DictionaryItem => (DictionaryItemRaw, "dictionaryItem"),
+            EntityKind.MemberGroup => (MemberGroupRaw, "memberGroup"),
+            EntityKind.UserGroup => (UserGroupRaw, "userGroup"),
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
+
+    // ── Schema snapshot breadth (#227) ─────────────────────────────────────────
+
+    /// <summary>The bodies <see cref="GetLanguagesRawAsync"/> returns, in order (#227).</summary>
+    public List<JsonNode> LanguagesRaw { get; } = [];
+
+    /// <summary>The entries <see cref="GetDictionaryEntriesAsync"/> returns (#227).</summary>
+    public List<DictionaryEntry> DictionaryEntries { get; } = [];
+
+    /// <summary>When set, <see cref="GetDictionaryEntriesAsync"/> returns this failure instead.</summary>
+    public UmbracoResponse<IReadOnlyList<DictionaryEntry>>? DictionaryEntriesFailure { get; set; }
+
+    /// <summary>The ids <see cref="GetMemberGroupIdsAsync"/> enumerates (#227).</summary>
+    public List<Guid> MemberGroupIds { get; } = [];
+
+    /// <summary>The ids <see cref="GetUserGroupIdsAsync"/> enumerates (#227).</summary>
+    public List<Guid> UserGroupIds { get; } = [];
+
+    /// <summary>Canned raw dictionary item bodies, keyed by id (#227).</summary>
+    public Dictionary<Guid, JsonNode> DictionaryItemRaw { get; } = [];
+
+    /// <summary>Canned raw member group bodies, keyed by id (#227).</summary>
+    public Dictionary<Guid, JsonNode> MemberGroupRaw { get; } = [];
+
+    /// <summary>Canned raw user group bodies, keyed by id (#227).</summary>
+    public Dictionary<Guid, JsonNode> UserGroupRaw { get; } = [];
+
+    /// <summary>The (isoCode, body) of every <see cref="UpdateLanguageRawAsync"/> call, in order.</summary>
+    public List<(string IsoCode, JsonNode Body)> LanguageUpdates { get; } = [];
+
+    public Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetLanguagesRawAsync(
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<JsonNode>>.Success(LanguagesRaw.ToList()));
+
+    /// <summary>Records the create in <see cref="RawWrites"/> as kind <c>language</c>.</summary>
+    public Task<UmbracoResponse<Empty>> CreateLanguageRawAsync(
+        JsonNode body,
+        CancellationToken ct = default
+    ) => RecordWrite("language", null, body);
+
+    /// <summary>Records the update in <see cref="LanguageUpdates"/> and <see cref="RawWrites"/>.</summary>
+    public Task<UmbracoResponse<Empty>> UpdateLanguageRawAsync(
+        string isoCode,
+        JsonNode body,
+        CancellationToken ct = default
+    )
+    {
+        LanguageUpdates.Add((isoCode, body));
+        return RecordWrite("language", null, body);
+    }
+
+    public Task<UmbracoResponse<IReadOnlyList<DictionaryEntry>>> GetDictionaryEntriesAsync(
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            DictionaryEntriesFailure
+                ?? UmbracoResponse<IReadOnlyList<DictionaryEntry>>.Success(
+                    DictionaryEntries.ToList()
+                )
+        );
+
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMemberGroupIdsAsync(
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(MemberGroupIds.ToList()));
+
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetUserGroupIdsAsync(
+        CancellationToken ct = default
+    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(UserGroupIds.ToList()));
 
     /// <summary>Returns the canned body for the kind and id, or a 404.</summary>
     /// <param name="kind">The kind.</param>

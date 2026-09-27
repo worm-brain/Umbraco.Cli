@@ -18,7 +18,8 @@ public static class SchemaExporter
 {
     /// <summary>
     /// Exports the full schema (document types, media types, member types, data types,
-    /// templates) of the instance behind <paramref name="client"/> into a snapshot.
+    /// templates, languages, dictionary items, member groups and user groups) of the instance
+    /// behind <paramref name="client"/> into a snapshot.
     /// </summary>
     /// <param name="client">The authenticated management client.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -65,6 +66,33 @@ public static class SchemaExporter
         if (!memberTypes.IsSuccess)
             return Fail(memberTypes);
 
+        // #227: the rest of what a promotion needs before content can land. Languages come whole
+        // from the list; the others are read per id like the types.
+        var languages = await client.GetLanguagesRawAsync(ct);
+        if (!languages.IsSuccess)
+            return UmbracoResponse<SchemaSnapshot>.Failure(
+                languages.StatusCode,
+                languages.ErrorMessage!
+            );
+
+        var dictionary = await CollectDictionaryAsync(client, ct);
+        if (!dictionary.IsSuccess)
+            return Fail(dictionary);
+
+        var memberGroups = await CollectAsync(
+            () => client.GetMemberGroupIdsAsync(ct),
+            id => client.GetSchemaRawAsync(EntityKind.MemberGroup, id, ct)
+        );
+        if (!memberGroups.IsSuccess)
+            return Fail(memberGroups);
+
+        var userGroups = await CollectAsync(
+            () => client.GetUserGroupIdsAsync(ct),
+            id => client.GetSchemaRawAsync(EntityKind.UserGroup, id, ct)
+        );
+        if (!userGroups.IsSuccess)
+            return Fail(userGroups);
+
         return UmbracoResponse<SchemaSnapshot>.Success(
             new SchemaSnapshot
             {
@@ -73,8 +101,43 @@ public static class SchemaExporter
                 MemberTypes = memberTypes.Data!,
                 DataTypes = dataTypes.Data!,
                 Templates = templates.Data!,
+                Languages = [.. languages.Data!],
+                DictionaryItems = dictionary.Data!,
+                MemberGroups = memberGroups.Data!,
+                // Start nodes and per-document permissions name content on this instance only.
+                UserGroups = [.. userGroups.Data!.Select(SchemaBodies.PortableUserGroup)],
             }
         );
+    }
+
+    /// <summary>
+    /// Reads every dictionary item with its parent added (the item read has none), so apply can
+    /// create parents before children and move an item whose parent changed (#227).
+    /// </summary>
+    /// <param name="client">The management client.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every item's shaped body, or the first failure.</returns>
+    private static async Task<UmbracoResponse<List<JsonNode>>> CollectDictionaryAsync(
+        IUmbracoManagementClient client,
+        CancellationToken ct
+    )
+    {
+        var entries = await client.GetDictionaryEntriesAsync(ct);
+        if (!entries.IsSuccess)
+            return UmbracoResponse<List<JsonNode>>.Failure(
+                entries.StatusCode,
+                entries.ErrorMessage!
+            );
+
+        var bodies = new List<JsonNode>(entries.Data!.Count);
+        foreach (var entry in entries.Data!)
+        {
+            var raw = await client.GetSchemaRawAsync(EntityKind.DictionaryItem, entry.Id, ct);
+            if (!raw.IsSuccess)
+                return UmbracoResponse<List<JsonNode>>.Failure(raw.StatusCode, raw.ErrorMessage!);
+            bodies.Add(SchemaBodies.DictionaryItem(raw.Data!, entry.ParentId));
+        }
+        return UmbracoResponse<List<JsonNode>>.Success(bodies);
     }
 
     /// <summary>

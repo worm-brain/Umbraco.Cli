@@ -52,7 +52,8 @@ public sealed record ContentApplyResult(
     /// <summary>Number of delete steps.</summary>
     public int Deleted => Count(ContentOperation.Delete);
 
-    private int Count(ContentOperation operation) => Actions.Count(a => a.Operation == operation);
+    private int Count(ContentOperation operation) =>
+        Actions.Count(a => a.Operation == operation && a.Status != "skipped");
 }
 
 /// <summary>
@@ -77,17 +78,22 @@ public static class ContentApplier
     /// <param name="Operation">The step.</param>
     /// <param name="Change">The diff entry the step came from.</param>
     /// <param name="Scope">For a (un)publish, what it acts on.</param>
+    /// <param name="Skipped">
+    /// A delete the prune does not run, because a document the snapshot keeps is under it (the
+    /// delete would cascade to it). Reported as <c>skipped</c>.
+    /// </param>
     private sealed record Step(
         ContentOperation Operation,
         ContentDocumentChange Change,
-        PublishScope? Scope = null
+        PublishScope? Scope = null,
+        bool Skipped = false
     )
     {
         /// <summary>The step as reported.</summary>
-        /// <param name="status">The status to report.</param>
+        /// <param name="status">The status to report, unless the step is skipped.</param>
         /// <returns>The action row.</returns>
         public ContentAction ToAction(string status) =>
-            new(Operation, Change.Id, status) { Cultures = Scope?.Cultures };
+            new(Operation, Change.Id, Skipped ? "skipped" : status) { Cultures = Scope?.Cultures };
     }
 
     /// <summary>
@@ -120,11 +126,17 @@ public static class ContentApplier
         var done = new List<ContentAction>();
         foreach (var step in plan)
         {
+            if (step.Skipped)
+            {
+                done.Add(step.ToAction("skipped"));
+                continue;
+            }
             var result = await Execute(client, step, ct);
             if (!result.IsSuccess)
             {
+                var applied = done.Count(a => a.Status != "skipped");
                 var doneSummary =
-                    done.Count == 0 ? "no changes were applied" : $"{done.Count} change(s) applied";
+                    applied == 0 ? "no changes were applied" : $"{applied} change(s) applied";
                 return UmbracoResponse<ContentApplyResult>.Failure(
                     result.StatusCode,
                     $"Apply failed on {step.Operation.ToString().ToLowerInvariant()} document '{step.Change.Id}' "
@@ -182,12 +194,24 @@ public static class ContentApplier
         if (options.Prune)
         {
             var kept = KeptByExclusions(diff, options.Exclude);
+            // A document the snapshot keeps but places elsewhere is still under its live parent,
+            // and apply does not move it, so deleting that parent would cascade to it.
+            var protectedIds = SnapshotTree.AncestorsOfKept(
+                diff.Removed.Select(r => r.Id).ToHashSet(),
+                diff.LiveParents
+            );
             for (var i = documents.Count - 1; i >= 0; i--)
                 if (
                     documents[i].Change == ContentChangeKind.Removed
                     && !kept.Contains(documents[i].Id)
                 )
-                    plan.Add(new Step(ContentOperation.Delete, documents[i]));
+                    plan.Add(
+                        new Step(
+                            ContentOperation.Delete,
+                            documents[i],
+                            Skipped: protectedIds.Contains(documents[i].Id)
+                        )
+                    );
         }
 
         return plan;
@@ -212,32 +236,16 @@ public static class ContentApplier
         {
             var excluded =
                 removed.DocumentTypeId is { } type && exclude.DocumentTypeIds.Contains(type)
-                || Lineage(removed.Id, diff.LiveParents).Any(exclude.Roots.Contains);
+                || SnapshotTree.Lineage(removed.Id, diff.LiveParents).Any(exclude.Roots.Contains);
             if (!excluded)
                 continue;
 
             // Keep it, and every removed ancestor, so no delete cascades down onto it.
-            foreach (var id in Lineage(removed.Id, diff.LiveParents))
+            foreach (var id in SnapshotTree.Lineage(removed.Id, diff.LiveParents))
                 if (removedIds.Contains(id))
                     kept.Add(id);
         }
         return kept;
-    }
-
-    /// <summary>A document id followed by its ancestors' ids, nearest first.</summary>
-    /// <param name="id">The document id.</param>
-    /// <param name="parents">Every live document's parent.</param>
-    /// <returns>The id and its ancestors.</returns>
-    private static IEnumerable<Guid> Lineage(Guid id, IReadOnlyDictionary<Guid, Guid?> parents)
-    {
-        // The guard stops a cycle in a malformed snapshot from looping forever.
-        var seen = new HashSet<Guid>();
-        for (
-            Guid? current = id;
-            current is { } c && seen.Add(c);
-            current = parents.GetValueOrDefault(c)
-        )
-            yield return c;
     }
 
     /// <summary>Runs a single step against the client, dispatched on its operation.</summary>
@@ -258,7 +266,7 @@ public static class ContentApplier
             // captured parent so it lands in the right place. The body is the normalised one the
             // diff compared (#224): the dates, flags and state are the source's, not the target's.
             ContentOperation.Create => client.CreateDocumentRawAsync(
-                WithParent(change.DesiredBody!, change.Parent),
+                SnapshotTree.WithParent(change.DesiredBody!, change.Parent),
                 ct
             ),
             ContentOperation.Update => client.UpdateDocumentRawAsync(
@@ -282,21 +290,5 @@ public static class ContentApplier
                 $"{step.Operation} is not an executable apply operation."
             ),
         };
-    }
-
-    /// <summary>
-    /// Returns a clone of <paramref name="body"/> with its top-level <c>parent</c> set for a create:
-    /// <c>{ "id": &lt;parent&gt; }</c>, or <c>null</c> for a content-root document. The raw GET body
-    /// does not carry a parent, so create supplies it here. The original node is not mutated (it may
-    /// be shared with the diff output).
-    /// </summary>
-    /// <param name="body">The snapshot document body.</param>
-    /// <param name="parent">The parent id, or null for the content root.</param>
-    /// <returns>A cloned body carrying the parent reference.</returns>
-    private static JsonNode WithParent(JsonNode body, Guid? parent)
-    {
-        var clone = body.DeepClone();
-        clone["parent"] = parent is { } p ? new JsonObject { ["id"] = p.ToString() } : null;
-        return clone;
     }
 }

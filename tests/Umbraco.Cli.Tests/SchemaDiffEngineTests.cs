@@ -138,6 +138,22 @@ public class SchemaDiffEngineTests
     }
 
     [Fact]
+    public void Compare_DifferentIdsSameAliasSameContent_IsUnchanged()
+    {
+        // The ids differ across instances and apply cannot change them, so an id-only difference
+        // must not be a change, or every apply would rewrite the item again.
+        var diff = SchemaDiffEngine.Compare(
+            DocSnapshot(Doc(Guid.NewGuid(), "blogPost")),
+            DocSnapshot(Doc(Guid.NewGuid(), "blogPost"))
+        );
+
+        Assert.Multiple(
+            () => Assert.Empty(diff.DocumentTypes.Changed),
+            () => Assert.Equal(1, diff.DocumentTypes.Unchanged)
+        );
+    }
+
+    [Fact]
     public void Compare_DataTypeMatchesByName_NotAlias()
     {
         // Data types have no alias; the human key is the name.

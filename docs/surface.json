@@ -1621,6 +1621,98 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": false
+        },
+        {
+          "name": "export",
+          "description": "Export media items and their files to a snapshot directory.\n\nThe directory gets media.json (every item's body and placement, by id) and files/<id>/<name>. It must be new, empty, or an earlier media export, which is replaced.\n\nExamples:\n  umbraco media export --out ./media-snapshot\n  umbraco media export --root 3f7a8b2e-... -O ./blog-images",
+          "arguments": [],
+          "options": [
+            {
+              "name": "--root",
+              "aliases": [],
+              "description": "Export only this item's subtree (root included). Omit for all media.",
+              "type": "guid",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--out",
+              "aliases": [
+                "-O"
+              ],
+              "description": "The snapshot directory to write.",
+              "type": "directory",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "commands": [],
+          "mutating": false,
+          "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "diff",
+          "description": "Compare a media snapshot against the live instance (read-only).\n\nExamples:\n  umbraco media diff ./media-snapshot\n  umbraco media diff ./media-snapshot --verify-files",
+          "arguments": [
+            {
+              "name": "snapshot",
+              "description": "The snapshot directory 'media export' wrote (or its media.json). Not stdin: the files are part of it.",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--verify-files",
+              "aliases": [],
+              "description": "Download each live file the snapshot also has and compare SHA-256 hashes. Without it, files are compared by name and size.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            }
+          ],
+          "commands": [],
+          "mutating": false,
+          "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "apply",
+          "description": "Apply a media snapshot to the live instance.\n\nCreates and updates items with their snapshot ids, uploading their files; --prune also moves items the snapshot omits to the recycle bin. Media types must already exist on the target (schema apply).\n\nExamples:\n  umbraco media apply ./media-snapshot --dry-run\n  umbraco media apply ./media-snapshot\n  umbraco media apply ./media-snapshot --prune --yes",
+          "arguments": [
+            {
+              "name": "snapshot",
+              "description": "The snapshot directory 'media export' wrote (or its media.json). Not stdin: the files are part of it.",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--verify-files",
+              "aliases": [],
+              "description": "Download each live file the snapshot also has and compare SHA-256 hashes. Without it, files are compared by name and size.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
+            {
+              "name": "--prune",
+              "aliases": [],
+              "description": "Also move live media items (within the snapshot's scope) that the snapshot does not contain to the recycle bin. Requires --yes when non-interactive.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": false,
+          "destructiveWhen": "--prune"
         }
       ],
       "mutating": false,
@@ -3787,7 +3879,7 @@
       "commands": [
         {
           "name": "export",
-          "description": "Export document types, data types, and templates to a portable JSON snapshot.\n\nExamples:\n  umbraco schema export --out schema.json\n  umbraco schema export | jq '.data.documentTypes | length'",
+          "description": "Export the schema to a portable JSON snapshot.\n\nCovers document, media and member types, data types, templates, languages, dictionary items, and member and user groups. User group start nodes and per-document permissions are left out: they name content on this instance.\n\nExamples:\n  umbraco schema export --out schema.json\n  umbraco schema export | jq '.data.documentTypes | length'",
           "arguments": [],
           "options": [
             {
@@ -3840,7 +3932,7 @@
             {
               "name": "--prune",
               "aliases": [],
-              "description": "Also DELETE live document, media and member types, data types and templates that the snapshot does not contain. Destructive: requires --yes when non-interactive. A type still in use is refused unless --force is given.",
+              "description": "Also DELETE live schema items (types, data types, templates, languages, dictionary items, member and user groups) that the snapshot does not contain. Destructive: requires --yes when non-interactive. A type still in use, a language, or a dictionary item with children the snapshot keeps is refused unless --force is given.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -3848,7 +3940,7 @@
             {
               "name": "--force",
               "aliases": [],
-              "description": "With --prune, delete types even though content still uses them. Umbraco deletes that content with them.",
+              "description": "With --prune, delete them anyway. Umbraco deletes what they take with them: the content of a type, a language's variants and translations, a dictionary item's children.",
               "type": "flag",
               "required": false,
               "hasDefault": true

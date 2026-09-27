@@ -23,6 +23,10 @@ public static class MediaCommand
         cmd.Add(MediaEmptyRecycleBinCommand.Build(executor));
         cmd.Add(MediaMoveCommand.Build(executor));
         cmd.Add(MediaSortCommand.Build(executor));
+        // #226: the GUID-preserving promotion pipeline, alongside content's and schema's.
+        cmd.Add(MediaExportCommand.Build(executor));
+        cmd.Add(MediaDiffCommand.Build(executor));
+        cmd.Add(MediaApplyCommand.Build(executor));
         return cmd;
     }
 }

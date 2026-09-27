@@ -27,7 +27,7 @@ public static class SchemaDiffEngine
     /// <summary>Compares a desired snapshot against the live one and returns the full diff.</summary>
     /// <param name="desired">The target schema (typically loaded from a snapshot file).</param>
     /// <param name="current">The live schema (typically a fresh export).</param>
-    /// <returns>The diff across document types, data types, and templates.</returns>
+    /// <returns>The diff across every schema kind.</returns>
     public static SchemaDiff Compare(SchemaSnapshot desired, SchemaSnapshot current) =>
         new(
             CompareKind(
@@ -41,22 +41,72 @@ public static class SchemaDiffEngine
             CompareKind(SchemaKinds.MemberType, "alias", desired.MemberTypes, current.MemberTypes),
             CompareKind(SchemaKinds.DataType, "name", desired.DataTypes, current.DataTypes),
             CompareKind(SchemaKinds.Template, "alias", desired.Templates, current.Templates)
-        );
+        )
+        {
+            // #227. Languages have no id at all, so they match on the ISO code alone.
+            Languages = CompareKind(
+                SchemaKinds.Language,
+                "isoCode",
+                desired.Languages,
+                current.Languages,
+                live =>
+                    Flag(live, "isDefault", true)
+                        ? "The default language cannot be deleted; make another language the default first."
+                        : null
+            ),
+            // A dictionary item's parent is another dictionary item, which usually has a different
+            // id on each instance: the parent is translated to the target's id before comparing,
+            // so a name-matched tree compares equal and apply writes the target's ids.
+            DictionaryItems = CompareKind(
+                SchemaKinds.DictionaryItem,
+                "name",
+                desired.DictionaryItems,
+                current.DictionaryItems,
+                rewrite: SchemaBodies.WithLiveParent
+            ),
+            MemberGroups = CompareKind(
+                SchemaKinds.MemberGroup,
+                "name",
+                desired.MemberGroups,
+                current.MemberGroups
+            ),
+            UserGroups = CompareKind(
+                SchemaKinds.UserGroup,
+                "alias",
+                desired.UserGroups,
+                current.UserGroups,
+                live =>
+                    Flag(live, "isDeletable", false)
+                        ? "Umbraco does not allow this user group to be deleted."
+                        : null
+            ),
+        };
 
     /// <summary>An entity reduced to what matching needs: its id, human key, and raw body.</summary>
     private readonly record struct Entry(Guid? Id, string Key, JsonNode Body);
 
     /// <summary>Diffs one entity kind by the GUID-primary, alias-fallback rules (two passes).</summary>
     /// <param name="kind">The entity-kind tag for the resulting changes.</param>
-    /// <param name="keyField">The JSON field holding the human key (<c>alias</c> or <c>name</c>).</param>
+    /// <param name="keyField">The JSON field holding the human key (<c>alias</c>, <c>name</c> or <c>isoCode</c>).</param>
     /// <param name="desiredBodies">The desired entities' raw bodies.</param>
     /// <param name="currentBodies">The live entities' raw bodies.</param>
+    /// <param name="undeletable">
+    /// Says why a live entity can never be deleted (the default language, a built-in user group),
+    /// or null. An unmatched live entity with a reason is <see cref="SchemaChangeKind.Skipped"/>
+    /// with that note rather than <see cref="SchemaChangeKind.Removed"/>, so prune never tries it.
+    /// </param>
+    /// <param name="rewrite">
+    /// Rewrites a desired body once matching is done, given the snapshot-to-live id pairs: for
+    /// same-kind references that must name the target's ids. Null leaves bodies as they are.
+    /// </param>
     /// <returns>The diff for this kind.</returns>
     private static SchemaKindDiff CompareKind(
         string kind,
         string keyField,
         IReadOnlyList<JsonNode> desiredBodies,
-        IReadOnlyList<JsonNode> currentBodies
+        IReadOnlyList<JsonNode> currentBodies,
+        Func<JsonNode, string?>? undeletable = null,
+        Func<JsonNode, IReadOnlyDictionary<Guid, Guid>, JsonNode>? rewrite = null
     )
     {
         var desired = desiredBodies.Select(b => ToEntry(b, keyField)).ToList();
@@ -67,18 +117,28 @@ public static class SchemaDiffEngine
         var skipped = new List<SchemaEntityChange>();
         var unchanged = 0;
 
-        // Live ids we have paired to a desired entity (or deliberately protected from prune).
-        var matchedLiveIds = new HashSet<Guid>();
-        var currentById = current.Where(e => e.Id is not null).ToDictionary(e => e.Id!.Value);
+        // Live entities we have paired to a desired entity (or deliberately protected from
+        // prune), by index: an entity with no id (a language, #227) must count as matched too, or
+        // prune would delete what the snapshot just matched by key.
+        var matchedLive = new HashSet<int>();
+        var currentById = current
+            .Select((e, i) => (e, i))
+            .Where(x => x.e.Id is not null)
+            .ToDictionary(x => x.e.Id!.Value, x => x.i);
+
+        // Matched pairs are classified after both passes, once every id pair is known, so a
+        // rewrite can translate references to entities matched later in the list.
+        var pairs = new List<(Entry Desired, Entry Live, bool IdMismatch)>();
+        var unmatched = new List<Entry>();
 
         // ── Pass 1: GUID-primary. An exact id match is unambiguous. ──────────────
         var unmatchedDesired = new List<Entry>();
         foreach (var d in desired)
         {
-            if (d.Id is { } did && currentById.TryGetValue(did, out var live))
+            if (d.Id is { } did && currentById.TryGetValue(did, out var liveIndex))
             {
-                matchedLiveIds.Add(did);
-                Classify(kind, d, live, idMismatch: false, changed, ref unchanged);
+                matchedLive.Add(liveIndex);
+                pairs.Add((d, current[liveIndex], false));
             }
             else
             {
@@ -87,12 +147,10 @@ public static class SchemaDiffEngine
         }
 
         // ── Pass 2: alias/name fallback over the live entities NOT already id-matched. ──
-        var unmatchedByKey = current
-            .Where(e =>
-                !string.IsNullOrEmpty(e.Key)
-                && (e.Id is null || !matchedLiveIds.Contains(e.Id.Value))
-            )
-            .GroupBy(e => e.Key)
+        var unmatchedByKey = Enumerable
+            .Range(0, current.Count)
+            .Where(i => !string.IsNullOrEmpty(current[i].Key) && !matchedLive.Contains(i))
+            .GroupBy(i => current[i].Key)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         foreach (var d in unmatchedDesired)
@@ -104,12 +162,7 @@ public static class SchemaDiffEngine
             )
             {
                 // No match on either key -> create (reuse the snapshot id for determinism).
-                added.Add(
-                    new SchemaEntityChange(kind, SchemaChangeKind.Added, d.Key, d.Id, null)
-                    {
-                        DesiredBody = d.Body,
-                    }
-                );
+                unmatched.Add(d);
                 continue;
             }
 
@@ -117,9 +170,7 @@ public static class SchemaDiffEngine
             {
                 // Ambiguous: refuse to guess which live entity is meant, AND protect every
                 // candidate from prune (otherwise the "safe" skip would still delete them).
-                foreach (var m in matches)
-                    if (m.Id is { } mid)
-                        matchedLiveIds.Add(mid);
+                matchedLive.UnionWith(matches);
                 skipped.Add(
                     new SchemaEntityChange(
                         kind,
@@ -134,26 +185,76 @@ public static class SchemaDiffEngine
                 continue;
             }
 
-            var match = matches[0];
-            if (match.Id is { } cid)
-                matchedLiveIds.Add(cid);
-            Classify(kind, d, match, idMismatch: d.Id != match.Id, changed, ref unchanged);
+            var match = current[matches[0]];
+            matchedLive.Add(matches[0]);
+            pairs.Add((d, match, d.Id != match.Id));
         }
 
-        // ── Any live entity we never matched is a prune candidate. ───────────────
-        var removed = current
-            .Where(e => e.Id is null || !matchedLiveIds.Contains(e.Id.Value))
-            .Select(e => new SchemaEntityChange(
-                kind,
-                SchemaChangeKind.Removed,
-                e.Key,
-                DesiredId: null,
-                CurrentId: e.Id
-            ))
-            .ToList();
+        // ── Classify, with references translated to the target's ids. ───────────
+        var liveIds = new Dictionary<Guid, Guid>();
+        foreach (var (d, live, _) in pairs)
+            if (d.Id is { } did && live.Id is { } lid)
+                liveIds[did] = lid;
+        Entry Rewritten(Entry e) =>
+            rewrite is null ? e : e with { Body = rewrite(e.Body, liveIds) };
 
-        return new SchemaKindDiff(added, changed, removed, skipped, unchanged);
+        foreach (var (d, live, idMismatch) in pairs)
+            Classify(kind, Rewritten(d), live, idMismatch, changed, ref unchanged);
+        foreach (var d in unmatched)
+            added.Add(
+                new SchemaEntityChange(kind, SchemaChangeKind.Added, d.Key, d.Id, null)
+                {
+                    DesiredBody = Rewritten(d).Body,
+                }
+            );
+
+        // ── Any live entity we never matched is a prune candidate, unless it can never be
+        // deleted, which is reported as skipped with the reason instead. ─────────
+        var removed = new List<SchemaEntityChange>();
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (matchedLive.Contains(i))
+                continue;
+            var e = current[i];
+            if (undeletable?.Invoke(e.Body) is { } reason)
+                skipped.Add(
+                    new SchemaEntityChange(
+                        kind,
+                        SchemaChangeKind.Skipped,
+                        e.Key,
+                        DesiredId: null,
+                        CurrentId: e.Id,
+                        Note: reason
+                    )
+                );
+            else
+                removed.Add(
+                    new SchemaEntityChange(
+                        kind,
+                        SchemaChangeKind.Removed,
+                        e.Key,
+                        DesiredId: null,
+                        CurrentId: e.Id
+                    )
+                    {
+                        CurrentBody = e.Body,
+                    }
+                );
+        }
+
+        return new SchemaKindDiff(added, changed, removed, skipped, unchanged)
+        {
+            LiveIds = liveIds,
+        };
     }
+
+    /// <summary>Whether <paramref name="body"/>[<paramref name="field"/>] is the boolean <paramref name="value"/>.</summary>
+    /// <param name="body">The entity body.</param>
+    /// <param name="field">The boolean field.</param>
+    /// <param name="value">The value to test for.</param>
+    /// <returns>True when the field is present and equals <paramref name="value"/>.</returns>
+    private static bool Flag(JsonNode body, string field, bool value) =>
+        body[field] is JsonValue v && v.TryGetValue<bool>(out var b) && b == value;
 
     /// <summary>
     /// Classifies a matched desired/live pair as Changed (bodies differ) or Unchanged. A change
@@ -178,7 +279,15 @@ public static class SchemaDiffEngine
         ref int unchanged
     )
     {
-        var changes = JsonPathDiff.Paths(desired.Body, current.Body);
+        // A pair matched by key across instances has different ids, which apply never changes
+        // (the update targets the live id). Comparing them would report a change that no apply
+        // can converge, so the key-matched body is compared as if it carried the live id;
+        // IdMismatch still says the ids differ.
+        var compared =
+            idMismatch && current.Id is { } liveId
+                ? WithLiveId(desired.Body, liveId)
+                : desired.Body;
+        var changes = JsonPathDiff.Paths(compared, current.Body);
         if (changes.Count == 0)
         {
             unchanged++;
@@ -196,9 +305,21 @@ public static class SchemaDiffEngine
             )
             {
                 DesiredBody = desired.Body,
+                CurrentBody = current.Body,
                 Changes = changes,
             }
         );
+    }
+
+    /// <summary>A copy of <paramref name="body"/> whose top-level <c>id</c> is <paramref name="id"/>.</summary>
+    /// <param name="body">The desired body.</param>
+    /// <param name="id">The live id.</param>
+    /// <returns>The copy.</returns>
+    private static JsonNode WithLiveId(JsonNode body, Guid id)
+    {
+        var clone = body.DeepClone();
+        clone["id"] = id.ToString();
+        return clone;
     }
 
     /// <summary>Reduces a raw entity body to its id + human key for matching.</summary>

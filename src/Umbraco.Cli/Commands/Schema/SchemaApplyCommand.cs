@@ -35,15 +35,18 @@ public static class SchemaApplyCommand
         var pruneOpt = new Option<bool>("--prune")
         {
             Description =
-                "Also DELETE live document, media and member types, data types and templates that "
-                + "the snapshot does not contain. Destructive: requires --yes when non-interactive. "
-                + "A type still in use is refused unless --force is given.",
+                "Also DELETE live schema items (types, data types, templates, languages, "
+                + "dictionary items, member and user groups) that the snapshot does not contain. "
+                + "Destructive: requires --yes when non-interactive. A type still in use, a "
+                + "language, or a dictionary item with children the snapshot keeps is refused "
+                + "unless --force is given.",
         };
         var forceOpt = new Option<bool>(InUseGuard.ForceOption)
         {
             Description =
-                "With --prune, delete types even though content still uses them. Umbraco deletes "
-                + "that content with them.",
+                "With --prune, delete them anyway. Umbraco deletes what they take with them: the "
+                + "content of a type, a language's variants and translations, a dictionary item's "
+                + "children.",
         };
         cmd.Add(snapshotArg);
         cmd.Add(pruneOpt);
@@ -62,8 +65,8 @@ public static class SchemaApplyCommand
         cmd.DestructiveWith(
             pruneOpt,
             _ =>
-                "This will DELETE live document, media and member types, data types and "
-                + "templates that are not present in the snapshot."
+                "This will DELETE live schema items (types, data types, templates, languages, "
+                + "dictionary items, member and user groups) that are not present in the snapshot."
         );
         cmd.SetAction(
             (parseResult, ct) =>

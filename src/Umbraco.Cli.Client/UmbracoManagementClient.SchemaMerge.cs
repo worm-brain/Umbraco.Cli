@@ -103,10 +103,16 @@ public sealed partial class UmbracoManagementClient
             EntityKind.MemberType => "member-type",
             EntityKind.DataType => "data-type",
             EntityKind.Template => "template",
+            // #227: the schema snapshot also carries the dictionary and member/user groups, which
+            // have the same by-id GET/POST/PUT routes.
+            EntityKind.DictionaryItem => "dictionary",
+            EntityKind.MemberGroup => "member-group",
+            EntityKind.UserGroup => "user-group",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(kind),
                 kind,
-                "Only schema items (document, media and member types, data types, templates) can be merged."
+                "Only schema items (document, media and member types, data types, templates, "
+                    + "dictionary items, member and user groups) can be read or written raw."
             ),
         };
 }

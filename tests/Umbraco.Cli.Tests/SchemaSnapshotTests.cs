@@ -39,7 +39,7 @@ public class SchemaSnapshotTests
         // and then `apply`s it; FromJson must unwrap the inner data object.
         var enveloped = """
             {"status":"success",
-             "data":{"schemaVersion":"2","documentTypes":[{"alias":"home"}],"mediaTypes":[],"memberTypes":[],"dataTypes":[],"templates":[]},
+             "data":{"schemaVersion":"3","documentTypes":[{"alias":"home"}],"mediaTypes":[],"memberTypes":[],"dataTypes":[],"templates":[]},
              "meta":{"schemaVersion":"2"}}
             """;
 

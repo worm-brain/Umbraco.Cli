@@ -39,7 +39,7 @@ disagree, this file wins; the older document is rationale that may be out of dat
 | `move` / `copy` / `sort` | Placement. `move`, `copy` and `restore` take `--parent` (alias `--target`); no parent means the root. |
 | `trash` / `restore` / `empty-recycle-bin` | The recycle bin. `restore` goes back to the original parent; `--to-root` overrides. |
 | `publish` / `unpublish` | Content state. |
-| `export` / `diff` / `apply` | Snapshot pipelines: `export [--out\|-O <file>]`, `diff <snapshot>`, `apply <snapshot> [--prune]`. |
+| `export` / `diff` / `apply` | Snapshot pipelines: `export [--out\|-O <file>]`, `diff <snapshot>`, `apply <snapshot> [--prune]`. `media`'s snapshot is a directory: `--out <dir>` is required and `-` is not accepted. |
 
 - A verb that is a real Umbraco action keeps its name (`media upload`, `user invite`,
   `indexer rebuild`, `models-builder build`).
@@ -160,3 +160,6 @@ Each exception is deliberate or tracked; don't copy it.
 - **2026-09-25** - 6.2 made precise while applying it (#268): which writes return the item
   (create/update/copy/upload) and which return `{ "id" }`, what a write with no target returns,
   and that `--quiet` drops write results.
+- **2026-09-27** - 2 and 4.5: `media export/diff/apply` (#226) takes a snapshot **directory**, so
+  its `--out` is required and names a directory, and its `<snapshot>` does not accept `-`. The
+  files are binary and cannot travel in the envelope or on stdin.

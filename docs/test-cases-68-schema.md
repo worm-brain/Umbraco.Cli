@@ -35,6 +35,11 @@ exists.
 | TC-68-18 | Manual | Apply real create/update/delete against a live instance | Entities created/updated/deleted; re-export diffs clean | Validated manually during #68 (template create→update→delete round-trip on 17.3.5) |
 | TC-68-19 | Manual | Apply under `--readonly` / `UMBRACO_READONLY=1` with pending writes | First write blocked (exit 2); nothing changed | Manual (interceptor-enforced; covered generally by `MutationInterceptorHandlerTests`) |
 | TC-68-20 | Manual | Cross-environment apply where reference GUIDs differ | Referenced-GUID differences surface as changes (documented v1 limitation) | Manual |
+| TC-68-21 | Unit | Export languages, dictionary (with parents), member and user groups (#227) | Kinds present; dictionary parent added, translations sorted; user group start nodes and per-document permissions left out | `SchemaBreadthTests.ExportAsync_*` |
+| TC-68-22 | Unit | Diff a language matched by ISO code; an unmatched default language / undeletable user group | Matched language is not a prune candidate; the others are Skipped with a note | `SchemaBreadthTests.Compare_*` |
+| TC-68-23 | Unit | Apply creates across the new kinds; dictionary re-parent; user group update | Languages (fallback first) -> dictionary (parent first) -> member groups -> ... -> user groups; re-parent is a move; target's start nodes kept | `SchemaBreadthTests.ApplyAsync_*` |
+| TC-68-24 | Unit | Prune a language / a dictionary item with a kept child, without `--force` | Refused, nothing applied; a whole pruned subtree deletes children first without `--force` | `SchemaBreadthTests.ApplyAsync_Prune*` |
+| TC-68-25 | Manual | Promote languages, dictionary and groups to a second instance (#227) | `export -> apply -> diff` reports zero changes | Manual (needs two instances) |
 
 ## Notes
 

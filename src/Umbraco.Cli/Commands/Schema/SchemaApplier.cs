@@ -51,14 +51,17 @@ public sealed record SchemaApplyResult(
 /// (issue #68 / ADR 0005 §4). It never computes a diff itself — the command feeds it one — so
 /// the ordering/execution logic is testable in isolation.
 ///
-/// Order respects cross-kind dependencies: creates/updates run data types -> templates -> media
-/// types -> member types -> document types (every type's properties reference data types, and a
-/// document type's <c>allowedTemplates</c> reference templates). Within a kind, <b>creates</b> are topologically
-/// ordered so a referenced same-kind entity (a composition, or a template's master) is created
-/// before the entity that references it. Deletes (prune) run in the reverse cross-kind order
-/// (document types -> member types -> media types -> templates -> data types) in each kind's
-/// enumeration order — Umbraco
-/// rejects a delete that is still depended on, which fail-fast surfaces and a re-run resolves.
+/// Order respects cross-kind dependencies: creates/updates run languages -> dictionary items ->
+/// member groups -> data types -> templates -> media types -> member types -> document types ->
+/// user groups (dictionary translations name languages, every type's properties reference data
+/// types, a document type's <c>allowedTemplates</c> reference templates, and a user group's
+/// property permissions reference document types). Within a kind, <b>creates</b> are
+/// topologically ordered so a referenced same-kind entity (a composition, a template's master, a
+/// dictionary item's parent, a language's fallback) is created before the entity that references
+/// it. Deletes (prune) run in the reverse cross-kind order. Dictionary items and languages are
+/// deleted referrers-first (children before parents, a language before its fallback); the other
+/// kinds in enumeration order — Umbraco rejects a delete that is still depended on, which
+/// fail-fast surfaces and a re-run resolves.
 /// Apply is **fail-fast**: the first failed write stops the run so a broken state is not piled
 /// onto.
 /// </summary>
@@ -74,8 +77,9 @@ public static class SchemaApplier
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The apply result, or the first write failure.</returns>
     /// <exception cref="SafetyRefusalException">
-    /// A real (not dry-run) prune would delete a type still in use, and
-    /// <see cref="SchemaApplyOptions.Force"/> is false. Nothing has been applied.
+    /// A real (not dry-run) prune would delete a type still in use, a language, or a dictionary
+    /// item with children the snapshot keeps, and <see cref="SchemaApplyOptions.Force"/> is false.
+    /// Nothing has been applied.
     /// </exception>
     public static async Task<UmbracoResponse<SchemaApplyResult>> ApplyAsync(
         IUmbracoManagementClient client,
@@ -107,7 +111,7 @@ public static class SchemaApplier
 
         if (blocked.Count > 0)
             throw new SafetyRefusalException(
-                $"Refusing to prune {blocked.Count} type(s) still in use: "
+                $"Refusing to prune {blocked.Count} item(s) whose delete loses more than the item: "
                     + string.Join(" ", blocked.Values)
                     + $" Nothing was applied. Re-run with {InUseGuard.ForceOption} to prune them anyway."
             );
@@ -137,8 +141,9 @@ public static class SchemaApplier
     }
 
     /// <summary>
-    /// The planned deletes that would take content with them, each with the reason (#252).
-    /// Templates are not checked: deleting one leaves its content in place.
+    /// The planned deletes that would take more than the item with them, each with the reason
+    /// (#252, #227). Templates, member groups and user groups are not checked: deleting one leaves
+    /// content in place.
     /// </summary>
     /// <param name="client">The client to check with.</param>
     /// <param name="plan">The ordered plan.</param>
@@ -151,19 +156,88 @@ public static class SchemaApplier
     )
     {
         var blocked = new Dictionary<Op, string>();
-        foreach (var op in plan.Where(o => o.Operation == "delete"))
+        var deletes = plan.Where(o => o.Operation == "delete").ToList();
+
+        // A dictionary delete takes the item's children with it. A child is expected to go when
+        // the prune deletes it too, or safe when this apply moves it to another parent first
+        // (updates run before deletes). Any other child is one the snapshot keeps where it is,
+        // and would be lost by surprise.
+        var prunedDictionary = deletes
+            .Where(o => o.Change.Kind == SchemaKinds.DictionaryItem)
+            .Select(o => o.Change.CurrentId!.Value)
+            .ToHashSet();
+        var movedAway = plan.Where(o =>
+                o.Operation == "update"
+                && o.Change.Kind == SchemaKinds.DictionaryItem
+                && SchemaBodies.ParentOf(o.Change.DesiredBody)
+                    != SchemaBodies.ParentOf(o.Change.CurrentBody)
+            )
+            .Select(o => o.Change.CurrentId!.Value)
+            .ToHashSet();
+        // Null when the tree could not be read: an unknown is not a yes, so every pruned item
+        // then needs --force.
+        Dictionary<Guid, List<Guid>>? liveChildren = null;
+        if (prunedDictionary.Count > 0)
         {
-            // The same check the single deletes run, so a prune and a delete agree.
-            var reason = await InUseGuard.ReasonAsync(
-                client,
-                op.Change.Kind,
-                op.Change.CurrentId!.Value,
-                ct
-            );
+            var entries = await client.GetDictionaryEntriesAsync(ct);
+            if (entries.IsSuccess)
+            {
+                liveChildren = [];
+                foreach (var entry in entries.Data!)
+                {
+                    if (entry.ParentId is not { } parent)
+                        continue;
+                    if (!liveChildren.TryGetValue(parent, out var list))
+                        liveChildren[parent] = list = [];
+                    list.Add(entry.Id);
+                }
+            }
+        }
+
+        foreach (var op in deletes)
+        {
+            var change = op.Change;
+            var reason = change.Kind switch
+            {
+                SchemaKinds.Language =>
+                    $"Deleting language {change.Identity} also deletes every culture variant and "
+                        + "dictionary translation in that language.",
+                SchemaKinds.DictionaryItem => liveChildren is null
+                    ? $"Could not read the dictionary tree to check whether '{change.Identity}' "
+                        + "has children."
+                    : KeptChildren(change, liveChildren, prunedDictionary, movedAway),
+                // The same check the single deletes run, so a prune and a delete agree.
+                _ => await InUseGuard.ReasonAsync(client, change.Kind, change.CurrentId!.Value, ct),
+            };
             if (reason is not null)
                 blocked[op] = reason;
         }
         return blocked;
+    }
+
+    /// <summary>
+    /// Why deleting a dictionary item would also delete children the snapshot keeps under it, or
+    /// null when every child is pruned too, moved elsewhere by this apply, or there are none.
+    /// </summary>
+    /// <param name="change">The removed dictionary item.</param>
+    /// <param name="liveChildren">Each live item's children.</param>
+    /// <param name="pruned">Every dictionary item the prune deletes.</param>
+    /// <param name="movedAway">Every dictionary item this apply moves to another parent.</param>
+    /// <returns>The reason, or null.</returns>
+    private static string? KeptChildren(
+        SchemaEntityChange change,
+        Dictionary<Guid, List<Guid>> liveChildren,
+        HashSet<Guid> pruned,
+        HashSet<Guid> movedAway
+    )
+    {
+        if (!liveChildren.TryGetValue(change.CurrentId!.Value, out var children))
+            return null;
+        var kept = children.Count(c => !pruned.Contains(c) && !movedAway.Contains(c));
+        return kept == 0
+            ? null
+            : $"Dictionary item '{change.Identity}' has {kept} child item(s) the snapshot keeps. "
+                + "Deleting it also deletes them.";
     }
 
     /// <summary>A single planned operation: the change plus which verb to run for it.</summary>
@@ -189,8 +263,8 @@ public static class SchemaApplier
 
     /// <summary>
     /// Builds the ordered operation list from a diff: creates/updates in dependency order
-    /// (data types -> templates -> document types, topologically sorted within each), then, if
-    /// pruning, deletes in reverse.
+    /// (see the class remarks; topologically sorted within each kind), then, if pruning, deletes
+    /// in reverse.
     /// </summary>
     /// <param name="diff">The diff to plan.</param>
     /// <param name="prune">Whether to include deletes.</param>
@@ -203,39 +277,47 @@ public static class SchemaApplier
         foreach (
             var kind in new[]
             {
+                diff.Languages,
+                diff.DictionaryItems,
+                diff.MemberGroups,
                 diff.DataTypes,
                 diff.Templates,
                 diff.MediaTypes,
                 diff.MemberTypes,
                 diff.DocumentTypes,
+                diff.UserGroups,
             }
         )
         {
-            foreach (var added in TopoOrder(kind.Added))
+            foreach (var added in CreateOrder(kind.Added))
                 ops.Add(new Op("create", added));
             foreach (var changed in kind.Changed)
                 ops.Add(new Op("update", changed));
         }
 
-        // Deletes (prune) in reverse cross-kind order (doc types first, since they depend on
-        // templates and data types). Within a kind we cannot topologically order deletes — a
-        // Removed change carries no body (nothing to inspect for references) — so we delete in
-        // enumeration order and rely on fail-fast: Umbraco rejects a delete that is still
-        // referenced, and a re-run (now that the referrer is gone) completes it.
+        // Deletes (prune) in reverse cross-kind order (user groups and doc types first, since
+        // they depend on the rest). A Removed change carries the live body, but only languages
+        // and dictionary items are ordered by it: their references are one known field. The
+        // types delete in enumeration order and rely on fail-fast: Umbraco rejects a delete that
+        // is still referenced, and a re-run (now that the referrer is gone) completes it.
         if (prune)
         {
             foreach (
                 var kind in new[]
                 {
+                    diff.UserGroups,
                     diff.DocumentTypes,
                     diff.MemberTypes,
                     diff.MediaTypes,
                     diff.Templates,
                     diff.DataTypes,
+                    diff.MemberGroups,
+                    diff.DictionaryItems,
+                    diff.Languages,
                 }
             )
             {
-                foreach (var removed in kind.Removed)
+                foreach (var removed in DeleteOrder(kind.Removed))
                     ops.Add(new Op("delete", removed));
             }
         }
@@ -244,42 +326,98 @@ public static class SchemaApplier
     }
 
     /// <summary>
-    /// Orders entities so that any entity referencing another entity of the same kind (by its id
-    /// appearing anywhere in the referrer's body — captures compositions and master templates
-    /// generically, without hard-coding the JSON path) comes *after* the entity it references.
-    /// A reference cycle (which Umbraco itself disallows) is broken by falling back to input
-    /// order for the entangled remainder rather than looping.
+    /// Orders a kind's creates so a referenced entity is created first. Languages reference each
+    /// other by ISO code (<c>fallbackIsoCode</c>); every other kind by an id somewhere in the body.
     /// </summary>
-    /// <param name="changes">The changes to order (their <see cref="SchemaEntityChange.DesiredBody"/> is scanned).</param>
+    /// <param name="added">One kind's added entities.</param>
+    /// <returns>The ordered creates.</returns>
+    private static List<SchemaEntityChange> CreateOrder(IReadOnlyList<SchemaEntityChange> added) =>
+        added.FirstOrDefault()?.Kind == SchemaKinds.Language
+            ? TopoOrder(added, c => c.Identity, c => Fallback(c.DesiredBody))
+            : TopoOrder(
+                added,
+                c => c.DesiredId?.ToString(),
+                c =>
+                    c.DesiredBody is null
+                        ? []
+                        : ExtractGuids(c.DesiredBody).Select(g => g.ToString())
+            );
+
+    /// <summary>
+    /// Orders a kind's deletes referrers-first, from the live bodies: a dictionary item before its
+    /// parent (deleting the parent first would take the child and fail its delete), and a
+    /// language before the language it falls back to. Other kinds keep enumeration order.
+    /// </summary>
+    /// <param name="removed">One kind's removed entities.</param>
+    /// <returns>The ordered deletes.</returns>
+    private static IEnumerable<SchemaEntityChange> DeleteOrder(
+        IReadOnlyList<SchemaEntityChange> removed
+    )
+    {
+        var kind = removed.FirstOrDefault()?.Kind;
+        if (kind == SchemaKinds.DictionaryItem)
+            return Enumerable.Reverse(
+                TopoOrder(
+                    removed,
+                    c => c.CurrentId?.ToString(),
+                    c =>
+                        SchemaBodies.ParentOf(c.CurrentBody) is { } parent
+                            ? [parent.ToString()]
+                            : []
+                )
+            );
+        if (kind == SchemaKinds.Language)
+            return Enumerable.Reverse(
+                TopoOrder(removed, c => c.Identity, c => Fallback(c.CurrentBody))
+            );
+        return removed;
+    }
+
+    /// <summary>A language body's fallback ISO code, as a reference list.</summary>
+    /// <param name="body">The language body.</param>
+    /// <returns>The fallback code, or nothing.</returns>
+    private static IEnumerable<string> Fallback(JsonNode? body) =>
+        body?["fallbackIsoCode"] is JsonValue v
+        && v.TryGetValue<string>(out var iso)
+        && !string.IsNullOrEmpty(iso)
+            ? [iso]
+            : [];
+
+    /// <summary>
+    /// Orders entities so that any entity referencing another entity in the batch comes *after*
+    /// the entity it references. What an entity is called and what it references are supplied, so
+    /// the one sort serves ids found anywhere in a body (compositions and master templates,
+    /// without hard-coding the JSON path) and ISO codes alike. A reference cycle (which Umbraco
+    /// itself disallows) is broken by falling back to input order for the entangled remainder
+    /// rather than looping.
+    /// </summary>
+    /// <param name="changes">The changes to order.</param>
+    /// <param name="selfKey">An entity's own key, or null when it has none.</param>
+    /// <param name="references">The keys an entity references.</param>
     /// <returns>The dependency-ordered changes.</returns>
-    private static List<SchemaEntityChange> TopoOrder(IReadOnlyList<SchemaEntityChange> changes)
+    private static List<SchemaEntityChange> TopoOrder(
+        IReadOnlyList<SchemaEntityChange> changes,
+        Func<SchemaEntityChange, string?> selfKey,
+        Func<SchemaEntityChange, IEnumerable<string>> references
+    )
     {
         if (changes.Count <= 1)
             return changes.ToList();
 
         // Work by index throughout: SchemaEntityChange is a value-equal record, so keying maps by
         // the change itself would throw on two equal entries — indices are always distinct.
-        var inSet = changes
-            .Where(c => c.DesiredId is not null)
-            .Select(c => c.DesiredId!.Value)
-            .ToHashSet();
+        var inSet = changes.Select(selfKey).OfType<string>().ToHashSet();
 
-        // deps[i] = the in-batch ids that changes[i] references (excluding its own id).
-        var deps = new List<HashSet<Guid>>(changes.Count);
+        // deps[i] = the in-batch keys that changes[i] references (excluding its own key).
+        var deps = new List<HashSet<string>>(changes.Count);
         foreach (var c in changes)
         {
-            var self = c.DesiredId;
-            deps.Add(
-                c.DesiredBody is null
-                    ? []
-                    : ExtractGuids(c.DesiredBody)
-                        .Where(g => inSet.Contains(g) && g != self)
-                        .ToHashSet()
-            );
+            var self = selfKey(c);
+            deps.Add(references(c).Where(k => inSet.Contains(k) && k != self).ToHashSet());
         }
 
         var ordered = new List<SchemaEntityChange>();
-        var emitted = new HashSet<Guid>();
+        var emitted = new HashSet<string>();
         var remaining = Enumerable.Range(0, changes.Count).ToList();
 
         while (remaining.Count > 0)
@@ -298,8 +436,8 @@ public static class SchemaApplier
             foreach (var i in ready)
             {
                 ordered.Add(changes[i]);
-                if (changes[i].DesiredId is { } id)
-                    emitted.Add(id);
+                if (selfKey(changes[i]) is { } key)
+                    emitted.Add(key);
                 remaining.Remove(i);
             }
         }
@@ -358,6 +496,21 @@ public static class SchemaApplier
         var change = op.Change;
         return (op.Operation, change.Kind) switch
         {
+            // #227: languages are addressed by ISO code, dictionary items and user groups need
+            // more than the one generic write.
+            ("create", SchemaKinds.Language) => client.CreateLanguageRawAsync(
+                change.DesiredBody!,
+                ct
+            ),
+            ("update", SchemaKinds.Language) => client.UpdateLanguageRawAsync(
+                change.Identity,
+                change.DesiredBody!,
+                ct
+            ),
+            ("delete", SchemaKinds.Language) => client.DeleteLanguageAsync(change.Identity, ct),
+            ("update", SchemaKinds.DictionaryItem) => UpdateDictionaryItemAsync(client, change, ct),
+            ("update", SchemaKinds.UserGroup) => UpdateUserGroupAsync(client, change, ct),
+
             // Creates and updates are the same call for every kind; only the endpoint differs.
             // An update is a full replace (replace: true): the snapshot body is the whole item.
             ("create", _) => client.CreateSchemaRawAsync(
@@ -393,11 +546,82 @@ public static class SchemaApplier
                 change.CurrentId!.Value,
                 ct
             ),
+            ("delete", SchemaKinds.DictionaryItem) => client.DeleteDictionaryItemAsync(
+                change.CurrentId!.Value,
+                ct
+            ),
+            ("delete", SchemaKinds.MemberGroup) => client.DeleteMemberGroupAsync(
+                change.CurrentId!.Value,
+                ct
+            ),
+            ("delete", SchemaKinds.UserGroup) => client.DeleteUserGroupAsync(
+                change.CurrentId!.Value,
+                ct
+            ),
 
             _ => throw new InvalidOperationException(
                 $"Unknown schema operation {op.Operation}/{change.Kind}."
             ),
         };
+    }
+
+    /// <summary>
+    /// Updates a dictionary item's name and translations, then moves it when its parent differs:
+    /// the update model has no parent, so a re-parent is a separate call (#227).
+    /// </summary>
+    /// <param name="client">The management client.</param>
+    /// <param name="change">The changed dictionary item.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The first failure, or an empty success.</returns>
+    private static async Task<UmbracoResponse<Empty>> UpdateDictionaryItemAsync(
+        IUmbracoManagementClient client,
+        SchemaEntityChange change,
+        CancellationToken ct
+    )
+    {
+        var id = change.CurrentId!.Value;
+        var update = await client.MergeSchemaItemAsync(
+            EntityKind.DictionaryItem,
+            id,
+            WithId(SchemaBodies.WithoutParent(change.DesiredBody!), id),
+            replace: true,
+            ct
+        );
+        if (!update.IsSuccess)
+            return update;
+
+        var parent = SchemaBodies.ParentOf(change.DesiredBody);
+        return parent == SchemaBodies.ParentOf(change.CurrentBody)
+            ? update
+            : await client.MoveDictionaryItemAsync(id, parent, ct);
+    }
+
+    /// <summary>
+    /// Updates a user group with the snapshot body plus the target's own start nodes and
+    /// per-document permissions, which the snapshot leaves out (#227). The live group is read in
+    /// full here, because the diff's live body has those parts removed too.
+    /// </summary>
+    /// <param name="client">The management client.</param>
+    /// <param name="change">The changed user group.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The first failure, or an empty success.</returns>
+    private static async Task<UmbracoResponse<Empty>> UpdateUserGroupAsync(
+        IUmbracoManagementClient client,
+        SchemaEntityChange change,
+        CancellationToken ct
+    )
+    {
+        var id = change.CurrentId!.Value;
+        var live = await client.GetSchemaRawAsync(EntityKind.UserGroup, id, ct);
+        if (!live.IsSuccess)
+            return UmbracoResponse<Empty>.Failure(live.StatusCode, live.ErrorMessage!);
+        return await client.MergeSchemaItemAsync(
+            EntityKind.UserGroup,
+            id,
+            WithId(SchemaBodies.WithLiveNodes(change.DesiredBody!, live.Data!), id),
+            replace: true,
+            ct
+        );
     }
 
     /// <summary>

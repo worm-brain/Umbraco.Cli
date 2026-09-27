@@ -66,7 +66,7 @@ public static class ContentBodyNormaliser
     /// <param name="array">The array to sort; its items are detached and re-added.</param>
     /// <param name="key">The sort key of an item.</param>
     /// <returns>A new array holding the same items in key order.</returns>
-    private static JsonArray Sorted(
+    internal static JsonArray Sorted(
         JsonArray array,
         Func<JsonNode?, (string?, string?, string?)> key
     )

@@ -22,11 +22,14 @@ Project-specific terms. Add entries as concepts are introduced.
   ADR 0005; the parallel pipeline for content is ADR 0006. See
   [ADR 0005](adr/0005-schema-export-diff-apply.md).
 - **Snapshot** — a single JSON document produced by `schema export` holding the
-  verbatim Management-API bodies of every document type, media type, member type, data type
-  and template
-  (`{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[] }`).
+  verbatim Management-API bodies of every document type, media type, member type, data type,
+  template, language, dictionary item, member group and user group
+  (`{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[] }`).
   The
   round-trippable, portable representation that `diff` and `apply` consume.
+- **Media snapshot** — the directory `media export` writes: `media.json` (each media item's
+  verbatim body, parent and file entry, in tree pre-order) plus `files/<id>/<name>`. A directory
+  because the files are binary. See [ADR 0008](adr/0008-media-export-diff-apply.md).
 - **Raw-JSON passthrough** — the snapshot fidelity decision: capture each
   entity's verbatim get-by-id body rather than a re-modelled projection, because
   the CLI's own response records are **lossy** (drop doc-type properties/
@@ -57,7 +60,7 @@ Project-specific terms. Add entries as concepts are introduced.
   `--yes` (ADR 0005 §4); content, being riskier, requires **both** `--prune` and
   `--yes` (ADR 0006 §4).
 - **Snapshot format version** — the `schemaVersion` field *inside* a snapshot
-  document (currently `"2"`), versioning the snapshot layout. Independent of the
+  document (currently `"3"`), versioning the snapshot layout. Independent of the
   output envelope's `meta.schemaVersion` (the CLI's JSON contract version).
 - **Selector** — the positional `<id>` a command acts on. Always named `id`, it accepts the GUID
   plus the item's natural keys (alias, then name; a language's ISO code; a dictionary item's key).
