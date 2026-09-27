@@ -60,7 +60,7 @@ public class DeleteGuardsWireTests
     }
 
     [Fact]
-    public async Task GetDocumentTypesUsingTemplateAsync_NamesTheTypesThatAllowOrDefaultToIt()
+    public async Task GetTemplateUsageAsync_IndexesTheTypesThatAllowOrDefaultToEachTemplate()
     {
         var (blog, home, other) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         var handler = Wire.Routed(
@@ -86,19 +86,17 @@ public class DeleteGuardsWireTests
             )
         );
 
-        var result = await Wire.Client(handler)
-            .GetDocumentTypesUsingTemplateAsync(Id, CancellationToken.None);
+        var result = await Wire.Client(handler).GetTemplateUsageAsync(CancellationToken.None);
 
-        Assert.Equal(["Blog Post", "Home"], result.Data);
+        Assert.Equal(["Blog Post", "Home"], result.Data![Id].Select(u => u.Name));
     }
 
     [Fact]
-    public async Task GetDocumentTypesUsingTemplateAsync_TreeUnreadable_Fails()
+    public async Task GetTemplateUsageAsync_TreeUnreadable_Fails()
     {
         var handler = new RoutingHandler().When(_ => true, HttpStatusCode.Forbidden, "");
 
-        var result = await Wire.Client(handler)
-            .GetDocumentTypesUsingTemplateAsync(Id, CancellationToken.None);
+        var result = await Wire.Client(handler).GetTemplateUsageAsync(CancellationToken.None);
 
         Assert.False(result.IsSuccess);
     }

@@ -195,18 +195,49 @@ public static class SchemaApplier
             }
         }
 
+        // A template is in use while a document type allows it or defaults to it, but not by a
+        // document type this same prune deletes. The usage is read once for every template, and
+        // null when it could not be read (an unknown is not a yes).
+        var prunedDocumentTypes = deletes
+            .Where(o => o.Change.Kind == SchemaKinds.DocumentType)
+            .Select(o => o.Change.CurrentId!.Value)
+            .ToHashSet();
+        IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>? templateUsage = null;
+        if (deletes.Any(o => o.Change.Kind == SchemaKinds.Template))
+        {
+            var usage = await client.GetTemplateUsageAsync(ct);
+            if (usage.IsSuccess)
+                templateUsage = usage.Data;
+        }
+
         foreach (var op in deletes)
         {
             var change = op.Change;
             var reason = change.Kind switch
             {
                 SchemaKinds.Language => InUseGuard.LanguageReason(change.Identity),
+                SchemaKinds.Template => templateUsage is null
+                    ? $"Could not read the document types to check whether template "
+                        + $"'{change.Identity}' is in use."
+                    : InUseGuard.TemplateReason(
+                        change.CurrentId!.Value,
+                        [
+                            .. (
+                                templateUsage.GetValueOrDefault(change.CurrentId!.Value) ?? []
+                            ).Where(u => !prunedDocumentTypes.Contains(u.DocumentTypeId)),
+                        ]
+                    ),
                 SchemaKinds.DictionaryItem => liveChildren is null
                     ? $"Could not read the dictionary tree to check whether '{change.Identity}' "
                         + "has children."
                     : KeptChildren(change, liveChildren, prunedDictionary, movedAway),
                 // The same check the single deletes run, so a prune and a delete agree.
-                _ => await InUseGuard.ReasonAsync(client, change.Kind, change.CurrentId!.Value, ct),
+                _ => await InUseGuard.ReasonAsync(
+                    client,
+                    SchemaKinds.EntityOf(change.Kind),
+                    change.CurrentId!.Value,
+                    ct
+                ),
             };
             if (reason is not null)
                 blocked[op] = reason;

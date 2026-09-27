@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MemberGroups;
@@ -158,7 +157,6 @@ public static class MemberGroupsCommand
         cmd.Add(idArg);
         InUseGuard.Protect(
             cmd,
-            SchemaKinds.MemberGroup,
             idArg,
             "Delete even though the group has members, removing their membership."
         );

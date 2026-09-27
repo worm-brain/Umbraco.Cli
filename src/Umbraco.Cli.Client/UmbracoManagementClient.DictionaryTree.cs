@@ -258,7 +258,7 @@ public sealed partial class UmbracoManagementClient
         // A blank code is rejected rather than filtered out: filtering would let it past the
         // guard to be discarded by Umbraco, which is the behaviour being fixed.
         if (requested.Any(string.IsNullOrWhiteSpace))
-            throw InvalidArgument("A translation's ISO code cannot be empty.");
+            throw new InvalidArgumentException("A translation's ISO code cannot be empty.");
 
         var known = await KnownIsoCodesAsync(ct);
 
@@ -273,7 +273,7 @@ public sealed partial class UmbracoManagementClient
 
         var unknown = requested.Where(c => !known.Contains(c)).ToList();
         if (unknown.Count > 0)
-            throw InvalidArgument(
+            throw new InvalidArgumentException(
                 $"This instance has no language with the ISO code {string.Join(", ", unknown.Select(u => $"'{u}'"))}. "
                     + $"Umbraco would accept the request and discard those translations. "
                     + $"Configured languages: {string.Join(", ", known.Order())}."

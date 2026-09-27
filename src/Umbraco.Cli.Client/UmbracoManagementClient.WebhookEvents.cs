@@ -69,7 +69,7 @@ public sealed partial class UmbracoManagementClient
             return;
 
         if (requested.Any(string.IsNullOrWhiteSpace))
-            throw InvalidArgument("A webhook event alias cannot be empty.");
+            throw new InvalidArgumentException("A webhook event alias cannot be empty.");
 
         var known = await KnownWebhookEventAliasesAsync(ct);
 
@@ -91,7 +91,7 @@ public sealed partial class UmbracoManagementClient
                 ? $"'{u}' (did you mean '{nearest}'?)"
                 : $"'{u}'"
         );
-        throw InvalidArgument(
+        throw new InvalidArgumentException(
             $"Unknown webhook event {string.Join(", ", described)}. Umbraco would save the webhook "
                 + "but never fire it. Run 'umbraco webhook event list' for the valid aliases."
         );

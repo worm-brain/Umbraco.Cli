@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.UserGroups;
@@ -255,26 +254,10 @@ public static class UserGroupsCommand
             Arity = ArgumentArity.OneOrMore,
         };
         cmd.Add(idsArg);
-        InUseGuard.Protect(
+        InUseGuard.ProtectEach(
             cmd,
-            async (parseResult, client, ct) =>
-            {
-                // A reference that does not resolve is left to the delete, which reports it.
-                var ids = await client.ResolveIdsAsync(
-                    EntityKind.UserGroup,
-                    parseResult.GetValue(idsArg)!,
-                    ct
-                );
-                if (!ids.IsSuccess)
-                    return null;
-                var reasons = new List<string>();
-                foreach (var id in ids.Data!)
-                    if (
-                        await InUseGuard.ReasonAsync(client, SchemaKinds.UserGroup, id, ct) is { } r
-                    )
-                        reasons.Add(r);
-                return reasons.Count == 0 ? null : string.Join(" ", reasons);
-            },
+            EntityKind.UserGroup,
+            idsArg,
             "Delete even though the groups have users, taking away what the groups grant them."
         );
         cmd.Destructive(parseResult =>

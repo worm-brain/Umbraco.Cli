@@ -58,38 +58,53 @@ public sealed partial class UmbracoManagementClient
         );
 
     /// <inheritdoc />
-    public async Task<UmbracoResponse<IReadOnlyList<string>>> GetDocumentTypesUsingTemplateAsync(
-        Guid templateId,
-        CancellationToken ct = default
-    )
+    public async Task<
+        UmbracoResponse<IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>>
+    > GetTemplateUsageAsync(CancellationToken ct = default)
     {
-        // No endpoint says what uses a template, so read every document type (in batches) and
-        // keep those that allow it or default to it.
+        // No endpoint says what uses a template, so read every document type once (in batches)
+        // and index them by each template they allow or default to. One read answers for every
+        // template a prune deletes.
         var ids = await GetDocumentTypeIdsAsync(ct);
         if (!ids.IsSuccess)
-            return UmbracoResponse<IReadOnlyList<string>>.FailureFrom(ids);
+            return UmbracoResponse<
+                IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>
+            >.FailureFrom(ids);
 
-        return await GuardedApiAsync<IReadOnlyList<string>>(
+        return await GuardedApiAsync<IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>>(
             ct,
             async () =>
             {
-                var users = new List<string>();
+                var usage = new Dictionary<Guid, List<TemplateUser>>();
                 foreach (var chunk in ids.Data!.Chunk(DocumentTypeBatch))
                 {
                     var batch = await _api.Umbraco.Management.Api.V1.DocumentType.Batch.GetAsync(
                         c => c.QueryParameters.Id = [.. chunk.Select(i => (Guid?)i)],
                         ct
                     );
-                    users.AddRange(
-                        (batch?.Items ?? [])
-                            .Where(t =>
-                                t.DefaultTemplate?.Id == templateId
-                                || (t.AllowedTemplates ?? []).Any(a => a.Id == templateId)
-                            )
-                            .Select(t => t.Name ?? t.Alias ?? t.Id?.ToString() ?? "")
-                    );
+                    foreach (var type in batch?.Items ?? [])
+                    {
+                        var user = new TemplateUser(
+                            type.Id ?? Guid.Empty,
+                            type.Name ?? type.Alias ?? type.Id?.ToString() ?? ""
+                        );
+                        var templates = (type.AllowedTemplates ?? [])
+                            .Select(t => t.Id)
+                            .Append(type.DefaultTemplate?.Id)
+                            .OfType<Guid>()
+                            .Distinct();
+                        foreach (var template in templates)
+                        {
+                            if (!usage.TryGetValue(template, out var list))
+                                usage[template] = list = [];
+                            list.Add(user);
+                        }
+                    }
                 }
-                return users;
+                return usage.ToDictionary(
+                    kv => kv.Key,
+                    kv => (IReadOnlyList<TemplateUser>)kv.Value
+                );
             }
         );
     }

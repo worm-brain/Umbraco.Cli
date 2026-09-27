@@ -32,12 +32,10 @@ public sealed partial class UmbracoManagementClient
                 // A culture-less rename on a variant document means the default language, as it
                 // does for blueprint update (#264); the merge's guard still refuses it when the
                 // document has no variant in that language. Values are left as sent.
-                var variants = NeedsCulture(request.Variants)
-                    ? WithCulture(
-                        request.Variants,
-                        await ExistingItemCultureAsync(document["variants"] as JsonArray, ct)
-                    )
-                    : [.. request.Variants];
+                var variants = await FillCultureAsync(
+                    request.Variants,
+                    () => ExistingItemCultureAsync(document["variants"] as JsonArray, ct)
+                );
                 DocumentUpdateBody.Merge(document, request.Values, variants, replace);
 
                 // Only touch the template when the caller asked for one. Omitting it means "leave

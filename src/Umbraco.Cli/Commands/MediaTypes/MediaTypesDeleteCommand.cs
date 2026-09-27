@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MediaTypes;
@@ -26,12 +25,7 @@ public static class MediaTypesDeleteCommand
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.MediaType);
         cmd.Add(idArg);
-        InUseGuard.Protect(
-            cmd,
-            SchemaKinds.MediaType,
-            idArg,
-            "Delete the media type and every media item of that type."
-        );
+        InUseGuard.Protect(cmd, idArg, "Delete the media type and every media item of that type.");
         cmd.Destructive(parseResult =>
             $"Permanently delete media type {parseResult.GetValue(idArg)}? This cannot be undone."
         );

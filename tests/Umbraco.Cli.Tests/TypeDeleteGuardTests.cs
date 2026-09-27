@@ -269,7 +269,7 @@ public class TypeDeleteGuardTests
     public async Task TemplateDelete_UsedByADocumentType_IsRefusedNamingIt()
     {
         var fake = new FakeUmbracoManagementClient();
-        fake.TemplateUsers[TypeId] = ["Blog Post"];
+        fake.TemplateUsers[TypeId] = [new TemplateUser(Guid.NewGuid(), "Blog Post")];
 
         var (exit, stderr) = await Run(fake, $"template delete {TypeId} --yes");
 

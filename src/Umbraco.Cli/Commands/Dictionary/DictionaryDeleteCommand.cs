@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Dictionary;
@@ -23,7 +22,6 @@ public static class DictionaryDeleteCommand
         cmd.Add(idArg);
         InUseGuard.Protect(
             cmd,
-            SchemaKinds.DictionaryItem,
             idArg,
             "Delete even though the item has child items, deleting them and their translations too."
         );

@@ -11,13 +11,17 @@ namespace Umbraco.Cli.Client;
 /// request still sees one. The command layer's twin, for input the CLI refuses before calling the
 /// client, is <c>Umbraco.Cli.Commands.InvalidInputException</c>.
 /// </summary>
-public sealed class InvalidArgumentException : ApiException
+public class InvalidArgumentException : ApiException
 {
     /// <summary>Creates the exception.</summary>
     /// <param name="message">What was wrong with the input, and how to fix it.</param>
-    public InvalidArgumentException(string message)
+    /// <param name="status">
+    /// The HTTP status it stands for, kept for code that tests for one (400 by default; 404/409
+    /// for <see cref="UnresolvedReferenceException"/>). The request guard reports no status.
+    /// </param>
+    public InvalidArgumentException(string message, int status = 400)
         : base(message)
     {
-        ResponseStatusCode = 400;
+        ResponseStatusCode = status;
     }
 }

@@ -112,7 +112,8 @@ public class CreateCultureDefaultWireTests
         var result = await Wire.Client(handler)
             .CreateContentAsync(ContentRequest(), CancellationToken.None);
 
-        Assert.Equal(400, result.StatusCode);
+        // The caller can fix it by passing --culture, so it is invalid_argument (#280).
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains("--culture", result.ErrorMessage);
         handler.AssertNoRequest(HttpMethod.Post, "/document");
     }

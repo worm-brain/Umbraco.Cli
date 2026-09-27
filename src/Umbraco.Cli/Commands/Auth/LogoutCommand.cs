@@ -47,14 +47,11 @@ public static class LogoutCommand
                 // (#83); otherwise the profile is removed, and the file when it was the last.
                 var where = string.IsNullOrWhiteSpace(profile) ? "" : $" (profile '{profile}')";
 
-                // Read what was saved before it goes: the cached tokens are keyed by its host and
-                // client id, and a token left behind stays usable until it expires.
-                var stored = store.StoredProfile(profile);
-                var outcome = store.Logout(profile);
-                if (
-                    outcome is not ConfigStore.LogoutOutcome.NothingToRemove
-                    && stored is { Host: { Length: > 0 } host, ClientId: { Length: > 0 } clientId }
-                )
+                // The removed profile is what was saved (no UMBRACO_* overrides). Its cached tokens
+                // are keyed by its host and client id, and one left behind stays usable until it
+                // expires.
+                var (outcome, removed) = store.Logout(profile);
+                if (removed is { Host: { Length: > 0 } host, ClientId: { Length: > 0 } clientId })
                     authService.ForgetCachedTokens(host, clientId);
 
                 switch (outcome)

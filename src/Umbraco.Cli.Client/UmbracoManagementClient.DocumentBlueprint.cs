@@ -110,12 +110,10 @@ public sealed partial class UmbracoManagementClient
 
                 // As for content create (#228): a culture-less variant on a type that varies by
                 // culture gets the default language.
-                var variants = NeedsCulture(request.Variants)
-                    ? WithCulture(
-                        request.Variants,
-                        await DocumentTypeCultureAsync(documentTypeId, ct)
-                    )
-                    : request.Variants;
+                var variants = await FillCultureAsync(
+                    request.Variants,
+                    () => DocumentTypeCultureAsync(documentTypeId, ct)
+                );
 
                 var body = new Gen.CreateDocumentBlueprintRequestModel
                 {
@@ -269,12 +267,10 @@ public sealed partial class UmbracoManagementClient
                     ?? throw new ApiException("The blueprint body was not a JSON object.");
                 // A culture-less rename on a variant blueprint means the default language
                 // (#228); the merge's guard still refuses it when that language is missing.
-                var variants = NeedsCulture(request.Variants)
-                    ? WithCulture(
-                        request.Variants,
-                        await ExistingItemCultureAsync(blueprint["variants"] as JsonArray, ct)
-                    )
-                    : [.. request.Variants];
+                var variants = await FillCultureAsync(
+                    request.Variants,
+                    () => ExistingItemCultureAsync(blueprint["variants"] as JsonArray, ct)
+                );
                 DocumentUpdateBody.Merge(blueprint, request.Values, variants, replace);
                 await SendRawJsonAsync(Method.PUT, path, blueprint, ct);
                 return Empty.Value;

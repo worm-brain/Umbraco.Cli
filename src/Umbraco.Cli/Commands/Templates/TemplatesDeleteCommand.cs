@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Schema;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
@@ -24,7 +23,6 @@ public static class TemplatesDeleteCommand
         cmd.Add(idArg);
         InUseGuard.Protect(
             cmd,
-            SchemaKinds.Template,
             idArg,
             "Delete even though document types use the template, leaving them without it."
         );

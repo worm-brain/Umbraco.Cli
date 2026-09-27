@@ -26,10 +26,9 @@ public static class LanguagesDeleteCommand
             Description = "The language's ISO code (e.g. en-US, fr-FR).",
         };
         cmd.Add(isoArg);
-        InUseGuard.Protect(
+        InUseGuard.RequireForce(
             cmd,
-            (parseResult, _, _) =>
-                Task.FromResult<string?>(InUseGuard.LanguageReason(parseResult.GetValue(isoArg)!)),
+            parseResult => InUseGuard.LanguageReason(parseResult.GetValue(isoArg)!),
             "Delete the language, and every culture variant and dictionary translation in it."
         );
         cmd.Destructive(parseResult =>

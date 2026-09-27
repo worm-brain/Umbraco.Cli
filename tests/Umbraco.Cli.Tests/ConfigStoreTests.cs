@@ -127,7 +127,7 @@ public class ConfigStoreTests : IDisposable
             }
         );
 
-        var outcome = Store.Logout();
+        var (outcome, _) = Store.Logout();
 
         Assert.Equal(ConfigStore.LogoutOutcome.CredentialsClearedAllowListKept, outcome);
         var after = Store.Load();
@@ -149,7 +149,7 @@ public class ConfigStoreTests : IDisposable
             }
         );
 
-        var outcome = Store.Logout();
+        var (outcome, _) = Store.Logout();
 
         Assert.Equal(ConfigStore.LogoutOutcome.Removed, outcome);
         Assert.False(Store.HasAnyProfiles);
