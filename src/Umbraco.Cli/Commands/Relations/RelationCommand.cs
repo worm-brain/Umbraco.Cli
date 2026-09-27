@@ -16,7 +16,7 @@ public static class RelationCommand
     {
         var cmd = new Command(
             "relation",
-            "List relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relationTypeId>"
+            "List relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relation-type-id>"
         );
         cmd.Add(BuildList(executor));
         return cmd;

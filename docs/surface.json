@@ -856,7 +856,7 @@
         },
         {
           "name": "sort",
-          "description": "Sort a parent's child content items, in the order given or by a field.\n\nWith --order the first id goes to the top.\n\nExamples:\n  umbraco content sort --parent 1a2b3c4d-... --order 3f7a...,9c4d...,2e6f...\n  umbraco content sort --parent 1a2b3c4d-... --by publishDate --desc   # newest first\n  umbraco content sort --by name   # the content root, A to Z",
+          "description": "Sort a parent's child content items, in the order given or by a field.\n\nWith --order the first id goes to the top.\n\nExamples:\n  umbraco content sort --parent 1a2b3c4d-... --order 3f7a8b2e-...,9c4d1e2f-...,2e6f3a4b-...\n  umbraco content sort --parent 1a2b3c4d-... --by publishDate --desc   # newest first\n  umbraco content sort --by name   # the content root, A to Z",
           "arguments": [],
           "options": [
             {
@@ -1597,7 +1597,7 @@
         },
         {
           "name": "sort",
-          "description": "Sort a folder's child media items, in the order given or by a field.\n\nWith --order the first id goes to the top.\n\nExamples:\n  umbraco media sort --parent 1a2b3c4d-... --order 3f7a...,9c4d...,2e6f...\n  umbraco media sort --parent 1a2b3c4d-... --by name\n  umbraco media sort --by createDate --desc   # the media root, newest first",
+          "description": "Sort a folder's child media items, in the order given or by a field.\n\nWith --order the first id goes to the top.\n\nExamples:\n  umbraco media sort --parent 1a2b3c4d-... --order 3f7a8b2e-...,9c4d1e2f-...,2e6f3a4b-...\n  umbraco media sort --parent 1a2b3c4d-... --by name\n  umbraco media sort --by createDate --desc   # the media root, newest first",
           "arguments": [],
           "options": [
             {
@@ -3451,7 +3451,7 @@
     },
     {
       "name": "user",
-      "description": "Manage Umbraco backoffice users (not front-end members).\n\nExamples:\n  umbraco user list\n  umbraco user invite --email editor@example.com --name \"John Smith\"\n  umbraco user get <id>",
+      "description": "Manage Umbraco backoffice users (not front-end members).\n\nExamples:\n  umbraco user list\n  umbraco user invite --email editor@example.com --name \"John Smith\" --group editor\n  umbraco user get <id>",
       "arguments": [],
       "options": [],
       "commands": [
@@ -6243,7 +6243,7 @@
     },
     {
       "name": "relation",
-      "description": "List relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relationTypeId>",
+      "description": "List relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relation-type-id>",
       "arguments": [],
       "options": [],
       "commands": [
