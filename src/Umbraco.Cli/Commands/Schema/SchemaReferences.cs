@@ -14,7 +14,18 @@ namespace Umbraco.Cli.Commands.Schema;
 /// element. Null when each element of <paramref name="Array"/> is itself the reference.
 /// </param>
 /// <param name="Kind">What the reference names.</param>
-public sealed record SchemaReference(string? Array, string? Field, EntityKind Kind);
+public sealed record SchemaReference(string? Array, string? Field, EntityKind Kind)
+{
+    /// <summary>
+    /// For an <see cref="Array"/> of objects that hold the reference in <see cref="Field"/>: builds
+    /// the whole element from a reference given in place of the element (a bare name, a bare id,
+    /// or <c>{ "id": ... }</c>) and the element's index, e.g.
+    /// <c>"allowedDocumentTypes": ["blogPost"]</c> becomes
+    /// <c>[{ "documentType": { "id": "..." }, "sortOrder": 0 }]</c> (#357). Null when the elements
+    /// must be written out in full; a bare reference there is refused before anything is written.
+    /// </summary>
+    public Func<JsonObject, int, JsonObject>? FromBare { get; init; }
+}
 
 /// <summary>
 /// Makes a hand-written snapshot workable before it is diffed (#198). A snapshot from
@@ -351,6 +362,18 @@ public static class SchemaReferences
                     array[i] = item;
                 continue;
             }
+            if (IsBareReference(array[i], reference))
+            {
+                array[i] = await ExpandBareAsync(
+                    array[i]!,
+                    i,
+                    reference,
+                    $"{where}: {reference.Array}[{i}]",
+                    resolver,
+                    ct
+                );
+                continue;
+            }
             if (
                 array[i] is JsonObject element
                 && await RewriteAsync(
@@ -364,6 +387,64 @@ public static class SchemaReferences
             )
                 element[reference.Field] = value;
         }
+    }
+
+    /// <summary>
+    /// Whether an array element is a reference given in place of the object that should hold it
+    /// in <paramref name="reference"/>'s field: any bare value (a string, or a number that can
+    /// never be right), or, where the location builds elements from a bare reference, an object
+    /// with an <c>id</c> and no such field. Elsewhere an object with an <c>id</c> is an element of
+    /// its own (a property has its own id), so it is left to the normal path, as are null elements.
+    /// </summary>
+    /// <param name="element">The array element.</param>
+    /// <param name="reference">The reference location.</param>
+    /// <returns>True when the element must be expanded, or refused.</returns>
+    private static bool IsBareReference(JsonNode? element, SchemaReference reference) =>
+        element is JsonValue
+        || reference.FromBare is not null
+            && element is JsonObject o
+            && !o.ContainsKey(reference.Field!)
+            && o.ContainsKey("id");
+
+    /// <summary>
+    /// Replaces a bare reference element with the full element the API takes, through
+    /// <see cref="SchemaReference.FromBare"/>, resolving a name first. This runs in the pre-write
+    /// pass, so a shape the API would refuse fails the diff or apply before anything is written,
+    /// rather than halfway through an apply (#357).
+    /// </summary>
+    /// <param name="element">The bare element.</param>
+    /// <param name="index">Its index in the array.</param>
+    /// <param name="reference">The reference location, with its element builder.</param>
+    /// <param name="where">Where the element is, for errors.</param>
+    /// <param name="resolver">The name resolver.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The full element.</returns>
+    /// <exception cref="InvalidInputException">
+    /// The location takes no bare reference, the element is neither a name nor an id, or a name
+    /// resolves to nothing or to several items.
+    /// </exception>
+    private static async Task<JsonNode> ExpandBareAsync(
+        JsonNode element,
+        int index,
+        SchemaReference reference,
+        string where,
+        Resolver resolver,
+        CancellationToken ct
+    )
+    {
+        var isReference =
+            NameIn(element) is not null
+            || GuidOf(element is JsonObject o ? o["id"] : element) is not null;
+        if (reference.FromBare is null || !isReference)
+            throw new InvalidInputException(
+                $"{where} must be an object with a '{reference.Field}' field naming the "
+                    + $"{reference.Kind.Noun()}, e.g. {{ \"{reference.Field}\": \"<alias or id>\" }}."
+            );
+        // A name is resolved and a bare id wrapped; an { "id": "<guid>" } is already the shape.
+        var idRef = (JsonObject)(
+            await RewriteAsync(element, reference.Kind, where, resolver, ct) ?? element.DeepClone()
+        );
+        return reference.FromBare(idRef, index);
     }
 
     /// <summary>
@@ -454,19 +535,90 @@ public static class SchemaReferences
             if (_cache.TryGetValue((kind, name.ToLowerInvariant()), out var cached))
                 return cached;
 
-            var id =
-                FromSnapshot(kind, name, where) ?? await FromInstanceAsync(kind, name, where, ct);
+            var (snapshotId, byKey) = FromSnapshot(kind, name, where);
+            var id = snapshotId switch
+            {
+                null => await FromInstanceAsync(kind, name, where, ct),
+                // The snapshot's key (an alias, or a data type's name) is the entry's own identity.
+                _ when byKey => snapshotId.Value,
+                // Only a snapshot entry's display name matched: the instance may hold something
+                // else under that alias or name (#359).
+                _ => await CheckNameMatchAsync(kind, name, where, snapshotId.Value, ct),
+            };
             _cache[(kind, name.ToLowerInvariant())] = id;
             return id;
         }
 
-        /// <summary>The id of the snapshot entry the name matches, or null when none does.</summary>
+        /// <summary>
+        /// Checks a reference that matched a snapshot entry by its display name only against the
+        /// instance: when the instance resolves the same reference (by alias, then name) to an item
+        /// the snapshot does not hold, the reference names two things and is refused, rather than
+        /// the snapshot's name silently shadowing a live alias (#359). A live item the snapshot
+        /// also holds is described by the snapshot, so it does not count.
+        /// </summary>
         /// <param name="kind">What it names.</param>
         /// <param name="name">The name.</param>
         /// <param name="where">Where it is, for errors.</param>
-        /// <returns>The id, or null.</returns>
+        /// <param name="snapshotId">The id of the snapshot entry the name matched.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns><paramref name="snapshotId"/>, when the reference is not ambiguous.</returns>
+        /// <exception cref="InvalidInputException">The instance holds another item it names.</exception>
+        /// <exception cref="ResolveFailedException">The instance could not be asked.</exception>
+        private async Task<Guid> CheckNameMatchAsync(
+            EntityKind kind,
+            string name,
+            string where,
+            Guid snapshotId,
+            CancellationToken ct
+        )
+        {
+            var live = await client.ResolveIdAsync(kind, name, ct);
+            if (!live.IsSuccess)
+                return IsBadName(live)
+                    ? snapshotId
+                    : throw new ResolveFailedException(UmbracoResponse<Empty>.FailureFrom(live));
+            if (live.Data == snapshotId || SnapshotIds(kind).Contains(live.Data))
+                return snapshotId;
+            throw new InvalidInputException(
+                $"{where} names {kind.Noun()} '{name}', which is ambiguous: it is the name of the "
+                    + $"snapshot's entry {snapshotId}, and on the instance it names {live.Data}. "
+                    + "Use the alias or the id of the one you mean."
+            );
+        }
+
+        /// <summary>The ids of the snapshot's entries of a kind.</summary>
+        /// <param name="kind">The kind.</param>
+        /// <returns>The ids.</returns>
+        private HashSet<Guid> SnapshotIds(EntityKind kind) =>
+            [
+                .. (SchemaKinds.All.FirstOrDefault(k => k.Entity == kind)?.Section(desired) ?? [])
+                    .Select(e => GuidOf(e["id"]))
+                    .OfType<Guid>(),
+            ];
+
+        /// <summary>
+        /// Whether a failed resolver call is a bad name (nothing, or several items, match) rather
+        /// than an instance that could not be asked. The real resolver reports it as
+        /// invalid_argument with no HTTP status (GuardedApiAsync); a 404/409 is the same answer.
+        /// </summary>
+        /// <param name="resolved">The failed call.</param>
+        /// <returns>True for a bad name.</returns>
+        private static bool IsBadName(UmbracoResponse<Guid> resolved) =>
+            resolved.Category == FailureCategory.InvalidArgument
+            || resolved.StatusCode is 404 or 409;
+
+        /// <summary>
+        /// The id of the snapshot entry the name matches, by the kind's key first, then by name.
+        /// </summary>
+        /// <param name="kind">What it names.</param>
+        /// <param name="name">The name.</param>
+        /// <param name="where">Where it is, for errors.</param>
+        /// <returns>
+        /// The id, or null when no entry matches; and whether it matched by the kind's key rather
+        /// than by display name.
+        /// </returns>
         /// <exception cref="InvalidInputException">It matches several entries, or one with no id.</exception>
-        private Guid? FromSnapshot(EntityKind kind, string name, string where)
+        private (Guid? Id, bool ByKey) FromSnapshot(EntityKind kind, string name, string where)
         {
             var spec = SchemaKinds.All.FirstOrDefault(k => k.Entity == kind);
             var entries = (spec?.Section(desired) ?? []).OfType<JsonObject>().ToList();
@@ -477,21 +629,25 @@ public static class SchemaReferences
                     ),
                 ];
             var matches = Matching(spec?.KeyField ?? "name");
-            if (matches.Count == 0)
+            var byKey = matches.Count > 0;
+            if (!byKey)
                 matches = Matching("name");
             if (matches.Count == 0)
-                return null;
+                return (null, false);
             if (matches.Count > 1)
                 throw new InvalidInputException(
                     $"{where} names {kind.Noun()} '{name}', which matches {matches.Count} "
                         + $"entries in the snapshot. Use its id."
                 );
             // An entry is left without an id only when its key matches several live items.
-            return GuidOf(matches[0]["id"])
-                ?? throw new InvalidInputException(
-                    $"{where} names {kind.Noun()} '{name}', which matches more than one "
-                        + $"{kind.Noun()} on the instance. Use its id."
-                );
+            return (
+                GuidOf(matches[0]["id"])
+                    ?? throw new InvalidInputException(
+                        $"{where} names {kind.Noun()} '{name}', which matches more than one "
+                            + $"{kind.Noun()} on the instance. Use its id."
+                    ),
+                byKey
+            );
         }
 
         /// <summary>The id of the live item the name matches.</summary>
@@ -512,13 +668,8 @@ public static class SchemaReferences
             var resolved = await client.ResolveIdAsync(kind, name, ct);
             if (resolved.IsSuccess)
                 return resolved.Data;
-            // The real resolver reports a name that matches nothing (or several items) as
-            // invalid_argument with no HTTP status (GuardedApiAsync), not as a 404/409; both
-            // shapes are a bad name in the snapshot, never an unreachable instance.
-            if (
-                resolved.Category == FailureCategory.InvalidArgument
-                || resolved.StatusCode is 404 or 409
-            )
+            // A bad name in the snapshot, never an unreachable instance.
+            if (IsBadName(resolved))
                 throw new InvalidInputException(
                     $"{where} names {kind.Noun()} '{name}', which is not in the snapshot, and the "
                         + $"instance answered: {resolved.ErrorMessage}"

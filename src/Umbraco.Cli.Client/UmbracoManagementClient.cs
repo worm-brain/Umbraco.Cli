@@ -227,9 +227,16 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     private readonly HashSet<Guid> _documentTypeAliasesRead = [];
 
     /// <summary>
-    /// Resolves a document-type reference - an alias (e.g. <c>textPage</c>) or a GUID id - to
-    /// its id, which is what the generated create model requires. A value that parses as a GUID
-    /// is used directly.
+    /// Every document type read by-id so far, as a match candidate (id, alias, name): the name
+    /// fallback in <see cref="FindDocumentTypeIdAsync"/> matches on these once no alias did (#358).
+    /// </summary>
+    private readonly List<ReferenceCandidate> _documentTypeCandidates = [];
+
+    /// <summary>
+    /// Resolves a document-type reference - an alias (e.g. <c>textPage</c>), a name (e.g.
+    /// <c>Text Page</c>) or a GUID id - to its id, which is what the generated create model
+    /// requires. A value that parses as a GUID is used directly. An alias wins over a name; a name
+    /// is only matched once no type has the alias, and a name two types share is refused (#358).
     /// </summary>
     /// <remarks>
     /// An alias is resolved by walking the document-type <em>tree</em> and comparing the alias on
@@ -247,7 +254,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="aliasOrId">The document-type alias or id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved document-type id.</returns>
-    /// <exception cref="ApiException">No document type matches the alias (mapped to a 404).</exception>
+    /// <exception cref="ApiException">
+    /// No document type has the alias or name (404), or the name belongs to several (409).
+    /// </exception>
     private async Task<Guid> FindDocumentTypeIdAsync(string aliasOrId, CancellationToken ct)
     {
         // Already resolved (or seen while resolving something else) on this client instance.
@@ -267,15 +276,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 .GetAsync(cancellationToken: ct);
             if (dt?.Alias is { } alias)
                 _documentTypeAliases[alias] = candidateId;
+            _documentTypeCandidates.Add(new ReferenceCandidate(candidateId, dt?.Alias, dt?.Name));
             if (string.Equals(dt?.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase))
                 return candidateId;
         }
 
-        throw new UnresolvedReferenceException(
-            $"No document type found with alias '{aliasOrId}'. Use 'umbraco document-type list' "
-                + "to find one, or pass a document type id.",
-            404
-        );
+        // Every type has now been read and none has the alias, so fall back to the name, as
+        // conventions 3.2 and every other type kind do (#358). Pick raises the 404 (no match) or
+        // the 409 (a name two types share) with the kind's usual wording.
+        return ReferenceMatch.Pick(EntityKind.DocumentType, aliasOrId, _documentTypeCandidates);
     }
 
     /// <summary>

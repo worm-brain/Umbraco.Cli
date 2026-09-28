@@ -2442,7 +2442,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The document type's id, or its alias.",
+              "description": "The document type's id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -2578,7 +2578,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The document type's id, or its alias. Required unless --schema or --example is used.",
+              "description": "The document type's id, or its alias or name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2648,7 +2648,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The document type's id, or its alias.",
+              "description": "The document type's id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -8663,7 +8663,7 @@
             {
               "name": "--document-type",
               "aliases": [],
-              "description": "The document type the property belongs to: its id, or its alias.",
+              "description": "The document type the property belongs to: its id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false

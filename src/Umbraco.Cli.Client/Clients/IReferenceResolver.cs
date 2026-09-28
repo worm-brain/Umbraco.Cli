@@ -59,7 +59,7 @@ public static class EntityKindText
         kind switch
         {
             EntityKind.Template => ("template", "alias or name", "template list"),
-            EntityKind.DocumentType => ("document type", "alias", "document-type list"),
+            EntityKind.DocumentType => ("document type", "alias or name", "document-type list"),
             EntityKind.MediaType => ("media type", "alias or name", "media-type list"),
             EntityKind.MemberType => ("member type", "alias", "member-type list"),
             EntityKind.DataType => ("data type", "name", "data-type list"),

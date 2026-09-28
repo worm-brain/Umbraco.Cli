@@ -180,7 +180,10 @@ public static class SchemaKinds
             References =
             [
                 .. TypeReferences("documentType", EntityKind.DocumentType),
-                new("allowedDocumentTypes", "documentType", EntityKind.DocumentType),
+                new("allowedDocumentTypes", "documentType", EntityKind.DocumentType)
+                {
+                    FromBare = SortedBy("documentType"),
+                },
                 new("allowedTemplates", null, EntityKind.Template),
                 new(null, "defaultTemplate", EntityKind.Template),
             ],
@@ -203,7 +206,10 @@ public static class SchemaKinds
             References =
             [
                 .. TypeReferences("mediaType", EntityKind.MediaType),
-                new("allowedMediaTypes", "mediaType", EntityKind.MediaType),
+                new("allowedMediaTypes", "mediaType", EntityKind.MediaType)
+                {
+                    FromBare = SortedBy("mediaType"),
+                },
             ],
         },
         TypeKind(
@@ -530,8 +536,22 @@ public static class SchemaKinds
         [
             new("properties", "dataType", EntityKind.DataType),
             new(null, "collection", EntityKind.DataType),
-            new("compositions", self, kind),
+            new("compositions", self, kind)
+            {
+                // A bare composition is the ordinary kind; inheritance is always written out.
+                FromBare = (id, _) =>
+                    new JsonObject { [self] = id, ["compositionType"] = "Composition" },
+            },
         ];
+
+    /// <summary>
+    /// Builds an allowed-child element (<c>allowedDocumentTypes</c>, <c>allowedMediaTypes</c>)
+    /// from a bare reference: the type, sorted by its place in the list (#357).
+    /// </summary>
+    /// <param name="field">The field the element names its type by.</param>
+    /// <returns>The element builder.</returns>
+    private static Func<JsonObject, int, JsonObject> SortedBy(string field) =>
+        (id, index) => new JsonObject { [field] = id, ["sortOrder"] = index };
 
     /// <summary>The delete target of a removed id-keyed entity: its live id, named by its identity.</summary>
     /// <param name="entity">The client entity kind.</param>

@@ -102,6 +102,63 @@ public class ReferenceResolverWireTests
         Assert.Equal(Brochure, result.Data);
     }
 
+    private static readonly Guid TextPage = Guid.Parse("22222222-0000-0000-0000-000000000002");
+    private static readonly Guid Landing = Guid.Parse("22222222-0000-0000-0000-000000000003");
+    private static readonly Guid Other = Guid.Parse("22222222-0000-0000-0000-000000000004");
+
+    /// <summary>
+    /// Three document types: "Text Page" (textPage), "Landing" (landing), and one named "landing"
+    /// by display name only, whose alias is "other".
+    /// </summary>
+    private static RoutingHandler DocumentTypes() =>
+        Wire.Routed(
+            (
+                "tree/document-type/root",
+                $$"""{"total":3,"items":[{"id":"{{TextPage}}","name":"Text Page","isFolder":false},{"id":"{{Landing}}","name":"Landing","isFolder":false},{"id":"{{Other}}","name":"landing","isFolder":false}]}"""
+            ),
+            (
+                $"document-type/{TextPage}",
+                $$"""{"id":"{{TextPage}}","alias":"textPage","name":"Text Page"}"""
+            ),
+            (
+                $"document-type/{Landing}",
+                $$"""{"id":"{{Landing}}","alias":"landing","name":"Landing"}"""
+            ),
+            ($"document-type/{Other}", $$"""{"id":"{{Other}}","alias":"other","name":"landing"}""")
+        );
+
+    [Theory]
+    [InlineData("textPage")] // the alias
+    [InlineData("text page")] // the name, ignoring case (#358)
+    public async Task ResolveIdAsync_DocumentTypeByAliasOrName_Resolves(string reference)
+    {
+        var result = await Wire.Client(DocumentTypes())
+            .ResolveIdAsync(EntityKind.DocumentType, reference);
+
+        Assert.Equal(TextPage, result.Data);
+    }
+
+    [Fact]
+    public async Task ResolveIdAsync_DocumentTypeAliasThatIsAlsoAName_PrefersTheAlias()
+    {
+        var result = await Wire.Client(DocumentTypes())
+            .ResolveIdAsync(EntityKind.DocumentType, "landing");
+
+        Assert.Equal(Landing, result.Data);
+    }
+
+    [Fact]
+    public async Task ResolveIdAsync_UnknownDocumentType_IsInvalidArgumentNamingTheListCommand()
+    {
+        var result = await Wire.Client(DocumentTypes())
+            .ResolveIdAsync(EntityKind.DocumentType, "nope");
+
+        Assert.Equal(
+            (FailureCategory.InvalidArgument, true),
+            (result.Category, result.ErrorMessage!.Contains("umbraco document-type list"))
+        );
+    }
+
     [Fact]
     public async Task GetMediaTypesAsync_FillsTheAlias()
     {

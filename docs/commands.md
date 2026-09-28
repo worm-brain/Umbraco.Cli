@@ -1038,6 +1038,9 @@ umbraco imaging resize-urls <id>... [--width <px>] [--height <px>] [--mode <Crop
 umbraco property-type is-used --document-type <id|alias> --alias <alias>
 ```
 
+An `--alias` that neither the type nor its compositions has fails with `invalid_argument`,
+listing the aliases it does have, rather than answering `false`.
+
 ## `schema` (export / diff / apply)
 
 Dump the site's **schema** - document types, media types, member types, data types,
@@ -1068,9 +1071,15 @@ How it works:
     `{ "id": "..." }`: a property's `dataType`, a type's `collection`, `compositions`,
     `allowedDocumentTypes` / `allowedMediaTypes`, `allowedTemplates` and `defaultTemplate`, a
     template's `masterTemplate`, a dictionary item's `parent`, and a user group permission's
-    `documentType`. A name is looked up in the snapshot first (so a snapshot can create a data
-    type and use it), then on the instance, by alias then name, ignoring case - the same rules
-    as every `<id>` argument.
+    `documentType`. In `compositions` the reference is the item's `documentType` / `mediaType` /
+    `memberType`, in `allowedDocumentTypes` / `allowedMediaTypes` its `documentType` /
+    `mediaType`. Those three lists also take the bare reference as the whole item
+    (`"allowedDocumentTypes": ["blogPost"]`): an allowed type gets its place in the list as its
+    `sortOrder`, a composition is a `Composition`. A permission must be written out in full. A name
+    is looked up in the snapshot first (so a snapshot can create a data type and use it), then on
+    the instance, by alias then name, ignoring case - the same rules as every `<id>` argument. A
+    name that is only a snapshot entry's display name, while the instance holds another item under
+    it, is ambiguous.
   - **Ids may be left out.** An entity, property or container without an `id` takes the id of the
     live one it matches (an entity by its key, a property by alias, a container by type, name and
     parent), or a new one. Reusing the live id matters: a property sent with a new id would be a
@@ -1126,8 +1135,9 @@ How it works:
   block list/grid rendering finds by convention, so check those yourself.
 
 - **In-use prunes are refused** - before the first write, `--prune` checks every item it would
-  delete. A data type still in use, a member type with members, any document or media type
-  (Umbraco cannot say how many items use one), any language (its content variants and dictionary
+  delete. A data type still in use, a member type with members, a document or media type that
+  has items (the recycle bin counted), is a composition of another type, or is an element type
+  (block content can use it, and Umbraco does not say where), any language (its content variants and dictionary
   translations go with it), and a dictionary item with children the snapshot keeps under it
   (not ones this apply moves elsewhere) are refused
   unless `--force` is given, and then nothing at all is applied. `--dry-run` shows those deletes
