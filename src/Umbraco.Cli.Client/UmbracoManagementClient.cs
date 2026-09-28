@@ -1351,24 +1351,30 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
     /// <summary>
     /// Restores a media item from the recycle bin via <c>PUT recycle-bin/media/{id}/restore</c>
-    /// (issue #67). A null parent restores to the media root.
+    /// (issue #67), to its original parent by default (#265). A refusal is reworded by
+    /// <see cref="ExplainPlacementRefusal"/> to name where it was going, keeping Umbraco's body as
+    /// the error's <c>details</c> (#395).
     /// </summary>
     /// <param name="id">The trashed media item id.</param>
-    /// <param name="parentId">Target parent to restore under; null restores to the root.</param>
+    /// <param name="target">Where to restore to; null means <see cref="RestoreTarget.Original"/>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> RestoreMediaAsync(
+    public async Task<UmbracoResponse<Empty>> RestoreMediaAsync(
         Guid id,
         RestoreTarget? target = null,
         CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
+    )
+    {
+        target ??= RestoreTarget.Original;
+        // Resolved inside the guarded call (the original parent is a server read) and kept here so
+        // a refusal can say where the item was going.
+        Guid? parentId = null;
+        var response = await GuardedApiAsync(
             ct,
             async () =>
             {
                 var bin = _api.Umbraco.Management.Api.V1.RecycleBin.Media[id];
-                // The original parent by default, the way content restore works (#265).
-                var parentId = (target ?? RestoreTarget.Original) switch
+                parentId = target switch
                 {
                     RestoreTarget.UnderParent under => under.Id,
                     RestoreTarget.ContentRoot => (Guid?)null,
@@ -1382,6 +1388,27 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return Empty.Value;
             }
         );
+        return ExplainPlacementRefusal(
+            response,
+            "restore",
+            id,
+            parentId,
+            media: true,
+            note: RestoreNote(target, parentId)
+        );
+    }
+
+    /// <summary>
+    /// The note a restore refusal adds to where the item was going: <c>(its original parent)</c>
+    /// or <c>(where it was)</c> when it was going back where it came from, otherwise nothing.
+    /// </summary>
+    /// <param name="target">The requested restore target.</param>
+    /// <param name="parentId">The resolved parent; null for the root.</param>
+    /// <returns>The note, or null for an explicit target.</returns>
+    private static string? RestoreNote(RestoreTarget target, Guid? parentId) =>
+        target is not RestoreTarget.OriginalParent ? null
+        : parentId is null ? "(where it was)"
+        : "(its original parent)";
 
     /// <summary>Empties the media recycle bin via <c>DELETE recycle-bin/media</c> (issue #67). Irreversible.</summary>
     /// <param name="ct">Cancellation token.</param>

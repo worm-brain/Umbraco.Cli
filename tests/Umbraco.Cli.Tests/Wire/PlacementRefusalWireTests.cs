@@ -169,6 +169,53 @@ public class PlacementRefusalWireTests
         Assert.StartsWith("Parent not found (ParentNotFound)", result.ErrorMessage);
     }
 
+    // ── media restore (#395) ─────────────────────────────────────────────────────
+
+    /// <summary>Restores media <see cref="Item"/> to its original parent (<see cref="Parent"/>) against a server that refuses the restore.</summary>
+    /// <param name="body">The 400 body.</param>
+    /// <returns>The client's response.</returns>
+    private static Task<UmbracoResponse<Empty>> RestoreMediaRefused(string body) =>
+        Wire.Client(
+                new RoutingHandler()
+                    .When(
+                        r => r.RequestUri!.AbsolutePath.EndsWith("/original-parent"),
+                        HttpStatusCode.OK,
+                        $$"""{ "id": "{{Parent}}" }"""
+                    )
+                    .When(_ => true, HttpStatusCode.BadRequest, body)
+            )
+            .RestoreMediaAsync(Item, ct: CancellationToken.None);
+
+    [Fact]
+    public async Task RestoreMediaAsync_NotAllowed_NamesTheOriginalParentAndTheMediaTypeCheck()
+    {
+        var result = await RestoreMediaRefused(NotAllowed);
+
+        Assert.Matches(
+            $"^Umbraco would not restore {Item} under {Parent} \\(its original parent\\): "
+                + "Operation not permitted.*'media-type get <id>'",
+            result.ErrorMessage
+        );
+    }
+
+    [Fact]
+    public async Task RestoreMediaAsync_NotAllowed_KeepsUmbracosBodyAsTheDetails()
+    {
+        var result = await RestoreMediaRefused(NotAllowed);
+
+        Assert.Equal("NotAllowed", result.Details?["operationStatus"]?.ToString());
+    }
+
+    [Fact]
+    public async Task RestoreMediaAsync_OtherRejection_IsLeftAsUmbracoSaidIt()
+    {
+        var result = await RestoreMediaRefused(
+            """{"title":"Parent not found","status":400,"operationStatus":"ParentNotFound"}"""
+        );
+
+        Assert.StartsWith("Parent not found (ParentNotFound)", result.ErrorMessage);
+    }
+
     // ── sort ────────────────────────────────────────────────────────────────────
 
     /// <summary>One page holding the given children.</summary>

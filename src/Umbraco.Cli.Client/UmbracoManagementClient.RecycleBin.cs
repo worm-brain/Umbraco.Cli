@@ -78,12 +78,13 @@ public sealed partial class UmbracoManagementClient
             }
         );
 
-        var original = target is RestoreTarget.OriginalParent;
-        var note =
-            !original ? null
-            : parentId is null ? "(where it was)"
-            : "(its original parent)";
-        return ExplainPlacementRefusal(response, "restore", id, parentId, note: note);
+        return ExplainPlacementRefusal(
+            response,
+            "restore",
+            id,
+            parentId,
+            note: RestoreNote(target, parentId)
+        );
     }
 
     /// <summary>
