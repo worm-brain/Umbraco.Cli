@@ -182,7 +182,7 @@ Run it first in any new environment. See [getting-started.md](getting-started.md
 ## `content`
 
 ```bash
-umbraco content list [--parent <id>] [--skip <n>] [--take <n>] [--all]
+umbraco content list [--parent <id>] [--trashed] [--skip <n>] [--take <n>] [--all]   # --trashed: the recycle bin
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco content get <id>                                   # every field of GET /document/{id} (documentType, values, variants, schedule dates, isTrashed, flags) plus name, parent, urls
@@ -198,7 +198,7 @@ umbraco content version get <id>                           # one version (its id
 umbraco content version rollback <id> [--culture <code>] [--publish]   # draft only unless --publish; see below
 umbraco content trash <id>                                 # move to recycle bin (reversible)
 umbraco content restore <id> [--parent <id> | --to-root] [--publish]   # comes back unpublished, last in sort order; default = original parent
-umbraco content empty-recycle-bin                          # permanent; needs --yes
+umbraco content empty-recycle-bin                          # permanent; needs --yes; see it first with list --trashed
 umbraco content move <id> [--parent <id>]                  # --target works too
 umbraco content sort [--parent <id>] (--order <id>,<id>... | --by name|createDate|updateDate|publishDate [--desc])   # reorder a parent's children
 umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # returns the copy, with its new id
@@ -515,7 +515,7 @@ umbraco document-blueprint folder delete <id>              # needs --yes non-int
 ## `media`
 
 ```bash
-umbraco media list [--parent <id>]
+umbraco media list [--parent <id>] [--trashed]           # --trashed: the recycle bin
 umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco media get <id>                                     # includes urls[] and file metadata in values[]; mediaType.alias is the real alias
@@ -526,7 +526,7 @@ umbraco media update <id> [--name <name>] [--value alias=value]... [--json-body 
 umbraco media delete <id>                                  # permanent; needs --yes
 umbraco media trash <id>                                   # move to recycle bin (reversible)
 umbraco media restore <id> [--parent <id> | --to-root]     # restore from recycle bin; default = original parent
-umbraco media empty-recycle-bin                            # permanent; needs --yes
+umbraco media empty-recycle-bin                            # permanent; needs --yes; see it first with list --trashed
 umbraco media move <id> [--parent <id>]                    # --target works too
 umbraco media sort [--parent <id>] (--order <id>,<id>... | --by name|createDate|updateDate [--desc])   # reorder a folder's children
 

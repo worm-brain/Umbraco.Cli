@@ -65,7 +65,8 @@ public static class PropertyValueExamples
         value switch
         {
             JsonValue v when v.TryGetValue<string>(out var s) && s is MediaId or DocumentId => s,
-            JsonObject obj => obj.Select(p => FindPlaceholder(p.Value)).FirstOrDefault(p => p is not null),
+            JsonObject obj => obj.Select(p => FindPlaceholder(p.Value))
+                .FirstOrDefault(p => p is not null),
             JsonArray array => array.Select(FindPlaceholder).FirstOrDefault(p => p is not null),
             _ => null,
         };

@@ -84,15 +84,11 @@ public static class ContentCreateCommand
         // (with usage help, before any host/auth work) rather than a late runtime failure.
         var typeOpt = new Option<string>("--document-type")
         {
-            Description =
-                "Alias of the document type to create (e.g. textPage, blogPost). "
-                + "Required unless --json-body or --schema is used.",
+            Description = "Alias of the document type to create (e.g. textPage, blogPost).",
         }.RequiredUnless("--json-body", "--schema");
         var nameOpt = new Option<string>("--name")
         {
-            Description =
-                "Display name for the new content item. "
-                + "Required unless --json-body, --schema or --example is used.",
+            Description = "Display name for the new content item.",
         }.RequiredUnless("--json-body", "--schema", "--example");
         var parentOpt = new Option<Guid?>("--parent")
         {

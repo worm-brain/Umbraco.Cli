@@ -142,14 +142,11 @@ public static class DocumentBlueprintCommand
         // validator below as a parse error.
         var typeOpt = new Option<string>("--document-type")
         {
-            Description =
-                "Document type alias or id the blueprint is based on. "
-                + "Required unless --json-body or --schema is used.",
+            Description = "Document type alias or id the blueprint is based on.",
         }.RequiredUnless("--json-body", "--schema", "--from-document");
         var nameOpt = new Option<string>("--name")
         {
-            Description =
-                "Blueprint display name. Required unless --json-body or --schema is used.",
+            Description = "Blueprint display name.",
         }.RequiredUnless("--json-body", "--schema");
         var parentOpt = new Option<Guid?>("--parent")
         {
@@ -316,12 +313,12 @@ public static class DocumentBlueprintCommand
         // it; the validator below makes it required for an actual update.
         var idArg = new Argument<Guid?>("id")
         {
-            Description = "Blueprint ID. Required unless --schema is used.",
+            Description = "Blueprint ID.",
             Arity = ArgumentArity.ZeroOrOne,
         }.RequiredUnless("--schema");
         var nameOpt = new Option<string>("--name")
         {
-            Description = "New display name. Required unless --json-body or --schema is used.",
+            Description = "New display name.",
         }.RequiredUnless("--json-body", "--schema");
         var updateCultureOpt = new Option<string?>("--culture")
         {

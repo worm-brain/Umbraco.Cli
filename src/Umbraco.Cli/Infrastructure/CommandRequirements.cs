@@ -24,7 +24,9 @@ public static class CommandRequirements
 
     /// <summary>
     /// Declares <paramref name="symbol"/> required unless any of <paramref name="alternatives"/>
-    /// is given.
+    /// is given, and appends the matching "Required unless ... is used." sentence to its help text,
+    /// so the help and the catalog's <c>requiredUnless</c> come from one declaration and cannot
+    /// disagree (#377). Set the description first and leave that sentence out of it.
     /// </summary>
     /// <typeparam name="TSymbol">The option or argument type, returned for chaining.</typeparam>
     /// <param name="symbol">The option or argument.</param>
@@ -40,7 +42,23 @@ public static class CommandRequirements
                 nameof(alternatives)
             );
         Declarations.AddOrUpdate(symbol, alternatives);
+        var sentence = Sentence(alternatives);
+        symbol.Description = string.IsNullOrWhiteSpace(symbol.Description)
+            ? sentence
+            : $"{symbol.Description.TrimEnd()} {sentence}";
         return symbol;
+    }
+
+    /// <summary>The help sentence for a conditional requirement, e.g. "Required unless --json-body or --schema is used.".</summary>
+    /// <param name="alternatives">The option names that make the input unnecessary; at least one.</param>
+    /// <returns>The sentence.</returns>
+    internal static string Sentence(IReadOnlyList<string> alternatives)
+    {
+        var list =
+            alternatives.Count == 1
+                ? alternatives[0]
+                : $"{string.Join(", ", alternatives.Take(alternatives.Count - 1))} or {alternatives[^1]}";
+        return $"Required unless {list} is used.";
     }
 
     /// <summary>The options that make <paramref name="symbol"/> unnecessary, if it declared any.</summary>

@@ -76,7 +76,10 @@ public class PlacementRefusalWireTests
 
         var result = UmbracoManagementClient.ExplainPlacementRefusal(refused, "copy", Item, null);
 
-        Assert.StartsWith($"Umbraco would not copy {Item} at the content root", result.ErrorMessage);
+        Assert.StartsWith(
+            $"Umbraco would not copy {Item} at the content root",
+            result.ErrorMessage
+        );
     }
 
     // ── sort ────────────────────────────────────────────────────────────────────

@@ -223,7 +223,8 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     )
     {
         var document =
-            PublishCulturesHandler?.Invoke(id) ?? UmbracoResponse<IReadOnlyList<string>>.Success([]);
+            PublishCulturesHandler?.Invoke(id)
+            ?? UmbracoResponse<IReadOnlyList<string>>.Success([]);
         if (!document.IsSuccess)
             return Task.FromResult(UmbracoResponse<IReadOnlyList<string>?>.FailureFrom(document));
         if (document.Data is not { Count: > 0 } all)

@@ -25,13 +25,11 @@ public static class MemberTypesCreateCommand
             .Mutating();
         var nameOpt = new Option<string>("--name")
         {
-            Description =
-                "Display name of the new member type. Required unless --json-body is given.",
+            Description = "Display name of the new member type.",
         };
         var aliasOpt = new Option<string>("--alias")
         {
-            Description =
-                "Alias of the new member type, e.g. author. Required unless --json-body is given.",
+            Description = "Alias of the new member type, e.g. author.",
         };
         var descOpt = new Option<string?>("--description")
         {

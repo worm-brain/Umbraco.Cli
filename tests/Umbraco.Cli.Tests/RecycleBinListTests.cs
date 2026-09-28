@@ -141,7 +141,9 @@ public class RecycleBinListTests
     public async Task GetContentRecycleBinAsync_WithParent_ReadsTheBinChildren()
     {
         var parent = Guid.NewGuid();
-        var handler = Wire.Routed(("recycle-bin/document/children", """{ "total": 0, "items": [] }"""));
+        var handler = Wire.Routed(
+            ("recycle-bin/document/children", """{ "total": 0, "items": [] }""")
+        );
 
         await Wire.Client(handler).GetContentRecycleBinAsync(parent, ct: CancellationToken.None);
 
