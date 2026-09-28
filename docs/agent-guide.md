@@ -171,9 +171,12 @@ calling Umbraco).
 
 For an API call, `category` is one of: `unreachable` (no response - DNS/connection), `timeout`,
 `request_rejected` (a 4xx - usually bad input or the request itself), `server_error` (a 5xx or an
-undeclared status - a server-side fault) or `unexpected_response` (the body did not match what the
-CLI expected, a likely version mismatch). `serverVersion` is omitted when the server could not be
-reached (`unreachable`/`timeout`) or the version could not be determined.
+undeclared status - a server-side fault) or `unexpected_response` (the server answered, but with a
+body the CLI could not read - not JSON, or a `content get`/`media get` with no named variant - a
+likely version mismatch; it has no `httpStatus`, and its message points at `auth doctor`). Treat
+`unexpected_response` as "do not trust this instance's output until the version is checked", not
+as bad input. `serverVersion` is omitted when the server could not be reached
+(`unreachable`/`timeout`) or the version could not be determined.
 
 The rest never reach the API, so they carry no `httpStatus` and no `serverVersion`:
 

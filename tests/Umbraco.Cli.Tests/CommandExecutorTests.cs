@@ -281,6 +281,78 @@ public class CommandExecutorTests
         Assert.Equal("17.3.5", doc.RootElement.GetProperty("serverVersion").GetString());
     }
 
+    /// <summary>Runs a command whose call fails as an unexpected response (#154).</summary>
+    /// <param name="serverVersion">The version the fake server reports.</param>
+    /// <returns>The error envelope's <c>category</c> and <c>message</c>.</returns>
+    private async Task<(string? Category, string? Message)> RunUnexpectedResponse(
+        string? serverVersion
+    )
+    {
+        var client = new FakeUmbracoManagementClient
+        {
+            ServerVersion = serverVersion,
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Failure(
+                0,
+                "Unreadable.",
+                FailureCategory.UnexpectedResponse
+            ),
+        };
+        var (executor, parse) = Build(client);
+
+        var (_, stderr, _) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        using var doc = JsonDocument.Parse(stderr);
+        return (
+            doc.RootElement.GetProperty("category").GetString(),
+            doc.RootElement.GetProperty("message").GetString()
+        );
+    }
+
+    [Fact]
+    public void CategoryOf_JsonExceptionFromTheCallersInput_IsInvalidArgument()
+    {
+        // A response-side JsonException never gets here (the client guard labels it, #154), so
+        // one the backstop sees is a snapshot or body the caller supplied.
+        Assert.Equal(
+            FailureCategory.InvalidArgument,
+            CommandExecutor.CategoryOf(new JsonException("bad snapshot"))
+        );
+    }
+
+    [Fact]
+    public void CategoryOf_UnrecognisedException_IsInternal()
+    {
+        Assert.Equal(
+            FailureCategory.Internal,
+            CommandExecutor.CategoryOf(new InvalidOperationException("bug"))
+        );
+    }
+
+    [Fact]
+    public async Task RunObject_UnexpectedResponse_KeepsTheCategory()
+    {
+        var (category, _) = await RunUnexpectedResponse("17.3.5");
+
+        Assert.Equal("unexpected_response", category);
+    }
+
+    [Fact]
+    public async Task RunObject_UnexpectedResponse_PointsAtAuthDoctor()
+    {
+        var (_, message) = await RunUnexpectedResponse("17.3.5");
+
+        Assert.Equal(
+            "Unreadable. Run 'umbraco auth doctor' to check the instance's Umbraco version.",
+            message
+        );
+    }
+
     [Fact]
     public async Task RunObject_UnreachableFailure_TagsCategoryButSkipsServerVersion()
     {
