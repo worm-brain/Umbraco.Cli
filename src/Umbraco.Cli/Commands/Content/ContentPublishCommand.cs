@@ -1,4 +1,6 @@
 using System.CommandLine;
+using System.Text.Json.Serialization;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
@@ -37,28 +39,10 @@ public static class ContentPublishCommand
                 var cultures = parseResult.GetValue(culturesOpt);
                 var publishAt = parseResult.GetValue(publishAtOpt);
                 var unpublishAt = parseResult.GetValue(unpublishAtOpt);
+                var id = parseResult.GetValue(idArg);
                 return executor.RunMessageAsync(
                     parseResult,
-                    (client, c) =>
-                        client
-                            .PublishContentAsync(
-                                parseResult.GetValue(idArg),
-                                cultures?.Length > 0 ? cultures : null,
-                                publishAt,
-                                unpublishAt,
-                                c
-                            )
-                            // The data says what happened, as the message does: a scheduled
-                            // publish leaves the item as it was until then (#239).
-                            .Then(
-                                new PublishResult(
-                                    parseResult.GetValue(idArg).ToString(),
-                                    Published: publishAt is null,
-                                    publishAt,
-                                    unpublishAt,
-                                    cultures is { Length: > 0 } ? cultures : null
-                                )
-                            ),
+                    (client, c) => PublishAsync(client, id, cultures, publishAt, unpublishAt, c),
                     SuccessMessage(publishAt, unpublishAt, cultures),
                     ct
                 );
@@ -66,6 +50,52 @@ public static class ContentPublishCommand
         );
 
         return cmd;
+    }
+
+    /// <summary>
+    /// Resolves the cultures the publish covers, publishes exactly those, and reports them (#325):
+    /// with no <c>--culture</c> that is every culture the document has, so the result names them
+    /// rather than leaving the field out.
+    /// </summary>
+    /// <param name="client">The Management API client.</param>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">The cultures named with <c>--culture</c>, if any.</param>
+    /// <param name="publishAt">When the publish is scheduled for, or null to publish now.</param>
+    /// <param name="unpublishAt">When an unpublish is scheduled for, or null for none.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The publish result, or the failure of resolving the cultures or of the publish.</returns>
+    internal static async Task<UmbracoResponse<PublishResult>> PublishAsync(
+        IUmbracoManagementClient client,
+        Guid id,
+        string[]? cultures,
+        DateTimeOffset? publishAt,
+        DateTimeOffset? unpublishAt,
+        CancellationToken ct
+    )
+    {
+        var scope = await client.PublishCulturesAsync(
+            id,
+            cultures is { Length: > 0 } ? cultures : null,
+            ct
+        );
+        if (!scope.IsSuccess)
+            return UmbracoResponse<PublishResult>.FailureFrom(scope);
+
+        // Empty means an invariant document: it is published whole, and says so with a null.
+        var named = scope.Data is { Count: > 0 } list ? list : null;
+        return await client
+            .PublishContentAsync(id, named, publishAt, unpublishAt, ct)
+            // The data says what happened, as the message does: a scheduled publish leaves the
+            // item as it was until then (#239).
+            .Then(
+                new PublishResult(
+                    id.ToString(),
+                    Published: publishAt is null,
+                    publishAt,
+                    unpublishAt,
+                    named
+                )
+            );
     }
 
     /// <summary>
@@ -103,17 +133,22 @@ public static class ContentPublishCommand
             System.Globalization.CultureInfo.InvariantCulture
         );
 
-    /// <summary>The data of a publish: the item, and whether it is published now or only scheduled.</summary>
+    /// <summary>
+    /// The data of a publish: the item, whether it is published now or only scheduled, and what it
+    /// covered. Every field is always present (#325): an absent field means "unknown" in this CLI's
+    /// output contract, so a null here is written out rather than dropped.
+    /// </summary>
     /// <param name="Id">The content item's id.</param>
     /// <param name="Published">True when published now; false when the publish is only scheduled.</param>
     /// <param name="PublishAt">When the publish is scheduled for, or null.</param>
     /// <param name="UnpublishAt">When an unpublish is scheduled for, or null.</param>
-    /// <param name="Cultures">The cultures published, or null for all.</param>
+    /// <param name="Cultures">The cultures published; null for an invariant document, which has none.</param>
     internal sealed record PublishResult(
         string Id,
         bool Published,
-        DateTimeOffset? PublishAt,
-        DateTimeOffset? UnpublishAt,
-        IReadOnlyList<string>? Cultures
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] DateTimeOffset? PublishAt,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] DateTimeOffset? UnpublishAt,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+            IReadOnlyList<string>? Cultures
     );
 }

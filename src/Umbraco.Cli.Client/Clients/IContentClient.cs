@@ -70,6 +70,23 @@ public interface IContentClient
     );
 
     /// <summary>
+    /// The cultures a publish of this document covers, resolved exactly as
+    /// <see cref="PublishContentAsync"/> resolves them: <paramref name="cultures"/> when given,
+    /// otherwise every culture the document varies by (read from the document). Callers pass the
+    /// result straight to <see cref="PublishContentAsync"/> and report it, so what they report is
+    /// what was sent (#325).
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">The cultures asked for; null/empty means every culture the document has.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The culture codes; empty for an invariant document. Or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<string>>> PublishCulturesAsync(
+        Guid id,
+        IEnumerable<string>? cultures = null,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
     /// Publishes a document (issue #79), optionally scheduling when it goes live and/or comes down
     /// (issue #90). The schedule rides the publish request's per-culture schedule, so a scheduled
     /// unpublish is expressed here via <paramref name="unpublishAt"/> rather than on the unpublish verb.

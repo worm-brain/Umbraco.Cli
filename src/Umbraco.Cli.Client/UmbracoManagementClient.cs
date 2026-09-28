@@ -578,6 +578,41 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
+    /// The cultures a publish of a document covers (#325); see <see cref="IContentClient.PublishCulturesAsync"/>.
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">Cultures to publish; null/empty publishes every culture the document has.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The culture codes (empty for an invariant document), or a mapped failure.</returns>
+    public Task<UmbracoResponse<IReadOnlyList<string>>> PublishCulturesAsync(
+        Guid id,
+        IEnumerable<string>? cultures = null,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync<IReadOnlyList<string>>(
+            ct,
+            async () => await ResolvePublishCulturesAsync(id, cultures, ct)
+        );
+
+    /// <summary>
+    /// The one place a publish's cultures are resolved, shared by <see cref="PublishCulturesAsync"/>
+    /// and <see cref="PublishContentAsync"/> so they cannot disagree: the named cultures, else the
+    /// document's own (none for an invariant document).
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">The cultures asked for; null/empty reads the document.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The culture codes; empty for an invariant document.</returns>
+    private async Task<List<string>> ResolvePublishCulturesAsync(
+        Guid id,
+        IEnumerable<string>? cultures,
+        CancellationToken ct
+    ) =>
+        cultures?.ToList() is { Count: > 0 } requested
+            ? requested
+            : await DocumentCulturesAsync(id, ct);
+
+    /// <summary>
     /// Publishes a content item via <c>PUT document/{id}/publish</c> (generated client, #79).
     /// <para>
     /// Two things about this endpoint are not obvious, both established by testing against
@@ -609,10 +644,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             {
                 // Nothing named: every culture the document has, or the single null culture of
                 // an invariant document (which is what the publish body must carry).
-                List<string?> targets =
-                    cultures?.ToList() is { Count: > 0 } requested ? [.. requested]
-                    : (await DocumentCulturesAsync(id, ct)) is { Count: > 0 } named ? [.. named]
-                    : [null];
+                var named = await ResolvePublishCulturesAsync(id, cultures, ct);
+                List<string?> targets = named.Count > 0 ? [.. named] : [null];
 
                 // A schedule is only sent when one was asked for: an all-null schedule object is
                 // silently ignored by the server, which is the #158 no-op.
