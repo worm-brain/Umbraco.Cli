@@ -123,7 +123,13 @@ def write_env(path, values):
     :param values: a dict of keys to values (None becomes an empty value).
     """
     lines = [f"{k}={shlex.quote(str(v)) if v not in (None, '') else ''}" for k, v in values.items()]
-    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    write_text(path, "\n".join(lines) + "\n")
+
+
+def write_text(path, text, newline="\n"):
+    """Write UTF-8 text with fixed line endings (Path.write_text only takes `newline` from Python 3.10)."""
+    with open(path, "w", encoding="utf-8", newline=newline) as f:
+        f.write(text)
 
 
 # --------------------------------------------------------- processes -----
@@ -163,6 +169,12 @@ def pid_alive(pid):
             return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259  # STILL_ACTIVE
         finally:
             kernel32.CloseHandle(handle)
+    try:
+        # A child of this process that has exited stays a zombie (and "alive" to kill -0) until it's reaped.
+        if os.waitpid(int(pid), os.WNOHANG)[0] == int(pid):
+            return False
+    except ChildProcessError:
+        pass  # not our child: the usual case (started by another harness command)
     try:
         os.kill(int(pid), 0)
     except ProcessLookupError:

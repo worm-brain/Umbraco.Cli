@@ -102,16 +102,16 @@ def write_site_files(site_dir, env):
     # `umb` (bash): for macOS/Linux, and for Git Bash on Windows (the TEST-PLAN snippets are bash).
     # It pins this site's profile and adds the harness config unless the caller passes their own --config.
     sh = site_dir / "umb"
-    sh.write_text(f"""#!/usr/bin/env bash
+    harness.write_text(sh, f"""#!/usr/bin/env bash
 # Umbraco.Community.Cli {env['CLI_VERSION']}, pinned to profile '{name}' ({env['HOST']}), harness config {cfg}.
 for a in "$@"; do [[ "$a" == --config || "$a" == --config=* ]] && exec env UMBRACO_PROFILE="${{UMBRACO_PROFILE:-{name}}}" dotnet "{dll}" "$@"; done
 UMBRACO_PROFILE="${{UMBRACO_PROFILE:-{name}}}" exec dotnet "{dll}" --config "{cfg}" "$@"
-""", encoding="utf-8", newline="\n")
+""")
 
     if WINDOWS:
         # `umb.cmd`: the same wrapper for PowerShell and cmd. (`=` is a delimiter in a for-set, so
         # `--config=x` arrives as `--config` and is still detected.)
-        (site_dir / "umb.cmd").write_text(f"""@echo off
+        harness.write_text(site_dir / "umb.cmd", f"""@echo off
 rem Umbraco.Community.Cli {env['CLI_VERSION']}, pinned to profile '{name}' ({env['HOST']}), harness config {cfg}.
 setlocal
 if not defined UMBRACO_PROFILE set "UMBRACO_PROFILE={name}"
@@ -121,12 +121,12 @@ exit /b %ERRORLEVEL%
 :own
 dotnet "{Path(dll)}" %*
 exit /b %ERRORLEVEL%
-""", encoding="utf-8", newline="\r\n")
+""", newline="\r\n")
 
     # start.py / stop.py: thin stubs over harness.Site, so `python3 sites/<name>/start.py` works from anywhere.
     for verb, doc in (("start", "Start the site in the background (logs -> logs/site.log) and wait until Umbraco is running."),
                       ("stop", "Stop the site and anything left listening on its port.")):
-        (site_dir / f"{verb}.py").write_text(f'''#!/usr/bin/env python3
+        harness.write_text(site_dir / f"{verb}.py", f'''#!/usr/bin/env python3
 """{doc}"""
 import sys
 from pathlib import Path
@@ -135,7 +135,7 @@ sys.path.insert(0, str(HERE.parent.parent / "tools"))
 import harness
 harness.utf8_stdio()
 harness.Site(HERE).{verb}()
-''', encoding="utf-8", newline="\n")
+''')
 
     if not WINDOWS:
         for f in ("umb", "start.py", "stop.py"):
