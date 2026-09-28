@@ -331,12 +331,10 @@ public sealed partial class UmbracoManagementClient
     // generated ProblemDetails so GuardedApiAsync renders them like any other failure.
 
     /// <summary>Maps any 4xx/5xx response to the generated <see cref="Gen.ProblemDetails"/> so
-    /// <see cref="GuardedApiAsync{T}"/> catches it and produces a readable failure.</summary>
-    private static readonly Dictionary<string, ParsableFactory<IParsable>> RawErrorMapping = new()
-    {
-        { "4XX", Gen.ProblemDetails.CreateFromDiscriminatorValue },
-        { "5XX", Gen.ProblemDetails.CreateFromDiscriminatorValue },
-    };
+    /// <see cref="GuardedApiAsync{T}"/> catches it and produces a readable failure. The same
+    /// mapping <see cref="ProblemDetailsRequestAdapter"/> adds to every call (#286).</summary>
+    private static readonly Dictionary<string, ParsableFactory<IParsable>> RawErrorMapping =
+        ProblemDetailsRequestAdapter.Fallback;
 
     /// <summary>
     /// Issues a GET against <paramref name="path"/> and returns the response body as a verbatim

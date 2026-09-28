@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
@@ -64,13 +65,19 @@ public interface IOutputWriter
     /// <param name="commandName">The dotted command name for <c>meta.command</c>; null only when no command was parsed.</param>
     /// <param name="httpStatus">The server's HTTP status, or null when the failure never reached it.</param>
     /// <param name="serverVersion">The connected server's version, or null when unknown/not applicable.</param>
+    /// <param name="details">
+    /// Umbraco's error body (its ProblemDetails) as it sent it, or null when there was none
+    /// (#286). Structured writers emit it as <c>details</c>; the human and CSV writers rely on
+    /// <paramref name="message"/>, which already names what to fix.
+    /// </param>
     void WriteError(
         ExitCode exitCode,
         FailureCategory category,
         string message,
         string? commandName,
         int? httpStatus = null,
-        string? serverVersion = null
+        string? serverVersion = null,
+        JsonNode? details = null
     );
 
     /// <summary>

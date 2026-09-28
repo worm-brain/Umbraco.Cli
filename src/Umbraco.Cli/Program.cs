@@ -66,9 +66,14 @@ services.AddTransient<MutationInterceptorHandler>();
 // what it calls.
 services.AddSingleton<TokenRefreshState>();
 services.AddTransient<TokenRefreshHandler>();
+
+// Error bodies are read as ProblemDetails (#286); one that is not JSON (a proxy's HTML page) is
+// dropped here so the failure keeps its status instead of crashing the parse.
+services.AddTransient<UnreadableErrorBodyHandler>();
 services
     .AddHttpClient("umbraco")
     .AddHttpMessageHandler<TokenRefreshHandler>()
+    .AddHttpMessageHandler<UnreadableErrorBodyHandler>()
     .AddHttpMessageHandler<MutationInterceptorHandler>();
 
 // A second named client that logs request/response to stderr; selected by --verbose.
@@ -76,6 +81,7 @@ services.AddTransient<VerboseHttpHandler>();
 services
     .AddHttpClient("umbraco-verbose")
     .AddHttpMessageHandler<TokenRefreshHandler>()
+    .AddHttpMessageHandler<UnreadableErrorBodyHandler>()
     .AddHttpMessageHandler<VerboseHttpHandler>()
     .AddHttpMessageHandler<MutationInterceptorHandler>();
 services.AddSingleton<ConfigStore>();

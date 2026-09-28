@@ -39,7 +39,9 @@ public sealed class JsonOutputWriter : IOutputWriter
     /// member's `groups` are `{id, name}` objects instead of bare ids (#212). Both changed before
     /// "5" was released, so they share it. "6" `auth profile list` marks the default with a
     /// boolean `default` instead of `"*"` / `""` (#283), and `auth logout` names the profile it
-    /// acted on and carries `defaultCleared` (#301, #304).
+    /// acted on and carries `defaultCleared` (#301, #304). Errors also carry Umbraco's ProblemDetails body as
+    /// `details`, and their `message` is built from its title, operationStatus and
+    /// invalidProperties rather than a stack trace (#286).
     /// </summary>
     public const string SchemaVersion = "6";
 
@@ -79,7 +81,8 @@ public sealed class JsonOutputWriter : IOutputWriter
         string message,
         string? commandName,
         int? httpStatus = null,
-        string? serverVersion = null
+        string? serverVersion = null,
+        JsonNode? details = null
     )
     {
         // serverVersion (#152) and httpStatus are dropped by the WhenWritingNull policy when
@@ -94,6 +97,8 @@ public sealed class JsonOutputWriter : IOutputWriter
             httpStatus,
             message,
             category = category.ToWire(),
+            // Umbraco's error body as it sent it (#286); absent when there was none.
+            details,
             serverVersion,
             meta = new
             {

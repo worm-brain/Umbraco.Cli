@@ -30,7 +30,7 @@ public static class ContentExporter
     {
         var tree = await client.GetDocumentTreeAsync(root, ct);
         if (!tree.IsSuccess)
-            return UmbracoResponse<ContentSnapshot>.Failure(tree.StatusCode, tree.ErrorMessage!);
+            return UmbracoResponse<ContentSnapshot>.FailureFrom(tree);
 
         // Fetch each document's full body, preserving the pre-order tree order so parents always
         // precede their children in the snapshot (which is what apply relies on for create order).
@@ -39,7 +39,7 @@ public static class ContentExporter
         {
             var raw = await client.GetDocumentRawAsync(node.Id, ct);
             if (!raw.IsSuccess)
-                return UmbracoResponse<ContentSnapshot>.Failure(raw.StatusCode, raw.ErrorMessage!);
+                return UmbracoResponse<ContentSnapshot>.FailureFrom(raw);
 
             documents.Add(
                 new ContentNode

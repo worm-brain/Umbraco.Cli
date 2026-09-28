@@ -145,6 +145,75 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task RunObject_ApiFailureWithABody_WritesItAsDetails()
+    {
+        // #286: Umbraco's ProblemDetails reach the envelope as they were sent.
+        var client = new FakeUmbracoManagementClient
+        {
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Failure(
+                400,
+                "Invalid document (ContentInvalid).",
+                FailureCategory.RequestRejected,
+                System.Text.Json.Nodes.JsonNode.Parse(
+                    """{"title":"Invalid document","operationStatus":"ContentInvalid"}"""
+                )
+            ),
+        };
+        var (executor, parse) = Build(client);
+
+        var (_, stderr, _) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        using var doc = JsonDocument.Parse(stderr);
+        Assert.Equal(
+            "ContentInvalid",
+            doc.RootElement.GetProperty("details").GetProperty("operationStatus").GetString()
+        );
+    }
+
+    [Fact]
+    public async Task RunObject_ApiFailureWithoutABody_HasNoDetails()
+    {
+        var client = new FakeUmbracoManagementClient
+        {
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Failure(404, "Not found"),
+        };
+        var (executor, parse) = Build(client);
+
+        var (_, stderr, _) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        using var doc = JsonDocument.Parse(stderr);
+        Assert.False(doc.RootElement.TryGetProperty("details", out _));
+    }
+
+    [Fact]
+    public void FailureFrom_CarriesTheDetailsAcross()
+    {
+        // A command that reads before it writes surfaces the read's failure, body included.
+        var read = UmbracoResponse<string>.Failure(
+            500,
+            "Boom.",
+            FailureCategory.ServerError,
+            System.Text.Json.Nodes.JsonNode.Parse("""{"title":"Boom"}""")
+        );
+
+        var rewrapped = UmbracoResponse<int>.FailureFrom(read);
+
+        Assert.Equal("""{"title":"Boom"}""", rewrapped.Details?.ToJsonString());
+    }
+
+    [Fact]
     public async Task RunObject_ApiFailure_WritesErrorAndReturnsOne()
     {
         var client = new FakeUmbracoManagementClient

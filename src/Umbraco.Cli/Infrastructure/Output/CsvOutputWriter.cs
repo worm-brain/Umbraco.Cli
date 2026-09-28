@@ -53,7 +53,8 @@ public sealed class CsvOutputWriter : IOutputWriter
         string message,
         string? commandName,
         int? httpStatus = null,
-        string? serverVersion = null
+        string? serverVersion = null,
+        JsonNode? details = null
     )
     {
         // #177: both codes, so a CSV consumer can tell an exit code from an HTTP status; the

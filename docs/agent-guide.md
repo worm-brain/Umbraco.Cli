@@ -141,6 +141,34 @@ responded:
 }
 ```
 
+When Umbraco explains the failure, its answer is passed through (#286). `message` is built from
+it (what failed, Umbraco's `operationStatus`, the reason, and which properties to fix), and
+`details` carries the body exactly as Umbraco sent it (its ProblemDetails, including any stack
+trace in `details.detail`):
+
+```json
+{
+  "status": "error",
+  "exitCode": 1,
+  "httpStatus": 400,
+  "message": "Invalid document (ContentInvalid): The specified document had an invalid configuration. Invalid properties: author, publishDate, excerpt, bodyText.",
+  "category": "request_rejected",
+  "details": {
+    "title": "Invalid document",
+    "detail": "The specified document had an invalid configuration.",
+    "operationStatus": "ContentInvalid",
+    "invalidProperties": ["author", "publishDate", "excerpt", "bodyText"]
+  },
+  "serverVersion": "17.7.0",
+  "meta": { "command": "content.publish", "timestamp": "2026-09-28T09:00:00Z", "schemaVersion": "6" }
+}
+```
+
+Read `details.operationStatus` to branch on Umbraco's reason (`ContentInvalid`, `CannotInvite`,
+`DuplicateAlias`...) and `details.invalidProperties` / `details.errors` for what to fix. `details`
+is absent when there was no body to pass on (the host was unreachable, or the CLI refused before
+calling Umbraco).
+
 For an API call, `category` is one of: `unreachable` (no response - DNS/connection), `timeout`,
 `request_rejected` (a 4xx - usually bad input or the request itself), `server_error` (a 5xx or an
 undeclared status - a server-side fault) or `unexpected_response` (the body did not match what the
@@ -185,10 +213,13 @@ schemaVersion 3, the one exception to that rule.
 - An absent `meta` field means **unknown**, never a default. A list with no `total` is one whose
   source could not count, not one that is complete.
 
-**What changed in schemaVersion 6**, if you are moving from `"5"`: the `auth` profile commands.
+**What changed in schemaVersion 6**, if you are moving from `"5"`: Umbraco's error details and
+the `auth` profile commands.
 
 | Before | Now |
 |---|---|
+| an error's `message` was ProblemDetails `detail` (a stack trace on some 500s), or "check the Umbraco logs" when the body was never read | built from `title`, `operationStatus`, the first line of `detail`, and `invalidProperties` (#286) |
+| no structured error body | `details`: Umbraco's ProblemDetails, as sent |
 | `auth profile list` `"default": "*"` or `""` | `"default": true` / `false` |
 | `auth logout` `{"removed": true}` (no `profile` unless `--profile` was given) | `{"profile": "<name>", "removed": true, "defaultCleared": false}` - always the profile it acted on |
 | `auth login` `profile` missing without `--profile` | always the profile the credentials were saved to |

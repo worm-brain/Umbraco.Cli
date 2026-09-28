@@ -27,7 +27,7 @@ public static class SchemaPipeline
         var desired = await SchemaFile.LoadAsync(snapshotPath, ct);
         var current = await SchemaExporter.ExportAsync(client, ct);
         if (!current.IsSuccess)
-            return UmbracoResponse<SchemaDiff>.Failure(current.StatusCode, current.ErrorMessage!);
+            return UmbracoResponse<SchemaDiff>.FailureFrom(current);
 
         return UmbracoResponse<SchemaDiff>.Success(
             SchemaDiffEngine.Compare(desired, current.Data!)

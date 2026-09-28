@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
@@ -28,8 +29,18 @@ public sealed class QuietOutputWriter(IOutputWriter inner) : IOutputWriter
         string message,
         string? commandName,
         int? httpStatus = null,
-        string? serverVersion = null
-    ) => inner.WriteError(exitCode, category, message, commandName, httpStatus, serverVersion);
+        string? serverVersion = null,
+        JsonNode? details = null
+    ) =>
+        inner.WriteError(
+            exitCode,
+            category,
+            message,
+            commandName,
+            httpStatus,
+            serverVersion,
+            details
+        );
 
     /// <inheritdoc />
     public void WriteTable(
