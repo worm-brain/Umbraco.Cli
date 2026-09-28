@@ -1156,15 +1156,138 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>Webhooks by id, read by <see cref="GetWebhookAsync"/> (seeded by a test).</summary>
+    public Dictionary<Guid, WebhookResponse> WebhooksById { get; } = [];
+
+    /// <summary>Returns the seeded webhook, or a 404 when there is none.</summary>
+    /// <param name="id">The webhook id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The webhook or a 404.</returns>
+    public Task<UmbracoResponse<WebhookResponse>> GetWebhookAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            WebhooksById.TryGetValue(id, out var webhook)
+                ? UmbracoResponse<WebhookResponse>.Success(webhook)
+                : UmbracoResponse<WebhookResponse>.Failure(404, $"No webhook with id {id}.")
+        );
+
+    /// <summary>Every <see cref="CreateWebhookAsync"/> request, in call order.</summary>
+    public List<CreateWebhookRequest> WebhooksCreated { get; } = [];
+
+    /// <summary>Records the request and answers with a webhook carrying its id and URL.</summary>
+    /// <param name="request">The create request.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A success echoing the request.</returns>
     public Task<UmbracoResponse<WebhookResponse>> CreateWebhookAsync(
         CreateWebhookRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        WebhooksCreated.Add(request);
+        return Task.FromResult(
+            UmbracoResponse<WebhookResponse>.Success(
+                new WebhookResponse { Id = request.Id ?? Guid.NewGuid(), Url = request.Url }
+            )
+        );
+    }
 
-    public Task<UmbracoResponse<Empty>> DeleteWebhookAsync(
+    /// <summary>Every <see cref="UpdateWebhookAsync"/> call, in call order.</summary>
+    public List<(Guid Id, UpdateWebhookRequest Request)> WebhooksUpdated { get; } = [];
+
+    /// <summary>Records the call and answers with a bare webhook carrying the id.</summary>
+    /// <param name="id">The webhook id.</param>
+    /// <param name="request">The update request.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A success carrying the id.</returns>
+    public Task<UmbracoResponse<WebhookResponse>> UpdateWebhookAsync(
         Guid id,
+        UpdateWebhookRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        WebhooksUpdated.Add((id, request));
+        return Task.FromResult(
+            UmbracoResponse<WebhookResponse>.Success(new WebhookResponse { Id = id })
+        );
+    }
+
+    /// <summary>Ids passed to <see cref="DeleteWebhookAsync"/>, in call order.</summary>
+    public List<Guid> WebhooksDeleted { get; } = [];
+
+    /// <summary>Records the id and succeeds.</summary>
+    /// <param name="id">The webhook id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success.</returns>
+    public Task<UmbracoResponse<Empty>> DeleteWebhookAsync(Guid id, CancellationToken ct = default)
+    {
+        WebhooksDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>
+    /// Resolves type-filter values the way the real client does, from <see cref="References"/>: a
+    /// GUID is itself, an alias must be listed under exactly one of the document, media and member
+    /// type kinds, and anything else is an invalid_argument failure.
+    /// </summary>
+    /// <param name="references">Type ids or aliases.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The ids, or the failure for the first value that does not resolve to one type.</returns>
+    public Task<UmbracoResponse<IReadOnlyList<Guid>>> ResolveWebhookTypesAsync(
+        IEnumerable<string> references,
+        CancellationToken ct = default
+    )
+    {
+        EntityKind[] kinds = [EntityKind.DocumentType, EntityKind.MediaType, EntityKind.MemberType];
+        var ids = new List<Guid>();
+        foreach (var reference in references)
+        {
+            if (Guid.TryParse(reference, out var id))
+            {
+                ids.Add(id);
+                continue;
+            }
+            var matches = kinds
+                .Where(k => References.ContainsKey((k, reference)))
+                .Select(k => References[(k, reference)])
+                .ToList();
+            if (matches is not [var one])
+                return Task.FromResult(
+                    UmbracoResponse<IReadOnlyList<Guid>>.Failure(
+                        0,
+                        $"'{reference}' names {matches.Count} types.",
+                        FailureCategory.InvalidArgument
+                    )
+                );
+            ids.Add(one);
+        }
+        return Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(ids));
+    }
+
+    /// <summary>The webhook id (null for all) of each <see cref="GetWebhookLogsAsync"/> call.</summary>
+    public List<Guid?> WebhookLogReads { get; } = [];
+
+    /// <summary>Records the webhook id and answers with an empty page.</summary>
+    /// <param name="webhookId">The webhook id, or null for all.</param>
+    /// <param name="skip">Ignored.</param>
+    /// <param name="take">Ignored.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty page.</returns>
+    public Task<UmbracoResponse<PagedResponse<WebhookLog>>> GetWebhookLogsAsync(
+        Guid? webhookId,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default
+    )
+    {
+        WebhookLogReads.Add(webhookId);
+        return Task.FromResult(
+            UmbracoResponse<PagedResponse<WebhookLog>>.Success(
+                new PagedResponse<WebhookLog> { Total = 0, Items = [] }
+            )
+        );
+    }
 
     /// <summary>The events <see cref="GetWebhookEventsAsync"/> returns.</summary>
     public List<WebhookEvent> WebhookEvents { get; } = [];

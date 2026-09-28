@@ -29,6 +29,9 @@ public enum EntityKind
 
     /// <summary>A relation type, named by alias (then name) (#300).</summary>
     RelationType,
+
+    /// <summary>A webhook, named by name (webhooks have no alias) (#237).</summary>
+    Webhook,
 }
 
 /// <summary>How messages and help text name each <see cref="EntityKind"/>.</summary>
@@ -61,6 +64,7 @@ public static class EntityKindText
             EntityKind.MemberGroup => ("member group", "name", "member-group list"),
             EntityKind.DictionaryItem => ("dictionary item", "key", "dictionary list"),
             EntityKind.RelationType => ("relation type", "alias or name", "relation-type list"),
+            EntityKind.Webhook => ("webhook", "name", "webhook list"),
             _ => (kind.ToString(), "reference", "--help"),
         };
 }
