@@ -206,6 +206,24 @@ public interface IContentClient
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> EmptyContentRecycleBinAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// Lists one level of the content recycle bin (#364): its top level, or the trashed children
+    /// of a trashed item. The rows have the shape of <see cref="GetContentAsync"/>'s, with
+    /// <c>isTrashed</c> set, so what <c>empty-recycle-bin</c> would delete can be seen first and a
+    /// trashed id found to <c>restore</c>.
+    /// </summary>
+    /// <param name="parentId">A trashed item whose children to list; null lists the bin's top level.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of trashed documents, or a mapped failure.</returns>
+    Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> GetContentRecycleBinAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    );
+
     /// <summary>Moves a document under a new parent (issue #67).</summary>
     /// <param name="id">The document id.</param>
     /// <param name="parentId">Target parent id; null moves to the content root.</param>

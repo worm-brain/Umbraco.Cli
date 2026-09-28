@@ -91,6 +91,22 @@ public interface IMediaClient
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> EmptyMediaRecycleBinAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// Lists one level of the media recycle bin (#364): its top level, or the trashed children of
+    /// a trashed folder. The rows have the shape of <see cref="GetMediaAsync"/>'s.
+    /// </summary>
+    /// <param name="parentId">A trashed item whose children to list; null lists the bin's top level.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of trashed media, or a mapped failure.</returns>
+    Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> GetMediaRecycleBinAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    );
+
     /// <summary>Moves a media item under a new parent folder (issue #67).</summary>
     /// <param name="id">The media item id.</param>
     /// <param name="parentId">Target parent folder id; null moves to the media root.</param>

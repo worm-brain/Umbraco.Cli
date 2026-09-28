@@ -33,6 +33,56 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
             )
         );
 
+    /// <summary>What <see cref="GetContentRecycleBinAsync"/> lists, whatever the parent (#364).</summary>
+    public List<ContentItemResponse> TrashedContent { get; } = [];
+
+    /// <summary>Pages <see cref="TrashedContent"/>, as the recycle bin listing does.</summary>
+    /// <param name="parentId">Ignored.</param>
+    /// <param name="skip">Number of items to skip.</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of <see cref="TrashedContent"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> GetContentRecycleBinAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<ContentItemResponse>>.Success(
+                new PagedResponse<ContentItemResponse>
+                {
+                    Total = TrashedContent.Count,
+                    Items = [.. TrashedContent.Skip(skip).Take(take)],
+                }
+            )
+        );
+
+    /// <summary>What <see cref="GetMediaRecycleBinAsync"/> lists, whatever the parent (#364).</summary>
+    public List<MediaItemResponse> TrashedMedia { get; } = [];
+
+    /// <summary>Pages <see cref="TrashedMedia"/>, as the recycle bin listing does.</summary>
+    /// <param name="parentId">Ignored.</param>
+    /// <param name="skip">Number of items to skip.</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of <see cref="TrashedMedia"/>.</returns>
+    public Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> GetMediaRecycleBinAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<PagedResponse<MediaItemResponse>>.Success(
+                new PagedResponse<MediaItemResponse>
+                {
+                    Total = TrashedMedia.Count,
+                    Items = [.. TrashedMedia.Skip(skip).Take(take)],
+                }
+            )
+        );
+
     // Configurable exemplar used by the executor tests.
     public UmbracoResponse<ContentItemResponse>? ContentByIdResponse { get; set; }
     public Guid? LastRequestedId { get; private set; }

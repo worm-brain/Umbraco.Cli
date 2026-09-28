@@ -17,7 +17,7 @@ public static class ContentEmptyRecycleBinCommand
     {
         var cmd = new Command(
             "empty-recycle-bin",
-            "Permanently delete all content items in the recycle bin."
+            "Permanently delete all content items in the recycle bin.\n\nSee what it holds first with 'content list --trashed'."
         )
             .WithExamples("umbraco content empty-recycle-bin --yes")
             .Mutating();
