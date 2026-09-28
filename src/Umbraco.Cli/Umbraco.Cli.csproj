@@ -28,7 +28,7 @@
     <RepositoryUrl>https://github.com/worm-brain/Umbraco.Cli</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>umbraco;cms;cli;dotnet-tool;ai;management-api;content-management</PackageTags>
-    <PackageReleaseNotes>Alpha preview. Full coverage of the Umbraco 14+ Management API; not yet production-tested. APIs and behaviour may change before 1.0.0.</PackageReleaseNotes>
+    <PackageReleaseNotes>Alpha preview. Full coverage of the Umbraco 17+ Management API; not yet production-tested. APIs and behaviour may change before 1.0.0.</PackageReleaseNotes>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>

@@ -171,9 +171,13 @@ calling Umbraco).
 
 For an API call, `category` is one of: `unreachable` (no response - DNS/connection), `timeout`,
 `request_rejected` (a 4xx - usually bad input or the request itself), `server_error` (a 5xx or an
-undeclared status - a server-side fault) or `unexpected_response` (the body did not match what the
-CLI expected, a likely version mismatch). `serverVersion` is omitted when the server could not be
-reached (`unreachable`/`timeout`) or the version could not be determined.
+undeclared status - a server-side fault) or `unexpected_response` (the server answered, but with a
+body the CLI could not read - not JSON, or a `content get`/`media get` with no named variant - a
+likely version mismatch; it has no `httpStatus`, and its message names the tested version range
+when `serverVersion` is outside it, or otherwise points at `auth doctor`). Treat
+`unexpected_response` as "do not trust this instance's output until the version is checked", not
+as bad input. `serverVersion` is omitted when the server could not be reached
+(`unreachable`/`timeout`) or the version could not be determined.
 
 The rest never reach the API, so they carry no `httpStatus` and no `serverVersion`:
 
@@ -339,7 +343,9 @@ umbraco auth doctor --output json
 ```
 
 Run `auth doctor` as the first step of any new session; it turns "why did that 401" into a
-labelled check with a remediation hint. See [getting-started.md](getting-started.md) for the
+labelled check with a remediation hint. Its `Supported version` check warns when the instance's
+Umbraco major is outside the range this CLI was tested against; the CLI still runs, but treat
+its output from that instance with suspicion. See [getting-started.md](getting-started.md) for the
 full auth story and profiles.
 
 ## 7. Running non-interactively (the rules that bite)

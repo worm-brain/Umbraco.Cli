@@ -245,37 +245,21 @@ public sealed partial class UmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <exception cref="InvalidArgumentException">A code is blank or matches no configured language (invalid_argument).</exception>
     /// <exception cref="ApiException">The language list could not be read (mapped to 400).</exception>
-    private async Task GuardDictionaryIsoCodesAsync(
+    private Task GuardDictionaryIsoCodesAsync(
         IEnumerable<DictionaryTranslation> translations,
         CancellationToken ct
-    )
-    {
-        var requested = translations.Select(t => t.IsoCode).ToList();
-        if (requested.Count == 0)
-            return;
-
-        // A blank code is rejected rather than filtered out: filtering would let it past the
-        // guard to be discarded by Umbraco, which is the behaviour being fixed.
-        if (requested.Any(string.IsNullOrWhiteSpace))
-            throw new InvalidArgumentException("A translation's ISO code cannot be empty.");
-
-        var known = await KnownIsoCodesAsync(ct);
-
-        // A language list we could not read is a failure to validate, not a pass - skipping the
-        // check here would quietly restore the silent-discard behaviour.
-        if (known is null)
-            throw BadRequest(
-                "Could not read this instance's languages to check the translation ISO codes. "
-                    + "Umbraco discards translations whose code it does not recognise, so the "
-                    + "request was not sent."
-            );
-
-        var unknown = requested.Where(c => !known.Contains(c)).ToList();
-        if (unknown.Count > 0)
-            throw new InvalidArgumentException(
+    ) =>
+        GuardKnownValuesAsync(
+            translations.Select(t => t.IsoCode).ToList(),
+            KnownIsoCodesAsync,
+            "A translation's ISO code cannot be empty.",
+            "Could not read this instance's languages to check the translation ISO codes. "
+                + "Umbraco discards translations whose code it does not recognise, so the "
+                + "request was not sent.",
+            (unknown, known) =>
                 $"This instance has no language with the ISO code {string.Join(", ", unknown.Select(u => $"'{u}'"))}. "
-                    + $"Umbraco would accept the request and discard those translations. "
-                    + $"Configured languages: {string.Join(", ", known.Order())}."
-            );
-    }
+                + "Umbraco would accept the request and discard those translations. "
+                + $"Configured languages: {string.Join(", ", known.Order())}.",
+            ct
+        );
 }

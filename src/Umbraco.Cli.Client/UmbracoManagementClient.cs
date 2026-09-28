@@ -175,6 +175,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         .GetAsync(cancellationToken: ct)
                     ?? throw NotFound($"No content item found with id '{id}'.");
                 var variant = (d.Variants ?? []).FirstOrDefault();
+                // #154: a name and dates are critical fields; defaulting them ("" and 0001-01-01)
+                // would report drift as a successful read.
+                RequireVariant($"document/{id}", variant?.Name);
                 return new ContentItemResponse
                 {
                     Id = d.Id ?? id,
@@ -1014,6 +1017,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     await _api.Umbraco.Management.Api.V1.Media[id].GetAsync(cancellationToken: ct)
                     ?? throw NotFound($"No media item found with id '{id}'.");
                 var variant = (m.Variants ?? []).FirstOrDefault();
+                // #154: as for a document, a missing name or date is drift, not data.
+                RequireVariant($"media/{id}", variant?.Name);
 
                 // The media type's alias and the item's URLs are two independent follow-up reads.
                 // Started together rather than awaited inside the initializer below, where the
@@ -3232,7 +3237,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// Kiota signals HTTP errors by throwing <see cref="ApiException"/> (and transport
     /// errors as <see cref="HttpRequestException"/>); this converts them all into a failed
     /// response so the command layer keeps its "errors are data" contract (never throws for
-    /// HTTP-level failures). A genuine caller cancellation is left to propagate.
+    /// HTTP-level failures). A response it cannot read is an unexpected response (#154). A
+    /// genuine caller cancellation is left to propagate.
     /// </summary>
     /// <typeparam name="T">The mapped payload type.</typeparam>
     /// <param name="ct">The caller's cancellation token; a genuine cancellation is rethrown.</param>
@@ -3251,8 +3257,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         {
             // The caller's input is what needs fixing - an alias that matched nothing (#256), an
             // unknown event alias, a body that is not an object (#280) - so invalid_argument with
-            // no HTTP status, rather than a server rejection.
-            return UmbracoResponse<T>.Failure(0, ex.Message, FailureCategory.InvalidArgument);
+            // no HTTP status, rather than a server rejection. An unknown-values refusal also
+            // carries what was unknown and what is known, for the CLI's suggestion (#278).
+            return UmbracoResponse<T>.Failure(0, ex.Message, FailureCategory.InvalidArgument) with
+            {
+                UnknownValues = (ex as UnknownValuesException)?.Values,
+            };
         }
         catch (Gen.ProblemDetails pd)
         {
@@ -3284,6 +3294,21 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 FailureCategory.Unreachable
             );
         }
+        // #154: the server answered, but not in a shape this client can read. Kiota (and the raw
+        // JSON reads) throw JsonException for a body that is not JSON - a proxy's HTML page, or a
+        // changed contract - and a mapper throws UnexpectedResponseException for a read missing a
+        // field it always carries. Both are labelled here, where the response was read, rather
+        // than falling through to the CLI's backstop as an opaque error. Kiota is lenient about
+        // well-formed JSON of the wrong shape (it leaves fields null), which is why the critical
+        // reads also check their own fields. No status: the response itself was not an error.
+        catch (Exception ex) when (ex is JsonException or UnexpectedResponseException)
+        {
+            return UmbracoResponse<T>.Failure(
+                0,
+                UnexpectedResponseMessage(ex),
+                FailureCategory.UnexpectedResponse
+            );
+        }
         // A timeout surfaces as a cancellation whose token is NOT the caller's; a genuine
         // caller cancellation (ct signalled) is rethrown so callers can observe it.
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -3295,6 +3320,39 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             );
         }
     }
+
+    /// <summary>
+    /// Refuses a by-id read with no variant, or whose first variant has no name (#154). Umbraco
+    /// always sends at least one named variant, and the name and dates live on it, so its absence
+    /// means the body is not the shape this client was built for; mapping it anyway would return
+    /// an empty name and a 0001-01-01 date as if they were the item's.
+    /// </summary>
+    /// <param name="endpoint">The endpoint read, for the message (e.g. <c>document/{id}</c>).</param>
+    /// <param name="name">The first variant's name, or null when there is no variant or no name.</param>
+    /// <exception cref="UnexpectedResponseException">The name is missing.</exception>
+    private static void RequireVariant(string endpoint, string? name)
+    {
+        if (name is null)
+            throw new UnexpectedResponseException(
+                $"GET {endpoint} returned no variant with a name."
+            );
+    }
+
+    /// <summary>
+    /// The message for a response this client could not read (#154). It names version drift as
+    /// the likely cause but no CLI command: the command layer adds the pointer to the version
+    /// check, and the known server version when it has one.
+    /// </summary>
+    /// <param name="ex">The <see cref="JsonException"/> or <see cref="UnexpectedResponseException"/>.</param>
+    /// <returns>The message.</returns>
+    private static string UnexpectedResponseMessage(Exception ex) =>
+        (
+            ex is JsonException
+                ? $"The Umbraco instance returned a body that is not valid JSON ({ex.Message})."
+                : ex.Message
+        )
+        + " The response does not match what this CLI expects, which usually means the "
+        + "instance runs an Umbraco version the CLI was not built for.";
 
     /// <summary>
     /// Classifies an HTTP status into a <see cref="FailureCategory"/> for a response the server

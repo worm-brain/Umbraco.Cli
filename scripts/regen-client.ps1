@@ -11,6 +11,10 @@
     spec is refreshed (see scripts/fetch-spec.ps1) or the target Umbraco major
     changes. See GitHub issue #50.
 
+    When the target Umbraco major changes, also update MinMajor/MaxMajor in
+    src/Umbraco.Cli.Client/VersionSupport.cs, the tested range that
+    `auth doctor` checks the connected instance against (#153).
+
 .PARAMETER SpecPath
     Path to the OpenAPI document. Defaults to the committed spec/management.json.
 

@@ -24,7 +24,7 @@ drive-by dependency bumps) will be closed unread. The full rules, and the reason
 
 ## What this is
 
-A cross-platform .NET 9 CLI (`umbraco`) for the Umbraco 14+ Management API, shipped as a
+A cross-platform .NET 9 CLI (`umbraco`) for the Umbraco 17+ Management API, shipped as a
 NuGet global tool (`Umbraco.Community.Cli`; the command is `umbraco`). It is designed to be
 driven both by humans (Spectre.Console tables) and by AI agents/scripts (structured JSON).
 JSON is the default output whenever stdout is not a TTY.
@@ -157,7 +157,9 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
   request once with a new token on a 401.
 - The generated client is produced by Kiota from `spec/management.json` and checked in, so
   building needs no live Umbraco instance. Regenerate with `./scripts/regen-client.ps1` (and
-  refresh the spec first with `./scripts/fetch-spec.ps1` if needed).
+  refresh the spec first with `./scripts/fetch-spec.ps1` if needed). The tested Umbraco range
+  lives in `VersionSupport` (the spec only says `"Latest"`): update `MinMajor`/`MaxMajor` when
+  the spec moves to a new major.
 
 ### Config & output
 
