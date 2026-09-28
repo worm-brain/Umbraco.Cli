@@ -268,18 +268,20 @@ A trap worth knowing when fixing templates in bulk: a change that touches **only
 does not mark culture variants as having pending changes, so `publish-descendants` skips them as
 already published. Publish the affected cultures explicitly.
 
-Bulk commands read ids one per line from `--file` or stdin, so you can pipe:
+Bulk commands read ids from `--file` or stdin, and take the CLI's own output as it is, so you
+can pipe a list straight in - no `jq` or `ConvertFrom-Json` needed (#288):
 
 ```bash
-umbraco content list --fields id | jq -r '.data[].id' | umbraco content bulk publish
+umbraco content list --fields id | umbraco content bulk publish            # the JSON envelope
+umbraco content list --fields id -o csv | umbraco content bulk publish     # CSV with an id column
 ```
 
-On Windows PowerShell, use the built-in `ConvertFrom-Json` instead of `jq` (which is not
-installed by default):
-
-```powershell
-(umbraco content list --fields id --output json | ConvertFrom-Json).data.id | umbraco content bulk publish
-```
+The format is read from the content: JSON (starts with `{` or `[`) is the success envelope (the
+`id` of each `data` item), an array of objects with `id`, or an array of id strings; CSV is
+recognised by a header row with an `id` column, which is the column used; anything else is one
+id per line. JSON items without an `id`, or a CSV row with an empty `id`, refuse the whole batch
+as `invalid_argument` before anything runs. A bulk run's own results carry `id`, so they pipe into
+the next bulk command too.
 
 Each id is reported independently in the `data` results array (`{id, status, error}`); the exit
 code is `1` if any item failed. A bulk `delete` is gated by a single confirmation (`--yes`

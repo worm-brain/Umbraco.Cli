@@ -1207,6 +1207,29 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task RunBulk_MalformedInput_IsInvalidArgumentAndCallsNothing()
+    {
+        // #288: input BulkIds rejects (JSON items without an id, say) refuses the whole batch as
+        // one invalid_argument error instead of running and failing item by item.
+        var client = new FakeUmbracoManagementClient();
+        var (executor, parse) = Build(client);
+
+        var (_, stderr, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                () => throw new InvalidInputException("The JSON input item [0] has no string id."),
+                (c, id, ct) => c.PublishContentAsync(id, null, ct: ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(
+            (1, "invalid_argument", 0),
+            (exit, CategoryIn(stderr), client.CalledIds.Count)
+        );
+    }
+
+    [Fact]
     public async Task RunObject_NoHostOrCredentials_AbortsWithTwo()
     {
         // No --host and an empty config → CreateAsync aborts before any client call.
