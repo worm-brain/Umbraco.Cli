@@ -187,7 +187,7 @@ public static class MediaApplier
         {
             var staged = await StageAsync(client, snapshot, change.File!, ct);
             if (!staged.IsSuccess)
-                return UmbracoResponse<Empty>.Failure(staged.StatusCode, staged.ErrorMessage!);
+                return UmbracoResponse<Empty>.FailureFrom(staged);
             body = MediaBody.WithStagedFile(body, staged.Data);
         }
         else if (step.Operation == MediaOperation.Update)

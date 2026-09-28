@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Spectre.Console;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
@@ -18,7 +19,8 @@ public sealed class HumanOutputWriter : IOutputWriter
         string message,
         string? commandName,
         int? httpStatus = null,
-        string? serverVersion = null
+        string? serverVersion = null,
+        JsonNode? details = null
     )
     {
         // The HTTP status is the more informative of the two when there is one, so it leads.

@@ -85,7 +85,7 @@ public static class MediaExporter
     {
         var live = await ReadAsync(client, root, ct);
         if (!live.IsSuccess)
-            return UmbracoResponse<MediaSnapshot>.Failure(live.StatusCode, live.ErrorMessage!);
+            return UmbracoResponse<MediaSnapshot>.FailureFrom(live);
 
         var items = new List<MediaNode>(live.Data!.Count);
         foreach (var node in live.Data!)
@@ -228,7 +228,7 @@ public static class MediaExporter
         await using var hashing = new CryptoStream(Stream.Null, sha, CryptoStreamMode.Write);
         var download = await client.DownloadMediaFileAsync(src, hashing, ct);
         if (!download.IsSuccess)
-            return UmbracoResponse<string>.Failure(download.StatusCode, download.ErrorMessage!);
+            return UmbracoResponse<string>.FailureFrom(download);
         await hashing.FlushFinalBlockAsync(ct);
         return UmbracoResponse<string>.Success(Convert.ToHexStringLower(sha.Hash!));
     }
@@ -256,14 +256,14 @@ public static class MediaExporter
     {
         var tree = await client.GetMediaSnapshotTreeAsync(root, ct);
         if (!tree.IsSuccess)
-            return UmbracoResponse<List<MediaNode>>.Failure(tree.StatusCode, tree.ErrorMessage!);
+            return UmbracoResponse<List<MediaNode>>.FailureFrom(tree);
 
         var nodes = new List<MediaNode>(tree.Data!.Count);
         foreach (var node in tree.Data!)
         {
             var raw = await client.GetMediaRawAsync(node.Id, ct);
             if (!raw.IsSuccess)
-                return UmbracoResponse<List<MediaNode>>.Failure(raw.StatusCode, raw.ErrorMessage!);
+                return UmbracoResponse<List<MediaNode>>.FailureFrom(raw);
             nodes.Add(
                 new MediaNode
                 {

@@ -131,7 +131,11 @@ disagree, this file wins; the older document is rationale that may be out of dat
   `request_rejected`, `server_error`, `unexpected_response`, `invalid_argument`,
   `not_authenticated`, `not_allowed`, `readonly`, `confirmation_required`, `refused`,
   `cancelled`, `internal`.
-- Errors go to stderr as `{status: "error", exitCode, httpStatus?, message, category, meta}`.
+- Errors go to stderr as `{status: "error", exitCode, httpStatus?, message, category, details?,
+  meta}`.
+- **Pass Umbraco's answer through.** When Umbraco returns an error body (ProblemDetails),
+  `details` is that body as sent, and `message` is built from it (`title`, `operationStatus`, the
+  first line of `detail`, `invalidProperties`, `errors`), never from a stack trace.
 
 ## 8. Help text
 
@@ -181,3 +185,6 @@ Each exception is deliberate or tracked; don't copy it.
 - **2026-09-27** - 8.5: examples must parse, from a closed placeholder vocabulary; checked by
   `HelpTextTests`, which also checks the command paths and options in `docs/commands.md`
   (#250 Phase 7).
+- **2026-09-28** - 7: errors carry `details`, Umbraco's ProblemDetails body as sent, and the
+  message is built from it (#286). Chosen over a curated field set so new Umbraco fields are
+  never dropped.

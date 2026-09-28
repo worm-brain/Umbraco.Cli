@@ -29,7 +29,7 @@ public static class ContentPipeline
         var desired = await ContentFile.LoadAsync(snapshotPath, ct);
         var current = await ContentExporter.ExportAsync(client, desired.Root, ct);
         if (!current.IsSuccess)
-            return UmbracoResponse<ContentDiff>.Failure(current.StatusCode, current.ErrorMessage!);
+            return UmbracoResponse<ContentDiff>.FailureFrom(current);
 
         return UmbracoResponse<ContentDiff>.Success(
             ContentDiffEngine.Compare(desired, current.Data!)

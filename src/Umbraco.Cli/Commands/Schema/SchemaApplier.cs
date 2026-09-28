@@ -644,7 +644,7 @@ public static class SchemaApplier
         var id = change.CurrentId!.Value;
         var live = await client.GetSchemaRawAsync(EntityKind.UserGroup, id, ct);
         if (!live.IsSuccess)
-            return UmbracoResponse<Empty>.Failure(live.StatusCode, live.ErrorMessage!);
+            return UmbracoResponse<Empty>.FailureFrom(live);
         return await client.MergeSchemaItemAsync(
             EntityKind.UserGroup,
             id,

@@ -62,8 +62,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         if (http.BaseAddress is not null)
             adapter.BaseUrl = http.BaseAddress.ToString().TrimEnd('/');
 
-        _adapter = adapter;
-        _api = new UmbracoApiClient(adapter);
+        // Every call, generated or raw, reads an error body as ProblemDetails (#286).
+        _adapter = new ProblemDetailsRequestAdapter(adapter);
+        _api = new UmbracoApiClient(_adapter);
     }
 
     // ── Auth ─────────────────────────────────────────────────────────────────
@@ -3274,8 +3275,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             // message from the real fields so 404s and other errors are legible (#48).
             var (status, message) = Describe(pd);
             // A declared error body: a 5xx is a server-side problem, anything else the server
-            // rejecting the request (#152).
-            return UmbracoResponse<T>.Failure(status, message, CategoryFor(status));
+            // rejecting the request (#152). The body itself travels as the error's details (#286).
+            return UmbracoResponse<T>.Failure(
+                status,
+                message,
+                CategoryFor(status),
+                ProblemBody(pd)
+            );
         }
         catch (ApiException ex)
         {
@@ -3335,8 +3341,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// error agree. Kiota throws the generated <see cref="Gen.ProblemDetails"/> (which derives from
     /// <see cref="ApiException"/>) for RFC-9110 error bodies, but its Message is the useless base
     /// default ("Exception of type '...ProblemDetails' was thrown."), so the message is built from
-    /// its detail or title, with the field-level "errors" map appended (e.g. "isoCode: Required")
-    /// so a rejected write says WHICH field failed (#48). Any other exception goes through
+    /// the body by <see cref="DescribeProblem"/>. Any other exception goes through
     /// <see cref="DescribeApiException"/>.
     /// </summary>
     /// <param name="ex">The exception thrown by the generated client.</param>
@@ -3347,14 +3352,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             return (ex.ResponseStatusCode, DescribeApiException(ex));
 
         var status = pd.ResponseStatusCode != 0 ? pd.ResponseStatusCode : pd.Status ?? 0;
-        var baseMessage =
-            !string.IsNullOrWhiteSpace(pd.Detail) ? pd.Detail!
-            : !string.IsNullOrWhiteSpace(pd.Title) ? pd.Title!
-            : $"Error {status}";
-        // The generated ProblemDetails has no typed property for "errors"; it lands in
-        // AdditionalData as an UntypedNode.
-        var fieldErrors = FormatProblemDetailsErrors(pd);
-        return (status, fieldErrors is null ? baseMessage : $"{baseMessage} ({fieldErrors})");
+        return (status, DescribeProblem(pd, status));
     }
 
     /// <summary>Builds a 400 for a request this client refuses to send.</summary>
@@ -3376,9 +3374,16 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     private static string DescribeApiException(ApiException ex)
     {
         var code = ex.ResponseStatusCode;
+        // Kiota's own wording when there was no body to read: "no error factory is registered"
+        // for a status nobody mapped, and "the error registered for this code failed to
+        // deserialize" now that every 4xx/5xx maps to ProblemDetails (#286) but the body is empty.
+        // Both start with this prefix and say nothing a user can act on.
         var isUndeclared =
             string.IsNullOrWhiteSpace(ex.Message)
-            || ex.Message.Contains("no error factory is registered", StringComparison.Ordinal);
+            || ex.Message.StartsWith(
+                "The server returned an unexpected status code",
+                StringComparison.Ordinal
+            );
         if (!isUndeclared)
             return ex.Message;
         return code >= 500

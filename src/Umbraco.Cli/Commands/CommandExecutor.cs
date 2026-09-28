@@ -143,7 +143,8 @@ public sealed class CommandExecutor
                     message,
                     ctx.CommandName,
                     result.StatusCode == 0 ? null : result.StatusCode,
-                    serverVersion
+                    serverVersion,
+                    result.Details
                 );
                 return (int)ExitCode.Failed;
             }

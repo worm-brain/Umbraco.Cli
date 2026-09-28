@@ -134,7 +134,7 @@ public static class SchemaExporter
         {
             var raw = await client.GetSchemaRawAsync(EntityKind.DictionaryItem, entry.Id, ct);
             if (!raw.IsSuccess)
-                return UmbracoResponse<List<JsonNode>>.Failure(raw.StatusCode, raw.ErrorMessage!);
+                return UmbracoResponse<List<JsonNode>>.FailureFrom(raw);
             bodies.Add(SchemaBodies.DictionaryItem(raw.Data!, entry.ParentId));
         }
         return UmbracoResponse<List<JsonNode>>.Success(bodies);
@@ -154,7 +154,7 @@ public static class SchemaExporter
     {
         var ids = await listIds();
         if (!ids.IsSuccess)
-            return UmbracoResponse<List<JsonNode>>.Failure(ids.StatusCode, ids.ErrorMessage!);
+            return UmbracoResponse<List<JsonNode>>.FailureFrom(ids);
 
         // Fetch the full body for each id, preserving enumeration order for stable output.
         var bodies = new List<JsonNode>(ids.Data!.Count);
@@ -162,7 +162,7 @@ public static class SchemaExporter
         {
             var raw = await getRaw(id);
             if (!raw.IsSuccess)
-                return UmbracoResponse<List<JsonNode>>.Failure(raw.StatusCode, raw.ErrorMessage!);
+                return UmbracoResponse<List<JsonNode>>.FailureFrom(raw);
             bodies.Add(raw.Data!);
         }
 
@@ -173,5 +173,5 @@ public static class SchemaExporter
     /// <param name="failed">The failed intermediate result.</param>
     /// <returns>A failed <see cref="SchemaSnapshot"/> response carrying the same status/message.</returns>
     private static UmbracoResponse<SchemaSnapshot> Fail(UmbracoResponse<List<JsonNode>> failed) =>
-        UmbracoResponse<SchemaSnapshot>.Failure(failed.StatusCode, failed.ErrorMessage!);
+        UmbracoResponse<SchemaSnapshot>.FailureFrom(failed);
 }

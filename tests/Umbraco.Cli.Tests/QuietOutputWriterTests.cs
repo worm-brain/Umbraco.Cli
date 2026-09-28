@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Output;
@@ -35,7 +36,8 @@ public class QuietOutputWriterTests
             string message,
             string? commandName,
             int? httpStatus = null,
-            string? serverVersion = null
+            string? serverVersion = null,
+            JsonNode? details = null
         )
         {
             ErrorCalled = true;

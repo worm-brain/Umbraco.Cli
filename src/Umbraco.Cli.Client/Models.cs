@@ -103,6 +103,13 @@ public record UmbracoResponse<T>
     /// <summary>Why the call failed (#152); <see cref="FailureCategory.None"/> on success.</summary>
     public FailureCategory Category { get; init; }
 
+    /// <summary>
+    /// The error body Umbraco sent, as it sent it (its ProblemDetails: <c>title</c>,
+    /// <c>operationStatus</c>, <c>invalidProperties</c>, <c>errors</c>...), for the error's
+    /// <c>details</c> (#286). Null on success and when the failure carried no body.
+    /// </summary>
+    public JsonNode? Details { get; init; }
+
     public static UmbracoResponse<T> Success(T data, int code = 200) =>
         new()
         {
@@ -121,11 +128,13 @@ public record UmbracoResponse<T>
     /// <param name="code">The HTTP status code (0 when no response was received).</param>
     /// <param name="message">The human-readable error message.</param>
     /// <param name="category">The explicit failure category, or null to derive one from <paramref name="code"/>.</param>
+    /// <param name="details">The error body Umbraco sent, or null when there was none.</param>
     /// <returns>A failed <see cref="UmbracoResponse{T}"/>.</returns>
     public static UmbracoResponse<T> Failure(
         int code,
         string message,
-        FailureCategory? category = null
+        FailureCategory? category = null,
+        JsonNode? details = null
     ) =>
         new()
         {
@@ -133,6 +142,7 @@ public record UmbracoResponse<T>
             StatusCode = code,
             ErrorMessage = message,
             Category = category ?? DeriveCategory(code),
+            Details = details,
         };
 
     /// <summary>
@@ -158,6 +168,7 @@ public record UmbracoResponse<T>
                 StatusCode = failed.StatusCode,
                 ErrorMessage = failed.ErrorMessage,
                 Category = failed.Category,
+                Details = failed.Details,
             };
 
     /// <summary>
