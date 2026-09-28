@@ -800,26 +800,35 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// Rewords Umbraco's generic placement refusal for a move or copy (#363), as
-    /// <see cref="RestoreContentAsync"/> does for a restore (#230). Umbraco answers a document type
-    /// that is not allowed under the target (or at the root) with a 400 <c>NotAllowed</c> whose
-    /// text blames "a permission/configuration mismatch", which does not say what to check. The
-    /// message now names where the item was going and what to check; Umbraco's body still travels
-    /// as the error's <c>details</c>. Any other response is returned unchanged.
+    /// Rewords Umbraco's generic placement refusal for a move, copy or restore (#363, #395).
+    /// Umbraco answers a document or media type that is not allowed under the target (or at the
+    /// root) with a 400 <c>NotAllowed</c> whose text blames "a permission/configuration mismatch",
+    /// which does not say what to check. The message now names where the item was going and what
+    /// to check; Umbraco's body still travels as the error's <c>details</c> (conventions section
+    /// 7, #286), because only the message is replaced. Any other response is returned unchanged.
     /// </summary>
     /// <typeparam name="T">The response payload type.</typeparam>
-    /// <param name="response">The move or copy response.</param>
-    /// <param name="verb">The verb, for the message (<c>move</c> or <c>copy</c>).</param>
-    /// <param name="id">The document being placed.</param>
-    /// <param name="parentId">The target parent; null for the content root.</param>
+    /// <param name="response">The move, copy or restore response.</param>
+    /// <param name="verb">The verb, for the message (<c>move</c>, <c>copy</c> or <c>restore</c>).</param>
+    /// <param name="id">The document or media item being placed.</param>
+    /// <param name="parentId">The target parent; null for the root.</param>
+    /// <param name="media">True for a media item (media types, the media root); false for a document.</param>
+    /// <param name="note">
+    /// Optional text appended to where the item was going, e.g. <c>(its original parent)</c> for a
+    /// restore that went back where it came from.
+    /// </param>
     /// <returns>The response, with the message reworded when it is a placement refusal.</returns>
     internal static UmbracoResponse<T> ExplainPlacementRefusal<T>(
         UmbracoResponse<T> response,
         string verb,
         Guid id,
-        Guid? parentId
+        Guid? parentId,
+        bool media = false,
+        string? note = null
     )
     {
+        // The move path carries the ProblemDetails (operationStatus); the copy path reads only
+        // the detail text, so the "not permitted" wording is the fallback signal.
         var notAllowed =
             response.Details?["operationStatus"]?.ToString() == "NotAllowed"
             || response.ErrorMessage?.Contains("not permitted", StringComparison.OrdinalIgnoreCase)
@@ -827,13 +836,18 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         if (response.IsSuccess || response.StatusCode != 400 || !notAllowed)
             return response;
 
-        var where = parentId is { } p ? $"under {p}" : "at the content root";
+        var (root, type, noun) = media
+            ? ("media root", "media type", "media-type")
+            : ("content root", "document type", "document-type");
+        var where =
+            (parentId is { } p ? $"under {p}" : $"at the {root}")
+            + (note is null ? "" : $" {note}");
         return response with
         {
             ErrorMessage =
                 $"Umbraco would not {verb} {id} {where}: {response.ErrorMessage?.TrimEnd('.')}. "
-                + "Its document type may not be allowed there: check the parent's allowed "
-                + "document types (or 'allow at root') with 'document-type get <id>', or pass "
+                + $"Its {type} may not be allowed there: check the parent's allowed "
+                + $"{type}s (or 'allow at root') with '{noun} get <id>', or pass "
                 + $"--parent <id> to {verb} it somewhere else.",
         };
     }
@@ -1337,24 +1351,30 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
     /// <summary>
     /// Restores a media item from the recycle bin via <c>PUT recycle-bin/media/{id}/restore</c>
-    /// (issue #67). A null parent restores to the media root.
+    /// (issue #67), to its original parent by default (#265). A refusal is reworded by
+    /// <see cref="ExplainPlacementRefusal"/> to name where it was going, keeping Umbraco's body as
+    /// the error's <c>details</c> (#395).
     /// </summary>
     /// <param name="id">The trashed media item id.</param>
-    /// <param name="parentId">Target parent to restore under; null restores to the root.</param>
+    /// <param name="target">Where to restore to; null means <see cref="RestoreTarget.Original"/>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> RestoreMediaAsync(
+    public async Task<UmbracoResponse<Empty>> RestoreMediaAsync(
         Guid id,
         RestoreTarget? target = null,
         CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
+    )
+    {
+        target ??= RestoreTarget.Original;
+        // Resolved inside the guarded call (the original parent is a server read) and kept here so
+        // a refusal can say where the item was going.
+        Guid? parentId = null;
+        var response = await GuardedApiAsync(
             ct,
             async () =>
             {
                 var bin = _api.Umbraco.Management.Api.V1.RecycleBin.Media[id];
-                // The original parent by default, the way content restore works (#265).
-                var parentId = (target ?? RestoreTarget.Original) switch
+                parentId = target switch
                 {
                     RestoreTarget.UnderParent under => under.Id,
                     RestoreTarget.ContentRoot => (Guid?)null,
@@ -1368,6 +1388,27 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 return Empty.Value;
             }
         );
+        return ExplainPlacementRefusal(
+            response,
+            "restore",
+            id,
+            parentId,
+            media: true,
+            note: RestoreNote(target, parentId)
+        );
+    }
+
+    /// <summary>
+    /// The note a restore refusal adds to where the item was going: <c>(its original parent)</c>
+    /// or <c>(where it was)</c> when it was going back where it came from, otherwise nothing.
+    /// </summary>
+    /// <param name="target">The requested restore target.</param>
+    /// <param name="parentId">The resolved parent; null for the root.</param>
+    /// <returns>The note, or null for an explicit target.</returns>
+    private static string? RestoreNote(RestoreTarget target, Guid? parentId) =>
+        target is not RestoreTarget.OriginalParent ? null
+        : parentId is null ? "(where it was)"
+        : "(its original parent)";
 
     /// <summary>Empties the media recycle bin via <c>DELETE recycle-bin/media</c> (issue #67). Irreversible.</summary>
     /// <param name="ct">Cancellation token.</param>
@@ -1391,25 +1432,31 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="id">The media item id.</param>
     /// <param name="parentId">Target parent folder id; null moves to the media root.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> MoveMediaAsync(
+    /// <returns>An empty success response, or a mapped failure (a refusal says why, #395).</returns>
+    public async Task<UmbracoResponse<Empty>> MoveMediaAsync(
         Guid id,
         Guid? parentId = null,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var body = new Gen.MoveMediaRequestModel
+        ExplainPlacementRefusal(
+            await GuardedApiAsync(
+                ct,
+                async () =>
                 {
-                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
-                };
-                await _api
-                    .Umbraco.Management.Api.V1.Media[id]
-                    .Move.PutAsync(body, cancellationToken: ct);
-                return Empty.Value;
-            }
+                    var body = new Gen.MoveMediaRequestModel
+                    {
+                        Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                    };
+                    await _api
+                        .Umbraco.Management.Api.V1.Media[id]
+                        .Move.PutAsync(body, cancellationToken: ct);
+                    return Empty.Value;
+                }
+            ),
+            "move",
+            id,
+            parentId,
+            media: true
         );
 
     // ── Media Types ────────────────────────────────────────────────────────────

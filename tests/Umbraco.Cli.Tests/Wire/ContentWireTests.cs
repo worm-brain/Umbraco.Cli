@@ -318,7 +318,8 @@ public class ContentWireTests
         Assert.Equal(
             $"Umbraco would not restore {id} under {original} (its original parent): "
                 + "The attempted operation was not permitted. Its document type may not be allowed "
-                + "there; pass --parent <id> to restore it somewhere else.",
+                + "there: check the parent's allowed document types (or 'allow at root') with "
+                + "'document-type get <id>', or pass --parent <id> to restore it somewhere else.",
             result.ErrorMessage
         );
     }
