@@ -13,7 +13,10 @@ import sys
 import urllib.parse
 import urllib.request
 
-HOST = json.loads((Path(os.environ["UMB_SITE"]) / "credentials.json").read_text())["host"]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import harness  # noqa: E402
+
+HOST = harness.Site(os.environ["UMB_SITE"]).host
 CTX = ssl._create_unverified_context()
 RUN = os.environ.get("RUN_ID") or __import__("time").strftime("%H%M%S")  # makes member emails unique per run
 
@@ -27,7 +30,7 @@ class Browser:
 
     def get(self, path):
         with self.opener.open(HOST + path) as r:
-            return r.read().decode()
+            return r.read().decode("utf-8")
 
     def post_form(self, path, form_id, fields):
         html = self.get(path)
@@ -38,7 +41,7 @@ class Browser:
         hidden.update(re.findall(r'<input type="hidden" name="([^"]+)" value="([^"]*)"', form.group(0)))
         data = urllib.parse.urlencode({**hidden, **fields}).encode()
         with self.opener.open(HOST + path, data=data) as r:
-            return r.geturl(), r.read().decode()
+            return r.geturl(), r.read().decode("utf-8")
 
 
 def check(label, html, marker):
@@ -49,11 +52,11 @@ def check(label, html, marker):
 
 
 def main():
+    harness.utf8_stdio()
     results = []
     for path, lang, name, company in [("/contact/", "en", "Jane Tester", "Acme Ltd"),
                                       ("/da/kontakt/", "da", "Søren Prøve", "Dansk ApS")]:
         b = Browser()
-        slug = lang + str(len(sys.argv))
         _, html = b.post_form(path, "contact-form", {
             "Name": name, "Email": f"{lang}.contact.{RUN}@example.com", "Subject": f"Hello from {lang}",
             "Message": f"This is a test message sent from the {lang} contact page."})
@@ -71,6 +74,7 @@ def main():
             "Name": name, "Email": f"{lang}.member.{RUN}@example.com", "Password": "Member-Password-123"})
         results.append(check(f"{lang} duplicate sign-up rejected", html, "already exists"))
     print(f"{sum(results)}/{len(results)} checks passed")
+    sys.exit(0 if all(results) else 1)
 
 
 if __name__ == "__main__":

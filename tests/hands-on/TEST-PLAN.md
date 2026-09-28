@@ -15,7 +15,7 @@ Rules that apply to every test:
   (`sqlite3 -readonly sites/<s>/UmbracoSite/umbraco/Data/Umbraco.sqlite.db`). Several past bugs reported success while doing nothing.
 - **Destructive tests run on `sites/staging`**, never on the source, unless the step says otherwise.
 
-Conventions (run from `tests/hands-on`):
+Conventions (run from `tests/hands-on`; the snippets are bash, so on Windows use Git Bash with `jq` installed and `python` for `python3`):
 
 ```bash
 S=sites/source; U=$S/umb          # source site and its pinned CLI (profile 'source', harness config)
@@ -33,7 +33,7 @@ user group `blogEditors`, domains `localhost:<port>` (en-US) and `localhost:<por
 
 ## Part A: build the site (scripted)
 
-`./setup-round.sh` runs all of Part A: `tools/build_site.py`, then `tools/install_controller.sh` and `tools/submit_forms.py`.
+`python3 setup-round.py` runs all of Part A: `tools/build_site.py`, then `tools/install_controller.py` and `tools/submit_forms.py`.
 To re-run on an existing empty site: `UMB_SITE=sites/<s> python3 tools/build_site.py` (`--only publish` re-runs one step).
 Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines list any single CLI call over 5 s.
 
@@ -52,7 +52,7 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 **Pass:**
 - [ ] `build_site.py` → `All steps passed`, no `SLOW` lines
 - [ ] 8/8 form checks
-- [ ] If a reference site built from the same fixtures is running: `tools/compare_sites.sh <its port> <source port>` → all pages identical
+- [ ] If a reference site built from the same fixtures is running: `python3 tools/compare_sites.py <its port> <source port>` → all pages identical
 
 **Extra manual checks** (quick, on the source):
 - Merge update: `echo '{"values":[{"alias":"excerpt","culture":"en-US","segment":null,"value":"X"}]}' | $U content update $(id '.posts[2]') --json-body -`
@@ -80,8 +80,8 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 3. `$U content export --out $S/work/content.json` → `$T content apply … --dry-run` (rows name each document; Label properties get a
    one-line warning) → `$T content apply …` → `$T content diff …` (expect `[]`).
 4. Per-environment bits: `$T content domain set $(id .home) --default-culture en-US --domain localhost:<staging port>=en-US
-   --domain localhost:<staging port>/da=da-DK`, and `tools/install_controller.sh sites/staging` (site code).
-5. `tools/compare_sites.sh <source port> <staging port>` and `UMB_SITE=sites/staging python3 tools/submit_forms.py`.
+   --domain localhost:<staging port>/da=da-DK`, and `python3 tools/install_controller.py sites/staging` (site code).
+5. `python3 tools/compare_sites.py <source port> <staging port>` and `UMB_SITE=sites/staging python3 tools/submit_forms.py`.
 6. **Drift:** change a document type on the source (`get | jq '.data.icon="icon-rss"' | update`) → `schema diff` on staging shows exactly that
    field. Add a post on each site → `content diff`. Prune only with a **subtree** snapshot: `$U content export --root $(id .blog) --out …`
    then `$T content apply … --prune --yes` creates the source post, deletes the staging-only one, and leaves form submissions alone.
@@ -203,9 +203,9 @@ has no `documentType.alias`.
 
 ### T10 · Safety and CI mode
 
-1. `tools/safety_matrix.sh sites/source` → `23 passed, 0 failed` (read-only mode, allow-list, env-only credentials, bad credentials, exit codes).
+1. `python3 tools/safety_matrix.py sites/source` → `23 passed, 0 failed` (read-only mode, allow-list, env-only credentials, bad credentials, exit codes).
 2. Profiles: `$U auth profile list`; `sites/staging/umb content list` vs `$U content list` hit different sites.
-3. **Auth commands in an isolated config only:** `$U --config /tmp/x.json auth login --profile A …` etc. (`--config` stops the wrapper
+3. **Auth commands in an isolated config only:** `$U --config $S/work/auth-test.json auth login --profile A …` etc. (`--config` stops the wrapper
    adding the harness config). Check `UMBRACO_PROFILE` is honoured by `login` and `logout`, and logging out the default doesn't promote another profile.
 4. Output: `-o csv`, `--fields a,b`, `-o human`, `-q`.
 

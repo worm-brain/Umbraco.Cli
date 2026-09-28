@@ -52,7 +52,7 @@ def args():
 
 
 def gh(*cmd):
-    res = subprocess.run(["gh", *cmd], capture_output=True, text=True)
+    res = subprocess.run(["gh", *cmd], capture_output=True, text=True, encoding="utf-8", errors="replace")
     if res.returncode:
         raise SystemExit(f"gh {' '.join(cmd[:3])} failed: {res.stderr.strip()}")
     return res.stdout.strip()
@@ -75,8 +75,10 @@ def clean(cell):
 
 def main():
     opt = args()
-    text = LEDGER.read_text()
-    links = {k: f"#{v}" for k, v in json.loads(HISTORY.read_text()).items()} if HISTORY.exists() else {}
+    for stream in (sys.stdout, sys.stderr):  # ledger titles carry emoji; Windows pipes default to the ANSI code page
+        stream.reconfigure(encoding="utf-8", errors="replace")
+    text = LEDGER.read_text(encoding="utf-8")
+    links = {k: f"#{v}" for k, v in json.loads(HISTORY.read_text(encoding="utf-8")).items()} if HISTORY.exists() else {}
     for _, c in rows(text):
         if re.fullmatch(r"#\d+", c[6]):
             links[c[0]] = c[6]
@@ -133,7 +135,7 @@ def main():
     def fill(m):
         lid = row_cells(m.group(0))[0]
         return re.sub(r"\|\s*$", f"#{numbers[lid]} |", m.group(0).rstrip()[:-1].rstrip() + " |") if lid in numbers else m.group(0)
-    LEDGER.write_text(ROW_LINE.sub(fill, text))
+    LEDGER.write_text(ROW_LINE.sub(fill, text), encoding="utf-8")
 
     if opt["epic"]:
         make_epic(opt, todo)
@@ -151,7 +153,7 @@ def make_epic(opt, todo):
         items = [f"- [ ] #{t['number']} ({kind[t['type']]}) {t['title']}" for t in todo if t["sev"] == sev]
         if items:
             sections.append(f"## {name} ({len(items)})\n\n" + "\n".join(items))
-    summary = Path(opt["epic"]).read_text().strip()
+    summary = Path(opt["epic"]).read_text(encoding="utf-8").strip()
     body = (f"Tracking issue for **hands-on test round {first['round']}** ({first['heading']}), run with `tests/hands-on`. "
             f"All issues are labelled `cli-testing` + `{m['label']}`.\n\n{summary}\n\n" + "\n\n".join(sections))
     url = gh("issue", "create", "-R", opt["repo"], "--title",
