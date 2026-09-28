@@ -7,6 +7,19 @@ namespace Umbraco.Cli.Tests;
 public class BulkIdsTests
 {
     [Fact]
+    public void ReadsStdin_Dash_IsTrue()
+    {
+        // #312: '-' is the stdin token for every file input (docs/conventions.md 4.5).
+        Assert.True(BulkIds.ReadsStdin(new FileInfo("-")));
+    }
+
+    [Fact]
+    public void ReadsStdin_APath_IsFalse()
+    {
+        Assert.False(BulkIds.ReadsStdin(new FileInfo("ids.txt")));
+    }
+
+    [Fact]
     public void Read_File_TrimsWhitespaceAndSkipsBlankLines()
     {
         // #85: ids are one per line; surrounding whitespace is trimmed and blank lines ignored,

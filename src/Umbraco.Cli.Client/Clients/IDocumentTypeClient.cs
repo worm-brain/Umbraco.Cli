@@ -26,7 +26,14 @@ public interface IDocumentTypeClient
         CancellationToken ct = default
     );
 
-    Task<UmbracoResponse<DocumentTypeResponse>> CreateDocumentTypeAsync(
+    /// <summary>
+    /// Creates a document type from the scalar fields the CLI exposes. Returns only the id;
+    /// read the type back for what Umbraco saved (#314).
+    /// </summary>
+    /// <param name="request">The document type to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The id the document type was created with, or a mapped failure.</returns>
+    Task<UmbracoResponse<Guid>> CreateDocumentTypeAsync(
         CreateDocumentTypeRequest request,
         CancellationToken ct = default
     );

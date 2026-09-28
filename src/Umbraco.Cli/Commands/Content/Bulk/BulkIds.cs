@@ -27,10 +27,11 @@ public static class BulkIds
     private const string IdField = "id";
 
     /// <summary>
-    /// Reads the ids from <paramref name="file"/>, or from stdin when it is null. Any IO error
+    /// Reads the ids from <paramref name="file"/>, or from stdin when it is null or <c>-</c>
+    /// (docs/conventions.md 4.5, #312). Any IO error
     /// propagates to the caller (the executor reports it via the output writer).
     /// </summary>
-    /// <param name="file">The file to read ids from, or null to read stdin.</param>
+    /// <param name="file">The file to read ids from, or null / <c>-</c> to read stdin.</param>
     /// <returns>The ids in input order.</returns>
     /// <exception cref="InvalidInputException">The input is malformed JSON or CSV.</exception>
     /// <exception cref="IOException">The file or stdin could not be read.</exception>
@@ -41,12 +42,22 @@ public static class BulkIds
         // instead, so a producer that writes a BOM (PowerShell, .NET's Encoding.UTF8) turned the
         // first id into garbage that failed as "not a valid GUID".
         using var reader = new StreamReader(
-            file is null ? Console.OpenStandardInput() : File.OpenRead(file.FullName),
+            ReadsStdin(file) ? Console.OpenStandardInput() : File.OpenRead(file!.FullName),
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
             detectEncodingFromByteOrderMarks: true
         );
         return Parse(reader);
     }
+
+    /// <summary>
+    /// Whether <paramref name="file"/> means stdin: no <c>--file</c>, or <c>--file -</c>, the token
+    /// every file input uses for stdin (#312). The check is on the path as typed, because
+    /// <see cref="FileInfo.FullName"/> would turn <c>-</c> into a file of that name.
+    /// </summary>
+    /// <param name="file">The <c>--file</c> value, or null.</param>
+    /// <returns>True to read stdin.</returns>
+    internal static bool ReadsStdin(FileInfo? file) =>
+        file is null || file.ToString() == Infrastructure.JsonBodyInput.StdinToken;
 
     /// <summary>Reads the ids from <paramref name="reader"/>, in whichever format it holds.</summary>
     /// <param name="reader">The reader, e.g. over stdin.</param>

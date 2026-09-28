@@ -265,12 +265,11 @@ direct `PUT /umbraco/management/api/v1/document/{id}` afterwards.
 
 ### Known sharp edges on `content` (Umbraco 17.x)
 
-Found in a hands-on test round against 17.7.0 and still open. Tracked in
-[#187](https://github.com/worm-brain/Umbraco.Cli/issues/187).
+Limits of the Management API itself, not bugs the CLI can fix.
 
 | What | Effect | Do this instead |
 |---|---|---|
-| `content get` does not return the item's **parent** ([#168](https://github.com/worm-brain/Umbraco.Cli/issues/168)) | Placement is not on the Management API's by-id body at all - it lives in the tree | `umbraco content tree`, whose rows carry `parentId` |
+| `content list` rows have no **`updateDate`** ([#284](https://github.com/worm-brain/Umbraco.Cli/issues/284)) | The tree endpoint behind `list` does not return it; `content get` does | `umbraco content get <id>` for the items whose date matters |
 
 A trap worth knowing when fixing templates in bulk: a change that touches **only** the template
 does not mark culture variants as having pending changes, so `publish-descendants` skips them as

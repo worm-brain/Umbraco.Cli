@@ -1419,17 +1419,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     }
 
     /// <summary>
-    /// Creates a media type via <c>POST media-type</c> (generated client, issue #55). The id is
-    /// client-generated (Umbraco 14+ accepts a supplied GUID), so the created type is echoed
-    /// back with its id and the accepted fields without a follow-up read (the <c>201</c>
-    /// response body is empty — guards the empty-payload class of #74). The API-required
-    /// collections (allowed types, compositions, containers, properties) default to empty and
-    /// the varies-by flags to false so a minimal name+alias create succeeds (issue #47 parity).
+    /// Creates a media type via <c>POST</c> (generated client). The id is client-supplied, and the
+    /// <c>201</c> response has no body, so only the id is returned: callers read the media type
+    /// back for what Umbraco saved. It used to return an item built from the request, which
+    /// looked saved and was not (#285, #314). The API-required collections are sent empty.
     /// </summary>
     /// <param name="request">The media type to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created media type (with the generated id), or a mapped failure.</returns>
-    public Task<UmbracoResponse<MediaTypeResponse>> CreateMediaTypeAsync(
+    /// <returns>The id the media type was created with, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Guid>> CreateMediaTypeAsync(
         CreateMediaTypeRequest request,
         CancellationToken ct = default
     ) =>
@@ -1458,16 +1456,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     body,
                     cancellationToken: ct
                 );
-                return new MediaTypeResponse
-                {
-                    Id = id,
-                    Name = request.Name,
-                    Alias = request.Alias,
-                    Description = request.Description,
-                    Icon = request.Icon,
-                    IsElement = request.IsElement,
-                    AllowedAsRoot = request.AllowedAsRoot,
-                };
+                return id;
             }
         );
 
@@ -1638,16 +1627,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     }
 
     /// <summary>
-    /// Creates a document type via <c>POST document-type</c> (generated client, #79). The id is
-    /// client-supplied so the created type is echoed back with the accepted fields (the create
-    /// response is empty). The CLI exposes only the scalar fields (name/alias/icon/description/
-    /// element/root flags); properties, containers, compositions and allowed-type collections
-    /// are sent empty, matching the command's surface.
+    /// Creates a document type via <c>POST</c> (generated client). The id is client-supplied, and the
+    /// <c>201</c> response has no body, so only the id is returned: callers read the document type
+    /// back for what Umbraco saved. It used to return an item built from the request, which
+    /// looked saved and was not (#285, #314). The API-required collections are sent empty.
     /// </summary>
     /// <param name="request">The document type to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created document type (with the supplied id), or a mapped failure.</returns>
-    public Task<UmbracoResponse<DocumentTypeResponse>> CreateDocumentTypeAsync(
+    /// <returns>The id the document type was created with, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Guid>> CreateDocumentTypeAsync(
         CreateDocumentTypeRequest request,
         CancellationToken ct = default
     ) =>
@@ -1655,9 +1643,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
+                // Settled here so the caller gets the id even when it supplied none.
+                var id = request.Id == Guid.Empty ? Guid.NewGuid() : request.Id;
                 var body = new Gen.CreateDocumentTypeRequestModel
                 {
-                    Id = request.Id,
+                    Id = id,
                     Name = request.Name,
                     Alias = request.Alias,
                     Icon = request.Icon,
@@ -1686,15 +1676,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     body,
                     cancellationToken: ct
                 );
-                return new DocumentTypeResponse
-                {
-                    Id = request.Id,
-                    Name = request.Name,
-                    Alias = request.Alias,
-                    Description = request.Description,
-                    IsElement = request.IsElement,
-                    AllowedAsRoot = request.AllowedAsRoot,
-                };
+                return id;
             }
         );
 
@@ -1879,13 +1861,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     }
 
     /// <summary>
-    /// Creates a data type via <c>POST data-type</c> (generated client, issue #59). The id is
-    /// client-generated and echoed back; editor configuration values default to empty.
+    /// Creates a data type via <c>POST</c> (generated client). The id is client-supplied, and the
+    /// <c>201</c> response has no body, so only the id is returned: callers read the data type
+    /// back for what Umbraco saved. It used to return an item built from the request, which
+    /// looked saved and was not (#285, #314). The API-required collections are sent empty.
     /// </summary>
     /// <param name="request">The data type to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created data type (with the generated id), or a mapped failure.</returns>
-    public Task<UmbracoResponse<DataTypeResponse>> CreateDataTypeAsync(
+    /// <returns>The id the data type was created with, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Guid>> CreateDataTypeAsync(
         CreateDataTypeRequest request,
         CancellationToken ct = default
     ) =>
@@ -1906,13 +1890,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     body,
                     cancellationToken: ct
                 );
-                return new DataTypeResponse
-                {
-                    Id = id,
-                    Name = request.Name,
-                    EditorAlias = request.EditorAlias,
-                    EditorUiAlias = request.EditorUiAlias,
-                };
+                return id;
             }
         );
 
@@ -2680,16 +2658,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// Creates a member type via <c>POST member-type</c> (generated client, issue #56). The id
-    /// is client-generated (Umbraco 14+ accepts a supplied GUID), so the created type is echoed
-    /// back with its id and the accepted fields without a follow-up read (the <c>201</c>
-    /// response body is empty). The API-required collections default to empty and the varies-by
-    /// flags to false so a minimal name+alias create succeeds (issue #47 parity).
+    /// Creates a member type via <c>POST</c> (generated client). The id is client-supplied, and the
+    /// <c>201</c> response has no body, so only the id is returned: callers read the member type
+    /// back for what Umbraco saved. It used to return an item built from the request, which
+    /// looked saved and was not (#285, #314). The API-required collections are sent empty.
     /// </summary>
     /// <param name="request">The member type to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created member type (with the generated id), or a mapped failure.</returns>
-    public Task<UmbracoResponse<MemberTypeResponse>> CreateMemberTypeAsync(
+    /// <returns>The id the member type was created with, or a mapped failure.</returns>
+    public Task<UmbracoResponse<Guid>> CreateMemberTypeAsync(
         CreateMemberTypeRequest request,
         CancellationToken ct = default
     ) =>
@@ -2717,14 +2694,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     body,
                     cancellationToken: ct
                 );
-                return new MemberTypeResponse
-                {
-                    Id = id,
-                    Name = request.Name,
-                    Alias = request.Alias,
-                    Description = request.Description,
-                    Icon = request.Icon,
-                };
+                return id;
             }
         );
 

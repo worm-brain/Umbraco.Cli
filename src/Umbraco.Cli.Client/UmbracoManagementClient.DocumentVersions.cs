@@ -120,6 +120,11 @@ public sealed partial class UmbracoManagementClient
     /// (#209). The body is returned raw so every property value survives, which is what a
     /// diff before <c>content version rollback</c> needs.
     /// </summary>
+    /// <para>
+    /// Like <c>content get</c> and <c>document-blueprint get</c>, it adds a top-level <c>name</c>
+    /// (the first variant's) and the document's current <c>parent</c> (#315); the rest of the body
+    /// is left exactly as Umbraco sent it.
+    /// </para>
     /// <param name="versionId">The version id, from <see cref="GetDocumentVersionsAsync"/>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The version body as JSON, or a mapped failure.</returns>
@@ -129,7 +134,32 @@ public sealed partial class UmbracoManagementClient
     ) =>
         GuardedApiAsync(
             ct,
-            () => GetRawJsonAsync($"umbraco/management/api/v1/document-version/{versionId}", ct)
+            async () =>
+            {
+                var version = await GetRawJsonAsync(
+                    $"umbraco/management/api/v1/document-version/{versionId}",
+                    ct
+                );
+                if (version is not JsonObject obj)
+                    return version;
+
+                if (
+                    obj["name"] is null
+                    && obj["variants"] is JsonArray { Count: > 0 } variants
+                    && variants[0]?["name"] is JsonValue name
+                )
+                    obj["name"] = name.DeepClone();
+
+                // A version has no placement of its own: the parent is the document's, read
+                // best-effort from the tree as content get does.
+                if (
+                    obj["document"]?["id"]?.GetValue<string>() is { } raw
+                    && Guid.TryParse(raw, out var documentId)
+                    && await DocumentParentAsync(documentId, ct) is { } parent
+                )
+                    obj["parent"] = new JsonObject { ["id"] = parent.Id.ToString() };
+                return obj;
+            }
         );
 
     /// <inheritdoc />

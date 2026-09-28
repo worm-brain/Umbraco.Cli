@@ -206,6 +206,46 @@ public class ContentVersionsWireTests
         Assert.Equal("Old title", result.Data!["values"]![0]!["value"]!.GetValue<string>());
     }
 
+    /// <summary>A version of <see cref="DocumentId"/> named "Old post", and the document's tree ancestors.</summary>
+    /// <param name="versionId">The version id.</param>
+    /// <param name="parentId">The document's parent.</param>
+    /// <returns>The handler.</returns>
+    private static RoutingHandler VersionWithParent(Guid versionId, Guid parentId) =>
+        Wire.Routed(
+            (
+                $"/document-version/{versionId}",
+                $$"""{ "document": { "id": "{{DocumentId}}" }, "variants": [ { "culture": null, "name": "Old post" } ] }"""
+            ),
+            (
+                "/tree/document/ancestors",
+                $$"""[ { "id": "{{parentId}}", "parent": null }, { "id": "{{DocumentId}}", "parent": { "id": "{{parentId}}" } } ]"""
+            )
+        );
+
+    [Fact]
+    public async Task GetDocumentVersionAsync_AddsTheFirstVariantsName()
+    {
+        // #315: content get and blueprint get have a top-level name; version get had none.
+        var versionId = Guid.NewGuid();
+
+        var result = await Wire.Client(VersionWithParent(versionId, Guid.NewGuid()))
+            .GetDocumentVersionAsync(versionId, CancellationToken.None);
+
+        Assert.Equal("Old post", result.Data!["name"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task GetDocumentVersionAsync_AddsTheDocumentsParent()
+    {
+        var versionId = Guid.NewGuid();
+        var parentId = Guid.NewGuid();
+
+        var result = await Wire.Client(VersionWithParent(versionId, parentId))
+            .GetDocumentVersionAsync(versionId, CancellationToken.None);
+
+        Assert.Equal(parentId.ToString(), result.Data!["parent"]!["id"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task GetDocumentVersionAsync_UnknownVersion_ReturnsTheFailure()
     {

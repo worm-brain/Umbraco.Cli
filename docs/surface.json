@@ -999,7 +999,7 @@
                 {
                   "name": "--file",
                   "aliases": [],
-                  "description": "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted.",
+                  "description": "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted or -.",
                   "type": "file",
                   "required": false,
                   "hasDefault": false
@@ -1018,7 +1018,7 @@
                 {
                   "name": "--file",
                   "aliases": [],
-                  "description": "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted.",
+                  "description": "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted or -.",
                   "type": "file",
                   "required": false,
                   "hasDefault": false
@@ -1045,7 +1045,7 @@
                 {
                   "name": "--file",
                   "aliases": [],
-                  "description": "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted.",
+                  "description": "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted or -.",
                   "type": "file",
                   "required": false,
                   "hasDefault": false

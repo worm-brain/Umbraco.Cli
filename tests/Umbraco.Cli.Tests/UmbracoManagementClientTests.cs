@@ -414,16 +414,14 @@ public class UmbracoManagementClientTests
             CancellationToken.None
         );
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(id, result.Data!.Id);
+        Assert.Equal(id, result.Data);
     }
 
     [Fact]
-    public async Task CreateMediaTypeAsync_201EmptyBody_EchoesRequestWithGeneratedId()
+    public async Task CreateMediaTypeAsync_201EmptyBody_ReturnsAGeneratedId()
     {
-        // #55: like the other migrated creates, the client supplies the id up front and echoes
-        // the accepted request, so a 201 with an empty body reports success with a non-empty id
-        // and the alias populated (guards #74).
+        // #55: the client supplies the id up front, so a 201 with an empty body still reports
+        // success with a usable id (guards #74). Only the id: #314 stopped echoing the request.
         var (client, _) = ClientReturning("", HttpStatusCode.Created);
 
         var result = await client.CreateMediaTypeAsync(
@@ -431,9 +429,7 @@ public class UmbracoManagementClientTests
             CancellationToken.None
         );
 
-        Assert.True(result.IsSuccess);
-        Assert.NotEqual(Guid.Empty, result.Data!.Id);
-        Assert.Equal("customImage", result.Data.Alias);
+        Assert.NotEqual(Guid.Empty, result.Data);
     }
 
     // ── Content / media workflow (#67) ─────────────────────────────────────────
@@ -701,10 +697,10 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task CreateMemberTypeAsync_201EmptyBody_EchoesRequestWithGeneratedId()
+    public async Task CreateMemberTypeAsync_201EmptyBody_ReturnsAGeneratedId()
     {
-        // #56: the client supplies the id up front and echoes the accepted request, so a 201
-        // with an empty body reports success with a non-empty id and the alias populated.
+        // #56: the client supplies the id up front, so a 201 with an empty body still reports
+        // success with a usable id. Only the id: #314 stopped echoing the request.
         var (client, _) = ClientReturning("", HttpStatusCode.Created);
 
         var result = await client.CreateMemberTypeAsync(
@@ -712,9 +708,7 @@ public class UmbracoManagementClientTests
             CancellationToken.None
         );
 
-        Assert.True(result.IsSuccess);
-        Assert.NotEqual(Guid.Empty, result.Data!.Id);
-        Assert.Equal("author", result.Data.Alias);
+        Assert.NotEqual(Guid.Empty, result.Data);
     }
 
     [Fact]
@@ -734,9 +728,10 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task CreateDataTypeAsync_201EmptyBody_EchoesRequestWithGeneratedId()
+    public async Task CreateDataTypeAsync_201EmptyBody_ReturnsAGeneratedId()
     {
-        // #59: data-type create supplies a client id and echoes the request on the empty 201.
+        // #59: data-type create supplies a client id, so the empty 201 still yields a usable id.
+        // Only the id: #314 stopped echoing the request.
         var (client, _) = ClientReturning("", HttpStatusCode.Created);
 
         var result = await client.CreateDataTypeAsync(
@@ -749,9 +744,7 @@ public class UmbracoManagementClientTests
             CancellationToken.None
         );
 
-        Assert.True(result.IsSuccess);
-        Assert.NotEqual(Guid.Empty, result.Data!.Id);
-        Assert.Equal("Umbraco.TextBox", result.Data.EditorAlias);
+        Assert.NotEqual(Guid.Empty, result.Data);
     }
 
     [Fact]

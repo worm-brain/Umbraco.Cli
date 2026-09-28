@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -50,6 +51,10 @@ public sealed class JsonOutputWriter : IOutputWriter
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        // Escape only what JSON requires (#311). The default encoder also escapes quotes,
+        // apostrophes, '+' and non-ASCII letters (', +, æ), which made messages and
+        // Danish names hard to read. The output goes to a terminal or a pipe, never into HTML.
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null)
