@@ -11,7 +11,8 @@ namespace Umbraco.Cli.Commands.Content;
 /// Stripped, because they always differ on another instance or are server-owned: the top-level
 /// <c>isTrashed</c> and <c>flags</c>, and each variant's <c>createDate</c>, <c>updateDate</c>,
 /// <c>publishDate</c>, <c>scheduledPublishDate</c>, <c>scheduledUnpublishDate</c>, <c>flags</c> and
-/// <c>state</c>. Publish state is not part of the body an update writes, so it is compared on
+/// <c>state</c>; and the document type reference is cut to its <c>id</c> (#346), since its
+/// <c>icon</c> and <c>collection</c> belong to the schema. Publish state is not part of the body an update writes, so it is compared on
 /// its own rather than as a body difference. <c>values</c> and <c>variants</c> are sorted by alias/culture/segment, because the
 /// server does not promise an order and the comparison is order-sensitive for arrays.
 ///
@@ -56,6 +57,7 @@ public static class ContentBodyNormaliser
 
         foreach (var field in TopLevelNoise)
             doc.Remove(field);
+        SnapshotBody.ReduceTypeToId(doc, "documentType");
 
         if (doc["variants"] is JsonArray variants)
         {

@@ -565,7 +565,8 @@ umbraco media apply ./media-snapshot --prune --yes         # also trash what the
   which it replaces only once the new export is complete (a failed export leaves it as it was).
   A snapshot whose file paths leave `files/` is refused.
 - **What is compared** - the item body without what differs on every instance (the file's `src`
-  folder, the server-computed size, dimensions and extension, dates, `isTrashed`, `flags`), and the
+  folder, the server-computed size, dimensions and extension, dates, `isTrashed`, `flags`, and the
+  `mediaType` icon, which is schema: the type is compared by `id`), and the
   file by name and size. `--verify-files` also downloads each live file and compares SHA-256.
   A changed file shows as `file` in `changes`.
 - **Apply** - creates in pre-order with the snapshot id and parent, staging each file through
@@ -1103,9 +1104,17 @@ How it works:
   }
   ```
 
-  Each entry is still the **whole** item: apply replaces a changed type with the snapshot's body,
-  so list every property the type keeps (a property you leave out is removed, with its values).
-  Run `schema diff` first; its `changes` column shows exactly which fields differ.
+  A **top-level field an entry leaves out is not managed** (such as `cleanup` above): diff does
+  not compare it and apply keeps the live value
+  ([#351](https://github.com/worm-brain/Umbraco.Cli/issues/351)). A field that is present, even
+  as `null`, is managed. Fields the server computes (a data type's `isDeletable` and
+  `canIgnoreStartNodes`) are never compared. But a list is the **whole** list: apply writes the
+  snapshot's `properties` and `containers`, so list every property the type keeps (a property
+  you leave out is removed, with its values). List order does not matter: properties are matched
+  by alias, containers by id, and `allowedDocumentTypes` / `compositions` entries by the type they
+  name (ids ignore letter case), and order is carried by `sortOrder` and `parent`
+  ([#350](https://github.com/worm-brain/Umbraco.Cli/issues/350)). Run `schema diff` first; its
+  `changes` column shows exactly which fields differ.
 - **Static files** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)) - the
   snapshot's `partialViews`, `stylesheets` and `scripts` sections hold each file as
   `{ "path": "/blocklist/default.cshtml", "content": "..." }` and each folder as
@@ -1189,7 +1198,8 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
   in tree pre-order (parents before children).
 - **Content, not instance history** - diff and apply compare a normalised body: the per-variant
   `createDate`, `updateDate`, `publishDate`, scheduled dates, `flags` and `state`, and the
-  top-level `isTrashed` and `flags`, are ignored, and `values`/`variants` are compared in a fixed
+  top-level `isTrashed` and `flags`, are ignored, `documentType` is compared by `id` only (its
+  `icon` and `collection` are schema, #346), and `values`/`variants` are compared in a fixed
   order. The same content on two instances is `Unchanged`, and a second `apply` does nothing.
 - **Label values are not compared** - Umbraco ignores values sent for `Umbraco.Label` properties
   (values set by site code), so a promotion can never change them. The diff leaves them out, and

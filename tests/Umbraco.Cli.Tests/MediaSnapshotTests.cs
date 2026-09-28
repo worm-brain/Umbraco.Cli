@@ -124,6 +124,23 @@ public sealed class MediaSnapshotTests : IDisposable
     }
 
     [Fact]
+    public void Normalise_MediaTypeIconDiffers_ComparesEqual()
+    {
+        // Arrange: #346 - the type's icon describes the schema, not the item.
+        var id = Guid.NewGuid();
+        var here = Image(id, "/media/a/photo.jpg", 10);
+        var there = Image(id, "/media/a/photo.jpg", 10);
+        here["mediaType"]!["icon"] = "icon-picture";
+        there["mediaType"]!["icon"] = "icon-rss";
+
+        // Act
+        var changes = JsonPathDiff.Paths(MediaBody.Normalise(here), MediaBody.Normalise(there));
+
+        // Assert
+        Assert.Empty(changes);
+    }
+
+    [Fact]
     public void Normalise_KeepsTheCropsAndFocalPoint()
     {
         var normalised = MediaBody.Normalise(Image(Guid.NewGuid(), "/media/a/p.jpg", 10));

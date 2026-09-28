@@ -200,6 +200,29 @@ public class ContentDiffEngineTests
         Assert.Equal(1, diff.Unchanged);
     }
 
+    [Fact]
+    public void Compare_OnlyTheDocumentTypeIconDiffers_IsUnchanged()
+    {
+        // #346: the type's icon is schema, not content; it must not plan an update and republish.
+        var id = Guid.NewGuid();
+        var type = Guid.NewGuid();
+        ContentNode WithIcon(string icon) =>
+            new()
+            {
+                Id = id,
+                Body = JsonNode.Parse(
+                    $$"""{"id":"{{id}}","documentType":{"id":"{{type}}","icon":"{{icon}}","collection":null},"variants":[{"culture":"en-US","name":"Post","state":"Published"}]}"""
+                )!,
+            };
+
+        var diff = ContentDiffEngine.Compare(
+            Snap(WithIcon("icon-rss")),
+            Snap(WithIcon("icon-document"))
+        );
+
+        Assert.Equal(1, diff.Unchanged);
+    }
+
     // ── #291: Label values; #293: names and types on every row ──────────────
 
     /// <summary>A document with a Label value and a title, of the given type.</summary>
