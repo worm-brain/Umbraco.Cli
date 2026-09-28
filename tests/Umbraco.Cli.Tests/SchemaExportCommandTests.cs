@@ -109,8 +109,8 @@ public class SchemaExportCommandTests
             Assert.True(File.Exists(outFile));
             // The file is a BARE snapshot (no envelope) and preserves the rich body verbatim.
             var snap = SchemaSnapshot.FromJson(await File.ReadAllTextAsync(outFile));
-            Assert.Equal("blogPost", (string?)snap.DocumentTypes.Single()["alias"]);
-            Assert.Equal("body", (string?)snap.DocumentTypes.Single()["properties"]![0]!["alias"]);
+            Assert.Equal("blogPost", (string?)snap.DocumentTypes!.Single()["alias"]);
+            Assert.Equal("body", (string?)snap.DocumentTypes!.Single()["properties"]![0]!["alias"]);
             // stdout carries a structured count summary, not the whole snapshot.
             using var doc = JsonDocument.Parse(stdout);
             Assert.Equal(

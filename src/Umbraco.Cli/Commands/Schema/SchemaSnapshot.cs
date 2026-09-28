@@ -20,7 +20,7 @@ namespace Umbraco.Cli.Commands.Schema;
 public sealed class SchemaSnapshot
 {
     /// <summary>
-    /// The snapshot **layout** version (currently <c>"3"</c>). Independent of the CLI output
+    /// The snapshot **layout** version (currently <c>"4"</c>). Independent of the CLI output
     /// envelope's <c>meta.schemaVersion</c> — this versions the file format so a future
     /// breaking change to the snapshot shape can be detected by <c>diff</c>/<c>apply</c>.
     /// </summary>
@@ -48,40 +48,46 @@ public sealed class SchemaSnapshot
     /// <summary>The layout versions this CLI reads: the current one, and "3", which predates the file sections.</summary>
     public static readonly IReadOnlyList<string> ReadableVersions = ["3", CurrentVersion];
 
+    // Every section below is nullable, and null means ABSENT: the snapshot does not manage that
+    // kind, so diff and apply skip it and --prune deletes none of it (#292 for the files, #198 for
+    // the rest). A snapshot built in code starts with every type section present and empty, as an
+    // export would make it; FromJson makes a section the file leaves out absent, which is what
+    // lets a hand-written snapshot carry only the kinds it means to change.
+
     /// <summary>Verbatim <c>GET /document-type/{id}</c> bodies, one per document type.</summary>
     [JsonPropertyName("documentTypes")]
-    public List<JsonNode> DocumentTypes { get; init; } = [];
+    public List<JsonNode>? DocumentTypes { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /media-type/{id}</c> bodies, one per media type (#186).</summary>
     [JsonPropertyName("mediaTypes")]
-    public List<JsonNode> MediaTypes { get; init; } = [];
+    public List<JsonNode>? MediaTypes { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /member-type/{id}</c> bodies, one per member type (#186).</summary>
     [JsonPropertyName("memberTypes")]
-    public List<JsonNode> MemberTypes { get; init; } = [];
+    public List<JsonNode>? MemberTypes { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /data-type/{id}</c> bodies, one per data type.</summary>
     [JsonPropertyName("dataTypes")]
-    public List<JsonNode> DataTypes { get; init; } = [];
+    public List<JsonNode>? DataTypes { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /template/{id}</c> bodies, one per template.</summary>
     [JsonPropertyName("templates")]
-    public List<JsonNode> Templates { get; init; } = [];
+    public List<JsonNode>? Templates { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /language</c> items, one per language (#227). Keyed by <c>isoCode</c>.</summary>
     [JsonPropertyName("languages")]
-    public List<JsonNode> Languages { get; init; } = [];
+    public List<JsonNode>? Languages { get; set; } = [];
 
     /// <summary>
     /// <c>GET /dictionary/{id}</c> bodies, one per dictionary item (#227), with the item's
     /// <c>parent</c> added (the item read has none) and its translations sorted by ISO code.
     /// </summary>
     [JsonPropertyName("dictionaryItems")]
-    public List<JsonNode> DictionaryItems { get; init; } = [];
+    public List<JsonNode>? DictionaryItems { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /member-group/{id}</c> bodies, one per member group (#227).</summary>
     [JsonPropertyName("memberGroups")]
-    public List<JsonNode> MemberGroups { get; init; } = [];
+    public List<JsonNode>? MemberGroups { get; set; } = [];
 
     /// <summary>
     /// <c>GET /user-group/{id}</c> bodies, one per user group (#227), without the parts that name
@@ -89,7 +95,7 @@ public sealed class SchemaSnapshot
     /// permissions. See <see cref="SchemaBodies.PortableUserGroup"/>.
     /// </summary>
     [JsonPropertyName("userGroups")]
-    public List<JsonNode> UserGroups { get; init; } = [];
+    public List<JsonNode>? UserGroups { get; set; } = [];
 
     /// <summary>
     /// Partial views and their folders (#292): <c>{path, content}</c> per file and
@@ -102,33 +108,20 @@ public sealed class SchemaSnapshot
     /// </para>
     /// </summary>
     [JsonPropertyName("partialViews")]
-    public List<JsonNode>? PartialViews { get; init; }
+    public List<JsonNode>? PartialViews { get; set; }
 
     /// <summary>Stylesheets and their folders (#292); null when the section is absent (see <see cref="PartialViews"/>).</summary>
     [JsonPropertyName("stylesheets")]
-    public List<JsonNode>? Stylesheets { get; init; }
+    public List<JsonNode>? Stylesheets { get; set; }
 
     /// <summary>Scripts and their folders (#292); null when the section is absent (see <see cref="PartialViews"/>).</summary>
     [JsonPropertyName("scripts")]
-    public List<JsonNode>? Scripts { get; init; }
+    public List<JsonNode>? Scripts { get; set; }
 
     /// <summary>Whether this snapshot manages any static-file kind (has at least one file section).</summary>
     [JsonIgnore]
     public bool ManagesFiles =>
-        PartialViews is not null || Stylesheets is not null || Scripts is not null;
-
-    /// <summary>The section for a static-file kind tag, or null when it is absent.</summary>
-    /// <param name="kind">A static-file kind tag, e.g. <see cref="SchemaKinds.PartialView"/>.</param>
-    /// <returns>The entries, or null.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">The tag is not a static-file kind.</exception>
-    public List<JsonNode>? FilesOf(string kind) =>
-        kind switch
-        {
-            SchemaKinds.PartialView => PartialViews,
-            SchemaKinds.Stylesheet => Stylesheets,
-            SchemaKinds.Script => Scripts,
-            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a file kind."),
-        };
+        SchemaKinds.All.Any(k => k.File is not null && k.Section(this) is not null);
 
     /// <summary>
     /// The <see cref="JsonSerializerOptions"/> used to read and write snapshot files: indented
@@ -147,22 +140,14 @@ public sealed class SchemaSnapshot
     /// <returns>The snapshot as an indented JSON string.</returns>
     public string ToJson() => JsonSerializer.Serialize(this, SerializerOptions);
 
-    /// <summary>The JSON members that identify a document as a snapshot.</summary>
+    /// <summary>
+    /// The JSON members that identify a document as a snapshot: the version and every kind's
+    /// section, from the kind table (#273).
+    /// </summary>
     private static readonly string[] SnapshotMembers =
     [
         "schemaVersion",
-        "documentTypes",
-        "mediaTypes",
-        "memberTypes",
-        "dataTypes",
-        "templates",
-        "languages",
-        "dictionaryItems",
-        "memberGroups",
-        "userGroups",
-        "partialViews",
-        "stylesheets",
-        "scripts",
+        .. SchemaKinds.All.Select(k => k.Member),
     ];
 
     /// <summary>
@@ -221,7 +206,25 @@ public sealed class SchemaSnapshot
                     + "Re-export with a matching CLI version."
             );
 
-        return obj.Deserialize<SchemaSnapshot>(SerializerOptions)
+        var snapshot =
+            obj.Deserialize<SchemaSnapshot>(SerializerOptions)
             ?? throw new JsonException("The snapshot could not be parsed.");
+
+        // #198: a section the file leaves out (or sets to null) is absent, not empty, so a
+        // hand-written snapshot with only the kinds it changes never prunes the rest. Every
+        // exported file has every type section, so this changes nothing for them.
+        foreach (var kind in SchemaKinds.All)
+            if (!HasSection(obj, kind.Member))
+                kind.SetSection(snapshot, null);
+        return snapshot;
     }
+
+    /// <summary>Whether a snapshot object carries a non-null member, matched ignoring case as the deserializer does.</summary>
+    /// <param name="obj">The snapshot object.</param>
+    /// <param name="member">The section member, e.g. <c>documentTypes</c>.</param>
+    /// <returns>True when the section is present.</returns>
+    private static bool HasSection(JsonObject obj, string member) =>
+        obj.Any(p =>
+            string.Equals(p.Key, member, StringComparison.OrdinalIgnoreCase) && p.Value is not null
+        );
 }

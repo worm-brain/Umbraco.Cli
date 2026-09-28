@@ -46,7 +46,8 @@ public class ContentApplyExclusionsTests
             CancellationToken.None
         );
 
-        // Assert
-        Assert.Equal(404, result.StatusCode);
+        // Assert: the resolver reports a name that matches nothing as invalid_argument with no
+        // HTTP status, and the exclusion lookup passes that failure through unchanged.
+        Assert.Equal(FailureCategory.InvalidArgument, result.Category);
     }
 }

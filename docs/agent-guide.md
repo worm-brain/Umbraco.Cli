@@ -531,9 +531,29 @@ between environments:
 
 ```bash
 umbraco schema export --out schema.json     # full-fidelity bodies
-# edit .documentTypes[] / .dataTypes[] - generate GUIDs for new containers and properties
+# edit .documentTypes[] / .dataTypes[] - new containers and properties need no id
 umbraco schema apply schema.json --dry-run  # preview the plan
 umbraco schema apply schema.json
+```
+
+**A snapshot can be written by hand, and can be partial**
+([#198](https://github.com/worm-brain/Umbraco.Cli/issues/198)). Keep only the sections you mean
+to change: an absent section is not managed, so diff, apply and `--prune` leave that kind alone
+(a present section is the whole list for its kind). Leave `id` out of new entities, properties and
+containers: each takes the id of the live one it matches (a property by alias, so its values are
+kept), or a new one. Name what an entry references instead of giving its id:
+`"dataType": "Textstring"`, `"container": "Content"` (or `"Content/Hero"` for a group),
+`"masterTemplate": "master"`, `"compositions": [{ "documentType": "seoMixin", ... }]`. Names are
+looked up in the snapshot first, then on the instance; one that matches nothing or several things
+fails before anything is written. Each entry is still the whole item, so a changed type lists
+every property it keeps. See [commands.md](commands.md#schema-export--diff--apply) for the full
+list of references and an example.
+
+```bash
+umbraco document-type get blogPost -o json | jq '{schemaVersion: "4", documentTypes: [.data]}' > edit.json
+# ...add a property with "dataType": "Textstring" and no id...
+umbraco schema diff edit.json               # only blogPost is compared
+umbraco schema apply edit.json
 ```
 
 **Templates travel with their partials.** The snapshot (format `"4"`) carries `partialViews`,

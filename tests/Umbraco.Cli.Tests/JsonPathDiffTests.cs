@@ -66,6 +66,30 @@ public class JsonPathDiffTests
         Assert.Equal(["properties.new"], paths);
     }
 
+    // Found live (#198): a hand-written property without "description" stayed "Changed" against
+    // the live "description": null, so every apply re-planned an update.
+    [Fact]
+    public void Paths_AliasedItemMissingANullMember_IsEmpty()
+    {
+        var paths = Paths(
+            """{"properties":[{"alias":"a","name":"A"}]}""",
+            """{"properties":[{"alias":"a","name":"A","description":null}]}"""
+        );
+
+        Assert.Empty(paths);
+    }
+
+    [Fact]
+    public void Paths_ReorderedAliasedItemsMissingANullMember_StillReportsTheArray()
+    {
+        var paths = Paths(
+            """{"properties":[{"alias":"a"},{"alias":"b"}]}""",
+            """{"properties":[{"alias":"b","description":null},{"alias":"a"}]}"""
+        );
+
+        Assert.Equal(["properties"], paths);
+    }
+
     [Fact]
     public void Paths_ReorderedAliasedItems_ReportsTheArray()
     {

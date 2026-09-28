@@ -25,15 +25,21 @@ public static class SchemaPipeline
     )
     {
         var desired = await SchemaFile.LoadAsync(snapshotPath, ct);
-        // The live files are only read when the snapshot manages some (#292): a snapshot without
-        // file sections leaves them alone, so reading every file would be wasted.
+        // Only the kinds the snapshot manages are read (#292, #198): a section the snapshot does
+        // not have is left alone, so reading it would be wasted.
         var current = await SchemaExporter.ExportAsync(
             client,
-            ct,
-            includeFiles: desired.ManagesFiles
+            [.. SchemaKinds.All.Where(k => k.Section(desired) is not null)],
+            ct
         );
         if (!current.IsSuccess)
             return UmbracoResponse<SchemaDiff>.FailureFrom(current);
+
+        // #198: a hand-written snapshot may name what it references and leave ids out; both are
+        // settled before the diff, so diff and apply see ids as an export would carry them.
+        var normalised = await SchemaReferences.NormaliseAsync(desired, current.Data!, client, ct);
+        if (!normalised.IsSuccess)
+            return UmbracoResponse<SchemaDiff>.FailureFrom(normalised);
 
         return UmbracoResponse<SchemaDiff>.Success(
             SchemaDiffEngine.Compare(desired, current.Data!)
