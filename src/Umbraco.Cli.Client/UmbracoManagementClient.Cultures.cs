@@ -66,12 +66,18 @@ public sealed partial class UmbracoManagementClient
     /// <param name="id">The document id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The distinct culture codes; empty when the document is invariant.</returns>
+    /// <exception cref="Microsoft.Kiota.Abstractions.ApiException">
+    /// A 404 when the read answers 200 with no body (#119).
+    /// </exception>
     private async Task<List<string>> DocumentCulturesAsync(Guid id, CancellationToken ct)
     {
-        var document = await _api
-            .Umbraco.Management.Api.V1.Document[id]
-            .GetAsync(cancellationToken: ct);
-        return NamedCultures((document?.Variants ?? []).Select(v => v.Culture));
+        // A 200 with no body is not a document (#119). Reading it as invariant would let a
+        // publish or unpublish go ahead with a null culture for a document that was never read,
+        // so it fails as the 404 it is. An invariant document says so with a null-culture variant.
+        var document =
+            await _api.Umbraco.Management.Api.V1.Document[id].GetAsync(cancellationToken: ct)
+            ?? throw NotFound($"No content item found with id '{id}'.");
+        return NamedCultures((document.Variants ?? []).Select(v => v.Culture));
     }
 
     /// <summary>The distinct non-empty cultures; empty for an invariant item (one null-culture variant).</summary>

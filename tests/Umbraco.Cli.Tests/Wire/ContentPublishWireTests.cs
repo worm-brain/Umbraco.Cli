@@ -259,4 +259,53 @@ public class ContentPublishWireTests
         Assert.False(result.IsSuccess);
         handler.AssertNoRequest(HttpMethod.Put, $"/document/{id}/unpublish");
     }
+
+    // ── an empty document read is a 404, not an invariant document (#119) ──────
+
+    /// <summary>
+    /// A handler whose document GET answers 200 with no body and whose PUTs succeed: the #119 case
+    /// that used to pass for an invariant document and let a null-culture write go out.
+    /// </summary>
+    /// <returns>A configured handler.</returns>
+    private static RoutingHandler EmptyDocumentRead() =>
+        new RoutingHandler()
+            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.OK, "")
+            .When(r => r.Method == HttpMethod.Put, HttpStatusCode.OK, "");
+
+    [Fact]
+    public async Task PublishCulturesAsync_DocumentReadEmpty_Returns404()
+    {
+        var id = Guid.NewGuid();
+        var client = Wire.Client(EmptyDocumentRead());
+
+        var result = await client.PublishCulturesAsync(id, ct: CancellationToken.None);
+
+        Assert.Equal((false, 404), (result.IsSuccess, result.StatusCode));
+    }
+
+    [Fact]
+    public async Task PublishContentAsync_DocumentReadEmpty_Returns404WithoutPublishing()
+    {
+        var id = Guid.NewGuid();
+        var handler = EmptyDocumentRead();
+        var client = Wire.Client(handler);
+
+        var result = await client.PublishContentAsync(id, ct: CancellationToken.None);
+
+        Assert.Equal(404, result.StatusCode);
+        handler.AssertNoRequest(HttpMethod.Put, $"/document/{id}/publish");
+    }
+
+    [Fact]
+    public async Task UnpublishContentAsync_DocumentReadEmpty_Returns404WithoutUnpublishing()
+    {
+        var id = Guid.NewGuid();
+        var handler = EmptyDocumentRead();
+        var client = Wire.Client(handler);
+
+        var result = await client.UnpublishContentAsync(id, ct: CancellationToken.None);
+
+        Assert.Equal(404, result.StatusCode);
+        handler.AssertNoRequest(HttpMethod.Put, $"/document/{id}/unpublish");
+    }
 }
