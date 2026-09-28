@@ -2964,7 +2964,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <summary>
     /// Maps a generated webhook model onto the command-facing <see cref="WebhookResponse"/>.
     /// Events are objects, not strings (#46). Custom headers land in the generated model's
-    /// additional-data bag; they are flattened to a string map best-effort.
+    /// additional-data bag; they are flattened to a string map best-effort, which is empty (never
+    /// null) when the webhook has none.
     /// </summary>
     /// <param name="webhook">The generated webhook model.</param>
     /// <returns>The mapped webhook.</returns>
@@ -2988,17 +2989,18 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Alias = e.Alias,
                 })
                 .ToList(),
-            Headers = webhook.Headers?.AdditionalData is { Count: > 0 } headers
-                ? headers.ToDictionary(
-                    kv => kv.Key,
-                    kv =>
-                        kv.Value switch
-                        {
-                            UntypedString s => s.GetValue() ?? "",
-                            _ => kv.Value?.ToString() ?? "",
-                        }
-                )
-                : null,
+            // No headers is an empty map, not a missing key, as for contentTypeKeys above.
+            Headers = (
+                webhook.Headers?.AdditionalData ?? new Dictionary<string, object>()
+            ).ToDictionary(
+                kv => kv.Key,
+                kv =>
+                    kv.Value switch
+                    {
+                        UntypedString s => s.GetValue() ?? "",
+                        _ => kv.Value?.ToString() ?? "",
+                    }
+            ),
         };
 
     /// <summary>Lists webhooks via <c>GET webhook?skip=&amp;take=</c> (generated client, #79).</summary>
