@@ -496,21 +496,30 @@ public class CommandExecutorTests
     }
 
     [Fact]
-    public async Task RunObject_CallThrowsDryRun_WritesPreviewToStdoutAndReturnsZero()
+    public async Task RunObject_CallRecordedAWrite_WritesPreviewToStdoutAndReturnsZero()
     {
-        // #62: a DryRunException from the interceptor must be rendered as a dry-run preview on
-        // stdout (not treated as an error by the backstop) and exit 0 - nothing was mutated.
-        var (executor, parse) = Build(new FakeUmbracoManagementClient());
+        // #62: a write recorded by the interceptor must be rendered as a dry-run preview on
+        // stdout, whatever the call made of the fake response, and exit 0 - nothing was mutated.
+        var state = new Umbraco.Cli.Infrastructure.Http.MutationInterceptState();
+        var (executor, parse) = Build(new FakeUmbracoManagementClient(), mutationState: state);
 
         var (stdout, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync<ContentItemResponse>(
                 parse,
                 (c, ct) =>
-                    throw new Umbraco.Cli.Infrastructure.Http.DryRunException(
-                        "POST",
-                        "https://example.com/umbraco/management/api/v1/document",
-                        """{"name":"x"}"""
-                    ),
+                {
+                    state.Previewed.Add(
+                        new(
+                            "POST",
+                            "https://example.com/umbraco/management/api/v1/document",
+                            """{"name":"x"}"""
+                        )
+                    );
+                    // The read-back of an item the dry run never created fails.
+                    return Task.FromResult(
+                        UmbracoResponse<ContentItemResponse>.Failure(404, "Not found")
+                    );
+                },
                 CancellationToken.None
             )
         );
@@ -532,6 +541,60 @@ public class CommandExecutorTests
                 .RootElement.GetProperty("meta")
                 .GetProperty("command")
                 .GetString()
+        );
+    }
+
+    [Fact]
+    public async Task RunObject_CallRecordedSeveralWrites_PreviewListsTheLaterOnesUnderThen()
+    {
+        // #353: a user create with --password is a POST /user and then a change-password POST;
+        // the preview must show both, not only the first.
+        var state = new Umbraco.Cli.Infrastructure.Http.MutationInterceptState();
+        var (executor, parse) = Build(new FakeUmbracoManagementClient(), mutationState: state);
+
+        var (stdout, _, _) = await Capture(() =>
+            executor.RunObjectAsync<ContentItemResponse>(
+                parse,
+                (c, ct) =>
+                {
+                    state.Previewed.Add(new("POST", "https://example.com/user", "{}"));
+                    state.Previewed.Add(
+                        new("POST", "https://example.com/user/1/change-password", "{}")
+                    );
+                    return Task.FromResult(
+                        UmbracoResponse<ContentItemResponse>.Failure(404, "Not found")
+                    );
+                },
+                CancellationToken.None
+            )
+        );
+
+        var then = JsonDocument.Parse(stdout).RootElement.GetProperty("data").GetProperty("then");
+        Assert.EndsWith("/change-password", then[0].GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public async Task RunObject_CallThrowsAfterRecordingAWrite_StillPreviewsAndReturnsZero()
+    {
+        // A step that trips over the fake empty response must not turn the preview into an error.
+        var state = new Umbraco.Cli.Infrastructure.Http.MutationInterceptState();
+        var (executor, parse) = Build(new FakeUmbracoManagementClient(), mutationState: state);
+
+        var (stdout, _, exit) = await Capture(() =>
+            executor.RunObjectAsync<ContentItemResponse>(
+                parse,
+                (c, ct) =>
+                {
+                    state.Previewed.Add(new("POST", "https://example.com/document", "{}"));
+                    throw new InvalidOperationException("no body");
+                },
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(
+            (0, "dry-run"),
+            (exit, JsonDocument.Parse(stdout).RootElement.GetProperty("status").GetString())
         );
     }
 
@@ -1212,9 +1275,11 @@ public class CommandExecutorTests
     {
         // #236: a bulk dry run showed only {id, status}, so it could not be checked.
         var client = new FakeUmbracoManagementClient();
+        var state = new Umbraco.Cli.Infrastructure.Http.MutationInterceptState();
         var (executor, parse) = Build(
             client,
-            "--host https://example.com --token tok --output json --dry-run"
+            "--host https://example.com --token tok --output json --dry-run",
+            mutationState: state
         );
         var id = Guid.NewGuid();
 
@@ -1223,11 +1288,18 @@ public class CommandExecutorTests
                 parse,
                 () => [id.ToString()],
                 (c, i, ct) =>
-                    throw new Umbraco.Cli.Infrastructure.Http.DryRunException(
-                        "PUT",
-                        $"https://example.com/umbraco/management/api/v1/document/{i}/publish",
-                        """{"publishSchedules":[{"culture":"en-US"}]}"""
-                    ),
+                {
+                    // What the interceptor does with the write: record it, answer it with a
+                    // fake success.
+                    state.Previewed.Add(
+                        new(
+                            "PUT",
+                            $"https://example.com/umbraco/management/api/v1/document/{i}/publish",
+                            """{"publishSchedules":[{"culture":"en-US"}]}"""
+                        )
+                    );
+                    return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+                },
                 CancellationToken.None
             )
         );

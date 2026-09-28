@@ -224,12 +224,15 @@ The rest never reach the API, so they carry no `httpStatus` and no `serverVersio
 A write command run with `--dry-run` uses a distinct status and does not touch the server:
 
 ```json
-{ "status": "dry-run", "data": { "method": "POST", "url": ".../webhook", "body": { } },
+{ "status": "dry-run", "data": { "method": "POST", "url": ".../webhook", "body": { }, "then": [] },
   "meta": { "command": "webhook.create", "durationMs": 12, "timestamp": "...", "schemaVersion": "6" } }
 ```
 
 The payload is under `data`, like every other success envelope - it was `request` before
-schemaVersion 3, the one exception to that rule.
+schemaVersion 3, the one exception to that rule. `data` is the first request; `then` lists the
+requests a multi-step write sends after it, each `{method, url, body}` (for example the
+change-password step of `user create --password`), and is empty for a single request. Passwords,
+tokens and other secrets are redacted in the preview, as under `-v`.
 
 To see what was actually sent and received when a call fails, add `-v`: every request and
 response is logged to **stderr** (stdout stays parseable) with its body - the response cut at
@@ -700,8 +703,9 @@ the supervising process. The config-file `allowedCommands` form is a convenience
 
 ### Preview writes
 
-`--dry-run` on any write prints the request it would send (method, URL, body) and exits `0`
-without changing anything (`"status": "dry-run"`). Use it to show a plan before committing.
+`--dry-run` on any write prints the requests it would send (method, URL, body; secrets redacted)
+and exits `0` without changing anything (`"status": "dry-run"`). Use it to show a plan before
+committing.
 
 ---
 

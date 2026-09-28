@@ -35,5 +35,14 @@ public sealed class CommandContext
     /// </summary>
     public bool ReadOnly { get; init; }
 
+    /// <summary>
+    /// The writes recorded so far under <c>--dry-run</c> (#353): a live view of
+    /// <see cref="Umbraco.Cli.Infrastructure.Http.MutationInterceptState.Previewed"/>, so
+    /// <see cref="CommandExecutor"/> can preview every request a command would have sent once its
+    /// call returns. Empty when nothing was intercepted.
+    /// </summary>
+    public IReadOnlyList<Umbraco.Cli.Infrastructure.Http.PreviewedRequest> Previewed { get; init; } =
+    [];
+
     public Stopwatch Stopwatch { get; } = Stopwatch.StartNew();
 }

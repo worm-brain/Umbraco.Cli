@@ -190,9 +190,11 @@ public sealed class CommandContextFactory
             parseResult.GetValue(_globalOptions.DryRun) ? MutationInterceptPolicy.Preview
             : IsReadOnly(parseResult) ? MutationInterceptPolicy.Block
             : MutationInterceptPolicy.Execute;
+        _mutationState.Previewed.Clear();
 
-        var verbose = parseResult.GetValue(_globalOptions.Verbose);
-        var http = _httpClientFactory.CreateClient(verbose ? "umbraco-verbose" : "umbraco");
+        // --verbose logging is switched on by VerboseState (set in Program.cs), so the one client
+        // serves both modes, as the token exchange's client does (#374).
+        var http = _httpClientFactory.CreateClient("umbraco");
         http.BaseAddress = new Uri(host.TrimEnd('/') + "/");
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
@@ -207,6 +209,7 @@ public sealed class CommandContextFactory
             AssumeYes = parseResult.GetValue(_globalOptions.Yes),
             DryRun = parseResult.GetValue(_globalOptions.DryRun),
             ReadOnly = IsReadOnly(parseResult),
+            Previewed = _mutationState.Previewed,
         };
     }
 

@@ -5,8 +5,8 @@ namespace Umbraco.Cli.Tests;
 
 /// <summary>
 /// Tests for the <see cref="MutationInterceptorHandler"/> that backs <c>--dry-run</c> (#62):
-/// under the Preview policy a state-changing request is captured and aborted before it is
-/// sent; everything else passes through untouched.
+/// under the Preview policy a state-changing request is recorded (redacted) and answered with a
+/// fake success instead of being sent; everything else passes through untouched.
 /// </summary>
 public class MutationInterceptorHandlerTests
 {
@@ -25,30 +25,109 @@ public class MutationInterceptorHandlerTests
         }
     }
 
-    private static (HttpClient Client, OkHandler Inner) Build(MutationInterceptPolicy policy)
+    private static (HttpClient Client, OkHandler Inner) Build(MutationInterceptPolicy policy) =>
+        Build(new MutationInterceptState { Policy = policy });
+
+    private static (HttpClient Client, OkHandler Inner) Build(MutationInterceptState state)
     {
         var inner = new OkHandler();
-        var handler = new MutationInterceptorHandler(new MutationInterceptState { Policy = policy })
-        {
-            InnerHandler = inner,
-        };
+        var handler = new MutationInterceptorHandler(state) { InnerHandler = inner };
         var client = new HttpClient(handler) { BaseAddress = new Uri("https://example.com/") };
         return (client, inner);
     }
 
     [Fact]
-    public async Task Preview_MutatingRequest_ThrowsWithCapturedDetailsAndDoesNotSend()
+    public async Task Preview_MutatingRequest_RecordsTheCapturedDetails()
+    {
+        var state = new MutationInterceptState { Policy = MutationInterceptPolicy.Preview };
+        var (client, _) = Build(state);
+
+        await client.PostAsync(
+            "umbraco/management/api/v1/webhook",
+            new StringContent("""{"a":1}""", System.Text.Encoding.UTF8, "application/json")
+        );
+
+        var recorded = Assert.Single(state.Previewed);
+        Assert.Equal(
+            ("POST", "https://example.com/umbraco/management/api/v1/webhook", """{"a":1}"""),
+            (recorded.Method, recorded.Url, recorded.Body)
+        );
+    }
+
+    [Fact]
+    public async Task Preview_MutatingRequest_IsNotSent()
     {
         var (client, inner) = Build(MutationInterceptPolicy.Preview);
 
-        var ex = await Assert.ThrowsAsync<DryRunException>(() =>
-            client.PostAsync("umbraco/management/api/v1/webhook", new StringContent("""{"a":1}"""))
+        await client.PostAsync("umbraco/management/api/v1/webhook", new StringContent("{}"));
+
+        Assert.False(inner.WasCalled); // the request was never forwarded to the wire
+    }
+
+    [Fact]
+    public async Task Preview_MutatingRequest_AnswersWithAFakeNoContent()
+    {
+        // A fake success lets a multi-step write go on to its next request (#353).
+        var (client, _) = Build(MutationInterceptPolicy.Preview);
+
+        var response = await client.PostAsync(
+            "umbraco/management/api/v1/webhook",
+            new StringContent("{}")
         );
 
-        Assert.Equal("POST", ex.Method);
-        Assert.EndsWith("/umbraco/management/api/v1/webhook", ex.Url);
-        Assert.Contains("\"a\":1", ex.Body);
-        Assert.False(inner.WasCalled); // the request was never forwarded to the wire
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Preview_SeveralWrites_RecordsEachInOrder()
+    {
+        // #353: user create with --password, then its change-password step.
+        var state = new MutationInterceptState { Policy = MutationInterceptPolicy.Preview };
+        var (client, _) = Build(state);
+
+        await client.PostAsync("umbraco/management/api/v1/user", new StringContent("{}"));
+        await client.PostAsync(
+            "umbraco/management/api/v1/user/1/change-password",
+            new StringContent("{}")
+        );
+
+        Assert.Equal(
+            [
+                "/umbraco/management/api/v1/user",
+                "/umbraco/management/api/v1/user/1/change-password",
+            ],
+            state.Previewed.Select(r => new Uri(r.Url).AbsolutePath)
+        );
+    }
+
+    [Fact]
+    public async Task Preview_JsonPassword_IsRedactedInTheRecordedBody()
+    {
+        // #352: the dry-run preview uses the same redaction as -v.
+        var state = new MutationInterceptState { Policy = MutationInterceptPolicy.Preview };
+        var (client, _) = Build(state);
+
+        await client.PostAsync(
+            "umbraco/management/api/v1/user/1/change-password",
+            new StringContent(
+                """{"newPassword":"NewSecret98765!"}""",
+                System.Text.Encoding.UTF8,
+                "application/json"
+            )
+        );
+
+        Assert.DoesNotContain("NewSecret98765!", state.Previewed[0].Body);
+    }
+
+    [Fact]
+    public async Task Preview_UrlQueryToken_IsRedactedInTheRecordedUrl()
+    {
+        var state = new MutationInterceptState { Policy = MutationInterceptPolicy.Preview };
+        var (client, _) = Build(state);
+
+        await client.PostAsync("umbraco/management/api/v1/x?token=abc123", new StringContent("{}"));
+
+        Assert.DoesNotContain("abc123", state.Previewed[0].Url);
     }
 
     [Fact]
@@ -87,13 +166,19 @@ public class MutationInterceptorHandlerTests
     {
         // The media create POST that follows the faked staging is captured as the dry-run
         // preview, exactly like any other write.
-        var (client, _) = Build(MutationInterceptPolicy.Preview);
+        var state = new MutationInterceptState { Policy = MutationInterceptPolicy.Preview };
+        var (client, _) = Build(state);
 
-        var ex = await Assert.ThrowsAsync<DryRunException>(() =>
-            client.PostAsync("umbraco/management/api/v1/media", new StringContent("""{"id":"x"}"""))
+        await client.PostAsync(
+            "umbraco/management/api/v1/temporary-file",
+            new StringContent("multipart-body")
+        );
+        await client.PostAsync(
+            "umbraco/management/api/v1/media",
+            new StringContent("""{"id":"x"}""")
         );
 
-        Assert.EndsWith("/umbraco/management/api/v1/media", ex.Url);
+        Assert.EndsWith("/umbraco/management/api/v1/media", Assert.Single(state.Previewed).Url);
     }
 
     [Fact]
