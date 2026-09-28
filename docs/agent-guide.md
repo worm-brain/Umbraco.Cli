@@ -201,6 +201,10 @@ A write command run with `--dry-run` uses a distinct status and does not touch t
 The payload is under `data`, like every other success envelope - it was `request` before
 schemaVersion 3, the one exception to that rule.
 
+To see what was actually sent and received when a call fails, add `-v`: every request and
+response is logged to **stderr** (stdout stays parseable) with its body - the response cut at
+4 KB - and credentials redacted.
+
 ### Contract stability rules
 
 - The field names above (`status`, `data`, `meta`, `command`, `durationMs`, `schemaVersion`,

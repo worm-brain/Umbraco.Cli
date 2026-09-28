@@ -64,7 +64,7 @@ Available on every command:
 | `--token <bearer>` | Raw bearer token (overrides stored credentials). |
 | `--output json\|human\|csv` | Output format. Default: `json` when piped, `human` in a terminal. `csv` is RFC-4180 and only ever explicit. |
 | `--quiet`, `-q` | Suppress the result of writes (the confirmation and its `data`); reads, errors, and exit codes still emitted. |
-| `--verbose` | Log the HTTP method, URL, selected headers and status to stderr. Bodies are **not** logged ([#166](https://github.com/worm-brain/Umbraco.Cli/issues/166)) - use `--dry-run` to see the request body. |
+| `--verbose` | Log each HTTP request and response to stderr: method, URL, headers, status, the request body and the first 4 KB of the response body (marked truncated beyond that). The `Authorization` header and any JSON property or form field named like a password, secret, token or API key are redacted; binary and multipart bodies are summarised by type and size. |
 | `--dry-run` | On a write command, print the request that would be sent (method, URL, body) and exit `0` without executing. No effect on reads. |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands. **Required** to run one non-interactively. |
 | `--readonly` | Block all writes for this session; reads still work. Also `UMBRACO_READONLY=1`. |
