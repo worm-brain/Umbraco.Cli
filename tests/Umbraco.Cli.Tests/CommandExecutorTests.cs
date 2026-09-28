@@ -53,7 +53,8 @@ public class CommandExecutorTests
         string? allowedCommands = null,
         Umbraco.Cli.Infrastructure.Http.MutationInterceptState? mutationState = null,
         string command = "content.get",
-        bool mutating = false
+        bool mutating = false,
+        bool reportsResult = false
     )
     {
         var stub = new StubHttpClientFactory();
@@ -95,6 +96,9 @@ public class CommandExecutorTests
         // Declare the leaf a write when asked, as a real write command does (--quiet reads it).
         if (mutating)
             parent.Mutating();
+        // Declare its result report data when asked, as `health run` does (#393).
+        if (reportsResult)
+            parent.ReportsResult();
         return (executor, root.Parse($"{command.Replace('.', ' ')} {args}"));
     }
 
@@ -174,6 +178,39 @@ public class CommandExecutorTests
         );
 
         Assert.Empty(stdout);
+    }
+
+    [Fact]
+    public async Task RunObject_QuietOnAWriteThatReportsItsResult_StillPrintsTheData()
+    {
+        // #393: `health run` is a POST, but its result is the report it was run for, so -q keeps it.
+        var client = new FakeUmbracoManagementClient
+        {
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(
+                new ContentItemResponse { Id = Guid.NewGuid(), Name = "Data Integrity" }
+            ),
+        };
+        var (executor, parse) = Build(
+            client,
+            "--host https://example.com --token tok --output json --quiet",
+            command: "health.run",
+            mutating: true,
+            reportsResult: true
+        );
+
+        var (stdout, _, _) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.Equal(
+            "Data Integrity",
+            doc.RootElement.GetProperty("data").GetProperty("name").GetString()
+        );
     }
 
     [Fact]

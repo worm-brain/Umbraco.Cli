@@ -310,6 +310,44 @@ public class CommandCatalogTests
     }
 
     [Fact]
+    public void QuietDropsResult_HealthRun_IsFalse()
+    {
+        // #393: health run declares its result report data, so --quiet still prints it.
+        var run = FindShipped("health", "run");
+
+        Assert.False(CommandSafety.QuietDropsResult(run));
+    }
+
+    [Fact]
+    public void QuietDropsResult_HealthRun_StaysMutating()
+    {
+        // #393: keeping the result under --quiet must not make health run a read in the catalog.
+        var run = FindShipped("health", "run");
+
+        Assert.True(CommandSafety.IsDeclaredMutating(run));
+    }
+
+    [Fact]
+    public void QuietDropsResult_OrdinaryWrite_IsTrue()
+    {
+        // The #347 rule is unchanged for every other write.
+        var sort = FindShipped("content", "sort");
+
+        Assert.True(CommandSafety.QuietDropsResult(sort));
+    }
+
+    /// <summary>Walks the shipped command tree to the leaf at <paramref name="path"/>.</summary>
+    /// <param name="path">The command path segments, e.g. <c>health</c>, <c>run</c>.</param>
+    /// <returns>The command.</returns>
+    private static Command FindShipped(params string[] path)
+    {
+        Command node = TestCliRoot.Build();
+        foreach (var name in path)
+            node = node.Subcommands.Single(c => c.Name == name);
+        return node;
+    }
+
+    [Fact]
     public void Describe_ArgumentWithDefault_IsNotRequired()
     {
         // An argument that has a default parses fine when omitted, so it is not "required"
