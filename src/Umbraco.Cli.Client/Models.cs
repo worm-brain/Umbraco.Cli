@@ -32,7 +32,8 @@ public enum FailureCategory
 
     /// <summary>
     /// The server responded but the body did not match what this CLI expected - a likely sign of
-    /// an Umbraco version the generated client was not built against. Reserved here; populated by #154.
+    /// an Umbraco version the generated client was not built against (#154): a body that is not
+    /// JSON, or a critical read missing a field it always carries.
     /// </summary>
     UnexpectedResponse,
 
