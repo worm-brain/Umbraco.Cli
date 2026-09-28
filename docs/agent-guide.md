@@ -657,6 +657,23 @@ umbraco document-type create --name "Blog Post" --alias blogPost
 umbraco content create --document-type blogPost --name "Hello" --id 3f2a...  # same id each run
 ```
 
+### Provision a backoffice user and its group
+
+`user create` needs no SMTP (unlike `user invite`). Give the group its granular permissions, then
+the user its password in the same create; a rejected password deletes the new user again, so a
+failed run can simply be repeated:
+
+```bash
+umbraco user-group create --alias blogEditors --name "Blog editors" --section Umb.Section.Content \
+  --document-start-node "$BLOG_ID" --document-permission "$BLOG_ID=Umb.Document.Read,Umb.Document.Update"
+umbraco user create --email jane@example.com --name "Jane" --group blogEditors --password "$PASSWORD"
+umbraco user get jane@example.com            # userGroups as [{id, alias, name}], sections, start nodes
+umbraco user update jane@example.com --disabled   # --disabled false enables again; --unlock clears a lockout
+```
+
+Users are named by id, email or username. Umbraco hides the super-user from every other user, so
+it is absent from `user list` and cannot be resolved by email unless you are signed in as it.
+
 ### Move schema between environments
 
 Export every schema entity - document types, media types, member types, data types,
