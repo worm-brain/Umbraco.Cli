@@ -216,12 +216,14 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var d = await _api
-                    .Umbraco.Management.Api.V1.Dictionary[id]
-                    .GetAsync(cancellationToken: ct);
-                var item = d is null
-                    ? new DictionaryItemResponse { Id = id }
-                    : MapDictionaryItem(d);
+                // A 200 with no body is not a dictionary item (#119). The post-write callers
+                // already fall back on a failed read, so this only changes what get reports.
+                var d =
+                    await _api
+                        .Umbraco.Management.Api.V1.Dictionary[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No dictionary item found with id '{id}'.");
+                var item = MapDictionaryItem(d);
                 return item with
                 {
                     Id = item.Id == Guid.Empty ? id : item.Id,

@@ -655,11 +655,12 @@ public class UmbracoManagementClientTests
         Assert.True(result.IsSuccess);
         Assert.NotEqual(Guid.Empty, result.Data!.Id);
         Assert.Equal("Logo", result.Data.Name);
-        // In order: stage the file, create the media item, then re-read it (#172) - the by-id
-        // body for the values, and media/urls for the public URL, which is not on that body.
+        // In order: stage the file, create the media item, then re-read it by id (#172). The stub
+        // answers that read with an empty body, which is a 404 (#119), so the upload falls back to
+        // what it already knows rather than failing.
         Assert.Contains("temporary-file", handler.Requests[0].AbsoluteUri);
         Assert.EndsWith("/umbraco/management/api/v1/media", handler.Requests[1].AbsolutePath);
-        Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith("/media/urls"));
+        Assert.EndsWith($"/media/{result.Data.Id}", handler.Requests[2].AbsolutePath);
     }
 
     [Fact]
