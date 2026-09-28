@@ -5,8 +5,8 @@ namespace Umbraco.Cli.Infrastructure.Http;
 /// (POST/PUT/PATCH/DELETE) request. This is the shared seam for the "safety" features:
 /// <list type="bullet">
 /// <item><see cref="Execute"/> — normal behaviour: send the request (the default).</item>
-/// <item><see cref="Preview"/> — <c>--dry-run</c> (#62): capture the request and abort
-/// before it is sent, so nothing is mutated.</item>
+/// <item><see cref="Preview"/> — <c>--dry-run</c> (#62): record the request instead of
+/// sending it, so nothing is mutated.</item>
 /// <item><see cref="Block"/> — <c>--readonly</c> (#69): refuse the request with an error,
 /// so a read-only session can never write.</item>
 /// </list>
@@ -16,7 +16,7 @@ public enum MutationInterceptPolicy
     /// <summary>Send state-changing requests as normal.</summary>
     Execute,
 
-    /// <summary>Capture the request and abort before sending (<c>--dry-run</c>).</summary>
+    /// <summary>Record the request instead of sending it (<c>--dry-run</c>).</summary>
     Preview,
 
     /// <summary>Refuse state-changing requests with an error (<c>--readonly</c>).</summary>
@@ -34,37 +34,23 @@ public sealed class MutationInterceptState
 {
     /// <summary>The policy in force for this invocation. Defaults to <see cref="MutationInterceptPolicy.Execute"/>.</summary>
     public MutationInterceptPolicy Policy { get; set; } = MutationInterceptPolicy.Execute;
+
+    /// <summary>
+    /// The writes captured under <see cref="MutationInterceptPolicy.Preview"/>, in the order the
+    /// command would have sent them (#353). <c>CommandExecutor</c> renders them as the dry-run
+    /// preview once the command's call has finished.
+    /// </summary>
+    public List<PreviewedRequest> Previewed { get; } = [];
 }
 
 /// <summary>
-/// Thrown by <see cref="MutationInterceptorHandler"/> under <see cref="MutationInterceptPolicy.Preview"/>
-/// to abort a state-changing request before it is sent, carrying the exact wire details so
-/// the command layer can print them. Caught by <c>CommandExecutor</c>, which renders the
-/// dry-run preview and exits 0 — the request never reaches the server.
+/// One write request captured under <c>--dry-run</c>, with its URL and body already redacted by
+/// <see cref="SecretRedactor"/> (#352).
 /// </summary>
-public sealed class DryRunException : Exception
-{
-    /// <summary>The HTTP method that would have been sent (e.g. <c>POST</c>).</summary>
-    public string Method { get; }
-
-    /// <summary>The absolute request URL that would have been called.</summary>
-    public string Url { get; }
-
-    /// <summary>The request body that would have been sent, or null for a body-less request (e.g. DELETE).</summary>
-    public string? Body { get; }
-
-    /// <summary>Creates the exception carrying the captured request.</summary>
-    /// <param name="method">The HTTP method.</param>
-    /// <param name="url">The absolute request URL.</param>
-    /// <param name="body">The request body, or null when there is none.</param>
-    public DryRunException(string method, string url, string? body)
-        : base($"Dry run: {method} {url}")
-    {
-        Method = method;
-        Url = url;
-        Body = body;
-    }
-}
+/// <param name="Method">The HTTP method that would have been sent (e.g. <c>POST</c>).</param>
+/// <param name="Url">The absolute request URL that would have been called.</param>
+/// <param name="Body">The request body that would have been sent, or null for a body-less request (e.g. DELETE).</param>
+public sealed record PreviewedRequest(string Method, string Url, string? Body);
 
 /// <summary>
 /// Thrown by <see cref="MutationInterceptorHandler"/> under <see cref="MutationInterceptPolicy.Block"/>
@@ -93,11 +79,12 @@ public sealed class ReadOnlyModeException : Exception
 /// <summary>
 /// Intercepts state-changing HTTP requests according to the active
 /// <see cref="MutationInterceptPolicy"/>. Under <see cref="MutationInterceptPolicy.Preview"/>
-/// (<c>--dry-run</c>) a POST/PUT/PATCH/DELETE is captured and aborted via
-/// <see cref="DryRunException"/> instead of being sent, so agents and humans can see the
-/// exact request a write command would make without mutating anything. Read requests (GET,
-/// HEAD, OPTIONS) always pass through — including the reads a write flow makes first (e.g.
-/// alias→id resolution), so the preview reflects the real final mutation.
+/// (<c>--dry-run</c>) a POST/PUT/PATCH/DELETE is recorded in
+/// <see cref="MutationInterceptState.Previewed"/> and answered with a fake <c>204</c> instead of
+/// being sent, so a multi-step write (a user create that then sets a password, #353) goes on to
+/// record every request it would make, and nothing is mutated. Read requests (GET, HEAD,
+/// OPTIONS) always pass through - including the reads a write flow makes first (e.g.
+/// alias-to-id resolution), so the preview reflects the real mutations.
 ///
 /// This handler is wired onto the Management-API clients only, never the auth client, so the
 /// OAuth token exchange is unaffected.
@@ -116,8 +103,10 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
     /// </summary>
     /// <param name="request">The outgoing request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The inner handler's response for pass-through requests.</returns>
-    /// <exception cref="DryRunException">Under <see cref="MutationInterceptPolicy.Preview"/> for a mutating request.</exception>
+    /// <returns>
+    /// The inner handler's response for pass-through requests, or a fake success for a write
+    /// recorded under <see cref="MutationInterceptPolicy.Preview"/>.
+    /// </returns>
     /// <exception cref="ReadOnlyModeException">Under <see cref="MutationInterceptPolicy.Block"/> for a mutating request.</exception>
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
@@ -146,14 +135,23 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
                 RequestMessage = request,
             };
 
-        // Preview: capture the request and abort before it is sent.
+        // Preview: record the request, redacted by the same policy as -v (#352), and answer it
+        // with an empty success so a multi-step write carries on to its next request (#353).
+        // Nothing is sent. A step that needed the real response (a created id in a Location
+        // header) fails instead, and the executor still previews what was recorded.
         var body = await CaptureBodyAsync(request.Content, cancellationToken);
-
-        throw new DryRunException(
-            request.Method.Method,
-            request.RequestUri?.ToString() ?? "",
-            body
+        _state.Previewed.Add(
+            new PreviewedRequest(
+                request.Method.Method,
+                SecretRedactor.RedactUrl(request.RequestUri?.ToString() ?? ""),
+                body
+            )
         );
+        return new HttpResponseMessage(System.Net.HttpStatusCode.NoContent)
+        {
+            ReasonPhrase = "No Content (dry run: not sent)",
+            RequestMessage = request,
+        };
     }
 
     /// <summary>
@@ -192,8 +190,12 @@ public sealed class MutationInterceptorHandler : DelegatingHandler
             || mediaType.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
             || mediaType.Contains("x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase);
 
+        // Redacted by the same policy as -v, so a preview in a CI log leaks nothing (#352).
         if (isTextual)
-            return await content.ReadAsStringAsync(ct);
+            return SecretRedactor.RedactBody(
+                await content.ReadAsStringAsync(ct),
+                content.Headers.ContentType
+            );
 
         var length = content.Headers.ContentLength;
         var size = length is { } l ? $"; {l:N0} bytes" : "";

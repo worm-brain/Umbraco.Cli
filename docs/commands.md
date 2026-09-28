@@ -58,9 +58,9 @@ Available on every command:
 | `--host <url>` | Umbraco instance base URL (overrides config). |
 | `--token <bearer>` | Raw bearer token (overrides stored credentials). |
 | `--output json\|human\|csv` | Output format. Default: `json` when piped, `human` in a terminal. `csv` is RFC-4180 and only ever explicit. |
-| `--quiet`, `-q` | Suppress the result of writes (the confirmation and its `data`); reads, errors, and exit codes still emitted. |
-| `--verbose` | Log each HTTP request and response to stderr: method, URL, headers, status, the request body and the first 4 KB of the response body (marked truncated beyond that). The `Authorization` header and any JSON property or form field named like a password, secret, token or API key are redacted; binary and multipart bodies are summarised by type and size. |
-| `--dry-run` | On a write command, print the request that would be sent (method, URL, body) and exit `0` without executing. No effect on reads. |
+| `--quiet`, `-q` | Suppress the result of writes (the confirmation and its `data`), so a successful write prints nothing; reads, errors, `--dry-run` previews, a bulk run with failures, and exit codes still emitted. |
+| `--verbose` | Log each HTTP request and response to stderr: method, URL, headers, status, the request body and the first 4 KB of the response body (marked truncated beyond that). Also logs the token exchange and the `auth login` / `auth doctor` requests. Secrets are redacted: string values of any header, JSON property, form field or query parameter named like a password, secret, token, API key, authorization, cookie, credential, private key, passphrase, connection string or session id (separators ignored, so `X-Api-Key` matches); every webhook header value; the value of an `{alias, value}` pair with such an alias; and `user:pass@` in URLs. Numbers, booleans and dates are kept. Binary and multipart bodies are summarised by type and size. |
+| `--dry-run` | On a write command, print the request that would be sent (method, URL, body) and exit `0` without executing. A write that takes several requests (`user create --password`, `user update` with several changes) lists the later ones in order under `data.then`. Secrets are redacted as for `--verbose`. No effect on reads. |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands. **Required** to run one non-interactively. |
 | `--readonly` | Block all writes for this session; reads still work. Also `UMBRACO_READONLY=1`. |
 | `--fields <a,b>` | Trim JSON output (or CSV columns) to these top-level fields, in order. |
@@ -151,7 +151,10 @@ umbraco completion pwsh                 # prints a PowerShell completion script
 
 Tab-completes nouns, verbs, options and fixed option values. The script asks the installed CLI
 for suggestions each time (through System.CommandLine's `[suggest]` directive), so it follows
-the tree across upgrades and needs nothing else installed. Local; no host or auth.
+the tree across upgrades and needs nothing else installed. Local; no host or auth. The script
+runs the command as you typed it (`./umbraco`, a path to a build), not whichever `umbraco` is
+first on `PATH`; to complete a wrapper script too, register the same function for its name (the
+script's header shows how).
 
 | Shell | Install |
 |---|---|
@@ -565,7 +568,8 @@ umbraco media apply ./media-snapshot --prune --yes         # also trash what the
   which it replaces only once the new export is complete (a failed export leaves it as it was).
   A snapshot whose file paths leave `files/` is refused.
 - **What is compared** - the item body without what differs on every instance (the file's `src`
-  folder, the server-computed size, dimensions and extension, dates, `isTrashed`, `flags`), and the
+  folder, the server-computed size, dimensions and extension, dates, `isTrashed`, `flags`, and the
+  `mediaType` icon, which is schema: the type is compared by `id`), and the
   file by name and size. `--verify-files` also downloads each live file and compares SHA-256.
   A changed file shows as `file` in `changes`.
 - **Apply** - creates in pre-order with the snapshot id and parent, staging each file through
@@ -751,7 +755,7 @@ umbraco member-group delete <id|name> [--force]           # refused while it has
 
 ```bash
 umbraco user list                                         # the super-user is hidden from other users (see below)
-umbraco user get <id|email|username>                      # groups as [{id, alias, name}], sections, start nodes, languageIsoCode, login record
+umbraco user get <id|email|username>                      # groups as [{id, alias, name}], sections, languages + hasAccessToAllLanguages, start nodes, languageIsoCode, login record
 umbraco user create --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--password <pw>] [--id <guid>]   # no email sent; returns the user
 umbraco user update <id|email|username> [--email <email>] [--name <name>] [--username <name>] [--group <alias|name|id>...] [--culture <iso>] [--new-password <pw>] [--disabled [true|false]] [--unlock]
 umbraco user delete <id|email|username>...                # one or several; needs --yes non-interactively
@@ -775,7 +779,7 @@ lockout from failed logins. The profile, password, state and lockout are separat
 made in that order; if one fails, the error says which had already been applied. Start nodes and
 root access set on the user itself are kept as they are.
 
-`user delete` may be refused by Umbraco for a user who has signed in; disable them instead.
+`user delete` may be refused by Umbraco for a user who has signed in (the error names which users have); disable them instead.
 
 `user invite` needs SMTP configured on the site, because Umbraco emails the invitation; without it
 the invite is refused and no user is created. `--username` defaults to the email.
@@ -862,7 +866,7 @@ two webhooks is refused with both ids). A webhook without a name can only be nam
 
 `update` merges: omitted options keep their values, `--event` and `--type` replace those lists,
 and `--header` merges by header name (ignoring case), so naming one header leaves the others
-alone. Enable or disable a webhook with `--enabled true` / `--enabled false`; there are no
+alone; `--header Name=` (an empty value) removes that header. Enable or disable a webhook with `--enabled true` / `--enabled false`; there are no
 separate `enable`/`disable` verbs. `update` returns the webhook read back from the instance, as
 `get` shows it. New `--event` aliases get the same check as on `create`.
 
@@ -876,8 +880,11 @@ because a webhook with no events never fires.
 delivery - typically an API key the receiver checks. `--type` restricts the webhook to items
 of the given types: document types for content events, media types for media events, member
 types for member events. It takes ids or aliases; an alias is looked up across all three kinds
-and must name exactly one type. With no `--type` the webhook fires for every type (the JSON
-field is `contentTypeKeys`, as Umbraco names it).
+and must name exactly one type; an unknown alias is refused with the nearest real one suggested.
+A filter the webhook's events can never match (only document types on media events, say) is
+refused, as Umbraco would never fire the webhook; a type given by id skips that check. With no
+`--type` the webhook fires for every type (the JSON field is `contentTypeKeys`, as Umbraco
+names it).
 
 `log list` shows delivery attempts: `statusCode` (as Umbraco records it, e.g. `OK (200)`),
 `isSuccessStatusCode`, `exceptionOccurred`, `retryCount`, and the request and response headers
@@ -896,8 +903,10 @@ be read ([#234](https://github.com/worm-brain/Umbraco.Cli/issues/234)).
 ## `script` / `stylesheet` / `partial-view` (static files)
 
 The three static-file resources share the same path-addressed verbs. Files are identified by
-**path** (not an id); `update` replaces the content only. Give `--content` or `--content-file`
-(`-` for stdin), not both. Paths are Umbraco's form, with a leading `/` (`/blocklist/site.css`),
+**path** (not an id); `update` replaces the content, renames the file in its folder with
+`--name` (the new name with its extension), or both, and returns the file at its new path.
+Umbraco has no rename for folders. Give `--content` or `--content-file` (`-` for stdin), not
+both. Paths are Umbraco's form, with a leading `/` (`/blocklist/site.css`),
 in every output: `create` reads the new file back, so its `path` matches `list` and `get`.
 `--parent` takes the folder with or without the slashes (`blocklist`, `/blocklist/`). The three
 nouns are spelled out below so each is complete on its own.
@@ -907,7 +916,7 @@ nouns are spelled out below so each is complete on its own.
 umbraco script list [--parent <folder>]                    # tree root, or a folder's children
 umbraco script get <path>                                  # includes the file content
 umbraco script create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
-umbraco script update <path> [--content <text> | --content-file <file>]
+umbraco script update <path> [--content <text> | --content-file <file>] [--name <file>]   # --name renames it
 umbraco script delete <path>                               # needs --yes non-interactively
 umbraco script folder create --name <name> [--parent <folder>]   # a folder a file can go in
 umbraco script folder delete <path>                        # an empty folder; needs --yes non-interactively
@@ -916,7 +925,7 @@ umbraco script folder delete <path>                        # an empty folder; ne
 umbraco stylesheet list [--parent <folder>]
 umbraco stylesheet get <path>
 umbraco stylesheet create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
-umbraco stylesheet update <path> [--content <text> | --content-file <file>]
+umbraco stylesheet update <path> [--content <text> | --content-file <file>] [--name <file>]
 umbraco stylesheet delete <path>                           # needs --yes non-interactively
 umbraco stylesheet folder create --name <name> [--parent <folder>]
 umbraco stylesheet folder delete <path>                    # an empty folder; needs --yes non-interactively
@@ -925,7 +934,7 @@ umbraco stylesheet folder delete <path>                    # an empty folder; ne
 umbraco partial-view list [--parent <folder>]
 umbraco partial-view get <path>
 umbraco partial-view create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
-umbraco partial-view update <path> [--content <text> | --content-file <file>]
+umbraco partial-view update <path> [--content <text> | --content-file <file>] [--name <file>]
 umbraco partial-view delete <path>                         # needs --yes non-interactively
 umbraco partial-view folder create --name <name> [--parent <folder>]   # e.g. --name Components --parent blocklist
 umbraco partial-view folder delete <path>                  # an empty folder; needs --yes non-interactively
@@ -955,6 +964,9 @@ umbraco health get <group>                                 # a group and the che
 umbraco health run <group>                                 # run the group (POST, so blocked by --readonly)
 ```
 
+Each check in a `run` result carries its `id`, `name` and `description` (read from the group),
+then its `results`.
+
 ## `log-viewer`
 
 ```bash
@@ -978,6 +990,9 @@ expansion), so no escaping is needed:
 umbraco log-viewer list --filter "@Level='Error'"
 umbraco log-viewer saved-search create --name Errors --query "@Level='Error'"
 ```
+
+`list --all` newest-first pins every page after the first to end at the first page's newest
+entry, so entries logged during the walk do not shift the pages and repeat rows.
 
 ## `models-builder`
 
@@ -1038,6 +1053,9 @@ umbraco imaging resize-urls <id>... [--width <px>] [--height <px>] [--mode <Crop
 umbraco property-type is-used --document-type <id|alias> --alias <alias>
 ```
 
+An `--alias` that neither the type nor its compositions has fails with `invalid_argument`,
+listing the aliases it does have, rather than answering `false`.
+
 ## `schema` (export / diff / apply)
 
 Dump the site's **schema** - document types, media types, member types, data types,
@@ -1068,9 +1086,15 @@ How it works:
     `{ "id": "..." }`: a property's `dataType`, a type's `collection`, `compositions`,
     `allowedDocumentTypes` / `allowedMediaTypes`, `allowedTemplates` and `defaultTemplate`, a
     template's `masterTemplate`, a dictionary item's `parent`, and a user group permission's
-    `documentType`. A name is looked up in the snapshot first (so a snapshot can create a data
-    type and use it), then on the instance, by alias then name, ignoring case - the same rules
-    as every `<id>` argument.
+    `documentType`. In `compositions` the reference is the item's `documentType` / `mediaType` /
+    `memberType`, in `allowedDocumentTypes` / `allowedMediaTypes` its `documentType` /
+    `mediaType`. Those three lists also take the bare reference as the whole item
+    (`"allowedDocumentTypes": ["blogPost"]`): an allowed type gets its place in the list as its
+    `sortOrder`, a composition is a `Composition`. A permission must be written out in full. A name
+    is looked up in the snapshot first (so a snapshot can create a data type and use it), then on
+    the instance, by alias then name, ignoring case - the same rules as every `<id>` argument. A
+    name that is only a snapshot entry's display name, while the instance holds another item under
+    it, is ambiguous.
   - **Ids may be left out.** An entity, property or container without an `id` takes the id of the
     live one it matches (an entity by its key, a property by alias, a container by type, name and
     parent), or a new one. Reusing the live id matters: a property sent with a new id would be a
@@ -1103,9 +1127,17 @@ How it works:
   }
   ```
 
-  Each entry is still the **whole** item: apply replaces a changed type with the snapshot's body,
-  so list every property the type keeps (a property you leave out is removed, with its values).
-  Run `schema diff` first; its `changes` column shows exactly which fields differ.
+  A **top-level field an entry leaves out is not managed** (such as `cleanup` above): diff does
+  not compare it and apply keeps the live value
+  ([#351](https://github.com/worm-brain/Umbraco.Cli/issues/351)). A field that is present, even
+  as `null`, is managed. Fields the server computes (a data type's `isDeletable` and
+  `canIgnoreStartNodes`) are never compared. But a list is the **whole** list: apply writes the
+  snapshot's `properties` and `containers`, so list every property the type keeps (a property
+  you leave out is removed, with its values). List order does not matter: properties are matched
+  by alias, containers by id, and `allowedDocumentTypes` / `compositions` entries by the type they
+  name (ids ignore letter case), and order is carried by `sortOrder` and `parent`
+  ([#350](https://github.com/worm-brain/Umbraco.Cli/issues/350)). Run `schema diff` first; its
+  `changes` column shows exactly which fields differ.
 - **Static files** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)) - the
   snapshot's `partialViews`, `stylesheets` and `scripts` sections hold each file as
   `{ "path": "/blocklist/default.cshtml", "content": "..." }` and each folder as
@@ -1126,8 +1158,9 @@ How it works:
   block list/grid rendering finds by convention, so check those yourself.
 
 - **In-use prunes are refused** - before the first write, `--prune` checks every item it would
-  delete. A data type still in use, a member type with members, any document or media type
-  (Umbraco cannot say how many items use one), any language (its content variants and dictionary
+  delete. A data type still in use, a member type with members, a document or media type that
+  has items (the recycle bin counted), is a composition of another type, or is an element type
+  (block content can use it, and Umbraco does not say where), any language (its content variants and dictionary
   translations go with it), and a dictionary item with children the snapshot keeps under it
   (not ones this apply moves elsewhere) are refused
   unless `--force` is given, and then nothing at all is applied. `--dry-run` shows those deletes
@@ -1189,7 +1222,8 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
   in tree pre-order (parents before children).
 - **Content, not instance history** - diff and apply compare a normalised body: the per-variant
   `createDate`, `updateDate`, `publishDate`, scheduled dates, `flags` and `state`, and the
-  top-level `isTrashed` and `flags`, are ignored, and `values`/`variants` are compared in a fixed
+  top-level `isTrashed` and `flags`, are ignored, `documentType` is compared by `id` only (its
+  `icon` and `collection` are schema, #346), and `values`/`variants` are compared in a fixed
   order. The same content on two instances is `Unchanged`, and a second `apply` does nothing.
 - **Label values are not compared** - Umbraco ignores values sent for `Umbraco.Label` properties
   (values set by site code), so a promotion can never change them. The diff leaves them out, and

@@ -68,17 +68,21 @@ public static class LogViewerCommand
             (parseResult, ct) =>
                 executor.RunPagedAsync(
                     parseResult,
-                    (client, skip, take, c) =>
-                        client.GetLogsAsync(
-                            skip,
-                            take,
-                            parseResult.GetValue(levelOpt),
-                            parseResult.GetValue(filterOpt),
-                            parseResult.GetValue(startOpt),
-                            parseResult.GetValue(endOpt),
-                            descending: !parseResult.GetValue(ascendingOpt),
-                            c
-                        ),
+                    PinnedAfterFirstPage(
+                        (client, skip, take, end, c) =>
+                            client.GetLogsAsync(
+                                skip,
+                                take,
+                                parseResult.GetValue(levelOpt),
+                                parseResult.GetValue(filterOpt),
+                                parseResult.GetValue(startOpt),
+                                end,
+                                descending: !parseResult.GetValue(ascendingOpt),
+                                c
+                            ),
+                        parseResult.GetValue(endOpt),
+                        descending: !parseResult.GetValue(ascendingOpt)
+                    ),
                     new[] { "Timestamp", "Level", "Message" },
                     m => new[] { m.Timestamp.ToString("u"), m.Level ?? "", m.RenderedMessage },
                     parseResult.GetValue(skipOpt),
@@ -87,6 +91,54 @@ public static class LogViewerCommand
                 )
         );
         return cmd;
+    }
+
+    /// <summary>
+    /// Wraps a newest-first log query so every page after the first ends where the first began
+    /// (#369). Pages are offsets from the newest entry, so while the log grows each new entry
+    /// shifts every later page, and <c>--all</c> read the tail of each page again at the top of
+    /// the next. Pinning the end date to the first page's newest timestamp holds the window still.
+    /// The timestamp is the server's own, so client clock skew cannot drop entries. Oldest-first
+    /// needs no pin: new entries only append after the last page.
+    /// </summary>
+    /// <param name="call">The log query, given skip, take and the end date to send.</param>
+    /// <param name="endDate">The <c>--end-date</c> given, or null.</param>
+    /// <param name="descending">True for newest-first (the default order).</param>
+    /// <returns>The paged call the executor runs, once or (under <c>--all</c>) page by page.</returns>
+    internal static Func<
+        IUmbracoManagementClient,
+        int,
+        int,
+        CancellationToken,
+        Task<UmbracoResponse<PagedResponse<LogMessageResponse>>>
+    > PinnedAfterFirstPage(
+        Func<
+            IUmbracoManagementClient,
+            int,
+            int,
+            DateTimeOffset?,
+            CancellationToken,
+            Task<UmbracoResponse<PagedResponse<LogMessageResponse>>>
+        > call,
+        DateTimeOffset? endDate,
+        bool descending
+    )
+    {
+        var end = endDate;
+        var pinned = !descending;
+        return async (client, skip, take, ct) =>
+        {
+            var page = await call(client, skip, take, end, ct);
+            if (!pinned && page.IsSuccess && page.Data?.Items.Any() == true)
+            {
+                pinned = true;
+                // A millisecond past the newest entry, so it stays inside the window however the
+                // server compares the bound; nothing given as --end-date is ever widened.
+                var newest = page.Data.Items.Max(m => m.Timestamp).AddMilliseconds(1);
+                end = end is { } given && given < newest ? given : newest;
+            }
+            return page;
+        };
     }
 
     private static Command BuildLevels(CommandExecutor executor)

@@ -32,7 +32,7 @@ public sealed partial class UmbracoManagementClient
     /// Updates a webhook via <c>PUT webhook/{id}</c>. The API takes the whole webhook and resets
     /// anything left out, so the current webhook is read first and the request laid over it
     /// (docs/conventions.md 5.1): scalars given replace, a given event or type list replaces the
-    /// list, and headers merge by name; with <see cref="UpdateWebhookRequest.Replace"/> the given
+    /// list, and headers merge by name (an empty value removes one); with <see cref="UpdateWebhookRequest.Replace"/> the given
     /// headers and types are the whole set, so omitting them clears them. New event aliases get the same check as on create (#234),
     /// so an update cannot subscribe a webhook to an event that never fires. The result is read
     /// back, so it is what <c>webhook get</c> would show.
@@ -82,13 +82,20 @@ public sealed partial class UmbracoManagementClient
     {
         // Header names are case-insensitive on the wire, so X-Token and x-token are one header:
         // a given one replaces the current one rather than sending both. A replace starts from
-        // no headers, so the given set is the whole set.
+        // no headers, so the given set is the whole set. An empty value removes the header
+        // (#367): an empty header is never useful to a receiver, and without this the only way
+        // to drop one header was --replace with every other header (secrets included) retyped.
         var headers = new Dictionary<string, string>(
             request.Replace ? [] : current.Headers ?? [],
             StringComparer.OrdinalIgnoreCase
         );
         foreach (var (name, value) in request.Headers ?? new Dictionary<string, string>())
-            headers[name] = value;
+        {
+            if (value.Length == 0)
+                headers.Remove(name);
+            else
+                headers[name] = value;
+        }
 
         var body = new Gen.UpdateWebhookRequestModel
         {
@@ -193,38 +200,108 @@ public sealed partial class UmbracoManagementClient
     /// name, and a member type alias, and must name exactly one type across the three: the
     /// filter holds whichever kind the webhook's events are about, and does not say which.
     /// <para>
+    /// An alias no kind has is refused with the known aliases attached, so the command layer can
+    /// suggest the nearest one (#368). When <paramref name="events"/> is given, a filter that can
+    /// never match them is refused too (#368): Umbraco applies the filter to the item an event is
+    /// about, so a filter of only document types on media-only events means the webhook never
+    /// fires. The check is skipped whenever it cannot be sure: a type given by id (its kind is not
+    /// looked up), an event whose kind is not content, media or member, or an event list that
+    /// cannot be read.
+    /// </para>
+    /// <para>
     /// This lives in the client rather than on top of <see cref="ResolveIdAsync"/> because telling
     /// "not this kind" (404) from "ambiguous within this kind" (409) needs the resolver's own
     /// exception; a failed <see cref="UmbracoResponse{T}"/> carries no status for either (#256).
     /// </para>
     /// </summary>
     /// <param name="references">Type ids or aliases, in the order given.</param>
+    /// <param name="events">The event aliases the webhook will have, to check the filter against; null skips that check.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The ids in the order given, or an invalid_argument failure naming the value.</returns>
     public Task<UmbracoResponse<IReadOnlyList<Guid>>> ResolveWebhookTypesAsync(
         IEnumerable<string> references,
+        IReadOnlyCollection<string>? events = null,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync<IReadOnlyList<Guid>>(
             ct,
             async () =>
             {
-                var ids = new List<Guid>();
+                var resolved = new List<(Guid Id, string? Kind)>();
                 foreach (var reference in references)
-                    ids.Add(await WebhookTypeIdAsync(reference, ct));
-                return ids;
+                    resolved.Add(await WebhookTypeAsync(reference, ct));
+
+                if (resolved.Count > 0 && events is { Count: > 0 })
+                    await GuardWebhookTypeKindsAsync(resolved, events, ct);
+                return resolved.Select(r => r.Id).ToList();
             }
         );
 
-    /// <summary>One <c>--type</c> value's id; see <see cref="ResolveWebhookTypesAsync"/>.</summary>
+    /// <summary>
+    /// The webhook event type (<c>eventType</c> in <c>GET webhook/events</c>) whose items each type
+    /// kind can match.
+    /// </summary>
+    private static readonly Dictionary<string, string> EventTypeByKind = new()
+    {
+        ["document type"] = "Content",
+        ["media type"] = "Media",
+        ["member type"] = "Member",
+    };
+
+    /// <summary>
+    /// Refuses a type filter that none of the webhook's events can match; see
+    /// <see cref="ResolveWebhookTypesAsync"/> for when the check is skipped.
+    /// </summary>
+    /// <param name="types">The resolved types, each with its kind (null when given by id).</param>
+    /// <param name="events">The webhook's event aliases.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when some event can match the filter, or the check is skipped.</returns>
+    /// <exception cref="InvalidArgumentException">No event can match any of the types.</exception>
+    private async Task GuardWebhookTypeKindsAsync(
+        IReadOnlyList<(Guid Id, string? Kind)> types,
+        IReadOnlyCollection<string> events,
+        CancellationToken ct
+    )
+    {
+        if (types.Any(t => t.Kind is null))
+            return;
+
+        var known = await ReadWebhookEventsAsync(ct);
+        if (known is null)
+            return;
+        var eventTypes = events
+            .Select(alias => known.FirstOrDefault(e => e.Alias == alias)?.EventType)
+            .ToList();
+        // An unknown alias is the event guard's to refuse; an "Other" event is not filtered by type.
+        if (eventTypes.Any(t => t is null || !EventTypeByKind.ContainsValue(t)))
+            return;
+
+        var matchable = types.Select(t => EventTypeByKind[t.Kind!]).ToHashSet();
+        if (eventTypes.Any(t => matchable.Contains(t!)))
+            return;
+
+        var kinds = string.Join(" and ", types.Select(t => t.Kind + "s").Distinct());
+        var about = string.Join(" and ", eventTypes.Distinct().Select(t => t!.ToLowerInvariant()));
+        throw new InvalidArgumentException(
+            $"The --type filter holds only {kinds}, but the events are about {about}, so Umbraco "
+                + "would save the webhook but never fire it. Use document types for content "
+                + "events, media types for media events and member types for member events."
+        );
+    }
+
+    /// <summary>One <c>--type</c> value's id and kind; see <see cref="ResolveWebhookTypesAsync"/>.</summary>
     /// <param name="reference">A type id or alias.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The type id.</returns>
-    /// <exception cref="UnresolvedReferenceException">No kind has it (404), or more than one type does (409).</exception>
-    private async Task<Guid> WebhookTypeIdAsync(string reference, CancellationToken ct)
+    /// <returns>The type id, and its kind ("document type", "media type" or "member type"; null for an id).</returns>
+    /// <exception cref="UnknownValuesException">No kind has the alias; carries every known alias.</exception>
+    /// <exception cref="UnresolvedReferenceException">More than one type has the alias (409).</exception>
+    private async Task<(Guid Id, string? Kind)> WebhookTypeAsync(
+        string reference,
+        CancellationToken ct
+    )
     {
         if (Guid.TryParse(reference, out var id))
-            return id;
+            return (id, null);
 
         (string Kind, Func<string, CancellationToken, Task<Guid>> Find)[] kinds =
         [
@@ -247,12 +324,24 @@ public sealed partial class UmbracoManagementClient
 
         return matches switch
         {
-            [var one] => one.Id,
-            [] => throw new UnresolvedReferenceException(
+            [var one] => (one.Id, one.Kind),
+            // Each finder read every type of its kind before giving up, so the caches hold every
+            // alias there is to suggest from.
+            [] => throw new UnknownValuesException(
                 $"No document type, media type or member type has the alias '{reference}'. Use "
                     + "'umbraco document-type list', 'media-type list' or 'member-type list' to "
                     + "find one, or pass its id.",
-                404
+                new UnknownValues(
+                    [reference],
+                    [
+                        .. _documentTypeAliases.Keys,
+                        .. (_mediaTypes ?? [])
+                            .Select(t => t.Alias)
+                            .Where(a => !string.IsNullOrEmpty(a))
+                            .Select(a => a!),
+                        .. _memberTypeAliases.Keys,
+                    ]
+                )
             ),
             _ => throw new UnresolvedReferenceException(
                 $"'{reference}' names more than one type: "

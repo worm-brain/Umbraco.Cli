@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Help;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands.Auth;
 using Umbraco.Cli.Commands.Content;
@@ -153,10 +154,19 @@ public static class CliRoot
         // Richer --version (#95): replace System.CommandLine's default version action so the
         // output reports the tool version, target framework and runtime instead of just the
         // assembly version.
+        //
+        // Help keeps --help, -h and -? but drops the DOS-style /h and /? aliases (#379): the
+        // tab completion scripts list every alias, so they cluttered every "<TAB>" with two
+        // spellings no Unix shell user types.
         foreach (var option in root.Options)
         {
             if (option is VersionOption versionOption)
                 versionOption.Action = new VersionCommandAction();
+            if (option is HelpOption helpOption)
+            {
+                helpOption.Aliases.Remove("/h");
+                helpOption.Aliases.Remove("/?");
+            }
         }
 
         // Readable parse errors for every id and date option, installed once on the finished tree.

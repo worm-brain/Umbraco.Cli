@@ -48,7 +48,7 @@ public static class ContentUpdateCommand
         var templateOpt = new Option<string?>("--template")
         {
             Description =
-                "Template to set on the item, by alias or id. Omitted, the current template is kept.",
+                "Template to set on the item, by alias, name or id. Omitted, the current template is kept.",
         };
         cmd.Add(idArg);
         cmd.Add(replaceOpt);

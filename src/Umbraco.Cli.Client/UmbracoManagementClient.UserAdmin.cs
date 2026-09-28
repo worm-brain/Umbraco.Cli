@@ -1,3 +1,4 @@
+using Microsoft.Kiota.Abstractions;
 using Gen = Umbraco.Cli.Client.Generated.Models;
 
 namespace Umbraco.Cli.Client;
@@ -117,8 +118,8 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                // Client-generated id (Umbraco 14+ accepts a supplied GUID); the 201 body is empty,
-                // so echo the created group without a follow-up read.
+                // Client-generated id (Umbraco 14+ accepts a supplied GUID), because the 201 body is
+                // empty and the id is needed for the read-back below.
                 var id = request.Id ?? Guid.NewGuid();
                 await _api.Umbraco.Management.Api.V1.UserGroup.PostAsync(
                     new Gen.CreateUserGroupRequestModel
@@ -148,6 +149,24 @@ public sealed partial class UmbracoManagementClient
                     },
                     cancellationToken: ct
                 );
+
+                // #354: read what was saved, so server-computed fields (isDeletable,
+                // aliasCanBeChanged, a normalised description) match `user-group get`.
+                try
+                {
+                    if (
+                        await _api
+                            .Umbraco.Management.Api.V1.UserGroup[id]
+                            .GetAsync(cancellationToken: ct) is
+                        { } saved
+                    )
+                        return MapUserGroup(saved);
+                }
+                catch (ApiException)
+                {
+                    // Fall through: the group exists, only the read-back failed.
+                }
+
                 return new UserGroupResponse
                 {
                     Id = id,
@@ -428,14 +447,21 @@ public sealed partial class UmbracoManagementClient
     ) =>
         GuardedApiAsync(
             ct,
-            async () =>
-            {
-                var d = await _api
-                    .Umbraco.Management.Api.V1.UserData[id]
-                    .GetAsync(cancellationToken: ct);
-                // The item body carries group/identifier/value but not the key; echo the requested id.
-                return MapUserData(id, d?.Group, d?.Identifier, d?.Value);
-            }
+            () =>
+                UserDataByKeyAsync(
+                    id,
+                    async () =>
+                    {
+                        // A 200 with no body is not an entry either (#119).
+                        var d =
+                            await _api
+                                .Umbraco.Management.Api.V1.UserData[id]
+                                .GetAsync(cancellationToken: ct) ?? throw UserDataNotFound(id);
+                        // The item body carries group/identifier/value but not the key; echo the
+                        // requested id.
+                        return MapUserData(id, d.Group, d.Identifier, d.Value);
+                    }
+                )
         );
 
     /// <inheritdoc />
@@ -470,20 +496,24 @@ public sealed partial class UmbracoManagementClient
     ) =>
         GuardedApiAsync(
             ct,
-            async () =>
-            {
-                await _api.Umbraco.Management.Api.V1.UserData.PutAsync(
-                    new Gen.UpdateUserDataRequestModel
+            () =>
+                UserDataByKeyAsync(
+                    request.Key,
+                    async () =>
                     {
-                        Key = request.Key,
-                        Group = request.Group,
-                        Identifier = request.Identifier,
-                        Value = request.Value,
-                    },
-                    cancellationToken: ct
-                );
-                return Empty.Value;
-            }
+                        await _api.Umbraco.Management.Api.V1.UserData.PutAsync(
+                            new Gen.UpdateUserDataRequestModel
+                            {
+                                Key = request.Key,
+                                Group = request.Group,
+                                Identifier = request.Identifier,
+                                Value = request.Value,
+                            },
+                            cancellationToken: ct
+                        );
+                        return Empty.Value;
+                    }
+                )
         );
 
     /// <inheritdoc />
@@ -493,14 +523,47 @@ public sealed partial class UmbracoManagementClient
     ) =>
         GuardedApiAsync(
             ct,
-            async () =>
-            {
-                await _api
-                    .Umbraco.Management.Api.V1.UserData[id]
-                    .DeleteAsync(cancellationToken: ct);
-                return Empty.Value;
-            }
+            () =>
+                UserDataByKeyAsync(
+                    id,
+                    async () =>
+                    {
+                        await _api
+                            .Umbraco.Management.Api.V1.UserData[id]
+                            .DeleteAsync(cancellationToken: ct);
+                        return Empty.Value;
+                    }
+                )
         );
+
+    /// <summary>
+    /// Runs a by-key user-data call, turning Umbraco's bare 404 (no ProblemDetails body) into a
+    /// not-found error that names the key (#372). Without this the user saw "unexpected HTTP 404
+    /// with no error details", where every other by-id read says what was not found. A 404 that
+    /// does carry a ProblemDetails body is left alone, so Umbraco's own wording passes through.
+    /// </summary>
+    /// <typeparam name="T">The call's result type.</typeparam>
+    /// <param name="key">The user-data key the call addresses.</param>
+    /// <param name="call">The generated-client call.</param>
+    /// <returns>The call's result.</returns>
+    /// <exception cref="ApiException">A 404 naming the key, or any other API failure as thrown.</exception>
+    private static async Task<T> UserDataByKeyAsync<T>(Guid key, Func<Task<T>> call)
+    {
+        try
+        {
+            return await call();
+        }
+        catch (ApiException e) when (e.ResponseStatusCode == 404 && e is not Gen.ProblemDetails)
+        {
+            throw UserDataNotFound(key);
+        }
+    }
+
+    /// <summary>The not-found error for a user-data key that does not exist.</summary>
+    /// <param name="key">The missing key.</param>
+    /// <returns>An <see cref="ApiException"/> with status 404.</returns>
+    private static ApiException UserDataNotFound(Guid key) =>
+        NotFound($"No user data with key '{key}'.");
 
     /// <summary>
     /// Projects a user-data entry into the command-facing DTO. Takes the fields rather than a

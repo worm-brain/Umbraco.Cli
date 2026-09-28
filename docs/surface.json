@@ -36,7 +36,7 @@
       "aliases": [
         "-q"
       ],
-      "description": "Suppress success confirmations (e.g. \"Deleted.\"). Requested data, errors, and exit codes are unaffected.",
+      "description": "Print nothing when a write succeeds (no confirmation, no result). Reads still print their data; errors, dry-run previews and exit codes are unaffected.",
       "type": "flag",
       "required": false,
       "hasDefault": true,
@@ -56,7 +56,7 @@
     {
       "name": "--dry-run",
       "aliases": [],
-      "description": "Preview the HTTP request a write command would send (method, URL, body) without executing it. No effect on read commands.",
+      "description": "Preview the HTTP requests a write command would send (method, URL, body; secrets redacted) without executing them. No effect on read commands.",
       "type": "flag",
       "required": false,
       "hasDefault": true,
@@ -505,7 +505,7 @@
             {
               "name": "--template",
               "aliases": [],
-              "description": "Template for the new item, by alias or id. Omitted, the document type's default is used.",
+              "description": "Template for the new item, by alias, name or id. Omitted, the document type's default is used.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -578,7 +578,7 @@
             {
               "name": "--template",
               "aliases": [],
-              "description": "Template to set on the item, by alias or id. Omitted, the current template is kept.",
+              "description": "Template to set on the item, by alias, name or id. Omitted, the current template is kept.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1394,7 +1394,7 @@
             {
               "name": "--exclude-type",
               "aliases": [],
-              "description": "With --prune, never delete documents of this document type (alias or id). Repeat the option, or separate values with commas.",
+              "description": "With --prune, never delete documents of this document type (alias, name or id). Repeat the option, or separate values with commas.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -2164,7 +2164,7 @@
         },
         {
           "name": "get",
-          "description": "Get a media type by id or alias, as the full Management API body.\n\nThe body has its properties, groups and allowed child types. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco media-type get brochure\n  umbraco media-type get brochure -o json | jq .data > mt.json",
+          "description": "Get a media type by alias, name or id, as the full Management API body.\n\nThe body has its properties, groups and allowed child types. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco media-type get brochure\n  umbraco media-type get brochure -o json | jq .data > mt.json",
           "arguments": [
             {
               "name": "id",
@@ -2458,11 +2458,11 @@
         },
         {
           "name": "get",
-          "description": "Get a document type by alias or id, as the full Management API body.\n\nThe body has its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco document-type get blogPost\n  umbraco document-type get blogPost -o json | jq .data > t.json",
+          "description": "Get a document type by alias, name or id, as the full Management API body.\n\nThe body has its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco document-type get blogPost\n  umbraco document-type get blogPost -o json | jq .data > t.json",
           "arguments": [
             {
               "name": "id",
-              "description": "The document type's id, or its alias.",
+              "description": "The document type's id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -2598,7 +2598,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The document type's id, or its alias. Required unless --schema or --example is used.",
+              "description": "The document type's id, or its alias or name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2668,7 +2668,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The document type's id, or its alias.",
+              "description": "The document type's id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -3480,7 +3480,7 @@
         },
         {
           "name": "get",
-          "description": "Get a template by its alias or id, including the view file content.\n\nExamples:\n  umbraco template get master\n  umbraco template get master -o json | jq -r .data.content",
+          "description": "Get a template by its alias, name or id, including the view file content.\n\nExamples:\n  umbraco template get master\n  umbraco template get master -o json | jq -r .data.content",
           "arguments": [
             {
               "name": "id",
@@ -3994,11 +3994,11 @@
         },
         {
           "name": "get",
-          "description": "Get a member type by id or alias, as the full Management API body.\n\nThe body has its properties and groups. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco member-type get siteMember\n  umbraco member-type get siteMember -o json | jq .data > mt.json",
+          "description": "Get a member type by alias, name or id, as the full Management API body.\n\nThe body has its properties and groups. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco member-type get siteMember\n  umbraco member-type get siteMember -o json | jq .data > mt.json",
           "arguments": [
             {
               "name": "id",
-              "description": "The member type's id, or its alias.",
+              "description": "The member type's id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -4113,7 +4113,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The member type's id, or its alias. Required unless --schema or --example is used.",
+              "description": "The member type's id, or its alias or name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -4210,7 +4210,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The member type's id, or its alias.",
+              "description": "The member type's id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -4980,7 +4980,7 @@
         },
         {
           "name": "update",
-          "description": "Update a webhook by id or name. Omitted options keep their values.\n\n--event and --type replace the current lists; --header merges by header name. With --replace, the headers and types given are the whole set: any not given are removed.\n\nExamples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook\n  umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter",
+          "description": "Update a webhook by id or name. Omitted options keep their values.\n\n--event and --type replace the current lists; --header merges by header name, and --header Name= (an empty value) removes that header. With --replace, the headers and types given are the whole set: any not given are removed.\n\nExamples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook\n  umbraco webhook update \"Deploy hook\" --header X-Old-Token=   # remove one header, keep the rest\n  umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter",
           "arguments": [
             {
               "name": "id",
@@ -5043,7 +5043,7 @@
             {
               "name": "--header",
               "aliases": [],
-              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several; each replaces a current header of the same name and the others are kept.",
+              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several; each replaces a current header of the same name and the others are kept. An empty value (name=) removes that header.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -5066,6 +5066,7 @@
             "umbraco webhook update \"Deploy hook\" --enabled false",
             "umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost",
             "umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook",
+            "umbraco webhook update \"Deploy hook\" --header X-Old-Token=   # remove one header, keep the rest",
             "umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter"
           ]
         },
@@ -5099,7 +5100,7 @@
           "commands": [
             {
               "name": "list",
-              "description": "List the event aliases that 'webhook create --event' accepts.\n\nExamples:\n  umbraco webhook event list\n  umbraco webhook event list -o json | jq -r '.data.items[].alias'",
+              "description": "List the event aliases that 'webhook create --event' accepts.\n\nExamples:\n  umbraco webhook event list\n  umbraco webhook event list -o json | jq -r '.data[].alias'",
               "arguments": [],
               "options": [
                 {
@@ -5136,7 +5137,7 @@
               "acceptsJsonBody": false,
               "examples": [
                 "umbraco webhook event list",
-                "umbraco webhook event list -o json | jq -r '.data.items[].alias'"
+                "umbraco webhook event list -o json | jq -r '.data[].alias'"
               ]
             }
           ],
@@ -5155,7 +5156,7 @@
           "commands": [
             {
               "name": "list",
-              "description": "List webhook delivery attempts: what was sent and what came back.\n\nGive a webhook to see only its deliveries; omit it to see every webhook's.\n\nExamples:\n  umbraco webhook log list \"Deploy hook\"\n  umbraco webhook log list\n  umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'",
+              "description": "List webhook delivery attempts: what was sent and what came back.\n\nGive a webhook to see only its deliveries; omit it to see every webhook's.\n\nExamples:\n  umbraco webhook log list \"Deploy hook\"\n  umbraco webhook log list\n  umbraco webhook log list 3f7a8b2e-... -o json | jq '.data[] | select(.isSuccessStatusCode | not)'",
               "arguments": [
                 {
                   "name": "id",
@@ -5201,7 +5202,7 @@
               "examples": [
                 "umbraco webhook log list \"Deploy hook\"",
                 "umbraco webhook log list",
-                "umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'"
+                "umbraco webhook log list 3f7a8b2e-... -o json | jq '.data[] | select(.isSuccessStatusCode | not)'"
               ]
             }
           ],
@@ -5470,7 +5471,7 @@
         },
         {
           "name": "update",
-          "description": "Update a script's content (by path).\n\nExamples:\n  umbraco script update site.js --content-file ./site.js\n  cat ./site.js | umbraco script update folder/site.js --content-file -",
+          "description": "Update a script's content or name (by path).\n\n--name renames the file in its folder; give the new name with its extension.\n\nExamples:\n  umbraco script update site.js --content-file ./site.js\n  cat ./site.js | umbraco script update folder/site.js --content-file -\n  umbraco script update folder/site.js --name main.js",
           "arguments": [
             {
               "name": "path",
@@ -5481,6 +5482,14 @@
             }
           ],
           "options": [
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New file name, including its extension. Renames the file in its folder.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
             {
               "name": "--content",
               "aliases": [],
@@ -5504,7 +5513,8 @@
           "acceptsJsonBody": false,
           "examples": [
             "umbraco script update site.js --content-file ./site.js",
-            "cat ./site.js | umbraco script update folder/site.js --content-file -"
+            "cat ./site.js | umbraco script update folder/site.js --content-file -",
+            "umbraco script update folder/site.js --name main.js"
           ]
         },
         {
@@ -5730,7 +5740,7 @@
         },
         {
           "name": "update",
-          "description": "Update a stylesheet's content (by path).\n\nExamples:\n  umbraco stylesheet update site.css --content-file ./site.css\n  cat ./site.css | umbraco stylesheet update folder/site.css --content-file -",
+          "description": "Update a stylesheet's content or name (by path).\n\n--name renames the file in its folder; give the new name with its extension.\n\nExamples:\n  umbraco stylesheet update site.css --content-file ./site.css\n  cat ./site.css | umbraco stylesheet update folder/site.css --content-file -\n  umbraco stylesheet update folder/site.css --name main.css",
           "arguments": [
             {
               "name": "path",
@@ -5741,6 +5751,14 @@
             }
           ],
           "options": [
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New file name, including its extension. Renames the file in its folder.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
             {
               "name": "--content",
               "aliases": [],
@@ -5764,7 +5782,8 @@
           "acceptsJsonBody": false,
           "examples": [
             "umbraco stylesheet update site.css --content-file ./site.css",
-            "cat ./site.css | umbraco stylesheet update folder/site.css --content-file -"
+            "cat ./site.css | umbraco stylesheet update folder/site.css --content-file -",
+            "umbraco stylesheet update folder/site.css --name main.css"
           ]
         },
         {
@@ -5990,7 +6009,7 @@
         },
         {
           "name": "update",
-          "description": "Update a partial-view's content (by path).\n\nExamples:\n  umbraco partial-view update card.cshtml --content-file ./card.cshtml\n  cat ./card.cshtml | umbraco partial-view update folder/card.cshtml --content-file -",
+          "description": "Update a partial-view's content or name (by path).\n\n--name renames the file in its folder; give the new name with its extension.\n\nExamples:\n  umbraco partial-view update card.cshtml --content-file ./card.cshtml\n  cat ./card.cshtml | umbraco partial-view update folder/card.cshtml --content-file -\n  umbraco partial-view update folder/card.cshtml --name tile.cshtml",
           "arguments": [
             {
               "name": "path",
@@ -6001,6 +6020,14 @@
             }
           ],
           "options": [
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New file name, including its extension. Renames the file in its folder.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
             {
               "name": "--content",
               "aliases": [],
@@ -6024,7 +6051,8 @@
           "acceptsJsonBody": false,
           "examples": [
             "umbraco partial-view update card.cshtml --content-file ./card.cshtml",
-            "cat ./card.cshtml | umbraco partial-view update folder/card.cshtml --content-file -"
+            "cat ./card.cshtml | umbraco partial-view update folder/card.cshtml --content-file -",
+            "umbraco partial-view update folder/card.cshtml --name tile.cshtml"
           ]
         },
         {
@@ -7165,7 +7193,7 @@
             {
               "name": "--document-type",
               "aliases": [],
-              "description": "Document type alias or id the blueprint is based on. Required unless --json-body, --schema or --from-document is used.",
+              "description": "Document type alias, name or id the blueprint is based on. Required unless --json-body, --schema or --from-document is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -8296,7 +8324,7 @@
         },
         {
           "name": "get",
-          "description": "Get a relation type by id or alias.\n\nExamples:\n  umbraco relation-type get relateDocumentOnCopy\n  umbraco relation-type get 3f7a8b2e-...",
+          "description": "Get a relation type by alias, name or id.\n\nExamples:\n  umbraco relation-type get relateDocumentOnCopy\n  umbraco relation-type get 3f7a8b2e-...",
           "arguments": [
             {
               "name": "id",
@@ -8683,7 +8711,7 @@
             {
               "name": "--document-type",
               "aliases": [],
-              "description": "The document type the property belongs to: its id, or its alias.",
+              "description": "The document type the property belongs to: its id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false

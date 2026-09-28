@@ -57,7 +57,7 @@ public static class ContentApplyCommand
         // target (form submissions). These leave chosen types and subtrees alone.
         var excludeTypeOpt = ListOption.Strings(
             "--exclude-type",
-            "With --prune, never delete documents of this document type (alias or id)."
+            "With --prune, never delete documents of this document type (alias, name or id)."
         );
         var excludeRootOpt = ListOption.Guids(
             "--exclude-root",
@@ -193,7 +193,7 @@ public static class ContentApplyCommand
     }
 
     /// <summary>
-    /// Resolves the <c>--exclude-type</c> references (alias or id) to document type ids (#225).
+    /// Resolves the <c>--exclude-type</c> references (alias, name or id) to document type ids (#225).
     /// </summary>
     /// <param name="client">The client to resolve aliases with.</param>
     /// <param name="types">The document type references.</param>

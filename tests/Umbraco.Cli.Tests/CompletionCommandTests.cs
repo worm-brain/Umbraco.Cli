@@ -61,7 +61,37 @@ public class CompletionCommandTests
     public void ScriptFor_Shell_AsksTheSuggestDirective(string shell)
     {
         // No dotnet-suggest: every script calls the CLI's own directive.
-        Assert.Contains("umbraco \"[suggest:", CompletionCommand.ScriptFor(shell));
+        Assert.Contains("\"[suggest:", CompletionCommand.ScriptFor(shell));
+    }
+
+    [Theory]
+    [InlineData("bash")]
+    [InlineData("zsh")]
+    [InlineData("pwsh")]
+    public void ScriptFor_Shell_HasNoCarriageReturns(string shell)
+    {
+        // A CR is a syntax error to zsh and to bash on Linux, whatever OS built the tool (#375).
+        Assert.DoesNotContain('\r', CompletionCommand.ScriptFor(shell));
+    }
+
+    [Theory]
+    [InlineData("bash", "\"${cmd/#\\~/$HOME}\" \"[suggest:")]
+    [InlineData("zsh", "\"$cmd\" \"[suggest:")]
+    [InlineData("pwsh", "& $commandAst.GetCommandName() \"[suggest:")]
+    public void ScriptFor_Shell_RunsTheCommandAsTyped(string shell, string invocation)
+    {
+        // Not whatever `umbraco` is first on PATH (#379).
+        Assert.Contains(invocation, CompletionCommand.ScriptFor(shell));
+    }
+
+    [Fact]
+    public void ScriptFor_Pwsh_FiltersSuggestionsByTheTypedPrefix()
+    {
+        // PowerShell does not filter a native completer's results itself (#379).
+        Assert.Contains(
+            "Where-Object { $_.StartsWith($wordToComplete",
+            CompletionCommand.ScriptFor("pwsh")
+        );
     }
 
     [Fact]
@@ -100,6 +130,36 @@ public class CompletionCommandTests
         var (_, stdout) = await Run("[suggest:26]", "umbraco data-type list --a");
 
         Assert.Contains("--all", stdout.Split(Environment.NewLine));
+    }
+
+    [Fact]
+    public async Task SuggestDirective_OutputOption_SuggestsEveryFormat()
+    {
+        var (_, stdout) = await Run("[suggest:11]", "umbraco -o ");
+
+        Assert.Subset(
+            stdout.Split(Environment.NewLine).ToHashSet(),
+            GlobalOptions.OutputFormats.ToHashSet()
+        );
+    }
+
+    [Fact]
+    public async Task SuggestDirective_Options_OmitsTheSlashHelpAliases()
+    {
+        var (_, stdout) = await Run("[suggest:16]", "umbraco content ");
+
+        Assert.Empty(stdout.Split(Environment.NewLine).Intersect(["/h", "/?"]));
+    }
+
+    [Fact]
+    public async Task SuggestDirective_Options_KeepsTheDashHelpAliases()
+    {
+        var (_, stdout) = await Run("[suggest:16]", "umbraco content ");
+
+        Assert.Subset(
+            stdout.Split(Environment.NewLine).ToHashSet(),
+            new HashSet<string> { "--help", "-h", "-?" }
+        );
     }
 
     [Fact]

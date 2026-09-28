@@ -18,7 +18,7 @@ public static class ContentTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a document type by alias or id, as the full Management API body.\n\nThe body has its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'."
+            "Get a document type by alias, name or id, as the full Management API body.\n\nThe body has its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'."
         ).WithExamples(
             "umbraco document-type get blogPost",
             "umbraco document-type get blogPost -o json | jq .data > t.json"

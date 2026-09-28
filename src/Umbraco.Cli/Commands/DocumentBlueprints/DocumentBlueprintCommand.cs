@@ -142,7 +142,7 @@ public static class DocumentBlueprintCommand
         // validator below as a parse error.
         var typeOpt = new Option<string>("--document-type")
         {
-            Description = "Document type alias or id the blueprint is based on.",
+            Description = "Document type alias, name or id the blueprint is based on.",
         }.RequiredUnless("--json-body", "--schema", "--from-document");
         var nameOpt = new Option<string>("--name")
         {

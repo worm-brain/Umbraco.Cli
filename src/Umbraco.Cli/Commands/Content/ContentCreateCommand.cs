@@ -118,7 +118,7 @@ public static class ContentCreateCommand
         var templateOpt = new Option<string?>("--template")
         {
             Description =
-                "Template for the new item, by alias or id. Omitted, the document type's default is used.",
+                "Template for the new item, by alias, name or id. Omitted, the document type's default is used.",
         };
         cmd.Add(typeOpt);
         cmd.Add(nameOpt);

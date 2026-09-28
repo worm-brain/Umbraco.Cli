@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.Kiota.Abstractions;
 using Gen = Umbraco.Cli.Client.Generated.Models;
 
@@ -57,7 +58,8 @@ public sealed partial class UmbracoManagementClient
         [.. (refs ?? []).Where(r => r.Id is not null).Select(r => r.Id!.Value)];
 
     /// <summary>
-    /// Fills in each user's group aliases and names and the sections those groups grant (#216). The
+    /// Fills in each user's group aliases and names and the sections and content languages those
+    /// groups grant (#216, #356). The
     /// group list is read once for the whole batch; if it cannot be read (a 403 for an API user
     /// without the Users section, say) the ids stay and the labels and sections are left empty,
     /// rather than failing the read.
@@ -105,6 +107,14 @@ public sealed partial class UmbracoManagementClient
             [
                 .. mine.SelectMany(m => m.Group?.Sections ?? []).Distinct(StringComparer.Ordinal),
             ],
+            // #356: content-language access is granted by groups too, so it is their union, and
+            // any one group with all-languages access grants it to the user.
+            Languages =
+            [
+                .. mine.SelectMany(m => m.Group?.Languages ?? [])
+                    .Distinct(StringComparer.OrdinalIgnoreCase),
+            ],
+            HasAccessToAllLanguages = mine.Any(m => m.Group?.HasAccessToAllLanguages == true),
         };
     }
 
@@ -445,33 +455,101 @@ public sealed partial class UmbracoManagementClient
         );
 
     /// <inheritdoc />
-    public Task<UmbracoResponse<Empty>> DeleteUserAsync(Guid id, CancellationToken ct = default) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                await _api.Umbraco.Management.Api.V1.User[id].DeleteAsync(cancellationToken: ct);
-                return Empty.Value;
-            }
+    public async Task<UmbracoResponse<Empty>> DeleteUserAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        await NameSignedInUsersAsync(
+            [id],
+            await GuardedApiAsync(
+                ct,
+                async () =>
+                {
+                    await _api
+                        .Umbraco.Management.Api.V1.User[id]
+                        .DeleteAsync(cancellationToken: ct);
+                    return Empty.Value;
+                }
+            ),
+            ct
         );
 
     /// <inheritdoc />
-    public Task<UmbracoResponse<Empty>> DeleteUsersAsync(
+    public async Task<UmbracoResponse<Empty>> DeleteUsersAsync(
         IReadOnlyList<Guid> ids,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                await _api.Umbraco.Management.Api.V1.User.DeleteAsync(
-                    new Gen.DeleteUsersRequestModel
-                    {
-                        UserIds = [.. ids.Select(i => new Gen.ReferenceByIdModel { Id = i })],
-                    },
-                    cancellationToken: ct
-                );
-                return Empty.Value;
-            }
+        await NameSignedInUsersAsync(
+            ids,
+            await GuardedApiAsync(
+                ct,
+                async () =>
+                {
+                    await _api.Umbraco.Management.Api.V1.User.DeleteAsync(
+                        new Gen.DeleteUsersRequestModel
+                        {
+                            UserIds = [.. ids.Select(i => new Gen.ReferenceByIdModel { Id = i })],
+                        },
+                        cancellationToken: ct
+                    );
+                    return Empty.Value;
+                }
+            ),
+            ct
         );
+
+    /// <summary>
+    /// When Umbraco refuses a delete because a user has signed in
+    /// (<c>CannotDeleteUserWithLoginHistory</c>), adds which of <paramref name="ids"/> have, and
+    /// the command that disables them (#355). Umbraco's message says only "This user has logged
+    /// in", which does not say which one when several were deleted together. Each user is read for
+    /// its <c>lastLoginDate</c>; one that cannot be read is left out rather than failing the
+    /// error. Any other result is returned unchanged.
+    /// </summary>
+    /// <param name="ids">The users the delete was for.</param>
+    /// <param name="result">The delete's result.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><paramref name="result"/>, its message extended when it is that refusal.</returns>
+    private async Task<UmbracoResponse<Empty>> NameSignedInUsersAsync(
+        IReadOnlyList<Guid> ids,
+        UmbracoResponse<Empty> result,
+        CancellationToken ct
+    )
+    {
+        if (
+            result.IsSuccess
+            || (result.Details as JsonObject)?["operationStatus"]?.ToString()
+                is not "CannotDeleteUserWithLoginHistory"
+        )
+            return result;
+
+        var signedIn = new List<Gen.UserResponseModel>();
+        foreach (var id in ids)
+        {
+            try
+            {
+                if (
+                    await _api.Umbraco.Management.Api.V1.User[id].GetAsync(cancellationToken: ct) is
+                    { LastLoginDate: not null } user
+                )
+                    signedIn.Add(user);
+            }
+            catch (Exception ex) when (ex is ApiException or HttpRequestException)
+            {
+                // Only the naming is lost; the refusal itself still stands.
+            }
+        }
+        if (signedIn.Count == 0)
+            return result;
+
+        var names = string.Join(", ", signedIn.Select(u => $"{u.Email} ({u.Id})"));
+        var example = signedIn[0].Id;
+        return result with
+        {
+            ErrorMessage =
+                $"{result.ErrorMessage} Signed in before: {names}. Disable "
+                + $"{(signedIn.Count == 1 ? "that user" : "each of them")} instead, e.g. "
+                + $"'umbraco user update {example} --disabled'.",
+        };
+    }
 }

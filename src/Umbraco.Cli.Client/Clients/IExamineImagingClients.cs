@@ -84,7 +84,10 @@ public interface IPropertyTypeClient
     /// <param name="contentTypeId">The content type id the property belongs to.</param>
     /// <param name="propertyAlias">The property alias.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>True if the property is used.</returns>
+    /// <returns>
+    /// True if the property is used; an invalid_argument failure when neither the type nor its
+    /// compositions has a property with the alias (#371).
+    /// </returns>
     Task<UmbracoResponse<bool>> IsPropertyTypeUsedAsync(
         Guid contentTypeId,
         string propertyAlias,

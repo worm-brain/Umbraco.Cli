@@ -52,7 +52,7 @@ public static class RelationTypeCommand
     /// <returns>The configured command.</returns>
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command("get", "Get a relation type by id or alias.").WithExamples(
+        var cmd = new Command("get", "Get a relation type by alias, name or id.").WithExamples(
             "umbraco relation-type get relateDocumentOnCopy",
             "umbraco relation-type get 3f7a8b2e-..."
         );

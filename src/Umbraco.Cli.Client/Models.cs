@@ -1511,6 +1511,21 @@ public record UserResponse
     [JsonPropertyName("sections")]
     public IReadOnlyList<string> Sections { get; init; } = [];
 
+    /// <summary>
+    /// The content languages the user may edit, as ISO codes: the union of their groups' languages
+    /// (#356), since a user has none of their own. See <see cref="HasAccessToAllLanguages"/> for a
+    /// group that grants every language. Empty when the group list could not be read.
+    /// </summary>
+    [JsonPropertyName("languages")]
+    public IReadOnlyList<string> Languages { get; init; } = [];
+
+    /// <summary>
+    /// Whether any of the user's groups grants every content language (#356), in which case
+    /// <see cref="Languages"/> does not limit them. False when the group list could not be read.
+    /// </summary>
+    [JsonPropertyName("hasAccessToAllLanguages")]
+    public bool HasAccessToAllLanguages { get; init; }
+
     /// <summary>The backoffice UI language as an ISO code, or null for the site default.</summary>
     [JsonPropertyName("languageIsoCode")]
     public string? LanguageIsoCode { get; init; }
@@ -1872,8 +1887,8 @@ public record UpdateWebhookRequest
 
     /// <summary>
     /// Headers merged into the current ones by name (a given header replaces one of the same
-    /// name, ignoring case; the rest are kept); null or empty keeps them all. With
-    /// <see cref="Replace"/> they are the whole set instead.
+    /// name, ignoring case; the rest are kept); null or empty keeps them all. A header with an
+    /// empty value removes that header. With <see cref="Replace"/> they are the whole set instead.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 

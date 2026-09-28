@@ -79,26 +79,94 @@ public class JsonPathDiffTests
         Assert.Empty(paths);
     }
 
+    // #350: Umbraco carries order in sortOrder, not array position, and returns items in its own
+    // order, so a hand-written snapshot in another order must still compare equal.
     [Fact]
-    public void Paths_ReorderedAliasedItemsMissingANullMember_StillReportsTheArray()
+    public void Paths_ReorderedAliasedItemsMissingANullMember_IsEmpty()
     {
         var paths = Paths(
             """{"properties":[{"alias":"a"},{"alias":"b"}]}""",
             """{"properties":[{"alias":"b","description":null},{"alias":"a"}]}"""
         );
 
-        Assert.Equal(["properties"], paths);
+        Assert.Empty(paths);
     }
 
     [Fact]
-    public void Paths_ReorderedAliasedItems_ReportsTheArray()
+    public void Paths_ReorderedAliasedItems_IsEmpty()
     {
         var paths = Paths(
             """{"properties":[{"alias":"a"},{"alias":"b"}]}""",
             """{"properties":[{"alias":"b"},{"alias":"a"}]}"""
         );
 
-        Assert.Equal(["properties"], paths);
+        Assert.Empty(paths);
+    }
+
+    [Fact]
+    public void Paths_ReorderedItemsWithIds_IsEmpty()
+    {
+        var paths = Paths(
+            """{"containers":[{"id":"c1","name":"Content"},{"id":"c2","name":"Settings"}]}""",
+            """{"containers":[{"id":"c2","name":"Settings"},{"id":"c1","name":"Content"}]}"""
+        );
+
+        Assert.Empty(paths);
+    }
+
+    [Fact]
+    public void Paths_ReorderedItemsWithIdsAndAChange_NamesTheItemById()
+    {
+        var paths = Paths(
+            """{"containers":[{"id":"c1","sortOrder":1},{"id":"c2","sortOrder":0}]}""",
+            """{"containers":[{"id":"c2","sortOrder":0},{"id":"c1","sortOrder":0}]}"""
+        );
+
+        Assert.Equal(["containers[c1].sortOrder"], paths);
+    }
+
+    [Fact]
+    public void Paths_ReorderedAllowedDocumentTypes_IsEmpty()
+    {
+        var paths = Paths(
+            """{"allowedDocumentTypes":[{"documentType":{"id":"a"},"sortOrder":0},{"documentType":{"id":"b"},"sortOrder":1}]}""",
+            """{"allowedDocumentTypes":[{"documentType":{"id":"b"},"sortOrder":1},{"documentType":{"id":"a"},"sortOrder":0}]}"""
+        );
+
+        Assert.Empty(paths);
+    }
+
+    [Fact]
+    public void Paths_ReorderedCompositionsWithAChange_NamesTheItemByItsReference()
+    {
+        var paths = Paths(
+            """{"compositions":[{"documentType":{"id":"a"},"compositionType":"Composition"},{"documentType":{"id":"b"},"compositionType":"Inheritance"}]}""",
+            """{"compositions":[{"documentType":{"id":"b"},"compositionType":"Composition"},{"documentType":{"id":"a"},"compositionType":"Composition"}]}"""
+        );
+
+        Assert.Equal(["compositions[b].compositionType"], paths);
+    }
+
+    [Fact]
+    public void Paths_GuidsDifferingOnlyInCase_IsEmpty()
+    {
+        var paths = Paths(
+            """{"containers":[{"id":"3F2A0000-0000-0000-0000-00000000000A","parent":{"id":"3F2A0000-0000-0000-0000-00000000000B"}}]}""",
+            """{"containers":[{"id":"3f2a0000-0000-0000-0000-00000000000a","parent":{"id":"3f2a0000-0000-0000-0000-00000000000b"}}]}"""
+        );
+
+        Assert.Empty(paths);
+    }
+
+    [Fact]
+    public void Paths_DifferentGuids_StillDiffer()
+    {
+        var paths = Paths(
+            """{"template":{"id":"3F2A0000-0000-0000-0000-00000000000A"}}""",
+            """{"template":{"id":"3f2a0000-0000-0000-0000-00000000000b"}}"""
+        );
+
+        Assert.Equal(["template.id"], paths);
     }
 
     [Fact]

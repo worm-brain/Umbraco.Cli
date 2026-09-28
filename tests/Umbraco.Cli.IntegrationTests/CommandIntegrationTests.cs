@@ -338,6 +338,35 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.DoesNotContain(marker, list.Stdout);
     }
 
+    [SkippableFact]
+    public void DryRun_UserCreateWithPassword_PreviewsBothStepsWithThePasswordRedacted()
+    {
+        RequireLive();
+        const string password = "DryRunPw98765!";
+
+        // #353: user create --password is a POST /user and then a change-password POST; both
+        // are previewed. #352: the password is redacted, as under -v.
+        var dry = CliRunner.Run(
+            "user",
+            "create",
+            "--email",
+            "dry-run-must-not-exist@example.com",
+            "--name",
+            "Dry Run",
+            "--group",
+            "editor",
+            "--password",
+            password,
+            "--dry-run"
+        );
+        Assert.True(dry.Ok, dry.Stderr);
+
+        using var doc = JsonDocument.Parse(dry.Stdout);
+        var then = doc.RootElement.GetProperty("data").GetProperty("then");
+        Assert.EndsWith("/change-password", then[0].GetProperty("url").GetString());
+        Assert.DoesNotContain(password, dry.Stdout);
+    }
+
     [Fact]
     public void Schema_ContentCreate_EmitsJsonSchema()
     {
@@ -662,7 +691,8 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
 
     /// <summary>
     /// #237: a webhook named on create is found by that name, <c>update</c> disables it and merges
-    /// a header without dropping the one it had, and its delivery log can be read.
+    /// a header without dropping the one it had, <c>--header Name=</c> removes one header and keeps
+    /// the rest, and its delivery log can be read.
     /// </summary>
     [SkippableFact]
     public void Webhook_UpdateByName_DisablesAndMergesHeaders()
@@ -708,6 +738,14 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
                     headers.GetProperty("X-Api-Key").GetString(),
                     headers.GetProperty("X-Env").GetString()
                 )
+            );
+
+            // An empty value removes just that header.
+            var remove = CliRunner.Run("webhook", "update", name, "--header", "X-Env=");
+            Assert.True(remove.Ok, remove.Stderr);
+            Assert.Equal(
+                ["X-Api-Key"],
+                remove.Data().GetProperty("headers").EnumerateObject().Select(p => p.Name)
             );
 
             var log = CliRunner.Run("webhook", "log", "list", name);

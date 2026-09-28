@@ -224,12 +224,15 @@ The rest never reach the API, so they carry no `httpStatus` and no `serverVersio
 A write command run with `--dry-run` uses a distinct status and does not touch the server:
 
 ```json
-{ "status": "dry-run", "data": { "method": "POST", "url": ".../webhook", "body": { } },
+{ "status": "dry-run", "data": { "method": "POST", "url": ".../webhook", "body": { }, "then": [] },
   "meta": { "command": "webhook.create", "durationMs": 12, "timestamp": "...", "schemaVersion": "6" } }
 ```
 
 The payload is under `data`, like every other success envelope - it was `request` before
-schemaVersion 3, the one exception to that rule.
+schemaVersion 3, the one exception to that rule. `data` is the first request; `then` lists the
+requests a multi-step write sends after it, each `{method, url, body}` (for example the
+change-password step of `user create --password`), and is empty for a single request. Passwords,
+tokens and other secrets are redacted in the preview, as under `-v`.
 
 To see what was actually sent and received when a call fails, add `-v`: every request and
 response is logged to **stderr** (stdout stays parseable) with its body - the response cut at
@@ -335,8 +338,9 @@ the #268 surface batch:
 - **`--output csv`** emits RFC-4180 CSV (list -> one row per item; object/scalar -> header+value).
   Columns use the same camelCase keys, and `--fields` selects/orders them. Errors go to stderr
   as an `exitCode,httpStatus,category,message` row.
-- **`--quiet` / `-q`** drops the result of writes (the confirmation and its `data`) but still
-  emits reads, errors, and exit codes.
+- **`--quiet` / `-q`** drops the result of writes (the confirmation and its `data`), so a
+  successful write prints nothing. Reads, errors, `--dry-run` previews, a bulk run with failures,
+  and exit codes are still emitted. Omit it when you need a created item's id.
 
 ## 5. Exit codes
 
@@ -699,8 +703,9 @@ the supervising process. The config-file `allowedCommands` form is a convenience
 
 ### Preview writes
 
-`--dry-run` on any write prints the request it would send (method, URL, body) and exits `0`
-without changing anything (`"status": "dry-run"`). Use it to show a plan before committing.
+`--dry-run` on any write prints the requests it would send (method, URL, body; secrets redacted)
+and exits `0` without changing anything (`"status": "dry-run"`). Use it to show a plan before
+committing.
 
 ---
 

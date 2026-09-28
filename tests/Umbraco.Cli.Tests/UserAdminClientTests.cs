@@ -50,26 +50,77 @@ public class UserAdminClientTests
     [Fact]
     public async Task CreateUserGroupAsync_PostsFieldsAndEchoesId()
     {
-        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+        // The create is followed by a read-back GET (#354), so the POST is the first request.
+        var handler = new RoutingHandler().When(_ => true, HttpStatusCode.Created, "");
         var id = Guid.NewGuid();
 
-        var result = await client.CreateUserGroupAsync(
-            new CreateUserGroupRequest
-            {
-                Id = id,
-                Alias = "editors",
-                Name = "Editors",
-                Sections = ["Umb.Section.Content"],
-            },
-            CancellationToken.None
-        );
+        var result = await Wire.Client(handler)
+            .CreateUserGroupAsync(
+                new CreateUserGroupRequest
+                {
+                    Id = id,
+                    Alias = "editors",
+                    Name = "Editors",
+                    Sections = ["Umb.Section.Content"],
+                },
+                CancellationToken.None
+            );
 
+        var post = handler.Recordings[0];
         Assert.True(result.IsSuccess);
-        Assert.Equal(HttpMethod.Post, handler.LastMethod);
-        Assert.EndsWith("/user-group", handler.LastUri!.AbsolutePath);
-        Assert.Contains("editors", handler.LastBody);
-        Assert.Contains("Umb.Section.Content", handler.LastBody);
+        Assert.Equal(HttpMethod.Post, post.Method);
+        Assert.EndsWith("/user-group", post.Uri.AbsolutePath);
+        Assert.Contains("editors", post.Body);
+        Assert.Contains("Umb.Section.Content", post.Body);
         Assert.Equal(id, result.Data!.Id); // client-supplied id echoed
+    }
+
+    [Fact]
+    public async Task CreateUserGroupAsync_ReadsTheGroupBack_SoServerFieldsMatchGet()
+    {
+        // #354: the create echoed the request, so isDeletable/aliasCanBeChanged were false and
+        // description null where `get` says true and "".
+        var id = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                $$"""{ "id": "{{id}}", "alias": "editors", "name": "Editors", "description": "", "isDeletable": true, "aliasCanBeChanged": true }"""
+            )
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateUserGroupAsync(
+                new CreateUserGroupRequest
+                {
+                    Id = id,
+                    Alias = "editors",
+                    Name = "Editors",
+                },
+                CancellationToken.None
+            );
+
+        Assert.Equal(
+            (true, true, ""),
+            (result.Data!.IsDeletable, result.Data.AliasCanBeChanged, result.Data.Description)
+        );
+    }
+
+    [Fact]
+    public async Task CreateUserGroupAsync_ReadBackFails_StillSucceedsWithTheRequest()
+    {
+        // The group was created; a failed read-back must not turn that into an error.
+        var handler = new RoutingHandler()
+            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.InternalServerError, "")
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateUserGroupAsync(
+                new CreateUserGroupRequest { Alias = "editors", Name = "Editors" },
+                CancellationToken.None
+            );
+
+        Assert.Equal((true, "editors"), (result.IsSuccess, result.Data!.Alias));
     }
 
     [Fact]
@@ -304,5 +355,74 @@ public class UserAdminClientTests
         Assert.Contains($"user-data/{key}", handler.LastUri!.AbsoluteUri);
         Assert.Equal(key, result.Data!.Key); // item body carries no key; the requested id is echoed
         Assert.Equal("dark", result.Data.Value);
+    }
+
+    [Fact]
+    public async Task GetUserDataByIdAsync_EmptyNotFound_NamesTheMissingKey()
+    {
+        // #372: Umbraco's 404 here has no body; say what was not found instead of "unexpected".
+        var key = Guid.NewGuid();
+        var (client, _) = ClientReturning("", HttpStatusCode.NotFound);
+
+        var result = await client.GetUserDataByIdAsync(key, CancellationToken.None);
+
+        Assert.Equal(
+            (404, $"No user data with key '{key}'."),
+            (result.StatusCode, result.ErrorMessage)
+        );
+    }
+
+    [Fact]
+    public async Task GetUserDataByIdAsync_EmptyOk_IsNotFound()
+    {
+        var (client, _) = ClientReturning("", HttpStatusCode.OK);
+
+        var result = await client.GetUserDataByIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Equal(404, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteUserDataAsync_EmptyNotFound_NamesTheMissingKey()
+    {
+        var key = Guid.NewGuid();
+        var (client, _) = ClientReturning("", HttpStatusCode.NotFound);
+
+        var result = await client.DeleteUserDataAsync(key, CancellationToken.None);
+
+        Assert.Equal($"No user data with key '{key}'.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task UpdateUserDataAsync_EmptyNotFound_NamesTheMissingKey()
+    {
+        var key = Guid.NewGuid();
+        var (client, _) = ClientReturning("", HttpStatusCode.NotFound);
+
+        var result = await client.UpdateUserDataAsync(
+            new UpdateUserDataRequest
+            {
+                Key = key,
+                Group = "g",
+                Identifier = "i",
+                Value = "v",
+            },
+            CancellationToken.None
+        );
+
+        Assert.Equal($"No user data with key '{key}'.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task GetUserDataByIdAsync_NotFoundWithProblemDetails_KeepsUmbracosMessage()
+    {
+        var (client, _) = ClientReturning(
+            """{"title":"User data not found","status":404}""",
+            HttpStatusCode.NotFound
+        );
+
+        var result = await client.GetUserDataByIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.StartsWith("User data not found", result.ErrorMessage);
     }
 }

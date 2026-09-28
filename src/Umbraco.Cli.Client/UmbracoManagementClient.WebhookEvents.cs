@@ -89,7 +89,31 @@ public sealed partial class UmbracoManagementClient
     /// <returns>The distinct aliases; null on a failed or empty read.</returns>
     private async Task<HashSet<string>?> KnownWebhookEventAliasesAsync(CancellationToken ct)
     {
+        var events = await ReadWebhookEventsAsync(ct);
+        if (events is null)
+            return null;
+
         var aliases = new HashSet<string>(StringComparer.Ordinal);
+        aliases.UnionWith(
+            events.Select(e => e.Alias).Where(a => !string.IsNullOrWhiteSpace(a)).Select(a => a!)
+        );
+        // Umbraco always registers its core events, so an empty list means the read failed.
+        return aliases.Count == 0 ? null : aliases;
+    }
+
+    /// <summary>
+    /// Every event the instance can fire, read once per client through
+    /// <see cref="GetWebhookEventsAsync"/>: shared by the alias guard and the type-filter check
+    /// (#368), which needs each event's <see cref="WebhookEvent.EventType"/>.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The events in read order; null when a page could not be read.</returns>
+    private async Task<List<WebhookEvent>?> ReadWebhookEventsAsync(CancellationToken ct)
+    {
+        if (_webhookEvents is not null)
+            return _webhookEvents;
+
+        var events = new List<WebhookEvent>();
         for (var skip = 0; ; skip += WebhookEventPage)
         {
             var page = await GetWebhookEventsAsync(skip, WebhookEventPage, ct);
@@ -97,14 +121,14 @@ public sealed partial class UmbracoManagementClient
                 return null;
 
             var items = page.Data!.Items.ToList();
-            aliases.UnionWith(
-                items.Select(e => e.Alias).Where(a => !string.IsNullOrWhiteSpace(a)).Select(a => a!)
-            );
+            events.AddRange(items);
             if (items.Count == 0 || skip + items.Count >= page.Data.Total)
                 break;
         }
 
-        // Umbraco always registers its core events, so an empty list means the read failed.
-        return aliases.Count == 0 ? null : aliases;
+        return _webhookEvents = events;
     }
+
+    /// <summary>The events <see cref="ReadWebhookEventsAsync"/> read, cached for the client's life.</summary>
+    private List<WebhookEvent>? _webhookEvents;
 }

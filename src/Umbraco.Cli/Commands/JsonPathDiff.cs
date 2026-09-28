@@ -11,14 +11,25 @@ namespace Umbraco.Cli.Commands;
 /// later one: an item with an <c>alias</c> is named by it, plus its culture and segment when set
 /// (<c>values.title[en-US]</c>, <c>properties.title</c>); a variant, which has a <c>culture</c> but
 /// no alias, is named by its culture (<c>variants[en-US].name</c>, <c>[invariant]</c> for the null
-/// culture). Anything else is matched by index (<c>containers[2].name</c>), and an index-matched
-/// array whose length changed is reported as a whole. A property value (an item with both
-/// <c>alias</c> and <c>value</c>) is reported as a whole too: its <c>value</c> can be a block
-/// editor's entire JSON, which is not a useful place to point at. A keyed array whose items all
-/// match but in another order is reported at the array's own path. A member absent on one side
-/// and null on the other is not a difference, at any depth, so the result is empty exactly when
-/// the bodies are <see cref="JsonNode.DeepEquals(JsonNode?, JsonNode?)"/> equal once such members
-/// are ignored.
+/// culture); any other item with an <c>id</c>, such as a document type's container, is named by
+/// it (<c>containers[3f2a...].name</c>), and an item that holds exactly one reference, such as an
+/// <c>allowedDocumentTypes</c> or <c>compositions</c> entry, by the id it references
+/// (<c>allowedDocumentTypes[3f2a...].sortOrder</c>). GUIDs match and compare ignoring letter case.
+/// Anything else is matched by index (<c>tags[2]</c>), and an index-matched array whose length
+/// changed is reported as a whole. A property value (an item with both <c>alias</c> and <c>value</c>) is
+/// reported as a whole too: its <c>value</c> can be a block editor's entire JSON, which is not a
+/// useful place to point at.
+/// <para>
+/// A keyed array is compared as a set: the same items in another order are not a difference
+/// (#350). Umbraco carries order in the items themselves (a property's or container's
+/// <c>sortOrder</c> and <c>parent</c>), not in array position, and does not return items in the
+/// order they were written, so a hand-written snapshot in its own order must still compare equal;
+/// a real reorder shows as a <c>sortOrder</c> change. Content and media bodies sort their keyed
+/// arrays before comparing anyway.
+/// </para>
+/// A member absent on one side and null on the other is not a difference, at any depth, so the
+/// result is empty exactly when the bodies are equal once such members are ignored and keyed
+/// arrays are read as sets.
 /// </summary>
 public static class JsonPathDiff
 {
@@ -33,9 +44,17 @@ public static class JsonPathDiff
         return paths;
     }
 
+    /// <summary>
+    /// Compares two nodes at <paramref name="path"/> and appends each path where they differ.
+    /// Two GUID strings that differ only in letter case are equal.
+    /// </summary>
+    /// <param name="path">The nodes' path; empty at the root.</param>
+    /// <param name="a">The desired-side node.</param>
+    /// <param name="b">The live-side node.</param>
+    /// <param name="paths">The differing paths found so far; appended to.</param>
     private static void Walk(string path, JsonNode? a, JsonNode? b, List<string> paths)
     {
-        if (JsonNode.DeepEquals(a, b))
+        if (JsonNode.DeepEquals(a, b) || SameGuid(a, b))
             return;
 
         switch (a, b)
@@ -55,6 +74,14 @@ public static class JsonPathDiff
         }
     }
 
+    /// <summary>
+    /// Compares two arrays: by item identity when every item on both sides has a unique one
+    /// (order ignored, #350), else by index.
+    /// </summary>
+    /// <param name="path">The arrays' path.</param>
+    /// <param name="a">The desired-side array.</param>
+    /// <param name="b">The live-side array.</param>
+    /// <param name="paths">The differing paths found so far; appended to.</param>
     private static void WalkArray(string path, JsonArray a, JsonArray b, List<string> paths)
     {
         var keyedA = Keyed(a);
@@ -71,7 +98,6 @@ public static class JsonPathDiff
             return;
         }
 
-        var before = paths.Count;
         foreach (var label in keyedA.Keys.Union(keyedB.Keys))
         {
             var itemA = keyedA.GetValueOrDefault(label);
@@ -88,14 +114,8 @@ public static class JsonPathDiff
             }
             Walk(itemPath, itemA, itemB, paths);
         }
-
-        // Every item matched, yet the arrays differ. If the order did, it is reported at the
-        // array: order is part of the comparison (a doc type's property order is meaningful).
-        // Otherwise the items differ only by a key that is absent on one side and null on the
-        // other, which Walk treats as equal (as it does for object members), so nothing is
-        // reported - a hand-written snapshot that omits a null field must not stay "Changed".
-        if (paths.Count == before && !keyedA.Keys.SequenceEqual(keyedB.Keys))
-            paths.Add(path.Length == 0 ? "$" : path);
+        // Items matched by identity in a different order add nothing: order is not compared for a
+        // keyed array (#350).
     }
 
     /// <summary>
@@ -113,6 +133,14 @@ public static class JsonPathDiff
         return byLabel;
     }
 
+    /// <summary>
+    /// An item's identity label: <c>.alias</c> (plus a culture/segment qualifier), else
+    /// <c>[culture]</c> for a variant, else <c>[id]</c> for any other item with an id, else
+    /// <c>[id]</c> of the one reference it holds (<c>documentType.id</c>) (#350). GUIDs are
+    /// lower-cased.
+    /// </summary>
+    /// <param name="item">An array item.</param>
+    /// <returns>The label, or null when the item has no identity.</returns>
     private static string? Label(JsonNode? item)
     {
         if (item is not JsonObject o)
@@ -131,8 +159,40 @@ public static class JsonPathDiff
             return $".{alias}{qualifier}";
         if (o.ContainsKey("culture"))
             return qualifier.Length > 0 ? qualifier : "[invariant]";
-        return null;
+        // #350: an item with neither, but an id (a type's container), is matched by the id, so a
+        // container list in another order than the live one still pairs each container.
+        if (Text(o, "id") is { } id)
+            return $"[{Canonical(id)}]";
+        // Else an item that points at one thing by id and says nothing else about identity (an
+        // allowedDocumentTypes or compositions entry, {"documentType":{"id":..},...}) is matched
+        // by that id.
+        var references = o.Where(p => p.Value is JsonObject r && Text(r, "id") is not null)
+            .Select(p => Text(p.Value!.AsObject(), "id")!)
+            .ToList();
+        return references.Count == 1 ? $"[{Canonical(references[0])}]" : null;
     }
+
+    /// <summary>
+    /// A GUID in its lower-case form, so an id written in upper case by hand matches the live one;
+    /// any other text is returned as it is.
+    /// </summary>
+    /// <param name="id">The id text.</param>
+    /// <returns>The canonical id.</returns>
+    private static string Canonical(string id) =>
+        Guid.TryParse(id, out var guid) ? guid.ToString() : id;
+
+    /// <summary>Whether two nodes are strings naming the same GUID, whatever their letter case.</summary>
+    /// <param name="a">A node.</param>
+    /// <param name="b">Another node.</param>
+    /// <returns>True when both are GUID strings with the same value.</returns>
+    private static bool SameGuid(JsonNode? a, JsonNode? b) =>
+        a is JsonValue va
+        && b is JsonValue vb
+        && va.TryGetValue<string>(out var sa)
+        && vb.TryGetValue<string>(out var sb)
+        && Guid.TryParse(sa, out var ga)
+        && Guid.TryParse(sb, out var gb)
+        && ga == gb;
 
     private static bool IsPropertyValue(JsonNode? item) =>
         item is JsonObject o && o.ContainsKey("alias") && o.ContainsKey("value");

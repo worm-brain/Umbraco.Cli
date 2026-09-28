@@ -102,6 +102,63 @@ public class ReferenceResolverWireTests
         Assert.Equal(Brochure, result.Data);
     }
 
+    private static readonly Guid TextPage = Guid.Parse("22222222-0000-0000-0000-000000000002");
+    private static readonly Guid Landing = Guid.Parse("22222222-0000-0000-0000-000000000003");
+    private static readonly Guid Other = Guid.Parse("22222222-0000-0000-0000-000000000004");
+
+    /// <summary>
+    /// Three document types: "Text Page" (textPage), "Landing" (landing), and one named "landing"
+    /// by display name only, whose alias is "other".
+    /// </summary>
+    private static RoutingHandler DocumentTypes() =>
+        Wire.Routed(
+            (
+                "tree/document-type/root",
+                $$"""{"total":3,"items":[{"id":"{{TextPage}}","name":"Text Page","isFolder":false},{"id":"{{Landing}}","name":"Landing","isFolder":false},{"id":"{{Other}}","name":"landing","isFolder":false}]}"""
+            ),
+            (
+                $"document-type/{TextPage}",
+                $$"""{"id":"{{TextPage}}","alias":"textPage","name":"Text Page"}"""
+            ),
+            (
+                $"document-type/{Landing}",
+                $$"""{"id":"{{Landing}}","alias":"landing","name":"Landing"}"""
+            ),
+            ($"document-type/{Other}", $$"""{"id":"{{Other}}","alias":"other","name":"landing"}""")
+        );
+
+    [Theory]
+    [InlineData("textPage")] // the alias
+    [InlineData("text page")] // the name, ignoring case (#358)
+    public async Task ResolveIdAsync_DocumentTypeByAliasOrName_Resolves(string reference)
+    {
+        var result = await Wire.Client(DocumentTypes())
+            .ResolveIdAsync(EntityKind.DocumentType, reference);
+
+        Assert.Equal(TextPage, result.Data);
+    }
+
+    [Fact]
+    public async Task ResolveIdAsync_DocumentTypeAliasThatIsAlsoAName_PrefersTheAlias()
+    {
+        var result = await Wire.Client(DocumentTypes())
+            .ResolveIdAsync(EntityKind.DocumentType, "landing");
+
+        Assert.Equal(Landing, result.Data);
+    }
+
+    [Fact]
+    public async Task ResolveIdAsync_UnknownDocumentType_IsInvalidArgumentNamingTheListCommand()
+    {
+        var result = await Wire.Client(DocumentTypes())
+            .ResolveIdAsync(EntityKind.DocumentType, "nope");
+
+        Assert.Equal(
+            (FailureCategory.InvalidArgument, true),
+            (result.Category, result.ErrorMessage!.Contains("umbraco document-type list"))
+        );
+    }
+
     [Fact]
     public async Task GetMediaTypesAsync_FillsTheAlias()
     {
@@ -133,6 +190,57 @@ public class ReferenceResolverWireTests
 
         var type = Assert.Single(result.Data!.Items);
         Assert.Equal((author, "author"), (type.Id, type.Alias));
+    }
+
+    private static readonly Guid Author = Guid.Parse("44444444-0000-0000-0000-000000000001");
+    private static readonly Guid Editor = Guid.Parse("44444444-0000-0000-0000-000000000002");
+    private static readonly Guid Reviewer = Guid.Parse("44444444-0000-0000-0000-000000000003");
+
+    /// <summary>
+    /// Three member types: "Site Author" (siteAuthor), and two named "Staff" (editor, reviewer).
+    /// </summary>
+    private static RoutingHandler MemberTypes() =>
+        Wire.Routed(
+            (
+                "tree/member-type/root",
+                $$"""{"total":3,"items":[{"id":"{{Author}}","name":"Site Author","isFolder":false},{"id":"{{Editor}}","name":"Staff","isFolder":false},{"id":"{{Reviewer}}","name":"Staff","isFolder":false}]}"""
+            ),
+            (
+                $"member-type/{Author}",
+                $$"""{"id":"{{Author}}","alias":"siteAuthor","name":"Site Author"}"""
+            ),
+            ($"member-type/{Editor}", $$"""{"id":"{{Editor}}","alias":"editor","name":"Staff"}"""),
+            (
+                $"member-type/{Reviewer}",
+                $$"""{"id":"{{Reviewer}}","alias":"reviewer","name":"Staff"}"""
+            )
+        );
+
+    [Theory]
+    [InlineData("siteAuthor")] // the alias
+    [InlineData("site author")] // the name, ignoring case
+    public async Task ResolveIdAsync_MemberTypeByAliasOrName_Resolves(string reference)
+    {
+        var result = await Wire.Client(MemberTypes())
+            .ResolveIdAsync(EntityKind.MemberType, reference);
+
+        Assert.Equal(Author, result.Data);
+    }
+
+    [Fact]
+    public async Task ResolveIdAsync_MemberTypeNameTwoTypesShare_IsRefusedListingBoth()
+    {
+        var result = await Wire.Client(MemberTypes())
+            .ResolveIdAsync(EntityKind.MemberType, "staff");
+
+        Assert.Equal(
+            (FailureCategory.InvalidArgument, true, true),
+            (
+                result.Category,
+                result.ErrorMessage!.Contains(Editor.ToString()),
+                result.ErrorMessage.Contains(Reviewer.ToString())
+            )
+        );
     }
 
     [Fact]

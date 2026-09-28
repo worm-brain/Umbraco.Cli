@@ -205,12 +205,14 @@ public sealed class JsonOutputWriter : IOutputWriter
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
+    /// <inheritdoc />
     public void WriteDryRun(
         string method,
         string url,
         string? body,
         string? commandName,
-        long? durationMs = null
+        long? durationMs = null,
+        IReadOnlyList<Umbraco.Cli.Infrastructure.Http.PreviewedRequest>? then = null
     )
     {
         // Embed the body as parsed JSON when it is valid JSON so the preview nests cleanly
@@ -228,6 +230,10 @@ public sealed class JsonOutputWriter : IOutputWriter
                 method,
                 url,
                 body = parsedBody,
+                // #353: the requests a multi-step write sends after the first, in order, each
+                // {method, url, body}. Always present (empty for a single request), so a script
+                // can walk it without a presence check.
+                then = (then ?? []).Select(r => BulkRequest.From(r.Method, r.Url, r.Body)),
             },
             // The same meta as every other envelope (docs/conventions.md, section 6).
             meta = new

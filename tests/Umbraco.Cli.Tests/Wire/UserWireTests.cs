@@ -30,7 +30,7 @@ public class UserWireTests
     private const string TwoGroups = """
         {"total":2,"items":[
           {"id":"11111111-1111-1111-1111-111111111111","alias":"editor","name":"Editors",
-           "sections":["Umb.Section.Content","Umb.Section.Media"]},
+           "sections":["Umb.Section.Content","Umb.Section.Media"],"languages":["en-US","da-DK"]},
           {"id":"22222222-2222-2222-2222-222222222222","alias":"translator","name":"Translators",
            "sections":["Umb.Section.Translation"]}]}
         """;
@@ -96,6 +96,35 @@ public class UserWireTests
                 user.FailedLoginAttempts
             )
         );
+    }
+
+    [Fact]
+    public async Task GetUserByIdAsync_UserInAGroup_ListsTheGroupsContentLanguages()
+    {
+        // #356: content languages come from the groups, like sections.
+        var result = await Wire.Client(JaneAndGroups())
+            .GetUserByIdAsync(UserId, CancellationToken.None);
+
+        Assert.Equal(
+            ("en-US,da-DK", false),
+            (string.Join(",", result.Data!.Languages), result.Data.HasAccessToAllLanguages)
+        );
+    }
+
+    [Fact]
+    public async Task GetUserByIdAsync_GroupWithAllLanguages_HasAccessToAllLanguages()
+    {
+        var handler = new RoutingHandler()
+            .When(
+                r => Path(r).EndsWith("/user-group"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{Editors}}","alias":"editor","name":"Editors","hasAccessToAllLanguages":true}]}"""
+            )
+            .When(_ => true, HttpStatusCode.OK, Jane);
+
+        var result = await Wire.Client(handler).GetUserByIdAsync(UserId, CancellationToken.None);
+
+        Assert.True(result.Data!.HasAccessToAllLanguages);
     }
 
     [Fact]
@@ -392,6 +421,71 @@ public class UserWireTests
             .AsArray()
             .Select(i => i!["id"]!.GetValue<string>());
         Assert.Equal([UserId.ToString(), Editors.ToString()], ids);
+    }
+
+    /// <summary>Umbraco's refusal to delete a user who has signed in.</summary>
+    private const string LoginHistory = """
+        { "title": "Cannot delete user", "status": 400,
+          "detail": "This user has logged in and may be referenced by audit logs or content history.",
+          "operationStatus": "CannotDeleteUserWithLoginHistory" }
+        """;
+
+    /// <summary>
+    /// A handler that refuses every delete with <paramref name="refusal"/>, where Jane
+    /// (<see cref="UserId"/>) has signed in and the user with id <see cref="Editors"/> has not.
+    /// </summary>
+    /// <param name="refusal">The 400 body the delete gets.</param>
+    /// <returns>The handler.</returns>
+    private static RoutingHandler DeleteRefused(string refusal = LoginHistory) =>
+        new RoutingHandler()
+            .When(r => r.Method == HttpMethod.Delete, HttpStatusCode.BadRequest, refusal)
+            .When(
+                r => Path(r).EndsWith($"/user/{UserId}"),
+                HttpStatusCode.OK,
+                Jane.Replace(
+                    "\"failedLoginAttempts\": 2,",
+                    "\"failedLoginAttempts\": 2, \"lastLoginDate\": \"2026-09-20T00:00:00Z\","
+                )
+            )
+            .When(
+                r => Path(r).EndsWith($"/user/{Editors}"),
+                HttpStatusCode.OK,
+                $$"""{ "id": "{{Editors}}", "email": "never@example.com", "name": "Never" }"""
+            );
+
+    [Fact]
+    public async Task DeleteUsersAsync_RefusedForLoginHistory_NamesOnlyTheUserWhoSignedIn()
+    {
+        // #355: Umbraco says "This user has logged in" without saying which of several.
+        var result = await Wire.Client(DeleteRefused())
+            .DeleteUsersAsync([UserId, Editors], CancellationToken.None);
+
+        Assert.Equal(
+            (true, false),
+            (
+                result.ErrorMessage!.Contains($"jane@example.com ({UserId})"),
+                result.ErrorMessage.Contains("never@example.com")
+            )
+        );
+    }
+
+    [Fact]
+    public async Task DeleteUserAsync_RefusedForLoginHistory_SuggestsDisablingTheUser()
+    {
+        var result = await Wire.Client(DeleteRefused())
+            .DeleteUserAsync(UserId, CancellationToken.None);
+
+        Assert.Contains($"umbraco user update {UserId} --disabled", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task DeleteUsersAsync_OtherRefusal_ReadsNoUsers()
+    {
+        var handler = DeleteRefused("""{ "title": "Forbidden", "status": 400 }""");
+
+        await Wire.Client(handler).DeleteUsersAsync([UserId, Editors], CancellationToken.None);
+
+        Assert.DoesNotContain(handler.Recordings, r => r.Method == HttpMethod.Get);
     }
 
     // ── resolution ────────────────────────────────────────────────────────────
