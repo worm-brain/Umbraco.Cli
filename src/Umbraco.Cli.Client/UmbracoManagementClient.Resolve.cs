@@ -15,6 +15,7 @@ public sealed partial class UmbracoManagementClient
     private const int TemplateItemBatch = 40;
 
     private List<ReferenceCandidate>? _templateCandidates;
+    private List<DocumentTypeResponse>? _documentTypes;
     private List<MediaTypeResponse>? _mediaTypes;
     private List<MemberTypeResponse>? _memberTypes;
     private List<ReferenceCandidate>? _memberGroupCandidates;
@@ -208,6 +209,31 @@ public sealed partial class UmbracoManagementClient
             (type, alias) => type with { Alias = alias },
             t => t.Id,
             _mediaTypeAliasById,
+            ct
+        );
+
+    /// <summary>
+    /// Every document type (folders excluded, nested types included) with its alias, read once per
+    /// client, for <c>document-type list</c>. The list used to report <c>"alias": ""</c> for every
+    /// type because the tree items do not carry it. The by-id reads also fill the id-to-alias cache
+    /// that content reads use for their document-type reference.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every document type, with its alias ("" when it could not be read).</returns>
+    private async Task<List<DocumentTypeResponse>> DocumentTypesWithAliasAsync(
+        CancellationToken ct
+    ) =>
+        _documentTypes ??= await TypesWithAliasAsync(
+            FetchDocumentTypeTreeAsync,
+            async (id, c) =>
+                (
+                    await _api
+                        .Umbraco.Management.Api.V1.DocumentType[id]
+                        .GetAsync(cancellationToken: c)
+                )?.Alias,
+            (type, alias) => type with { Alias = alias },
+            t => t.Id,
+            _documentTypeAliasById,
             ct
         );
 
