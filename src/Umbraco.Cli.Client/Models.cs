@@ -1429,25 +1429,184 @@ public record UpdateMemberTypeRequest
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
+/// <summary>
+/// Command-facing view of a backoffice user, as <c>user get</c> and <c>user list</c> show it. It
+/// carries what the backoffice user editor shows (#216): the groups by id, alias and name, the
+/// sections those groups grant, start nodes, UI language and the login/lockout record.
+/// </summary>
 public record UserResponse
 {
+    /// <summary>The user's id.</summary>
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
 
+    /// <summary>The user's email address.</summary>
     [JsonPropertyName("email")]
     public string Email { get; init; } = "";
 
+    /// <summary>The user's display name.</summary>
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
 
+    /// <summary>The user's login name (by default the email).</summary>
     [JsonPropertyName("userName")]
     public string UserName { get; init; } = "";
 
+    /// <summary>The state: <c>Active</c>, <c>Disabled</c>, <c>LockedOut</c>, <c>Invited</c> or <c>Inactive</c>.</summary>
     [JsonPropertyName("state")]
     public string State { get; init; } = "";
 
+    /// <summary>The kind of user: <c>Default</c> (a person) or <c>Api</c> (client credentials).</summary>
+    [JsonPropertyName("kind")]
+    public string Kind { get; init; } = "";
+
+    /// <summary>Whether the user is in the administrators group.</summary>
+    [JsonPropertyName("isAdmin")]
+    public bool IsAdmin { get; init; }
+
+    /// <summary>
+    /// The user's groups (#216). The alias and name come from the group list and are null when it
+    /// could not be read; the id is always right.
+    /// </summary>
+    [JsonPropertyName("userGroups")]
+    public IReadOnlyList<UserGroupRef> UserGroups { get; init; } = [];
+
+    /// <summary>
+    /// The backoffice sections the user can open: the union of their groups' sections, since a
+    /// user has none of their own. Empty when the group list could not be read.
+    /// </summary>
+    [JsonPropertyName("sections")]
+    public IReadOnlyList<string> Sections { get; init; } = [];
+
+    /// <summary>The backoffice UI language as an ISO code, or null for the site default.</summary>
+    [JsonPropertyName("languageIsoCode")]
+    public string? LanguageIsoCode { get; init; }
+
+    /// <summary>Content start nodes set on the user itself (on top of those from their groups).</summary>
+    [JsonPropertyName("documentStartNodes")]
+    public IReadOnlyList<Guid> DocumentStartNodes { get; init; } = [];
+
+    /// <summary>Media start nodes set on the user itself (on top of those from their groups).</summary>
+    [JsonPropertyName("mediaStartNodes")]
+    public IReadOnlyList<Guid> MediaStartNodes { get; init; } = [];
+
+    /// <summary>Whether the user itself has access to the content root.</summary>
+    [JsonPropertyName("documentRootAccess")]
+    public bool DocumentRootAccess { get; init; }
+
+    /// <summary>Whether the user itself has access to the media root.</summary>
+    [JsonPropertyName("mediaRootAccess")]
+    public bool MediaRootAccess { get; init; }
+
+    /// <summary>Failed logins since the last successful one.</summary>
+    [JsonPropertyName("failedLoginAttempts")]
+    public int FailedLoginAttempts { get; init; }
+
+    /// <summary>When the user last signed in, or null if never.</summary>
+    [JsonPropertyName("lastLoginDate")]
+    public DateTimeOffset? LastLoginDate { get; init; }
+
+    /// <summary>When the user was last locked out, or null if never.</summary>
+    [JsonPropertyName("lastLockoutDate")]
+    public DateTimeOffset? LastLockoutDate { get; init; }
+
+    /// <summary>When the password last changed, or null if never set.</summary>
+    [JsonPropertyName("lastPasswordChangeDate")]
+    public DateTimeOffset? LastPasswordChangeDate { get; init; }
+
+    /// <summary>When the user was created.</summary>
     [JsonPropertyName("createDate")]
     public DateTimeOffset CreateDate { get; init; }
+
+    /// <summary>When the user was last changed.</summary>
+    [JsonPropertyName("updateDate")]
+    public DateTimeOffset UpdateDate { get; init; }
+}
+
+/// <summary>A user's group: its id and, when the group list could be read, its alias and name (#216).</summary>
+public record UserGroupRef
+{
+    /// <summary>The user group id.</summary>
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    /// <summary>The group alias, or null when the group list could not be read.</summary>
+    [JsonPropertyName("alias")]
+    public string? Alias { get; init; }
+
+    /// <summary>The group name, or null when the group list could not be read.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+}
+
+/// <summary>
+/// What <c>user create</c> sends (#214): the <c>POST user</c> fields, plus an optional password
+/// that the client sets with a second call, because the create endpoint takes none.
+/// </summary>
+public record CreateUserRequest
+{
+    /// <summary>Caller-supplied id for an idempotent create; a GUID is generated if null.</summary>
+    public Guid? Id { get; init; }
+
+    /// <summary>The user's email address.</summary>
+    public required string Email { get; init; }
+
+    /// <summary>The user's display name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The login name; null defaults it to the email, which Umbraco requires by default.</summary>
+    public string? UserName { get; init; }
+
+    /// <summary>User groups by alias, name or id, as typed; the client resolves them. At least one.</summary>
+    public IReadOnlyList<string> UserGroups { get; init; } = [];
+
+    /// <summary>The initial password, or null to create the user without one.</summary>
+    public string? Password { get; init; }
+}
+
+/// <summary>
+/// What <c>user update</c> changes (#216). Every field is optional: null (or false for
+/// <see cref="Unlock"/>) leaves that part of the user as it is. The profile fields are merged over
+/// the current user and written with one <c>PUT</c>; the password, enabled state and lockout are
+/// separate Umbraco operations, each sent only when asked for.
+/// </summary>
+public record UpdateUserRequest
+{
+    /// <summary>The new email, or null to keep it.</summary>
+    public string? Email { get; init; }
+
+    /// <summary>The new display name, or null to keep it.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>The new login name, or null to keep it.</summary>
+    public string? UserName { get; init; }
+
+    /// <summary>
+    /// The groups the user should end up in, by alias, name or id; they replace the current ones.
+    /// Null or empty keeps the groups.
+    /// </summary>
+    public IReadOnlyList<string>? UserGroups { get; init; }
+
+    /// <summary>The backoffice UI language ISO code, or null to keep it.</summary>
+    public string? LanguageIsoCode { get; init; }
+
+    /// <summary>A new password (an admin change: no current password needed), or null to keep it.</summary>
+    public string? NewPassword { get; init; }
+
+    /// <summary>True disables the user, false enables them, null leaves the state alone.</summary>
+    public bool? Disabled { get; init; }
+
+    /// <summary>True clears a lockout caused by failed logins.</summary>
+    public bool Unlock { get; init; }
+
+    /// <summary>Whether any of the fields the <c>PUT</c> carries was given.</summary>
+    [JsonIgnore]
+    public bool ChangesProfile =>
+        Email is not null
+        || Name is not null
+        || UserName is not null
+        || UserGroups is { Count: > 0 }
+        || LanguageIsoCode is not null;
 }
 
 public record InviteUserRequest

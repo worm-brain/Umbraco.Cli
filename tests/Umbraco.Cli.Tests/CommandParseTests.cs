@@ -98,6 +98,7 @@ public class CommandParseTests
             "template.delete",
             "user-data.delete",
             "user-group.delete",
+            "user.delete",
             "webhook.delete",
         ];
 

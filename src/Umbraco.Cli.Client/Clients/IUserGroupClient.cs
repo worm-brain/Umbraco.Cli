@@ -2,7 +2,7 @@ namespace Umbraco.Cli.Client;
 
 /// <summary>
 /// User group read/create/update/delete plus bulk delete and user membership (issue #109 -
-/// parity with the MCP's user-group tools). Granular per-node permissions are a deferred follow-up.
+/// parity with the MCP's user-group tools), including granular per-document permissions (#111).
 /// </summary>
 public interface IUserGroupClient
 {

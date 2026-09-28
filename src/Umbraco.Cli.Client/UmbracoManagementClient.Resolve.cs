@@ -86,6 +86,7 @@ public sealed partial class UmbracoManagementClient
                     EntityKind.MemberGroup => FindMemberGroupIdAsync(reference, ct),
                     EntityKind.DictionaryItem => FindDictionaryIdAsync(reference, ct),
                     EntityKind.RelationType => FindRelationTypeIdAsync(reference, ct),
+                    EntityKind.User => FindUserIdAsync(reference, ct),
                     _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
                 }
         );
@@ -376,6 +377,31 @@ public sealed partial class UmbracoManagementClient
                     )
                 )?.Items?.Where(t => t.Id is not null).Select(t => new ReferenceCandidate(t.Id!.Value, t.Alias, t.Name)).ToList() ?? []);
         return ReferenceMatch.Pick(EntityKind.RelationType, reference, _relationTypeCandidates);
+    }
+
+    /// <summary>
+    /// Resolves a user's email or username (#216). Users have no alias, so the email takes the
+    /// alias's place - it is the key the backoffice shows and matches first - and the username the
+    /// name's. Every page of users is read; the item search matches display names, which are not
+    /// unique. Umbraco hides the super-user from other users, so it resolves only for itself.
+    /// </summary>
+    /// <param name="reference">The email or username.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The user id.</returns>
+    /// <exception cref="ApiException">No match (404) or an ambiguous username (409).</exception>
+    private async Task<Guid> FindUserIdAsync(string reference, CancellationToken ct)
+    {
+        var users = await ReadAllPagesAsync(async (skip, take) => (
+                    await _api.Umbraco.Management.Api.V1.User.GetAsync(
+                        c =>
+                        {
+                            c.QueryParameters.Skip = skip;
+                            c.QueryParameters.Take = take;
+                        },
+                        ct
+                    )
+                )?.Items?.Where(u => u.Id is not null).Select(u => new ReferenceCandidate(u.Id!.Value, u.Email, u.UserName)).ToList() ?? []);
+        return ReferenceMatch.Pick(EntityKind.User, reference, users);
     }
 
     /// <summary>Reads a paged source to the end, stopping on a short page.</summary>

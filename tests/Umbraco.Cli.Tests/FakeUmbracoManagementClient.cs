@@ -1022,10 +1022,84 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
             )
         );
 
+    /// <summary>Returns the user with that id from <see cref="UserList"/>, or a 404.</summary>
     public Task<UmbracoResponse<UserResponse>> GetUserByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            UserList.FirstOrDefault(u => u.Id == id) is { } user
+                ? UmbracoResponse<UserResponse>.Success(user)
+                : UmbracoResponse<UserResponse>.Failure(404, $"No user found with id '{id}'.")
+        );
+
+    /// <summary>Recorded user creates.</summary>
+    public List<CreateUserRequest> UsersCreated { get; } = [];
+
+    /// <summary>When set, <see cref="CreateUserAsync"/> fails with this message instead.</summary>
+    public string? CreateUserFailure { get; set; }
+
+    /// <summary>
+    /// Records the create and adds the user to <see cref="UserList"/>, so the command's read-back
+    /// finds it; fails instead when <see cref="CreateUserFailure"/> is set.
+    /// </summary>
+    public Task<UmbracoResponse<Guid>> CreateUserAsync(
+        CreateUserRequest request,
+        CancellationToken ct = default
+    )
+    {
+        UsersCreated.Add(request);
+        if (CreateUserFailure is { } failure)
+            return Task.FromResult(UmbracoResponse<Guid>.Failure(400, failure));
+        var id = request.Id ?? Guid.NewGuid();
+        UserList.Add(
+            new UserResponse
+            {
+                Id = id,
+                Email = request.Email,
+                Name = request.Name,
+                UserName = request.UserName ?? request.Email,
+            }
+        );
+        return Task.FromResult(UmbracoResponse<Guid>.Success(id));
+    }
+
+    /// <summary>Recorded user updates, in <c>(id, request)</c> order.</summary>
+    public List<(Guid Id, UpdateUserRequest Request)> UsersUpdated { get; } = [];
+
+    /// <summary>Records the update and answers with a bare success.</summary>
+    public Task<UmbracoResponse<Empty>> UpdateUserAsync(
+        Guid id,
+        UpdateUserRequest request,
+        CancellationToken ct = default
+    )
+    {
+        UsersUpdated.Add((id, request));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>Recorded single user deletes.</summary>
+    public List<Guid> UsersDeleted { get; } = [];
+
+    /// <summary>Recorded bulk user deletes (each call's id list).</summary>
+    public List<IReadOnlyList<Guid>> UsersBulkDeleted { get; } = [];
+
+    /// <summary>Records the delete and answers with a bare success.</summary>
+    public Task<UmbracoResponse<Empty>> DeleteUserAsync(Guid id, CancellationToken ct = default)
+    {
+        UsersDeleted.Add(id);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>Records the bulk delete and answers with a bare success.</summary>
+    public Task<UmbracoResponse<Empty>> DeleteUsersAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken ct = default
+    )
+    {
+        UsersBulkDeleted.Add(ids);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     /// <summary>The last invite request sent, or null if none was.</summary>
     public InviteUserRequest? LastInvite { get; private set; }

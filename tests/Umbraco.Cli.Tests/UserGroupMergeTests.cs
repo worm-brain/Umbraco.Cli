@@ -132,4 +132,93 @@ public class UserGroupMergeTests
 
         Assert.Equal(["Umb.Section.Media"], request.Sections);
     }
+
+    // ── document permissions (#111) ───────────────────────────────────────────
+
+    private static readonly Guid News = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+    /// <summary>Editors with Read on Blog and Read on News.</summary>
+    private static readonly UserGroupResponse WithPermissions = Editors with
+    {
+        DocumentPermissions =
+        [
+            new DocumentPermission { Document = Blog, Verbs = ["Umb.Document.Read"] },
+            new DocumentPermission { Document = News, Verbs = ["Umb.Document.Read"] },
+        ],
+    };
+
+    [Fact]
+    public void Merge_DocumentPermissionGiven_ReplacesThatDocumentAndKeepsTheOthers()
+    {
+        var request = UserGroupsCommand.Merge(
+            WithPermissions,
+            null,
+            null,
+            NothingGiven with
+            {
+                DocumentPermissions =
+                [
+                    new DocumentPermission { Document = Blog, Verbs = ["Umb.Document.Update"] },
+                ],
+            }
+        );
+
+        Assert.Equal(
+            [$"{News}:Umb.Document.Read", $"{Blog}:Umb.Document.Update"],
+            request.DocumentPermissions!.Select(p => $"{p.Document}:{string.Join(",", p.Verbs)}")
+        );
+    }
+
+    [Fact]
+    public void Merge_DocumentPermissionWithNoVerbs_RemovesThatDocument()
+    {
+        var request = UserGroupsCommand.Merge(
+            WithPermissions,
+            null,
+            null,
+            NothingGiven with
+            {
+                DocumentPermissions = [new DocumentPermission { Document = Blog }],
+            }
+        );
+
+        Assert.Equal([News], request.DocumentPermissions!.Select(p => p.Document));
+    }
+
+    [Fact]
+    public void Merge_NoDocumentPermissionGiven_LeavesThemToTheClient()
+    {
+        var request = UserGroupsCommand.Merge(WithPermissions, null, "Renamed", NothingGiven);
+
+        Assert.Null(request.DocumentPermissions);
+    }
+
+    [Fact]
+    public void ParseDocumentPermissions_VerbList_IsTrimmedAndDeduplicated()
+    {
+        var parsed = UserGroupsCommand.ParseDocumentPermissions([
+            $"{Blog}=Umb.Document.Read, Umb.Document.Update,Umb.Document.Read",
+        ]);
+
+        Assert.Equal(["Umb.Document.Read", "Umb.Document.Update"], Assert.Single(parsed).Verbs);
+    }
+
+    [Fact]
+    public void ParseDocumentPermissions_DocumentNamedTwice_KeepsTheLastValue()
+    {
+        var parsed = UserGroupsCommand.ParseDocumentPermissions([
+            $"{Blog}=Umb.Document.Read",
+            $"{Blog}=Umb.Document.Delete",
+        ]);
+
+        Assert.Equal(["Umb.Document.Delete"], Assert.Single(parsed).Verbs);
+    }
+
+    [Fact]
+    public void ParseDocumentPermissions_NoVerbs_KeepsAnEmptyEntry()
+    {
+        var parsed = UserGroupsCommand.ParseDocumentPermissions([$"{Blog}="]);
+
+        Assert.Empty(Assert.Single(parsed).Verbs);
+    }
 }
