@@ -350,8 +350,10 @@ and writes one `values[]` entry per property with the example below for its edit
 not in the table (a block editor, a package's own) gets `"value": null`. Every entry carries the
 `editorAlias` it was chosen by; `content create` ignores that key, so the file can go straight
 back in. On a type that varies by culture the variant and the varying values get `--culture`, or
-the default language. `--name` names the variant. Replace the `<...>` placeholders before
-creating.
+the default language. `--name` names the variant. Where the table shows `<new guid>` (an id the
+caller need not choose), `--example` writes a fresh GUID, so it can be sent as it is. The other
+`<...>` placeholders (`<media id>`, `<document id>`) name an item only you know: Umbraco rejects
+the body until you replace them.
 
 The table is the one `--example` uses (Umbraco 17.7.0):
 
@@ -371,7 +373,8 @@ The table is the one `--example` uses (Umbraco 17.7.0):
 | Block Grid | `Umbraco.BlockGrid` | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
 
 `key` on a media picker entry is the **picker entry's own** new GUID, not the media item's -
-`mediaKey` carries the media id. Generate a fresh one per entry. A dropdown's values must be
+`mediaKey` carries the media id. `--example` generates it; by hand, use a fresh one per entry
+(`[guid]::NewGuid()`, `uuidgen`). A dropdown's values must be
 among the data type's configured items (`data-type get <id>`).
 
 To look an editor up by hand, `umbraco schema export` has it

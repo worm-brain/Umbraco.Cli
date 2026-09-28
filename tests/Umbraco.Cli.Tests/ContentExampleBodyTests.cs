@@ -300,6 +300,54 @@ public class ContentExampleBodyTests
     }
 
     [Fact]
+    public void For_MediaPicker_FillsTheEntryKeyWithARealGuid()
+    {
+        // Umbraco answered 500 to the "<new guid>" placeholder, so the example could not be sent.
+        var value = PropertyValueExamples.For("Umbraco.MediaPicker3")!;
+
+        Assert.True(Guid.TryParse((string?)value[0]!["key"], out _));
+    }
+
+    [Fact]
+    public void For_MediaPickerTwice_GivesEachEntryItsOwnKey()
+    {
+        var first = PropertyValueExamples.For("Umbraco.MediaPicker3")!;
+        var second = PropertyValueExamples.For("Umbraco.MediaPicker3")!;
+
+        Assert.NotEqual((string?)first[0]!["key"], (string?)second[0]!["key"]);
+    }
+
+    [Fact]
+    public void For_MediaPicker_LeavesTheMediaIdForTheCallerToSupply()
+    {
+        // Only the caller knows which media item to pick, so that stays a visible placeholder.
+        var value = PropertyValueExamples.For("Umbraco.MediaPicker3")!;
+
+        Assert.Equal("<media id>", (string?)value[0]!["mediaKey"]);
+    }
+
+    private static readonly JsonSerializerOptions Unescaped = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    [Fact]
+    public void For_EveryKnownEditor_LeavesNoNewGuidToken()
+    {
+        var leftovers = PropertyValueExamples
+            .ByEditorAlias.Keys.Where(alias =>
+                PropertyValueExamples
+                    .For(alias)!
+                    // Unescaped, or "<" is written as < and the check could never match.
+                    .ToJsonString(Unescaped)
+                    .Contains(PropertyValueExamples.NewGuid, StringComparison.Ordinal)
+            )
+            .ToList();
+
+        Assert.Empty(leftovers);
+    }
+
+    [Fact]
     public void For_UnknownOrNullEditor_IsNull()
     {
         Assert.Equal(

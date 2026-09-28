@@ -67,8 +67,10 @@ needs a host.
 For content, `content create --example --document-type <alias>` prints a create body for that
 type with one `values[]` entry per property (compositions included), each holding an example
 of the value shape its editor takes, plus the `editorAlias` it was chosen by. An editor it does
-not know gets `"value": null` - look that one up rather than guessing. Replace the `<...>`
-placeholders, then pass the file to `content create --json-body`, which ignores `editorAlias`.
+not know gets `"value": null` - look that one up rather than guessing. Ids you need not choose
+(a media picker entry's `key`) are already fresh GUIDs; replace the remaining `<...>`
+placeholders (`<media id>`, `<document id>`), then pass the file to
+`content create --json-body`, which ignores `editorAlias`.
 
 ```bash
 umbraco content create --schema          # the shape of a content-create body
