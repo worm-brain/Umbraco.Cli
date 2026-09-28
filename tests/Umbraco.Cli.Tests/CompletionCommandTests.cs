@@ -117,6 +117,44 @@ public class CompletionCommandTests
     }
 
     [Fact]
+    public async Task SuggestDirective_PartialWord_OmitsNamesThatOnlyContainIt()
+    {
+        // #398: prefix, not substring - "con" is inside "--config" but does not start it.
+        var (_, stdout) = await Run("[suggest:11]", "umbraco con");
+
+        Assert.DoesNotContain("--config", stdout.Split(Environment.NewLine));
+    }
+
+    [Fact]
+    public void Parse_SuggestDirective_HasNoErrors()
+    {
+        // Program.cs reports any parse error before invoking, so a directive invocation that
+        // kept its "unrecognised argument" error would print an error envelope, not suggestions.
+        var parsed = TestCliRoot.Build().Parse(["[suggest:11]", "umbraco con"]);
+
+        Assert.Empty(parsed.Errors);
+    }
+
+    [Fact]
+    public async Task SuggestDirective_PartialWordInOtherCase_SuggestsTheNoun()
+    {
+        var (_, stdout) = await Run("[suggest:11]", "umbraco CON");
+
+        Assert.Contains("content", stdout.Split(Environment.NewLine));
+    }
+
+    [Fact]
+    public async Task SuggestDirective_PartialWord_ReturnsOnlyPrefixMatches()
+    {
+        var (_, stdout) = await Run("[suggest:11]", "umbraco con");
+
+        Assert.All(
+            stdout.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries),
+            s => Assert.StartsWith("con", s, StringComparison.OrdinalIgnoreCase)
+        );
+    }
+
+    [Fact]
     public async Task SuggestDirective_PartialVerb_SuggestsTheVerb()
     {
         var (_, stdout) = await Run("[suggest:19]", "umbraco content cre");
