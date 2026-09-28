@@ -2789,7 +2789,13 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(
             References.TryGetValue((kind, reference), out var found)
                 ? UmbracoResponse<Guid>.Success(found)
-                : UmbracoResponse<Guid>.Failure(404, $"No {kind} '{reference}'.")
+                : UmbracoResponse<Guid>.Failure(
+                    // The real resolver's shape for a name that matches nothing:
+                    // invalid_argument with no HTTP status (GuardedApiAsync).
+                    0,
+                    $"No {kind} '{reference}'.",
+                    FailureCategory.InvalidArgument
+                )
         );
     }
 }

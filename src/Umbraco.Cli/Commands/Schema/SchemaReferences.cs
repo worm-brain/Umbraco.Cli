@@ -512,7 +512,13 @@ public static class SchemaReferences
             var resolved = await client.ResolveIdAsync(kind, name, ct);
             if (resolved.IsSuccess)
                 return resolved.Data;
-            if (resolved.StatusCode is 404 or 409)
+            // The real resolver reports a name that matches nothing (or several items) as
+            // invalid_argument with no HTTP status (GuardedApiAsync), not as a 404/409; both
+            // shapes are a bad name in the snapshot, never an unreachable instance.
+            if (
+                resolved.Category == FailureCategory.InvalidArgument
+                || resolved.StatusCode is 404 or 409
+            )
                 throw new InvalidInputException(
                     $"{where} names {kind.Noun()} '{name}', which is not in the snapshot, and the "
                         + $"instance answered: {resolved.ErrorMessage}"
