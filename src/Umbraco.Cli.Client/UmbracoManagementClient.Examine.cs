@@ -41,10 +41,13 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var i = await _api
-                    .Umbraco.Management.Api.V1.Indexer[name]
-                    .GetAsync(cancellationToken: ct);
-                return i is null ? new IndexResponse { Name = name } : MapIndex(i);
+                // A 200 with no body is not an indexer (#119).
+                var i =
+                    await _api
+                        .Umbraco.Management.Api.V1.Indexer[name]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No indexer found with name '{name}'.");
+                return MapIndex(i);
             }
         );
 

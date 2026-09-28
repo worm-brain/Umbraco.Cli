@@ -200,3 +200,9 @@ Each exception is deliberate or tracked; don't copy it.
   kind it left out. The format stays `"4"`: every exported file has every type section, so no
   exported file changes meaning. A hand-written snapshot may also name references instead of ids
   and leave ids out of new entries.
+- **2026-09-28** - 1.2 and 1.4: the pre-#268 names are removed (#272). `content-types`,
+  `media-types`, `data-types`, `languages`, `templates`, `members`, `member-types`, `users`,
+  `webhooks`, `member-groups`, `tags`, `cultures`, `user-groups` and `content domains` are now
+  unknown commands (a parse error), and an allow-list entry naming one
+  (`UMBRACO_ALLOWED_COMMANDS=content-types`, `content.domains.set`) no longer matches anything;
+  use the singular names. Removed before alpha.13 is published, so no public release carries them.

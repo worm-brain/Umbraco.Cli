@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.Content;
 
 namespace Umbraco.Cli.Tests;
@@ -45,7 +46,7 @@ public class ContentApplierUnpublishWireTests
     private static ContentDiff UnpublishDiff(Guid id, PublishScope scope) =>
         new(
             [
-                new ContentDocumentChange(ContentChangeKind.Changed, id)
+                new ContentDocumentChange(TreeChangeKind.Changed, id)
                 {
                     DesiredBody = JsonNode.Parse($$"""{"id":"{{id}}"}""")!,
                     BodyChanged = false,

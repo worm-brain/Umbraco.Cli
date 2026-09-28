@@ -98,10 +98,13 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var g = await _api
-                    .Umbraco.Management.Api.V1.UserGroup[id]
-                    .GetAsync(cancellationToken: ct);
-                return g is null ? new UserGroupResponse { Id = id } : MapUserGroup(g);
+                // A 200 with no body is not a user group (#119).
+                var g =
+                    await _api
+                        .Umbraco.Management.Api.V1.UserGroup[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No user group found with id '{id}'.");
+                return MapUserGroup(g);
             }
         );
 

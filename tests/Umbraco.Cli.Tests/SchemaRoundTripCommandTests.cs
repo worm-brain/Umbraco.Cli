@@ -192,11 +192,11 @@ public class SchemaRoundTripCommandTests
 
         Assert.Equal(0, exit);
         Assert.Equal(
-            (kind, Id, false),
+            (kind, Id, WriteMode.Merge),
             (
                 fake.LastSchemaMerge!.Value.Kind,
                 fake.LastSchemaMerge.Value.Id,
-                fake.LastSchemaMerge.Value.Replace
+                fake.LastSchemaMerge.Value.Mode
             )
         );
     }
@@ -213,7 +213,7 @@ public class SchemaRoundTripCommandTests
             """{ "name": "N" }"""
         );
 
-        Assert.True(fake.LastSchemaMerge!.Value.Replace);
+        Assert.Equal(WriteMode.Replace, fake.LastSchemaMerge!.Value.Mode);
     }
 
     [Fact]
@@ -275,5 +275,35 @@ public class SchemaRoundTripCommandTests
 
         Assert.NotEqual(0, exit);
         Assert.Empty(fake.RawWrites);
+    }
+
+    /// <summary>The flag-built data type update gets the id the name resolved to (#262).</summary>
+    [Fact]
+    public async Task DataTypeUpdate_ByNameWithFlags_UpdatesTheResolvedId()
+    {
+        // Arrange
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.DataType, "Textstring")] = Id;
+
+        // Act
+        await Run(fake, "data-type update Textstring --name \"Short Text\"");
+
+        // Assert
+        var update = Assert.Single(fake.DataTypeUpdates);
+        Assert.Equal((Id, "Short Text"), (update.Id, update.Request.Name));
+    }
+
+    /// <summary>A name that matches no data type fails before any write.</summary>
+    [Fact]
+    public async Task DataTypeUpdate_UnknownName_FailsWithoutWriting()
+    {
+        // Arrange
+        var fake = new FakeUmbracoManagementClient();
+
+        // Act
+        var (exit, _) = await Run(fake, "data-type update Nope --name X");
+
+        // Assert
+        Assert.Equal((1, 0), (exit, fake.DataTypeUpdates.Count));
     }
 }

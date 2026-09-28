@@ -47,7 +47,7 @@ public class SchemaRawPathWireTests
         var handler = Wire.Blank();
 
         var result = await Wire.Client(handler)
-            .MergeSchemaItemAsync(kind, Id, NewBody(), replace: true, CancellationToken.None);
+            .MergeSchemaItemAsync(kind, Id, NewBody(), WriteMode.Replace, CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
         Assert.True(

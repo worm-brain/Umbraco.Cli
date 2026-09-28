@@ -43,7 +43,7 @@ internal static class SchemaWrites
                 kind,
                 change.CurrentId!.Value,
                 WithId(change.DesiredBody!, change.CurrentId!.Value),
-                replace: true,
+                WriteMode.Replace,
                 ct
             );
 
@@ -136,7 +136,7 @@ internal static class SchemaWrites
             EntityKind.DictionaryItem,
             id,
             WithId(SchemaBodies.WithoutParent(change.DesiredBody!), id),
-            replace: true,
+            WriteMode.Replace,
             ct
         );
         if (!update.IsSuccess)
@@ -171,7 +171,7 @@ internal static class SchemaWrites
             EntityKind.UserGroup,
             id,
             WithId(SchemaBodies.WithLiveNodes(change.DesiredBody!, live.Data!), id),
-            replace: true,
+            WriteMode.Replace,
             ct
         );
     }

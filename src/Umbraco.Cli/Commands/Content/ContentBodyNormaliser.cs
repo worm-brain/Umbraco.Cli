@@ -62,13 +62,21 @@ public static class ContentBodyNormaliser
             foreach (var variant in variants.OfType<JsonObject>())
             foreach (var field in VariantNoise)
                 variant.Remove(field);
-            doc["variants"] = Sorted(variants, v => (null, Text(v, "culture"), Text(v, "segment")));
+            doc["variants"] = SnapshotBody.Sorted(
+                variants,
+                v => (null, SnapshotBody.Text(v, "culture"), SnapshotBody.Text(v, "segment"))
+            );
         }
 
         if (doc["values"] is JsonArray values)
-            doc["values"] = Sorted(
+            doc["values"] = SnapshotBody.Sorted(
                 values,
-                v => (Text(v, "alias"), Text(v, "culture"), Text(v, "segment"))
+                v =>
+                    (
+                        SnapshotBody.Text(v, "alias"),
+                        SnapshotBody.Text(v, "culture"),
+                        SnapshotBody.Text(v, "segment")
+                    )
             );
 
         return doc;
@@ -100,33 +108,5 @@ public static class ContentBodyNormaliser
     /// <param name="value">A value object from a document body.</param>
     /// <returns>True for a read-only editor's value.</returns>
     private static bool IsReadOnly(JsonNode? value) =>
-        Text(value, "editorAlias") is { } editor && ReadOnlyEditors.Contains(editor);
-
-    /// <summary>
-    /// Rebuilds <paramref name="array"/> in key order. Ordinal comparison keeps the order the same
-    /// on every machine; null sorts first (the invariant culture before any named one).
-    /// </summary>
-    /// <param name="array">The array to sort; its items are detached and re-added.</param>
-    /// <param name="key">The sort key of an item.</param>
-    /// <returns>A new array holding the same items in key order.</returns>
-    internal static JsonArray Sorted(
-        JsonArray array,
-        Func<JsonNode?, (string?, string?, string?)> key
-    )
-    {
-        var items = array.ToList();
-        array.Clear();
-        var ordered = items
-            .OrderBy(i => key(i).Item1, StringComparer.Ordinal)
-            .ThenBy(i => key(i).Item2, StringComparer.Ordinal)
-            .ThenBy(i => key(i).Item3, StringComparer.Ordinal);
-        return new JsonArray([.. ordered]);
-    }
-
-    /// <summary>A string property of an object, or null when absent or not a string.</summary>
-    /// <param name="node">The object.</param>
-    /// <param name="name">The property name.</param>
-    /// <returns>The value, or null.</returns>
-    internal static string? Text(JsonNode? node, string name) =>
-        node?[name] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+        SnapshotBody.Text(value, "editorAlias") is { } editor && ReadOnlyEditors.Contains(editor);
 }

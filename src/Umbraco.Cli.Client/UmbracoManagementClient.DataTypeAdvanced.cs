@@ -98,10 +98,13 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var f = await _api
-                    .Umbraco.Management.Api.V1.DataType.Folder[id]
-                    .GetAsync(cancellationToken: ct);
-                return new DataTypeFolderResponse { Id = f?.Id ?? id, Name = f?.Name ?? "" };
+                // A 200 with no body is not a folder (#119).
+                var f =
+                    await _api
+                        .Umbraco.Management.Api.V1.DataType.Folder[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No data type folder found with id '{id}'.");
+                return new DataTypeFolderResponse { Id = f.Id ?? id, Name = f.Name ?? "" };
             }
         );
 

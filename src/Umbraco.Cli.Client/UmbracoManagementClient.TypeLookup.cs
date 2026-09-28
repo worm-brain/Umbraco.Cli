@@ -13,35 +13,6 @@ namespace Umbraco.Cli.Client;
 /// </summary>
 public sealed partial class UmbracoManagementClient
 {
-    /// <inheritdoc />
-    public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeAsync(
-        string aliasOrId,
-        CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var id = await IdOfAsync(EntityKind.DocumentType, aliasOrId, ct);
-                return await ReadDocumentTypeAsync(id, ct);
-            }
-        );
-
-    /// <inheritdoc />
-    public async Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
-        string nameOrId,
-        UpdateDataTypeRequest request,
-        CancellationToken ct = default
-    )
-    {
-        // Two calls, so the resolve is guarded separately: a name that matches nothing must read
-        // as a 404 naming the name, not as whatever the write would have said about the id.
-        var resolved = await ResolveIdAsync(EntityKind.DataType, nameOrId, ct);
-        return resolved.IsSuccess
-            ? await UpdateDataTypeAsync(resolved.Data, request, ct)
-            : UmbracoResponse<Empty>.FailureFrom(resolved);
-    }
-
     /// <summary>
     /// Resolves a data-type reference - a name (e.g. <c>Textstring</c>) or a GUID id - to its id.
     /// </summary>

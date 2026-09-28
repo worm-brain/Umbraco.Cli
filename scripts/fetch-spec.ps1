@@ -8,19 +8,31 @@
     API metadata (no credentials) so it is safe to commit. After refreshing the
     spec, re-run scripts/regen-client.ps1 to regenerate the typed client.
 
+    The spec's info.version is just "Latest", so the tested Umbraco range is
+    declared in src/Umbraco.Cli.Client/VersionSupport.cs (MinMajor/MaxMajor).
+    When the spec comes from a new Umbraco major, update those constants too;
+    `auth doctor` and unexpected_response errors warn outside that range.
+
     Umbraco 14 serves the document at /umbraco/swagger/management/swagger.json.
     Some builds also expose /umbraco/openapi/management.json — the script tries
     the swagger path first and falls back.
 
+    Any Umbraco instance works. The simplest is the hands-on harness's dev site:
+    `python3 tests/hands-on/dev-site.py up` starts it, and `dev-site.py env` prints
+    its host. Pin the Umbraco version the spec should describe when creating it,
+    e.g. `dev-site.py reset --umbraco 17.3.5`.
+
 .PARAMETER BaseUrl
-    Base URL of the Umbraco instance, e.g. https://localhost:45000.
+    Base URL of the Umbraco instance, e.g. https://localhost:44800.
     Also accepts the -Host alias.
 
 .PARAMETER SkipCertificateCheck
     Skip TLS validation (needed for the self-signed dev certificate on localhost).
 
 .EXAMPLE
-    ./scripts/fetch-spec.ps1 -Host https://localhost:45000 -SkipCertificateCheck
+    python tests/hands-on/dev-site.py up
+    $devHost = (python tests/hands-on/dev-site.py env | Select-String '^UMBRACO_HOST=').Line.Split('=', 2)[1]
+    ./scripts/fetch-spec.ps1 -Host $devHost -SkipCertificateCheck
 #>
 [CmdletBinding()]
 param(

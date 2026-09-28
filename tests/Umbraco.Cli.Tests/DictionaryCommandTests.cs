@@ -175,4 +175,39 @@ public class DictionaryCommandTests
         Assert.Equal(id, movedId);
         Assert.Equal(target, movedTarget);
     }
+
+    /// <summary>A key is resolved in the command, then read by id (#262).</summary>
+    [Fact]
+    public async Task Get_ByKey_ResolvesThenReadsById()
+    {
+        // Arrange
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        fake.References[(EntityKind.DictionaryItem, "Common.Search")] = id;
+        fake.DictionaryItemsById[id] = new DictionaryItemResponse
+        {
+            Id = id,
+            Name = "Common.Search",
+        };
+
+        // Act
+        var exit = await Run(BuildRoot(fake), $"{Auth} dictionary get Common.Search");
+
+        // Assert
+        Assert.Equal(0, exit);
+    }
+
+    /// <summary>A key that resolves to nothing fails without a read.</summary>
+    [Fact]
+    public async Task Get_UnknownKey_FailsWithExitOne()
+    {
+        // Arrange
+        var fake = new FakeUmbracoManagementClient();
+
+        // Act
+        var exit = await Run(BuildRoot(fake), $"{Auth} dictionary get Nope");
+
+        // Assert
+        Assert.Equal(1, exit);
+    }
 }

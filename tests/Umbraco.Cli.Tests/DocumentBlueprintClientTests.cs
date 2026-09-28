@@ -191,7 +191,7 @@ public class DocumentBlueprintClientTests
                 {
                     Values = [new ContentValue { Alias = "title", Value = "New" }],
                 },
-                replace: true,
+                WriteMode.Replace,
                 ct: CancellationToken.None
             );
 

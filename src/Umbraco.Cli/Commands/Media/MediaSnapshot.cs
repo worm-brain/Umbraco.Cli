@@ -31,7 +31,7 @@ public sealed class MediaFile
 /// One media item in a <see cref="MediaSnapshot"/>: its verbatim <c>GET /media/{id}</c> body, its
 /// tree placement (the body has none), and its file, if it holds one (folders do not).
 /// </summary>
-public sealed class MediaNode
+public sealed class MediaNode : ISnapshotTreeNode
 {
     /// <summary>The item's GUID, kept on every instance (apply recreates with it).</summary>
     [JsonPropertyName("id")]

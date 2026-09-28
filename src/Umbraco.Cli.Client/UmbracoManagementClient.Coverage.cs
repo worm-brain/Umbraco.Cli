@@ -52,10 +52,13 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var g = await _api
-                    .Umbraco.Management.Api.V1.MemberGroup[id]
-                    .GetAsync(cancellationToken: ct);
-                return new MemberGroupResponse { Id = g?.Id ?? id, Name = g?.Name ?? "" };
+                // A 200 with no body is not a member group (#119).
+                var g =
+                    await _api
+                        .Umbraco.Management.Api.V1.MemberGroup[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No member group found with id '{id}'.");
+                return new MemberGroupResponse { Id = g.Id ?? id, Name = g.Name ?? "" };
             }
         );
 
