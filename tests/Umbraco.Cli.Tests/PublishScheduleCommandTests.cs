@@ -185,6 +185,112 @@ public class PublishScheduleCommandTests
         Assert.Null(fake.LastPublishSchedule!.Value.UnpublishAt);
     }
 
+    /// <summary>Runs the command against <paramref name="fake"/> and returns its JSON envelope's <c>data</c>.</summary>
+    private static async Task<System.Text.Json.JsonElement> DataOf(
+        FakeUmbracoManagementClient fake,
+        string args
+    )
+    {
+        var root = BuildRoot(fake);
+        var sw = new StringWriter();
+        var orig = Console.Out;
+        Console.SetOut(sw);
+        try
+        {
+            await root.Parse(args).InvokeAsync();
+        }
+        finally
+        {
+            Console.SetOut(orig);
+        }
+        return System
+            .Text.Json.JsonDocument.Parse(sw.ToString())
+            .RootElement.GetProperty("data")
+            .Clone();
+    }
+
+    /// <summary>A fake whose publish succeeds, for a document with the given cultures (none = invariant).</summary>
+    private static FakeUmbracoManagementClient Document(params string[] cultures) =>
+        new()
+        {
+            PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+            PublishCulturesHandler = _ => UmbracoResponse<IReadOnlyList<string>>.Success(cultures),
+        };
+
+    [Fact]
+    public async Task Publish_VariantDocumentWithoutCulture_DataListsEveryCulture()
+    {
+        // #325: publishing every culture reported no cultures at all.
+        var data = await DataOf(
+            Document("en-US", "da-DK", "ja-JP"),
+            $"{Auth} content publish {Guid.NewGuid()}"
+        );
+
+        Assert.Equal(
+            ["en-US", "da-DK", "ja-JP"],
+            data.GetProperty("cultures").EnumerateArray().Select(c => c.GetString())
+        );
+    }
+
+    [Fact]
+    public async Task Publish_VariantDocumentWithoutCulture_PublishesTheCulturesItReports()
+    {
+        var fake = Document("en-US", "da-DK");
+
+        await DataOf(fake, $"{Auth} content publish {Guid.NewGuid()}");
+
+        Assert.Equal(["en-US", "da-DK"], fake.StateCalls.Single().Cultures);
+    }
+
+    [Fact]
+    public async Task Publish_WithCulture_DataListsOnlyTheNamedCultures()
+    {
+        var data = await DataOf(
+            Document("en-US", "da-DK"),
+            $"{Auth} content publish {Guid.NewGuid()} --culture da-DK"
+        );
+
+        Assert.Equal(
+            ["da-DK"],
+            data.GetProperty("cultures").EnumerateArray().Select(c => c.GetString())
+        );
+    }
+
+    [Fact]
+    public async Task Publish_InvariantDocument_DataCarriesNullCultures()
+    {
+        // Present and null, not absent: an absent field means "unknown" in the output contract.
+        var data = await DataOf(Document(), $"{Auth} content publish {Guid.NewGuid()}");
+
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, data.GetProperty("cultures").ValueKind);
+    }
+
+    [Fact]
+    public async Task Publish_WithoutSchedule_DataCarriesNullScheduleTimes()
+    {
+        var data = await DataOf(Document("en-US"), $"{Auth} content publish {Guid.NewGuid()}");
+
+        Assert.Equal(
+            (System.Text.Json.JsonValueKind.Null, System.Text.Json.JsonValueKind.Null),
+            (data.GetProperty("publishAt").ValueKind, data.GetProperty("unpublishAt").ValueKind)
+        );
+    }
+
+    [Fact]
+    public async Task Publish_CulturesCannotBeRead_FailsWithoutPublishing()
+    {
+        var fake = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+            PublishCulturesHandler = _ =>
+                UmbracoResponse<IReadOnlyList<string>>.Failure(404, "Content item not found"),
+        };
+
+        var exit = await Run(BuildRoot(fake), $"{Auth} content publish {Guid.NewGuid()}");
+
+        Assert.Equal((1, 0), (exit, fake.StateCalls.Count));
+    }
+
     [Fact]
     public async Task PublishDescendants_Wait_ThreadsWaitFlag()
     {

@@ -143,6 +143,32 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         private set;
     }
 
+    /// <summary>
+    /// The cultures the document varies by, for <see cref="PublishCulturesAsync"/> when no cultures
+    /// are named. Null answers as an invariant document (no cultures), as the real client does.
+    /// </summary>
+    public Func<Guid, UmbracoResponse<IReadOnlyList<string>>>? PublishCulturesHandler { get; set; }
+
+    /// <summary>
+    /// Resolves like the real client: the named cultures when given, otherwise
+    /// <see cref="PublishCulturesHandler"/> (or none, for an invariant document).
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">The cultures asked for.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The resolved cultures, or the handler's failure.</returns>
+    public Task<UmbracoResponse<IReadOnlyList<string>>> PublishCulturesAsync(
+        Guid id,
+        IEnumerable<string>? cultures = null,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            cultures?.ToList() is { Count: > 0 } named
+                ? UmbracoResponse<IReadOnlyList<string>>.Success(named)
+                : PublishCulturesHandler?.Invoke(id)
+                    ?? UmbracoResponse<IReadOnlyList<string>>.Success([])
+        );
+
     public Task<UmbracoResponse<Empty>> PublishContentAsync(
         Guid id,
         IEnumerable<string>? cultures = null,

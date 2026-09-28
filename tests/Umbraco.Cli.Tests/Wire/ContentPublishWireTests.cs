@@ -98,6 +98,55 @@ public class ContentPublishWireTests
     }
 
     [Fact]
+    public async Task PublishCulturesAsync_VariantDocumentWithNoCulturesNamed_ReturnsItsCultures()
+    {
+        // #325: the cultures publish reports are the ones it resolves from the document.
+        var id = Guid.NewGuid();
+        var client = Wire.Client(Handler(id, "en-US", "da-DK"));
+
+        var result = await client.PublishCulturesAsync(id, ct: CancellationToken.None);
+
+        Assert.Equal(["en-US", "da-DK"], result.Data);
+    }
+
+    [Fact]
+    public async Task PublishCulturesAsync_InvariantDocument_ReturnsNoCultures()
+    {
+        var id = Guid.NewGuid();
+        var client = Wire.Client(Handler(id));
+
+        var result = await client.PublishCulturesAsync(id, ct: CancellationToken.None);
+
+        Assert.Empty(result.Data!);
+    }
+
+    [Fact]
+    public async Task PublishCulturesAsync_ExplicitCultures_ReturnsThoseWithoutReadingTheDocument()
+    {
+        var id = Guid.NewGuid();
+        var handler = Handler(id, "en-US", "da-DK");
+        var client = Wire.Client(handler);
+
+        var result = await client.PublishCulturesAsync(id, ["da-DK"], CancellationToken.None);
+
+        Assert.Equal(["da-DK"], result.Data);
+        handler.AssertNoRequest(HttpMethod.Get, $"/document/{id}");
+    }
+
+    [Fact]
+    public async Task PublishCulturesAsync_DocumentMissing_ReturnsTheFailure()
+    {
+        var id = Guid.NewGuid();
+        var client = Wire.Client(
+            new RoutingHandler().When(r => r.Method == HttpMethod.Get, HttpStatusCode.NotFound, "")
+        );
+
+        var result = await client.PublishCulturesAsync(id, ct: CancellationToken.None);
+
+        Assert.Equal(404, result.StatusCode);
+    }
+
+    [Fact]
     public async Task PublishContentAsync_ExplicitCultures_SendsExactlyThose()
     {
         var id = Guid.NewGuid();

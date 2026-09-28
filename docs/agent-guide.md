@@ -127,7 +127,10 @@ like - returns `{ "id": ... }` (or `{ "ids": [...] }`) of what it acted on; one 
 returns the state it left (`redirect tracking enable` returns the tracking status), or `{}` when
 there is nothing to read back (`empty-recycle-bin`). `content publish` returns
 `{ id, published, publishAt, unpublishAt, cultures }`, so a scheduled publish reads as
-`"published": false`. The confirmation text ("Deleted.") is human output only.
+`"published": false`. All five fields are always present. `cultures` lists the cultures it
+published: the ones named with `--culture`, or without it every culture the document has. It is
+`null` for an invariant document, which is published whole. `publishAt` and `unpublishAt` are
+`null` when nothing was scheduled (#325). The confirmation text ("Deleted.") is human output only.
 
 Errors go to **stderr**:
 
