@@ -120,6 +120,17 @@ public record HealthCheckRunItem
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
 
+    /// <summary>
+    /// The check's name, from the group read (#370): the run endpoint returns only the id, and the
+    /// backoffice shows the name beside each result. Empty when the group does not list the check.
+    /// </summary>
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    /// <summary>The check's description, from the group read; empty when it has none.</summary>
+    [JsonPropertyName("description")]
+    public string Description { get; init; } = "";
+
     /// <summary>The individual results the check produced.</summary>
     [JsonPropertyName("results")]
     public IReadOnlyList<HealthCheckResult> Results { get; init; } = [];

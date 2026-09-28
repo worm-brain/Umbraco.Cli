@@ -691,7 +691,8 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
 
     /// <summary>
     /// #237: a webhook named on create is found by that name, <c>update</c> disables it and merges
-    /// a header without dropping the one it had, and its delivery log can be read.
+    /// a header without dropping the one it had, <c>--header Name=</c> removes one header and keeps
+    /// the rest, and its delivery log can be read.
     /// </summary>
     [SkippableFact]
     public void Webhook_UpdateByName_DisablesAndMergesHeaders()
@@ -737,6 +738,14 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
                     headers.GetProperty("X-Api-Key").GetString(),
                     headers.GetProperty("X-Env").GetString()
                 )
+            );
+
+            // An empty value removes just that header.
+            var remove = CliRunner.Run("webhook", "update", name, "--header", "X-Env=");
+            Assert.True(remove.Ok, remove.Stderr);
+            Assert.Equal(
+                ["X-Api-Key"],
+                remove.Data().GetProperty("headers").EnumerateObject().Select(p => p.Name)
             );
 
             var log = CliRunner.Run("webhook", "log", "list", name);

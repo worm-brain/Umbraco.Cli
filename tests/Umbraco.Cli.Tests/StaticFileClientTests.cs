@@ -393,4 +393,55 @@ public class StaticFileClientTests
         Assert.Contains("/tree/stylesheet/children", handler.LastUri!.AbsoluteUri);
         Assert.Contains("parentPath=theme", handler.LastUri!.AbsoluteUri);
     }
+
+    [Theory]
+    [InlineData(StaticFileKind.Script, "/script/lib%2Fsite.js/rename")]
+    [InlineData(StaticFileKind.Stylesheet, "/stylesheet/lib%2Fsite.js/rename")]
+    [InlineData(StaticFileKind.PartialView, "/partial-view/lib%2Fsite.js/rename")]
+    public async Task RenameStaticFileAsync_PutsTheNewNameToTheKindsRenameEndpoint(
+        StaticFileKind kind,
+        string expectedPath
+    )
+    {
+        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+
+        await client.RenameStaticFileAsync(kind, "lib/site.js", "main.js", CancellationToken.None);
+
+        Assert.Equal(
+            (HttpMethod.Put, true, """{"name":"main.js"}"""),
+            (
+                handler.LastMethod,
+                handler.LastUri!.AbsoluteUri.EndsWith(expectedPath),
+                handler.LastBody
+            )
+        );
+    }
+
+    [Fact]
+    public async Task RenameStaticFileAsync_ApiRefuses_ReturnsAFailure()
+    {
+        var (client, _) = ClientReturning(
+            """{"title":"Invalid file extension"}""",
+            HttpStatusCode.BadRequest
+        );
+
+        var result = await client.RenameStaticFileAsync(
+            StaticFileKind.Stylesheet,
+            "site.css",
+            "site",
+            CancellationToken.None
+        );
+
+        Assert.Equal((false, 400), (result.IsSuccess, result.StatusCode));
+    }
+
+    [Theory]
+    [InlineData("site.css", "main.css", "main.css")]
+    [InlineData("/site.css", "main.css", "/main.css")]
+    [InlineData("/theme/site.css", "main.css", "/theme/main.css")]
+    [InlineData("theme/nested/site.css", "main.css", "theme/nested/main.css")]
+    public void RenamedPath_KeepsTheFolderAndSwapsTheName(string path, string name, string expected)
+    {
+        Assert.Equal(expected, UmbracoManagementClient.RenamedPath(path, name));
+    }
 }

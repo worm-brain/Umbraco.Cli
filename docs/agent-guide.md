@@ -338,8 +338,9 @@ the #268 surface batch:
 - **`--output csv`** emits RFC-4180 CSV (list -> one row per item; object/scalar -> header+value).
   Columns use the same camelCase keys, and `--fields` selects/orders them. Errors go to stderr
   as an `exitCode,httpStatus,category,message` row.
-- **`--quiet` / `-q`** drops the result of writes (the confirmation and its `data`) but still
-  emits reads, errors, and exit codes.
+- **`--quiet` / `-q`** drops the result of writes (the confirmation and its `data`), so a
+  successful write prints nothing. Reads, errors, `--dry-run` previews, a bulk run with failures,
+  and exit codes are still emitted. Omit it when you need a created item's id.
 
 ## 5. Exit codes
 

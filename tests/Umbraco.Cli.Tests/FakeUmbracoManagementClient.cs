@@ -1373,13 +1373,16 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// type kinds, and anything else is an invalid_argument failure.
     /// </summary>
     /// <param name="references">Type ids or aliases.</param>
+    /// <param name="events">Recorded in <see cref="WebhookTypeCheckEvents"/>; the kind check is the real client's.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The ids, or the failure for the first value that does not resolve to one type.</returns>
     public Task<UmbracoResponse<IReadOnlyList<Guid>>> ResolveWebhookTypesAsync(
         IEnumerable<string> references,
+        IReadOnlyCollection<string>? events = null,
         CancellationToken ct = default
     )
     {
+        WebhookTypeCheckEvents.Add(events);
         EntityKind[] kinds = [EntityKind.DocumentType, EntityKind.MediaType, EntityKind.MemberType];
         var ids = new List<Guid>();
         foreach (var reference in references)
@@ -1399,12 +1402,29 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
                         0,
                         $"'{reference}' names {matches.Count} types.",
                         FailureCategory.InvalidArgument
-                    )
+                    ) with
+                    {
+                        // As the real client: an unknown alias carries every known one (#368).
+                        UnknownValues =
+                            matches.Count == 0
+                                ? new UnknownValues(
+                                    [reference],
+                                    [
+                                        .. References
+                                            .Keys.Where(k => kinds.Contains(k.Kind))
+                                            .Select(k => k.Reference),
+                                    ]
+                                )
+                                : null,
+                    }
                 );
             ids.Add(one);
         }
         return Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(ids));
     }
+
+    /// <summary>The events passed to each <see cref="ResolveWebhookTypesAsync"/> call, in order.</summary>
+    public List<IReadOnlyCollection<string>?> WebhookTypeCheckEvents { get; } = [];
 
     /// <summary>The webhook id (null for all) of each <see cref="GetWebhookLogsAsync"/> call.</summary>
     public List<Guid?> WebhookLogReads { get; } = [];
@@ -1761,6 +1781,12 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>Recorded deletes: the kind and target path.</summary>
     public List<(StaticFileKind Kind, string Path)> StaticFilesDeleted { get; } = [];
 
+    /// <summary>Recorded renames (#365): the kind, the path renamed and the new name.</summary>
+    public List<(StaticFileKind Kind, string Path, string Name)> StaticFilesRenamed { get; } = [];
+
+    /// <summary>When set, renaming a static file returns this failure.</summary>
+    public UmbracoResponse<Empty>? StaticFileRenameFailure { get; set; }
+
     /// <summary>
     /// The live static files per kind (#292), keyed by path in Umbraco's <c>/a/b</c> form: a null
     /// content marks a folder. The list and get methods read it, so an export walks it like the
@@ -1935,6 +1961,31 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     {
         StaticFilesUpdated.Add((kind, path, request.Content));
         StaticFileWrites.Add($"update {kind} {path}");
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>
+    /// Records a rename, or returns <see cref="StaticFileRenameFailure"/> when set. A renamed
+    /// file in <see cref="StaticFileTree"/> moves to its new path.
+    /// </summary>
+    /// <param name="kind">Which kind.</param>
+    /// <param name="path">The file path.</param>
+    /// <param name="name">The new name.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success, or the configured failure.</returns>
+    public Task<UmbracoResponse<Empty>> RenameStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        string name,
+        CancellationToken ct = default
+    )
+    {
+        if (StaticFileRenameFailure is { } failure)
+            return Task.FromResult(failure);
+        StaticFilesRenamed.Add((kind, path, name));
+        StaticFileWrites.Add($"rename {kind} {path}");
+        if (StaticFileTree[kind].Remove(path, out var content))
+            StaticFileTree[kind][UmbracoManagementClient.RenamedPath(path, name)] = content;
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
 

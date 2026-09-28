@@ -52,52 +52,70 @@ public static class CompletionCommand
         return cmd;
     }
 
-    /// <summary>The completion script for a shell.</summary>
+    /// <summary>
+    /// The completion script for a shell, with LF line endings whatever the build OS (#375). The
+    /// scripts are raw string literals, so they carry the line endings of the checkout the tool
+    /// was built from, and a CR left in them is a syntax error to zsh and to bash on Linux.
+    /// </summary>
     /// <param name="shell">One of <see cref="Shells"/>.</param>
     /// <returns>The script text, ending in a newline.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="shell"/> is not a supported shell.</exception>
     public static string ScriptFor(string shell) =>
-        shell switch
-        {
-            "bash" => Bash,
-            "zsh" => Zsh,
-            "pwsh" => Pwsh,
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(shell),
-                shell,
-                "Supported shells: " + string.Join(", ", Shells) + "."
-            ),
-        };
+        (
+            shell switch
+            {
+                "bash" => Bash,
+                "zsh" => Zsh,
+                "pwsh" => Pwsh,
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(shell),
+                    shell,
+                    "Supported shells: " + string.Join(", ", Shells) + "."
+                ),
+            }
+        ).ReplaceLineEndings("\n");
+
+    // Every script runs the command the user typed (its first word), not whatever `umbraco` is
+    // first on PATH (#379), so `./umbraco`, a path to a build, or a wrapper answers for itself.
+    // The line it sends has that word replaced by `umbraco`, so the CLI's parser recognises the
+    // root command however it was typed (`umbraco.exe`, `~/bin/umbraco`, a wrapper's name), and
+    // the cursor offset moves with it.
 
     // bash: COMP_LINE/COMP_POINT give the line up to the cursor, which is exactly what the
-    // directive wants (the text and the cursor offset in it). tr strips the CR a Windows build
-    // prints, so Git Bash gets clean words. -o default falls back to file names when the CLI has
-    // no suggestion (a --json-body path, say).
+    // directive wants (the text and the cursor offset in it). compgen -W filters by the word being
+    // completed. tr strips the CR a Windows build prints, so Git Bash gets clean words. -o default
+    // falls back to file names when the CLI has no suggestion (a --json-body path, say).
     private const string Bash = """
         # umbraco bash completion. Load it from ~/.bashrc:
         #   eval "$(umbraco completion bash)"
+        # To complete a wrapper script too: complete -o default -F _umbraco_complete <name>
         _umbraco_complete() {
+          local cmd="${COMP_WORDS[0]}"
           local line="${COMP_LINE:0:COMP_POINT}"
+          line="umbraco${line#*"$cmd"}"
           local IFS=$'\n'
-          COMPREPLY=($(compgen -W "$(umbraco "[suggest:${#line}]" "$line" 2>/dev/null | tr -d '\r')" -- "${COMP_WORDS[COMP_CWORD]}"))
+          COMPREPLY=($(compgen -W "$("${cmd/#\~/$HOME}" "[suggest:${#line}]" "$line" 2>/dev/null | tr -d '\r')" -- "${COMP_WORDS[COMP_CWORD]}"))
         }
         complete -o default -F _umbraco_complete umbraco
 
         """;
 
-    // zsh: $words[1,CURRENT] is the command line up to the word being completed, and joining it
-    // with spaces keeps the trailing empty word, so "umbraco content <TAB>" asks for what follows
-    // "content". The last lines make one file work both ways: autoloaded from $fpath (where the
-    // file body runs as _umbraco itself) or sourced/eval'd after compinit (which registers it).
+    // zsh: $words[2,CURRENT] is the command line after the command, up to the word being
+    // completed, and joining it with spaces keeps the trailing empty word, so
+    // "umbraco content <TAB>" asks for what follows "content". compadd filters by the prefix. The
+    // last lines make one file work both ways: autoloaded from $fpath (where the file body runs
+    // as _umbraco itself) or sourced/eval'd after compinit (which registers it).
     private const string Zsh = """
         #compdef umbraco
         # umbraco zsh completion. Save it as _umbraco in a directory on $fpath, or load it from
         # ~/.zshrc after compinit:
         #   eval "$(umbraco completion zsh)"
+        # To complete a wrapper script too: compdef _umbraco <name>
         _umbraco() {
-          local line="${words[1,CURRENT]}"
+          local cmd="${${(Q)words[1]}/#\~/$HOME}"
+          local line="umbraco ${words[2,CURRENT]}"
           local -a suggestions
-          suggestions=("${(@f)$(umbraco "[suggest:${#line}]" "$line" 2>/dev/null | tr -d '\r')}")
+          suggestions=("${(@f)$("$cmd" "[suggest:${#line}]" "$line" 2>/dev/null | tr -d '\r')}")
           compadd -a suggestions
         }
         if [[ "${funcstack[1]}" == "_umbraco" ]]; then
@@ -110,17 +128,25 @@ public static class CompletionCommand
 
     // PowerShell: the cursor position is relative to the whole input line, so it is made relative
     // to this command's own text, which is padded when the cursor sits after a trailing space.
+    // Unlike bash and zsh, PowerShell shows whatever the completer returns, and the CLI matches
+    // anywhere in a name ("con" also finds --config), so the results are filtered by prefix here.
     private const string Pwsh = """
         # umbraco PowerShell completion. Load it from your profile:
         #   umbraco completion pwsh | Out-String | Invoke-Expression
         Register-ArgumentCompleter -Native -CommandName umbraco, umbraco.exe -ScriptBlock {
             param($wordToComplete, $commandAst, $cursorPosition)
+            $start = $commandAst.Extent.StartOffset
             $line = $commandAst.ToString()
-            $position = $cursorPosition - $commandAst.Extent.StartOffset
+            $position = $cursorPosition - $start
             if ($position -gt $line.Length) { $line = $line.PadRight($position) }
-            umbraco "[suggest:$position]" "$line" 2>$null | ForEach-Object {
-                [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
-            }
+            $typed = $commandAst.CommandElements[0].Extent.EndOffset - $start
+            $line = 'umbraco' + $line.Substring($typed)
+            $position = $position - $typed + 'umbraco'.Length
+            & $commandAst.GetCommandName() "[suggest:$position]" "$line" 2>$null |
+                Where-Object { $_.StartsWith($wordToComplete, [System.StringComparison]::OrdinalIgnoreCase) } |
+                ForEach-Object {
+                    [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+                }
         }
 
         """;

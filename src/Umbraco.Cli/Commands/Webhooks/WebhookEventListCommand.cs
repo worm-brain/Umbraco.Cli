@@ -19,7 +19,7 @@ public static class WebhookEventListCommand
             "List the event aliases that 'webhook create --event' accepts."
         ).WithExamples(
             "umbraco webhook event list",
-            "umbraco webhook event list -o json | jq -r '.data.items[].alias'"
+            "umbraco webhook event list -o json | jq -r '.data[].alias'"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(

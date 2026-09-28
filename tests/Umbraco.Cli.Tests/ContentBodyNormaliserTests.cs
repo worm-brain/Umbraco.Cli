@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.Content;
 
 namespace Umbraco.Cli.Tests;
@@ -101,6 +102,44 @@ public class ContentBodyNormaliserTests
             ["id", "documentType", "template", "values", "variants"],
             normalised.Select(p => p.Key).ToArray()
         );
+    }
+
+    [Fact]
+    public void ForComparison_DocumentTypeIconAndCollectionDiffer_ComparesEqual()
+    {
+        // Arrange: #346 - a type's icon change on one instance must not mark its documents changed.
+        var source = JsonNode.Parse(Source)!;
+        var target = JsonNode.Parse(Target)!;
+        source["documentType"]!["icon"] = "icon-document";
+        target["documentType"]!["icon"] = "icon-rss";
+        target["documentType"]!["collection"] = new JsonObject { ["id"] = "c0" };
+
+        // Act
+        var changes = JsonPathDiff.Paths(
+            ContentBodyNormaliser.ForComparison(source),
+            ContentBodyNormaliser.ForComparison(target)
+        );
+
+        // Assert
+        Assert.Empty(changes);
+    }
+
+    [Fact]
+    public void ForComparison_AnotherDocumentType_StillDiffers()
+    {
+        var target = JsonNode.Parse(Target)!;
+        target["documentType"] = new JsonObject
+        {
+            ["id"] = "0f0b1c7e-0000-0000-0000-0000000000bb",
+            ["icon"] = "x",
+        };
+
+        var changes = JsonPathDiff.Paths(
+            ContentBodyNormaliser.ForComparison(JsonNode.Parse(Source)!),
+            ContentBodyNormaliser.ForComparison(target)
+        );
+
+        Assert.Equal(["documentType.id"], changes);
     }
 
     [Fact]

@@ -18,7 +18,7 @@ public static class MediaTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a media type by id or alias, as the full Management API body.\n\nThe body has its properties, groups and allowed child types. The output is a valid 'update --json-body'."
+            "Get a media type by alias, name or id, as the full Management API body.\n\nThe body has its properties, groups and allowed child types. The output is a valid 'update --json-body'."
         ).WithExamples(
             "umbraco media-type get brochure",
             "umbraco media-type get brochure -o json | jq .data > mt.json"

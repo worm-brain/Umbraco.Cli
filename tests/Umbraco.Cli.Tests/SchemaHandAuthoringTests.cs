@@ -206,6 +206,124 @@ public class SchemaHandAuthoringTests
         Assert.Equal(BlogId.ToString(), IdAt(desired.Templates![0]["masterTemplate"]));
     }
 
+    [Theory]
+    [InlineData("\"blogPost\"")] // a bare name
+    [InlineData("{\"id\":\"blogPost\"}")] // a reference object in place of the item
+    public async Task NormaliseAsync_BareNameInAllowedDocumentTypes_BecomesASortedElement(
+        string item
+    )
+    {
+        // Arrange: #357 - the bare name passed the dry run, then the API refused the shape
+        // halfway through the apply.
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.DocumentType, "blogPost")] = BlogId;
+        var desired = Live(
+            JsonNode.Parse($$"""{"alias":"blog","allowedDocumentTypes":[{{item}}]}""")!
+        );
+
+        // Act
+        await Normalise(desired, new SchemaSnapshot(), fake);
+
+        // Assert
+        Assert.Equal(
+            $$"""[{"documentType":{"id":"{{BlogId}}"},"sortOrder":0}]""",
+            Only(desired)["allowedDocumentTypes"]!.ToJsonString()
+        );
+    }
+
+    [Fact]
+    public async Task NormaliseAsync_BareNameInCompositions_BecomesACompositionElement()
+    {
+        // Arrange
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.DocumentType, "blogPost")] = BlogId;
+        var desired = Live(JsonNode.Parse("""{"alias":"page","compositions":["blogPost"]}""")!);
+
+        // Act
+        await Normalise(desired, new SchemaSnapshot(), fake);
+
+        // Assert
+        Assert.Equal(
+            $$"""[{"documentType":{"id":"{{BlogId}}"},"compositionType":"Composition"}]""",
+            Only(desired)["compositions"]!.ToJsonString()
+        );
+    }
+
+    [Fact]
+    public async Task NormaliseAsync_BareReferenceWhereAnObjectIsNeeded_IsRefusedSayingWhere()
+    {
+        // Arrange: a permission carries verbs, so it cannot be built from a type name alone.
+        var desired = new SchemaSnapshot
+        {
+            UserGroups =
+            [
+                JsonNode.Parse(
+                    """{"alias":"editors","name":"Editors","permissions":["blogPost"]}"""
+                )!,
+            ],
+        };
+
+        // Act
+        var error = await Assert.ThrowsAsync<InvalidInputException>(() =>
+            Normalise(desired, new SchemaSnapshot())
+        );
+
+        // Assert
+        Assert.Contains(
+            "permissions[0] must be an object with a 'documentType' field",
+            error.Message
+        );
+    }
+
+    /// <summary>
+    /// A snapshot with a new type whose display name is <c>permPage</c>, and a type that allows
+    /// <c>permPage</c> as a child (#359).
+    /// </summary>
+    private static (SchemaSnapshot Desired, Guid ChildId) NameShadowSnapshot()
+    {
+        var childId = Guid.NewGuid();
+        var desired = Live(
+            JsonNode.Parse($$"""{"id":"{{childId}}","alias":"child","name":"permPage"}""")!,
+            JsonNode.Parse(
+                """{"alias":"parent","allowedDocumentTypes":[{"documentType":"permPage","sortOrder":0}]}"""
+            )!
+        );
+        return (desired, childId);
+    }
+
+    [Fact]
+    public async Task NormaliseAsync_SnapshotNameThatIsALiveAlias_IsRefusedAsAmbiguous()
+    {
+        // Arrange: the instance has another type whose alias is permPage.
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.DocumentType, "permPage")] = Guid.NewGuid();
+        var (desired, _) = NameShadowSnapshot();
+
+        // Act
+        var error = await Assert.ThrowsAsync<InvalidInputException>(() =>
+            Normalise(desired, new SchemaSnapshot(), fake)
+        );
+
+        // Assert
+        Assert.Contains("ambiguous", error.Message);
+    }
+
+    [Fact]
+    public async Task NormaliseAsync_SnapshotNameTheInstanceDoesNotHave_ResolvesToTheSnapshotEntry()
+    {
+        // Arrange
+        var (desired, childId) = NameShadowSnapshot();
+
+        // Act
+        await Normalise(desired, new SchemaSnapshot());
+
+        // Assert
+        Assert.Equal(
+            childId.ToString(),
+            IdAt(desired.DocumentTypes![1]["allowedDocumentTypes"]![0]!["documentType"])
+        );
+    }
+
     [Fact]
     public async Task NormaliseAsync_ExportedSnapshot_IsLeftExactlyAsItIs()
     {

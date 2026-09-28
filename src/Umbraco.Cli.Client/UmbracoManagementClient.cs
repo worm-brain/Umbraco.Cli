@@ -227,9 +227,16 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     private readonly HashSet<Guid> _documentTypeAliasesRead = [];
 
     /// <summary>
-    /// Resolves a document-type reference - an alias (e.g. <c>textPage</c>) or a GUID id - to
-    /// its id, which is what the generated create model requires. A value that parses as a GUID
-    /// is used directly.
+    /// Every document type read by-id so far, as a match candidate (id, alias, name): the name
+    /// fallback in <see cref="FindDocumentTypeIdAsync"/> matches on these once no alias did (#358).
+    /// </summary>
+    private readonly List<ReferenceCandidate> _documentTypeCandidates = [];
+
+    /// <summary>
+    /// Resolves a document-type reference - an alias (e.g. <c>textPage</c>), a name (e.g.
+    /// <c>Text Page</c>) or a GUID id - to its id, which is what the generated create model
+    /// requires. A value that parses as a GUID is used directly. An alias wins over a name; a name
+    /// is only matched once no type has the alias, and a name two types share is refused (#358).
     /// </summary>
     /// <remarks>
     /// An alias is resolved by walking the document-type <em>tree</em> and comparing the alias on
@@ -247,7 +254,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="aliasOrId">The document-type alias or id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved document-type id.</returns>
-    /// <exception cref="ApiException">No document type matches the alias (mapped to a 404).</exception>
+    /// <exception cref="ApiException">
+    /// No document type has the alias or name (404), or the name belongs to several (409).
+    /// </exception>
     private async Task<Guid> FindDocumentTypeIdAsync(string aliasOrId, CancellationToken ct)
     {
         // Already resolved (or seen while resolving something else) on this client instance.
@@ -267,15 +276,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 .GetAsync(cancellationToken: ct);
             if (dt?.Alias is { } alias)
                 _documentTypeAliases[alias] = candidateId;
+            _documentTypeCandidates.Add(new ReferenceCandidate(candidateId, dt?.Alias, dt?.Name));
             if (string.Equals(dt?.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase))
                 return candidateId;
         }
 
-        throw new UnresolvedReferenceException(
-            $"No document type found with alias '{aliasOrId}'. Use 'umbraco document-type list' "
-                + "to find one, or pass a document type id.",
-            404
-        );
+        // Every type has now been read and none has the alias, so fall back to the name, as
+        // conventions 3.2 and every other type kind do (#358). Pick raises the 404 (no match) or
+        // the 409 (a name two types share) with the kind's usual wording.
+        return ReferenceMatch.Pick(EntityKind.DocumentType, aliasOrId, _documentTypeCandidates);
     }
 
     /// <summary>
@@ -2377,15 +2386,24 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     private readonly HashSet<Guid> _memberTypeAliasesRead = [];
 
     /// <summary>
-    /// Resolves a member-type reference - an alias or a GUID id - to its id, mirroring
+    /// Every member type read by-id so far, as a match candidate (id, alias, name), for the name
+    /// fallback in <see cref="FindMemberTypeIdAsync"/>.
+    /// </summary>
+    private readonly List<ReferenceCandidate> _memberTypeCandidates = [];
+
+    /// <summary>
+    /// Resolves a member-type reference - an alias, a name or a GUID id - to its id, mirroring
     /// <see cref="FindDocumentTypeIdAsync"/>: a GUID is used directly, otherwise the member-type
-    /// tree is walked and each candidate read by-id to compare its alias. As with document types
+    /// tree is walked and each candidate read by-id to compare its alias; when none has it, the
+    /// name is matched instead, and a name two types share is refused. As with document types
     /// the item search is deliberately avoided - it indexes names, not aliases. See ADR 0004.
     /// </summary>
-    /// <param name="aliasOrId">The member-type alias or id.</param>
+    /// <param name="aliasOrId">The member-type alias, name or id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved member-type id.</returns>
-    /// <exception cref="ApiException">No member type matches the alias (mapped to a 404).</exception>
+    /// <exception cref="ApiException">
+    /// No member type has the alias or name (404), or the name belongs to several (409).
+    /// </exception>
     private async Task<Guid> FindMemberTypeIdAsync(string aliasOrId, CancellationToken ct)
     {
         if (_memberTypeAliases.TryGetValue(aliasOrId, out var cached))
@@ -2403,15 +2421,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 .GetAsync(cancellationToken: ct);
             if (mt?.Alias is { } alias)
                 _memberTypeAliases[alias] = candidateId;
+            _memberTypeCandidates.Add(new ReferenceCandidate(candidateId, mt?.Alias, mt?.Name));
             if (string.Equals(mt?.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase))
                 return candidateId;
         }
 
-        throw new UnresolvedReferenceException(
-            $"No member type found with alias '{aliasOrId}'. Use 'umbraco member-type list' "
-                + "to find one, or pass a member type id.",
-            404
-        );
+        // Every type has been read and none has the alias: match the name (conventions 3.2).
+        return ReferenceMatch.Pick(EntityKind.MemberType, aliasOrId, _memberTypeCandidates);
     }
 
     /// <summary>
@@ -2465,8 +2481,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// Creates a member via <c>POST member</c> (generated client, #79). Like content create, the
     /// member type is passed by alias and resolved to an id first; the display name goes in a
     /// variant and property values map to <see cref="UntypedNode"/>. The id is client-supplied
-    /// (defaulting to a fresh GUID) so it is known despite the empty create response, which is
-    /// echoed back with the accepted fields (consistent with the other migrated creates).
+    /// (defaulting to a fresh GUID) so it is known despite the empty create response. The saved
+    /// member is then read back (#378), so the result is what <c>member get</c> shows; only when
+    /// that read fails is the accepted request echoed instead.
     /// </summary>
     /// <remarks>
     /// Umbraco requires a username, but the CLI collects only an email, so the email doubles as
@@ -2475,7 +2492,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// </remarks>
     /// <param name="request">The member to create (member type by alias, email, name, values).</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created member (id + echoed fields), or a mapped failure.</returns>
+    /// <returns>The created member as saved (or the echoed request), or a mapped failure.</returns>
     public Task<UmbracoResponse<MemberResponse>> CreateMemberAsync(
         CreateMemberRequest request,
         CancellationToken ct = default
@@ -2512,6 +2529,24 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         .ToList(),
                 };
                 await _api.Umbraco.Management.Api.V1.Member.PostAsync(body, cancellationToken: ct);
+
+                // #378: read what was saved, so the result carries the server's fields (createDate,
+                // username, groups, labels) exactly as `member get` shows them, instead of an echo
+                // whose createDate is 0001-01-01.
+                try
+                {
+                    if (
+                        await _api
+                            .Umbraco.Management.Api.V1.Member[id]
+                            .GetAsync(cancellationToken: ct) is
+                        { } saved
+                    )
+                        return await LabelMemberAsync(MapMember(saved), ct);
+                }
+                catch (ApiException)
+                {
+                    // Fall through: the member exists, only the read-back failed.
+                }
 
                 return new MemberResponse
                 {

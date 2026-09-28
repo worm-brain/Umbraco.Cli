@@ -18,7 +18,7 @@ public static class TemplatesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a template by its alias or id, including the view file content."
+            "Get a template by its alias, name or id, including the view file content."
         ).WithExamples(
             "umbraco template get master",
             "umbraco template get master -o json | jq -r .data.content"

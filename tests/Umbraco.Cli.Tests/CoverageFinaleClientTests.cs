@@ -245,18 +245,67 @@ public class CoverageFinaleClientTests
 
     // ── Property-type ────────────────────────────────────────────────────────────
 
+    private static readonly Guid PageType = Guid.Parse("33333333-0000-0000-0000-000000000001");
+    private static readonly Guid SeoType = Guid.Parse("33333333-0000-0000-0000-000000000002");
+
+    /// <summary>
+    /// A page type with <c>bodyText</c>, composed of an SEO type with <c>metaTitle</c>, and an
+    /// is-used endpoint that answers true.
+    /// </summary>
+    private static RoutingHandler PropertyTypes() =>
+        Wire.Routed(
+            ("property-type/is-used", "true"),
+            (
+                $"document-type/{PageType}",
+                $$"""{"id":"{{PageType}}","alias":"page","properties":[{"alias":"bodyText"}],"compositions":[{"documentType":{"id":"{{SeoType}}"},"compositionType":"Composition"}]}"""
+            ),
+            (
+                $"document-type/{SeoType}",
+                $$"""{"id":"{{SeoType}}","alias":"seo","properties":[{"alias":"metaTitle"}],"compositions":[]}"""
+            )
+        );
+
     [Fact]
     public async Task IsPropertyTypeUsedAsync_PassesContentTypeAndAlias()
     {
-        var ctId = Guid.NewGuid();
-        var (client, handler) = ClientReturning("true");
+        var handler = PropertyTypes();
 
-        var result = await client.IsPropertyTypeUsedAsync(ctId, "bodyText", CancellationToken.None);
+        var result = await Wire.Client(handler)
+            .IsPropertyTypeUsedAsync(PageType, "bodyText", CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        Assert.EndsWith("/property-type/is-used", handler.LastUri!.AbsolutePath);
-        Assert.Contains($"contentTypeId={ctId}", handler.LastUri.AbsoluteUri);
-        Assert.Contains("propertyAlias=bodyText", handler.LastUri.AbsoluteUri);
+        var query = handler.QueryOf(HttpMethod.Get, "/property-type/is-used");
+        Assert.Equal(
+            (true, PageType.ToString(), "bodyText"),
+            (result.Data, query["contentTypeId"], query["propertyAlias"])
+        );
+    }
+
+    [Fact]
+    public async Task IsPropertyTypeUsedAsync_AliasFromAComposition_AsksTheInstance()
+    {
+        var result = await Wire.Client(PropertyTypes())
+            .IsPropertyTypeUsedAsync(PageType, "metaTitle", CancellationToken.None);
+
         Assert.True(result.Data);
+    }
+
+    [Fact]
+    public async Task IsPropertyTypeUsedAsync_UnknownAlias_IsInvalidArgumentListingTheAliases()
+    {
+        // #371: Umbraco answers false for an alias the type does not have, which reads as "safe
+        // to remove" for a typo.
+        var handler = PropertyTypes();
+
+        var result = await Wire.Client(handler)
+            .IsPropertyTypeUsedAsync(PageType, "nope", CancellationToken.None);
+
+        Assert.Equal(
+            (FailureCategory.InvalidArgument, true, false),
+            (
+                result.Category,
+                result.ErrorMessage!.Contains("bodyText, metaTitle"),
+                handler.Recordings.Any(r => Wire.PathEnds(r, "/property-type/is-used"))
+            )
+        );
     }
 }

@@ -14,7 +14,7 @@ namespace Umbraco.Cli.Client;
 public sealed partial class UmbracoManagementClient
 {
     /// <summary>
-    /// The five per-kind operations. Each closes over the right generated request builder and maps
+    /// The six per-kind operations. Each closes over the right generated request builder and maps
     /// to the shared command-facing records; the delegates do the raw call and the public methods
     /// add the <see cref="GuardedApiAsync{T}"/> envelope/guard once.
     /// </summary>
@@ -23,7 +23,8 @@ public sealed partial class UmbracoManagementClient
         Func<string, CancellationToken, Task<StaticFileResponse>> Get,
         Func<CreateStaticFileRequest, CancellationToken, Task<Empty>> Create,
         Func<string, UpdateStaticFileRequest, CancellationToken, Task<Empty>> Update,
-        Func<string, CancellationToken, Task<Empty>> Delete
+        Func<string, CancellationToken, Task<Empty>> Delete,
+        Func<string, string, CancellationToken, Task<Empty>> Rename
     );
 
     /// <summary>Lazily-built per-kind dispatch map (closes over the generated client).</summary>
@@ -96,6 +97,14 @@ public sealed partial class UmbracoManagementClient
     ) => GuardedApiAsync(ct, () => StaticFileOpsMap[kind].Update(path, request, ct));
 
     /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> RenameStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        string name,
+        CancellationToken ct = default
+    ) => GuardedApiAsync(ct, () => StaticFileOpsMap[kind].Rename(path, name, ct));
+
+    /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> DeleteStaticFileAsync(
         StaticFileKind kind,
         string path,
@@ -150,6 +159,15 @@ public sealed partial class UmbracoManagementClient
                 {
                     await api.Script[path].DeleteAsync(cancellationToken: ct);
                     return Empty.Value;
+                },
+                Rename: async (path, name, ct) =>
+                {
+                    await api.Script[path]
+                        .Rename.PutAsync(
+                            new Gen.RenameScriptRequestModel { Name = name },
+                            cancellationToken: ct
+                        );
+                    return Empty.Value;
                 }
             ),
             [StaticFileKind.Stylesheet] = new StaticFileOps(
@@ -192,6 +210,15 @@ public sealed partial class UmbracoManagementClient
                 Delete: async (path, ct) =>
                 {
                     await api.Stylesheet[path].DeleteAsync(cancellationToken: ct);
+                    return Empty.Value;
+                },
+                Rename: async (path, name, ct) =>
+                {
+                    await api.Stylesheet[path]
+                        .Rename.PutAsync(
+                            new Gen.RenameStylesheetRequestModel { Name = name },
+                            cancellationToken: ct
+                        );
                     return Empty.Value;
                 }
             ),
@@ -236,6 +263,15 @@ public sealed partial class UmbracoManagementClient
                 {
                     await api.PartialView[path].DeleteAsync(cancellationToken: ct);
                     return Empty.Value;
+                },
+                Rename: async (path, name, ct) =>
+                {
+                    await api.PartialView[path]
+                        .Rename.PutAsync(
+                            new Gen.RenamePartialViewRequestModel { Name = name },
+                            cancellationToken: ct
+                        );
+                    return Empty.Value;
                 }
             ),
         };
@@ -274,6 +310,21 @@ public sealed partial class UmbracoManagementClient
     /// <returns>The trimmed path, or null for the root.</returns>
     internal static string? NormaliseFolder(string? parentPath) =>
         parentPath?.Trim().Trim('/') is { Length: > 0 } trimmed ? trimmed : null;
+
+    /// <summary>
+    /// The path a file has after a rename (#365): the same folder, the new name. The folder part
+    /// keeps the form it was given in (<c>/theme/a.css</c> renamed to <c>b.css</c> is
+    /// <c>/theme/b.css</c>, <c>a.css</c> is <c>b.css</c>), which <c>get</c> accepts either way.
+    /// </summary>
+    /// <param name="path">The file's path before the rename.</param>
+    /// <param name="name">The new file name.</param>
+    /// <returns>The file's path after the rename.</returns>
+    public static string RenamedPath(string path, string name)
+    {
+        var trimmed = path.Trim().TrimEnd('/');
+        var slash = trimmed.LastIndexOf('/');
+        return slash < 0 ? name : trimmed[..(slash + 1)] + name;
+    }
 
     /// <summary>
     /// The path a just-created file has, in Umbraco's form: a leading <c>/</c>, then the folder

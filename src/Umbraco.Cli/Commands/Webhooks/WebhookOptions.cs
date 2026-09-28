@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
@@ -37,6 +38,34 @@ internal static class WebhookOptions
         var option = ListOption.Strings("--type", description);
         cmd.Add(option);
         return option;
+    }
+
+    /// <summary>
+    /// Rewrites an unknown <c>--type</c> alias refusal to name the nearest real alias (#368), as
+    /// <see cref="WebhooksCreateCommand.WithEventSuggestions"/> does for <c>--event</c>. The client
+    /// reports the unknown alias and every known one; the suggestion is the CLI's to make. Any
+    /// other response is returned as is.
+    /// </summary>
+    /// <typeparam name="T">The response payload type.</typeparam>
+    /// <param name="response">The type resolution's response.</param>
+    /// <returns>The response, with the refusal message rewritten when it named an unknown alias.</returns>
+    public static UmbracoResponse<T> WithTypeSuggestions<T>(UmbracoResponse<T> response)
+    {
+        if (response.IsSuccess || response.UnknownValues is not { } values)
+            return response;
+
+        var described = values.Unknown.Select(u =>
+            Suggestions.Nearest(u, values.Known) is { } nearest
+                ? $"'{u}' (did you mean '{nearest}'?)"
+                : $"'{u}'"
+        );
+        return response with
+        {
+            ErrorMessage =
+                $"No document type, media type or member type has the alias {string.Join(", ", described)}. "
+                + "Use 'umbraco document-type list', 'media-type list' or 'member-type list' to "
+                + "find one, or pass its id.",
+        };
     }
 
     /// <summary>The parsed <c>--header</c> pairs as a name-to-value map; later pairs win.</summary>

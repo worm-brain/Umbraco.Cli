@@ -58,13 +58,19 @@ public interface IUserClient
     /// <summary>Deletes one user via <c>DELETE user/{id}</c>.</summary>
     /// <param name="id">The user id.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success, or a mapped failure.</returns>
+    /// <returns>
+    /// An empty success, or a mapped failure; a refusal because the user has signed in names the
+    /// user and how to disable them instead.
+    /// </returns>
     Task<UmbracoResponse<Empty>> DeleteUserAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Deletes several users in one call via <c>DELETE user</c> with their ids in the body.</summary>
     /// <param name="ids">The user ids.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success, or a mapped failure.</returns>
+    /// <returns>
+    /// An empty success, or a mapped failure; a refusal because a user has signed in names which
+    /// of the users have, and how to disable them instead.
+    /// </returns>
     Task<UmbracoResponse<Empty>> DeleteUsersAsync(
         IReadOnlyList<Guid> ids,
         CancellationToken ct = default

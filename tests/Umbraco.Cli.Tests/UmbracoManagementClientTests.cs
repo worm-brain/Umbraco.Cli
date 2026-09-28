@@ -1485,6 +1485,47 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
+    public async Task CreateMemberAsync_ReadsTheMemberBack_SoCreateDateIsTheSavedOne()
+    {
+        // #378: the echoed request had createDate 0001-01-01; the saved member has the real one.
+        var memberTypeId = Guid.NewGuid();
+        var id = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.RequestUri!.AbsoluteUri.Contains("tree/member-type/root"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{memberTypeId}}","name":"Member","isFolder":false}]}"""
+            )
+            .When(
+                r => r.RequestUri!.AbsoluteUri.Contains($"member-type/{memberTypeId}"),
+                HttpStatusCode.OK,
+                $$"""{"id":"{{memberTypeId}}","alias":"member","name":"Member"}"""
+            )
+            .When(
+                r =>
+                    r.Method == HttpMethod.Get
+                    && r.RequestUri!.AbsolutePath.EndsWith($"/member/{id}"),
+                HttpStatusCode.OK,
+                $$"""{"id":"{{id}}","email":"m@example.com","memberType":{"id":"{{memberTypeId}}"},"variants":[{"name":"M","createDate":"2026-09-28T19:41:13+00:00"}]}"""
+            )
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateMemberAsync(
+                new CreateMemberRequest
+                {
+                    Id = id,
+                    Email = "m@example.com",
+                    Name = "M",
+                    MemberType = new ContentTypeReference { Alias = "member" },
+                },
+                CancellationToken.None
+            );
+
+        Assert.Equal(DateTimeOffset.Parse("2026-09-28T19:41:13+00:00"), result.Data!.CreateDate);
+    }
+
+    [Fact]
     public async Task CreateMemberAsync_UnknownTypeAlias_IsInvalidArgument()
     {
         // An unresolvable member-type alias yields a clean 404 and never POSTs a member.

@@ -85,6 +85,39 @@ public class DiagnosticsClientTests
     }
 
     [Fact]
+    public async Task RunHealthCheckGroupAsync_Results_CarryEachChecksNameFromTheGroup()
+    {
+        // The run returns only ids; the names come from the group read (#370).
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Post,
+                HttpStatusCode.OK,
+                """{"checks":[{"id":"ed0d7e40-1234-5678-abcd-ef0123456789","results":[{"message":"m","resultType":"Info"}]}]}"""
+            )
+            .When(
+                _ => true,
+                HttpStatusCode.OK,
+                """{"name":"Security","checks":[{"id":"ed0d7e40-1234-5678-abcd-ef0123456789","name":"Click-Jacking Protection","description":"d"}]}"""
+            );
+
+        var result = await Wire.Client(handler)
+            .RunHealthCheckGroupAsync("Security", CancellationToken.None);
+
+        var check = Assert.Single(result.Data!.Checks);
+        Assert.Equal(("Click-Jacking Protection", "d"), (check.Name, check.Description));
+    }
+
+    [Fact]
+    public async Task RunHealthCheckGroupAsync_UnknownGroup_FailsWithoutRunning()
+    {
+        var handler = new RoutingHandler().When(_ => true, HttpStatusCode.NotFound, "");
+
+        await Wire.Client(handler).RunHealthCheckGroupAsync("Nope", CancellationToken.None);
+
+        handler.AssertNoRequest(HttpMethod.Post, "/health-check-group/Nope/check");
+    }
+
+    [Fact]
     public async Task GetLogsAsync_PassesLevelAndOrderFilters()
     {
         var (client, handler) = ClientReturning("""{"total":0,"items":[]}""");
