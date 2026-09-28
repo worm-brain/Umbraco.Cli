@@ -214,6 +214,18 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public void FailureFrom_CarriesTheUnknownValuesAcross()
+    {
+        // #278: a re-wrapped known-value refusal keeps what the suggestion is built from.
+        var values = new UnknownValues(["ContentPublished"], ["Umbraco.ContentPublish"]);
+        var read = UmbracoResponse<string>.Failure(0, "Unknown.") with { UnknownValues = values };
+
+        var rewrapped = UmbracoResponse<int>.FailureFrom(read);
+
+        Assert.Same(values, rewrapped.UnknownValues);
+    }
+
+    [Fact]
     public async Task RunObject_ApiFailure_WritesErrorAndReturnsOne()
     {
         var client = new FakeUmbracoManagementClient

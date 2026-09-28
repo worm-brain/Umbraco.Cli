@@ -24,7 +24,8 @@ public sealed partial class UmbracoManagementClient
     /// <param name="unreadableMessage">The message when the known set could not be read.</param>
     /// <param name="unknownMessage">Builds the message from the unknown values and the known set.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <exception cref="InvalidArgumentException">A value is blank or unknown (invalid_argument).</exception>
+    /// <exception cref="InvalidArgumentException">A value is blank (invalid_argument).</exception>
+    /// <exception cref="UnknownValuesException">A value is unknown (invalid_argument, with the unknown and known values).</exception>
     /// <exception cref="ApiException">The known set could not be read (mapped to 400).</exception>
     private static async Task GuardKnownValuesAsync(
         IReadOnlyList<string> requested,
@@ -46,7 +47,13 @@ public sealed partial class UmbracoManagementClient
             throw BadRequest(unreadableMessage);
 
         var unknown = requested.Where(v => !known.Contains(v)).ToList();
+
+        // The known set travels in its read order: a suggestion picks the first of equally close
+        // candidates, so a sorted copy could change which one is shown (#278).
         if (unknown.Count > 0)
-            throw new InvalidArgumentException(unknownMessage(unknown, known));
+            throw new UnknownValuesException(
+                unknownMessage(unknown, known),
+                new UnknownValues(unknown, [.. known])
+            );
     }
 }

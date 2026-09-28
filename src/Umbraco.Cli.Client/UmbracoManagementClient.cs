@@ -3253,8 +3253,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         {
             // The caller's input is what needs fixing - an alias that matched nothing (#256), an
             // unknown event alias, a body that is not an object (#280) - so invalid_argument with
-            // no HTTP status, rather than a server rejection.
-            return UmbracoResponse<T>.Failure(0, ex.Message, FailureCategory.InvalidArgument);
+            // no HTTP status, rather than a server rejection. An unknown-values refusal also
+            // carries what was unknown and what is known, for the CLI's suggestion (#278).
+            return UmbracoResponse<T>.Failure(0, ex.Message, FailureCategory.InvalidArgument) with
+            {
+                UnknownValues = (ex as UnknownValuesException)?.Values,
+            };
         }
         catch (Gen.ProblemDetails pd)
         {

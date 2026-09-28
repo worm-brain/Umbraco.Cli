@@ -93,6 +93,14 @@ public static class FailureCategoryExtensions
         };
 }
 
+/// <summary>
+/// The structured half of a known-value refusal (#278): the values the caller asked for that the
+/// instance does not know, and the ones it does, in the order the instance listed them.
+/// </summary>
+/// <param name="Unknown">The requested values the instance does not know, as typed.</param>
+/// <param name="Known">Every value the instance knows.</param>
+public sealed record UnknownValues(IReadOnlyList<string> Unknown, IReadOnlyList<string> Known);
+
 public record UmbracoResponse<T>
 {
     public bool IsSuccess { get; init; }
@@ -109,6 +117,14 @@ public record UmbracoResponse<T>
     /// <c>details</c> (#286). Null on success and when the failure carried no body.
     /// </summary>
     public JsonNode? Details { get; init; }
+
+    /// <summary>
+    /// For a failure that refused values the instance does not know (an unknown webhook event
+    /// alias, a translation ISO code with no language), which values were unknown and which the
+    /// instance does know (#278), so the command layer can add a "did you mean" hint. Null
+    /// otherwise. <see cref="ErrorMessage"/> already reads correctly without it.
+    /// </summary>
+    public UnknownValues? UnknownValues { get; init; }
 
     public static UmbracoResponse<T> Success(T data, int code = 200) =>
         new()
@@ -169,6 +185,7 @@ public record UmbracoResponse<T>
                 ErrorMessage = failed.ErrorMessage,
                 Category = failed.Category,
                 Details = failed.Details,
+                UnknownValues = failed.UnknownValues,
             };
 
     /// <summary>
