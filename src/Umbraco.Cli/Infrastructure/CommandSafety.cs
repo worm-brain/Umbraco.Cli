@@ -112,6 +112,37 @@ public static class CommandSafety
     public static bool IsDeclaredMutating(Command command) =>
         MutatingDeclarations.TryGetValue(command, out _) || IsDeclared(command);
 
+    // Writes whose result is report data rather than a write confirmation (#393): `health run` is a
+    // POST, but what it returns is the diagnostic it was run for. The value is unused.
+    private static readonly ConditionalWeakTable<Command, object> ReportDeclarations = new();
+
+    /// <summary>
+    /// Declares that <paramref name="command"/>'s success result is report data the caller ran it
+    /// for, so <c>--quiet</c> still prints it (#393). This only affects <c>--quiet</c>: the command
+    /// stays whatever <see cref="Mutating{TCommand}"/> made it, so <c>--readonly</c> still blocks it,
+    /// <c>--dry-run</c> still previews it, and <c>umbraco commands</c> still reports it
+    /// <c>mutating: true</c>.
+    /// </summary>
+    /// <typeparam name="TCommand">The command type, returned for chaining.</typeparam>
+    /// <param name="command">The leaf command.</param>
+    /// <returns>The same command.</returns>
+    public static TCommand ReportsResult<TCommand>(this TCommand command)
+        where TCommand : Command
+    {
+        ReportDeclarations.AddOrUpdate(command, true);
+        return command;
+    }
+
+    /// <summary>
+    /// Whether <c>--quiet</c> drops <paramref name="command"/>'s success result: true for a
+    /// declared write (<see cref="IsDeclaredMutating"/>) unless it was declared with
+    /// <see cref="ReportsResult{TCommand}"/>.
+    /// </summary>
+    /// <param name="command">The command.</param>
+    /// <returns>True when its result is a write result that <c>--quiet</c> suppresses.</returns>
+    public static bool QuietDropsResult(Command command) =>
+        IsDeclaredMutating(command) && !ReportDeclarations.TryGetValue(command, out _);
+
     // Pre-flight checks that can refuse a run before it is confirmed (#246, #253). Kept apart
     // from the prompts: a check reads the server, a prompt does not.
     private static readonly ConditionalWeakTable<

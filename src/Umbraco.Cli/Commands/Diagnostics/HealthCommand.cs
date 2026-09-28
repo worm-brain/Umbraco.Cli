@@ -68,15 +68,24 @@ public static class HealthCommand
         return cmd;
     }
 
+    /// <summary>
+    /// Builds <c>health run</c>: a write for <c>--readonly</c>, <c>--dry-run</c> and the catalog,
+    /// whose results still print under <c>--quiet</c> (#393).
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     private static Command BuildRun(CommandExecutor executor)
     {
-        // A POST: it runs the checks server-side, so --readonly blocks it and the catalog says so.
+        // A POST: it runs the checks server-side, so --readonly blocks it, --dry-run previews it
+        // and the catalog says mutating. Its result is the diagnostic report the caller asked for,
+        // though, so --quiet still prints it (#393).
         var cmd = new Command("run", "Run a health-check group and show the results.")
             .WithExamples(
                 "umbraco health run \"Data Integrity\"",
                 "umbraco health run Security --output json"
             )
-            .Mutating();
+            .Mutating()
+            .ReportsResult();
         var nameArg = new Argument<string>("name") { Description = "Health-check group name." };
         cmd.Add(nameArg);
         cmd.SetAction(

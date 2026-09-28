@@ -58,7 +58,7 @@ Available on every command:
 | `--host <url>` | Umbraco instance base URL (overrides config). |
 | `--token <bearer>` | Raw bearer token (overrides stored credentials). |
 | `--output json\|human\|csv` | Output format. Default: `json` when piped, `human` in a terminal. `csv` is RFC-4180 and only ever explicit. |
-| `--quiet`, `-q` | Suppress the result of writes (the confirmation and its `data`), so a successful write prints nothing; reads, errors, `--dry-run` previews, a bulk run with failures, and exit codes still emitted. |
+| `--quiet`, `-q` | Suppress the result of writes (the confirmation and its `data`), so a successful write prints nothing; reads, `health run` results, errors, `--dry-run` previews, a bulk run with failures, and exit codes still emitted. |
 | `--verbose` | Log each HTTP request and response to stderr: method, URL, headers, status, the request body and the first 4 KB of the response body (marked truncated beyond that). Also logs the token exchange and the `auth login` / `auth doctor` requests. Secrets are redacted: string values of any header, JSON property, form field or query parameter named like a password, secret, token, API key, authorization, cookie, credential, private key, passphrase, connection string or session id (separators ignored, so `X-Api-Key` matches); every webhook header value; the value of an `{alias, value}` pair with such an alias; and `user:pass@` in URLs. Numbers, booleans and dates are kept. Binary and multipart bodies are summarised by type and size. |
 | `--dry-run` | On a write command, print the request that would be sent (method, URL, body) and exit `0` without executing. A write that takes several requests (`user create --password`, `user update` with several changes) lists the later ones in order under `data.then`. Secrets are redacted as for `--verbose`. No effect on reads. |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands. **Required** to run one non-interactively. |
@@ -966,6 +966,10 @@ umbraco health run <group>                                 # run the group (POST
 
 Each check in a `run` result carries its `id`, `name` and `description` (read from the group),
 then its `results`.
+
+`run` is a POST, so it is a write: `--readonly` blocks it, `--dry-run` previews it, and
+`umbraco commands` reports it `mutating: true`. Its result is the report you ran it for, though,
+so unlike other writes it still prints under `--quiet`.
 
 ## `log-viewer`
 
