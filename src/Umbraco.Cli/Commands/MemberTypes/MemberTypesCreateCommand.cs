@@ -57,11 +57,11 @@ public static class MemberTypesCreateCommand
                     SchemaNoun.MemberTypes,
                     body,
                     idOpt,
-                    (client, c) =>
+                    (client, id, c) =>
                         client.CreateMemberTypeAsync(
                             new CreateMemberTypeRequest
                             {
-                                Id = parseResult.GetValue(idOpt),
+                                Id = id,
                                 Name = parseResult.GetValue(nameOpt)!,
                                 Alias = parseResult.GetValue(aliasOpt)!,
                                 Description = parseResult.GetValue(descOpt),

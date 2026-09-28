@@ -79,7 +79,7 @@ public class WidenedReadTests
 
         // #163: the document body carries only the type's id, so the alias has to be looked up.
         // It used to be left as "", which reads as "this type has no alias".
-        Assert.Equal("blogPost", result.Data!.ContentType!.Alias);
+        Assert.Equal("blogPost", result.Data!.DocumentType!.Alias);
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class WidenedReadTests
         // A type that cannot be read must not fail the document read, and must not fake an alias:
         // null is omitted from the envelope, "" would look like a real empty alias.
         Assert.True(result.IsSuccess);
-        Assert.Null(result.Data!.ContentType!.Alias);
+        Assert.Null(result.Data!.DocumentType!.Alias);
     }
 
     // ── #160: document types ──────────────────────────────────────────────────

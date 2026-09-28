@@ -69,11 +69,11 @@ public static class MediaTypesCreateCommand
                     SchemaNoun.MediaTypes,
                     body,
                     idOpt,
-                    (client, c) =>
+                    (client, id, c) =>
                         client.CreateMediaTypeAsync(
                             new CreateMediaTypeRequest
                             {
-                                Id = parseResult.GetValue(idOpt),
+                                Id = id,
                                 Name = parseResult.GetValue(nameOpt)!,
                                 Alias = parseResult.GetValue(aliasOpt)!,
                                 Description = parseResult.GetValue(descOpt),

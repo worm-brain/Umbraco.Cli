@@ -154,7 +154,7 @@ Run it first in any new environment. See [getting-started.md](getting-started.md
 umbraco content list [--parent <id>] [--skip <n>] [--take <n>]
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
-umbraco content get <id>                                   # values, variants, template and state
+umbraco content get <id>                                   # every field of GET /document/{id} (documentType, values, variants, schedule dates, isTrashed, flags) plus name, parent, urls
 umbraco content create --document-type <alias> --name <name> [--culture <code>] [--parent <id>] [--id <guid>] [--template <alias|id>]   # no --culture on a variant type: the default language
 umbraco content create --json-body <file> [--id <guid>] [--template <alias|id>]   # the body carries type, name, parent and culture
 umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default; --replace needs --yes
@@ -184,6 +184,14 @@ umbraco content bulk unpublish [--file ids.txt] [--culture <csv>]   # takes offl
 umbraco content domain get <id>
 umbraco content domain set <id> [--default-culture <iso>] [--domain host=iso ...] [--replace]   # merges by hostname; --replace needs --yes
 ```
+
+`content get` returns the document under the Management API's own keys - `documentType` (the key
+the create body and `content version get` use), `values`, `variants` with their `id`, `flags`,
+`state` and `scheduledPublishDate` / `scheduledUnpublishDate`, `template`, `isTrashed`, `flags` -
+plus what the CLI reads elsewhere: `name` (the first variant's), `parent` (left out at the root)
+and `urls` (`[{culture, url}]`, from `GET /document/urls`). `content list` and `content find` rows
+use the same keys, but carry only what the tree and search endpoints return: no `updateDate`,
+`values`, `urls` or full `variants`. Read the item with `content get` for those.
 
 ### Rollback and restore leave the live site alone
 
@@ -437,7 +445,7 @@ type. `get`/`scaffold` return raw JSON (full fidelity); `create` takes flags, a 
 
 ```bash
 umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>]   # --parent lists a folder's children
-umbraco document-blueprint get <id>                        # raw JSON (full fidelity)
+umbraco document-blueprint get <id>                        # raw JSON (full fidelity) plus top-level name and parent
 umbraco document-blueprint scaffold <id>                   # pre-filled create body; pipe it into content create --json-body -
 umbraco document-blueprint create --document-type <alias|id> --name <name> [--culture <code>] [--parent <folder>] [--id <guid>]
 umbraco document-blueprint create --json-body <file>        # the whole request; --schema prints its JSON Schema
@@ -542,7 +550,7 @@ umbraco media-type delete <id|alias|name> --force                  # deletes eve
 umbraco document-type list
 umbraco document-type get <alias|id>                       # the full Management API body - a valid update --json-body
 umbraco document-type create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
-umbraco document-type create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns {id, name, alias}
+umbraco document-type create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns the saved type, as get prints it
 umbraco document-type update <alias|id> --json-body <file> [--replace]   # merged into the type; --replace sends the whole type and needs --yes
 umbraco document-type create --schema                      # the create body's JSON Schema, from the Management API spec (offline)
 umbraco document-type create --example                     # a real document type (a minimal one on an empty site) to start from (needs a host)
@@ -580,7 +588,7 @@ rather than failing. The same applies to `data-type`, `media-type`, `member-type
 umbraco data-type list [--parent <folder>]                # includes editorAlias (one read per item) and the folder as parent
 umbraco data-type get <name|id>                           # by NAME (a data type has no alias); the full body, configuration included
 umbraco data-type create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
-umbraco data-type create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns {id, name}
+umbraco data-type create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns the saved data type, as get prints it
 umbraco data-type update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
 umbraco data-type update <name|id> --json-body <file> [--replace]   # merged; the only way to set `values`; --replace needs --yes
 umbraco data-type create --schema | --example             # the body's JSON Schema (offline), or a real data type (needs a host)
@@ -746,6 +754,9 @@ checks them first and **fails with the list of configured codes** rather than re
 item that is actually empty ([#181](https://github.com/worm-brain/Umbraco.Cli/issues/181)). The
 response is also read back from the instance, so what you see is what was stored.
 
+`get`, `create`, `update` and `list` carry the item's `parent: {id}` (left out at the root), so
+you can see where an item lives without walking the tree.
+
 Short codes are rejected rather than resolved: on a site with both `en-US` and `en-GB`, guessing
 which one `en` meant would be a coin flip.
 
@@ -763,6 +774,10 @@ umbraco webhook delete <id>                               # needs --yes non-inte
 umbraco webhook event list                                # the aliases --event accepts
 ```
 
+`create` returns the webhook read back from the instance, in the same shape as `list`: each event
+is `{eventName, eventType, alias}`, with the display name in `eventName` and what you passed to
+`--event` in `alias`.
+
 `--event` takes Umbraco's event **aliases** (`Umbraco.ContentPublish`, `Umbraco.MediaSave`),
 not display names. Umbraco saves a webhook with an unknown event but never fires it, so
 `create` checks every alias against `GET /webhook/events` first. An unknown alias is refused
@@ -773,8 +788,10 @@ be read ([#234](https://github.com/worm-brain/Umbraco.Cli/issues/234)).
 
 The three static-file resources share the same path-addressed verbs. Files are identified by
 **path** (not an id); `update` replaces the content only. Give `--content` or `--content-file`
-(`-` for stdin), not both. The three nouns are spelled out
-below so each is complete on its own.
+(`-` for stdin), not both. Paths are Umbraco's form, with a leading `/` (`/blocklist/site.css`),
+in every output: `create` reads the new file back, so its `path` matches `list` and `get`.
+`--parent` takes the folder with or without the slashes (`blocklist`, `/blocklist/`). The three
+nouns are spelled out below so each is complete on its own.
 
 ```bash
 # script

@@ -114,15 +114,18 @@ public static class RawBodyCommand
     /// <summary>
     /// Runs a schema <c>create</c>: <c>--schema</c> prints the body's JSON Schema, <c>--example</c>
     /// a real item, a <c>--json-body</c> is POSTed raw with its id settled first (#204), and
-    /// otherwise <paramref name="flagCreate"/> builds it from the flags.
+    /// otherwise <paramref name="flagCreate"/> builds it from the flags. Either way the id is known
+    /// before the POST, and the result is the saved item read back by that id, exactly as
+    /// <c>get</c> prints it (#285, docs/conventions.md 6.2) - not the request echoed, which showed
+    /// no properties, groups or collection even when they were saved.
     /// </summary>
-    /// <typeparam name="T">What the flag-built create returns.</typeparam>
+    /// <typeparam name="T">What the flag-built create returns (discarded; the item is read back).</typeparam>
     /// <param name="executor">The shared command executor.</param>
     /// <param name="parseResult">The parsed command line.</param>
     /// <param name="noun">The schema noun.</param>
     /// <param name="body">The body option handle, from <see cref="AddCreateOptions"/>.</param>
     /// <param name="idOpt">The <c>--id</c> option.</param>
-    /// <param name="flagCreate">The flag-built create.</param>
+    /// <param name="flagCreate">The flag-built create, given the id to create the item with.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The command's exit code.</returns>
     public static Task<int> RunCreateAsync<T>(
@@ -131,7 +134,12 @@ public static class RawBodyCommand
         SchemaNoun noun,
         JsonBodyOption body,
         Option<Guid?> idOpt,
-        Func<IUmbracoManagementClient, CancellationToken, Task<UmbracoResponse<T>>> flagCreate,
+        Func<
+            IUmbracoManagementClient,
+            Guid,
+            CancellationToken,
+            Task<UmbracoResponse<T>>
+        > flagCreate,
         CancellationToken ct
     )
     {
@@ -148,12 +156,54 @@ public static class RawBodyCommand
                         await ReadBodyAsync(body, parseResult, c),
                         parseResult.GetValue(idOpt),
                         (json, token) => client.CreateSchemaRawAsync(noun.Kind, json, token),
+                        (id, token) => client.GetSchemaRawAsync(noun.Kind, id, token),
                         c
                     ),
                 ct
             );
 
-        return executor.RunObjectAsync(parseResult, flagCreate, ct);
+        return executor.RunObjectAsync(
+            parseResult,
+            async (client, c) =>
+            {
+                // The flag-built creates take a client-supplied id too, so it is settled here and
+                // the item can be read back by it.
+                var id = parseResult.GetValue(idOpt) ?? Guid.NewGuid();
+                var created = await flagCreate(client, id, c);
+                return created.IsSuccess
+                    ? await ReadBackAsync(
+                        id,
+                        (i, token) => client.GetSchemaRawAsync(noun.Kind, i, token),
+                        c
+                    )
+                    : UmbracoResponse<JsonNode>.FailureFrom(created);
+            },
+            ct
+        );
+    }
+
+    /// <summary>
+    /// Reads a just-created item back by its id, so a create reports what was saved (#285). The
+    /// read is best-effort, as for the other creates (content, dictionary, blueprint): the create
+    /// has already succeeded, so a failed read still reports success, with the id alone - never a
+    /// failure that would make a script retry and create the item twice.
+    /// </summary>
+    /// <param name="id">The created item's id.</param>
+    /// <param name="read">Reads the item by id, as <c>get</c> does.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The saved item, or <c>{ "id": ... }</c> when it could not be read.</returns>
+    internal static async Task<UmbracoResponse<JsonNode>> ReadBackAsync(
+        Guid id,
+        Func<Guid, CancellationToken, Task<UmbracoResponse<JsonNode>>> read,
+        CancellationToken ct
+    )
+    {
+        var saved = await read(id, ct);
+        return UmbracoResponse<JsonNode>.Success(
+            saved is { IsSuccess: true, Data: { } item }
+                ? item
+                : new JsonObject { ["id"] = id.ToString() }
+        );
     }
 
     // ── update ───────────────────────────────────────────────────────────────
@@ -443,24 +493,27 @@ public static class RawBodyCommand
         );
 
     /// <summary>
-    /// Creates an item from a <c>--json-body</c> and reports its id (#204, #218). The create
-    /// endpoints return no body, so the id is settled <b>before</b> the POST and written into the
-    /// body (Umbraco 14+ honours a client-supplied id): <c>--id</c> when given, else the body's own
-    /// <c>id</c>, else a new one. Deciding it up front, rather than reading the <c>Location</c>
-    /// header afterwards, is also what makes <c>--id</c> work with a body at all.
+    /// Creates an item from a <c>--json-body</c> and returns it as saved (#204, #218, #285). The
+    /// create endpoints return no body, so the id is settled <b>before</b> the POST and written into
+    /// the body (Umbraco 14+ honours a client-supplied id): <c>--id</c> when given, else the body's
+    /// own <c>id</c>, else a new one. Deciding it up front, rather than reading the
+    /// <c>Location</c> header afterwards, is also what makes <c>--id</c> work with a body at all,
+    /// and lets the item be read back by it (see <see cref="ReadBackAsync"/>).
     /// </summary>
     /// <param name="body">The parsed body; its <c>id</c> is set in place.</param>
     /// <param name="id">The <c>--id</c> value, or null.</param>
     /// <param name="create">The raw create call.</param>
+    /// <param name="read">Reads the item by id, as <c>get</c> does.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created item's id, name and alias, or the create's failure.</returns>
-    /// <exception cref="InvalidOperationException">
+    /// <returns>The saved item (or <c>{ "id" }</c> when the read-back failed), or the create's failure.</returns>
+    /// <exception cref="InvalidInputException">
     /// The body is not a JSON object, its <c>id</c> is not a UUID, or it differs from <c>--id</c>.
     /// </exception>
-    public static async Task<UmbracoResponse<RawCreated>> CreateAsync(
+    public static async Task<UmbracoResponse<JsonNode>> CreateAsync(
         JsonNode body,
         Guid? id,
         Func<JsonNode, CancellationToken, Task<UmbracoResponse<Empty>>> create,
+        Func<Guid, CancellationToken, Task<UmbracoResponse<JsonNode>>> read,
         CancellationToken ct
     )
     {
@@ -481,7 +534,9 @@ public static class RawBodyCommand
         obj["id"] = resolved.ToString();
 
         var created = await create(obj, ct);
-        return created.Map(_ => new RawCreated(resolved, Text(obj, "name"), Text(obj, "alias")));
+        return created.IsSuccess
+            ? await ReadBackAsync(resolved, read, ct)
+            : UmbracoResponse<JsonNode>.FailureFrom(created);
     }
 
     /// <summary>
@@ -499,9 +554,6 @@ public static class RawBodyCommand
                 $"--id {f} does not match the id {b} in --json-body. Give one, or make them agree."
             )
             : flag ?? fromBody;
-
-    private static string? Text(JsonObject obj, string name) =>
-        obj[name] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
 
     /// <summary>Joins option names for a message: <c>--a</c>, <c>--a and --b</c>, <c>--a, --b and --c</c>.</summary>
     /// <param name="names">The names.</param>

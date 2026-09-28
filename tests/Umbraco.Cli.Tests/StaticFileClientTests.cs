@@ -101,29 +101,127 @@ public class StaticFileClientTests
     }
 
     [Fact]
-    public async Task CreateStaticFileAsync_PostsNameAndContent_AndEchoesDerivedPath()
+    public async Task CreateStaticFileAsync_PostsNameAndContent()
     {
-        // Create returns an empty body; the client echoes the request with the derived path.
-        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+        var handler = Wire.Blank();
+
+        await Wire.Client(handler)
+            .CreateStaticFileAsync(
+                StaticFileKind.Stylesheet,
+                new CreateStaticFileRequest
+                {
+                    Name = "site.css",
+                    ParentPath = "theme",
+                    Content = "body{}",
+                },
+                CancellationToken.None
+            );
+
+        var body = handler.BodyOf(HttpMethod.Post, "/stylesheet");
+        Assert.Equal(("site.css", "body{}"), ((string?)body["name"], (string?)body["content"]));
+    }
+
+    [Fact]
+    public async Task CreateStaticFileAsync_SlashedParent_SendsItTrimmed()
+    {
+        // #296: "/theme/" as typed (or "/theme" as list prints it) is the folder "theme".
+        var handler = Wire.Blank();
+
+        await Wire.Client(handler)
+            .CreateStaticFileAsync(
+                StaticFileKind.Stylesheet,
+                new CreateStaticFileRequest { Name = "site.css", ParentPath = "/theme/" },
+                CancellationToken.None
+            );
+
+        Assert.Equal(
+            "theme",
+            (string?)handler.BodyOf(HttpMethod.Post, "/stylesheet")["parent"]!["path"]
+        );
+    }
+
+    [Fact]
+    public async Task CreateStaticFileAsync_ReadsTheFileBackAndReturnsItAsGetShowsIt()
+    {
+        // #296: the result is the saved file, with Umbraco's leading-slash path.
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                """{"path":"/theme/site.css","name":"site.css","parent":{"path":"/theme"}}"""
+            )
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateStaticFileAsync(
+                StaticFileKind.Stylesheet,
+                new CreateStaticFileRequest { Name = "site.css", ParentPath = "theme/" },
+                CancellationToken.None
+            );
+
+        Assert.Equal(
+            ("/theme/site.css", "%2Ftheme%2Fsite.css"),
+            (
+                result.Data!.Path,
+                handler.AssertRequested(HttpMethod.Get, "site.css").Uri.AbsolutePath.Split('/')[^1]
+            )
+        );
+    }
+
+    [Fact]
+    public async Task CreateStaticFileAsync_ReadBackFails_ReturnsTheNormalisedPath()
+    {
+        var handler = new RoutingHandler()
+            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.NotFound, "")
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateStaticFileAsync(
+                StaticFileKind.Script,
+                new CreateStaticFileRequest { Name = "site.js", ParentPath = "/lib/" },
+                CancellationToken.None
+            );
+
+        Assert.Equal(
+            (true, "/lib/site.js", "/lib"),
+            (result.IsSuccess, result.Data!.Path, result.Data.ParentPath)
+        );
+    }
+
+    [Fact]
+    public async Task CreateStaticFileAsync_CreateRejected_ReturnsTheFailure()
+    {
+        var (client, _) = ClientReturning("""{"title":"Name taken"}""", HttpStatusCode.BadRequest);
 
         var result = await client.CreateStaticFileAsync(
-            StaticFileKind.Stylesheet,
-            new CreateStaticFileRequest
-            {
-                Name = "site.css",
-                ParentPath = "theme",
-                Content = "body{}",
-            },
+            StaticFileKind.Script,
+            new CreateStaticFileRequest { Name = "site.js" },
             CancellationToken.None
         );
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(HttpMethod.Post, handler.LastMethod);
-        Assert.EndsWith("/stylesheet", handler.LastUri!.AbsolutePath);
-        Assert.Contains("site.css", handler.LastBody);
-        Assert.Contains("body{}", handler.LastBody);
-        // Path derived as parent/name for the echoed response.
-        Assert.Equal("theme/site.css", result.Data!.Path);
+        Assert.Equal(400, result.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("/", null)]
+    [InlineData(" /blocklist/Components/ ", "blocklist/Components")]
+    [InlineData("theme", "theme")]
+    public void NormaliseFolder_TrimsSlashes(string? typed, string? expected)
+    {
+        Assert.Equal(expected, UmbracoManagementClient.NormaliseFolder(typed));
+    }
+
+    [Theory]
+    [InlineData(null, "/site.css")]
+    [InlineData("theme/dark", "/theme/dark/site.css")]
+    public void CreatedPath_IsUmbracosLeadingSlashForm(string? parent, string expected)
+    {
+        var path = UmbracoManagementClient.CreatedPath(
+            new CreateStaticFileRequest { Name = "site.css", ParentPath = parent }
+        );
+
+        Assert.Equal(expected, path);
     }
 
     [Fact]

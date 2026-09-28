@@ -76,11 +76,57 @@ public sealed partial class UmbracoManagementClient
 
     // ── Read (raw, full fidelity) ────────────────────────────────────────────────
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Reads a blueprint as the API returns it, plus the top-level <c>name</c> and <c>parent</c>
+    /// the CLI adds to content reads (#298; see <see cref="WithBlueprintNameAndParentAsync"/>).
+    /// </summary>
+    /// <param name="id">The blueprint id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The blueprint JSON, or a mapped failure.</returns>
     public Task<UmbracoResponse<JsonNode>> GetDocumentBlueprintAsync(
         Guid id,
         CancellationToken ct = default
-    ) => GuardedApiAsync(ct, () => GetRawJsonAsync($"{BlueprintPath}/{id}", ct));
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+                await WithBlueprintNameAndParentAsync(
+                    await GetRawJsonAsync($"{BlueprintPath}/{id}", ct),
+                    id,
+                    ct
+                )
+        );
+
+    /// <summary>
+    /// Adds what a blueprint body lacks and <c>content get</c> shows (#298): a top-level
+    /// <c>name</c>, the first variant's (the same rule as <c>content get</c>), and a
+    /// <c>parent: {id}</c> read from the blueprint tree. A blueprint at the root gets no
+    /// <c>parent</c>, as a root document has none; a name already on the body is kept.
+    /// </summary>
+    /// <param name="blueprint">The blueprint as read; changed in place when it is an object.</param>
+    /// <param name="id">The blueprint id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The same node, with the name and parent added.</returns>
+    private async Task<JsonNode> WithBlueprintNameAndParentAsync(
+        JsonNode blueprint,
+        Guid id,
+        CancellationToken ct
+    )
+    {
+        if (blueprint is not JsonObject obj)
+            return blueprint;
+
+        if (
+            obj["name"] is null
+            && obj["variants"] is JsonArray { Count: > 0 } variants
+            && variants[0]?["name"] is JsonValue name
+        )
+            obj["name"] = name.DeepClone();
+
+        if (await BlueprintParentAsync(id, ct) is { } parent)
+            obj["parent"] = new JsonObject { ["id"] = parent.Id.ToString() };
+        return obj;
+    }
 
     /// <inheritdoc />
     public Task<UmbracoResponse<JsonNode>> ScaffoldDocumentBlueprintAsync(
@@ -416,9 +462,10 @@ public sealed partial class UmbracoManagementClient
     // ── Helpers ──────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Re-reads a just-created blueprint so the returned JSON is fully hydrated. The create/from-document
-    /// endpoints return an empty body, and the hydration read is best-effort: a failure still reports
-    /// success (the create itself succeeded) by returning a minimal <c>{ "id": ... }</c> document.
+    /// Re-reads a just-created blueprint so the returned JSON is fully hydrated, as <c>get</c> shows
+    /// it (name and parent included, #298). The create/from-document endpoints return an empty
+    /// body, and the hydration read is best-effort: a failure still reports success (the create
+    /// itself succeeded) by returning a minimal <c>{ "id": ... }</c> document.
     /// </summary>
     /// <param name="id">The created blueprint's id.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -427,7 +474,11 @@ public sealed partial class UmbracoManagementClient
     {
         try
         {
-            return await GetRawJsonAsync($"{BlueprintPath}/{id}", ct);
+            return await WithBlueprintNameAndParentAsync(
+                await GetRawJsonAsync($"{BlueprintPath}/{id}", ct),
+                id,
+                ct
+            );
         }
         // Best-effort: a failed hydration read still reports the successful create. A cancellation,
         // however, must propagate rather than be masked as a hydration miss.

@@ -149,10 +149,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// Gets a single document by id (issue #42 — the display name and dates live under
-    /// <c>variants[]</c>, not at the top level, so a naive DTO returned an empty name and
-    /// <c>0001-01-01</c> dates). Reads <c>GET /document/{id}</c> and flattens the invariant
-    /// (or first) variant.
+    /// Gets a single document by id. Reads <c>GET /document/{id}</c> and maps every field it
+    /// returns under the API's own keys (#306, #284) - <c>documentType</c>, <c>isTrashed</c>,
+    /// <c>flags</c>, and each variant's <c>id</c>, <c>flags</c> and schedule dates (#297) - then adds
+    /// what the CLI reads elsewhere: the first variant's name at the top level (#42), the parent
+    /// from the tree (#205), the public URLs from <c>GET /document/urls</c> (#289), and the document
+    /// type's alias (#163). The extra reads are best-effort: a failure leaves that field out.
     /// </summary>
     /// <param name="id">The document id.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -173,11 +175,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 {
                     Id = d?.Id ?? id,
                     Name = variant?.Name ?? "",
-                    ContentType = d?.DocumentType?.Id is { } dtId
-                        ? new ContentTypeRef
+                    DocumentType = MapDocumentTypeRef(d?.DocumentType) is { } type
+                        ? type with
                         {
-                            Id = dtId,
-                            Alias = await DocumentTypeAliasAsync(dtId, ct),
+                            Alias = await DocumentTypeAliasAsync(type.Id, ct),
                         }
                         : null,
                     IsPublished = (d?.Variants ?? []).Any(v =>
@@ -185,8 +186,12 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                             is Gen.DocumentVariantStateModel.Published
                                 or Gen.DocumentVariantStateModel.PublishedPendingChanges
                     ),
+                    IsTrashed = d?.IsTrashed ?? false,
+                    Flags = MapFlags(d?.Flags),
                     // #205: the by-id body has no parent at all, so it comes from the tree.
                     Parent = await DocumentParentAsync(id, ct),
+                    // #289: nor any URL, so it comes from /document/urls, as media's does.
+                    Urls = await DocumentUrlsAsync(id, ct),
                     CreateDate = variant?.CreateDate ?? default,
                     UpdateDate = variant?.UpdateDate,
                     // #168: the whole document, not a summary of its first variant. Without these
@@ -2958,6 +2963,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         {
                             Id = i.Id ?? Guid.Empty,
                             Name = i.Name ?? "",
+                            // #290: the overview carries the parent, so rows agree with get.
+                            Parent = i.Parent?.Id is { } p
+                                ? new ContentParentReference { Id = p }
+                                : null,
                         })
                         .ToList(),
                 };
@@ -2982,27 +2991,16 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         var resolved = await ResolveIdAsync(EntityKind.DictionaryItem, keyOrId, ct);
         if (!resolved.IsSuccess)
             return UmbracoResponse<DictionaryItemResponse>.FailureFrom(resolved);
-        var id = resolved.Data;
-
-        return await GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var item = await _api
-                    .Umbraco.Management.Api.V1.Dictionary[id]
-                    .GetAsync(cancellationToken: ct);
-                return item is null
-                    ? new DictionaryItemResponse { Id = id }
-                    : MapDictionaryItem(item);
-            }
-        );
+        // The same by-id read the writes use to report what was saved, so get, create and update
+        // agree, parent included (#290).
+        return await ReadDictionaryItemAsync(resolved.Data, ct);
     }
 
     /// <summary>
     /// Creates a dictionary item via <c>POST dictionary</c> (generated client). The id is
-    /// client-generated (Umbraco 14+ accepts a supplied GUID) so the created item can be
-    /// echoed back fully populated without a follow-up read; the <c>201</c> response has an
-    /// empty body.
+    /// client-generated (Umbraco 14+ accepts a supplied GUID), so after the empty <c>201</c> the
+    /// item is read back by that id and returned as <c>get</c> shows it, parent included (#181,
+    /// #290).
     /// </summary>
     /// <param name="request">The dictionary item to create.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -3054,6 +3052,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Id = id,
                     Name = request.Name,
                     Translations = null,
+                    Parent = request.Parent is { } parent
+                        ? new ContentParentReference { Id = parent.Id }
+                        : null,
                 };
             }
         );
@@ -3150,17 +3151,21 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// Creates a webhook via <c>POST webhook</c> (generated client). The id is
-    /// client-generated (Umbraco 14+ accepts a supplied GUID), so the created webhook is
-    /// echoed back with its id and the accepted request fields without a follow-up read
-    /// (the <c>201</c> response body is empty). The request's event names (strings) are
-    /// echoed as <see cref="WebhookEvent"/> objects to match the read shape (#46). Every event
-    /// alias is checked against the instance's events first (#234); an unknown one refuses the
-    /// create with a 400 instead of saving a webhook that never fires.
+    /// Creates a webhook via <c>POST webhook</c> (generated client) and returns it as
+    /// <c>webhook list</c> shows it (#295). The id is client-generated (Umbraco 14+ accepts a
+    /// supplied GUID), so after the empty <c>201</c> the webhook is read back by that id: each
+    /// event then carries its display <c>eventName</c>, <c>eventType</c> and <c>alias</c>, where an
+    /// echo of the request put the alias in <c>eventName</c>. Every event alias is checked against
+    /// the instance's events first (#234); an unknown one refuses the create with a 400 instead of
+    /// saving a webhook that never fires.
+    /// <para>
+    /// The read-back is best-effort, as for the other creates: when it fails the create still
+    /// succeeded, so the request is returned with each event as its <c>alias</c> alone.
+    /// </para>
     /// </summary>
     /// <param name="request">The webhook to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created webhook (with the generated id), or a mapped failure.</returns>
+    /// <returns>The created webhook as the instance holds it, or a mapped failure.</returns>
     public Task<UmbracoResponse<WebhookResponse>> CreateWebhookAsync(
         CreateWebhookRequest request,
         CancellationToken ct = default
@@ -3184,6 +3189,23 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Headers = MapWebhookHeaders(request.Headers),
                 };
                 await _api.Umbraco.Management.Api.V1.Webhook.PostAsync(body, cancellationToken: ct);
+
+                // #295: read what was saved, so the events have the same shape as in `list`.
+                try
+                {
+                    if (
+                        await _api
+                            .Umbraco.Management.Api.V1.Webhook[id]
+                            .GetAsync(cancellationToken: ct) is
+                        { } saved
+                    )
+                        return MapWebhook(saved);
+                }
+                catch (ApiException)
+                {
+                    // Fall through: the webhook exists, only the read-back failed.
+                }
+
                 return new WebhookResponse
                 {
                     Id = id,
@@ -3191,12 +3213,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Description = request.Description,
                     Url = request.Url,
                     Enabled = request.Enabled,
-                    Events = request
-                        .Events.Select(e => new WebhookEvent { EventName = e })
-                        .ToList(),
+                    // The request has only the aliases; they go in `alias`, never `eventName`.
+                    Events = request.Events.Select(e => new WebhookEvent { Alias = e }).ToList(),
                     ContentTypeKeys = request.ContentTypeKeys.ToList(),
-                    // Echo the headers dictionary as-is (empty when none) to match the shape
-                    // the webhook read path produces from the API's `headers` object.
                     Headers = request.Headers,
                 };
             }
@@ -3398,7 +3417,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     private static string DocumentName(Gen.DocumentTreeItemResponseModel item) =>
         (item.Variants ?? []).FirstOrDefault()?.Name ?? "";
 
-    /// <summary>Maps a generated document tree item onto the command-facing <see cref="ContentItemResponse"/>.</summary>
+    /// <summary>
+    /// Maps a generated document tree item onto the command-facing <see cref="ContentItemResponse"/>,
+    /// under the same keys <c>content get</c> uses. The tree item has no update date, values or
+    /// full variants, so those stay null and are left out of a row.
+    /// </summary>
     /// <param name="item">The generated document tree item.</param>
     /// <returns>The mapped content item (name flattened from variants, published derived from variant state).</returns>
     private static ContentItemResponse MapDocumentTreeItem(
@@ -3408,9 +3431,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         {
             Id = item.Id ?? Guid.Empty,
             Name = DocumentName(item),
-            ContentType = item.DocumentType?.Id is { } dtId
-                ? new ContentTypeRef { Id = dtId }
-                : null,
+            DocumentType = MapDocumentTypeRef(item.DocumentType),
+            IsTrashed = item.IsTrashed ?? false,
+            Flags = MapFlags(item.Flags),
             Parent = item.Parent?.Id is { } pId ? new ContentParentReference { Id = pId } : null,
             IsPublished = (item.Variants ?? []).Any(v =>
                 v.State

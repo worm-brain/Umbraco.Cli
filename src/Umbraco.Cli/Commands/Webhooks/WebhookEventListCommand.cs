@@ -24,7 +24,7 @@ public static class WebhookEventListCommand
                     parseResult,
                     (client, skip, take, c) => client.GetWebhookEventsAsync(skip, take, c),
                     ["Alias", "Name", "Type"],
-                    e => new[] { e.Alias ?? "", e.EventName, e.EventType ?? "" },
+                    e => new[] { e.Alias ?? "", e.EventName ?? "", e.EventType ?? "" },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
                     ct

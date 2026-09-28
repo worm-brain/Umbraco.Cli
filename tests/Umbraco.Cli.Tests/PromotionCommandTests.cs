@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.DataTypes;
@@ -131,6 +132,82 @@ public class PromotionCommandTests
         {
             File.Delete(body);
         }
+    }
+
+    [Fact]
+    public async Task DataTypesCreate_JsonBody_ReturnsTheItemAsSaved()
+    {
+        // #285: the saved item has configuration the body did not, and the output shows it.
+        var id = Guid.NewGuid();
+        var body = TempFile("""{"name":"Blocks","editorAlias":"Umbraco.BlockList"}""", ".json");
+        var fake = new FakeUmbracoManagementClient();
+        fake.DataTypeRaw[id] = JsonNode.Parse(
+            $$"""{"id":"{{id}}","name":"Blocks","values":[{"alias":"blocks","value":[]}]}"""
+        )!;
+        try
+        {
+            var (stdout, _) = await Run(
+                BuildRoot(fake),
+                $"{Auth} data-type create --id {id} --json-body {body}"
+            );
+
+            using var doc = JsonDocument.Parse(stdout);
+            Assert.Equal(
+                "blocks",
+                doc.RootElement.GetProperty("data")
+                    .GetProperty("values")[0]
+                    .GetProperty("alias")
+                    .GetString()
+            );
+        }
+        finally
+        {
+            File.Delete(body);
+        }
+    }
+
+    [Fact]
+    public async Task DataTypesCreate_FlagsOnly_CreatesWithTheIdAndReturnsTheItemAsSaved()
+    {
+        // #285: the flag-built create used to echo its request; it now reads the item back.
+        var id = Guid.NewGuid();
+        var fake = new FakeUmbracoManagementClient();
+        fake.DataTypeRaw[id] = JsonNode.Parse(
+            $$"""{"id":"{{id}}","name":"Text","values":[{"alias":"maxChars","value":50}]}"""
+        )!;
+
+        var (stdout, _) = await Run(
+            BuildRoot(fake),
+            $"{Auth} data-type create --id {id} --name Text --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
+        );
+
+        using var doc = JsonDocument.Parse(stdout);
+        Assert.Equal(
+            ((Guid?)id, "maxChars"),
+            (
+                Assert.Single(fake.DataTypeCreates).Id,
+                doc.RootElement.GetProperty("data")
+                    .GetProperty("values")[0]
+                    .GetProperty("alias")
+                    .GetString()
+            )
+        );
+    }
+
+    [Fact]
+    public async Task DataTypesCreate_FlagCreateFails_ExitsOne()
+    {
+        var fake = new FakeUmbracoManagementClient
+        {
+            DataTypeCreateFailure = UmbracoResponse<DataTypeResponse>.Failure(400, "Name taken"),
+        };
+
+        var (_, exit) = await Run(
+            BuildRoot(fake),
+            $"{Auth} data-type create --name Text --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
+        );
+
+        Assert.Equal(1, exit);
     }
 
     [Fact]
