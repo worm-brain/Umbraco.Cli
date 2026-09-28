@@ -230,9 +230,14 @@ public sealed class ScratchDocument : IDisposable
     /// Creates a root-allowed document type and one document of it.
     /// </summary>
     /// <param name="name">The document's name.</param>
-    /// <param name="templateAlias">Optional template to create the document with (#162).</param>
+    /// <param name="template">
+    /// Optional template to create the document with (#162). It is made the type's allowed and
+    /// default template first, because Umbraco refuses a template the type doesn't allow
+    /// (<c>TemplateNotAllowed</c>, #327).
+    /// </param>
     /// <returns>The scope, which deletes both on dispose.</returns>
-    public static ScratchDocument Create(string name, string? templateAlias = null)
+    /// <exception cref="Xunit.Sdk.XunitException">When the type or the document can't be created.</exception>
+    public static ScratchDocument Create(string name, ScratchTemplate? template = null)
     {
         var alias = "clitestEffect" + Guid.NewGuid().ToString("N")[..8];
         var type = CliRunner.Run(
@@ -250,7 +255,27 @@ public sealed class ScratchDocument : IDisposable
         // From here the type exists, so anything that throws must still clean it up.
         try
         {
-            string[] args = templateAlias is null
+            if (template is not null)
+            {
+                // update merges top-level keys, so this changes only the type's templates.
+                var allow = CliRunner.RunWithInput(
+                    JsonSerializer.Serialize(
+                        new
+                        {
+                            allowedTemplates = new[] { new { id = template.Id } },
+                            defaultTemplate = new { id = template.Id },
+                        }
+                    ),
+                    "document-type",
+                    "update",
+                    typeId,
+                    "--json-body",
+                    "-"
+                );
+                Assert.True(allow.Ok, $"Could not allow the scratch template: {allow.Stderr}");
+            }
+
+            string[] args = template is null
                 ? ["content", "create", "--document-type", alias, "--name", name]
                 :
                 [
@@ -261,12 +286,12 @@ public sealed class ScratchDocument : IDisposable
                     "--name",
                     name,
                     "--template",
-                    templateAlias,
+                    template.Alias,
                 ];
             var document = CliRunner.Run(args);
-            // An instance that refuses this combination is an environment limit, not a failure of
-            // the behaviour under test.
-            Skip.IfNot(document.Ok, $"Could not create the scratch document: {document.Stderr}");
+            // A reachable instance that can't build the fixture is a failure, not a skip: skipping
+            // here hid #327, and with it the #178 regression test, on every run.
+            Assert.True(document.Ok, $"Could not create the scratch document: {document.Stderr}");
             return new ScratchDocument(
                 document.Data().GetProperty("id").GetString()!,
                 typeId,
@@ -336,11 +361,12 @@ public sealed class ScratchTemplate : IDisposable
 
     /// <summary>Creates a template with a random alias.</summary>
     /// <returns>The scope, which deletes it on dispose.</returns>
+    /// <exception cref="Xunit.Sdk.XunitException">When the template can't be created.</exception>
     public static ScratchTemplate Create()
     {
         var alias = "clitestTpl" + Guid.NewGuid().ToString("N")[..8];
         var created = CliRunner.Run("template", "create", "--name", alias, "--alias", alias);
-        Skip.IfNot(created.Ok, $"Could not create a scratch template: {created.Stderr}");
+        Assert.True(created.Ok, $"Could not create a scratch template: {created.Stderr}");
         return new ScratchTemplate(created.Data().GetProperty("id").GetString()!, alias);
     }
 

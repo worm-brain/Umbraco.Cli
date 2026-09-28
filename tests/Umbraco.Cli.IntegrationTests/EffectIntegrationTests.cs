@@ -104,7 +104,7 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
         // template as `template.id`. Both are raw Management API surface that this repo does not
         // model, so the first live run should check here first if this test misbehaves.
         using var template = ScratchTemplate.Create();
-        using var doc = ScratchDocument.Create("clitest template effect", template.Alias);
+        using var doc = ScratchDocument.Create("clitest template effect", template);
 
         var before = doc.ExportBody();
         Assert.True(
