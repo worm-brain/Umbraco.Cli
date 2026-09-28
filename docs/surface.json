@@ -3809,7 +3809,7 @@
     },
     {
       "name": "webhook",
-      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook delete <id>\n  umbraco webhook event list",
+      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook update <id> --enabled false\n  umbraco webhook delete <id>\n  umbraco webhook event list\n  umbraco webhook log list <id>",
       "arguments": [],
       "options": [],
       "commands": [
@@ -3841,8 +3841,26 @@
           "acceptsJsonBody": false
         },
         {
+          "name": "get",
+          "description": "Get a webhook by id or name.\n\nExamples:\n  umbraco webhook get 3f7a8b2e-...\n  umbraco webhook get \"Deploy hook\"",
+          "arguments": [
+            {
+              "name": "id",
+              "description": "The webhook's id, or its name.",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [],
+          "commands": [],
+          "mutating": false,
+          "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
           "name": "create",
-          "description": "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\"",
+          "description": "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\"\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish --type blogPost --header X-Api-Key=abc123",
           "arguments": [],
           "options": [
             {
@@ -3884,6 +3902,97 @@
               "type": "string",
               "required": false,
               "hasDefault": false
+            },
+            {
+              "name": "--header",
+              "aliases": [],
+              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--type",
+              "aliases": [],
+              "description": "Document, media or member types (id or alias) the webhook fires for; omit to fire for every type. Repeat the option, or separate values with commas.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "update",
+          "description": "Update a webhook by id or name. Omitted options keep their values.\n\n--event and --type replace the current lists; --header merges by header name.\n\nExamples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook",
+          "arguments": [
+            {
+              "name": "id",
+              "description": "The webhook's id, or its name.",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--url",
+              "aliases": [],
+              "description": "New URL that Umbraco posts the event payload to.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--event",
+              "aliases": [],
+              "description": "Event aliases that replace the current ones, e.g. Umbraco.ContentPublish. Checked against the instance's events; see 'webhook event list'. Repeat the option, or separate values with commas.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New name for the webhook.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--description",
+              "aliases": [],
+              "description": "New description for the webhook.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--enabled",
+              "aliases": [],
+              "description": "Enable (--enabled or --enabled true) or disable (--enabled false) the webhook.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--header",
+              "aliases": [],
+              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several; each replaces a current header of the same name and the others are kept.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--type",
+              "aliases": [],
+              "description": "Document, media or member types (id or alias) that replace the current type filter: the webhook fires only for items of these types. Repeat the option, or separate values with commas.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
             }
           ],
           "commands": [],
@@ -3893,12 +4002,12 @@
         },
         {
           "name": "delete",
-          "description": "Delete a webhook subscription by id.\n\nExamples:\n  umbraco webhook delete 3f7a8b2e-...",
+          "description": "Delete a webhook subscription by id or name.\n\nExamples:\n  umbraco webhook delete 3f7a8b2e-...\n  umbraco webhook delete \"Deploy hook\" --yes",
           "arguments": [
             {
               "name": "id",
-              "description": "Webhook id.",
-              "type": "guid",
+              "description": "The webhook's id, or its name.",
+              "type": "string",
               "required": true,
               "hasDefault": false
             }
@@ -3919,6 +4028,52 @@
               "name": "list",
               "description": "List the event aliases that 'webhook create --event' accepts.\n\nExamples:\n  umbraco webhook event list\n  umbraco webhook event list -o json | jq -r '.data.items[].alias'",
               "arguments": [],
+              "options": [
+                {
+                  "name": "--skip",
+                  "aliases": [],
+                  "description": "Number of items to skip, for paging (default 0).",
+                  "type": "int",
+                  "required": false,
+                  "hasDefault": true
+                },
+                {
+                  "name": "--take",
+                  "aliases": [],
+                  "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
+                  "type": "int",
+                  "required": false,
+                  "hasDefault": true
+                }
+              ],
+              "commands": [],
+              "mutating": false,
+              "destructive": false,
+              "acceptsJsonBody": false
+            }
+          ],
+          "mutating": false,
+          "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "log",
+          "description": "List webhook delivery attempts.\n\nExamples:\n  umbraco webhook log list <id>\n  umbraco webhook log list",
+          "arguments": [],
+          "options": [],
+          "commands": [
+            {
+              "name": "list",
+              "description": "List webhook delivery attempts: what was sent and what came back.\n\nGive a webhook to see only its deliveries; omit it to see every webhook's.\n\nExamples:\n  umbraco webhook log list \"Deploy hook\"\n  umbraco webhook log list\n  umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'",
+              "arguments": [
+                {
+                  "name": "id",
+                  "description": "The webhook's id, or its name. Omit to list every webhook's deliveries.",
+                  "type": "string",
+                  "required": false,
+                  "hasDefault": false
+                }
+              ],
               "options": [
                 {
                   "name": "--skip",
