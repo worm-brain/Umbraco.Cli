@@ -770,7 +770,7 @@ check as `create`.
 umbraco webhook list
 umbraco webhook get <id|name>
 umbraco webhook create --url <url> --event <name>... [--name <name>] [--description <text>] [--header <name=value>]... [--type <id|alias>]... [--id <guid>]   # --event repeatable
-umbraco webhook update <id|name> [--url <url>] [--event <name>...] [--name <name>] [--description <text>] [--enabled [true|false]] [--header <name=value>]... [--type <id|alias>]...
+umbraco webhook update <id|name> [--url <url>] [--event <name>...] [--name <name>] [--description <text>] [--enabled [true|false]] [--header <name=value>]... [--type <id|alias>]... [--replace]   # --replace needs --yes non-interactively
 umbraco webhook delete <id|name>                          # needs --yes non-interactively
 umbraco webhook event list                                # the aliases --event accepts
 umbraco webhook log list [<id|name>] [--skip <n>] [--take <n>]   # deliveries of one webhook, or of all
@@ -784,6 +784,12 @@ and `--header` merges by header name (ignoring case), so naming one header leave
 alone. Enable or disable a webhook with `--enabled true` / `--enabled false`; there are no
 separate `enable`/`disable` verbs. `update` returns the webhook read back from the instance, as
 `get` shows it. New `--event` aliases get the same check as on `create`.
+
+`update --replace` sets exactly the headers and types given instead of merging: any header or
+type not named is removed, and with none given the headers are cleared and the type filter is
+removed (the webhook then fires for every type). It is destructive, so it needs `--yes`
+non-interactively. Events and the other fields keep their usual rules - omitted events are kept,
+because a webhook with no events never fires.
 
 `--header name=value` is repeat-only (a value may contain a comma) and is sent with every
 delivery - typically an API key the receiver checks. `--type` restricts the webhook to items

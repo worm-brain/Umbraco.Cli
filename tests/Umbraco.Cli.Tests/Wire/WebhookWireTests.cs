@@ -126,6 +126,43 @@ public class WebhookWireTests
     }
 
     [Fact]
+    public async Task UpdateWebhookAsync_Replace_SendsOnlyTheGivenHeaders()
+    {
+        var handler = await Update(
+            new UpdateWebhookRequest
+            {
+                Replace = true,
+                Headers = new Dictionary<string, string> { ["X-Env"] = "live" },
+            }
+        );
+
+        var headers = handler.BodyOf(HttpMethod.Put, $"/webhook/{HookId}")["headers"]!.AsObject();
+        Assert.Equal(["X-Env=live"], headers.Select(h => $"{h.Key}={h.Value}"));
+    }
+
+    [Fact]
+    public async Task UpdateWebhookAsync_ReplaceWithNothingGiven_ClearsHeadersAndTypes()
+    {
+        var handler = await Update(new UpdateWebhookRequest { Replace = true });
+
+        var body = handler.BodyOf(HttpMethod.Put, $"/webhook/{HookId}");
+        Assert.Equal(
+            (0, 0),
+            (body["headers"]!.AsObject().Count, body["contentTypeKeys"]!.AsArray().Count)
+        );
+    }
+
+    [Fact]
+    public async Task UpdateWebhookAsync_ReplaceWithNoEventsGiven_KeepsTheEvents()
+    {
+        // A webhook with no events never fires, so --replace does not clear them.
+        var handler = await Update(new UpdateWebhookRequest { Replace = true });
+
+        var events = handler.BodyOf(HttpMethod.Put, $"/webhook/{HookId}")["events"]!.AsArray();
+        Assert.Equal(["Umbraco.ContentPublish"], events.Select(e => e!.GetValue<string>()));
+    }
+
+    [Fact]
     public async Task UpdateWebhookAsync_EventsGiven_ReplacesTheEvents()
     {
         var handler = await Update(

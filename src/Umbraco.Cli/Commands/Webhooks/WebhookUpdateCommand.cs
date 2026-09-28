@@ -13,8 +13,10 @@ public static class WebhookUpdateCommand
 {
     /// <summary>
     /// Builds the <c>update</c> leaf. It merges (docs/conventions.md 5.1): omitted options keep
-    /// their values, a list option given replaces that list, and headers merge by name. The merge
-    /// itself is the client's, which reads the webhook before the <c>PUT</c>.
+    /// their values, a list option given replaces that list, and headers merge by name. With
+    /// <c>--replace</c> the given headers and types are the whole set, so omitting them clears
+    /// them (declared destructive with it, 5.2). The merge itself is the client's, which reads the
+    /// webhook before the <c>PUT</c>.
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
     /// <returns>The command.</returns>
@@ -23,8 +25,9 @@ public static class WebhookUpdateCommand
         var cmd = new Command(
             "update",
             "Update a webhook by id or name. Omitted options keep their values.\n\n"
-                + "--event and --type replace the current lists; --header merges by header name.\n\n"
-                + "Examples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook"
+                + "--event and --type replace the current lists; --header merges by header name. "
+                + "With --replace, the headers and types given are the whole set: any not given are removed.\n\n"
+                + "Examples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook\n  umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.Webhook);
         var urlOpt = new Option<string?>("--url")
@@ -45,7 +48,18 @@ public static class WebhookUpdateCommand
             Description =
                 "Enable (--enabled or --enabled true) or disable (--enabled false) the webhook.",
         };
+        var replaceOpt = new Option<bool>("--replace")
+        {
+            Description =
+                "Set exactly the headers and types given, removing any others; none given clears them. Without it headers merge and the type filter is kept.",
+        };
+        // Replacing drops whatever is not given, which the CLI cannot restore (docs/conventions.md 5.2).
+        cmd.DestructiveWith(
+            replaceOpt,
+            _ => "Replace this webhook's headers and type filter, removing any not given?"
+        );
         cmd.Add(idArg);
+        cmd.Add(replaceOpt);
         cmd.Add(urlOpt);
         cmd.Add(eventsOpt);
         cmd.Add(nameOpt);
@@ -97,6 +111,7 @@ public static class WebhookUpdateCommand
                                         Headers = WebhookOptions.Headers(
                                             parseResult.GetValue(headerOpt)
                                         ),
+                                        Replace = parseResult.GetValue(replaceOpt),
                                     },
                                     c
                                 );

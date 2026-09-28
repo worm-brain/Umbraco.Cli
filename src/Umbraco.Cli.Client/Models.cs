@@ -1676,9 +1676,17 @@ public record UpdateWebhookRequest
 
     /// <summary>
     /// Headers merged into the current ones by name (a given header replaces one of the same
-    /// name, ignoring case; the rest are kept); null or empty keeps them all.
+    /// name, ignoring case; the rest are kept); null or empty keeps them all. With
+    /// <see cref="Replace"/> they are the whole set instead.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    /// <summary>
+    /// Replace instead of merge (docs/conventions.md 5.1): <see cref="Headers"/> become exactly the
+    /// webhook's headers and <see cref="ContentTypeKeys"/> exactly its type filter, so leaving
+    /// either out clears it. Events and the scalar fields keep their usual rules.
+    /// </summary>
+    public bool Replace { get; init; }
 }
 
 /// <summary>

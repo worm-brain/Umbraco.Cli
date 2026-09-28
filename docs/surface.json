@@ -3927,7 +3927,7 @@
         },
         {
           "name": "update",
-          "description": "Update a webhook by id or name. Omitted options keep their values.\n\n--event and --type replace the current lists; --header merges by header name.\n\nExamples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook",
+          "description": "Update a webhook by id or name. Omitted options keep their values.\n\n--event and --type replace the current lists; --header merges by header name. With --replace, the headers and types given are the whole set: any not given are removed.\n\nExamples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook\n  umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter",
           "arguments": [
             {
               "name": "id",
@@ -3938,6 +3938,14 @@
             }
           ],
           "options": [
+            {
+              "name": "--replace",
+              "aliases": [],
+              "description": "Set exactly the headers and types given, removing any others; none given clears them. Without it headers merge and the type filter is kept.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
+            },
             {
               "name": "--url",
               "aliases": [],
@@ -3998,7 +4006,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "destructiveWhen": "--replace"
         },
         {
           "name": "delete",

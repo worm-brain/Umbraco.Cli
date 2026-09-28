@@ -213,6 +213,37 @@ public class WebhookCommandTests
     }
 
     [Fact]
+    public async Task WebhookUpdate_ReplaceWithYes_SendsReplace()
+    {
+        var fake = WithHook();
+
+        await Run(fake, "--yes webhook update Deploy --replace --header X-Key=a");
+
+        Assert.True(Assert.Single(fake.WebhooksUpdated).Request.Replace);
+    }
+
+    [Fact]
+    public async Task WebhookUpdate_ReplaceWithoutYes_IsRefusedNonInteractively()
+    {
+        // --replace can drop headers and the type filter, which the CLI cannot restore.
+        var fake = WithHook();
+
+        var exit = await Run(fake, "webhook update Deploy --replace");
+
+        Assert.Equal((2, 0), (exit, fake.WebhooksUpdated.Count));
+    }
+
+    [Fact]
+    public async Task WebhookUpdate_NoReplace_Merges()
+    {
+        var fake = WithHook();
+
+        await Run(fake, "webhook update Deploy --header X-Key=a");
+
+        Assert.False(Assert.Single(fake.WebhooksUpdated).Request.Replace);
+    }
+
+    [Fact]
     public async Task WebhookCreate_TypeAndHeader_SendsThem()
     {
         var blogPost = Guid.NewGuid();

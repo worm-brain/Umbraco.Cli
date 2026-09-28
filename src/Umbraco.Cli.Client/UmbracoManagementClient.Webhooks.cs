@@ -32,7 +32,8 @@ public sealed partial class UmbracoManagementClient
     /// Updates a webhook via <c>PUT webhook/{id}</c>. The API takes the whole webhook and resets
     /// anything left out, so the current webhook is read first and the request laid over it
     /// (docs/conventions.md 5.1): scalars given replace, a given event or type list replaces the
-    /// list, and headers merge by name. New event aliases get the same check as on create (#234),
+    /// list, and headers merge by name; with <see cref="UpdateWebhookRequest.Replace"/> the given
+    /// headers and types are the whole set, so omitting them clears them. New event aliases get the same check as on create (#234),
     /// so an update cannot subscribe a webhook to an event that never fires. The result is read
     /// back, so it is what <c>webhook get</c> would show.
     /// </summary>
@@ -80,9 +81,10 @@ public sealed partial class UmbracoManagementClient
     )
     {
         // Header names are case-insensitive on the wire, so X-Token and x-token are one header:
-        // a given one replaces the current one rather than sending both.
+        // a given one replaces the current one rather than sending both. A replace starts from
+        // no headers, so the given set is the whole set.
         var headers = new Dictionary<string, string>(
-            current.Headers ?? [],
+            request.Replace ? [] : current.Headers ?? [],
             StringComparer.OrdinalIgnoreCase
         );
         foreach (var (name, value) in request.Headers ?? new Dictionary<string, string>())
@@ -101,7 +103,10 @@ public sealed partial class UmbracoManagementClient
                     .Where(a => !string.IsNullOrEmpty(a))
                     .Select(a => a!)
                     .ToList(),
-            ContentTypeKeys = (request.ContentTypeKeys ?? current.ContentTypeKeys ?? [])
+            // A replace with no types clears the filter: the webhook fires for every type.
+            ContentTypeKeys = (
+                request.ContentTypeKeys ?? (request.Replace ? [] : current.ContentTypeKeys ?? [])
+            )
                 .Select(k => (Guid?)k)
                 .ToList(),
             // Always sent, even empty: the PUT replaces the whole webhook, headers included.

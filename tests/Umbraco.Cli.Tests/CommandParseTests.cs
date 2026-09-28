@@ -132,6 +132,7 @@ public class CommandParseTests
                 "member-type.update --replace",
                 "schema.apply --prune",
                 "template.update --replace",
+                "webhook.update --replace",
             ],
             actual
         );
