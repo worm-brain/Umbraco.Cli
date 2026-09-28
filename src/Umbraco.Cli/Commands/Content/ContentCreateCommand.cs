@@ -20,7 +20,8 @@ public static class ContentCreateCommand
     /// <param name="id">The <c>--id</c> value, or null.</param>
     /// <returns>The request.</returns>
     /// <exception cref="InvalidInputException">
-    /// The body is not a JSON object, names no document type, or its id contradicts <c>--id</c>.
+    /// The body is not a JSON object, names no document type, its id contradicts <c>--id</c>, or a
+    /// value still holds an <c>--example</c> placeholder (#376).
     /// </exception>
     internal static CreateContentRequest ReadCreateRequest(string json, Guid? id)
     {
@@ -40,6 +41,15 @@ public static class ContentCreateCommand
                 "--json-body names no document type: set \"contentType\": { \"alias\": \"...\" }, "
                     + "or pipe in 'document-blueprint scaffold', whose documentType is read as it."
             );
+
+        // A value still holding an --example placeholder would reach Umbraco as a 500 that does
+        // not name the property (#376), so it is refused here, naming it.
+        foreach (var entry in (obj["values"] as JsonArray ?? []).OfType<JsonObject>())
+            if (PropertyValueExamples.FindPlaceholder(entry["value"]) is { } placeholder)
+                throw new InvalidInputException(
+                    $"--json-body value '{entry["alias"]}' still holds the placeholder \"{placeholder}\": "
+                        + "replace it with a real id, or remove the entry."
+                );
 
         var request =
             obj.Deserialize<CreateContentRequest>()

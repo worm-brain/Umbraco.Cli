@@ -348,8 +348,8 @@ not in the table (a block editor, a package's own) gets `"value": null`. Every e
 back in. On a type that varies by culture the variant and the varying values get `--culture`, or
 the default language. `--name` names the variant. Where the table shows `<new guid>` (an id the
 caller need not choose), `--example` writes a fresh GUID, so it can be sent as it is. The other
-`<...>` placeholders (`<media id>`, `<document id>`) name an item only you know: Umbraco rejects
-the body until you replace them.
+`<...>` placeholders (`<media id>`, `<document id>`) name an item only you know: `content create`
+refuses the body, naming the property, until you replace them or remove the entry.
 
 The table is the one `--example` uses (Umbraco 17.7.0):
 
