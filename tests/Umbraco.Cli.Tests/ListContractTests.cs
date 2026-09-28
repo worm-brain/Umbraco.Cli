@@ -130,7 +130,7 @@ public class ListContractTests
 
         Assert.Equal("content.list", meta.GetProperty("command").GetString());
         Assert.Equal(12, meta.GetProperty("durationMs").GetInt32());
-        Assert.Equal("5", meta.GetProperty("schemaVersion").GetString());
+        Assert.Equal("6", meta.GetProperty("schemaVersion").GetString());
     }
 
     [Theory]

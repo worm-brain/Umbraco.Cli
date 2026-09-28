@@ -94,6 +94,29 @@ public class ContentVersionsWireTests
     }
 
     [Fact]
+    public async Task GetDocumentVersionsAsync_DraftAndPublishedShareADate_ListsTheDraftFirst()
+    {
+        // #294: publishing turns the draft into the published version and starts a new draft at
+        // the same moment; the tie came out in whatever order the server returned.
+        var published = Guid.NewGuid();
+        var draft = Guid.NewGuid();
+        var handler = Handler(
+            [],
+            [],
+            $$"""
+            { "total": 2, "items": [
+              { "id": "{{published}}", "versionDate": "2026-09-28T08:34:22Z", "isCurrentPublishedVersion": true },
+              { "id": "{{draft}}", "versionDate": "2026-09-28T08:34:22Z", "isCurrentDraftVersion": true } ] }
+            """
+        );
+
+        var result = await Wire.Client(handler)
+            .GetDocumentVersionsAsync(DocumentId, ct: CancellationToken.None);
+
+        Assert.Equal([draft, published], result.Data!.Items.Select(v => v.Id).ToList());
+    }
+
+    [Fact]
     public async Task GetDocumentVersionsAsync_VariantDocumentWithNoCulture_ReportsTheSummedTotal()
     {
         var handler = Handler(

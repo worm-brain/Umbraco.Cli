@@ -47,11 +47,9 @@ public sealed class ConfigStore
         var fromEnv = LoadFromEnvironment();
         var file = ReadFile();
 
-        var effectiveName =
-            Blank(profileName)
-            ?? Blank(Environment.GetEnvironmentVariable("UMBRACO_PROFILE"))
-            ?? file?.EffectiveDefault
-            ?? "default";
+        var effectiveName = file is null
+            ? Requested(profileName) ?? "default"
+            : ResolveName(file, profileName);
 
         var profile =
             file is not null && file.Profiles.TryGetValue(effectiveName, out var p)
@@ -97,7 +95,11 @@ public sealed class ConfigStore
     /// config does not carry one. The first profile saved becomes the default.
     /// </summary>
     /// <param name="config">The credentials to store (plaintext secret).</param>
-    /// <param name="profileName">The profile to write to; null means the current default.</param>
+    /// <param name="profileName">
+    /// The profile to write to (from <c>--profile</c>); null means the one <c>UMBRACO_PROFILE</c>
+    /// names, else the current default (#303).
+    /// </param>
+    /// <exception cref="InvalidOperationException">The config file exists but cannot be read.</exception>
     public void Save(CliConfig config, string? profileName = null)
     {
         // Never overwrite a config file we couldn't parse — that would silently wipe every
@@ -129,7 +131,10 @@ public sealed class ConfigStore
     }
 
     /// <summary>Lists the profile names and which one is the default.</summary>
-    /// <returns>The profile names and the default profile name.</returns>
+    /// <returns>
+    /// The profile names and the default profile name. The default names no listed profile once
+    /// the default has been logged out of (#304).
+    /// </returns>
     public (IReadOnlyList<string> Names, string Default) ListProfiles()
     {
         var file = ReadFile();
@@ -155,20 +160,24 @@ public sealed class ConfigStore
     }
 
     /// <summary>
-    /// Removes a profile (or the default profile when <paramref name="profileName"/> is null).
-    /// If the removed profile was the default, another remaining profile becomes the default.
-    /// Deletes the whole file once no profiles remain. Returns false when the profile is absent.
+    /// Removes a profile: <paramref name="profileName"/>, else the one <c>UMBRACO_PROFILE</c>
+    /// names, else the default. Removing the default profile leaves no profile as the default
+    /// (#304): the file keeps naming the removed profile, so a later command without
+    /// <c>--profile</c> fails as not authenticated instead of silently using whichever profile
+    /// happened to be listed first. Deletes the whole file once no profiles remain.
     /// </summary>
-    /// <param name="profileName">The profile to remove, or null for the default.</param>
-    /// <returns>True if a profile was removed.</returns>
+    /// <param name="profileName">The profile given with <c>--profile</c>, or null to resolve it as every command does.</param>
+    /// <returns>True if a profile was removed; false when the profile is absent.</returns>
     public bool DeleteProfile(string? profileName = null)
     {
         var file = ReadFile();
         if (file is null)
         {
-            // A corrupt/unreadable file with no specific profile requested: remove it wholesale
-            // so credentials never linger on a failed logout (matches the old logout semantics).
-            if (string.IsNullOrWhiteSpace(profileName) && File.Exists(_configPath))
+            // A corrupt/unreadable file with no profile named anywhere: remove it wholesale so
+            // credentials never linger on a failed logout (matches the old logout semantics).
+            // A named profile never deletes the whole file - that would take every other
+            // profile with it.
+            if (Requested(profileName) is null && File.Exists(_configPath))
             {
                 Delete();
                 return true;
@@ -176,13 +185,7 @@ public sealed class ConfigStore
             return false;
         }
 
-        var wasDefault = string.Equals(
-            ResolveName(file, profileName),
-            file.EffectiveDefault,
-            StringComparison.OrdinalIgnoreCase
-        );
-        var name = ResolveName(file, profileName);
-        if (!file.Profiles.Remove(name))
+        if (!file.Profiles.Remove(ResolveName(file, profileName)))
             return false;
 
         if (file.Profiles.Count == 0)
@@ -190,10 +193,6 @@ public sealed class ConfigStore
             Delete();
             return true;
         }
-
-        // If we removed the default, pick another remaining profile as the new default.
-        if (wasDefault)
-            file.DefaultProfile = file.Profiles.Keys.First();
 
         WriteFile(file);
         return true;
@@ -213,61 +212,98 @@ public sealed class ConfigStore
     }
 
     /// <summary>
-    /// Logs out of a profile (the default when <paramref name="profileName"/> is null). If the
+    /// Logs out of a profile, resolved as every command resolves it: <paramref name="profileName"/>,
+    /// else <c>UMBRACO_PROFILE</c>, else the default (#301). If the
     /// profile carries a command allow-list (#69), only its credentials are cleared and the
     /// allow-list is preserved (#83 H2) — so a restricted caller cannot drop the guardrail by
     /// logging out (logout bypasses the allow-list gate). Otherwise the profile is removed
     /// entirely (deleting the file when it was the last profile), matching the old semantics.
     ///
-    /// When the preserved stub was the default profile it stays the default (deliberately, unlike
-    /// <see cref="DeleteProfile"/> which reassigns): the guardrail lives on that profile, so the
-    /// next command still resolves to it and enforces the allow-list (aborting at auth until a
-    /// re-login, rather than silently falling through to an unrestricted profile).
+    /// When the preserved stub was the default profile it stays the default: the guardrail lives
+    /// on that profile, so the next command still resolves to it and enforces the allow-list
+    /// (aborting at auth until a re-login, rather than silently falling through to an
+    /// unrestricted profile).
     /// </summary>
-    /// <param name="profileName">The profile to log out of, or null for the default.</param>
+    /// <param name="profileName">The profile given with <c>--profile</c>, or null.</param>
     /// <returns>
-    /// What happened, so the command can report it, and the profile as it was stored (no
+    /// What happened, so the command can report it; the profile as it was stored (no
     /// <c>UMBRACO_*</c> overrides) when one was removed or cleared - logout clears its cached
-    /// tokens (#260). Null when nothing was removed, or the file was unreadable.
+    /// tokens (#260) - or null when nothing was removed or the file was unreadable; and the name
+    /// of the profile that was resolved, so the response always says which one it acted on.
     /// </returns>
-    public (LogoutOutcome Outcome, CliConfig? Removed) Logout(string? profileName = null)
+    public (LogoutOutcome Outcome, CliConfig? Removed, string Name) Logout(
+        string? profileName = null
+    )
     {
         var file = ReadFile();
         if (file is null)
         {
-            // Corrupt/unreadable file with no specific profile: remove it wholesale so
+            var requested = Requested(profileName);
+
+            // Corrupt/unreadable file with no profile named anywhere: remove it wholesale so
             // credentials never linger on a failed logout (matches DeleteProfile).
-            if (string.IsNullOrWhiteSpace(profileName) && File.Exists(_configPath))
+            if (requested is null && File.Exists(_configPath))
             {
                 Delete();
-                return (LogoutOutcome.Removed, null);
+                return (LogoutOutcome.Removed, null, "default");
             }
-            return (LogoutOutcome.NothingToRemove, null);
+            return (LogoutOutcome.NothingToRemove, null, requested ?? "default");
         }
 
         var name = ResolveName(file, profileName);
         if (!file.Profiles.TryGetValue(name, out var profile))
-            return (LogoutOutcome.NothingToRemove, null);
+            return (LogoutOutcome.NothingToRemove, null, name);
 
         if (!string.IsNullOrWhiteSpace(profile.AllowedCommands))
         {
             // Keep the allow-list as a credential-less stub so the guardrail survives logout.
             file.Profiles[name] = new CliConfig { AllowedCommands = profile.AllowedCommands };
             WriteFile(file);
-            return (LogoutOutcome.CredentialsClearedAllowListKept, profile);
+            return (LogoutOutcome.CredentialsClearedAllowListKept, profile, name);
         }
 
-        return DeleteProfile(profileName)
-            ? (LogoutOutcome.Removed, profile)
-            : (LogoutOutcome.NothingToRemove, null);
+        // Pass the resolved name on, so DeleteProfile removes exactly the profile checked above.
+        return DeleteProfile(name)
+            ? (LogoutOutcome.Removed, profile, name)
+            : (LogoutOutcome.NothingToRemove, null, name);
     }
 
-    /// <summary>The profile a call names: <paramref name="profileName"/>, or the file's default when it names none.</summary>
+    /// <summary>
+    /// The profile a call acts on, resolved the same way for every command (#301, #303):
+    /// <paramref name="profileName"/> (from <c>--profile</c>), else <c>UMBRACO_PROFILE</c>, else
+    /// the file's default, else <c>default</c>.
+    /// </summary>
+    /// <param name="profileName">The profile given with <c>--profile</c>, or null/blank.</param>
+    /// <returns>The profile name.</returns>
+    public string ResolveProfileName(string? profileName = null) =>
+        ReadFile() is { } file
+            ? ResolveName(file, profileName)
+            : Requested(profileName) ?? "default";
+
+    /// <summary>
+    /// Whether the default profile was removed while other profiles remain (#304), so no profile
+    /// is the default until <c>auth profile use</c> picks one.
+    /// </summary>
+    public bool DefaultProfileMissing =>
+        ReadFile() is { } file
+        && file.Profiles.Count > 0
+        && !file.Profiles.ContainsKey(file.EffectiveDefault);
+
+    /// <summary>The profile a call names in <paramref name="file"/>; see <see cref="ResolveProfileName"/>.</summary>
     /// <param name="file">The parsed config file.</param>
-    /// <param name="profileName">The requested profile, or null/blank.</param>
+    /// <param name="profileName">The profile given with <c>--profile</c>, or null/blank.</param>
     /// <returns>The profile name.</returns>
     private static string ResolveName(ConfigFile file, string? profileName) =>
-        string.IsNullOrWhiteSpace(profileName) ? file.EffectiveDefault : profileName;
+        Requested(profileName) ?? file.EffectiveDefault;
+
+    /// <summary>
+    /// The profile explicitly asked for: <paramref name="profileName"/>, else
+    /// <c>UMBRACO_PROFILE</c>; null when neither names one.
+    /// </summary>
+    /// <param name="profileName">The profile given with <c>--profile</c>, or null/blank.</param>
+    /// <returns>The requested profile name, or null.</returns>
+    private static string? Requested(string? profileName) =>
+        Blank(profileName) ?? Blank(Environment.GetEnvironmentVariable("UMBRACO_PROFILE"));
 
     /// <summary>Whether the config file exists on disk but cannot be parsed (fail-closed signal, #83 M1).</summary>
     /// <returns>True when a file is present but unreadable.</returns>

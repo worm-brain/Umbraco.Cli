@@ -36,11 +36,12 @@ public interface IDocumentBlueprintClient
 
     /// <summary>
     /// Gets the scaffold for a blueprint as raw JSON: the pre-filled create template Umbraco would
-    /// use to start a new document from this blueprint.
+    /// use to start a new document from this blueprint. The blueprint's own <c>id</c> is left out,
+    /// so the scaffold can be piped into <c>content create</c> as a new document (#299).
     /// </summary>
     /// <param name="id">The blueprint id.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The scaffold's verbatim JSON body.</returns>
+    /// <returns>The scaffold's JSON body, without the blueprint's id.</returns>
     Task<UmbracoResponse<JsonNode>> ScaffoldDocumentBlueprintAsync(
         Guid id,
         CancellationToken ct = default

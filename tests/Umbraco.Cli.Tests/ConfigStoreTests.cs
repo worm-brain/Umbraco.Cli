@@ -127,7 +127,7 @@ public class ConfigStoreTests : IDisposable
             }
         );
 
-        var (outcome, _) = Store.Logout();
+        var (outcome, _, _) = Store.Logout();
 
         Assert.Equal(ConfigStore.LogoutOutcome.CredentialsClearedAllowListKept, outcome);
         var after = Store.Load();
@@ -149,7 +149,7 @@ public class ConfigStoreTests : IDisposable
             }
         );
 
-        var (outcome, _) = Store.Logout();
+        var (outcome, _, _) = Store.Logout();
 
         Assert.Equal(ConfigStore.LogoutOutcome.Removed, outcome);
         Assert.False(Store.HasAnyProfiles);
@@ -181,16 +181,100 @@ public class ConfigStoreTests : IDisposable
     }
 
     [Fact]
-    public void DeleteProfile_RemovesOneAndReassignsDefault()
+    public void DeleteProfile_TheDefault_LeavesNoProfileAsTheDefault()
+    {
+        // #304: removing the default must not silently promote whichever profile is left.
+        Store.Save(Creds("https://default"));
+        Store.Save(Creds("https://prod"), "prod");
+        Store.SetDefaultProfile("prod");
+
+        Store.DeleteProfile("prod");
+
+        Assert.True(Store.DefaultProfileMissing);
+    }
+
+    [Fact]
+    public void DeleteProfile_TheDefault_CommandsWithoutAProfileGetNoCredentials()
     {
         Store.Save(Creds("https://default"));
         Store.Save(Creds("https://prod"), "prod");
         Store.SetDefaultProfile("prod");
 
-        Assert.True(Store.DeleteProfile("prod"));
-        var (names, def) = Store.ListProfiles();
-        Assert.DoesNotContain("prod", names);
-        Assert.Equal("default", def); // reassigned to the remaining profile
+        Store.DeleteProfile("prod");
+
+        Assert.Null(Store.Load().Host);
+    }
+
+    [Fact]
+    public void DeleteProfile_NotTheDefault_KeepsTheDefault()
+    {
+        Store.Save(Creds("https://default"));
+        Store.Save(Creds("https://prod"), "prod");
+
+        Store.DeleteProfile("prod");
+
+        Assert.Equal("https://default", Store.Load().Host);
+    }
+
+    [Fact]
+    public void Logout_UmbracoProfileEnv_RemovesThatProfileAndKeepsTheDefault()
+    {
+        // #301: the env var every `umb` wrapper sets picked the default instead.
+        Store.Save(Creds("https://a"), "a");
+        Store.Save(Creds("https://b"), "b");
+        Environment.SetEnvironmentVariable("UMBRACO_PROFILE", "b");
+
+        var (_, _, name) = Store.Logout();
+
+        Assert.Multiple(
+            () => Assert.Equal("b", name),
+            () => Assert.Equal(new[] { "a" }, Store.ListProfiles().Names)
+        );
+    }
+
+    [Fact]
+    public void Logout_UmbracoProfileEnvNamesMissingProfile_RemovesNothing()
+    {
+        Store.Save(Creds("https://a"), "a");
+        Environment.SetEnvironmentVariable("UMBRACO_PROFILE", "missing");
+
+        var (outcome, _, _) = Store.Logout();
+
+        Assert.Equal(ConfigStore.LogoutOutcome.NothingToRemove, outcome);
+    }
+
+    [Fact]
+    public void Logout_ProfileFlag_WinsOverUmbracoProfileEnv()
+    {
+        Store.Save(Creds("https://a"), "a");
+        Store.Save(Creds("https://b"), "b");
+        Environment.SetEnvironmentVariable("UMBRACO_PROFILE", "b");
+
+        Store.Logout("a");
+
+        Assert.Equal(new[] { "b" }, Store.ListProfiles().Names);
+    }
+
+    [Fact]
+    public void Save_UmbracoProfileEnv_WritesThatProfileAndLeavesTheDefaultAlone()
+    {
+        // #303: login under UMBRACO_PROFILE overwrote the default profile's credentials.
+        Store.Save(Creds("https://a"), "a");
+        Store.Save(Creds("https://b"), "b");
+        Environment.SetEnvironmentVariable("UMBRACO_PROFILE", "b");
+
+        Store.Save(Creds("https://new"));
+
+        Assert.Equal(("https://a", "https://new"), (Store.Load("a").Host, Store.Load("b").Host));
+    }
+
+    [Fact]
+    public void ResolveProfileName_NoFlagOrEnv_IsTheDefault()
+    {
+        Store.Save(Creds("https://a"), "a");
+        Store.Save(Creds("https://b"), "b");
+
+        Assert.Equal("a", Store.ResolveProfileName());
     }
 
     [Fact]

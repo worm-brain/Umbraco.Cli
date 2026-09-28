@@ -55,7 +55,7 @@ public sealed class LogoutCommandTests : IDisposable
             new StubHttpClientFactory(),
             cache: new FileTokenCache(CachePath)
         );
-        root.Add(LogoutCommand.Build(global.Output, global.Config, global.Profile, store, auth));
+        root.Add(LogoutCommand.Build(global, store, auth));
 
         var original = Console.Out;
         Console.SetOut(new StringWriter());

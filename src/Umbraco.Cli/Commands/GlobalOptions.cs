@@ -1,5 +1,7 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
+using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands;
 
@@ -101,6 +103,39 @@ public sealed class GlobalOptions
                 + "Also settable with UMBRACO_PROFILE. Defaults to the configured default profile.",
             Recursive = true,
         };
+
+    /// <summary>
+    /// Builds the output writer a command asked for: <c>--output</c>, <c>--fields</c> and
+    /// <c>--quiet</c>. Every command builds its writer here, including the <c>auth</c> commands
+    /// that run without a <see cref="CommandContext"/>, so the global output options behave the
+    /// same everywhere (#305).
+    /// </summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <returns>The writer.</returns>
+    public IOutputWriter CreateWriter(ParseResult parseResult) =>
+        OutputWriterFactory.Create(
+            OutputFormatParser.Parse(parseResult.GetValue(Output)),
+            ParseFields(parseResult.GetValue(Fields)),
+            parseResult.GetValue(Quiet)
+        );
+
+    /// <summary>
+    /// Splits the <c>--fields</c> value into a trimmed, non-empty field list (#63), or null when
+    /// nothing usable was supplied.
+    /// </summary>
+    /// <param name="raw">The raw comma-separated option value.</param>
+    /// <returns>The field names, or null for no projection.</returns>
+    private static string[]? ParseFields(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+        var fields = raw.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            )
+            .ToArray();
+        return fields.Length > 0 ? fields : null;
+    }
 
     /// <summary>Adds every global option to the supplied (root) command.</summary>
     public void AddTo(Command command)

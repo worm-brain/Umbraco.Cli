@@ -136,10 +136,10 @@ See [agent-guide.md](agent-guide.md#1-discover-the-surface-umbraco-commands) for
 
 ```bash
 umbraco auth login [--host <url>] [--client-id <id>] [--client-secret <secret>]
-umbraco auth logout [--profile <name>]        # clears credentials; preserves the profile's allow-list
+umbraco auth logout [--profile <name>]        # clears credentials; preserves the profile's allow-list; logging out of the default leaves no default
 umbraco auth whoami                           # the resolved identity
 umbraco auth doctor [--output json]           # diagnose host/TLS/credentials/auth/identity/version
-umbraco auth profile list                     # list credential profiles; * marks the default
+umbraco auth profile list                     # list credential profiles; "default": true marks the default (* in the table)
 umbraco auth profile use <profile>             # make a profile the default
 ```
 

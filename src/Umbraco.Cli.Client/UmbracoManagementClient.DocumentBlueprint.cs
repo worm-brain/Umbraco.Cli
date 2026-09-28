@@ -86,7 +86,21 @@ public sealed partial class UmbracoManagementClient
     public Task<UmbracoResponse<JsonNode>> ScaffoldDocumentBlueprintAsync(
         Guid id,
         CancellationToken ct = default
-    ) => GuardedApiAsync(ct, () => GetRawJsonAsync($"{BlueprintPath}/{id}/scaffold", ct));
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var body = await GetRawJsonAsync($"{BlueprintPath}/{id}/scaffold", ct);
+
+                // The scaffold is a body for a NEW document, but Umbraco returns it with the
+                // blueprint's own id. Dropped here, so a create can keep a body's id like every
+                // other create does (#299) and a piped scaffold still makes a new document.
+                if (body is JsonObject obj)
+                    obj.Remove("id");
+                return body;
+            }
+        );
 
     // ── Create ───────────────────────────────────────────────────────────────────
 

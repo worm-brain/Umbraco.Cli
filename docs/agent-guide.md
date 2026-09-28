@@ -72,7 +72,7 @@ Every successful command emits this envelope on **stdout**:
 {
   "status": "success",
   "data": { },
-  "meta": { "command": "content.list", "durationMs": 142, "schemaVersion": "5" }
+  "meta": { "command": "content.list", "durationMs": 142, "schemaVersion": "6" }
 }
 ```
 
@@ -84,7 +84,7 @@ names, same types - and its `meta` says how much more there is:
   "status": "success",
   "data": [ { "id": "...", "name": "Home", "isPublished": true } ],
   "meta": {
-    "command": "content.list", "durationMs": 142, "schemaVersion": "5",
+    "command": "content.list", "durationMs": 142, "schemaVersion": "6",
     "total": 237, "skip": 0, "take": 100, "hasMore": true
   }
 }
@@ -116,7 +116,7 @@ Errors go to **stderr**:
   "httpStatus": 404,
   "message": "Content item not found",
   "category": "request_rejected",
-  "meta": { "command": "content.get", "timestamp": "2026-09-25T20:00:00Z", "schemaVersion": "5" }
+  "meta": { "command": "content.get", "timestamp": "2026-09-25T20:00:00Z", "schemaVersion": "6" }
 }
 ```
 
@@ -137,7 +137,7 @@ responded:
   "message": "The Umbraco server returned an internal error (HTTP 500). This is a server-side problem, not a rejected request; check the Umbraco logs.",
   "category": "server_error",
   "serverVersion": "17.3.5",
-  "meta": { "command": "content.get", "timestamp": "2026-09-25T20:00:00Z", "schemaVersion": "5" }
+  "meta": { "command": "content.get", "timestamp": "2026-09-25T20:00:00Z", "schemaVersion": "6" }
 }
 ```
 
@@ -164,7 +164,7 @@ A write command run with `--dry-run` uses a distinct status and does not touch t
 
 ```json
 { "status": "dry-run", "data": { "method": "POST", "url": ".../webhook", "body": { } },
-  "meta": { "command": "webhook.create", "durationMs": 12, "timestamp": "...", "schemaVersion": "5" } }
+  "meta": { "command": "webhook.create", "durationMs": 12, "timestamp": "...", "schemaVersion": "6" } }
 ```
 
 The payload is under `data`, like every other success envelope - it was `request` before
@@ -175,7 +175,7 @@ schemaVersion 3, the one exception to that rule.
 - The field names above (`status`, `data`, `meta`, `command`, `durationMs`, `schemaVersion`,
   the error `exitCode`/`httpStatus`/`message`, and the error `category`/`serverVersion`) are part
   of the contract and are never renamed silently.
-- `meta.schemaVersion` (currently `"5"`) is bumped **only** on a breaking change - a renamed or
+- `meta.schemaVersion` (currently `"6"`) is bumped **only** on a breaking change - a renamed or
   removed field, or a changed meaning. New fields can appear without a bump.
 - Therefore: **ignore unknown fields**, and if you want to be defensive, gate on
   `meta.schemaVersion`.
@@ -184,6 +184,21 @@ schemaVersion 3, the one exception to that rule.
   serialized from the same objects `get` returns, rather than from the human table.
 - An absent `meta` field means **unknown**, never a default. A list with no `total` is one whose
   source could not count, not one that is complete.
+
+**What changed in schemaVersion 6**, if you are moving from `"5"`: the `auth` profile commands.
+
+| Before | Now |
+|---|---|
+| `auth profile list` `"default": "*"` or `""` | `"default": true` / `false` |
+| `auth logout` `{"removed": true}` (no `profile` unless `--profile` was given) | `{"profile": "<name>", "removed": true, "defaultCleared": false}` - always the profile it acted on |
+| `auth login` `profile` missing without `--profile` | always the profile the credentials were saved to |
+
+Behaviour that changed with it: `auth login` and `auth logout` resolve the profile like every
+other command (`--profile`, else `UMBRACO_PROFILE`, else the default); before, both ignored
+`UMBRACO_PROFILE` and acted on the default (#301, #303). Logging out of the default profile no
+longer promotes another profile to be the default: `defaultCleared` is `true`, and commands
+without a profile fail until `auth profile use <name>` picks one (#304). The global `--fields`
+and `--quiet` now apply under `auth` too (#305).
 
 **What changed in schemaVersion 5**, if you are moving from `"4"`: the **diff and apply**
 reports (`content diff`, `schema diff`, `content apply`, `schema apply`), a member's `groups`, and
@@ -451,7 +466,8 @@ none yet, it prints a minimal valid body). Both `update` and `create` return the
 
 A blueprint's scaffold is a valid content body: `document-blueprint scaffold <id> | umbraco
 content create --json-body -` creates a new item from it (its `documentType` is read as the
-`contentType`, and the blueprint's id is not reused).
+`contentType`). The scaffold carries no `id`, so each create makes a new item; a body that does
+carry an `id` keeps it, in either shape (#299).
 
 The snapshot round-trip is still the right tool for a **set** of types, or for moving schema
 between environments:
