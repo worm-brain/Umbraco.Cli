@@ -169,6 +169,9 @@ public static class CliRoot
             }
         }
 
+        // [suggest] returns prefix matches only (#398), not every name containing the word.
+        CompletionCommand.UsePrefixSuggestions(root);
+
         // Readable parse errors for every id and date option, installed once on the finished tree.
         ValueParsing.Apply(root);
 

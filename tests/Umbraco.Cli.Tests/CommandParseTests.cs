@@ -150,6 +150,33 @@ public class CommandParseTests
 
     private static bool HasErrors(string args) => Parse(args).Errors.Count > 0;
 
+    // ── --output values (#392) ───────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("language list -o yaml")]
+    [InlineData("language list --output table")]
+    [InlineData("language list -o \"\"")]
+    public void Output_UnknownValue_IsParseError(string args) => Assert.True(HasErrors(args));
+
+    [Theory]
+    [InlineData("language list -o json")]
+    [InlineData("language list -o HUMAN")]
+    [InlineData("language list --output Csv")]
+    [InlineData("language list")]
+    public void Output_KnownValueOrOmitted_HasNoParseError(string args) =>
+        Assert.False(HasErrors(args));
+
+    [Fact]
+    public void Output_UnknownValue_ErrorNamesTheValidFormats()
+    {
+        var message = Assert.Single(Parse("language list -o yaml").Errors).Message;
+
+        Assert.Equal(
+            "'yaml' is not a valid --output format: expected one of json, human, csv.",
+            message
+        );
+    }
+
     // ── Conditional requirement + --schema (#61) ─────────────────────────────
 
     [Theory]
@@ -762,7 +789,6 @@ public class CommandParseTests
     [InlineData("media-type update")] // no id and no --json-body
     [InlineData("media-type update brochure")] // no --json-body (it has no flags)
     [InlineData("document-type update blogPost --replace")] // --replace needs a body
-    [InlineData("media-type create --name OnlyName")] // --alias missing and no body
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]

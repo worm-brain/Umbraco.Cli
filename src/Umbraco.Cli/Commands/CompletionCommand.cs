@@ -1,4 +1,7 @@
 using System.CommandLine;
+using System.CommandLine.Completions;
+using System.CommandLine.Invocation;
+using System.CommandLine.Parsing;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands;
@@ -9,7 +12,7 @@ namespace Umbraco.Cli.Commands;
 /// <para>
 /// Every script asks the CLI itself what can come next, through System.CommandLine's built-in
 /// <c>[suggest:&lt;position&gt;]</c> directive (<c>umbraco "[suggest:11]" "umbraco con"</c> prints
-/// <c>content</c> and <c>--config</c>). So completion always matches the installed tree - nouns,
+/// <c>content</c>), narrowed to prefix matches by <see cref="UsePrefixSuggestions"/>. So completion always matches the installed tree - nouns,
 /// verbs, options and option values with a fixed set - and nothing else needs installing: no
 /// <c>dotnet-suggest</c>, no generated word lists to go stale. Like <c>commands</c> it is local:
 /// no host, no authentication, and it is not a resource noun (docs/conventions.md 9).
@@ -19,6 +22,66 @@ public static class CompletionCommand
 {
     /// <summary>The shells a script is available for, as the <c>shell</c> argument accepts them.</summary>
     public static readonly IReadOnlyList<string> Shells = ["bash", "zsh", "pwsh"];
+
+    /// <summary>
+    /// Makes the root's <c>[suggest]</c> directive return only the suggestions that start with
+    /// the word being completed, ignoring case (#398). System.CommandLine's own directive matches
+    /// the word anywhere in a name, so <c>con</c> also offered <c>--config</c>; the shell scripts
+    /// filter by prefix themselves (#379), but any other caller of the directive got the extras.
+    /// </summary>
+    /// <param name="root">The root command whose suggest directive is replaced.</param>
+    public static void UsePrefixSuggestions(RootCommand root)
+    {
+        foreach (var directive in root.Directives.OfType<SuggestDirective>())
+            directive.Action = new PrefixSuggestAction(directive);
+    }
+
+    /// <summary>
+    /// The <c>[suggest:&lt;position&gt;]</c> action, mirroring System.CommandLine's built-in one
+    /// (the last non-directive token is the command line, the directive value is the cursor
+    /// position in it) with a prefix filter on top of its substring matching.
+    /// </summary>
+    /// <param name="directive">The suggest directive this action serves, for its position value.</param>
+    private sealed class PrefixSuggestAction(SuggestDirective directive)
+        : SynchronousCommandLineAction
+    {
+        /// <summary>
+        /// True, as for the built-in action: the line to complete is one argument the root does
+        /// not recognise, so without this the invocation is a parse error and <c>Program.cs</c>
+        /// reports it instead of printing suggestions.
+        /// </summary>
+        public override bool ClearsParseErrors => true;
+
+        /// <summary>Prints the prefix-matching suggestions, one per line.</summary>
+        /// <param name="parseResult">The parse of the directive invocation itself.</param>
+        /// <returns>Always 0.</returns>
+        public override int Invoke(ParseResult parseResult)
+        {
+            // The line to complete is passed as one argument after the directive; an absent
+            // position means "at the end of it", as in the built-in action.
+            var line =
+                parseResult.Tokens.LastOrDefault(t => t.Type != TokenType.Directive)?.Value ?? "";
+            var positionValue = parseResult.GetResult(directive)?.Values.SingleOrDefault();
+            var position = int.TryParse(positionValue, out var p) ? p : line.Length;
+
+            var lineParse = parseResult.RootCommandResult.Command.Parse(
+                line,
+                parseResult.Configuration
+            );
+            var word = lineParse.GetCompletionContext() is TextCompletionContext text
+                ? text.AtCursorPosition(position).WordToComplete
+                : "";
+
+            var suggestions = lineParse
+                .GetCompletions(position)
+                .Where(c => c.Label.StartsWith(word, StringComparison.OrdinalIgnoreCase))
+                .Select(c => c.Label);
+            parseResult.InvocationConfiguration.Output.WriteLine(
+                string.Join(Environment.NewLine, suggestions)
+            );
+            return 0;
+        }
+    }
 
     /// <summary>Builds the <c>completion</c> command.</summary>
     /// <returns>The configured command.</returns>
@@ -128,8 +191,9 @@ public static class CompletionCommand
 
     // PowerShell: the cursor position is relative to the whole input line, so it is made relative
     // to this command's own text, which is padded when the cursor sits after a trailing space.
-    // Unlike bash and zsh, PowerShell shows whatever the completer returns, and the CLI matches
-    // anywhere in a name ("con" also finds --config), so the results are filtered by prefix here.
+    // Unlike bash and zsh, PowerShell shows whatever the completer returns, so the results are
+    // filtered by prefix here too. The CLI already returns prefix matches only (#398); the filter
+    // stays so the script also works against an older CLI that matched anywhere in a name.
     private const string Pwsh = """
         # umbraco PowerShell completion. Load it from your profile:
         #   umbraco completion pwsh | Out-String | Invoke-Expression

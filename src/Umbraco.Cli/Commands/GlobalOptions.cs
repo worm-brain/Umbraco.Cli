@@ -18,13 +18,24 @@ public sealed class GlobalOptions
 
     /// <summary>
     /// Creates the global options. <c>--output</c> gets its values as completions (#379), so
-    /// <c>umbraco -o &lt;TAB&gt;</c> offers them instead of file names. They are completions
-    /// only, not a parse-time restriction: the value is still read case-insensitively by
-    /// <see cref="OutputFormatParser"/>.
+    /// <c>umbraco -o &lt;TAB&gt;</c> offers them instead of file names, and a validator that
+    /// refuses any other value at parse time (#392): <c>-o yaml</c> is an
+    /// <c>invalid_argument</c> parse error naming the valid formats, reported before the command
+    /// runs or sends a request, rather than a silent fallback to the default format. The value
+    /// is still matched case-insensitively by <see cref="OutputFormatParser"/>.
     /// </summary>
     public GlobalOptions()
     {
         Output.CompletionSources.Add([.. OutputFormats]);
+        Output.Validators.Add(result =>
+        {
+            var value = result.GetValueOrDefault<string?>();
+            if (value is not null && OutputFormatParser.Parse(value) is null)
+                result.AddError(
+                    $"'{value}' is not a valid --output format: expected one of "
+                        + $"{string.Join(", ", OutputFormats)}."
+                );
+        });
     }
 
     public Option<string?> Host { get; } =
