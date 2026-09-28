@@ -40,7 +40,7 @@ public static class MembersUpdateCommand
         var valueOpt = new Option<string[]>("--value")
         {
             Description =
-                "Property values as alias=value. Repeatable. Merged into the member's existing values.",
+                "Property values as alias=value. Repeatable. Merged into the member's existing values. An empty value (alias=) clears that property.",
             AllowMultipleArgumentsPerToken = true,
         };
         var passwordOpt = new Option<string?>("--new-password")

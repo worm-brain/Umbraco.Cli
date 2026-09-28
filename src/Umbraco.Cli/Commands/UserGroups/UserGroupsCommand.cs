@@ -500,7 +500,8 @@ public static class UserGroupsCommand
         {
             Description =
                 "A granular permission on one document, as <id>=<verb>,<verb> (e.g. Umb.Document.Read). "
-                + "Repeatable. It replaces the group's fallback permissions on that document.",
+                + "Repeatable. It replaces the group's fallback permissions on that document. <id>= with no "
+                + "verbs removes that document's entry on update (and is ignored on create).",
         };
 
         /// <summary>Adds every shared option, and their validators, to a command.</summary>

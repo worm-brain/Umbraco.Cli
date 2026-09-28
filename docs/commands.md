@@ -217,7 +217,7 @@ umbraco content bulk unpublish [--file ids.txt] [--culture <csv>]   # takes offl
 
 # domain sub-noun (Culture and Hostnames):
 umbraco content domain get <id>
-umbraco content domain set <id> [--default-culture <iso>] [--domain host=iso ...] [--replace]   # merges by hostname; --replace needs --yes
+umbraco content domain set <id> [--default-culture <iso>] [--domain host=iso ...] [--replace]   # merges by hostname; host= removes one; --replace needs --yes
 ```
 
 `content get` returns the document under the Management API's own keys - `documentType` (the key

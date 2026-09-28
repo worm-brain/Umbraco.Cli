@@ -35,7 +35,7 @@ public static class DictionaryUpdateCommand
         var valuesOpt = new Option<string[]>("--value")
         {
             Description =
-                "Translation pairs in lang=value format. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem",
+                "Translation pairs in isoCode=value format. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem. An empty value (da-DK=) clears that translation.",
             AllowMultipleArgumentsPerToken = true,
         };
         cmd.Add(idArg);

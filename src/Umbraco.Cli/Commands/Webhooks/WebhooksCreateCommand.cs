@@ -52,7 +52,7 @@ public static class WebhooksCreateCommand
         cmd.Add(descOpt);
         var headerOpt = WebhookOptions.AddHeader(
             cmd,
-            "A custom HTTP header sent with each delivery, as name=value. Repeat for several."
+            "A custom HTTP header sent with each delivery, as name=value. Repeat for several. A header with an empty value (name=) is not sent."
         );
         var typeOpt = WebhookOptions.AddType(
             cmd,
