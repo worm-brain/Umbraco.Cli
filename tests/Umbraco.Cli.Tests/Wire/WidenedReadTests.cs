@@ -70,7 +70,7 @@ public class WidenedReadTests
         var handler = Wire.Routed(
             (
                 $"document/{id}",
-                $$"""{ "id": "{{id}}", "documentType": { "id": "{{typeId}}" }, "variants": [] }"""
+                $$"""{ "id": "{{id}}", "documentType": { "id": "{{typeId}}" }, "variants": [ { "name": "Post" } ] }"""
             ),
             ($"document-type/{typeId}", $$"""{ "id": "{{typeId}}", "alias": "blogPost" }""")
         );
@@ -96,7 +96,7 @@ public class WidenedReadTests
             .When(
                 _ => true,
                 HttpStatusCode.OK,
-                $$"""{ "id": "{{id}}", "documentType": { "id": "{{typeId}}" }, "variants": [] }"""
+                $$"""{ "id": "{{id}}", "documentType": { "id": "{{typeId}}" }, "variants": [ { "name": "Post" } ] }"""
             );
 
         var result = await Wire.Client(handler).GetContentByIdAsync(id, CancellationToken.None);
@@ -286,7 +286,7 @@ public class WidenedReadTests
                     { "alias": "rich", "value": { "markup": "<p>hi</p>", "blocks": null } },
                     { "alias": "tags", "value": ["a", "b"] }
                   ],
-                  "variants": []
+                  "variants": [ { "name": "Post" } ]
                 }
                 """
             )

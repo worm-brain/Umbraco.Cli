@@ -150,12 +150,11 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var user = await _api
-                    .Umbraco.Management.Api.V1.User[id]
-                    .GetAsync(cancellationToken: ct);
-                return user is null
-                    ? new UserResponse { Id = id }
-                    : (await LabelUsersAsync([MapUser(user)], ct))[0];
+                // A 200 with no body is not a user (#119).
+                var user =
+                    await _api.Umbraco.Management.Api.V1.User[id].GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No user found with id '{id}'.");
+                return (await LabelUsersAsync([MapUser(user)], ct))[0];
             }
         );
 

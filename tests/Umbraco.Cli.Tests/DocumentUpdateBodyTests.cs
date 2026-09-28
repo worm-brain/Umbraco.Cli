@@ -151,7 +151,7 @@ public class DocumentUpdateBodyTests
                 },
             ],
             [new ContentVariant { Culture = "en-US", Name = "Only" }],
-            replace: true
+            WriteMode.Replace
         );
 
         var value = Assert.Single(document["values"]!.AsArray());

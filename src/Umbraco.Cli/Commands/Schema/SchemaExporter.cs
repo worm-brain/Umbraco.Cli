@@ -30,106 +30,47 @@ public static class SchemaExporter
     /// diff against a snapshot that does not manage them (no point reading every file).
     /// </param>
     /// <returns>The assembled snapshot, or the first failure encountered.</returns>
-    public static async Task<UmbracoResponse<SchemaSnapshot>> ExportAsync(
+    public static Task<UmbracoResponse<SchemaSnapshot>> ExportAsync(
         IUmbracoManagementClient client,
         CancellationToken ct,
         bool includeFiles = true
+    ) =>
+        ExportAsync(
+            client,
+            SchemaKinds.All.Where(k => includeFiles || k.File is null).ToList(),
+            ct
+        );
+
+    /// <summary>
+    /// Exports only <paramref name="kinds"/>; every other section is absent. The live side of a
+    /// diff reads just the kinds the snapshot manages (#198), so a partial snapshot does not read
+    /// the whole instance.
+    /// </summary>
+    /// <param name="client">The authenticated management client.</param>
+    /// <param name="kinds">The kinds to read.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The assembled snapshot, or the first failure encountered.</returns>
+    public static async Task<UmbracoResponse<SchemaSnapshot>> ExportAsync(
+        IUmbracoManagementClient client,
+        IReadOnlyCollection<SchemaKindSpec> kinds,
+        CancellationToken ct
     )
     {
-        var docTypes = await CollectAsync(
-            () => client.GetDocumentTypeIdsAsync(ct),
-            id => client.GetSchemaRawAsync(EntityKind.DocumentType, id, ct)
-        );
-        if (!docTypes.IsSuccess)
-            return Fail(docTypes);
-
-        var dataTypes = await CollectAsync(
-            () => client.GetDataTypeIdsAsync(ct),
-            id => client.GetSchemaRawAsync(EntityKind.DataType, id, ct)
-        );
-        if (!dataTypes.IsSuccess)
-            return Fail(dataTypes);
-
-        var templates = await CollectAsync(
-            () => client.GetTemplateIdsAsync(ct),
-            id => client.GetSchemaRawAsync(EntityKind.Template, id, ct)
-        );
-        if (!templates.IsSuccess)
-            return Fail(templates);
-
-        // #186: media types and member types were the one part of the schema the snapshot could
-        // not carry, so authoring either one meant a direct Management API call.
-        var mediaTypes = await CollectAsync(
-            () => client.GetMediaTypeIdsAsync(ct),
-            id => client.GetSchemaRawAsync(EntityKind.MediaType, id, ct)
-        );
-        if (!mediaTypes.IsSuccess)
-            return Fail(mediaTypes);
-
-        var memberTypes = await CollectAsync(
-            () => client.GetMemberTypeIdsAsync(ct),
-            id => client.GetSchemaRawAsync(EntityKind.MemberType, id, ct)
-        );
-        if (!memberTypes.IsSuccess)
-            return Fail(memberTypes);
-
-        // #227: the rest of what a promotion needs before content can land. Languages come whole
-        // from the list; the others are read per id like the types.
-        var languages = await client.GetLanguagesRawAsync(ct);
-        if (!languages.IsSuccess)
-            return UmbracoResponse<SchemaSnapshot>.Failure(
-                languages.StatusCode,
-                languages.ErrorMessage!
-            );
-
-        var dictionary = await CollectDictionaryAsync(client, ct);
-        if (!dictionary.IsSuccess)
-            return Fail(dictionary);
-
-        var memberGroups = await CollectAsync(
-            () => client.GetMemberGroupIdsAsync(ct),
-            id => client.GetSchemaRawAsync(EntityKind.MemberGroup, id, ct)
-        );
-        if (!memberGroups.IsSuccess)
-            return Fail(memberGroups);
-
-        var userGroups = await CollectAsync(
-            () => client.GetUserGroupIdsAsync(ct),
-            id => client.GetSchemaRawAsync(EntityKind.UserGroup, id, ct)
-        );
-        if (!userGroups.IsSuccess)
-            return Fail(userGroups);
-
-        // #292: the files the templates render travel with them, so a promoted site does not
-        // answer every page with a 500.
-        var files = new Dictionary<string, List<JsonNode>>();
-        if (includeFiles)
-            foreach (var (tag, kind) in SchemaStaticFiles.Kinds)
+        // One read per kind in the kind table (#273). A kind left out is absent.
+        var snapshot = new SchemaSnapshot();
+        foreach (var kind in SchemaKinds.All)
+        {
+            if (!kinds.Contains(kind))
             {
-                var collected = await SchemaStaticFiles.CollectAsync(client, kind, ct);
-                if (!collected.IsSuccess)
-                    return Fail(collected);
-                files[tag] = collected.Data!;
+                kind.SetSection(snapshot, null);
+                continue;
             }
-
-        return UmbracoResponse<SchemaSnapshot>.Success(
-            new SchemaSnapshot
-            {
-                DocumentTypes = docTypes.Data!,
-                MediaTypes = mediaTypes.Data!,
-                MemberTypes = memberTypes.Data!,
-                DataTypes = dataTypes.Data!,
-                Templates = templates.Data!,
-                Languages = [.. languages.Data!],
-                DictionaryItems = dictionary.Data!,
-                MemberGroups = memberGroups.Data!,
-                // Start nodes and per-document permissions name content on this instance only.
-                UserGroups = [.. userGroups.Data!.Select(SchemaBodies.PortableUserGroup)],
-                PartialViews = files.GetValueOrDefault(SchemaKinds.PartialView),
-                Stylesheets = files.GetValueOrDefault(SchemaKinds.Stylesheet),
-                Scripts = files.GetValueOrDefault(SchemaKinds.Script),
-            }
-        );
+            var entries = await kind.Export(client, ct);
+            if (!entries.IsSuccess)
+                return UmbracoResponse<SchemaSnapshot>.FailureFrom(entries);
+            kind.SetSection(snapshot, entries.Data!);
+        }
+        return UmbracoResponse<SchemaSnapshot>.Success(snapshot);
     }
 
     /// <summary>
@@ -139,7 +80,7 @@ public static class SchemaExporter
     /// <param name="client">The management client.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Every item's shaped body, or the first failure.</returns>
-    private static async Task<UmbracoResponse<List<JsonNode>>> CollectDictionaryAsync(
+    internal static async Task<UmbracoResponse<List<JsonNode>>> CollectDictionaryAsync(
         IUmbracoManagementClient client,
         CancellationToken ct
     )
@@ -169,7 +110,7 @@ public static class SchemaExporter
     /// <param name="listIds">Enumerates every entity id of the kind.</param>
     /// <param name="getRaw">Reads one entity's verbatim body by id.</param>
     /// <returns>Every entity's raw body, or the first failure.</returns>
-    private static async Task<UmbracoResponse<List<JsonNode>>> CollectAsync(
+    internal static async Task<UmbracoResponse<List<JsonNode>>> CollectAsync(
         Func<Task<UmbracoResponse<IReadOnlyList<Guid>>>> listIds,
         Func<Guid, Task<UmbracoResponse<JsonNode>>> getRaw
     )
@@ -190,10 +131,4 @@ public static class SchemaExporter
 
         return UmbracoResponse<List<JsonNode>>.Success(bodies);
     }
-
-    /// <summary>Re-wraps a failed collection result as a failed snapshot result.</summary>
-    /// <param name="failed">The failed intermediate result.</param>
-    /// <returns>A failed <see cref="SchemaSnapshot"/> response carrying the same status/message.</returns>
-    private static UmbracoResponse<SchemaSnapshot> Fail(UmbracoResponse<List<JsonNode>> failed) =>
-        UmbracoResponse<SchemaSnapshot>.FailureFrom(failed);
 }

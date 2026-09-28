@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.Content;
 
 namespace Umbraco.Cli.Tests;
@@ -12,13 +13,13 @@ namespace Umbraco.Cli.Tests;
 public class ContentApplierTests
 {
     private static ContentDocumentChange Added(Guid id, Guid? parent) =>
-        new(ContentChangeKind.Added, id, parent)
+        new(TreeChangeKind.Added, id, parent)
         {
             DesiredBody = JsonNode.Parse($$"""{"id":"{{id}}","name":"X"}""")!,
         };
 
     private static ContentDocumentChange Changed(Guid id) =>
-        new(ContentChangeKind.Changed, id)
+        new(TreeChangeKind.Changed, id)
         {
             DesiredBody = JsonNode.Parse($$"""{"id":"{{id}}","name":"Y"}""")!,
             BodyChanged = true,
@@ -32,7 +33,7 @@ public class ContentApplierTests
     private static ContentPublishState.Steps Unpublishes(params string[] cultures) =>
         new(null, new PublishScope(cultures));
 
-    private static ContentDocumentChange Removed(Guid id) => new(ContentChangeKind.Removed, id);
+    private static ContentDocumentChange Removed(Guid id) => new(TreeChangeKind.Removed, id);
 
     /// <summary>A diff whose documents are in the order given: added, then changed, then removed.</summary>
     private static ContentDiff Diff(
@@ -196,7 +197,7 @@ public class ContentApplierTests
     private static readonly Guid BlogPostType = Guid.NewGuid();
 
     private static ContentDocumentChange RemovedOfType(Guid id, Guid type) =>
-        new(ContentChangeKind.Removed, id) { DocumentTypeId = type };
+        new(TreeChangeKind.Removed, id) { DocumentTypeId = type };
 
     private static ContentDiff StagingDiff() =>
         Diff(

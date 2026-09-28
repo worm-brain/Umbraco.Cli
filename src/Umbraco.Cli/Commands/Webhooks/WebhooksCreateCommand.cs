@@ -4,8 +4,15 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
 
+/// <summary>Wires <c>webhook create</c>.</summary>
 public static class WebhooksCreateCommand
 {
+    /// <summary>
+    /// Builds <c>webhook create</c>: checks the <c>--event</c> aliases against the instance, then
+    /// posts the webhook and returns it as <c>get</c> would show it.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
@@ -44,22 +51,53 @@ public static class WebhooksCreateCommand
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    (client, c) =>
-                        client.CreateWebhookAsync(
-                            new CreateWebhookRequest
-                            {
-                                Id = parseResult.GetValue(idOpt),
-                                Name = parseResult.GetValue(nameOpt),
-                                Description = parseResult.GetValue(descOpt),
-                                Url = parseResult.GetValue(urlOpt)!,
-                                Events = parseResult.GetValue(eventsOpt) ?? [],
-                            },
-                            c
+                    async (client, c) =>
+                        WithEventSuggestions(
+                            await client.CreateWebhookAsync(
+                                new CreateWebhookRequest
+                                {
+                                    Id = parseResult.GetValue(idOpt),
+                                    Name = parseResult.GetValue(nameOpt),
+                                    Description = parseResult.GetValue(descOpt),
+                                    Url = parseResult.GetValue(urlOpt)!,
+                                    Events = parseResult.GetValue(eventsOpt) ?? [],
+                                },
+                                c
+                            )
                         ),
                     ct
                 )
         );
 
         return cmd;
+    }
+
+    /// <summary>
+    /// Rewrites an unknown-event refusal to name the nearest real alias for each unknown one and
+    /// to point at <c>webhook event list</c> (#278). The client reports which aliases were unknown
+    /// and which exist; the suggestion is the CLI's to make. Any other response is returned as is.
+    /// </summary>
+    /// <param name="response">The create's response.</param>
+    /// <returns>The response, with the refusal message rewritten when it named unknown events.</returns>
+    internal static UmbracoResponse<WebhookResponse> WithEventSuggestions(
+        UmbracoResponse<WebhookResponse> response
+    )
+    {
+        if (response.IsSuccess || response.UnknownValues is not { } values)
+            return response;
+
+        // Aliases are "Umbraco.ContentPublish"; people often type the bare "ContentPublished".
+        var described = values.Unknown.Select(u =>
+            Suggestions.Nearest(u, values.Known, optionalPrefix: "Umbraco.") is { } nearest
+                ? $"'{u}' (did you mean '{nearest}'?)"
+                : $"'{u}'"
+        );
+        return response with
+        {
+            ErrorMessage =
+                $"Unknown webhook event {string.Join(", ", described)}. Umbraco would save the "
+                + "webhook but never fire it. Run 'umbraco webhook event list' for the valid "
+                + "aliases.",
+        };
     }
 }

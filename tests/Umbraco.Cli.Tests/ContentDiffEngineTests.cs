@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Umbraco.Cli.Commands;
 using Umbraco.Cli.Commands.Content;
 
 namespace Umbraco.Cli.Tests;
@@ -31,7 +32,7 @@ public class ContentDiffEngineTests
         var diff = ContentDiffEngine.Compare(Snap(Doc(id, parent, "New")), Snap());
 
         var added = Assert.Single(diff.Added);
-        Assert.Equal(ContentChangeKind.Added, added.Change);
+        Assert.Equal(TreeChangeKind.Added, added.Change);
         Assert.Equal(id, added.Id);
         Assert.Equal(parent, added.Parent);
         Assert.NotNull(added.DesiredBody); // carried through for the create
@@ -45,7 +46,7 @@ public class ContentDiffEngineTests
         var diff = ContentDiffEngine.Compare(Snap(), Snap(Doc(id, null, "Old")));
 
         var removed = Assert.Single(diff.Removed);
-        Assert.Equal(ContentChangeKind.Removed, removed.Change);
+        Assert.Equal(TreeChangeKind.Removed, removed.Change);
         Assert.Equal(id, removed.Id);
     }
 
@@ -112,7 +113,7 @@ public class ContentDiffEngineTests
 
         // Placement-only drift is advisory: reported as Drifted, never an actionable change.
         var drifted = Assert.Single(diff.Drifted);
-        Assert.Equal(ContentChangeKind.Drifted, drifted.Change);
+        Assert.Equal(TreeChangeKind.Drifted, drifted.Change);
         Assert.Equal(id, drifted.Id);
         Assert.Empty(diff.Changed);
         Assert.False(diff.HasChanges); // apply cannot converge drift, so nothing to do

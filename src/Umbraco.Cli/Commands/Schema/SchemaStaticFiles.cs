@@ -16,14 +16,6 @@ namespace Umbraco.Cli.Commands.Schema;
 /// </summary>
 public static class SchemaStaticFiles
 {
-    /// <summary>The three static-file kinds, with their snapshot kind tag, in snapshot order.</summary>
-    public static readonly IReadOnlyList<(string Tag, StaticFileKind Kind)> Kinds =
-    [
-        (SchemaKinds.PartialView, StaticFileKind.PartialView),
-        (SchemaKinds.Stylesheet, StaticFileKind.Stylesheet),
-        (SchemaKinds.Script, StaticFileKind.Script),
-    ];
-
     /// <summary>
     /// A path in Umbraco's form: one leading <c>/</c>, no trailing one (<c>blocklist/x/</c> becomes
     /// <c>/blocklist/x</c>), so a hand-edited snapshot matches the live tree.

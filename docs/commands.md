@@ -5,12 +5,6 @@ non-interactive rules that apply across all of them, see [agent-guide.md](agent-
 install and auth, see [getting-started.md](getting-started.md). The design rules every command
 follows are in [conventions.md](conventions.md).
 
-> **Renamed nouns.** As of the #268 batch, nouns are singular and document types are
-> `document-type` (was `content-types`). The old names (`content-types`, `media-types`,
-> `data-types`, `languages`, `templates`, `members`, `member-types`, `users`, `webhooks`,
-> `member-groups`, `tags`, `cultures`, `user-groups`, and `content domains`) still run for one
-> release, with a warning on stderr, and an allow-list entry naming an old noun still matches.
-
 > The authoritative, always-in-sync surface is `umbraco commands` (the whole tree as JSON,
 > including a `destructive` flag per command). This page is the human/agent-readable narrative
 > of the same thing. If the two ever disagree, `umbraco commands` is correct - please
@@ -144,8 +138,10 @@ umbraco auth profile use <profile>             # make a profile the default
 ```
 
 `auth doctor` runs a sequence of checks (host resolution, connectivity/TLS, credentials,
-authentication, resolved identity, instance version), reports each as `pass`/`fail`/`warn`/`skip`
-with a remediation hint, and exits `1` if any check hard-fails (warnings do not fail the run).
+authentication, resolved identity, instance version, supported version), reports each as
+`pass`/`fail`/`warn`/`skip` with a remediation hint, and exits `1` if any check hard-fails
+(warnings do not fail the run). The supported-version check warns, naming both versions, when the
+instance's Umbraco major is outside the range this build was tested against (currently 17.x-18.x).
 Run it first in any new environment. See [getting-started.md](getting-started.md#5-confirm-it-works).
 
 ## `content`
@@ -977,6 +973,54 @@ umbraco schema apply schema.json --prune --force --yes     # ...even types in us
 
 How it works:
 
+- **Hand-written snapshots** ([#198](https://github.com/worm-brain/Umbraco.Cli/issues/198)) - a
+  snapshot does not have to come from `export`, or carry every kind:
+  - **A section that is absent is not managed**, for every kind, not just the files: diff and
+    apply skip it and `--prune` deletes none of it. So a file with only `documentTypes` changes
+    document types and nothing else. A section that is present is the whole list for that kind:
+    `--prune` deletes the live ones it does not name.
+  - **References may name their target** instead of giving its id, as a bare string or as
+    `{ "id": "..." }`: a property's `dataType`, a type's `collection`, `compositions`,
+    `allowedDocumentTypes` / `allowedMediaTypes`, `allowedTemplates` and `defaultTemplate`, a
+    template's `masterTemplate`, a dictionary item's `parent`, and a user group permission's
+    `documentType`. A name is looked up in the snapshot first (so a snapshot can create a data
+    type and use it), then on the instance, by alias then name, ignoring case - the same rules
+    as every `<id>` argument.
+  - **Ids may be left out.** An entity, property or container without an `id` takes the id of the
+    live one it matches (an entity by its key, a property by alias, a container by type, name and
+    parent), or a new one. Reusing the live id matters: a property sent with a new id would be a
+    new property, and the old one's values would go.
+  - **Containers by name.** A property's `container` and a container's `parent` may name a
+    container of the same type by name, or by `Tab/Group` path when a name is used twice.
+  - A name that matches nothing, or more than one thing, fails the diff or apply before anything
+    is written, saying where it is (`documentType 'blogPost': properties[subtitle].dataType ...`).
+
+  ```jsonc
+  // add-subtitle.json - apply adds one property to blogPost and touches nothing else
+  {
+    "schemaVersion": "4",
+    "documentTypes": [
+      {
+        "alias": "blogPost", "name": "Blog Post", "icon": "icon-document",
+        "allowedAsRoot": false, "variesByCulture": false, "variesBySegment": false,
+        "isElement": false, "allowedTemplates": [], "allowedDocumentTypes": [], "compositions": [],
+        "containers": [{ "name": "Content", "type": "Tab", "parent": null, "sortOrder": 0 }],
+        "properties": [
+          { "alias": "title", "name": "Title", "container": "Content", "dataType": "Textstring",
+            "sortOrder": 0, "variesByCulture": false, "variesBySegment": false,
+            "validation": { "mandatory": true }, "appearance": { "labelOnTop": false } },
+          { "alias": "subtitle", "name": "Subtitle", "container": "Content", "dataType": "Textstring",
+            "sortOrder": 1, "variesByCulture": false, "variesBySegment": false,
+            "validation": { "mandatory": false }, "appearance": { "labelOnTop": false } }
+        ]
+      }
+    ]
+  }
+  ```
+
+  Each entry is still the **whole** item: apply replaces a changed type with the snapshot's body,
+  so list every property the type keeps (a property you leave out is removed, with its values).
+  Run `schema diff` first; its `changes` column shows exactly which fields differ.
 - **Static files** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)) - the
   snapshot's `partialViews`, `stylesheets` and `scripts` sections hold each file as
   `{ "path": "/blocklist/default.cshtml", "content": "..." }` and each folder as

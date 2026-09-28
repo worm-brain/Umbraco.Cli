@@ -198,7 +198,7 @@ public class ContentReadModelWireTests
     // ── dictionary (#290) ────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetDictionaryItemByKeyAsync_ChildItem_ReportsItsParent()
+    public async Task GetDictionaryItemByIdAsync_ChildItem_ReportsItsParent()
     {
         var handler = Wire.Routed(
             (
@@ -212,13 +212,13 @@ public class ContentReadModelWireTests
         );
 
         var result = await Wire.Client(handler)
-            .GetDictionaryItemByKeyAsync(Item.ToString(), CancellationToken.None);
+            .GetDictionaryItemByIdAsync(Item, CancellationToken.None);
 
         Assert.Equal(Parent, result.Data!.Parent!.Id);
     }
 
     [Fact]
-    public async Task GetDictionaryItemByKeyAsync_AncestorsReadFails_StillReturnsTheItem()
+    public async Task GetDictionaryItemByIdAsync_AncestorsReadFails_StillReturnsTheItem()
     {
         var handler = new RoutingHandler()
             .When(
@@ -233,7 +233,7 @@ public class ContentReadModelWireTests
             );
 
         var result = await Wire.Client(handler)
-            .GetDictionaryItemByKeyAsync(Item.ToString(), CancellationToken.None);
+            .GetDictionaryItemByIdAsync(Item, CancellationToken.None);
 
         Assert.Equal(("Blog.Probe", (Guid?)null), (result.Data!.Name, result.Data.Parent?.Id));
     }

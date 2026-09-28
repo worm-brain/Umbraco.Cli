@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using Umbraco.Cli.Commands.Content;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -9,10 +8,10 @@ namespace Umbraco.Cli.Commands.Media;
 /// GUID only, as documents do: content references media by GUID, so the GUID is what a promotion
 /// must keep.
 /// </summary>
-/// <param name="Change">How it differs. <see cref="ContentChangeKind.Drifted"/> (only the parent differs) is reported, never applied.</param>
+/// <param name="Change">How it differs. <see cref="TreeChangeKind.Drifted"/> (only the parent differs) is reported, never applied.</param>
 /// <param name="Id">The item id.</param>
 /// <param name="Parent">The desired parent id; null at the root and for a removed item.</param>
-public sealed record MediaItemChange(ContentChangeKind Change, Guid Id, Guid? Parent = null)
+public sealed record MediaItemChange(TreeChangeKind Change, Guid Id, Guid? Parent = null)
 {
     /// <summary>What differs: paths into the normalised body, plus <c>file</c> when the file does.</summary>
     public IReadOnlyList<string>? Changes { get; init; }
@@ -43,7 +42,7 @@ public sealed record MediaItemChange(ContentChangeKind Change, Guid Id, Guid? Pa
 /// <param name="Parent">The desired parent id; null at the root and for a removed item.</param>
 /// <param name="Changes">What differs; null for an added or removed item, where the whole item is the change.</param>
 public sealed record MediaDiffRow(
-    ContentChangeKind Change,
+    TreeChangeKind Change,
     Guid Id,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] Guid? Parent,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] IReadOnlyList<string>? Changes
@@ -63,17 +62,17 @@ public sealed record MediaDiff(IReadOnlyList<MediaItemChange> Items, int Unchang
 
     /// <summary>Items a prune would trash.</summary>
     public IReadOnlyList<MediaItemChange> Removed =>
-        [.. Items.Where(i => i.Change == ContentChangeKind.Removed)];
+        [.. Items.Where(i => i.Change == TreeChangeKind.Removed)];
 
     /// <summary>The <c>diff</c> command's rows: added, changed, removed, then drifted.</summary>
     public IReadOnlyList<MediaDiffRow> Rows =>
         [
             .. new[]
             {
-                ContentChangeKind.Added,
-                ContentChangeKind.Changed,
-                ContentChangeKind.Removed,
-                ContentChangeKind.Drifted,
+                TreeChangeKind.Added,
+                TreeChangeKind.Changed,
+                TreeChangeKind.Removed,
+                TreeChangeKind.Drifted,
             }.SelectMany(kind => Items.Where(i => i.Change == kind).Select(i => i.ToRow())),
         ];
 }
@@ -95,66 +94,58 @@ public static class MediaDiffEngine
     /// <returns>The differences, in plan order.</returns>
     public static MediaDiff Compare(MediaSnapshot desired, IReadOnlyList<MediaNode> live)
     {
-        var liveById = new Dictionary<Guid, MediaNode>();
-        foreach (var l in live)
-            liveById[l.Id] = l;
-
-        var items = new List<MediaItemChange>();
-        var matched = new HashSet<Guid>();
-        var unchanged = 0;
-
-        foreach (var d in desired.Items)
-        {
-            var body = MediaBody.Normalise(d.Body);
-            if (!liveById.TryGetValue(d.Id, out var current))
+        // The file is compared on its own: a snapshot item without a file has nothing to upload,
+        // so only one with a file can differ there.
+        var tree = SnapshotTreeDiff.Classify(
+            desired.Items,
+            live,
+            MediaBody.Normalise,
+            (d, current, _) =>
             {
-                items.Add(
-                    new MediaItemChange(ContentChangeKind.Added, d.Id, d.Parent)
-                    {
-                        DesiredBody = body,
-                        File = d.File,
-                        FileChanged = d.File is not null,
-                    }
-                );
-                continue;
+                var fileChanged = d.File is not null && !SameFile(d.File, current.File);
+                return new ExtraComparison<bool>(fileChanged, fileChanged ? ["file"] : []);
             }
-
-            matched.Add(d.Id);
-            var bodyChanges = JsonPathDiff.Paths(body, MediaBody.Normalise(current.Body));
-            var fileChanged = d.File is not null && !SameFile(d.File, current.File);
-
-            if (bodyChanges.Count > 0 || fileChanged)
-                items.Add(
-                    new MediaItemChange(ContentChangeKind.Changed, d.Id, d.Parent)
-                    {
-                        DesiredBody = body,
-                        CurrentBody = current.Body,
-                        File = d.File,
-                        BodyChanged = bodyChanges.Count > 0,
-                        FileChanged = fileChanged,
-                        Changes = [.. bodyChanges, .. fileChanged ? new[] { "file" } : []],
-                    }
-                );
-            else if (d.Parent != current.Parent)
-                // Placement only. Advisory, as for content: apply does not move items.
-                items.Add(
-                    new MediaItemChange(ContentChangeKind.Drifted, d.Id, d.Parent)
-                    {
-                        Changes = ["parent"],
-                    }
-                );
-            else
-                unchanged++;
-        }
-
-        items.AddRange(
-            live.Where(l => !matched.Contains(l.Id))
-                .Select(l => new MediaItemChange(ContentChangeKind.Removed, l.Id))
         );
 
-        return new MediaDiff(items, unchanged)
+        return new MediaDiff([.. tree.Entries.Select(ToChange)], tree.Unchanged)
         {
-            LiveParents = liveById.ToDictionary(kv => kv.Key, kv => kv.Value.Parent),
+            LiveParents = tree.LiveParents(),
+        };
+    }
+
+    /// <summary>
+    /// Turns a classified entry into the media change record: an added or changed item carries its
+    /// normalised body and its file, and a changed one the live body, whose file apply keeps when
+    /// the file is unchanged.
+    /// </summary>
+    /// <param name="entry">The classified entry; its extra value is whether the file differs.</param>
+    /// <returns>The change record.</returns>
+    private static MediaItemChange ToChange(TreeEntry<MediaNode, bool> entry)
+    {
+        var node = entry.Node;
+        return entry.Kind switch
+        {
+            TreeChangeKind.Added => new(TreeChangeKind.Added, node.Id, node.Parent)
+            {
+                DesiredBody = MediaBody.Normalise(node.Body),
+                File = node.File,
+                FileChanged = node.File is not null,
+            },
+            TreeChangeKind.Changed => new(TreeChangeKind.Changed, node.Id, node.Parent)
+            {
+                DesiredBody = MediaBody.Normalise(node.Body),
+                CurrentBody = entry.Live?.Body,
+                File = node.File,
+                BodyChanged = entry.BodyChanged,
+                FileChanged = entry.Extra,
+                Changes = entry.Changes,
+            },
+            // Placement only. Advisory, as for content: apply does not move items.
+            TreeChangeKind.Drifted => new(TreeChangeKind.Drifted, node.Id, node.Parent)
+            {
+                Changes = entry.Changes,
+            },
+            _ => new(TreeChangeKind.Removed, node.Id),
         };
     }
 

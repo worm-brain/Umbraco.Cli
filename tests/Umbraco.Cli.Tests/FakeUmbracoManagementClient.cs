@@ -74,8 +74,8 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
-    /// <summary>The (id, request, replace) of the last <see cref="UpdateContentAsync"/> call (#178/#179).</summary>
-    public (Guid Id, UpdateContentRequest Request, bool Replace)? LastUpdate { get; private set; }
+    /// <summary>The (id, request, mode) of the last <see cref="UpdateContentAsync"/> call (#178/#179).</summary>
+    public (Guid Id, UpdateContentRequest Request, WriteMode Mode)? LastUpdate { get; private set; }
 
     /// <summary>Response returned by <see cref="UpdateContentAsync"/>; a bare success when unset.</summary>
     public UmbracoResponse<ContentItemResponse>? UpdateContentResponse { get; set; }
@@ -83,11 +83,11 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(
         Guid id,
         UpdateContentRequest request,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     )
     {
-        LastUpdate = (id, request, replace);
+        LastUpdate = (id, request, mode);
         return Task.FromResult(
             UpdateContentResponse
                 ?? UmbracoResponse<ContentItemResponse>.Success(new ContentItemResponse { Id = id })
@@ -684,26 +684,24 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => Page(DocumentTypeList, skip, take);
 
-    /// <summary>The alias or id passed to <see cref="GetDocumentTypeAsync"/>, for #159.</summary>
-    public string? LastDocumentTypeLookup { get; private set; }
-
-    public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeAsync(
-        string aliasOrId,
-        CancellationToken ct = default
-    )
-    {
-        LastDocumentTypeLookup = aliasOrId;
-        return Task.FromResult(
-            UmbracoResponse<DocumentTypeResponse>.Success(
-                new DocumentTypeResponse { Name = "Blog Post", Alias = "blogPost" }
-            )
-        );
-    }
-
+    /// <summary>Answers with a fixed document type carrying <paramref name="id"/>.</summary>
+    /// <param name="id">The document type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A success carrying the id.</returns>
     public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<DocumentTypeResponse>.Success(
+                new DocumentTypeResponse
+                {
+                    Id = id,
+                    Name = "Blog Post",
+                    Alias = "blogPost",
+                }
+            )
+        );
 
     public Task<UmbracoResponse<Guid>> CreateDocumentTypeAsync(
         CreateDocumentTypeRequest request,
@@ -755,17 +753,23 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>Recorded flag-built data type updates, by id (#262).</summary>
+    public List<(Guid Id, UpdateDataTypeRequest Request)> DataTypeUpdates { get; } = [];
+
+    /// <summary>Records the update and answers with a bare success.</summary>
+    /// <param name="id">The data type id.</param>
+    /// <param name="request">The update.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A bare success.</returns>
     public Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
         Guid id,
         UpdateDataTypeRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
-
-    public Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
-        string nameOrId,
-        UpdateDataTypeRequest request,
-        CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        DataTypeUpdates.Add((id, request));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<Empty>> DeleteDataTypeAsync(Guid id, CancellationToken ct = default)
     {
@@ -842,6 +846,11 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>The document types using each template, for <see cref="GetTemplateUsageAsync"/> (#269).</summary>
     public Dictionary<Guid, List<TemplateUser>> TemplateUsers { get; } = [];
 
+    /// <summary>When set, <see cref="GetTemplateUsageAsync"/> returns this failure instead (#281).</summary>
+    public UmbracoResponse<
+        IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>
+    >? TemplateUsageFailure { get; set; }
+
     /// <summary>How many times <see cref="GetTemplateUsageAsync"/> was called.</summary>
     public int TemplateUsageReads { get; private set; }
 
@@ -853,6 +862,8 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     > GetTemplateUsageAsync(CancellationToken ct = default)
     {
         TemplateUsageReads++;
+        if (TemplateUsageFailure is { } failure)
+            return Task.FromResult(failure);
         return Task.FromResult(
             UmbracoResponse<IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>>.Success(
                 TemplateUsers.ToDictionary(
@@ -1119,10 +1130,25 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByKeyAsync(
-        string key,
+    /// <summary>Dictionary items <see cref="GetDictionaryItemByIdAsync"/> can return, by id.</summary>
+    public Dictionary<Guid, DictionaryItemResponse> DictionaryItemsById { get; } = [];
+
+    /// <summary>Answers from <see cref="DictionaryItemsById"/>, or a 404.</summary>
+    /// <param name="id">The dictionary item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The item, or a 404 failure.</returns>
+    public Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByIdAsync(
+        Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            DictionaryItemsById.TryGetValue(id, out var item)
+                ? UmbracoResponse<DictionaryItemResponse>.Success(item)
+                : UmbracoResponse<DictionaryItemResponse>.Failure(
+                    404,
+                    $"No dictionary item found with id '{id}'."
+                )
+        );
 
     /// <summary>Recorded dictionary creates (#110 asserts the mapped parent).</summary>
     public List<CreateDictionaryItemRequest> DictionaryItemsCreated { get; } = [];
@@ -1455,8 +1481,8 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(RawWriteFailure ?? UmbracoResponse<Empty>.Success(Empty.Value));
     }
 
-    /// <summary>The (id, request, replace) of the last <see cref="UpdateMediaAsync"/> call (#220).</summary>
-    public (Guid Id, UpdateMediaRequest Request, bool Replace)? LastMediaUpdate
+    /// <summary>The (id, request, mode) of the last <see cref="UpdateMediaAsync"/> call (#220).</summary>
+    public (Guid Id, UpdateMediaRequest Request, WriteMode Mode)? LastMediaUpdate
     {
         get;
         private set;
@@ -1465,24 +1491,24 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>Records the update and answers with a bare item.</summary>
     /// <param name="id">The media id.</param>
     /// <param name="request">The update.</param>
-    /// <param name="replace">Whether it replaces.</param>
+    /// <param name="mode">Whether it merges or replaces.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A success carrying the id.</returns>
     public Task<UmbracoResponse<MediaItemResponse>> UpdateMediaAsync(
         Guid id,
         UpdateMediaRequest request,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     )
     {
-        LastMediaUpdate = (id, request, replace);
+        LastMediaUpdate = (id, request, mode);
         return Task.FromResult(
             UmbracoResponse<MediaItemResponse>.Success(new MediaItemResponse { Id = id })
         );
     }
 
-    /// <summary>The (kind, id, body, replace) of the last <see cref="MergeSchemaItemAsync"/> call (#201).</summary>
-    public (EntityKind Kind, Guid Id, JsonNode Body, bool Replace)? LastSchemaMerge
+    /// <summary>The (kind, id, body, mode) of the last <see cref="MergeSchemaItemAsync"/> call (#201).</summary>
+    public (EntityKind Kind, Guid Id, JsonNode Body, WriteMode Mode)? LastSchemaMerge
     {
         get;
         private set;
@@ -1492,24 +1518,24 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <param name="kind">The schema kind.</param>
     /// <param name="id">The item id.</param>
     /// <param name="body">The body.</param>
-    /// <param name="replace">Whether the body replaces the item.</param>
+    /// <param name="mode">Whether the body is merged into the item or replaces it.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A bare success.</returns>
     public Task<UmbracoResponse<Empty>> MergeSchemaItemAsync(
         EntityKind kind,
         Guid id,
         JsonNode body,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     )
     {
         // Recorded both ways: the round-trip tests look at the merge call, the apply tests at
         // the write it amounts to (an apply update is a replace).
-        LastSchemaMerge = (kind, id, body, replace);
+        LastSchemaMerge = (kind, id, body, mode);
         // Leave the merged item readable, as the server does, so a read-back after it works.
         var store = SchemaStore(kind).Store;
         if (
-            replace
+            mode == WriteMode.Replace
             || !store.TryGetValue(id, out var current)
             || current is not JsonObject existing
         )
@@ -2157,17 +2183,17 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
-    /// <summary>The replace flag of the last blueprint update (#242).</summary>
-    public bool? LastBlueprintReplace { get; private set; }
+    /// <summary>The write mode of the last blueprint update (#242).</summary>
+    public WriteMode? LastBlueprintMode { get; private set; }
 
     public Task<UmbracoResponse<Empty>> UpdateDocumentBlueprintAsync(
         Guid id,
         UpdateDocumentBlueprintRequest request,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     )
     {
-        LastBlueprintReplace = replace;
+        LastBlueprintMode = mode;
         BlueprintsUpdated.Add((id, request));
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
@@ -2856,7 +2882,13 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(
             References.TryGetValue((kind, reference), out var found)
                 ? UmbracoResponse<Guid>.Success(found)
-                : UmbracoResponse<Guid>.Failure(404, $"No {kind} '{reference}'.")
+                : UmbracoResponse<Guid>.Failure(
+                    // The real resolver's shape for a name that matches nothing:
+                    // invalid_argument with no HTTP status (GuardedApiAsync).
+                    0,
+                    $"No {kind} '{reference}'.",
+                    FailureCategory.InvalidArgument
+                )
         );
     }
 }

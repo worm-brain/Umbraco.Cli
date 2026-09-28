@@ -18,18 +18,18 @@ public class SchemaSnapshotTests
         var snap = new SchemaSnapshot
         {
             DocumentTypes =
-            {
+            [
                 JsonNode.Parse(
                     $$"""{"id":"{{id}}","alias":"blogPost","properties":[{"alias":"body"}]}"""
                 )!,
-            },
+            ],
         };
 
         var reloaded = SchemaSnapshot.FromJson(snap.ToJson());
 
-        Assert.Equal("blogPost", (string?)reloaded.DocumentTypes.Single()["alias"]);
+        Assert.Equal("blogPost", (string?)reloaded.DocumentTypes!.Single()["alias"]);
         // The rich collection the lossy record would drop survives the round trip.
-        Assert.Equal("body", (string?)reloaded.DocumentTypes.Single()["properties"]![0]!["alias"]);
+        Assert.Equal("body", (string?)reloaded.DocumentTypes!.Single()["properties"]![0]!["alias"]);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public class SchemaSnapshotTests
 
         var snap = SchemaSnapshot.FromJson(enveloped);
 
-        Assert.Equal("home", (string?)snap.DocumentTypes.Single()["alias"]);
+        Assert.Equal("home", (string?)snap.DocumentTypes!.Single()["alias"]);
     }
 
     /// <summary>

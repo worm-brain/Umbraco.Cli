@@ -171,9 +171,13 @@ calling Umbraco).
 
 For an API call, `category` is one of: `unreachable` (no response - DNS/connection), `timeout`,
 `request_rejected` (a 4xx - usually bad input or the request itself), `server_error` (a 5xx or an
-undeclared status - a server-side fault) or `unexpected_response` (the body did not match what the
-CLI expected, a likely version mismatch). `serverVersion` is omitted when the server could not be
-reached (`unreachable`/`timeout`) or the version could not be determined.
+undeclared status - a server-side fault) or `unexpected_response` (the server answered, but with a
+body the CLI could not read - not JSON, or a `content get`/`media get` with no named variant - a
+likely version mismatch; it has no `httpStatus`, and its message names the tested version range
+when `serverVersion` is outside it, or otherwise points at `auth doctor`). Treat
+`unexpected_response` as "do not trust this instance's output until the version is checked", not
+as bad input. `serverVersion` is omitted when the server could not be reached
+(`unreachable`/`timeout`) or the version could not be determined.
 
 The rest never reach the API, so they carry no `httpStatus` and no `serverVersion`:
 
@@ -339,7 +343,9 @@ umbraco auth doctor --output json
 ```
 
 Run `auth doctor` as the first step of any new session; it turns "why did that 401" into a
-labelled check with a remediation hint. See [getting-started.md](getting-started.md) for the
+labelled check with a remediation hint. Its `Supported version` check warns when the instance's
+Umbraco major is outside the range this CLI was tested against; the CLI still runs, but treat
+its output from that instance with suspicion. See [getting-started.md](getting-started.md) for the
 full auth story and profiles.
 
 ## 7. Running non-interactively (the rules that bite)
@@ -525,9 +531,29 @@ between environments:
 
 ```bash
 umbraco schema export --out schema.json     # full-fidelity bodies
-# edit .documentTypes[] / .dataTypes[] - generate GUIDs for new containers and properties
+# edit .documentTypes[] / .dataTypes[] - new containers and properties need no id
 umbraco schema apply schema.json --dry-run  # preview the plan
 umbraco schema apply schema.json
+```
+
+**A snapshot can be written by hand, and can be partial**
+([#198](https://github.com/worm-brain/Umbraco.Cli/issues/198)). Keep only the sections you mean
+to change: an absent section is not managed, so diff, apply and `--prune` leave that kind alone
+(a present section is the whole list for its kind). Leave `id` out of new entities, properties and
+containers: each takes the id of the live one it matches (a property by alias, so its values are
+kept), or a new one. Name what an entry references instead of giving its id:
+`"dataType": "Textstring"`, `"container": "Content"` (or `"Content/Hero"` for a group),
+`"masterTemplate": "master"`, `"compositions": [{ "documentType": "seoMixin", ... }]`. Names are
+looked up in the snapshot first, then on the instance; one that matches nothing or several things
+fails before anything is written. Each entry is still the whole item, so a changed type lists
+every property it keeps. See [commands.md](commands.md#schema-export--diff--apply) for the full
+list of references and an example.
+
+```bash
+umbraco document-type get blogPost -o json | jq '{schemaVersion: "4", documentTypes: [.data]}' > edit.json
+# ...add a property with "dataType": "Textstring" and no id...
+umbraco schema diff edit.json               # only blogPost is compared
+umbraco schema apply edit.json
 ```
 
 **Templates travel with their partials.** The snapshot (format `"4"`) carries `partialViews`,
@@ -619,10 +645,6 @@ process** that supervises an agent, where the agent itself cannot change them.
 run. Entries are noun groups (`content`, `media`) and/or full command names (`content.list`); a
 command runs only if its group or full name is listed. The `auth` group is always allowed. A
 blocked command aborts before running with exit `2` and category `not_allowed`.
-
-- **Renamed nouns still match:** an entry written before the #268 renames
-  (`UMBRACO_ALLOWED_COMMANDS=content-types`, `content.domains.set`) allows exactly what it allowed
-  before, under the new names (`document-type`, `content.domain.set`) - and nothing more.
 
 - **Unset vs lockdown:** only a *truly unset* value (variable absent and no config
   `allowedCommands`) means no restriction. Any *present* value that is blank or separators-only

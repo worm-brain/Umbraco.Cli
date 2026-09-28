@@ -69,6 +69,13 @@ Ship `umbraco schema export`, `umbraco schema diff <file>`, and
 > property permissions name document types); prune runs in reverse, dictionary children first.
 > Domains stay out: they are per-environment hosts.
 
+> **Amended (#198, still snapshot version 4):** a snapshot may be written by hand. A section that
+> is absent is not managed (the #292 rule, now for every kind), so `--prune` never deletes a kind
+> the file leaves out. Before the diff, references may be resolved from names to ids (the
+> snapshot's own entries first, then the instance's resolver) and entities, properties and
+> containers without an id take the matching live id or a new one (`SchemaReferences`). §1's
+> verbatim property still holds for exported files: they pass through unchanged.
+
 ### 1. Fidelity: raw-JSON passthrough
 
 Export the **verbatim Management-API JSON** of each entity (the full get-by-id
