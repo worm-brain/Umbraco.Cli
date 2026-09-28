@@ -5,7 +5,7 @@ multilingual site with the CLI alone (scripted). **Part B** works through every 
 promotion to a second site. [`AGENTS.md`](AGENTS.md) says how to run a round; this file says **what** to test and what
 counts as a pass.
 
-Each test ends with a **Known** line: what was still open on the latest build tested (alpha.13, Umbraco 17.7.0).
+Each test ends with a **Known** line: what was still open on the latest build tested (alpha.14, Umbraco 17.7.0).
 Anything else that fails is a new finding. Update the Known lines at the end of each round.
 
 Rules that apply to every test:
@@ -62,9 +62,8 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
   --username … --new-password … --approved false`, re-read with `member get`, then `member delete <id> --yes`.
 - `dictionary update Blog.Tags --value da-DK=…` keeps en-US; `--value en=…` is rejected ("no language with the ISO code 'en'").
 
-**Known (alpha.13):**
-- #214: no `user create`. For a sign-in test: `POST /user` (needs ≥ 1 group) + `POST /user/{id}/change-password` via the API.
-- #216: `user get` has no groups. #198: data types in a `--json-body` need ids, not names.
+**Known (alpha.14):**
+- L-113: `user get` has no content languages. L-107/L-108: a hand-written schema snapshot applies correctly but never re-diffs clean.
 - `content list` rows have no `updateDate` (by design: the tree endpoint doesn't return it).
 
 ---
@@ -91,7 +90,8 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 - [ ] Every re-diff is empty; all pages identical; 8/8 forms on staging
 - [ ] Drift shows exactly what changed; the subtree prune touches exactly the right items
 
-**Known (alpha.13):** domains are per-environment by design; the form controller is site code (copy + rebuild).
+**Known (alpha.14):** domains are per-environment by design; the form controller is site code (copy + rebuild). L-103: run `schema apply` before
+`content diff`, or a document type change marks every document of that type Changed.
 
 ### T2 · Archive moves, redirects, sort, recycle bin, rollback
 
@@ -108,7 +108,7 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 **Pass:**
 - [ ] Every old URL 301s; sort, restore and rollback put things back
 
-**Known (alpha.13):** none.
+**Known (alpha.14):** none.
 
 ### T3 · Webhooks
 
@@ -122,7 +122,7 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 **Pass:**
 - [ ] Both events received, with a matching payload
 
-**Known (alpha.13):** #237: no webhook get/update/logs; `delete` takes an id only.
+**Known (alpha.14):** L-106: `-v` logs `Authorization`/`X-Api-Key` header values in clear. L-124: no way to remove one header.
 
 ### T4 · Stylesheets, scripts, partial views
 
@@ -133,7 +133,7 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 **Pass:**
 - [ ] CRUD round-trips; pages render
 
-**Known (alpha.13):** none. (Razor: don't name a variable `page`; compile errors show only as `UmbracoCompilationException`.)
+**Known (alpha.14):** none. (Razor: don't name a variable `page`; compile errors show only as `UmbracoCompilationException`.)
 
 ### T5 · Scheduled publishing
 
@@ -146,7 +146,8 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 **Pass:**
 - [ ] Publish and expire both happen within ~60 s of the time
 
-**Known (alpha.13):** **Umbraco:** scheduled publishes don't fire webhooks.
+**Known (alpha.14):** **Umbraco:** scheduled publishes don't fire webhooks. **Umbraco/SQLite:** under concurrent load (parallel agent lanes) a site can
+hang ~10 min on `database table is locked`, and scheduled jobs fire late while it does.
 
 ### T6 · Document blueprints
 
@@ -158,7 +159,7 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 **Pass:**
 - [ ] The new post carries the blueprint's defaults and is live in both languages
 
-**Known (alpha.13):** none.
+**Known (alpha.14):** none.
 
 ### T7 · Search, tags, imaging
 
@@ -170,7 +171,7 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 **Pass:**
 - [ ] Relevant hits, 16 tags, correct crop and type
 
-**Known (alpha.13):** `searcher list` is empty on Umbraco 17.7.0 (Umbraco).
+**Known (alpha.14):** `searcher list` is empty on Umbraco 17.7.0 (Umbraco).
 
 ### T8 · Data type housekeeping and delete guards
 
@@ -184,7 +185,7 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 **Pass:**
 - [ ] Housekeeping correct; every in-use delete refused without `--force`
 
-**Known (alpha.13):** none.
+**Known (alpha.14):** none.
 
 ### T9 · Diagnostics and ops
 
@@ -198,8 +199,8 @@ Each line of its output is `ok`/`FAIL`, the step time and a note. `SLOW` lines l
 **Pass:**
 - [ ] Every command returns meaningful data; errors in `log-viewer` are explained by the round's own tests
 
-**Known (alpha.13):** `redirect tracking disable` fails with a configuration hint (Umbraco 17 keeps tracking on). #320: `content version get`
-has no `documentType.alias`.
+**Known (alpha.14):** `redirect tracking disable` fails with a configuration hint (Umbraco 17 keeps tracking on). L-105: `-o human` on any
+object command prints only "✓ Done" (use `-o json`). Umbraco sometimes logs the same event twice.
 
 ### T10 · Safety and CI mode
 
@@ -212,7 +213,7 @@ has no `documentType.alias`.
 **Pass:**
 - [ ] 23/23; the right site per profile; auth never touches a profile it wasn't asked to
 
-**Known (alpha.13):** #166: `-v` shows no bodies (use `--dry-run`).
+**Known (alpha.14):** L-131: `-v` logs nothing for auth commands. L-109: `--dry-run` prints passwords in clear.
 
 ---
 
@@ -224,3 +225,4 @@ has no `documentType.alias`.
 | 2 · 2026-09-24 | alpha.11 | 51 (L-032 → L-082) | #250 |
 | 3 · 2026-09-28 | alpha.12 | 19 (L-083 → L-101); both round-2 P0s fixed | #302 |
 | 4 · 2026-09-28 | alpha.13 | 1 (L-102 → #320); 28/28 re-tests pass; Part A scripted | comment on #302 |
+| 5 · 2026-09-28 | alpha.14 (local pack) | 35 (L-103 → L-137), 4 🟠; T1-T10 pass; 5 parallel lanes + scratch site | |
