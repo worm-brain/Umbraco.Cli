@@ -764,26 +764,70 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="id">The document id.</param>
     /// <param name="parentId">Target parent id; null moves to the content root.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> MoveContentAsync(
+    /// <returns>An empty success response, or a mapped failure (a refusal says why, #363).</returns>
+    public async Task<UmbracoResponse<Empty>> MoveContentAsync(
         Guid id,
         Guid? parentId = null,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var body = new Gen.MoveDocumentRequestModel
+        ExplainPlacementRefusal(
+            await GuardedApiAsync(
+                ct,
+                async () =>
                 {
-                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
-                };
-                await _api
-                    .Umbraco.Management.Api.V1.Document[id]
-                    .Move.PutAsync(body, cancellationToken: ct);
-                return Empty.Value;
-            }
+                    var body = new Gen.MoveDocumentRequestModel
+                    {
+                        Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                    };
+                    await _api
+                        .Umbraco.Management.Api.V1.Document[id]
+                        .Move.PutAsync(body, cancellationToken: ct);
+                    return Empty.Value;
+                }
+            ),
+            "move",
+            id,
+            parentId
         );
+
+    /// <summary>
+    /// Rewords Umbraco's generic placement refusal for a move or copy (#363), as
+    /// <see cref="RestoreContentAsync"/> does for a restore (#230). Umbraco answers a document type
+    /// that is not allowed under the target (or at the root) with a 400 <c>NotAllowed</c> whose
+    /// text blames "a permission/configuration mismatch", which does not say what to check. The
+    /// message now names where the item was going and what to check; Umbraco's body still travels
+    /// as the error's <c>details</c>. Any other response is returned unchanged.
+    /// </summary>
+    /// <typeparam name="T">The response payload type.</typeparam>
+    /// <param name="response">The move or copy response.</param>
+    /// <param name="verb">The verb, for the message (<c>move</c> or <c>copy</c>).</param>
+    /// <param name="id">The document being placed.</param>
+    /// <param name="parentId">The target parent; null for the content root.</param>
+    /// <returns>The response, with the message reworded when it is a placement refusal.</returns>
+    internal static UmbracoResponse<T> ExplainPlacementRefusal<T>(
+        UmbracoResponse<T> response,
+        string verb,
+        Guid id,
+        Guid? parentId
+    )
+    {
+        var notAllowed =
+            response.Details?["operationStatus"]?.ToString() == "NotAllowed"
+            || response.ErrorMessage?.Contains("not permitted", StringComparison.OrdinalIgnoreCase)
+                == true;
+        if (response.IsSuccess || response.StatusCode != 400 || !notAllowed)
+            return response;
+
+        var where = parentId is { } p ? $"under {p}" : "at the content root";
+        return response with
+        {
+            ErrorMessage =
+                $"Umbraco would not {verb} {id} {where}: {response.ErrorMessage?.TrimEnd('.')}. "
+                + "Its document type may not be allowed there: check the parent's allowed "
+                + "document types (or 'allow at root') with 'document-type get <id>', or pass "
+                + $"--parent <id> to {verb} it somewhere else.",
+        };
+    }
 
     /// <summary>
     /// Copies a document under a new parent via <c>POST document/{id}/copy</c> (issue #67) and
@@ -813,12 +857,18 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             IncludeDescendants = includeDescendants,
             RelateToOriginal = relateToOriginal,
         };
-        return await CopyViaLocationAsync(
-            config => _api.Umbraco.Management.Api.V1.Document[id].Copy.PostAsync(body, config, ct),
-            newId => GetContentByIdAsync(newId, ct),
-            newId => new ContentItemResponse { Id = newId },
-            "document",
-            ct
+        return ExplainPlacementRefusal(
+            await CopyViaLocationAsync(
+                config =>
+                    _api.Umbraco.Management.Api.V1.Document[id].Copy.PostAsync(body, config, ct),
+                newId => GetContentByIdAsync(newId, ct),
+                newId => new ContentItemResponse { Id = newId },
+                "document",
+                ct
+            ),
+            "copy",
+            id,
+            parentId
         );
     }
 
