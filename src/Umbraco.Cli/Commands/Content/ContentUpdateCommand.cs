@@ -104,7 +104,7 @@ public static class ContentUpdateCommand
                         return await client.UpdateContentAsync(
                             id,
                             request,
-                            parseResult.GetValue(replaceOpt),
+                            WriteModes.FromReplaceFlag(parseResult.GetValue(replaceOpt)),
                             c
                         );
                     },

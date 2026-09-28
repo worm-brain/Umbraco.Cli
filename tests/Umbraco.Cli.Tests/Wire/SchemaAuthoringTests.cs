@@ -64,7 +64,7 @@ public class SchemaAuthoringTests
                 EntityKind.DataType,
                 id,
                 body,
-                replace: true,
+                WriteMode.Replace,
                 CancellationToken.None
             );
 
@@ -301,7 +301,7 @@ internal static class SchemaUpdateByReference
         client.WithResolvedAsync(
             kind,
             reference,
-            id => client.MergeSchemaItemAsync(kind, id, body, replace: true, ct),
+            id => client.MergeSchemaItemAsync(kind, id, body, WriteMode.Replace, ct),
             ct
         );
 }

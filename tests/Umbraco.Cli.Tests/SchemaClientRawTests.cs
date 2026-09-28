@@ -168,7 +168,7 @@ public class SchemaClientRawTests
             EntityKind.Template,
             id,
             body,
-            replace: true,
+            WriteMode.Replace,
             CancellationToken.None
         );
 

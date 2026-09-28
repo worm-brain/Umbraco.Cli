@@ -690,7 +690,7 @@ public static class SchemaApplier
             ("update", SchemaKinds.UserGroup) => UpdateUserGroupAsync(client, change, ct),
 
             // Creates and updates are the same call for every kind; only the endpoint differs.
-            // An update is a full replace (replace: true): the snapshot body is the whole item.
+            // An update is a full replace (WriteMode.Replace): the snapshot body is the whole item.
             ("create", _) => client.CreateSchemaRawAsync(
                 SchemaKinds.EntityOf(change.Kind),
                 change.DesiredBody!,
@@ -700,7 +700,7 @@ public static class SchemaApplier
                 SchemaKinds.EntityOf(change.Kind),
                 change.CurrentId!.Value,
                 WithId(change.DesiredBody!, change.CurrentId!.Value),
-                replace: true,
+                WriteMode.Replace,
                 ct
             ),
 
@@ -833,7 +833,7 @@ public static class SchemaApplier
             EntityKind.DictionaryItem,
             id,
             WithId(SchemaBodies.WithoutParent(change.DesiredBody!), id),
-            replace: true,
+            WriteMode.Replace,
             ct
         );
         if (!update.IsSuccess)
@@ -868,7 +868,7 @@ public static class SchemaApplier
             EntityKind.UserGroup,
             id,
             WithId(SchemaBodies.WithLiveNodes(change.DesiredBody!, live.Data!), id),
-            replace: true,
+            WriteMode.Replace,
             ct
         );
     }

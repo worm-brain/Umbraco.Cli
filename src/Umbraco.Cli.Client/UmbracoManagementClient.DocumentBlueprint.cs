@@ -298,7 +298,7 @@ public sealed partial class UmbracoManagementClient
         if (stale.Count == 0)
             return;
 
-        DocumentUpdateBody.Merge(blueprint, [], stale, replace: false);
+        DocumentUpdateBody.Merge(blueprint, [], stale, WriteMode.Merge);
         await SendRawJsonAsync(Method.PUT, path, blueprint, ct);
     }
 
@@ -309,12 +309,12 @@ public sealed partial class UmbracoManagementClient
     /// The PUT replaces the whole body, so sending only the supplied values dropped every other
     /// field (#242: featuredImage and publishDate vanished). Like <c>content update</c>, the
     /// blueprint is read and the request overlaid on it with <see cref="DocumentUpdateBody.Merge"/>
-    /// unless <paramref name="replace"/> is set.
+    /// unless the mode is <see cref="WriteMode.Replace"/>.
     /// </remarks>
     public Task<UmbracoResponse<Empty>> UpdateDocumentBlueprintAsync(
         Guid id,
         UpdateDocumentBlueprintRequest request,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -331,7 +331,7 @@ public sealed partial class UmbracoManagementClient
                     request.Variants,
                     () => ExistingItemCultureAsync(blueprint["variants"] as JsonArray, ct)
                 );
-                DocumentUpdateBody.Merge(blueprint, request.Values, variants, replace);
+                DocumentUpdateBody.Merge(blueprint, request.Values, variants, mode);
                 await SendRawJsonAsync(Method.PUT, path, blueprint, ct);
                 return Empty.Value;
             }

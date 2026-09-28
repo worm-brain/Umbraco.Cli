@@ -192,11 +192,11 @@ public class SchemaRoundTripCommandTests
 
         Assert.Equal(0, exit);
         Assert.Equal(
-            (kind, Id, false),
+            (kind, Id, WriteMode.Merge),
             (
                 fake.LastSchemaMerge!.Value.Kind,
                 fake.LastSchemaMerge.Value.Id,
-                fake.LastSchemaMerge.Value.Replace
+                fake.LastSchemaMerge.Value.Mode
             )
         );
     }
@@ -213,7 +213,7 @@ public class SchemaRoundTripCommandTests
             """{ "name": "N" }"""
         );
 
-        Assert.True(fake.LastSchemaMerge!.Value.Replace);
+        Assert.Equal(WriteMode.Replace, fake.LastSchemaMerge!.Value.Mode);
     }
 
     [Fact]

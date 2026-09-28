@@ -40,7 +40,7 @@ public class SchemaMergeWireTests
     private static async Task<JsonObject> PutBody(
         RoutingHandler handler,
         string patch,
-        bool replace = false
+        WriteMode mode = WriteMode.Merge
     )
     {
         var result = await Wire.Client(handler)
@@ -48,7 +48,7 @@ public class SchemaMergeWireTests
                 EntityKind.DocumentType,
                 Id,
                 JsonNode.Parse(patch)!,
-                replace,
+                mode,
                 CancellationToken.None
             );
         Assert.True(result.IsSuccess, result.ErrorMessage);
@@ -93,7 +93,7 @@ public class SchemaMergeWireTests
     {
         var handler = Handler();
 
-        var body = await PutBody(handler, """{ "name": "Journal" }""", replace: true);
+        var body = await PutBody(handler, """{ "name": "Journal" }""", WriteMode.Replace);
 
         Assert.False(body.ContainsKey("collection"));
         handler.AssertNoRequest(HttpMethod.Get, $"/document-type/{Id}");
