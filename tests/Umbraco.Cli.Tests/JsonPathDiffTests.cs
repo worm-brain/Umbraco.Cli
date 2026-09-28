@@ -126,6 +126,50 @@ public class JsonPathDiffTests
     }
 
     [Fact]
+    public void Paths_ReorderedAllowedDocumentTypes_IsEmpty()
+    {
+        var paths = Paths(
+            """{"allowedDocumentTypes":[{"documentType":{"id":"a"},"sortOrder":0},{"documentType":{"id":"b"},"sortOrder":1}]}""",
+            """{"allowedDocumentTypes":[{"documentType":{"id":"b"},"sortOrder":1},{"documentType":{"id":"a"},"sortOrder":0}]}"""
+        );
+
+        Assert.Empty(paths);
+    }
+
+    [Fact]
+    public void Paths_ReorderedCompositionsWithAChange_NamesTheItemByItsReference()
+    {
+        var paths = Paths(
+            """{"compositions":[{"documentType":{"id":"a"},"compositionType":"Composition"},{"documentType":{"id":"b"},"compositionType":"Inheritance"}]}""",
+            """{"compositions":[{"documentType":{"id":"b"},"compositionType":"Composition"},{"documentType":{"id":"a"},"compositionType":"Composition"}]}"""
+        );
+
+        Assert.Equal(["compositions[b].compositionType"], paths);
+    }
+
+    [Fact]
+    public void Paths_GuidsDifferingOnlyInCase_IsEmpty()
+    {
+        var paths = Paths(
+            """{"containers":[{"id":"3F2A0000-0000-0000-0000-00000000000A","parent":{"id":"3F2A0000-0000-0000-0000-00000000000B"}}]}""",
+            """{"containers":[{"id":"3f2a0000-0000-0000-0000-00000000000a","parent":{"id":"3f2a0000-0000-0000-0000-00000000000b"}}]}"""
+        );
+
+        Assert.Empty(paths);
+    }
+
+    [Fact]
+    public void Paths_DifferentGuids_StillDiffer()
+    {
+        var paths = Paths(
+            """{"template":{"id":"3F2A0000-0000-0000-0000-00000000000A"}}""",
+            """{"template":{"id":"3f2a0000-0000-0000-0000-00000000000b"}}"""
+        );
+
+        Assert.Equal(["template.id"], paths);
+    }
+
+    [Fact]
     public void Paths_UnkeyedArrayOfSameLength_IsMatchedByIndex()
     {
         Assert.Equal(

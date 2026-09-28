@@ -12,9 +12,11 @@ namespace Umbraco.Cli.Commands;
 /// (<c>values.title[en-US]</c>, <c>properties.title</c>); a variant, which has a <c>culture</c> but
 /// no alias, is named by its culture (<c>variants[en-US].name</c>, <c>[invariant]</c> for the null
 /// culture); any other item with an <c>id</c>, such as a document type's container, is named by
-/// it (<c>containers[3f2a...].name</c>). Anything else is matched by index
-/// (<c>allowedDocumentTypes[2].sortOrder</c>), and an index-matched array whose length changed is
-/// reported as a whole. A property value (an item with both <c>alias</c> and <c>value</c>) is
+/// it (<c>containers[3f2a...].name</c>), and an item that holds exactly one reference, such as an
+/// <c>allowedDocumentTypes</c> or <c>compositions</c> entry, by the id it references
+/// (<c>allowedDocumentTypes[3f2a...].sortOrder</c>). GUIDs match and compare ignoring letter case.
+/// Anything else is matched by index (<c>tags[2]</c>), and an index-matched array whose length
+/// changed is reported as a whole. A property value (an item with both <c>alias</c> and <c>value</c>) is
 /// reported as a whole too: its <c>value</c> can be a block editor's entire JSON, which is not a
 /// useful place to point at.
 /// <para>
@@ -42,9 +44,17 @@ public static class JsonPathDiff
         return paths;
     }
 
+    /// <summary>
+    /// Compares two nodes at <paramref name="path"/> and appends each path where they differ.
+    /// Two GUID strings that differ only in letter case are equal.
+    /// </summary>
+    /// <param name="path">The nodes' path; empty at the root.</param>
+    /// <param name="a">The desired-side node.</param>
+    /// <param name="b">The live-side node.</param>
+    /// <param name="paths">The differing paths found so far; appended to.</param>
     private static void Walk(string path, JsonNode? a, JsonNode? b, List<string> paths)
     {
-        if (JsonNode.DeepEquals(a, b))
+        if (JsonNode.DeepEquals(a, b) || SameGuid(a, b))
             return;
 
         switch (a, b)
@@ -125,7 +135,9 @@ public static class JsonPathDiff
 
     /// <summary>
     /// An item's identity label: <c>.alias</c> (plus a culture/segment qualifier), else
-    /// <c>[culture]</c> for a variant, else <c>[id]</c> for any other item with an id (#350).
+    /// <c>[culture]</c> for a variant, else <c>[id]</c> for any other item with an id, else
+    /// <c>[id]</c> of the one reference it holds (<c>documentType.id</c>) (#350). GUIDs are
+    /// lower-cased.
     /// </summary>
     /// <param name="item">An array item.</param>
     /// <returns>The label, or null when the item has no identity.</returns>
@@ -150,9 +162,37 @@ public static class JsonPathDiff
         // #350: an item with neither, but an id (a type's container), is matched by the id, so a
         // container list in another order than the live one still pairs each container.
         if (Text(o, "id") is { } id)
-            return $"[{id}]";
-        return null;
+            return $"[{Canonical(id)}]";
+        // Else an item that points at one thing by id and says nothing else about identity (an
+        // allowedDocumentTypes or compositions entry, {"documentType":{"id":..},...}) is matched
+        // by that id.
+        var references = o.Where(p => p.Value is JsonObject r && Text(r, "id") is not null)
+            .Select(p => Text(p.Value!.AsObject(), "id")!)
+            .ToList();
+        return references.Count == 1 ? $"[{Canonical(references[0])}]" : null;
     }
+
+    /// <summary>
+    /// A GUID in its lower-case form, so an id written in upper case by hand matches the live one;
+    /// any other text is returned as it is.
+    /// </summary>
+    /// <param name="id">The id text.</param>
+    /// <returns>The canonical id.</returns>
+    private static string Canonical(string id) =>
+        Guid.TryParse(id, out var guid) ? guid.ToString() : id;
+
+    /// <summary>Whether two nodes are strings naming the same GUID, whatever their letter case.</summary>
+    /// <param name="a">A node.</param>
+    /// <param name="b">Another node.</param>
+    /// <returns>True when both are GUID strings with the same value.</returns>
+    private static bool SameGuid(JsonNode? a, JsonNode? b) =>
+        a is JsonValue va
+        && b is JsonValue vb
+        && va.TryGetValue<string>(out var sa)
+        && vb.TryGetValue<string>(out var sb)
+        && Guid.TryParse(sa, out var ga)
+        && Guid.TryParse(sb, out var gb)
+        && ga == gb;
 
     private static bool IsPropertyValue(JsonNode? item) =>
         item is JsonObject o && o.ContainsKey("alias") && o.ContainsKey("value");

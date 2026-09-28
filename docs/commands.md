@@ -1111,7 +1111,8 @@ How it works:
   `canIgnoreStartNodes`) are never compared. But a list is the **whole** list: apply writes the
   snapshot's `properties` and `containers`, so list every property the type keeps (a property
   you leave out is removed, with its values). List order does not matter: properties are matched
-  by alias and containers by id, and order is carried by `sortOrder` and `parent`
+  by alias, containers by id, and `allowedDocumentTypes` / `compositions` entries by the type they
+  name (ids ignore letter case), and order is carried by `sortOrder` and `parent`
   ([#350](https://github.com/worm-brain/Umbraco.Cli/issues/350)). Run `schema diff` first; its
   `changes` column shows exactly which fields differ.
 - **Static files** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)) - the
