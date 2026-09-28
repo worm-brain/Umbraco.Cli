@@ -694,10 +694,32 @@ umbraco member-group delete <id|name> [--force]           # refused while it has
 ## `user`
 
 ```bash
-umbraco user list
-umbraco user get <id>
+umbraco user list                                         # the super-user is hidden from other users (see below)
+umbraco user get <id|email|username>                      # groups as [{id, alias, name}], sections, start nodes, languageIsoCode, login record
+umbraco user create --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--password <pw>] [--id <guid>]   # no email sent; returns the user
+umbraco user update <id|email|username> [--email <email>] [--name <name>] [--username <name>] [--group <alias|name|id>...] [--culture <iso>] [--new-password <pw>] [--disabled [true|false]] [--unlock]
+umbraco user delete <id|email|username>...                # one or several; needs --yes non-interactively
 umbraco user invite --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--message <text>]   # --group repeatable, at least one; returns the invited user
 ```
+
+A user is named by id, email or username (email first). Umbraco hides the **super-user** (the
+installer's administrator) from every other user: it is missing from `user list` and cannot be
+named or read unless you are signed in as it. That is Umbraco, not the CLI.
+
+`user create` makes the user directly, as the backoffice's "Create user" does, so it needs no
+SMTP. `--password` is set with a second call; if Umbraco rejects it (its password policy), the new
+user is deleted again and the command fails, so it can be retried as it stands. Without
+`--password` the user exists but cannot sign in until `user update --new-password` sets one.
+`--username` defaults to the email.
+
+`user update` merges: only the options you give change. `--group` **replaces** the user's groups
+(pass every group they should end up in). `--new-password` is an admin reset and needs no current
+password; `--disabled` disables the user and `--disabled false` enables them; `--unlock` clears a
+lockout from failed logins. The profile, password, state and lockout are separate Umbraco calls,
+made in that order; if one fails, the error says which had already been applied. Start nodes and
+root access set on the user itself are kept as they are.
+
+`user delete` may be refused by Umbraco for a user who has signed in; disable them instead.
 
 `user invite` needs SMTP configured on the site, because Umbraco emails the invitation; without it
 the invite is refused and no user is created. `--username` defaults to the email.
@@ -706,18 +728,25 @@ the invite is refused and no user is created. `--username` defaults to the email
 
 ```bash
 umbraco user-group list
-umbraco user-group get <id|alias|name>
-umbraco user-group create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--id <guid>]
-umbraco user-group update <id|alias|name> [--alias <alias>] [--name <name>] [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>]
+umbraco user-group get <id|alias|name>                    # includes documentPermissions: [{document, verbs}]
+umbraco user-group create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--document-permission <id>=<verb>,<verb>]... [--id <guid>]
+umbraco user-group update <id|alias|name> [--alias <alias>] [--name <name>] [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--document-permission <id>=<verb>,<verb>]...
 umbraco user-group delete <id|alias|name>... [--force]   # one or several; refused while any has users unless --force; --yes non-interactively
-umbraco user-group add-users <id|alias|name> --user <id>...          # --user repeatable
-umbraco user-group remove-users <id|alias|name> --user <id>...       # --user repeatable
+umbraco user-group add-users <id|alias|name> --user <id|email|username>...      # --user repeatable
+umbraco user-group remove-users <id|alias|name> --user <id|email|username>...   # --user repeatable
 ```
 
-Granular per-node permissions are a deferred follow-up: `create`/`update` set the scalar and
-list fields but send an empty permissions set. `update` merges: omitted options keep their
-values, a list option given replaces that list, and a start node and root access clear each
-other.
+`update` merges: omitted options keep their values, a list option given replaces that list, and a
+start node and root access clear each other.
+
+`--document-permission` sets a granular permission on one document: the document id, `=`, and the
+verbs separated by commas (`--document-permission 3f7a8b2e-...=Umb.Document.Read,Umb.Document.Update`).
+It is repeatable, and on that document it takes the place of the group's fallback permissions. On
+`update` it merges by document: the documents you name get the verbs you give, the group's other
+document permissions are kept, and `<id>=` with no verbs removes that document's entry so the
+fallback permissions apply to it again. Granular permissions of other kinds (per property value)
+are not set from the CLI, and an update always keeps them. There is no media equivalent in the
+Management API.
 
 ## `user-data`
 
