@@ -495,7 +495,7 @@
             {
               "name": "--template",
               "aliases": [],
-              "description": "Template for the new item, by alias or id. Omitted, the document type's default is used.",
+              "description": "Template for the new item, by alias, name or id. Omitted, the document type's default is used.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -568,7 +568,7 @@
             {
               "name": "--template",
               "aliases": [],
-              "description": "Template to set on the item, by alias or id. Omitted, the current template is kept.",
+              "description": "Template to set on the item, by alias, name or id. Omitted, the current template is kept.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -1384,7 +1384,7 @@
             {
               "name": "--exclude-type",
               "aliases": [],
-              "description": "With --prune, never delete documents of this document type (alias or id). Repeat the option, or separate values with commas.",
+              "description": "With --prune, never delete documents of this document type (alias, name or id). Repeat the option, or separate values with commas.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -2144,7 +2144,7 @@
         },
         {
           "name": "get",
-          "description": "Get a media type by id or alias, as the full Management API body.\n\nThe body has its properties, groups and allowed child types. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco media-type get brochure\n  umbraco media-type get brochure -o json | jq .data > mt.json",
+          "description": "Get a media type by alias, name or id, as the full Management API body.\n\nThe body has its properties, groups and allowed child types. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco media-type get brochure\n  umbraco media-type get brochure -o json | jq .data > mt.json",
           "arguments": [
             {
               "name": "id",
@@ -2438,7 +2438,7 @@
         },
         {
           "name": "get",
-          "description": "Get a document type by alias or id, as the full Management API body.\n\nThe body has its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco document-type get blogPost\n  umbraco document-type get blogPost -o json | jq .data > t.json",
+          "description": "Get a document type by alias, name or id, as the full Management API body.\n\nThe body has its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco document-type get blogPost\n  umbraco document-type get blogPost -o json | jq .data > t.json",
           "arguments": [
             {
               "name": "id",
@@ -3460,7 +3460,7 @@
         },
         {
           "name": "get",
-          "description": "Get a template by its alias or id, including the view file content.\n\nExamples:\n  umbraco template get master\n  umbraco template get master -o json | jq -r .data.content",
+          "description": "Get a template by its alias, name or id, including the view file content.\n\nExamples:\n  umbraco template get master\n  umbraco template get master -o json | jq -r .data.content",
           "arguments": [
             {
               "name": "id",
@@ -3974,11 +3974,11 @@
         },
         {
           "name": "get",
-          "description": "Get a member type by id or alias, as the full Management API body.\n\nThe body has its properties and groups. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco member-type get siteMember\n  umbraco member-type get siteMember -o json | jq .data > mt.json",
+          "description": "Get a member type by alias, name or id, as the full Management API body.\n\nThe body has its properties and groups. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco member-type get siteMember\n  umbraco member-type get siteMember -o json | jq .data > mt.json",
           "arguments": [
             {
               "name": "id",
-              "description": "The member type's id, or its alias.",
+              "description": "The member type's id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -4093,7 +4093,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The member type's id, or its alias. Required unless --schema or --example is used.",
+              "description": "The member type's id, or its alias or name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -4190,7 +4190,7 @@
           "arguments": [
             {
               "name": "id",
-              "description": "The member type's id, or its alias.",
+              "description": "The member type's id, or its alias or name.",
               "type": "string",
               "required": true,
               "hasDefault": false
@@ -7145,7 +7145,7 @@
             {
               "name": "--document-type",
               "aliases": [],
-              "description": "Document type alias or id the blueprint is based on. Required unless --json-body or --schema is used.",
+              "description": "Document type alias, name or id the blueprint is based on. Required unless --json-body or --schema is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -8276,7 +8276,7 @@
         },
         {
           "name": "get",
-          "description": "Get a relation type by id or alias.\n\nExamples:\n  umbraco relation-type get relateDocumentOnCopy\n  umbraco relation-type get 3f7a8b2e-...",
+          "description": "Get a relation type by alias, name or id.\n\nExamples:\n  umbraco relation-type get relateDocumentOnCopy\n  umbraco relation-type get 3f7a8b2e-...",
           "arguments": [
             {
               "name": "id",

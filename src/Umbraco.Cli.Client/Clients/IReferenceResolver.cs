@@ -61,7 +61,7 @@ public static class EntityKindText
             EntityKind.Template => ("template", "alias or name", "template list"),
             EntityKind.DocumentType => ("document type", "alias or name", "document-type list"),
             EntityKind.MediaType => ("media type", "alias or name", "media-type list"),
-            EntityKind.MemberType => ("member type", "alias", "member-type list"),
+            EntityKind.MemberType => ("member type", "alias or name", "member-type list"),
             EntityKind.DataType => ("data type", "name", "data-type list"),
             EntityKind.UserGroup => ("user group", "alias or name", "user-group list"),
             EntityKind.MemberGroup => ("member group", "name", "member-group list"),

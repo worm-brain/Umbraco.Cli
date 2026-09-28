@@ -2386,15 +2386,24 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     private readonly HashSet<Guid> _memberTypeAliasesRead = [];
 
     /// <summary>
-    /// Resolves a member-type reference - an alias or a GUID id - to its id, mirroring
+    /// Every member type read by-id so far, as a match candidate (id, alias, name), for the name
+    /// fallback in <see cref="FindMemberTypeIdAsync"/>.
+    /// </summary>
+    private readonly List<ReferenceCandidate> _memberTypeCandidates = [];
+
+    /// <summary>
+    /// Resolves a member-type reference - an alias, a name or a GUID id - to its id, mirroring
     /// <see cref="FindDocumentTypeIdAsync"/>: a GUID is used directly, otherwise the member-type
-    /// tree is walked and each candidate read by-id to compare its alias. As with document types
+    /// tree is walked and each candidate read by-id to compare its alias; when none has it, the
+    /// name is matched instead, and a name two types share is refused. As with document types
     /// the item search is deliberately avoided - it indexes names, not aliases. See ADR 0004.
     /// </summary>
-    /// <param name="aliasOrId">The member-type alias or id.</param>
+    /// <param name="aliasOrId">The member-type alias, name or id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved member-type id.</returns>
-    /// <exception cref="ApiException">No member type matches the alias (mapped to a 404).</exception>
+    /// <exception cref="ApiException">
+    /// No member type has the alias or name (404), or the name belongs to several (409).
+    /// </exception>
     private async Task<Guid> FindMemberTypeIdAsync(string aliasOrId, CancellationToken ct)
     {
         if (_memberTypeAliases.TryGetValue(aliasOrId, out var cached))
@@ -2412,15 +2421,13 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 .GetAsync(cancellationToken: ct);
             if (mt?.Alias is { } alias)
                 _memberTypeAliases[alias] = candidateId;
+            _memberTypeCandidates.Add(new ReferenceCandidate(candidateId, mt?.Alias, mt?.Name));
             if (string.Equals(mt?.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase))
                 return candidateId;
         }
 
-        throw new UnresolvedReferenceException(
-            $"No member type found with alias '{aliasOrId}'. Use 'umbraco member-type list' "
-                + "to find one, or pass a member type id.",
-            404
-        );
+        // Every type has been read and none has the alias: match the name (conventions 3.2).
+        return ReferenceMatch.Pick(EntityKind.MemberType, aliasOrId, _memberTypeCandidates);
     }
 
     /// <summary>
