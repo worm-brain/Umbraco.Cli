@@ -22,12 +22,14 @@ public static class SchemaApplyCommand
         var cmd = new Command(
             "apply",
             "Apply a schema snapshot to the live instance.\n\n"
-                + "Creates and updates; --prune also deletes.\n\n"
-                + "Examples:\n"
-                + "  umbraco schema apply schema.json --dry-run\n"
-                + "  umbraco schema apply schema.json\n"
-                + "  umbraco schema apply schema.json --prune --yes"
-        ).Mutating();
+                + "Creates and updates; --prune also deletes."
+        )
+            .WithExamples(
+                "umbraco schema apply schema.json --dry-run",
+                "umbraco schema apply schema.json",
+                "umbraco schema apply schema.json --prune --yes"
+            )
+            .Mutating();
         var snapshotArg = new Argument<string>("snapshot")
         {
             Description = "Path to a snapshot file produced by 'schema export', or '-' for stdin.",

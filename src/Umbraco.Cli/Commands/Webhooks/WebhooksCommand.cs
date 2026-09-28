@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
 
@@ -15,7 +16,14 @@ public static class WebhooksCommand
     {
         var cmd = new Command(
             "webhook",
-            "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook update <id> --enabled false\n  umbraco webhook delete <id>\n  umbraco webhook event list\n  umbraco webhook log list <id>"
+            "Manage Umbraco webhook subscriptions for event notifications."
+        ).WithExamples(
+            "umbraco webhook list",
+            "umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish",
+            "umbraco webhook update <id> --enabled false",
+            "umbraco webhook delete <id>",
+            "umbraco webhook event list",
+            "umbraco webhook log list <id>"
         );
         cmd.Add(WebhooksListCommand.Build(executor));
         cmd.Add(WebhookGetCommand.Build(executor));
@@ -26,14 +34,14 @@ public static class WebhooksCommand
         // (docs/conventions.md 1.4), mirroring 'content version'.
         var events = new Command(
             "event",
-            "List the webhook events this instance can fire.\n\nExamples:\n  umbraco webhook event list"
-        );
+            "List the webhook events this instance can fire."
+        ).WithExamples("umbraco webhook event list");
         events.Add(WebhookEventListCommand.Build(executor));
         cmd.Add(events);
         // The delivery log is another sub-resource, so another sub-noun (1.4).
-        var log = new Command(
-            "log",
-            "List webhook delivery attempts.\n\nExamples:\n  umbraco webhook log list <id>\n  umbraco webhook log list"
+        var log = new Command("log", "List webhook delivery attempts.").WithExamples(
+            "umbraco webhook log list <id>",
+            "umbraco webhook log list"
         );
         log.Add(WebhookLogListCommand.Build(executor));
         cmd.Add(log);

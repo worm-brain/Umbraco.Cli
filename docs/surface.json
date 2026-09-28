@@ -141,7 +141,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco auth login",
+            "umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>",
+            "umbraco auth login --output json --host https://mysite.com --client-id <id> --client-secret <secret>"
+          ]
         },
         {
           "name": "logout",
@@ -151,7 +156,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco auth logout",
+            "umbraco auth logout --profile prod"
+          ]
         },
         {
           "name": "profile",
@@ -167,7 +176,11 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco auth profile list",
+                "umbraco auth profile list --output json"
+              ]
             },
             {
               "name": "use",
@@ -185,12 +198,20 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco auth profile use prod",
+                "umbraco auth profile use default"
+              ]
             }
           ],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco auth profile list",
+            "umbraco auth profile use prod"
+          ]
         },
         {
           "name": "whoami",
@@ -200,7 +221,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco auth whoami",
+            "umbraco auth whoami --output json"
+          ]
         },
         {
           "name": "doctor",
@@ -210,12 +235,21 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco auth doctor",
+            "umbraco auth doctor --output json"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>",
+        "umbraco auth whoami",
+        "umbraco auth logout"
+      ]
     },
     {
       "name": "content",
@@ -267,7 +301,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content list",
+            "umbraco content list --parent <id> --take 50",
+            "umbraco content list --output json | jq '.data[].name'"
+          ]
         },
         {
           "name": "tree",
@@ -303,7 +342,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content tree                       # direct children of the root",
+            "umbraco content tree --parent <id> --recursive",
+            "umbraco content tree --depth 3 --output json"
+          ]
         },
         {
           "name": "find",
@@ -365,7 +409,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content find --name About",
+            "umbraco content find --name Team --parent <section-id>",
+            "umbraco content find --path \"Home/About/Team\""
+          ]
         },
         {
           "name": "get",
@@ -383,7 +432,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content get 3f7a8b2e-1234-5678-abcd-ef0123456789",
+            "umbraco content get <id> -o json | jq .data.values"
+          ]
         },
         {
           "name": "create",
@@ -478,7 +531,14 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "jsonBodySchema": "umbraco content create --schema"
+          "jsonBodySchema": "umbraco content create --schema",
+          "examples": [
+            "umbraco content create --document-type textPage --name \"About\"",
+            "umbraco content create --document-type textPage --name \"Child\" --parent <id>",
+            "umbraco content create --document-type blogPost --name \"Post\" --culture da-DK",
+            "umbraco content create --json-body ./body.json",
+            "umbraco content create --example --document-type blogPost -o json | jq .data > body.json"
+          ]
         },
         {
           "name": "update",
@@ -540,7 +600,13 @@
           "destructive": false,
           "acceptsJsonBody": true,
           "destructiveWhen": "--replace",
-          "jsonBodySchema": "umbraco content update --schema"
+          "jsonBodySchema": "umbraco content update --schema",
+          "examples": [
+            "umbraco content update 3f7a8b2e-... --json-body ./update.json",
+            "umbraco content update 3f7a8b2e-... --json-body ./full.json --replace",
+            "umbraco content update 3f7a8b2e-... --json-body ./update.json --template blogPost",
+            "umbraco content update 3f7a8b2e-... --template blogPost"
+          ]
         },
         {
           "name": "delete",
@@ -558,7 +624,11 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content delete 3f7a8b2e-1234-5678-abcd-ef0123456789",
+            "umbraco content delete <id> --yes"
+          ]
         },
         {
           "name": "publish",
@@ -601,7 +671,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content publish 3f7a8b2e-...",
+            "umbraco content publish 3f7a8b2e-... --culture en-US da-DK"
+          ]
         },
         {
           "name": "domain",
@@ -625,7 +699,10 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco content domain get 3f7a8b2e-..."
+              ]
             },
             {
               "name": "set",
@@ -670,7 +747,11 @@
               "mutating": true,
               "destructive": false,
               "acceptsJsonBody": false,
-              "destructiveWhen": "--replace"
+              "destructiveWhen": "--replace",
+              "examples": [
+                "umbraco content domain set <id> --default-culture en-US --domain example.com=en-US --domain example.com/da=da-DK",
+                "umbraco content domain set <id> --replace --domain example.com=en-US"
+              ]
             }
           ],
           "mutating": false,
@@ -702,7 +783,11 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content unpublish 3f7a8b2e-...",
+            "umbraco content unpublish 3f7a8b2e-... --culture en-US"
+          ]
         },
         {
           "name": "version",
@@ -762,7 +847,11 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco content version list 3f7a8b2e-...",
+                "umbraco content version list 3f7a8b2e-... --culture en-US"
+              ]
             },
             {
               "name": "get",
@@ -780,7 +869,10 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco content version get 7c1d9e4a-..."
+              ]
             },
             {
               "name": "rollback",
@@ -816,12 +908,22 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco content version rollback 7a1c2d3e-...",
+                "umbraco content version rollback 7a1c2d3e-... --culture en-US",
+                "umbraco content version rollback 7a1c2d3e-... --culture en-US --publish"
+              ]
             }
           ],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content version list <id>",
+            "umbraco content version get <version-id>",
+            "umbraco content version rollback <version-id>"
+          ]
         },
         {
           "name": "trash",
@@ -839,7 +941,10 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content trash 3f7a8b2e-..."
+          ]
         },
         {
           "name": "restore",
@@ -886,7 +991,13 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content restore 3f7a8b2e-...",
+            "umbraco content restore 3f7a8b2e-... --parent 1a2b3c4d-...",
+            "umbraco content restore 3f7a8b2e-... --to-root",
+            "umbraco content restore 3f7a8b2e-... --publish"
+          ]
         },
         {
           "name": "empty-recycle-bin",
@@ -896,7 +1007,10 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content empty-recycle-bin --yes"
+          ]
         },
         {
           "name": "move",
@@ -925,7 +1039,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content move 3f7a8b2e-... --parent 1a2b3c4d-...",
+            "umbraco content move 3f7a8b2e-...   # to the content root"
+          ]
         },
         {
           "name": "sort",
@@ -969,7 +1087,12 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content sort --parent 1a2b3c4d-... --order 3f7a8b2e-...,9c4d1e2f-...,2e6f3a4b-...",
+            "umbraco content sort --parent 1a2b3c4d-... --by publishDate --desc   # newest first",
+            "umbraco content sort --by name   # the content root, A to Z"
+          ]
         },
         {
           "name": "copy",
@@ -1016,7 +1139,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content copy 3f7a8b2e-... --parent 1a2b3c4d-...",
+            "umbraco content copy 3f7a8b2e-... --include-descendants"
+          ]
         },
         {
           "name": "publish-descendants",
@@ -1061,7 +1188,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content publish-descendants 3f7a8b2e-...",
+            "umbraco content publish-descendants 3f7a8b2e-... --include-unpublished --culture en-US"
+          ]
         },
         {
           "name": "bulk",
@@ -1086,7 +1217,11 @@
               "commands": [],
               "mutating": true,
               "destructive": true,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco content bulk delete --file ids.txt --yes",
+                "cat ids.txt | umbraco content bulk delete --yes"
+              ]
             },
             {
               "name": "publish",
@@ -1113,7 +1248,11 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco content list --fields id | umbraco content bulk publish",
+                "umbraco content bulk publish --file ids.txt --culture en-US"
+              ]
             },
             {
               "name": "unpublish",
@@ -1140,12 +1279,20 @@
               "commands": [],
               "mutating": true,
               "destructive": true,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco content bulk unpublish --file ids.txt",
+                "umbraco content bulk unpublish --file ids.txt --culture da-DK"
+              ]
             }
           ],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content list --fields id | umbraco content bulk publish",
+            "umbraco content bulk delete --file ids.txt --yes"
+          ]
         },
         {
           "name": "export",
@@ -1174,7 +1321,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content export --out content.json",
+            "umbraco content export --root 3f7a8b2e-... --out subtree.json",
+            "umbraco content export | jq '.data.documents | length'"
+          ]
         },
         {
           "name": "diff",
@@ -1192,7 +1344,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco content diff content.json",
+            "umbraco content export | umbraco content diff -"
+          ]
         },
         {
           "name": "apply",
@@ -1246,12 +1402,25 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": false,
-          "destructiveWhen": "--prune"
+          "destructiveWhen": "--prune",
+          "examples": [
+            "umbraco content apply content.json --dry-run",
+            "umbraco content apply content.json",
+            "umbraco content apply content.json --no-state",
+            "umbraco content apply content.json --prune --yes",
+            "umbraco content apply content.json --prune --exclude-type contactSubmission --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco content list --output json",
+        "umbraco content get <id>",
+        "umbraco content create --document-type textPage --name \"My Page\"",
+        "umbraco content publish <id>"
+      ]
     },
     {
       "name": "media",
@@ -1303,7 +1472,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media list",
+            "umbraco media list --parent <folder-id> --output json"
+          ]
         },
         {
           "name": "tree",
@@ -1339,7 +1512,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media tree                       # direct children of the root",
+            "umbraco media tree --parent <folder-id> --recursive",
+            "umbraco media tree --depth 3 --output json"
+          ]
         },
         {
           "name": "find",
@@ -1401,7 +1579,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media find --name logo",
+            "umbraco media find --name hero --parent <folder-id>",
+            "umbraco media find --path \"Images/Logos/Primary\""
+          ]
         },
         {
           "name": "get",
@@ -1419,7 +1602,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media get 3f7a8b2e-...",
+            "umbraco media get <id> -o json | jq .data.urls"
+          ]
         },
         {
           "name": "upload",
@@ -1479,7 +1666,13 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media upload ./logo.png",
+            "umbraco media upload ./big-video.mp4 --media-type File --name \"Promo\"",
+            "umbraco media upload ./photo.jpg --parent 3f7a8b2e-...",
+            "umbraco media upload ./report.pdf --media-type brochure --id 3f7a8b2e-... --value title=\"Annual report\""
+          ]
         },
         {
           "name": "update",
@@ -1545,7 +1738,12 @@
           "destructive": false,
           "acceptsJsonBody": true,
           "destructiveWhen": "--replace",
-          "jsonBodySchema": "umbraco media update --schema"
+          "jsonBodySchema": "umbraco media update --schema",
+          "examples": [
+            "umbraco media update 3f7a8b2e-... --value summary=\"Forms for new members\" --value pageCount=4",
+            "umbraco media update 3f7a8b2e-... --name \"Membership forms\"",
+            "umbraco media update 3f7a8b2e-... --json-body ./media.json"
+          ]
         },
         {
           "name": "folder",
@@ -1586,7 +1784,11 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco media folder create --name Blog",
+                "umbraco media folder create --name 2026 --parent 3f7a8b2e-..."
+              ]
             }
           ],
           "mutating": false,
@@ -1609,7 +1811,11 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media delete 3f7a8b2e-...",
+            "umbraco media delete <id> --yes"
+          ]
         },
         {
           "name": "trash",
@@ -1627,7 +1833,10 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media trash 3f7a8b2e-..."
+          ]
         },
         {
           "name": "restore",
@@ -1665,7 +1874,12 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media restore 3f7a8b2e-...",
+            "umbraco media restore 3f7a8b2e-... --parent 1a2b3c4d-...",
+            "umbraco media restore 3f7a8b2e-... --to-root"
+          ]
         },
         {
           "name": "empty-recycle-bin",
@@ -1675,7 +1889,10 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media empty-recycle-bin --yes"
+          ]
         },
         {
           "name": "move",
@@ -1704,7 +1921,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media move 3f7a8b2e-... --parent 1a2b3c4d-...",
+            "umbraco media move 3f7a8b2e-...   # to the media root"
+          ]
         },
         {
           "name": "sort",
@@ -1748,7 +1969,12 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media sort --parent 1a2b3c4d-... --order 3f7a8b2e-...,9c4d1e2f-...,2e6f3a4b-...",
+            "umbraco media sort --parent 1a2b3c4d-... --by name",
+            "umbraco media sort --by createDate --desc   # the media root, newest first"
+          ]
         },
         {
           "name": "export",
@@ -1777,7 +2003,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media export --out ./media-snapshot",
+            "umbraco media export --root 3f7a8b2e-... -O ./blog-images"
+          ]
         },
         {
           "name": "diff",
@@ -1805,7 +2035,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media diff ./media-snapshot",
+            "umbraco media diff ./media-snapshot --verify-files"
+          ]
         },
         {
           "name": "apply",
@@ -1843,12 +2077,22 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": false,
-          "destructiveWhen": "--prune"
+          "destructiveWhen": "--prune",
+          "examples": [
+            "umbraco media apply ./media-snapshot --dry-run",
+            "umbraco media apply ./media-snapshot",
+            "umbraco media apply ./media-snapshot --prune --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco media list",
+        "umbraco media upload ./photo.jpg --parent <folder-id>",
+        "umbraco media delete <id>"
+      ]
     },
     {
       "name": "media-type",
@@ -1892,7 +2136,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media-type list",
+            "umbraco media-type list --output json | jq '.data[].name'"
+          ]
         },
         {
           "name": "get",
@@ -1910,7 +2158,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media-type get brochure",
+            "umbraco media-type get brochure -o json | jq .data > mt.json"
+          ]
         },
         {
           "name": "create",
@@ -2017,7 +2269,12 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "jsonBodySchema": "umbraco media-type create --schema"
+          "jsonBodySchema": "umbraco media-type create --schema",
+          "examples": [
+            "umbraco media-type create --name \"Custom Image\" --alias customImage",
+            "umbraco media-type create --name \"Widget\" --alias widget --is-element",
+            "umbraco media-type create --name \"Doc\" --alias doc --allow-at-root --icon icon-document"
+          ]
         },
         {
           "name": "update",
@@ -2081,7 +2338,13 @@
           "destructive": false,
           "acceptsJsonBody": true,
           "destructiveWhen": "--replace",
-          "jsonBodySchema": "umbraco media-type update --schema"
+          "jsonBodySchema": "umbraco media-type update --schema",
+          "examples": [
+            "umbraco media-type get brochure -o json | jq .data > mt.json",
+            "# ...edit mt.json...",
+            "umbraco media-type update brochure --json-body mt.json",
+            "umbraco media-type update --schema"
+          ]
         },
         {
           "name": "delete",
@@ -2109,12 +2372,21 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco media-type delete brochure --yes",
+            "umbraco media-type delete brochure --force --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco media-type list",
+        "umbraco media-type get 3f7a8b2e-...",
+        "umbraco media-type create --name \"Custom Image\" --alias customImage"
+      ]
     },
     {
       "name": "document-type",
@@ -2158,7 +2430,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco document-type list",
+            "umbraco document-type list --output json | jq '.data[].alias'"
+          ]
         },
         {
           "name": "get",
@@ -2176,7 +2452,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco document-type get blogPost",
+            "umbraco document-type get blogPost -o json | jq .data > t.json"
+          ]
         },
         {
           "name": "create",
@@ -2283,7 +2563,14 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "jsonBodySchema": "umbraco document-type create --schema"
+          "jsonBodySchema": "umbraco document-type create --schema",
+          "examples": [
+            "umbraco document-type create --example -o json | jq .data > t.json",
+            "umbraco document-type create --json-body t.json",
+            "umbraco document-type create --name \"Blog Post\" --alias blogPost",
+            "umbraco document-type create --name \"Widget\" --alias widget --is-element",
+            "umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
+          ]
         },
         {
           "name": "update",
@@ -2347,7 +2634,13 @@
           "destructive": false,
           "acceptsJsonBody": true,
           "destructiveWhen": "--replace",
-          "jsonBodySchema": "umbraco document-type update --schema"
+          "jsonBodySchema": "umbraco document-type update --schema",
+          "examples": [
+            "umbraco document-type get blogPost -o json | jq .data > t.json",
+            "# ...edit t.json...",
+            "umbraco document-type update blogPost --json-body t.json",
+            "umbraco document-type update --schema"
+          ]
         },
         {
           "name": "delete",
@@ -2375,12 +2668,21 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco document-type delete blogPost --yes",
+            "umbraco document-type delete blogPost --force --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco document-type list",
+        "umbraco document-type get textPage",
+        "umbraco document-type create --name \"Blog Post\" --alias blogPost"
+      ]
     },
     {
       "name": "data-type",
@@ -2432,7 +2734,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco data-type list --take 50",
+            "umbraco data-type list --parent <folder-id>"
+          ]
         },
         {
           "name": "get",
@@ -2450,7 +2756,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco data-type get Textstring",
+            "umbraco data-type get 3f7a8b2e-..."
+          ]
         },
         {
           "name": "create",
@@ -2535,7 +2845,10 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "jsonBodySchema": "umbraco data-type create --schema"
+          "jsonBodySchema": "umbraco data-type create --schema",
+          "examples": [
+            "umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
+          ]
         },
         {
           "name": "update",
@@ -2619,7 +2932,11 @@
           "destructive": false,
           "acceptsJsonBody": true,
           "destructiveWhen": "--replace",
-          "jsonBodySchema": "umbraco data-type update --schema"
+          "jsonBodySchema": "umbraco data-type update --schema",
+          "examples": [
+            "umbraco data-type update Textstring --name \"My Text\"",
+            "umbraco data-type update Textstring --json-body dt.json"
+          ]
         },
         {
           "name": "delete",
@@ -2647,7 +2964,11 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco data-type delete \"Homepage Blocks\" --yes",
+            "umbraco data-type delete \"Homepage Blocks\" --force --yes"
+          ]
         },
         {
           "name": "is-used",
@@ -2665,7 +2986,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco data-type is-used Textstring",
+            "umbraco data-type is-used 3f7a8b2e-..."
+          ]
         },
         {
           "name": "referenced-by",
@@ -2711,7 +3036,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco data-type referenced-by Textstring",
+            "umbraco data-type referenced-by \"Homepage Blocks\" --take 20"
+          ]
         },
         {
           "name": "copy",
@@ -2740,7 +3069,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco data-type copy Textstring",
+            "umbraco data-type copy Textstring --parent <folder-id>"
+          ]
         },
         {
           "name": "move",
@@ -2769,7 +3102,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco data-type move Textstring --parent <folder-id>",
+            "umbraco data-type move Textstring"
+          ]
         },
         {
           "name": "folder",
@@ -2793,7 +3130,10 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco data-type folder get 3f7a8b2e-..."
+              ]
             },
             {
               "name": "create",
@@ -2828,7 +3168,11 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco data-type folder create --name \"Blocks\"",
+                "umbraco data-type folder create --name \"Grid\" --parent <folder-id>"
+              ]
             },
             {
               "name": "update",
@@ -2855,7 +3199,10 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco data-type folder update 3f7a8b2e-... --name \"Block editors\""
+              ]
             },
             {
               "name": "delete",
@@ -2873,7 +3220,10 @@
               "commands": [],
               "mutating": true,
               "destructive": true,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco data-type folder delete 3f7a8b2e-..."
+              ]
             }
           ],
           "mutating": false,
@@ -2883,7 +3233,11 @@
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco data-type list --output json",
+        "umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
+      ]
     },
     {
       "name": "language",
@@ -2899,7 +3253,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco language list --output json"
+          ]
         },
         {
           "name": "create",
@@ -2952,7 +3309,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco language create --culture da-DK",
+            "umbraco language create --culture da-DK --fallback en-US --mandatory"
+          ]
         },
         {
           "name": "update",
@@ -3003,7 +3364,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco language update fr-FR --name \"French (France)\" --mandatory",
+            "umbraco language update da-DK --fallback en-US"
+          ]
         },
         {
           "name": "delete",
@@ -3031,12 +3396,20 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco language delete fr-FR --force --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco language list",
+        "umbraco language create --culture fr-FR",
+        "umbraco language delete fr-FR"
+      ]
     },
     {
       "name": "template",
@@ -3080,7 +3453,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco template list --output json"
+          ]
         },
         {
           "name": "get",
@@ -3098,7 +3474,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco template get master",
+            "umbraco template get master -o json | jq -r .data.content"
+          ]
         },
         {
           "name": "create",
@@ -3149,7 +3529,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco template create --name \"Blog Post\" --alias blogPost",
+            "umbraco template create --name Home --alias home --content-file ./home.cshtml"
+          ]
         },
         {
           "name": "update",
@@ -3241,7 +3625,12 @@
           "destructive": false,
           "acceptsJsonBody": true,
           "destructiveWhen": "--replace",
-          "jsonBodySchema": "umbraco template update --schema"
+          "jsonBodySchema": "umbraco template update --schema",
+          "examples": [
+            "umbraco template update blogPost --content-file ./blog-post.cshtml",
+            "umbraco template get blogPost -o json | jq .data > t.json",
+            "umbraco template update blogPost --json-body t.json"
+          ]
         },
         {
           "name": "delete",
@@ -3269,12 +3658,20 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco template delete blogPost --yes",
+            "umbraco template delete blogPost --force --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco template list",
+        "umbraco template create --name Home --alias home"
+      ]
     },
     {
       "name": "member",
@@ -3326,7 +3723,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member list",
+            "umbraco member list --group Subscribers --output json"
+          ]
         },
         {
           "name": "get",
@@ -3344,7 +3745,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member get 3f7a8b2e-...",
+            "umbraco member get <id> -o json | jq .data.email"
+          ]
         },
         {
           "name": "create",
@@ -3395,7 +3800,10 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member create --email user@example.com --name \"Jane Doe\" --member-type Member"
+          ]
         },
         {
           "name": "update",
@@ -3479,7 +3887,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member update 3f7a8b2e-... --name \"Jane Roe\"",
+            "umbraco member update 3f7a8b2e-... --email jane@example.com --approved"
+          ]
         },
         {
           "name": "delete",
@@ -3497,12 +3909,20 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member delete 3f7a8b2e-..."
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco member list",
+        "umbraco member create --email user@example.com --name \"Jane Doe\" --member-type Member",
+        "umbraco member delete <id>"
+      ]
     },
     {
       "name": "member-type",
@@ -3546,7 +3966,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member-type list",
+            "umbraco member-type list --output json | jq '.data[].name'"
+          ]
         },
         {
           "name": "get",
@@ -3564,7 +3988,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member-type get siteMember",
+            "umbraco member-type get siteMember -o json | jq .data > mt.json"
+          ]
         },
         {
           "name": "create",
@@ -3653,7 +4081,11 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "jsonBodySchema": "umbraco member-type create --schema"
+          "jsonBodySchema": "umbraco member-type create --schema",
+          "examples": [
+            "umbraco member-type create --name \"Author\" --alias author",
+            "umbraco member-type create --name \"Subscriber\" --alias subscriber --icon icon-user"
+          ]
         },
         {
           "name": "update",
@@ -3745,7 +4177,12 @@
           "destructive": false,
           "acceptsJsonBody": true,
           "destructiveWhen": "--replace",
-          "jsonBodySchema": "umbraco member-type update --schema"
+          "jsonBodySchema": "umbraco member-type update --schema",
+          "examples": [
+            "umbraco member-type update siteMember --name \"Author\" --icon icon-user",
+            "umbraco member-type get siteMember -o json | jq .data > mt.json",
+            "umbraco member-type update siteMember --json-body mt.json"
+          ]
         },
         {
           "name": "delete",
@@ -3773,12 +4210,20 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member-type delete siteMember --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco member-type list",
+        "umbraco member-type get 3f7a8b2e-...",
+        "umbraco member-type create --name \"Author\" --alias author"
+      ]
     },
     {
       "name": "user",
@@ -3822,7 +4267,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user list",
+            "umbraco user list --take 20 --output json"
+          ]
         },
         {
           "name": "get",
@@ -3840,7 +4289,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user get 3f7a8b2e-...",
+            "umbraco user get editor@example.com",
+            "umbraco user get <id> -o json | jq .data.userGroups"
+          ]
         },
         {
           "name": "create",
@@ -3899,7 +4353,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user create --email editor@example.com --name \"Jane Smith\" --group editor --password <secret>",
+            "umbraco user create --email writer@example.com --name \"Bob\" --group editor --group translator"
+          ]
         },
         {
           "name": "update",
@@ -3983,7 +4441,13 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user update editor@example.com --name \"Jane Roe\" --group editor --group translator",
+            "umbraco user update 3f7a8b2e-... --new-password <secret> --unlock",
+            "umbraco user update editor@example.com --disabled",
+            "umbraco user update editor@example.com --disabled false   # enable again"
+          ]
         },
         {
           "name": "delete",
@@ -4001,7 +4465,11 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user delete editor@example.com",
+            "umbraco user delete 3f7a8b2e-... writer@example.com --yes"
+          ]
         },
         {
           "name": "invite",
@@ -4052,12 +4520,21 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user invite --email editor@example.com --name \"Jane Smith\" --group editor",
+            "umbraco user invite --email admin@example.com --name \"Bob\" --group admin --group translator --message \"Welcome to the team!\""
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco user list",
+        "umbraco user create --email editor@example.com --name \"John Smith\" --group editor --password <secret>",
+        "umbraco user get editor@example.com"
+      ]
     },
     {
       "name": "dictionary",
@@ -4109,7 +4586,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco dictionary list",
+            "umbraco dictionary list --parent Blog --output json"
+          ]
         },
         {
           "name": "tree",
@@ -4145,7 +4626,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco dictionary tree                    # direct children of the root",
+            "umbraco dictionary tree --parent Blog --recursive",
+            "umbraco dictionary tree --depth 3 --output json"
+          ]
         },
         {
           "name": "get",
@@ -4163,7 +4649,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco dictionary get Common.Search",
+            "umbraco dictionary get 1a2b3c4d-....."
+          ]
         },
         {
           "name": "create",
@@ -4206,7 +4696,12 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco dictionary create --key \"Common.Search\"",
+            "umbraco dictionary create --key \"Blog.MinRead\" --parent Blog",
+            "umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil"
+          ]
         },
         {
           "name": "update",
@@ -4241,7 +4736,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco dictionary update Blog.MinRead --value da-DK=Hjem",
+            "umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --value en-US=Home"
+          ]
         },
         {
           "name": "move",
@@ -4270,7 +4769,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco dictionary move Blog.Tags --parent Blog",
+            "umbraco dictionary move Blog.Tags   # to the dictionary root"
+          ]
         },
         {
           "name": "delete",
@@ -4298,12 +4801,21 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco dictionary delete Blog.MinRead --yes",
+            "umbraco dictionary delete Blog --force --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco dictionary list",
+        "umbraco dictionary create --key \"Common.Search\" --value en-US=Search --value da-DK=Søg",
+        "umbraco dictionary get Common.Search"
+      ]
     },
     {
       "name": "webhook",
@@ -4347,7 +4859,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco webhook list --output json"
+          ]
         },
         {
           "name": "get",
@@ -4365,7 +4880,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco webhook get 3f7a8b2e-...",
+            "umbraco webhook get \"Deploy hook\""
+          ]
         },
         {
           "name": "create",
@@ -4432,7 +4951,12 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish",
+            "umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\"",
+            "umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish --type blogPost --header X-Api-Key=abc123"
+          ]
         },
         {
           "name": "update",
@@ -4517,7 +5041,13 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": false,
-          "destructiveWhen": "--replace"
+          "destructiveWhen": "--replace",
+          "examples": [
+            "umbraco webhook update \"Deploy hook\" --enabled false",
+            "umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost",
+            "umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook",
+            "umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter"
+          ]
         },
         {
           "name": "delete",
@@ -4535,7 +5065,11 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco webhook delete 3f7a8b2e-...",
+            "umbraco webhook delete \"Deploy hook\" --yes"
+          ]
         },
         {
           "name": "event",
@@ -4579,12 +5113,19 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco webhook event list",
+                "umbraco webhook event list -o json | jq -r '.data.items[].alias'"
+              ]
             }
           ],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco webhook event list"
+          ]
         },
         {
           "name": "log",
@@ -4636,17 +5177,34 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco webhook log list \"Deploy hook\"",
+                "umbraco webhook log list",
+                "umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'"
+              ]
             }
           ],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco webhook log list <id>",
+            "umbraco webhook log list"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco webhook list",
+        "umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish",
+        "umbraco webhook update <id> --enabled false",
+        "umbraco webhook delete <id>",
+        "umbraco webhook event list",
+        "umbraco webhook log list <id>"
+      ]
     },
     {
       "name": "schema",
@@ -4682,7 +5240,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco schema export --out schema.json",
+            "umbraco schema export --no-files --out schema.json   # views deploy from git",
+            "umbraco schema export | jq '.data.documentTypes | length'"
+          ]
         },
         {
           "name": "diff",
@@ -4700,7 +5263,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco schema diff schema.json",
+            "umbraco schema export | umbraco schema diff -"
+          ]
         },
         {
           "name": "apply",
@@ -4738,12 +5305,23 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": false,
-          "destructiveWhen": "--prune"
+          "destructiveWhen": "--prune",
+          "examples": [
+            "umbraco schema apply schema.json --dry-run",
+            "umbraco schema apply schema.json",
+            "umbraco schema apply schema.json --prune --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco schema export --out schema.json",
+        "umbraco schema diff schema.json",
+        "umbraco schema apply schema.json --dry-run",
+        "umbraco schema apply schema.json --prune --yes"
+      ]
     },
     {
       "name": "script",
@@ -4795,7 +5373,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco script list",
+            "umbraco script list --parent folder"
+          ]
         },
         {
           "name": "get",
@@ -4813,7 +5395,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco script get site.js",
+            "umbraco script get folder/site.js -o json | jq -r .data.content"
+          ]
         },
         {
           "name": "create",
@@ -4856,7 +5442,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco script create --name site.js --content-file ./site.js",
+            "umbraco script create --name site.js --parent folder"
+          ]
         },
         {
           "name": "update",
@@ -4891,7 +5481,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco script update site.js --content-file ./site.js",
+            "cat ./site.js | umbraco script update folder/site.js --content-file -"
+          ]
         },
         {
           "name": "delete",
@@ -4909,7 +5503,11 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco script delete site.js",
+            "umbraco script delete folder/site.js --yes"
+          ]
         },
         {
           "name": "folder",
@@ -4942,7 +5540,11 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco script folder create --name blocklist",
+                "umbraco script folder create --name Components --parent blocklist"
+              ]
             },
             {
               "name": "delete",
@@ -4960,7 +5562,11 @@
               "commands": [],
               "mutating": true,
               "destructive": true,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco script folder delete blocklist/Components",
+                "umbraco script folder delete blocklist --yes"
+              ]
             }
           ],
           "mutating": false,
@@ -4970,7 +5576,12 @@
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco script list",
+        "umbraco script get folder/site.js",
+        "umbraco script create --name site.js --content-file ./site.js"
+      ]
     },
     {
       "name": "stylesheet",
@@ -5022,7 +5633,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco stylesheet list",
+            "umbraco stylesheet list --parent folder"
+          ]
         },
         {
           "name": "get",
@@ -5040,7 +5655,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco stylesheet get site.css",
+            "umbraco stylesheet get folder/site.css -o json | jq -r .data.content"
+          ]
         },
         {
           "name": "create",
@@ -5083,7 +5702,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco stylesheet create --name site.css --content-file ./site.css",
+            "umbraco stylesheet create --name site.css --parent folder"
+          ]
         },
         {
           "name": "update",
@@ -5118,7 +5741,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco stylesheet update site.css --content-file ./site.css",
+            "cat ./site.css | umbraco stylesheet update folder/site.css --content-file -"
+          ]
         },
         {
           "name": "delete",
@@ -5136,7 +5763,11 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco stylesheet delete site.css",
+            "umbraco stylesheet delete folder/site.css --yes"
+          ]
         },
         {
           "name": "folder",
@@ -5169,7 +5800,11 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco stylesheet folder create --name blocklist",
+                "umbraco stylesheet folder create --name Components --parent blocklist"
+              ]
             },
             {
               "name": "delete",
@@ -5187,7 +5822,11 @@
               "commands": [],
               "mutating": true,
               "destructive": true,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco stylesheet folder delete blocklist/Components",
+                "umbraco stylesheet folder delete blocklist --yes"
+              ]
             }
           ],
           "mutating": false,
@@ -5197,7 +5836,12 @@
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco stylesheet list",
+        "umbraco stylesheet get folder/site.css",
+        "umbraco stylesheet create --name site.css --content-file ./site.css"
+      ]
     },
     {
       "name": "partial-view",
@@ -5249,7 +5893,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco partial-view list",
+            "umbraco partial-view list --parent folder"
+          ]
         },
         {
           "name": "get",
@@ -5267,7 +5915,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco partial-view get card.cshtml",
+            "umbraco partial-view get folder/card.cshtml -o json | jq -r .data.content"
+          ]
         },
         {
           "name": "create",
@@ -5310,7 +5962,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco partial-view create --name card.cshtml --content-file ./card.cshtml",
+            "umbraco partial-view create --name card.cshtml --parent folder"
+          ]
         },
         {
           "name": "update",
@@ -5345,7 +6001,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco partial-view update card.cshtml --content-file ./card.cshtml",
+            "cat ./card.cshtml | umbraco partial-view update folder/card.cshtml --content-file -"
+          ]
         },
         {
           "name": "delete",
@@ -5363,7 +6023,11 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco partial-view delete card.cshtml",
+            "umbraco partial-view delete folder/card.cshtml --yes"
+          ]
         },
         {
           "name": "folder",
@@ -5396,7 +6060,11 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco partial-view folder create --name blocklist",
+                "umbraco partial-view folder create --name Components --parent blocklist"
+              ]
             },
             {
               "name": "delete",
@@ -5414,7 +6082,11 @@
               "commands": [],
               "mutating": true,
               "destructive": true,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco partial-view folder delete blocklist/Components",
+                "umbraco partial-view folder delete blocklist --yes"
+              ]
             }
           ],
           "mutating": false,
@@ -5424,7 +6096,12 @@
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco partial-view list",
+        "umbraco partial-view get folder/card.cshtml",
+        "umbraco partial-view create --name card.cshtml --content-file ./card.cshtml"
+      ]
     },
     {
       "name": "member-group",
@@ -5468,7 +6145,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member-group list",
+            "umbraco member-group list --output json"
+          ]
         },
         {
           "name": "get",
@@ -5486,7 +6167,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member-group get Subscribers",
+            "umbraco member-group get 3f7a8b2e-..."
+          ]
         },
         {
           "name": "create",
@@ -5513,7 +6198,10 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member-group create --name Editors"
+          ]
         },
         {
           "name": "update",
@@ -5540,7 +6228,10 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member-group update Subscribers --name \"Newsletter subscribers\""
+          ]
         },
         {
           "name": "delete",
@@ -5568,12 +6259,20 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco member-group delete Subscribers --yes",
+            "umbraco member-group delete Subscribers --force --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco member-group list",
+        "umbraco member-group create --name Editors"
+      ]
     },
     {
       "name": "tag",
@@ -5633,12 +6332,20 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco tag list",
+            "umbraco tag list --group default --culture en-US"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco tag list",
+        "umbraco tag list --group default --culture en-US"
+      ]
     },
     {
       "name": "culture",
@@ -5682,12 +6389,19 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco culture list",
+            "umbraco culture list --take 500 --output json"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco culture list"
+      ]
     },
     {
       "name": "user-group",
@@ -5731,7 +6445,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-group list",
+            "umbraco user-group list --output json"
+          ]
         },
         {
           "name": "get",
@@ -5749,7 +6467,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-group get blogEditors"
+          ]
         },
         {
           "name": "create",
@@ -5872,7 +6593,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-group create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read",
+            "umbraco user-group create --alias blogEditors --name \"Blog editors\" --document-permission 3f7a8b2e-...=Umb.Document.Read,Umb.Document.Update"
+          ]
         },
         {
           "name": "update",
@@ -5995,7 +6720,13 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-group update editors --name \"Site editors\"",
+            "umbraco user-group update editors --section Umb.Section.Media --document-start-node <id>",
+            "umbraco user-group update editors --document-permission 3f7a8b2e-...=Umb.Document.Read",
+            "umbraco user-group update editors --document-permission 3f7a8b2e-...=   # remove it"
+          ]
         },
         {
           "name": "delete",
@@ -6023,7 +6754,12 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-group delete blogEditors",
+            "umbraco user-group delete blogEditors newsEditors --yes",
+            "umbraco user-group delete blogEditors --force --yes"
+          ]
         },
         {
           "name": "add-users",
@@ -6050,7 +6786,10 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-group add-users blogEditors --user <guid> --user editor@example.com"
+          ]
         },
         {
           "name": "remove-users",
@@ -6077,12 +6816,19 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-group remove-users blogEditors --user <guid>"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco user-group list",
+        "umbraco user-group create --alias editors --name Editors --section Umb.Section.Content"
+      ]
     },
     {
       "name": "user-data",
@@ -6142,7 +6888,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-data list",
+            "umbraco user-data list --group myGroup --identifier theme"
+          ]
         },
         {
           "name": "get",
@@ -6160,7 +6910,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-data get 3f7a8b2e-..."
+          ]
         },
         {
           "name": "create",
@@ -6203,7 +6956,10 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-data create --group myGroup --identifier theme --data dark"
+          ]
         },
         {
           "name": "update",
@@ -6246,7 +7002,10 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-data update <id> --data light"
+          ]
         },
         {
           "name": "delete",
@@ -6264,12 +7023,19 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco user-data delete 3f7a8b2e-... --yes"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco user-data list --group myGroup",
+        "umbraco user-data create --group myGroup --identifier theme --data dark"
+      ]
     },
     {
       "name": "document-blueprint",
@@ -6321,7 +7087,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco document-blueprint list",
+            "umbraco document-blueprint list --parent <folder-id>"
+          ]
         },
         {
           "name": "get",
@@ -6339,7 +7109,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco document-blueprint get 3f7a8b2e-...",
+            "umbraco document-blueprint get <id> -o json | jq .data > bp.json"
+          ]
         },
         {
           "name": "scaffold",
@@ -6357,7 +7131,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco document-blueprint scaffold 3f7a8b2e-...",
+            "umbraco document-blueprint scaffold <id> -o json | jq .data > body.json"
+          ]
         },
         {
           "name": "create",
@@ -6443,7 +7221,12 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "jsonBodySchema": "umbraco document-blueprint create --schema"
+          "jsonBodySchema": "umbraco document-blueprint create --schema",
+          "examples": [
+            "umbraco document-blueprint create --document-type textPage --name \"Starter\"",
+            "umbraco document-blueprint create --from-document <id> --name \"Starter\"",
+            "umbraco document-blueprint create --json-body ./bp.json"
+          ]
         },
         {
           "name": "update",
@@ -6513,7 +7296,10 @@
           "destructive": false,
           "acceptsJsonBody": true,
           "destructiveWhen": "--replace",
-          "jsonBodySchema": "umbraco document-blueprint update --schema"
+          "jsonBodySchema": "umbraco document-blueprint update --schema",
+          "examples": [
+            "umbraco document-blueprint update <id> --json-body ./bp.json"
+          ]
         },
         {
           "name": "delete",
@@ -6531,7 +7317,10 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco document-blueprint delete 3f7a8b2e-... --yes"
+          ]
         },
         {
           "name": "move",
@@ -6560,7 +7349,11 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco document-blueprint move 3f7a8b2e-... --parent <folder-id>",
+            "umbraco document-blueprint move 3f7a8b2e-..."
+          ]
         },
         {
           "name": "folder",
@@ -6584,7 +7377,10 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco document-blueprint folder get 3f7a8b2e-..."
+              ]
             },
             {
               "name": "create",
@@ -6619,7 +7415,10 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco document-blueprint folder create --name \"Marketing\""
+              ]
             },
             {
               "name": "update",
@@ -6646,7 +7445,10 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco document-blueprint folder update 3f7a8b2e-... --name \"Campaigns\""
+              ]
             },
             {
               "name": "delete",
@@ -6664,7 +7466,10 @@
               "commands": [],
               "mutating": true,
               "destructive": true,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco document-blueprint folder delete 3f7a8b2e-..."
+              ]
             }
           ],
           "mutating": false,
@@ -6674,7 +7479,11 @@
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco document-blueprint list",
+        "umbraco document-blueprint create --from-document <id> --name \"Starter\""
+      ]
     },
     {
       "name": "server",
@@ -6690,7 +7499,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco server status",
+            "umbraco server status --output json"
+          ]
         },
         {
           "name": "info",
@@ -6700,7 +7513,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco server info"
+          ]
         },
         {
           "name": "configuration",
@@ -6710,7 +7526,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco server configuration"
+          ]
         },
         {
           "name": "troubleshooting",
@@ -6720,12 +7539,21 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco server troubleshooting",
+            "umbraco server troubleshooting --output json"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco server status",
+        "umbraco server info",
+        "umbraco server troubleshooting"
+      ]
     },
     {
       "name": "health",
@@ -6769,7 +7597,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco health list",
+            "umbraco health list --output json"
+          ]
         },
         {
           "name": "get",
@@ -6787,7 +7619,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco health get \"Data Integrity\"",
+            "umbraco health get Security"
+          ]
         },
         {
           "name": "run",
@@ -6805,12 +7641,20 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco health run \"Data Integrity\"",
+            "umbraco health run Security --output json"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco health list",
+        "umbraco health run \"Data Integrity\""
+      ]
     },
     {
       "name": "log-viewer",
@@ -6895,7 +7739,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco log-viewer list --level Error --take 50",
+            "umbraco log-viewer list --start-date 2026-09-01 --end-date 2026-09-02 --asc",
+            "umbraco log-viewer list --filter \"@Level='Error' and Has(@Exception)\""
+          ]
         },
         {
           "name": "levels",
@@ -6933,7 +7782,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco log-viewer levels"
+          ]
         },
         {
           "name": "level-count",
@@ -6960,7 +7812,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco log-viewer level-count",
+            "umbraco log-viewer level-count --start-date 2026-09-01 --end-date 2026-09-08"
+          ]
         },
         {
           "name": "message-templates",
@@ -7014,7 +7870,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco log-viewer message-templates --take 20",
+            "umbraco log-viewer message-templates --start-date 2026-09-01"
+          ]
         },
         {
           "name": "saved-search",
@@ -7058,7 +7918,10 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco log-viewer saved-search list"
+              ]
             },
             {
               "name": "create",
@@ -7085,7 +7948,10 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco log-viewer saved-search create --name Errors --query \"@Level='Error'\""
+              ]
             },
             {
               "name": "delete",
@@ -7103,7 +7969,10 @@
               "commands": [],
               "mutating": true,
               "destructive": true,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco log-viewer saved-search delete Errors --yes"
+              ]
             }
           ],
           "mutating": false,
@@ -7113,7 +7982,11 @@
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco log-viewer list --level Error --take 50",
+        "umbraco log-viewer level-count"
+      ]
     },
     {
       "name": "models-builder",
@@ -7129,7 +8002,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco models-builder dashboard",
+            "umbraco models-builder dashboard --output json"
+          ]
         },
         {
           "name": "status",
@@ -7139,7 +8016,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco models-builder status"
+          ]
         },
         {
           "name": "build",
@@ -7149,12 +8029,20 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco models-builder build",
+            "umbraco models-builder build --dry-run"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco models-builder dashboard",
+        "umbraco models-builder build --yes"
+      ]
     },
     {
       "name": "manifest",
@@ -7180,12 +8068,19 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco manifest list",
+            "umbraco manifest list --scope public"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco manifest list --scope public"
+      ]
     },
     {
       "name": "redirect",
@@ -7245,7 +8140,12 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco redirect list",
+            "umbraco redirect list --filter old-page",
+            "umbraco redirect list --content-item <id>"
+          ]
         },
         {
           "name": "delete",
@@ -7263,7 +8163,10 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco redirect delete 3f7a8b2e-... --yes"
+          ]
         },
         {
           "name": "tracking",
@@ -7279,7 +8182,10 @@
               "commands": [],
               "mutating": false,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco redirect tracking status"
+              ]
             },
             {
               "name": "enable",
@@ -7289,7 +8195,10 @@
               "commands": [],
               "mutating": true,
               "destructive": false,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco redirect tracking enable"
+              ]
             },
             {
               "name": "disable",
@@ -7299,7 +8208,10 @@
               "commands": [],
               "mutating": true,
               "destructive": true,
-              "acceptsJsonBody": false
+              "acceptsJsonBody": false,
+              "examples": [
+                "umbraco redirect tracking disable --yes"
+              ]
             }
           ],
           "mutating": false,
@@ -7309,7 +8221,11 @@
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco redirect list --filter old-page",
+        "umbraco redirect tracking status"
+      ]
     },
     {
       "name": "relation-type",
@@ -7353,7 +8269,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco relation-type list"
+          ]
         },
         {
           "name": "get",
@@ -7371,12 +8290,19 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco relation-type get relateDocumentOnCopy",
+            "umbraco relation-type get 3f7a8b2e-..."
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco relation-type list"
+      ]
     },
     {
       "name": "relation",
@@ -7428,12 +8354,19 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco relation list --relation-type relateDocumentOnCopy",
+            "umbraco relation list --relation-type <relation-type-id> --take 20"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco relation list --relation-type <relation-type-id>"
+      ]
     },
     {
       "name": "indexer",
@@ -7477,7 +8410,11 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco indexer list",
+            "umbraco indexer list --output json"
+          ]
         },
         {
           "name": "get",
@@ -7495,7 +8432,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco indexer get ExternalIndex"
+          ]
         },
         {
           "name": "rebuild",
@@ -7513,12 +8453,19 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco indexer rebuild ExternalIndex"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco indexer list",
+        "umbraco indexer rebuild ExternalIndex --yes"
+      ]
     },
     {
       "name": "searcher",
@@ -7562,7 +8509,10 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco searcher list"
+          ]
         },
         {
           "name": "query",
@@ -7616,12 +8566,19 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco searcher query ExternalIndex --term Docker",
+            "umbraco searcher query ExternalSearcher --term news --take 10"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco searcher query ExternalIndex --term news"
+      ]
     },
     {
       "name": "imaging",
@@ -7678,12 +8635,19 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco imaging resize-urls <id> --width 300",
+            "umbraco imaging resize-urls <id> <id> --width 300 --height 200 --mode Crop --format webp"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco imaging resize-urls <id> --width 300 --height 200 --mode Crop"
+      ]
     },
     {
       "name": "property-type",
@@ -7716,12 +8680,18 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
-          "acceptsJsonBody": false
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco property-type is-used --document-type blogPost --alias bodyText"
+          ]
         }
       ],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco property-type is-used --document-type blogPost --alias bodyText"
+      ]
     },
     {
       "name": "completion",
@@ -7739,7 +8709,12 @@
       "commands": [],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco completion bash > ~/.umbraco-completion.bash   # then source it from ~/.bashrc",
+        "umbraco completion zsh > ~/.zfunc/_umbraco           # a directory on $fpath",
+        "umbraco completion pwsh | Out-String | Invoke-Expression"
+      ]
     },
     {
       "name": "commands",
@@ -7749,7 +8724,12 @@
       "commands": [],
       "mutating": false,
       "destructive": false,
-      "acceptsJsonBody": false
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco commands",
+        "umbraco commands --output human",
+        "umbraco commands | jq '.data.commands[].name'"
+      ]
     }
   ],
   "mutating": false,

@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -9,7 +10,11 @@ public static class ContentListCommand
     {
         var cmd = new Command(
             "list",
-            "List content items at the root, or the children of a parent.\n\nReturns a paginated list of top-level or child content nodes.\n\nExamples:\n  umbraco content list\n  umbraco content list --parent <id> --take 50\n  umbraco content list --output json | jq '.data[].name'"
+            "List content items at the root, or the children of a parent.\n\nReturns a paginated list of top-level or child content nodes."
+        ).WithExamples(
+            "umbraco content list",
+            "umbraco content list --parent <id> --take 50",
+            "umbraco content list --output json | jq '.data[].name'"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {

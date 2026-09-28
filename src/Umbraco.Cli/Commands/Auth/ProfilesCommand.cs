@@ -24,9 +24,8 @@ public static class ProfilesCommand
     {
         var cmd = new Command(
             "list",
-            "List saved credential profiles and which one is the default.\n\n"
-                + "Examples:\n  umbraco auth profile list\n  umbraco auth profile list --output json"
-        );
+            "List saved credential profiles and which one is the default."
+        ).WithExamples("umbraco auth profile list", "umbraco auth profile list --output json");
 
         cmd.SetAction(
             (parseResult, ct) =>

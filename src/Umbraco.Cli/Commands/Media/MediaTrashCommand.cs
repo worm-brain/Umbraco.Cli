@@ -16,8 +16,10 @@ public static class MediaTrashCommand
     {
         var cmd = new Command(
             "trash",
-            "Move a media item to the recycle bin (reversible with 'media restore').\n\nExamples:\n  umbraco media trash 3f7a8b2e-..."
-        ).Mutating();
+            "Move a media item to the recycle bin (reversible with 'media restore')."
+        )
+            .WithExamples("umbraco media trash 3f7a8b2e-...")
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Media item ID." };
         cmd.Add(idArg);
         cmd.SetAction(

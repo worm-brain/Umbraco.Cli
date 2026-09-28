@@ -147,11 +147,16 @@ disagree, this file wins; the older document is rationale that may be out of dat
 
 1. The summary (first line) is imperative, at most 80 characters, and ends with a full stop.
 2. Every option and argument has help text. Help text never cites issue numbers.
-3. Every leaf command has an `Examples:` block.
+3. Every leaf command has an `Examples:` block. Examples are data: declare them with
+   `.WithExamples("umbraco ...", ...)` (`CommandExamples` in `src/Umbraco.Cli/Infrastructure`),
+   which renders the block into the help and lists the lines in `umbraco commands` as `examples`.
+   Never write the block into the description by hand.
 4. One term per concept: "id" in prose (`guid` is the type name), "document type",
    "backoffice", "ISO code".
-5. Every example parses. A test runs each `Examples:` line through the real parser, so an
-   example must be a real command line, with these placeholders and no others:
+5. Every example parses. A test runs each declared example through the real parser, so an
+   example must be a real command line, using only the placeholders defined in
+   `ExamplePlaceholders` (`src/Umbraco.Cli/Infrastructure/ExamplePlaceholders.cs`), the one list
+   of them. Today that is:
    - a truncated id, eight hex digits then `-...` (`3f7a8b2e-...`), for any id;
    - `<id>`, `<guid>`, `<folder-id>`, `<version-id>`, `<relation-type-id>`, `<section-id>`
      (kebab-case) for an id, and `<secret>` for a secret;
@@ -159,8 +164,8 @@ disagree, this file wins; the older document is rationale that may be out of dat
 
    Shell around the command is fine: a trailing `# comment`, a pipe into or out of another
    program (`| jq ...`, `cat ids.txt |`), and a `> file` redirect are cut before parsing. A line
-   that is only a comment is allowed. Adding a placeholder means adding it to the list here and
-   in `HelpTextTests`.
+   that is only a comment is allowed. Adding a placeholder means adding it to
+   `ExamplePlaceholders`; the test reads it from there.
 
 These rules are checked by unit tests over the command tree. The same tests check that every
 command path and option named in a `docs/commands.md` synopsis exists.
@@ -228,3 +233,8 @@ Each exception is deliberate or tracked; don't copy it.
 - **2026-09-28** - 9: `completion <bash|zsh|pwsh>` (#92) is recorded as an exception alongside
   `commands`. Shell completion is a property of the tool, not of an Umbraco resource, and `gh`
   and `az` name it the same way.
+- **2026-09-28** - 8.3 and 8.5: help examples are held as data (#276). A command declares them with
+  `.WithExamples(...)`, which renders the same `Examples:` block as before, and the placeholder
+  vocabulary lives once, in `ExamplePlaceholders`. `HelpTextTests` reads the lists instead of
+  searching descriptions for the heading, and `umbraco commands` gains an additive `examples`
+  field.

@@ -22,10 +22,13 @@ public static class MediaTypesDeleteCommand
             "Delete a media type by id or alias.\n\n"
                 + "Umbraco deletes every media item of this type along with it. The delete is "
                 + "refused unless --force is given while any media item uses the type (the recycle "
-                + "bin included) or another type uses it as a composition.\n\n"
-                + "Examples:\n  umbraco media-type delete brochure --yes\n"
-                + "  umbraco media-type delete brochure --force --yes"
-        ).Mutating();
+                + "bin included) or another type uses it as a composition."
+        )
+            .WithExamples(
+                "umbraco media-type delete brochure --yes",
+                "umbraco media-type delete brochure --force --yes"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.MediaType);
         cmd.Add(idArg);
         InUseGuard.Protect(

@@ -20,11 +20,13 @@ public static class UsersCreateCommand
             "Create a backoffice user directly, without an email invitation.\n\n"
                 + "Without --password the user has no password and cannot sign in until one is set "
                 + "with 'user update --new-password'. If Umbraco rejects the password, the new user "
-                + "is deleted again, so a failed create can be retried as it stands.\n\n"
-                + "Examples:\n"
-                + "  umbraco user create --email editor@example.com --name \"Jane Smith\" --group editor --password <secret>\n"
-                + "  umbraco user create --email writer@example.com --name \"Bob\" --group editor --group translator"
-        ).Mutating();
+                + "is deleted again, so a failed create can be retried as it stands."
+        )
+            .WithExamples(
+                "umbraco user create --email editor@example.com --name \"Jane Smith\" --group editor --password <secret>",
+                "umbraco user create --email writer@example.com --name \"Bob\" --group editor --group translator"
+            )
+            .Mutating();
         var emailOpt = new Option<string>("--email")
         {
             Required = true,

@@ -23,19 +23,26 @@ public static class ContentApplyCommand
         var cmd = new Command(
             "apply",
             "Apply a content snapshot to the live instance.\n\n"
-                + "Creates, updates and sets publish state; --prune also deletes.\n\n"
-                + "Examples:\n"
-                + "  umbraco content apply content.json --dry-run\n"
-                + "  umbraco content apply content.json\n"
-                + "  umbraco content apply content.json --no-state\n"
-                + "  umbraco content apply content.json --prune --yes\n"
-                + "  umbraco content apply content.json --prune --exclude-type contactSubmission --yes\n\n"
-                + "A whole-tree prune also deletes whatever was created on the target since the "
-                + "export - form submissions, editors' drafts. Export with --root to prune one "
-                + "subtree, or leave content alone with --exclude-type / --exclude-root.\n\n"
-                + "Publish state is applied too: cultures published in the snapshot are published, "
-                + "and live cultures the snapshot has unpublished are unpublished."
-        ).Mutating();
+                + "Creates, updates and sets publish state; --prune also deletes."
+        )
+            .WithExamples(
+                "umbraco content apply content.json --dry-run",
+                "umbraco content apply content.json",
+                "umbraco content apply content.json --no-state",
+                "umbraco content apply content.json --prune --yes",
+                "umbraco content apply content.json --prune --exclude-type contactSubmission --yes"
+            )
+            .Mutating();
+        // The only command whose help has prose after its examples: the prune and publish-state
+        // notes read best after the command lines they qualify, so they are appended below the
+        // block that WithExamples rendered.
+        cmd.Description +=
+            "\n\n"
+            + "A whole-tree prune also deletes whatever was created on the target since the "
+            + "export - form submissions, editors' drafts. Export with --root to prune one "
+            + "subtree, or leave content alone with --exclude-type / --exclude-root.\n\n"
+            + "Publish state is applied too: cultures published in the snapshot are published, "
+            + "and live cultures the snapshot has unpublished are unpublished.";
         var snapshotArg = new Argument<string>("snapshot")
         {
             Description = "Path to a snapshot file produced by 'content export', or '-' for stdin.",

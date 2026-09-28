@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
 
@@ -11,9 +12,9 @@ public static class WebhookGetCommand
     /// <returns>The command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "get",
-            "Get a webhook by id or name.\n\nExamples:\n  umbraco webhook get 3f7a8b2e-...\n  umbraco webhook get \"Deploy hook\""
+        var cmd = new Command("get", "Get a webhook by id or name.").WithExamples(
+            "umbraco webhook get 3f7a8b2e-...",
+            "umbraco webhook get \"Deploy hook\""
         );
         var idArg = Reference.Argument(EntityKind.Webhook);
         cmd.Add(idArg);

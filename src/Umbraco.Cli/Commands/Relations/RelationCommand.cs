@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Relations;
 
@@ -14,9 +15,8 @@ public static class RelationCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "relation",
-            "List relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relation-type-id>"
+        var cmd = new Command("relation", "List relations of a relation type.").WithExamples(
+            "umbraco relation list --relation-type <relation-type-id>"
         );
         cmd.Add(BuildList(executor));
         return cmd;
@@ -30,9 +30,9 @@ public static class RelationCommand
     /// <returns>The configured command.</returns>
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "list",
-            "List the relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type relateDocumentOnCopy\n  umbraco relation list --relation-type <relation-type-id> --take 20"
+        var cmd = new Command("list", "List the relations of a relation type.").WithExamples(
+            "umbraco relation list --relation-type relateDocumentOnCopy",
+            "umbraco relation list --relation-type <relation-type-id> --take 20"
         );
         var typeOpt = Reference.Option(
             "--relation-type",

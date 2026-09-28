@@ -15,9 +15,13 @@ public static class DictionaryDeleteCommand
         var cmd = new Command(
             "delete",
             "Delete a dictionary item by id or key.\n\n"
-                + "An item with child items is refused unless --force is given: Umbraco deletes the children with it.\n\n"
-                + "Examples:\n  umbraco dictionary delete Blog.MinRead --yes\n  umbraco dictionary delete Blog --force --yes"
-        ).Mutating();
+                + "An item with child items is refused unless --force is given: Umbraco deletes the children with it."
+        )
+            .WithExamples(
+                "umbraco dictionary delete Blog.MinRead --yes",
+                "umbraco dictionary delete Blog --force --yes"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.DictionaryItem);
         cmd.Add(idArg);
         InUseGuard.Protect(

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -35,10 +36,10 @@ public static class MediaDiffCommand
     {
         var cmd = new Command(
             "diff",
-            "Compare a media snapshot against the live instance (read-only).\n\n"
-                + "Examples:\n"
-                + "  umbraco media diff ./media-snapshot\n"
-                + "  umbraco media diff ./media-snapshot --verify-files"
+            "Compare a media snapshot against the live instance (read-only)."
+        ).WithExamples(
+            "umbraco media diff ./media-snapshot",
+            "umbraco media diff ./media-snapshot --verify-files"
         );
         var snapshotArg = SnapshotArgument();
         var verifyOpt = VerifyFilesOption();

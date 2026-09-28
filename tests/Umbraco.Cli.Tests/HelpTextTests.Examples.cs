@@ -7,29 +7,15 @@ namespace Umbraco.Cli.Tests;
 /// <summary>
 /// Rule 8.5 of docs/conventions.md: examples that run (#250 cause 7). Help and doc examples were
 /// never executed, so they drifted from the parser - renamed options, GUID-typed arguments given a
-/// name, invented event aliases. These tests parse every <c>Examples:</c> line in the shipped tree
-/// with the production parser, and check that every command and option named in
-/// <c>docs/commands.md</c> exists. Placeholders come from the closed vocabulary in 8.5.
+/// name, invented event aliases. These tests parse every example the shipped tree declares (the list
+/// each command holds via <see cref="CommandExamples.WithExamples{TCommand}"/>, #276) with the
+/// production parser, and check that every command and option named in <c>docs/commands.md</c>
+/// exists. Placeholders come from the closed vocabulary in <see cref="ExamplePlaceholders"/>.
 /// </summary>
 public partial class HelpTextTests
 {
     /// <summary>The GUID a truncated id or an id placeholder stands for.</summary>
-    private const string SampleId = "3f7a8b2e-1234-5678-abcd-ef0123456789";
-
-    /// <summary>
-    /// The placeholders an example may use (docs/conventions.md 8.5), and what each parses as.
-    /// Anything else in angle brackets fails the test rather than being guessed at.
-    /// </summary>
-    private static readonly Dictionary<string, string> Placeholders = new()
-    {
-        ["<id>"] = SampleId,
-        ["<guid>"] = SampleId,
-        ["<folder-id>"] = SampleId,
-        ["<version-id>"] = SampleId,
-        ["<relation-type-id>"] = SampleId,
-        ["<section-id>"] = SampleId,
-        ["<secret>"] = "s3cret",
-    };
+    private const string SampleId = ExamplePlaceholders.SampleId;
 
     /// <summary>The real tree to parse against, built once: parsing does not change it.</summary>
     private static readonly RootCommand Root = TestCliRoot.Build();
@@ -84,7 +70,7 @@ public partial class HelpTextTests
     [Fact]
     public void HelpExamples_AreFound()
     {
-        // Guards the tests above against passing vacuously if the Examples: layout changes.
+        // Guards the tests above against passing vacuously if examples stop reaching the catalog.
         Assert.True(HelpExamples().Count() > 300, "Expected the tree's 400-odd example lines.");
     }
 
@@ -137,29 +123,11 @@ public partial class HelpTextTests
     // ── Help examples ────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Every example line in the tree, with the command it belongs to. An <c>Examples:</c> block is
-    /// the run of two-space-indented lines after the heading; prose may follow a blank line.
+    /// Every example line in the tree, with the command it belongs to, read from the list each
+    /// command declared (the catalog's <c>examples</c>) rather than cut out of its help text.
     /// </summary>
     private static IEnumerable<(string Path, string Line)> HelpExamples() =>
-        Commands()
-            .SelectMany(c =>
-                ExampleBlock(c.Node.Description ?? "").Select(line => (c.Path, line.Trim()))
-            );
-
-    /// <summary>The indented lines under a description's <c>Examples:</c> heading.</summary>
-    /// <param name="description">A command's full description.</param>
-    /// <returns>The example lines, untrimmed; empty when there is no block.</returns>
-    private static IEnumerable<string> ExampleBlock(string description)
-    {
-        const string heading = "\nExamples:\n";
-        var text = description.Replace("\r\n", "\n");
-        var start = text.IndexOf(heading, StringComparison.Ordinal);
-        return start < 0
-            ? []
-            : text[(start + heading.Length)..]
-                .Split('\n')
-                .TakeWhile(l => l.StartsWith("  ", StringComparison.Ordinal));
-    }
+        Commands().SelectMany(c => (c.Node.Examples ?? []).Select(line => (c.Path, line)));
 
     /// <summary>
     /// The <c>umbraco</c> commands in a shell line: a trailing comment and any redirect are cut,
@@ -193,7 +161,8 @@ public partial class HelpTextTests
                 args,
                 m =>
                 {
-                    if (Placeholders.TryGetValue(m.Value, out var value))
+                    // Anything in angle brackets outside the vocabulary is reported, not guessed at.
+                    if (ExamplePlaceholders.Values.TryGetValue(m.Value, out var value))
                         return value;
                     missing.Add(m.Value);
                     return m.Value;
@@ -307,8 +276,8 @@ public partial class HelpTextTests
     [GeneratedRegex(@"\s+>\s*\S+.*$")]
     private static partial Regex Redirect();
 
-    /// <summary>A truncated id: eight hex digits, a dash and an ellipsis (<c>3f7a8b2e-...</c>).</summary>
-    [GeneratedRegex(@"\b[0-9a-f]{8}-\.\.\.")]
+    /// <summary>A truncated id, as <see cref="ExamplePlaceholders.TruncatedIdPattern"/> defines it.</summary>
+    [GeneratedRegex(ExamplePlaceholders.TruncatedIdPattern)]
     private static partial Regex TruncatedId();
 
     /// <summary>An angle-bracket placeholder such as <c>&lt;id&gt;</c>.</summary>

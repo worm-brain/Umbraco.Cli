@@ -11,8 +11,15 @@ public static class ContentUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update an existing content item from a JSON body file.\n\nValues and variants in the body are MERGED into the item, matched on alias + culture + segment: anything you leave out keeps its current value, and the item's template is preserved. Pass --replace for the old behaviour, where the body's values and variants replace the item's wholesale.\n\nExamples:\n  umbraco content update 3f7a8b2e-... --json-body ./update.json\n  umbraco content update 3f7a8b2e-... --json-body ./full.json --replace\n  umbraco content update 3f7a8b2e-... --json-body ./update.json --template blogPost\n  umbraco content update 3f7a8b2e-... --template blogPost"
-        ).Mutating();
+            "Update an existing content item from a JSON body file.\n\nValues and variants in the body are MERGED into the item, matched on alias + culture + segment: anything you leave out keeps its current value, and the item's template is preserved. Pass --replace for the old behaviour, where the body's values and variants replace the item's wholesale."
+        )
+            .WithExamples(
+                "umbraco content update 3f7a8b2e-... --json-body ./update.json",
+                "umbraco content update 3f7a8b2e-... --json-body ./full.json --replace",
+                "umbraco content update 3f7a8b2e-... --json-body ./update.json --template blogPost",
+                "umbraco content update 3f7a8b2e-... --template blogPost"
+            )
+            .Mutating();
         // id and --json-body are optional at the PARSE level only so that `--schema` can
         // describe the body without them. A nullable id makes "omitted" (null) unambiguous
         // versus an explicit all-zero GUID. Both are required for an actual update, enforced by

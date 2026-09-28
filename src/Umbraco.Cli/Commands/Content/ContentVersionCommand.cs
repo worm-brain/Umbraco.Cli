@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -19,8 +20,7 @@ public static class ContentVersionCommand
             "get",
             "Get one version of a content item, with its values."
                 + "\n\nTake the id from 'content version list'."
-                + "\n\nExamples:\n  umbraco content version get 7c1d9e4a-..."
-        );
+        ).WithExamples("umbraco content version get 7c1d9e4a-...");
         var idArg = new Argument<Guid>("id")
         {
             Description = "The version's id, from 'content version list'.",

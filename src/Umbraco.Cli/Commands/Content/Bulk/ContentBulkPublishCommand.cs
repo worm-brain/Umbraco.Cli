@@ -13,8 +13,13 @@ public static class ContentBulkPublishCommand
     {
         var cmd = new Command(
             "publish",
-            "Publish many content items by id (ids from --file or stdin).\n\nExamples:\n  umbraco content list --fields id | umbraco content bulk publish\n  umbraco content bulk publish --file ids.txt --culture en-US"
-        ).Mutating();
+            "Publish many content items by id (ids from --file or stdin)."
+        )
+            .WithExamples(
+                "umbraco content list --fields id | umbraco content bulk publish",
+                "umbraco content bulk publish --file ids.txt --culture en-US"
+            )
+            .Mutating();
         var fileOpt = new Option<FileInfo?>("--file")
         {
             Description =

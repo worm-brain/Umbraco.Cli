@@ -35,6 +35,11 @@ namespace Umbraco.Cli.Infrastructure;
 /// offline (e.g. <c>umbraco content create --schema</c>) (#84). A pointer rather than the schema
 /// itself, which would make the catalog many times larger for a caller that needs one body.
 /// </param>
+/// <param name="Examples">
+/// The command's help examples as a list, one command line each (#276): the same lines the
+/// <c>Examples:</c> block in <see cref="Description"/> shows, so an agent need not cut them back out
+/// of the text. Null when the command declares none.
+/// </param>
 public sealed record CommandCatalogNode(
     string Name,
     string? Description,
@@ -45,7 +50,8 @@ public sealed record CommandCatalogNode(
     bool Destructive = false,
     bool AcceptsJsonBody = false,
     string? DestructiveWhen = null,
-    string? JsonBodySchema = null
+    string? JsonBodySchema = null,
+    IReadOnlyList<string>? Examples = null
 );
 
 /// <summary>A positional argument in the catalog.</summary>
@@ -140,7 +146,13 @@ public static class CommandCatalog
             destructiveWhen,
             // Every --json-body comes with --schema (JsonBodyOption adds both), so the pointer is
             // always a command that runs.
-            acceptsJsonBody ? path + " --schema" : null
+            acceptsJsonBody ? path + " --schema" : null,
+            // Null rather than empty when there are none, so the field is simply absent from the
+            // JSON of a command without examples (the serializer drops nulls).
+            CommandExamples.Of(command)
+                is { Count: > 0 } examples
+                ? examples
+                : null
         );
     }
 

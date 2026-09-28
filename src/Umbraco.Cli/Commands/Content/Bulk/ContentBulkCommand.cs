@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content.Bulk;
 
@@ -15,7 +16,10 @@ public static class ContentBulkCommand
     {
         var cmd = new Command(
             "bulk",
-            "Run an operation over many content ids read from stdin or a file.\n\nIds are one per line, or the JSON or CSV output of a list command. Each id gets its own result.\n\nExamples:\n  umbraco content list --fields id | umbraco content bulk publish\n  umbraco content bulk delete --file ids.txt --yes"
+            "Run an operation over many content ids read from stdin or a file.\n\nIds are one per line, or the JSON or CSV output of a list command. Each id gets its own result."
+        ).WithExamples(
+            "umbraco content list --fields id | umbraco content bulk publish",
+            "umbraco content bulk delete --file ids.txt --yes"
         );
         cmd.Add(ContentBulkDeleteCommand.Build(executor));
         cmd.Add(ContentBulkPublishCommand.Build(executor));

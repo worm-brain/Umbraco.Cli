@@ -11,10 +11,12 @@ public static class ContentPublishDescendantsCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "publish-descendants",
-            "Publish a content item and its descendants.\n\nExamples:\n  umbraco content publish-descendants 3f7a8b2e-...\n  umbraco content publish-descendants 3f7a8b2e-... --include-unpublished --culture en-US"
-        ).Mutating();
+        var cmd = new Command("publish-descendants", "Publish a content item and its descendants.")
+            .WithExamples(
+                "umbraco content publish-descendants 3f7a8b2e-...",
+                "umbraco content publish-descendants 3f7a8b2e-... --include-unpublished --culture en-US"
+            )
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Root content item ID." };
         var culturesOpt = ListOption.Strings(
             "--culture",

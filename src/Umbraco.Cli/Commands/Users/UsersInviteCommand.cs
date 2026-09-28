@@ -16,11 +16,13 @@ public static class UsersInviteCommand
             "invite",
             "Send an email invitation to a new backoffice user.\n\n"
                 + "Umbraco sends the invitation by email, so the site must have SMTP configured; "
-                + "without it the invite is refused and no user is created.\n\n"
-                + "Examples:\n"
-                + "  umbraco user invite --email editor@example.com --name \"Jane Smith\" --group editor\n"
-                + "  umbraco user invite --email admin@example.com --name \"Bob\" --group admin --group translator --message \"Welcome to the team!\""
-        ).Mutating();
+                + "without it the invite is refused and no user is created."
+        )
+            .WithExamples(
+                "umbraco user invite --email editor@example.com --name \"Jane Smith\" --group editor",
+                "umbraco user invite --email admin@example.com --name \"Bob\" --group admin --group translator --message \"Welcome to the team!\""
+            )
+            .Mutating();
         var emailOpt = new Option<string>("--email")
         {
             Required = true,

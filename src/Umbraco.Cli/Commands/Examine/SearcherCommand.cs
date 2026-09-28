@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Examine;
 
@@ -13,9 +14,8 @@ public static class SearcherCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "searcher",
-            "List Examine searchers and query them.\n\nExamples:\n  umbraco searcher query ExternalIndex --term news"
+        var cmd = new Command("searcher", "List Examine searchers and query them.").WithExamples(
+            "umbraco searcher query ExternalIndex --term news"
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildQuery(executor));
@@ -28,9 +28,8 @@ public static class SearcherCommand
             "list",
             "List the registered Examine multi-searchers.\n\n"
                 + "This is often empty (it is on Umbraco 17): every index can still be queried by its "
-                + "name - see 'umbraco indexer list'.\n\n"
-                + "Examples:\n  umbraco searcher list"
-        );
+                + "name - see 'umbraco indexer list'."
+        ).WithExamples("umbraco searcher list");
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>
@@ -54,8 +53,10 @@ public static class SearcherCommand
             "Query a searcher, or an index, for a term.\n\n"
                 + "Give an index name from 'umbraco indexer list' (e.g. ExternalIndex), or its "
                 + "searcherName (ExternalSearcher), which is mapped to the index when Umbraco does "
-                + "not register it as a searcher.\n\n"
-                + "Examples:\n  umbraco searcher query ExternalIndex --term Docker\n  umbraco searcher query ExternalSearcher --term news --take 10"
+                + "not register it as a searcher."
+        ).WithExamples(
+            "umbraco searcher query ExternalIndex --term Docker",
+            "umbraco searcher query ExternalSearcher --term news --take 10"
         );
         var nameArg = new Argument<string>("name")
         {

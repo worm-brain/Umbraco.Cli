@@ -42,7 +42,8 @@ Each option and argument also says what it defaults to (`default`, when it has o
 is required only in some modes, which options make it unnecessary (`requiredUnless`, e.g.
 `content create --name` has `["--json-body", "--schema", "--example"]` and reports `required: false`). A
 command that takes `--json-body` names the command that prints the body's schema
-(`jsonBodySchema: "umbraco content create --schema"`).
+(`jsonBodySchema: "umbraco content create --schema"`). A command's help examples are also listed
+on their own (`examples`, one command line each), so you need not cut them out of `description`.
 
 ```bash
 umbraco commands | jq '.. | objects | select(.requiredUnless) | {name, requiredUnless}'

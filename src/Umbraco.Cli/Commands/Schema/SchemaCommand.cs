@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Schema;
 
@@ -16,12 +17,12 @@ public static class SchemaCommand
     {
         var cmd = new Command(
             "schema",
-            "Export, diff, and apply Umbraco schema (document types, data types, templates).\n\n"
-                + "Examples:\n"
-                + "  umbraco schema export --out schema.json\n"
-                + "  umbraco schema diff schema.json\n"
-                + "  umbraco schema apply schema.json --dry-run\n"
-                + "  umbraco schema apply schema.json --prune --yes"
+            "Export, diff, and apply Umbraco schema (document types, data types, templates)."
+        ).WithExamples(
+            "umbraco schema export --out schema.json",
+            "umbraco schema diff schema.json",
+            "umbraco schema apply schema.json --dry-run",
+            "umbraco schema apply schema.json --prune --yes"
         );
         cmd.Add(SchemaExportCommand.Build(executor));
         cmd.Add(SchemaDiffCommand.Build(executor));

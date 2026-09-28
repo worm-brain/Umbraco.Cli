@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
 
@@ -8,8 +9,8 @@ public static class WebhooksListCommand
     {
         var cmd = new Command(
             "list",
-            "List all webhook subscriptions configured in the Umbraco instance.\n\nExamples:\n  umbraco webhook list --output json"
-        );
+            "List all webhook subscriptions configured in the Umbraco instance."
+        ).WithExamples("umbraco webhook list --output json");
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>

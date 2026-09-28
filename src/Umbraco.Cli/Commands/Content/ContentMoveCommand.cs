@@ -11,10 +11,12 @@ public static class ContentMoveCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "move",
-            "Move a content item under a new parent.\n\nExamples:\n  umbraco content move 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content move 3f7a8b2e-...   # to the content root"
-        ).Mutating();
+        var cmd = new Command("move", "Move a content item under a new parent.")
+            .WithExamples(
+                "umbraco content move 3f7a8b2e-... --parent 1a2b3c4d-...",
+                "umbraco content move 3f7a8b2e-...   # to the content root"
+            )
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID to move." };
         var parentOpt = new Option<Guid?>("--parent", "--target")
         {

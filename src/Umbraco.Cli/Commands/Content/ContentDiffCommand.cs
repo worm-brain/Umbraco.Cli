@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -17,10 +18,10 @@ public static class ContentDiffCommand
     {
         var cmd = new Command(
             "diff",
-            "Compare a content snapshot against the live instance (read-only).\n\n"
-                + "Examples:\n"
-                + "  umbraco content diff content.json\n"
-                + "  umbraco content export | umbraco content diff -"
+            "Compare a content snapshot against the live instance (read-only)."
+        ).WithExamples(
+            "umbraco content diff content.json",
+            "umbraco content export | umbraco content diff -"
         );
         var snapshotArg = new Argument<string>("snapshot")
         {

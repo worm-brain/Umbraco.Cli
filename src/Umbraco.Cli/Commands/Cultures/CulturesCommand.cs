@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Cultures;
 
@@ -12,17 +13,17 @@ public static class CulturesCommand
     {
         var cmd = new Command(
             "culture",
-            "List the cultures available on the instance.\n\nExamples:\n  umbraco culture list"
-        );
+            "List the cultures available on the instance."
+        ).WithExamples("umbraco culture list");
         cmd.Add(BuildList(executor));
         return cmd;
     }
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "list",
-            "List available cultures.\n\nExamples:\n  umbraco culture list\n  umbraco culture list --take 500 --output json"
+        var cmd = new Command("list", "List available cultures.").WithExamples(
+            "umbraco culture list",
+            "umbraco culture list --take 500 --output json"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(

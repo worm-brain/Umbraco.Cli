@@ -16,9 +16,8 @@ public static class PropertyTypeCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "property-type",
-            "Inspect property-type usage.\n\nExamples:\n  umbraco property-type is-used --document-type blogPost --alias bodyText"
+        var cmd = new Command("property-type", "Inspect property-type usage.").WithExamples(
+            "umbraco property-type is-used --document-type blogPost --alias bodyText"
         );
         cmd.Add(BuildIsUsed(executor));
         return cmd;
@@ -26,9 +25,8 @@ public static class PropertyTypeCommand
 
     private static Command BuildIsUsed(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "is-used",
-            "Check whether a property is in use.\n\nExamples:\n  umbraco property-type is-used --document-type blogPost --alias bodyText"
+        var cmd = new Command("is-used", "Check whether a property is in use.").WithExamples(
+            "umbraco property-type is-used --document-type blogPost --alias bodyText"
         );
         var contentTypeOpt = Reference
             .Option(

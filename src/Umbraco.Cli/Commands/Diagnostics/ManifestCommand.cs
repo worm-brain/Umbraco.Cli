@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Diagnostics;
 
@@ -15,9 +16,8 @@ public static class ManifestCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "manifest",
-            "List Umbraco package manifests.\n\nExamples:\n  umbraco manifest list --scope public"
+        var cmd = new Command("manifest", "List Umbraco package manifests.").WithExamples(
+            "umbraco manifest list --scope public"
         );
         cmd.Add(BuildList(executor));
         return cmd;
@@ -25,9 +25,9 @@ public static class ManifestCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "list",
-            "List package manifests.\n\nExamples:\n  umbraco manifest list\n  umbraco manifest list --scope public"
+        var cmd = new Command("list", "List package manifests.").WithExamples(
+            "umbraco manifest list",
+            "umbraco manifest list --scope public"
         );
         var scopeOpt = new Option<ManifestScope>("--scope")
         {

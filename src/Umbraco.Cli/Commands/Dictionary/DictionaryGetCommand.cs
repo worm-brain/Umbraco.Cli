@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
@@ -16,7 +17,10 @@ public static class DictionaryGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a dictionary item and its translations by key or id.\n\nExamples:\n  umbraco dictionary get Common.Search\n  umbraco dictionary get 1a2b3c4d-....."
+            "Get a dictionary item and its translations by key or id."
+        ).WithExamples(
+            "umbraco dictionary get Common.Search",
+            "umbraco dictionary get 1a2b3c4d-....."
         );
         // The key is resolved here, before the by-id read (#262), by the same resolver every
         // other <id|key> argument uses.

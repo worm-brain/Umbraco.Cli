@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.ContentTypes;
 
@@ -8,7 +9,11 @@ public static class ContentTypesCommand
     {
         var cmd = new Command(
             "document-type",
-            "List, inspect, and manage Umbraco document types.\n\nExamples:\n  umbraco document-type list\n  umbraco document-type get textPage\n  umbraco document-type create --name \"Blog Post\" --alias blogPost"
+            "List, inspect, and manage Umbraco document types."
+        ).WithExamples(
+            "umbraco document-type list",
+            "umbraco document-type get textPage",
+            "umbraco document-type create --name \"Blog Post\" --alias blogPost"
         );
         cmd.Add(ContentTypesListCommand.Build(executor));
         cmd.Add(ContentTypesGetCommand.Build(executor));

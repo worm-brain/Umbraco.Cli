@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.DataTypes;
 
@@ -8,7 +9,10 @@ public static class DataTypesCommand
     {
         var cmd = new Command(
             "data-type",
-            "List, inspect, and manage Umbraco data types (property editors).\n\nExamples:\n  umbraco data-type list --output json\n  umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
+            "List, inspect, and manage Umbraco data types (property editors)."
+        ).WithExamples(
+            "umbraco data-type list --output json",
+            "umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
         );
         cmd.Add(DataTypesListCommand.Build(executor));
         cmd.Add(DataTypesGetCommand.Build(executor));

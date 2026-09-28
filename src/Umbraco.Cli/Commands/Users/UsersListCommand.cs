@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Users;
 
@@ -6,9 +7,9 @@ public static class UsersListCommand
 {
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "list",
-            "List Umbraco backoffice users.\n\nExamples:\n  umbraco user list\n  umbraco user list --take 20 --output json"
+        var cmd = new Command("list", "List Umbraco backoffice users.").WithExamples(
+            "umbraco user list",
+            "umbraco user list --take 20 --output json"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(

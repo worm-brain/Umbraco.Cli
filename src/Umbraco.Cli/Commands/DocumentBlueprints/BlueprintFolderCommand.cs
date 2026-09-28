@@ -25,9 +25,8 @@ public static class BlueprintFolderCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "get",
-            "Get a blueprint folder by id.\n\nExamples:\n  umbraco document-blueprint folder get 3f7a8b2e-..."
+        var cmd = new Command("get", "Get a blueprint folder by id.").WithExamples(
+            "umbraco document-blueprint folder get 3f7a8b2e-..."
         );
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
@@ -44,10 +43,9 @@ public static class BlueprintFolderCommand
 
     private static Command BuildCreate(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a blueprint folder.\n\nExamples:\n  umbraco document-blueprint folder create --name \"Marketing\""
-        ).Mutating();
+        var cmd = new Command("create", "Create a blueprint folder.")
+            .WithExamples("umbraco document-blueprint folder create --name \"Marketing\"")
+            .Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,
@@ -88,10 +86,11 @@ public static class BlueprintFolderCommand
 
     private static Command BuildUpdate(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "update",
-            "Update a blueprint folder's name, by id.\n\nExamples:\n  umbraco document-blueprint folder update 3f7a8b2e-... --name \"Campaigns\""
-        ).Mutating();
+        var cmd = new Command("update", "Update a blueprint folder's name, by id.")
+            .WithExamples(
+                "umbraco document-blueprint folder update 3f7a8b2e-... --name \"Campaigns\""
+            )
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         var nameOpt = new Option<string>("--name")
         {
@@ -121,10 +120,9 @@ public static class BlueprintFolderCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "delete",
-            "Delete a blueprint folder by id.\n\nExamples:\n  umbraco document-blueprint folder delete 3f7a8b2e-..."
-        ).Mutating();
+        var cmd = new Command("delete", "Delete a blueprint folder by id.")
+            .WithExamples("umbraco document-blueprint folder delete 3f7a8b2e-...")
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Folder ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

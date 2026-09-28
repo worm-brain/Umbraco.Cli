@@ -34,9 +34,8 @@ public static class ContentDomainsCommand
     /// <returns>The configured command.</returns>
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "get",
-            "Get a document's domains.\n\nExamples:\n  umbraco content domain get 3f7a8b2e-..."
+        var cmd = new Command("get", "Get a document's domains.").WithExamples(
+            "umbraco content domain get 3f7a8b2e-..."
         );
         var idArg = new Argument<Guid>("id") { Description = "Document ID." };
         cmd.Add(idArg);
@@ -59,8 +58,13 @@ public static class ContentDomainsCommand
         // A PUT under a verb the catalog's verb set does not know.
         var cmd = new Command(
             "set",
-            "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domain set <id> --default-culture en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domain set <id> --replace --domain example.com=en-US"
-        ).Mutating();
+            "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest."
+        )
+            .WithExamples(
+                "umbraco content domain set <id> --default-culture en-US --domain example.com=en-US --domain example.com/da=da-DK",
+                "umbraco content domain set <id> --replace --domain example.com=en-US"
+            )
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Document ID." };
         var defaultOpt = new Option<string?>("--default-culture")
         {

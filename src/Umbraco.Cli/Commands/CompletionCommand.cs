@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands;
 
@@ -27,11 +28,11 @@ public static class CompletionCommand
             "completion",
             "Print a tab-completion script for bash, zsh or PowerShell.\n\n"
                 + "Load it from your shell's startup file; it asks the installed CLI for "
-                + "suggestions, so it never goes stale.\n\n"
-                + "Examples:\n"
-                + "  umbraco completion bash > ~/.umbraco-completion.bash   # then source it from ~/.bashrc\n"
-                + "  umbraco completion zsh > ~/.zfunc/_umbraco           # a directory on $fpath\n"
-                + "  umbraco completion pwsh | Out-String | Invoke-Expression"
+                + "suggestions, so it never goes stale."
+        ).WithExamples(
+            "umbraco completion bash > ~/.umbraco-completion.bash   # then source it from ~/.bashrc",
+            "umbraco completion zsh > ~/.zfunc/_umbraco           # a directory on $fpath",
+            "umbraco completion pwsh | Out-String | Invoke-Expression"
         );
         var shellArg = new Argument<string>("shell")
         {

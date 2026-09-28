@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Languages;
 
@@ -8,7 +9,11 @@ public static class LanguagesCommand
     {
         var cmd = new Command(
             "language",
-            "Manage the languages configured in the Umbraco instance.\n\nExamples:\n  umbraco language list\n  umbraco language create --culture fr-FR\n  umbraco language delete fr-FR"
+            "Manage the languages configured in the Umbraco instance."
+        ).WithExamples(
+            "umbraco language list",
+            "umbraco language create --culture fr-FR",
+            "umbraco language delete fr-FR"
         );
         cmd.Add(LanguagesListCommand.Build(executor));
         cmd.Add(LanguagesCreateCommand.Build(executor));

@@ -22,10 +22,13 @@ public static class ContentTypesDeleteCommand
             "Delete a document type by id or alias.\n\n"
                 + "Umbraco deletes every document of this type along with it. The delete is refused "
                 + "unless --force is given while any document uses the type (the recycle bin "
-                + "included), another type uses it as a composition, or it is an element type.\n\n"
-                + "Examples:\n  umbraco document-type delete blogPost --yes\n"
-                + "  umbraco document-type delete blogPost --force --yes"
-        ).Mutating();
+                + "included), another type uses it as a composition, or it is an element type."
+        )
+            .WithExamples(
+                "umbraco document-type delete blogPost --yes",
+                "umbraco document-type delete blogPost --force --yes"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.DocumentType);
         cmd.Add(idArg);
         InUseGuard.Protect(

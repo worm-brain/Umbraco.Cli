@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
@@ -17,7 +18,10 @@ public static class DictionaryListCommand
     {
         var cmd = new Command(
             "list",
-            "List dictionary items: the root level, or the direct children of --parent.\n\nExamples:\n  umbraco dictionary list\n  umbraco dictionary list --parent Blog --output json"
+            "List dictionary items: the root level, or the direct children of --parent."
+        ).WithExamples(
+            "umbraco dictionary list",
+            "umbraco dictionary list --parent Blog --output json"
         );
         var parentOpt = Reference.Option(
             "--parent",

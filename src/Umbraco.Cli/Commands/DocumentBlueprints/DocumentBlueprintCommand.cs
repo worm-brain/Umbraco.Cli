@@ -20,7 +20,10 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "document-blueprint",
-            "List, inspect, and manage Umbraco document blueprints (content templates).\n\nExamples:\n  umbraco document-blueprint list\n  umbraco document-blueprint create --from-document <id> --name \"Starter\""
+            "List, inspect, and manage Umbraco document blueprints (content templates)."
+        ).WithExamples(
+            "umbraco document-blueprint list",
+            "umbraco document-blueprint create --from-document <id> --name \"Starter\""
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildGet(executor));
@@ -37,8 +40,10 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "list",
-            "List blueprints at the root, or the children of a folder.\n\n"
-                + "Examples:\n  umbraco document-blueprint list\n  umbraco document-blueprint list --parent <folder-id>"
+            "List blueprints at the root, or the children of a folder."
+        ).WithExamples(
+            "umbraco document-blueprint list",
+            "umbraco document-blueprint list --parent <folder-id>"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {
@@ -78,8 +83,10 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "get",
-            "Get a blueprint by id as raw JSON (full fidelity).\n\n"
-                + "Examples:\n  umbraco document-blueprint get 3f7a8b2e-...\n  umbraco document-blueprint get <id> -o json | jq .data > bp.json"
+            "Get a blueprint by id as raw JSON (full fidelity)."
+        ).WithExamples(
+            "umbraco document-blueprint get 3f7a8b2e-...",
+            "umbraco document-blueprint get <id> -o json | jq .data > bp.json"
         );
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         cmd.Add(idArg);
@@ -99,8 +106,10 @@ public static class DocumentBlueprintCommand
         var cmd = new Command(
             "scaffold",
             "Print the pre-filled create body for a document started from a blueprint.\n\n"
-                + "This is the template Umbraco itself would use.\n\n"
-                + "Examples:\n  umbraco document-blueprint scaffold 3f7a8b2e-...\n  umbraco document-blueprint scaffold <id> -o json | jq .data > body.json"
+                + "This is the template Umbraco itself would use."
+        ).WithExamples(
+            "umbraco document-blueprint scaffold 3f7a8b2e-...",
+            "umbraco document-blueprint scaffold <id> -o json | jq .data > body.json"
         );
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         cmd.Add(idArg);
@@ -120,8 +129,14 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "create",
-            "Create a blueprint from flags, a JSON body, or an existing document.\n\nExamples:\n  umbraco document-blueprint create --document-type textPage --name \"Starter\"\n  umbraco document-blueprint create --from-document <id> --name \"Starter\"\n  umbraco document-blueprint create --json-body ./bp.json"
-        ).Mutating();
+            "Create a blueprint from flags, a JSON body, or an existing document."
+        )
+            .WithExamples(
+                "umbraco document-blueprint create --document-type textPage --name \"Starter\"",
+                "umbraco document-blueprint create --from-document <id> --name \"Starter\"",
+                "umbraco document-blueprint create --json-body ./bp.json"
+            )
+            .Mutating();
         // Conditional requirement (mirrors content create): --document-type + --name, OR
         // --from-document + --name, OR --json-body, OR --schema (describe-and-exit). Enforced by the
         // validator below as a parse error.
@@ -293,9 +308,10 @@ public static class DocumentBlueprintCommand
         var cmd = new Command(
             "update",
             "Update a blueprint's values and variants.\n\nThey are merged into the blueprint, as "
-                + "'content update' does; --replace sends them as the whole set instead.\n\n"
-                + "Examples:\n  umbraco document-blueprint update <id> --json-body ./bp.json"
-        ).Mutating();
+                + "'content update' does; --replace sends them as the whole set instead."
+        )
+            .WithExamples("umbraco document-blueprint update <id> --json-body ./bp.json")
+            .Mutating();
         // id is nullable/optional at the PARSE level only so --schema can describe the body without
         // it; the validator below makes it required for an actual update.
         var idArg = new Argument<Guid?>("id")
@@ -405,10 +421,9 @@ public static class DocumentBlueprintCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "delete",
-            "Delete a blueprint by id.\n\nExamples:\n  umbraco document-blueprint delete 3f7a8b2e-... --yes"
-        ).Mutating();
+        var cmd = new Command("delete", "Delete a blueprint by id.")
+            .WithExamples("umbraco document-blueprint delete 3f7a8b2e-... --yes")
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>
@@ -433,9 +448,13 @@ public static class DocumentBlueprintCommand
     {
         var cmd = new Command(
             "move",
-            "Move a blueprint under a folder (or to the root when --parent is omitted).\n\n"
-                + "Examples:\n  umbraco document-blueprint move 3f7a8b2e-... --parent <folder-id>\n  umbraco document-blueprint move 3f7a8b2e-..."
-        ).Mutating();
+            "Move a blueprint under a folder (or to the root when --parent is omitted)."
+        )
+            .WithExamples(
+                "umbraco document-blueprint move 3f7a8b2e-... --parent <folder-id>",
+                "umbraco document-blueprint move 3f7a8b2e-..."
+            )
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Blueprint ID." };
         var targetOpt = new Option<Guid?>("--parent", "--target")
         {

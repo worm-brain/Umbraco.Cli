@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -13,7 +14,11 @@ public static class ContentFindCommand
     {
         var cmd = new Command(
             "find",
-            "Locate content by display name (server search) or by a name path from the root.\n\nExamples:\n  umbraco content find --name About\n  umbraco content find --name Team --parent <section-id>\n  umbraco content find --path \"Home/About/Team\""
+            "Locate content by display name (server search) or by a name path from the root."
+        ).WithExamples(
+            "umbraco content find --name About",
+            "umbraco content find --name Team --parent <section-id>",
+            "umbraco content find --path \"Home/About/Team\""
         );
         var nameOpt = new Option<string?>("--name")
         {

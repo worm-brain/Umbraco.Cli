@@ -17,10 +17,12 @@ public static class MemberTypesCreateCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a new member type with a given name and alias.\n\nExamples:\n  umbraco member-type create --name \"Author\" --alias author\n  umbraco member-type create --name \"Subscriber\" --alias subscriber --icon icon-user"
-        ).Mutating();
+        var cmd = new Command("create", "Create a new member type with a given name and alias.")
+            .WithExamples(
+                "umbraco member-type create --name \"Author\" --alias author",
+                "umbraco member-type create --name \"Subscriber\" --alias subscriber --icon icon-user"
+            )
+            .Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Description =

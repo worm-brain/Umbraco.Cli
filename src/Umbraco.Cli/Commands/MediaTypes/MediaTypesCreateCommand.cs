@@ -17,10 +17,13 @@ public static class MediaTypesCreateCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a new media type with a given name and alias.\n\nExamples:\n  umbraco media-type create --name \"Custom Image\" --alias customImage\n  umbraco media-type create --name \"Widget\" --alias widget --is-element\n  umbraco media-type create --name \"Doc\" --alias doc --allow-at-root --icon icon-document"
-        ).Mutating();
+        var cmd = new Command("create", "Create a new media type with a given name and alias.")
+            .WithExamples(
+                "umbraco media-type create --name \"Custom Image\" --alias customImage",
+                "umbraco media-type create --name \"Widget\" --alias widget --is-element",
+                "umbraco media-type create --name \"Doc\" --alias doc --allow-at-root --icon icon-document"
+            )
+            .Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Description =

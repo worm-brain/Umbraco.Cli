@@ -17,8 +17,10 @@ public static class ContentEmptyRecycleBinCommand
     {
         var cmd = new Command(
             "empty-recycle-bin",
-            "Permanently delete all content items in the recycle bin.\n\nExamples:\n  umbraco content empty-recycle-bin --yes"
-        ).Mutating();
+            "Permanently delete all content items in the recycle bin."
+        )
+            .WithExamples("umbraco content empty-recycle-bin --yes")
+            .Mutating();
         cmd.Destructive(parseResult =>
             "Permanently delete ALL items in the content recycle bin? This cannot be undone."
         );

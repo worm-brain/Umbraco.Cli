@@ -20,13 +20,15 @@ public static class UsersUpdateCommand
             "update",
             "Update a backoffice user by id, email or username.\n\n"
                 + "Omitted options keep their values. --group replaces the user's groups, and "
-                + "--new-password is an admin reset that needs no current password.\n\n"
-                + "Examples:\n"
-                + "  umbraco user update editor@example.com --name \"Jane Roe\" --group editor --group translator\n"
-                + "  umbraco user update 3f7a8b2e-... --new-password <secret> --unlock\n"
-                + "  umbraco user update editor@example.com --disabled\n"
-                + "  umbraco user update editor@example.com --disabled false   # enable again"
-        ).Mutating();
+                + "--new-password is an admin reset that needs no current password."
+        )
+            .WithExamples(
+                "umbraco user update editor@example.com --name \"Jane Roe\" --group editor --group translator",
+                "umbraco user update 3f7a8b2e-... --new-password <secret> --unlock",
+                "umbraco user update editor@example.com --disabled",
+                "umbraco user update editor@example.com --disabled false   # enable again"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.User);
         var emailOpt = new Option<string?>("--email") { Description = "New email address." };
         var nameOpt = new Option<string?>("--name") { Description = "New display name." };

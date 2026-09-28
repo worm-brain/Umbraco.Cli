@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Languages;
 
@@ -8,8 +9,8 @@ public static class LanguagesListCommand
     {
         var cmd = new Command(
             "list",
-            "List all languages configured in the Umbraco instance.\n\nExamples:\n  umbraco language list --output json"
-        );
+            "List all languages configured in the Umbraco instance."
+        ).WithExamples("umbraco language list --output json");
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunCompleteListAsync(

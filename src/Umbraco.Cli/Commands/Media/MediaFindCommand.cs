@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -13,7 +14,11 @@ public static class MediaFindCommand
     {
         var cmd = new Command(
             "find",
-            "Locate media by display name (server search) or by a name path from the root.\n\nExamples:\n  umbraco media find --name logo\n  umbraco media find --name hero --parent <folder-id>\n  umbraco media find --path \"Images/Logos/Primary\""
+            "Locate media by display name (server search) or by a name path from the root."
+        ).WithExamples(
+            "umbraco media find --name logo",
+            "umbraco media find --name hero --parent <folder-id>",
+            "umbraco media find --path \"Images/Logos/Primary\""
         );
         var nameOpt = new Option<string?>("--name")
         {

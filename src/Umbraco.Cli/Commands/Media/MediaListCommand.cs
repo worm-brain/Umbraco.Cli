@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -6,9 +7,9 @@ public static class MediaListCommand
 {
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "list",
-            "List media items in the media library.\n\nExamples:\n  umbraco media list\n  umbraco media list --parent <folder-id> --output json"
+        var cmd = new Command("list", "List media items in the media library.").WithExamples(
+            "umbraco media list",
+            "umbraco media list --parent <folder-id> --output json"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {

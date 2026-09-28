@@ -18,23 +18,30 @@ public static class ModelsBuilderCommand
     {
         var cmd = new Command(
             "models-builder",
-            "Inspect and trigger the Umbraco models builder.\n\nExamples:\n  umbraco models-builder dashboard\n  umbraco models-builder build --yes"
+            "Inspect and trigger the Umbraco models builder."
+        ).WithExamples("umbraco models-builder dashboard", "umbraco models-builder build --yes");
+        cmd.Add(
+            DiagnosticsVerb
+                .Object(
+                    executor,
+                    "dashboard",
+                    "Show the models-builder dashboard status.",
+                    (c, ct) => c.GetModelsBuilderDashboardAsync(ct)
+                )
+                .WithExamples(
+                    "umbraco models-builder dashboard",
+                    "umbraco models-builder dashboard --output json"
+                )
         );
         cmd.Add(
-            DiagnosticsVerb.Object(
-                executor,
-                "dashboard",
-                "Show the models-builder dashboard status.\n\nExamples:\n  umbraco models-builder dashboard\n  umbraco models-builder dashboard --output json",
-                (c, ct) => c.GetModelsBuilderDashboardAsync(ct)
-            )
-        );
-        cmd.Add(
-            DiagnosticsVerb.Object(
-                executor,
-                "status",
-                "Show whether the generated models are out of date.\n\nExamples:\n  umbraco models-builder status",
-                (c, ct) => c.GetModelsBuilderStatusAsync(ct)
-            )
+            DiagnosticsVerb
+                .Object(
+                    executor,
+                    "status",
+                    "Show whether the generated models are out of date.",
+                    (c, ct) => c.GetModelsBuilderStatusAsync(ct)
+                )
+                .WithExamples("umbraco models-builder status")
         );
         cmd.Add(BuildBuild(executor));
         return cmd;
@@ -42,10 +49,9 @@ public static class ModelsBuilderCommand
 
     private static Command BuildBuild(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "build",
-            "Regenerate the models (writes source files on the server).\n\nExamples:\n  umbraco models-builder build\n  umbraco models-builder build --dry-run"
-        ).Mutating();
+        var cmd = new Command("build", "Regenerate the models (writes source files on the server).")
+            .WithExamples("umbraco models-builder build", "umbraco models-builder build --dry-run")
+            .Mutating();
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunMessageAsync(

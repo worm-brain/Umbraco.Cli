@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MemberTypes;
 
@@ -12,7 +13,11 @@ public static class MemberTypesCommand
     {
         var cmd = new Command(
             "member-type",
-            "List, inspect, and manage Umbraco member types.\n\nExamples:\n  umbraco member-type list\n  umbraco member-type get 3f7a8b2e-...\n  umbraco member-type create --name \"Author\" --alias author"
+            "List, inspect, and manage Umbraco member types."
+        ).WithExamples(
+            "umbraco member-type list",
+            "umbraco member-type get 3f7a8b2e-...",
+            "umbraco member-type create --name \"Author\" --alias author"
         );
         cmd.Add(MemberTypesListCommand.Build(executor));
         cmd.Add(MemberTypesGetCommand.Build(executor));

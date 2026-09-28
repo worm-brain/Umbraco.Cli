@@ -22,12 +22,14 @@ public static class MediaApplyCommand
             "Apply a media snapshot to the live instance.\n\n"
                 + "Creates and updates items with their snapshot ids, uploading their files; "
                 + "--prune also moves items the snapshot omits to the recycle bin. Media types must "
-                + "already exist on the target (schema apply).\n\n"
-                + "Examples:\n"
-                + "  umbraco media apply ./media-snapshot --dry-run\n"
-                + "  umbraco media apply ./media-snapshot\n"
-                + "  umbraco media apply ./media-snapshot --prune --yes"
-        ).Mutating();
+                + "already exist on the target (schema apply)."
+        )
+            .WithExamples(
+                "umbraco media apply ./media-snapshot --dry-run",
+                "umbraco media apply ./media-snapshot",
+                "umbraco media apply ./media-snapshot --prune --yes"
+            )
+            .Mutating();
         var snapshotArg = MediaDiffCommand.SnapshotArgument();
         var verifyOpt = MediaDiffCommand.VerifyFilesOption();
         var pruneOpt = new Option<bool>("--prune")

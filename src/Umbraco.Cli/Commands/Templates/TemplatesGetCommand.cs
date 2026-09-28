@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
 
@@ -17,7 +18,10 @@ public static class TemplatesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a template by its alias or id, including the view file content.\n\nExamples:\n  umbraco template get master\n  umbraco template get master -o json | jq -r .data.content"
+            "Get a template by its alias or id, including the view file content."
+        ).WithExamples(
+            "umbraco template get master",
+            "umbraco template get master -o json | jq -r .data.content"
         );
         var idArg = Reference.Argument(EntityKind.Template);
         cmd.Add(idArg);

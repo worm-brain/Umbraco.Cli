@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MediaTypes;
 
@@ -12,7 +13,11 @@ public static class MediaTypesCommand
     {
         var cmd = new Command(
             "media-type",
-            "List, inspect, and manage Umbraco media types.\n\nExamples:\n  umbraco media-type list\n  umbraco media-type get 3f7a8b2e-...\n  umbraco media-type create --name \"Custom Image\" --alias customImage"
+            "List, inspect, and manage Umbraco media types."
+        ).WithExamples(
+            "umbraco media-type list",
+            "umbraco media-type get 3f7a8b2e-...",
+            "umbraco media-type create --name \"Custom Image\" --alias customImage"
         );
         cmd.Add(MediaTypesListCommand.Build(executor));
         cmd.Add(MediaTypesGetCommand.Build(executor));
