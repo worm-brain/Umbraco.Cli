@@ -37,57 +37,54 @@ public sealed partial class UmbracoManagementClient
     /// <c>GET recycle-bin/document/{id}/original-parent</c> answers the parent, or nothing when it
     /// was at the root. Restoring to the root by default put a <c>blogPost</c> where it is not
     /// allowed, and Umbraco's 400 ("not permitted, likely due to a permission/configuration
-    /// mismatch") did not say why, so a rejected restore is reworded to name where it was going.
+    /// mismatch") did not say why, so a rejected restore is reworded by
+    /// <see cref="ExplainPlacementRefusal"/> to name where it was going, keeping Umbraco's body as
+    /// the error's <c>details</c> (#395).
     /// </para>
     /// </summary>
     /// <param name="id">The trashed document id.</param>
     /// <param name="target">Where to restore to; null means <see cref="RestoreTarget.Original"/>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> RestoreContentAsync(
+    public async Task<UmbracoResponse<Empty>> RestoreContentAsync(
         Guid id,
         RestoreTarget? target = null,
         CancellationToken ct = default
-    ) =>
-        GuardedApiAsync(
+    )
+    {
+        target ??= RestoreTarget.Original;
+        // Resolved inside the guarded call (the original parent is a server read) and kept here so
+        // a refusal can say where the document was going.
+        Guid? parentId = null;
+        var response = await GuardedApiAsync(
             ct,
             async () =>
             {
                 var bin = _api.Umbraco.Management.Api.V1.RecycleBin.Document[id];
-                target ??= RestoreTarget.Original;
-                var parentId = target switch
+                parentId = target switch
                 {
                     RestoreTarget.UnderParent under => under.Id,
                     RestoreTarget.ContentRoot => (Guid?)null,
                     _ => (await bin.OriginalParent.GetAsync(cancellationToken: ct))?.Id,
                 };
-
-                try
-                {
-                    await bin.Restore.PutAsync(
-                        new Gen.MoveMediaRequestModel
-                        {
-                            Target = parentId is { } p
-                                ? new Gen.ReferenceByIdModel { Id = p }
-                                : null,
-                        },
-                        cancellationToken: ct
-                    );
-                }
-                catch (ApiException ex) when (Describe(ex).Status == 400)
-                {
-                    var original = target is RestoreTarget.OriginalParent;
-                    var where = parentId is { } p
-                        ? $"under {p}" + (original ? " (its original parent)" : "")
-                        : "at the content root" + (original ? " (where it was)" : "");
-                    throw BadRequest(
-                        $"Umbraco would not restore {id} {where}: {Describe(ex).Message.TrimEnd('.')}. "
-                            + "Its document type may not be allowed there; pass --parent <id> to restore it somewhere else."
-                    );
-                }
+                await bin.Restore.PutAsync(
+                    new Gen.MoveMediaRequestModel
+                    {
+                        Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                    },
+                    cancellationToken: ct
+                );
                 return Empty.Value;
             }
         );
+
+        var original = target is RestoreTarget.OriginalParent;
+        var note =
+            !original ? null
+            : parentId is null ? "(where it was)"
+            : "(its original parent)";
+        return ExplainPlacementRefusal(response, "restore", id, parentId, note: note);
+    }
 
     /// <summary>
     /// Lists one level of the content recycle bin via <c>GET recycle-bin/document/root</c> or
