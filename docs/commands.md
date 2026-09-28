@@ -5,12 +5,6 @@ non-interactive rules that apply across all of them, see [agent-guide.md](agent-
 install and auth, see [getting-started.md](getting-started.md). The design rules every command
 follows are in [conventions.md](conventions.md).
 
-> **Renamed nouns.** As of the #268 batch, nouns are singular and document types are
-> `document-type` (was `content-types`). The old names (`content-types`, `media-types`,
-> `data-types`, `languages`, `templates`, `members`, `member-types`, `users`, `webhooks`,
-> `member-groups`, `tags`, `cultures`, `user-groups`, and `content domains`) still run for one
-> release, with a warning on stderr, and an allow-list entry naming an old noun still matches.
-
 > The authoritative, always-in-sync surface is `umbraco commands` (the whole tree as JSON,
 > including a `destructive` flag per command). This page is the human/agent-readable narrative
 > of the same thing. If the two ever disagree, `umbraco commands` is correct - please
