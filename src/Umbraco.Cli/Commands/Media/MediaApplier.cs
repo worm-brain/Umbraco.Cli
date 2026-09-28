@@ -1,6 +1,5 @@
 using System.Text.Json.Serialization;
 using Umbraco.Cli.Client;
-using Umbraco.Cli.Commands.Content;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -138,12 +137,12 @@ public static class MediaApplier
         var plan = new List<Step>();
         plan.AddRange(
             items
-                .Where(i => i.Change == ContentChangeKind.Added)
+                .Where(i => i.Change == TreeChangeKind.Added)
                 .Select(i => new Step(MediaOperation.Create, i))
         );
         plan.AddRange(
             items
-                .Where(i => i.Change == ContentChangeKind.Changed)
+                .Where(i => i.Change == TreeChangeKind.Changed)
                 .Select(i => new Step(MediaOperation.Update, i))
         );
 
@@ -156,7 +155,7 @@ public static class MediaApplier
             );
             // Removed items are in live pre-order; reversed, children go before their parents.
             for (var i = items.Count - 1; i >= 0; i--)
-                if (items[i].Change == ContentChangeKind.Removed)
+                if (items[i].Change == TreeChangeKind.Removed)
                     plan.Add(
                         new Step(MediaOperation.Trash, items[i], protectedIds.Contains(items[i].Id))
                     );
