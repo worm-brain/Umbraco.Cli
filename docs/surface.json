@@ -36,7 +36,7 @@
       "aliases": [
         "-q"
       ],
-      "description": "Suppress success confirmations (e.g. \"Deleted.\"). Requested data, errors, and exit codes are unaffected.",
+      "description": "Print nothing when a write succeeds (no confirmation, no result). Reads still print their data; errors, dry-run previews and exit codes are unaffected.",
       "type": "flag",
       "required": false,
       "hasDefault": true,

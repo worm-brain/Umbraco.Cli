@@ -52,7 +52,8 @@ public class CommandExecutorTests
         Umbraco.Cli.Infrastructure.IConfirmationPrompt? confirmation = null,
         string? allowedCommands = null,
         Umbraco.Cli.Infrastructure.Http.MutationInterceptState? mutationState = null,
-        string command = "content.get"
+        string command = "content.get",
+        bool mutating = false
     )
     {
         var stub = new StubHttpClientFactory();
@@ -91,6 +92,9 @@ public class CommandExecutorTests
             parent.Add(child);
             parent = child;
         }
+        // Declare the leaf a write when asked, as a real write command does (--quiet reads it).
+        if (mutating)
+            parent.Mutating();
         return (executor, root.Parse($"{command.Replace('.', ' ')} {args}"));
     }
 
@@ -141,6 +145,61 @@ public class CommandExecutorTests
         Assert.Empty(stderr);
         using var doc = JsonDocument.Parse(stdout);
         Assert.Equal("success", doc.RootElement.GetProperty("status").GetString());
+        Assert.Equal("About", doc.RootElement.GetProperty("data").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task RunObject_QuietOnAWrite_PrintsNothing()
+    {
+        // #347: --quiet drops a write's result, so a successful create prints nothing.
+        var client = new FakeUmbracoManagementClient
+        {
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(
+                new ContentItemResponse { Id = Guid.NewGuid(), Name = "About" }
+            ),
+        };
+        var (executor, parse) = Build(
+            client,
+            "--host https://example.com --token tok --output json --quiet",
+            command: "content.create",
+            mutating: true
+        );
+
+        var (stdout, _, _) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        Assert.Empty(stdout);
+    }
+
+    [Fact]
+    public async Task RunObject_QuietOnARead_StillPrintsTheData()
+    {
+        // #347: --quiet never hides what a read was asked for.
+        var client = new FakeUmbracoManagementClient
+        {
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Success(
+                new ContentItemResponse { Id = Guid.NewGuid(), Name = "About" }
+            ),
+        };
+        var (executor, parse) = Build(
+            client,
+            "--host https://example.com --token tok --output json --quiet"
+        );
+
+        var (stdout, _, _) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        using var doc = JsonDocument.Parse(stdout);
         Assert.Equal("About", doc.RootElement.GetProperty("data").GetProperty("name").GetString());
     }
 

@@ -118,7 +118,9 @@ disagree, this file wins; the older document is rationale that may be out of dat
    membership...) returns `{ "id": ... }` or `{ "ids": [...] }` of what it acted on; one with no
    target returns the state it left (e.g. `redirect tracking status`), or `{}` when there is
    nothing to read back (`empty-recycle-bin`). A human-readable message is for `--output human`
-   only. `--quiet` drops write results along with the confirmations.
+   only. `--quiet` drops write results along with the confirmations, so a successful write
+   (`mutating: true` in `umbraco commands`) prints nothing; reads, errors, `--dry-run` previews
+   and a bulk run with failures still print.
 3. `meta.command` is the dotted command path (`document-type.list`), derived from the command
    tree, never typed by hand. The allow-list matches the same name.
 4. A breaking change to the envelope or a payload shape bumps `meta.schemaVersion`.

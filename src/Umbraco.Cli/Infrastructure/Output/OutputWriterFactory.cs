@@ -9,10 +9,16 @@ public static class OutputWriterFactory
     /// <param name="requested">The explicitly requested format, or null to auto-detect.</param>
     /// <param name="fields">Optional field/column projection for the structured formats (#63); ignored for human.</param>
     /// <param name="quiet">When true, wrap the writer so <c>--quiet</c> suppresses success chatter (#94).</param>
+    /// <param name="isWrite">
+    /// Whether the command is a write; with <paramref name="quiet"/> its whole success result is
+    /// dropped (#347). Ignored without <paramref name="quiet"/>.
+    /// </param>
+    /// <returns>The writer.</returns>
     public static IOutputWriter Create(
         OutputFormat? requested = null,
         string[]? fields = null,
-        bool quiet = false
+        bool quiet = false,
+        bool isWrite = false
     )
     {
         // csv is only ever explicit; the TTY default remains json (piped) / human (terminal).
@@ -24,6 +30,6 @@ public static class OutputWriterFactory
             OutputFormat.Csv => new CsvOutputWriter(fields),
             _ => new HumanOutputWriter(),
         };
-        return quiet ? new QuietOutputWriter(writer) : writer;
+        return quiet ? new QuietOutputWriter(writer, isWrite) : writer;
     }
 }

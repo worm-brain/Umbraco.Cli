@@ -6,7 +6,7 @@ using Umbraco.Cli.Infrastructure.Output;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// Behaviour of the quiet output decorator (#94): <c>WriteMessage</c> success chatter is suppressed
+/// Behaviour of the quiet output decorator (#94, #347): <c>WriteMessage</c> success chatter is suppressed
 /// while data, errors, and dry-run previews pass through unchanged.
 /// </summary>
 public class QuietOutputWriterTests
@@ -160,6 +160,72 @@ public class QuietOutputWriterTests
         // #152: the decorator forwards the failure category and server version too.
         Assert.Equal("server_error", inner.LastErrorCategory);
         Assert.Equal("17.3.5", inner.LastErrorServerVersion);
+    }
+
+    [Fact]
+    public void WriteSuccess_OnAWrite_IsSuppressed()
+    {
+        // #347: --quiet drops a write's result (the created item), not just its confirmation.
+        var inner = new RecordingWriter();
+
+        new QuietOutputWriter(inner, isWrite: true).WriteSuccess(new { id = 1 });
+
+        Assert.False(inner.SuccessCalled);
+    }
+
+    [Fact]
+    public void WriteList_OnAWrite_IsSuppressed()
+    {
+        // An apply report is a write's result too.
+        var inner = new RecordingWriter();
+
+        new QuietOutputWriter(inner, isWrite: true).WriteList(
+            [],
+            ["Id"],
+            [],
+            ListPaging.Complete(0)
+        );
+
+        Assert.False(inner.ListCalled);
+    }
+
+    [Fact]
+    public void WriteBulk_OnAWriteWhereEveryItemSucceeded_IsSuppressed()
+    {
+        var inner = new RecordingWriter();
+        var results = new[] { new BulkItemResult("x", BulkItemStatus.Success, null) };
+
+        new QuietOutputWriter(inner, isWrite: true).WriteBulk(results);
+
+        Assert.Null(inner.LastBulk);
+    }
+
+    [Fact]
+    public void WriteBulk_OnAWriteWithAFailedItem_PassesThrough()
+    {
+        // The report is how a bulk run reports its errors, which --quiet never hides.
+        var inner = new RecordingWriter();
+        var results = new[]
+        {
+            new BulkItemResult("x", BulkItemStatus.Success, null),
+            new BulkItemResult("y", BulkItemStatus.Error, "boom"),
+        };
+
+        new QuietOutputWriter(inner, isWrite: true).WriteBulk(results);
+
+        Assert.Same(results, inner.LastBulk);
+    }
+
+    [Fact]
+    public void WriteErrorAndDryRun_OnAWrite_PassThrough()
+    {
+        var inner = new RecordingWriter();
+        var quiet = new QuietOutputWriter(inner, isWrite: true);
+
+        quiet.WriteError(ExitCode.Failed, FailureCategory.ServerError, "boom", "content.create");
+        quiet.WriteDryRun("POST", "https://x", null, "content.create");
+
+        Assert.True(inner.ErrorCalled && inner.DryRunCalled);
     }
 
     [Fact]
