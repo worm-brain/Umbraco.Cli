@@ -89,6 +89,12 @@ public sealed record SchemaKindSpec
 
     /// <summary>Deletes a removed (pruned) entity.</summary>
     public required SchemaWrite Delete { get; init; }
+
+    /// <summary>
+    /// What a prune's delete of a removed entity removes, for the delete-safety check
+    /// (<see cref="InUseGuard.ReasonAsync"/>, #281).
+    /// </summary>
+    public required Func<SchemaEntityChange, DeleteTarget> Target { get; init; }
 }
 
 /// <summary>
@@ -243,6 +249,7 @@ public static class SchemaKinds
             Update = (c, change, ct) =>
                 c.UpdateLanguageRawAsync(change.Identity, change.DesiredBody!, ct),
             Delete = (c, change, ct) => c.DeleteLanguageAsync(change.Identity, ct),
+            Target = change => new DeleteTarget.Language(change.Identity),
         },
         // A dictionary item's parent is another dictionary item, which usually has a different id
         // on each instance: the parent is translated to the target's id before comparing, so a
@@ -264,6 +271,7 @@ public static class SchemaKinds
             Create = SchemaWrites.Create(EntityKind.DictionaryItem),
             Update = SchemaWrites.UpdateDictionaryItemAsync,
             Delete = SchemaWrites.DeleteById((c, id, ct) => c.DeleteDictionaryItemAsync(id, ct)),
+            Target = ItemTarget(EntityKind.DictionaryItem),
         },
         TypeKind(
             MemberGroup,
@@ -420,6 +428,7 @@ public static class SchemaKinds
             Create = SchemaWrites.Create(entity),
             Update = SchemaWrites.Update(entity),
             Delete = SchemaWrites.DeleteById(delete),
+            Target = ItemTarget(entity),
         };
 
     /// <summary>
@@ -463,7 +472,18 @@ public static class SchemaKinds
             Create = SchemaWrites.File(kind, "create"),
             Update = SchemaWrites.File(kind, "update"),
             Delete = SchemaWrites.File(kind, "delete"),
+            Target = change => new DeleteTarget.StaticFile(
+                kind,
+                change.Identity,
+                SchemaStaticFiles.IsFolder(change.CurrentBody)
+            ),
         };
+
+    /// <summary>The delete target of a removed id-keyed entity: its live id, named by its identity.</summary>
+    /// <param name="entity">The client entity kind.</param>
+    /// <returns>The target builder.</returns>
+    private static Func<SchemaEntityChange, DeleteTarget> ItemTarget(EntityKind entity) =>
+        change => new DeleteTarget.Item(entity, change.CurrentId!.Value, change.Identity);
 
     /// <summary>Whether <paramref name="body"/>[<paramref name="field"/>] is the boolean <paramref name="value"/>.</summary>
     /// <param name="body">The entity body.</param>

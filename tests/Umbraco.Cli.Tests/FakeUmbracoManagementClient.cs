@@ -842,6 +842,11 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>The document types using each template, for <see cref="GetTemplateUsageAsync"/> (#269).</summary>
     public Dictionary<Guid, List<TemplateUser>> TemplateUsers { get; } = [];
 
+    /// <summary>When set, <see cref="GetTemplateUsageAsync"/> returns this failure instead (#281).</summary>
+    public UmbracoResponse<
+        IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>
+    >? TemplateUsageFailure { get; set; }
+
     /// <summary>How many times <see cref="GetTemplateUsageAsync"/> was called.</summary>
     public int TemplateUsageReads { get; private set; }
 
@@ -853,6 +858,8 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     > GetTemplateUsageAsync(CancellationToken ct = default)
     {
         TemplateUsageReads++;
+        if (TemplateUsageFailure is { } failure)
+            return Task.FromResult(failure);
         return Task.FromResult(
             UmbracoResponse<IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>>.Success(
                 TemplateUsers.ToDictionary(

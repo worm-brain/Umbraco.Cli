@@ -145,9 +145,10 @@ public static class SchemaApplier
 
     /// <summary>
     /// The planned deletes that would take more than the item with them, each with the reason
-    /// (#252, #227, #269). The same checks the single deletes run, so a prune and a delete agree;
-    /// dictionary items are checked against the plan instead, since a child the prune also deletes
-    /// or moves away is expected to go.
+    /// (#252, #227, #269). Every delete goes through the one check the single deletes run,
+    /// <see cref="InUseGuard.ReasonAsync"/>, given the plan (#281): what the same prune also
+    /// deletes or moves away is expected to go, and a static file is checked against the templates
+    /// as this apply leaves them.
     /// </summary>
     /// <param name="client">The client to check with.</param>
     /// <param name="plan">The ordered plan.</param>
@@ -161,225 +162,49 @@ public static class SchemaApplier
     {
         var blocked = new Dictionary<Op, string>();
         var deletes = plan.Where(o => o.Operation == "delete").ToList();
+        if (deletes.Count == 0)
+            return blocked;
 
-        // A dictionary delete takes the item's children with it. A child is expected to go when
-        // the prune deletes it too, or safe when this apply moves it to another parent first
-        // (updates run before deletes). Any other child is one the snapshot keeps where it is,
-        // and would be lost by surprise.
-        var prunedDictionary = deletes
-            .Where(o => o.Change.Kind == SchemaKinds.DictionaryItem)
-            .Select(o => o.Change.CurrentId!.Value)
-            .ToHashSet();
-        var movedAway = plan.Where(o =>
-                o.Operation == "update"
-                && o.Change.Kind == SchemaKinds.DictionaryItem
-                && SchemaBodies.ParentOf(o.Change.DesiredBody)
-                    != SchemaBodies.ParentOf(o.Change.CurrentBody)
-            )
-            .Select(o => o.Change.CurrentId!.Value)
-            .ToHashSet();
-        // Null when the tree could not be read: an unknown is not a yes, so every pruned item
-        // then needs --force.
-        Dictionary<Guid, List<Guid>>? liveChildren = null;
-        if (prunedDictionary.Count > 0)
-        {
-            var entries = await client.GetDictionaryEntriesAsync(ct);
-            if (entries.IsSuccess)
-            {
-                liveChildren = [];
-                foreach (var entry in entries.Data!)
-                {
-                    if (entry.ParentId is not { } parent)
-                        continue;
-                    if (!liveChildren.TryGetValue(parent, out var list))
-                        liveChildren[parent] = list = [];
-                    list.Add(entry.Id);
-                }
-            }
-        }
-
-        // A template is in use while a document type allows it or defaults to it, but not by a
-        // document type this same prune deletes. The usage is read once for every template, and
-        // null when it could not be read (an unknown is not a yes).
-        var prunedDocumentTypes = deletes
-            .Where(o => o.Change.Kind == SchemaKinds.DocumentType)
-            .Select(o => o.Change.CurrentId!.Value)
-            .ToHashSet();
-        IReadOnlyDictionary<Guid, IReadOnlyList<TemplateUser>>? templateUsage = null;
-        if (deletes.Any(o => o.Change.Kind == SchemaKinds.Template))
-        {
-            var usage = await client.GetTemplateUsageAsync(ct);
-            if (usage.IsSuccess)
-                templateUsage = usage.Data;
-        }
-
-        // #292: a pruned static file breaks a template that names it. The templates are read once,
-        // as they will stand after this apply; null when they could not be read (an unknown is
-        // not a yes, so every pruned file then needs --force).
-        IReadOnlyList<(string Name, string Content)>? templates = null;
-        if (
-            deletes.Any(o =>
-                SchemaKinds.Of(o.Change.Kind).File is not null
-                && !SchemaStaticFiles.IsFolder(o.Change.CurrentBody)
-            )
-        )
-            templates = await TemplatesAfterApplyAsync(client, plan, ct);
-
+        var context = PlanContext(plan);
         foreach (var op in deletes)
         {
-            var change = op.Change;
-            if (SchemaKinds.Of(change.Kind).File is { } fileKind)
-            {
-                // A folder holds nothing the snapshot keeps (the diff implies those folders), so
-                // only files are checked.
-                if (
-                    !SchemaStaticFiles.IsFolder(change.CurrentBody)
-                    && FileReason(fileKind, change.Identity, templates) is { } fileReason
-                )
-                    blocked[op] = fileReason;
-                continue;
-            }
-
-            var reason = change.Kind switch
-            {
-                SchemaKinds.Language => InUseGuard.LanguageReason(change.Identity),
-                SchemaKinds.Template => templateUsage is null
-                    ? $"Could not read the document types to check whether template "
-                        + $"'{change.Identity}' is in use."
-                    : InUseGuard.TemplateReason(
-                        change.CurrentId!.Value,
-                        [
-                            .. (
-                                templateUsage.GetValueOrDefault(change.CurrentId!.Value) ?? []
-                            ).Where(u => !prunedDocumentTypes.Contains(u.DocumentTypeId)),
-                        ]
-                    ),
-                SchemaKinds.DictionaryItem => liveChildren is null
-                    ? $"Could not read the dictionary tree to check whether '{change.Identity}' "
-                        + "has children."
-                    : KeptChildren(change, liveChildren, prunedDictionary, movedAway),
-                // The same check the single deletes run, so a prune and a delete agree.
-                _ => await InUseGuard.ReasonAsync(
-                    client,
-                    SchemaKinds.Of(change.Kind).Entity!.Value,
-                    change.CurrentId!.Value,
-                    ct
-                ),
-            };
-            if (reason is not null)
+            var target = SchemaKinds.Of(op.Change.Kind).Target(op.Change);
+            if (await InUseGuard.ReasonAsync(client, target, context, ct) is { } reason)
                 blocked[op] = reason;
         }
         return blocked;
     }
 
     /// <summary>
-    /// Why pruning a static file would break a template (#292), or null when no template names
-    /// it. A template "names" a file when its content contains the file name, or, for a partial
-    /// view, its path without the extension in quotes (<c>Html.PartialAsync("header")</c>); see
-    /// <see cref="SchemaStaticFiles.SearchTerms"/>. A text search can miss a reference built at
-    /// run time, and can match a longer name, but it errs towards asking for <c>--force</c>.
+    /// What the delete checks need to know about the rest of the plan (#281): every id-keyed item
+    /// it deletes, every dictionary item it moves to another parent (updates run before deletes,
+    /// so a moved child is safe), and every template it writes (so a file check sees the templates
+    /// as they will stand).
     /// </summary>
-    /// <param name="kind">The file's kind.</param>
-    /// <param name="path">The file path.</param>
-    /// <param name="templates">The templates after the apply, or null when they could not be read.</param>
-    /// <returns>The reason, or null.</returns>
-    internal static string? FileReason(
-        StaticFileKind kind,
-        string path,
-        IReadOnlyList<(string Name, string Content)>? templates
-    )
-    {
-        if (templates is null)
-            return $"Could not read the templates to check whether '{path}' is in use.";
-        var users = templates
-            .Where(t => SchemaStaticFiles.Mentions(t.Content, kind, path))
-            .Select(t => $"'{t.Name}'")
-            .ToList();
-        return users.Count == 0
-            ? null
-            : $"'{path}' is named by template(s) {string.Join(", ", users)}; deleting it breaks them.";
-    }
-
-    /// <summary>
-    /// Every template's name and content as they will stand after this apply (#292): the live
-    /// templates, less the ones the plan deletes, with the snapshot content for the ones it
-    /// updates, plus the ones it creates. So a template the same apply rewrites to stop using a
-    /// file does not block that file's prune, and one it adds does.
-    /// </summary>
-    /// <param name="client">The management client.</param>
     /// <param name="plan">The ordered plan.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The templates, or null when the live ones could not be read.</returns>
-    private static async Task<IReadOnlyList<(
-        string Name,
-        string Content
-    )>?> TemplatesAfterApplyAsync(
-        IUmbracoManagementClient client,
-        IReadOnlyList<Op> plan,
-        CancellationToken ct
-    )
+    /// <returns>The plan context.</returns>
+    private static DeletePlanContext PlanContext(IReadOnlyList<Op> plan)
     {
-        var ids = await client.GetTemplateIdsAsync(ct);
-        if (!ids.IsSuccess)
-            return null;
-
-        var ops = plan.Where(o => o.Change.Kind == SchemaKinds.Template).ToList();
-        var deleted = ops.Where(o => o.Operation == "delete")
-            .Select(o => o.Change.CurrentId)
-            .ToHashSet();
-        var updated = ops.Where(o => o.Operation == "update")
-            .ToDictionary(o => o.Change.CurrentId!.Value, o => o.Change.DesiredBody!);
-
-        var result = new List<(string, string)>();
-        foreach (var id in ids.Data!.Where(i => !deleted.Contains(i)))
-        {
-            JsonNode body;
-            if (updated.TryGetValue(id, out var desired))
-                body = desired;
-            else
-            {
-                var live = await client.GetSchemaRawAsync(EntityKind.Template, id, ct);
-                if (!live.IsSuccess)
-                    return null;
-                body = live.Data!;
-            }
-            result.Add(TemplateText(body));
-        }
-        result.AddRange(
-            ops.Where(o => o.Operation == "create").Select(o => TemplateText(o.Change.DesiredBody!))
+        var deleted = plan.Where(o => o.Operation == "delete")
+            .Select(o => (Kind: SchemaKinds.Of(o.Change.Kind).Entity, Id: o.Change.CurrentId))
+            .Where(d => d.Kind is not null && d.Id is not null)
+            .Select(d => (d.Kind!.Value, d.Id!.Value));
+        var movedAway = plan.Where(o =>
+                o.Operation == "update"
+                && o.Change.Kind == SchemaKinds.DictionaryItem
+                && SchemaBodies.ParentOf(o.Change.DesiredBody)
+                    != SchemaBodies.ParentOf(o.Change.CurrentBody)
+            )
+            .Select(o => o.Change.CurrentId!.Value);
+        var templates = plan.Where(o => o.Change.Kind == SchemaKinds.Template).ToList();
+        return new DeletePlanContext(
+            deleted,
+            movedAway,
+            templates
+                .Where(o => o.Operation == "update")
+                .ToDictionary(o => o.Change.CurrentId!.Value, o => o.Change.DesiredBody!),
+            [.. templates.Where(o => o.Operation == "create").Select(o => o.Change.DesiredBody!)]
         );
-        return result;
-    }
-
-    /// <summary>A template body's display name (its name, else alias) and its Razor content.</summary>
-    /// <param name="body">The template body.</param>
-    /// <returns>The name and content.</returns>
-    private static (string Name, string Content) TemplateText(JsonNode body) =>
-        ((string?)body["name"] ?? (string?)body["alias"] ?? "", (string?)body["content"] ?? "");
-
-    /// <summary>
-    /// Why deleting a dictionary item would also delete children the snapshot keeps under it, or
-    /// null when every child is pruned too, moved elsewhere by this apply, or there are none.
-    /// </summary>
-    /// <param name="change">The removed dictionary item.</param>
-    /// <param name="liveChildren">Each live item's children.</param>
-    /// <param name="pruned">Every dictionary item the prune deletes.</param>
-    /// <param name="movedAway">Every dictionary item this apply moves to another parent.</param>
-    /// <returns>The reason, or null.</returns>
-    private static string? KeptChildren(
-        SchemaEntityChange change,
-        Dictionary<Guid, List<Guid>> liveChildren,
-        HashSet<Guid> pruned,
-        HashSet<Guid> movedAway
-    )
-    {
-        if (!liveChildren.TryGetValue(change.CurrentId!.Value, out var children))
-            return null;
-        var kept = children.Count(c => !pruned.Contains(c) && !movedAway.Contains(c));
-        return kept == 0
-            ? null
-            : $"Dictionary item '{change.Identity}' has {kept} child item(s) the snapshot keeps. "
-                + "Deleting it also deletes them.";
     }
 
     /// <summary>A single planned operation: the change plus which verb to run for it.</summary>
