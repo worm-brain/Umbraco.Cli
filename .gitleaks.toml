@@ -1,0 +1,11 @@
+# gitleaks configuration: the default rules, plus a narrow path allowlist.
+# Picked up automatically by scripts/ci/secret-scan.ps1 (`gitleaks detect --source .`).
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Hands-on harness fixtures: Umbraco exports whose GUID fields (mediaKey, contentKey, contentTypeKey, ...) trip generic-api-key. They hold no credentials."
+paths = [
+  '''^tests/hands-on/fixtures/(schema|content)\.json$''',
+]

@@ -1,0 +1,5 @@
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<Umbraco.Cms.Core.Models.Blocks.BlockListItem>
+<section class="block block--titleTextBlock">
+    <h2>@Model.Content.Value("title")</h2>
+    <p>@Model.Content.Value("text")</p>
+</section>

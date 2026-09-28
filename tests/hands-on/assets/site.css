@@ -1,0 +1,124 @@
+:root {
+  --ink: #1b1d29;
+  --muted: #5d6275;
+  --accent: #3544b1;
+  --paper: #fbfaf7;
+  --line: #e4e1d8;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font:
+    17px/1.6 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+.site-header,
+main,
+.site-footer {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+.site-header .brand {
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+}
+.site-header nav a {
+  margin-left: 1rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.site-header nav a.is-current {
+  color: var(--accent);
+  font-weight: 600;
+}
+.lang a {
+  font-size: 0.85rem;
+  border: 1px solid var(--line);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+main {
+  padding-block: 2rem 3rem;
+}
+h1 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  line-height: 1.15;
+  margin: 0 0 1rem;
+}
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+.blocks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.block {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+.block h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+ul.posts {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1.5rem;
+}
+ul.posts li {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+.site-footer {
+  border-top: 1px solid var(--line);
+  padding-block: 1.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+form input,
+form textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  font: inherit;
+}
+form button {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.4rem;
+  font: inherit;
+  cursor: pointer;
+}
+@media (max-width: 40rem) {
+  ul.posts li {
+    grid-template-columns: 1fr;
+  }
+}
