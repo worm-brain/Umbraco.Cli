@@ -21,11 +21,12 @@ public static class ContentUpdateCommand
         {
             Description = "Content item ID. Required unless --schema is used.",
             Arity = ArgumentArity.ZeroOrOne,
-        };
+        }.RequiredUnless("--schema");
+        // A --template change needs no body (#208), so --template is an alternative too.
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) containing the update request body. "
                 + "Required unless --schema is used."
-        );
+        ).BodyRequiredUnless("--schema", "--template");
         var replaceOpt = new Option<bool>("--replace")
         {
             Description =

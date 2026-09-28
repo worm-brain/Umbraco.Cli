@@ -38,6 +38,16 @@ umbraco commands | jq '.data.commands[].name'         # top-level nouns
 umbraco commands | jq '.. | .name? // empty'          # every command name
 ```
 
+Each option and argument also says what it defaults to (`default`, when it has one) and, when it
+is required only in some modes, which options make it unnecessary (`requiredUnless`, e.g.
+`content create --name` has `["--json-body", "--schema", "--example"]` and reports `required: false`). A
+command that takes `--json-body` names the command that prints the body's schema
+(`jsonBodySchema: "umbraco content create --schema"`).
+
+```bash
+umbraco commands | jq '.. | objects | select(.requiredUnless) | {name, requiredUnless}'
+```
+
 Prefer this over hard-coding command knowledge. When you diff the catalog across CLI versions,
 compare `.data` only - `meta.timestamp` changes on every call.
 
@@ -53,6 +63,14 @@ schema requires no key, because the body is merged.
 Those nouns also take `--example`, which prints a **real** item from the instance (or a minimal
 valid body on a site with none) - usually the best starting point for a body you will edit. It
 needs a host.
+
+For content, `content create --example --document-type <alias>` prints a create body for that
+type with one `values[]` entry per property (compositions included), each holding an example
+of the value shape its editor takes, plus the `editorAlias` it was chosen by. An editor it does
+not know gets `"value": null` - look that one up rather than guessing. Ids you need not choose
+(a media picker entry's `key`) are already fresh GUIDs; replace the remaining `<...>`
+placeholders (`<media id>`, `<document id>`), then pass the file to
+`content create --json-body`, which ignores `editorAlias`.
 
 ```bash
 umbraco content create --schema          # the shape of a content-create body
@@ -90,7 +108,10 @@ names, same types - and its `meta` says how much more there is:
 }
 ```
 
-Every paged `list` defaults to `--take 100`. `total`, `skip`, `take` and `hasMore` are
+Every paged `list` defaults to `--take 100`. To get everything, pass `--all`: the CLI pages until
+the collection is exhausted and reports `hasMore: false`, or fails with `invalid_argument` past
+10,000 items rather than truncating. `--all` cannot be combined with `--skip`/`--take`.
+`total`, `skip`, `take` and `hasMore` are
 **omitted when the source cannot report them** - an
 absent `hasMore` means "unknown", not "no". Never read a missing `total` as a complete list. Many
 commands (`content tree`, `content find --path`, `manifest list`) genuinely cannot count, and say
@@ -201,6 +222,10 @@ A write command run with `--dry-run` uses a distinct status and does not touch t
 
 The payload is under `data`, like every other success envelope - it was `request` before
 schemaVersion 3, the one exception to that rule.
+
+To see what was actually sent and received when a call fails, add `-v`: every request and
+response is logged to **stderr** (stdout stays parseable) with its body - the response cut at
+4 KB - and credentials redacted.
 
 ### Contract stability rules
 

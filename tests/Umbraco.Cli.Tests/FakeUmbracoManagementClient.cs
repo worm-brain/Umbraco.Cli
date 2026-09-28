@@ -684,23 +684,32 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => Page(DocumentTypeList, skip, take);
 
-    /// <summary>Answers with a fixed document type carrying <paramref name="id"/>.</summary>
+    /// <summary>Document type ids that <see cref="GetDocumentTypeByIdAsync"/> reports as 404 (#174).</summary>
+    public HashSet<Guid> MissingDocumentTypeIds { get; } = [];
+
+    /// <summary>
+    /// Reads a type seeded in <see cref="DocumentTypeList"/> (the content create --example tests,
+    /// #174); otherwise answers with a fixed document type carrying <paramref name="id"/>.
+    /// </summary>
     /// <param name="id">The document type id.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>A success carrying the id.</returns>
+    /// <returns>A 404 for an id in <see cref="MissingDocumentTypeIds"/>; else the seeded type, or a success carrying the id.</returns>
     public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
     ) =>
         Task.FromResult(
-            UmbracoResponse<DocumentTypeResponse>.Success(
-                new DocumentTypeResponse
-                {
-                    Id = id,
-                    Name = "Blog Post",
-                    Alias = "blogPost",
-                }
-            )
+            MissingDocumentTypeIds.Contains(id)
+                ? UmbracoResponse<DocumentTypeResponse>.Failure(404, "Document type not found.")
+                : UmbracoResponse<DocumentTypeResponse>.Success(
+                    DocumentTypeList.FirstOrDefault(t => t.Id == id)
+                        ?? new DocumentTypeResponse
+                        {
+                            Id = id,
+                            Name = "Blog Post",
+                            Alias = "blogPost",
+                        }
+                )
         );
 
     public Task<UmbracoResponse<Guid>> CreateDocumentTypeAsync(
@@ -724,10 +733,16 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => Page(DataTypeList, skip, take);
 
+    /// <summary>Reads a data type seeded in <see cref="DataTypeList"/>, or a 404.</summary>
     public Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            DataTypeList.FirstOrDefault(t => t.Id == id) is { } type
+                ? UmbracoResponse<DataTypeResponse>.Success(type)
+                : UmbracoResponse<DataTypeResponse>.Failure(404, "Data type not found.")
+        );
 
     /// <summary>Every flag-built data-type create, in call order (#285 read-back tests).</summary>
     public List<CreateDataTypeRequest> DataTypeCreates { get; } = [];

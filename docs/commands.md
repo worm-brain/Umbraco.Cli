@@ -14,6 +14,7 @@ follows are in [conventions.md](conventions.md).
 
 - [Global options](#global-options)
 - [Discovery: `commands` and `--schema`](#discovery-commands-and---schema)
+- [Shell completion: `completion`](#shell-completion-completion)
 - [`auth`](#auth)
 - [`content`](#content)
 - [`document-blueprint`](#document-blueprint)
@@ -58,7 +59,7 @@ Available on every command:
 | `--token <bearer>` | Raw bearer token (overrides stored credentials). |
 | `--output json\|human\|csv` | Output format. Default: `json` when piped, `human` in a terminal. `csv` is RFC-4180 and only ever explicit. |
 | `--quiet`, `-q` | Suppress the result of writes (the confirmation and its `data`); reads, errors, and exit codes still emitted. |
-| `--verbose` | Log the HTTP method, URL, selected headers and status to stderr. Bodies are **not** logged ([#166](https://github.com/worm-brain/Umbraco.Cli/issues/166)) - use `--dry-run` to see the request body. |
+| `--verbose` | Log each HTTP request and response to stderr: method, URL, headers, status, the request body and the first 4 KB of the response body (marked truncated beyond that). The `Authorization` header and any JSON property or form field named like a password, secret, token or API key are redacted; binary and multipart bodies are summarised by type and size. |
 | `--dry-run` | On a write command, print the request that would be sent (method, URL, body) and exit `0` without executing. No effect on reads. |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands. **Required** to run one non-interactively. |
 | `--readonly` | Block all writes for this session; reads still work. Also `UMBRACO_READONLY=1`. |
@@ -79,12 +80,19 @@ in `meta`:
 ```
 
 In a terminal a truncated list also prints a hint to stderr. Page with `--skip`/`--take` until
-`hasMore` is false.
+`hasMore` is false, or pass `--all` to have the CLI do it.
+
+`--all` reads page after page until the collection is exhausted and returns the whole list, with
+`meta` saying so (`total` is the item count, `skip: 0`, `hasMore: false`). It stops at 10,000
+items with an `invalid_argument` error rather than returning a truncated list, and it cannot be
+combined with `--skip` or `--take` (a parse error, not a silent precedence):
+
+```bash
+umbraco data-type list --all
+```
 
 `total` and `hasMore` are **omitted when the source cannot count** - an absent `hasMore` means
-"unknown", not "no", so do not read a missing `total` as a complete list. There is no `--all`
-yet ([#196](https://github.com/worm-brain/Umbraco.Cli/issues/196)); it is deliberately not
-faked with a large `--take`, which would be the same silent cap further out.
+"unknown", not "no", so do not read a missing `total` as a complete list.
 
 ---
 
@@ -120,9 +128,36 @@ umbraco document-type create --example  # a real document type from the instance
 
 `--schema` means the same on every command that takes `--json-body`: the body's JSON Schema,
 printed offline. `--example` (on the document, media, member and data type verbs) prints a real
-item instead - the most useful starting point for a body the schema cannot fully describe.
+item instead - the most useful starting point for a body the schema cannot fully describe. On
+`content create` it takes `--document-type` and prints a create body with an example value for
+every property of that type (see [Property value formats](#property-value-formats-for---json-body)).
+
+In the catalog every option and argument carries its `default` (when it has one) and, when it is
+required only without some other option, `requiredUnless` (the options that make it
+unnecessary). A `--json-body` command carries `jsonBodySchema`, the command line that prints its
+body's schema.
 
 See [agent-guide.md](agent-guide.md#1-discover-the-surface-umbraco-commands) for details.
+
+---
+
+## Shell completion: `completion`
+
+```bash
+umbraco completion bash                 # prints a bash completion script
+umbraco completion zsh                  # prints a zsh completion script
+umbraco completion pwsh                 # prints a PowerShell completion script
+```
+
+Tab-completes nouns, verbs, options and fixed option values. The script asks the installed CLI
+for suggestions each time (through System.CommandLine's `[suggest]` directive), so it follows
+the tree across upgrades and needs nothing else installed. Local; no host or auth.
+
+| Shell | Install |
+|---|---|
+| bash | add `eval "$(umbraco completion bash)"` to `~/.bashrc` |
+| zsh | add `eval "$(umbraco completion zsh)"` to `~/.zshrc` after `compinit`, or save the output as `_umbraco` in a directory on `$fpath` |
+| PowerShell | add `umbraco completion pwsh \| Out-String \| Invoke-Expression` to `$PROFILE` |
 
 ---
 
@@ -147,12 +182,13 @@ Run it first in any new environment. See [getting-started.md](getting-started.md
 ## `content`
 
 ```bash
-umbraco content list [--parent <id>] [--skip <n>] [--take <n>]
+umbraco content list [--parent <id>] [--skip <n>] [--take <n>] [--all]
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco content get <id>                                   # every field of GET /document/{id} (documentType, values, variants, schedule dates, isTrashed, flags) plus name, parent, urls
 umbraco content create --document-type <alias> --name <name> [--culture <code>] [--parent <id>] [--id <guid>] [--template <alias|id>]   # no --culture on a variant type: the default language
 umbraco content create --json-body <file> [--id <guid>] [--template <alias|id>]   # the body carries type, name, parent and culture
+umbraco content create --example --document-type <alias> [--name <name>] [--culture <code>]   # prints a create body with a value per property; needs a host
 umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default; --replace needs --yes
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
 umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; no --culture publishes every culture the item has
@@ -296,29 +332,49 @@ client-supplied id), so re-running a provisioning script does not create duplica
 ### Property value formats for `--json-body`
 
 `content create --schema` types `values[].value` as "any", because the shape depends on the
-property editor behind each property, not on the CLI. Look up a property's editor with
-`umbraco schema export` (`.documentTypes[].properties[].dataType` -> `.dataTypes[].editorAlias`),
-then use the matching shape below. Verified against Umbraco 17.7.0.
+property editor behind each property, not on the CLI. The quickest way to a correct body is to
+let the CLI read the document type and print one:
 
-| Editor (data type name) | `value` shape |
-|---|---|
-| Textstring, Textarea (`Umbraco.TextBox`) | `"some text"` |
-| Rich text (Tiptap) | `{"markup":"<p>...</p>","blocks":null}` |
-| Image media picker (`Umbraco.MediaPicker3`) | `[{"key":"<new guid>","mediaKey":"<media id>","mediaTypeAlias":"Image","crops":[],"focalPoint":null}]` |
-| Date picker (`Umbraco.DateTime`) | `"2026-05-01 00:00:00"` |
-| Dropdown (flexible, multiple) | `["News","Opinion"]` |
-| Tags | `["umbraco","cli"]` |
-| Numeric | `5` |
-| True/false | `true` |
-| Content picker | `"<document guid>"` |
-| Block List (`Umbraco.BlockList`) | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
-| Block Grid (`Umbraco.BlockGrid`) | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
+```bash
+umbraco content create --example --document-type blogPost -o json | jq .data > body.json
+# edit the values, then:
+umbraco content create --json-body body.json
+```
+
+`--example` reads the document type (and the types it composes) and each property's data type,
+and writes one `values[]` entry per property with the example below for its editor. An editor
+not in the table (a block editor, a package's own) gets `"value": null`. Every entry carries the
+`editorAlias` it was chosen by; `content create` ignores that key, so the file can go straight
+back in. On a type that varies by culture the variant and the varying values get `--culture`, or
+the default language. `--name` names the variant. Where the table shows `<new guid>` (an id the
+caller need not choose), `--example` writes a fresh GUID, so it can be sent as it is. The other
+`<...>` placeholders (`<media id>`, `<document id>`) name an item only you know: Umbraco rejects
+the body until you replace them.
+
+The table is the one `--example` uses (Umbraco 17.7.0):
+
+| Editor | `editorAlias` | `value` shape |
+|---|---|---|
+| Textstring | `Umbraco.TextBox` | `"some text"` |
+| Textarea | `Umbraco.TextArea` | `"some text"` |
+| Rich text (Tiptap) | `Umbraco.RichText` | `{"markup":"<p>some text</p>","blocks":null}` |
+| Image media picker | `Umbraco.MediaPicker3` | `[{"key":"<new guid>","mediaKey":"<media id>","mediaTypeAlias":"Image","crops":[],"focalPoint":null}]` |
+| Date picker | `Umbraco.DateTime` | `"2026-05-01 00:00:00"` |
+| Dropdown | `Umbraco.DropDown.Flexible` | `["News","Opinion"]` |
+| Tags | `Umbraco.Tags` | `["umbraco","cli"]` |
+| Numeric | `Umbraco.Integer` | `5` |
+| True/false | `Umbraco.TrueFalse` | `true` |
+| Content picker | `Umbraco.ContentPicker` | `"<document id>"` |
+| Block List | `Umbraco.BlockList` | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
+| Block Grid | `Umbraco.BlockGrid` | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
 
 `key` on a media picker entry is the **picker entry's own** new GUID, not the media item's -
-`mediaKey` carries the media id. Generate a fresh one per entry.
+`mediaKey` carries the media id. `--example` generates it; by hand, use a fresh one per entry
+(`[guid]::NewGuid()`, `uuidgen`). A dropdown's values must be
+among the data type's configured items (`data-type get <id>`).
 
-Where the backend `editorAlias` is not listed above it was not captured during testing - read it
-off the live site with `umbraco schema export` rather than guessing.
+To look an editor up by hand, `umbraco schema export` has it
+(`.documentTypes[].properties[].dataType` -> `.dataTypes[].editorAlias`).
 
 A full value entry carries the property alias and, on a variant document, the culture:
 
@@ -439,7 +495,7 @@ type. `get`/`scaffold` return raw JSON (full fidelity); `create` takes flags, a 
 `--from-document`, and `update` merges like `content update`.
 
 ```bash
-umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>]   # --parent lists a folder's children
+umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>] [--all]   # --parent lists a folder's children
 umbraco document-blueprint get <id>                        # raw JSON (full fidelity) plus top-level name and parent
 umbraco document-blueprint scaffold <id>                   # pre-filled create body; pipe it into content create --json-body -
 umbraco document-blueprint create --document-type <alias|id> --name <name> [--culture <code>] [--parent <folder>] [--id <guid>]
@@ -589,7 +645,7 @@ umbraco data-type update <name|id> --json-body <file> [--replace]   # merged; th
 umbraco data-type create --schema | --example             # the body's JSON Schema (offline), or a real data type (needs a host)
 umbraco data-type delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-type is-used <id|name>                       # whether any content type uses it
-umbraco data-type referenced-by <id|name> [--skip <n>] [--take <n>]   # a list; each row's `kind` says what it is
+umbraco data-type referenced-by <id|name> [--skip <n>] [--take <n>] [--all]   # a list; each row's `kind` says what it is
 umbraco data-type copy <id|name> [--parent <folder>]      # omit --parent to copy to the root; returns the copy; --target works too
 umbraco data-type move <id|name> [--parent <folder>]      # omit --parent to move to the root; --target works too
 
@@ -753,7 +809,7 @@ Management API.
 Key/value data scoped to the **authenticated** user.
 
 ```bash
-umbraco user-data list [--group <group>] [--identifier <id>] [--skip <n>] [--take <n>]
+umbraco user-data list [--group <group>] [--identifier <id>] [--skip <n>] [--take <n>] [--all]
 umbraco user-data get <id>
 umbraco user-data create --group <group> --identifier <id> --data <value> [--id <guid>]
 umbraco user-data update <id> [--group <group>] [--identifier <id>] [--data <value>]   # omitted fields are kept
@@ -894,7 +950,7 @@ umbraco server troubleshooting                             # troubleshooting ite
 ## `health`
 
 ```bash
-umbraco health list [--skip <n>] [--take <n>]              # health-check groups
+umbraco health list [--skip <n>] [--take <n>] [--all]              # health-check groups
 umbraco health get <group>                                 # a group and the checks it contains
 umbraco health run <group>                                 # run the group (POST, so blocked by --readonly)
 ```
@@ -902,13 +958,13 @@ umbraco health run <group>                                 # run the group (POST
 ## `log-viewer`
 
 ```bash
-umbraco log-viewer list [--level <Verbose|Debug|Information|Warning|Error|Fatal>]... [--filter <expr>] [--start-date <date>] [--end-date <date>] [--skip <n>] [--take <n>] [--asc]
-umbraco log-viewer levels [--skip <n>] [--take <n>]        # loggers and their minimum levels
+umbraco log-viewer list [--level <Verbose|Debug|Information|Warning|Error|Fatal>]... [--filter <expr>] [--start-date <date>] [--end-date <date>] [--skip <n>] [--take <n>] [--all] [--asc]
+umbraco log-viewer levels [--skip <n>] [--take <n>] [--all]        # loggers and their minimum levels
 umbraco log-viewer level-count [--start-date <date>] [--end-date <date>]   # message counts by level
-umbraco log-viewer message-templates [--skip <n>] [--take <n>] [--start-date <date>] [--end-date <date>]
+umbraco log-viewer message-templates [--skip <n>] [--take <n>] [--all] [--start-date <date>] [--end-date <date>]
 
 # saved-search sub-noun:
-umbraco log-viewer saved-search list [--skip <n>] [--take <n>]
+umbraco log-viewer saved-search list [--skip <n>] [--take <n>] [--all]
 umbraco log-viewer saved-search create --name <name> --query <query>
 umbraco log-viewer saved-search delete <name>              # needs --yes non-interactively
 ```
@@ -940,7 +996,7 @@ umbraco manifest list [--scope All|Public|Private]         # default: All
 ## `redirect`
 
 ```bash
-umbraco redirect list [--content-item <id>] [--filter <s>] [--skip <n>] [--take <n>]   # --content-item lists redirects to that document
+umbraco redirect list [--content-item <id>] [--filter <s>] [--skip <n>] [--take <n>] [--all]   # --content-item lists redirects to that document
 umbraco redirect delete <id>                               # needs --yes non-interactively
 umbraco redirect tracking status                           # whether automatic URL-redirect tracking is enabled
 umbraco redirect tracking enable                           # site-wide toggle; returns the status after
@@ -954,20 +1010,20 @@ accepts the request and can leave tracking as it was, because it is set by confi
 ## `relation-type` / `relation` (read-only)
 
 ```bash
-umbraco relation-type list [--skip <n>] [--take <n>]
+umbraco relation-type list [--skip <n>] [--take <n>] [--all]
 umbraco relation-type get <id|alias>
-umbraco relation list --relation-type <id|alias> [--skip <n>] [--take <n>]   # relations are listed only by relation type
+umbraco relation list --relation-type <id|alias> [--skip <n>] [--take <n>] [--all]   # relations are listed only by relation type
 ```
 
 ## `indexer` / `searcher`
 
 ```bash
-umbraco indexer list [--skip <n>] [--take <n>]             # Examine indexes, with health + document counts
+umbraco indexer list [--skip <n>] [--take <n>] [--all]             # Examine indexes, with health + document counts
 umbraco indexer get <name>
 umbraco indexer rebuild <name>                             # expensive (POST, --readonly-blocked); not gated - nothing is lost
 
-umbraco searcher list [--skip <n>] [--take <n>]            # registered multi-searchers; often empty (Umbraco 17)
-umbraco searcher query <index|searcher> --term <term> [--skip <n>] [--take <n>]   # e.g. ExternalIndex; an index's searcherName is mapped to the index
+umbraco searcher list [--skip <n>] [--take <n>] [--all]            # registered multi-searchers; often empty (Umbraco 17)
+umbraco searcher query <index|searcher> --term <term> [--skip <n>] [--take <n>] [--all]   # e.g. ExternalIndex; an index's searcherName is mapped to the index
 ```
 
 ## `imaging` (read-only)
