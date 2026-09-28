@@ -175,6 +175,183 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
         }
     }
 
+    [SkippableFact]
+    public void Apply_RecreatesDeletedVariantDocumentAndRestoresDriftedValues()
+    {
+        RequireLive();
+
+        // #103: the POST (create) half of the export -> apply contract, on a multi-culture
+        // subtree. The snapshot carries each document's verbatim GET body - variant `state` and
+        // dates included - and apply sends it back. If Umbraco's create or update request models
+        // rejected that response shape, apply would only fail here, against a real server.
+        //
+        // Arrange: root (published in both cultures) with one child published in en-US only,
+        // so the snapshot has mixed per-culture publish state as well as per-culture values.
+        using var type = ScratchCultureType.Create();
+        var rootId = type.CreateDocument(
+            null,
+            ("en-US", "clitest apply root", "Root hello"),
+            ("da-DK", "clitest apply rod", "Rod hej")
+        );
+        var childId = type.CreateDocument(
+            rootId,
+            ("en-US", "clitest apply child", "Child hello"),
+            ("da-DK", "clitest apply barn", "Barn hej")
+        );
+        Assert.True(CliRunner.Run("content", "publish", rootId).Ok, "fixture publish failed");
+        Assert.True(
+            CliRunner.Run("content", "publish", childId, "--culture", "en-US").Ok,
+            "fixture en-US publish failed"
+        );
+        var snapshot = Path.Combine(Path.GetTempPath(), $"clitest-{Guid.NewGuid():N}.json");
+        try
+        {
+            var export = CliRunner.Run("content", "export", "--root", rootId, "--out", snapshot);
+            Assert.True(export.Ok, export.Stderr);
+
+            // Drift the live subtree: the child goes (so apply must POST it back under its
+            // parent), and the root's Danish value changes (so apply must PUT it back).
+            var delete = CliRunner.Run("content", "delete", childId, "--yes");
+            Assert.True(delete.Ok, delete.Stderr);
+            var drift = CliRunner.RunWithInput(
+                $$"""{"values":[{"alias":"{{ScratchCultureType.PropertyAlias}}","culture":"da-DK","value":"Drifted"}]}""",
+                "content",
+                "update",
+                rootId,
+                "--json-body",
+                "-"
+            );
+            Assert.True(drift.Ok, drift.Stderr);
+
+            // Act
+            var apply = CliRunner.Run("content", "apply", snapshot);
+
+            // Assert: the child is back with both variants, their names, values and per-culture
+            // publish state; the root has its snapshot value again.
+            Assert.True(apply.Ok, apply.Stderr);
+            List<(string?, string?, string?, string?)> expected =
+            [
+                ("en-US", "clitest apply child", "Published", "Child hello"),
+                ("da-DK", "clitest apply barn", "Draft", "Barn hej"),
+            ];
+            Assert.Equal(expected, Variants(ExportBody(rootId, childId)));
+            Assert.Equal("Rod hej", Value(ExportBody(rootId, rootId), "da-DK"));
+
+            // The instance now matches the snapshot, so there is nothing left to diff or apply.
+            var diff = CliRunner.Run("content", "diff", snapshot);
+            Assert.True(diff.Ok, diff.Stderr);
+            Assert.Equal(0, Data(diff).GetArrayLength());
+            var again = CliRunner.Run("content", "apply", snapshot);
+            Assert.True(again.Ok, again.Stderr);
+            Assert.Equal(0, Data(again).GetArrayLength());
+        }
+        finally
+        {
+            File.Delete(snapshot);
+        }
+    }
+
+    [SkippableFact]
+    public void ApplyPrune_DeletesOnlyTheInScopeDocumentTheSnapshotLacks()
+    {
+        RequireLive();
+
+        // #103: `apply --prune` on a subtree snapshot deletes live documents inside that subtree
+        // which the snapshot does not contain - and nothing outside it. The snapshot records its
+        // root, and diff/apply export the live tree at that same root; if they did not, every
+        // other document on the instance would read as "removed" and be deleted.
+        //
+        // Arrange: snapshot a root + child, then add a second child (in scope, not in the
+        // snapshot) and a second root document (out of scope).
+        using var type = ScratchCultureType.Create();
+        var rootId = type.CreateDocument(null, ("en-US", "clitest prune root", "Root"));
+        var keptId = type.CreateDocument(rootId, ("en-US", "clitest prune kept", "Kept"));
+        var snapshot = Path.Combine(Path.GetTempPath(), $"clitest-{Guid.NewGuid():N}.json");
+        try
+        {
+            var export = CliRunner.Run("content", "export", "--root", rootId, "--out", snapshot);
+            Assert.True(export.Ok, export.Stderr);
+            var extraId = type.CreateDocument(rootId, ("en-US", "clitest prune extra", "Extra"));
+            var outsideId = type.CreateDocument(null, ("en-US", "clitest prune outside", "Out"));
+
+            // Act
+            var prune = CliRunner.Run("content", "apply", snapshot, "--prune", "--yes");
+
+            // Assert: only the in-scope extra went; the snapshot's documents and the
+            // out-of-scope document are untouched.
+            Assert.True(prune.Ok, prune.Stderr);
+            Assert.True(
+                IsNotFound(CliRunner.Run("content", "get", extraId)),
+                "apply --prune left the in-scope document the snapshot does not contain."
+            );
+            Assert.True(CliRunner.Run("content", "get", rootId).Ok, "prune deleted the root");
+            Assert.True(CliRunner.Run("content", "get", keptId).Ok, "prune deleted a kept child");
+            Assert.True(
+                CliRunner.Run("content", "get", outsideId).Ok,
+                "apply --prune deleted a document outside the snapshot's scope."
+            );
+        }
+        finally
+        {
+            File.Delete(snapshot);
+        }
+    }
+
+    /// <summary>
+    /// One document's verbatim body, read back through a <c>content export</c> of its subtree
+    /// (<c>content get</c> is a narrow projection without values or per-variant state).
+    /// </summary>
+    /// <param name="rootId">The subtree root to export.</param>
+    /// <param name="id">The document to pick out of the export.</param>
+    /// <returns>The document's body.</returns>
+    private static JsonElement ExportBody(string rootId, string id)
+    {
+        var export = CliRunner.Run("content", "export", "--root", rootId);
+        Assert.True(export.Ok, export.Stderr);
+        return export
+            .Data()
+            .GetProperty("documents")
+            .EnumerateArray()
+            .Single(d => d.GetProperty("id").GetString() == id)
+            .GetProperty("body");
+    }
+
+    /// <summary>
+    /// A document's variants as (culture, name, publish state, <c>title</c> value) rows, in the
+    /// order the body lists them, so a whole multi-variant document compares in one assertion.
+    /// </summary>
+    /// <param name="body">A document body from <see cref="ExportBody"/>.</param>
+    /// <returns>One row per variant.</returns>
+    private static List<(string?, string?, string?, string?)> Variants(JsonElement body) =>
+        [
+            .. body.GetProperty("variants")
+                .EnumerateArray()
+                .Select(v =>
+                {
+                    var culture = v.GetProperty("culture").GetString();
+                    return (
+                        culture,
+                        v.GetProperty("name").GetString(),
+                        v.GetProperty("state").GetString(),
+                        Value(body, culture!)
+                    );
+                }),
+        ];
+
+    /// <summary>A document's <see cref="ScratchCultureType.PropertyAlias"/> value in one culture.</summary>
+    /// <param name="body">A document body from <see cref="ExportBody"/>.</param>
+    /// <param name="culture">The culture to read.</param>
+    /// <returns>The value, or null when the document has none in that culture.</returns>
+    private static string? Value(JsonElement body, string culture) =>
+        body.GetProperty("values")
+            .EnumerateArray()
+            .Where(v =>
+                v.GetProperty("alias").GetString() == ScratchCultureType.PropertyAlias
+                && v.GetProperty("culture").GetString() == culture
+            )
+            .Select(v => v.GetProperty("value").GetString())
+            .SingleOrDefault();
+
     /// <summary>The <c>data</c> array of a command's JSON envelope.</summary>
     private static JsonElement Data(CliResult result) =>
         JsonDocument.Parse(result.Stdout).RootElement.GetProperty("data");
