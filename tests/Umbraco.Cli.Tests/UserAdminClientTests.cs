@@ -257,25 +257,78 @@ public class UserAdminClientTests
     [Fact]
     public async Task CreateUserDataAsync_PostsFieldsAndEchoesKey()
     {
-        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+        // The create is followed by a read-back GET (#391), so the POST is the first request.
+        var handler = new RoutingHandler().When(_ => true, HttpStatusCode.Created, "");
         var key = Guid.NewGuid();
 
-        var result = await client.CreateUserDataAsync(
-            new CreateUserDataRequest
-            {
-                Key = key,
-                Group = "myGroup",
-                Identifier = "theme",
-                Value = "dark",
-            },
-            CancellationToken.None
-        );
+        var result = await Wire.Client(handler)
+            .CreateUserDataAsync(
+                new CreateUserDataRequest
+                {
+                    Key = key,
+                    Group = "myGroup",
+                    Identifier = "theme",
+                    Value = "dark",
+                },
+                CancellationToken.None
+            );
 
+        var post = handler.Recordings[0];
         Assert.True(result.IsSuccess);
-        Assert.Equal(HttpMethod.Post, handler.LastMethod);
-        Assert.EndsWith("/user-data", handler.LastUri!.AbsolutePath);
-        Assert.Contains("theme", handler.LastBody);
+        Assert.Equal(HttpMethod.Post, post.Method);
+        Assert.EndsWith("/user-data", post.Uri.AbsolutePath);
+        Assert.Contains("theme", post.Body);
         Assert.Equal(key, result.Data!.Key); // client-supplied key echoed
+    }
+
+    [Fact]
+    public async Task CreateUserDataAsync_ReadsTheEntryBack_SoTheResultMatchesGet()
+    {
+        // #391: the result is the saved entry, not the request echoed back.
+        var key = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                """{ "group": "myGroup", "identifier": "theme", "value": "saved" }"""
+            )
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateUserDataAsync(
+                new CreateUserDataRequest
+                {
+                    Key = key,
+                    Group = "myGroup",
+                    Identifier = "theme",
+                    Value = "dark",
+                },
+                CancellationToken.None
+            );
+
+        Assert.Equal((key, "saved"), (result.Data!.Key, result.Data.Value));
+    }
+
+    [Fact]
+    public async Task CreateUserDataAsync_ReadBackFails_StillSucceedsWithTheRequest()
+    {
+        // The entry was created; a failed read-back must not turn that into an error.
+        var handler = new RoutingHandler()
+            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.InternalServerError, "")
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateUserDataAsync(
+                new CreateUserDataRequest
+                {
+                    Group = "myGroup",
+                    Identifier = "theme",
+                    Value = "dark",
+                },
+                CancellationToken.None
+            );
+
+        Assert.Equal((true, "dark"), (result.IsSuccess, result.Data!.Value));
     }
 
     [Fact]

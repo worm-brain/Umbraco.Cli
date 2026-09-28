@@ -48,19 +48,61 @@ public class CoverageClientTests
     [Fact]
     public async Task CreateMemberGroupAsync_PostsNameAndEchoesId()
     {
-        var (client, handler) = ClientReturning("", HttpStatusCode.Created);
+        // The create is followed by a read-back GET (#391), so the POST is the first request.
+        var handler = new RoutingHandler().When(_ => true, HttpStatusCode.Created, "");
         var id = Guid.NewGuid();
 
-        var result = await client.CreateMemberGroupAsync(
-            new CreateMemberGroupRequest { Id = id, Name = "Editors" },
-            CancellationToken.None
-        );
+        var result = await Wire.Client(handler)
+            .CreateMemberGroupAsync(
+                new CreateMemberGroupRequest { Id = id, Name = "Editors" },
+                CancellationToken.None
+            );
 
+        var post = handler.Recordings[0];
         Assert.True(result.IsSuccess);
-        Assert.Equal(HttpMethod.Post, handler.LastMethod);
-        Assert.EndsWith("/member-group", handler.LastUri!.AbsolutePath);
-        Assert.Contains("Editors", handler.LastBody);
+        Assert.Equal(HttpMethod.Post, post.Method);
+        Assert.EndsWith("/member-group", post.Uri.AbsolutePath);
+        Assert.Contains("Editors", post.Body);
         Assert.Equal(id, result.Data!.Id); // client-supplied id echoed
+    }
+
+    [Fact]
+    public async Task CreateMemberGroupAsync_ReadsTheGroupBack_SoTheResultMatchesGet()
+    {
+        // #391: the result is the saved group, not the request echoed back.
+        var id = Guid.NewGuid();
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                $$"""{ "id": "{{id}}", "name": "Saved Name" }"""
+            )
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateMemberGroupAsync(
+                new CreateMemberGroupRequest { Id = id, Name = "Editors" },
+                CancellationToken.None
+            );
+
+        Assert.Equal("Saved Name", result.Data!.Name);
+    }
+
+    [Fact]
+    public async Task CreateMemberGroupAsync_ReadBackFails_StillSucceedsWithTheRequest()
+    {
+        // The group was created; a failed read-back must not turn that into an error.
+        var handler = new RoutingHandler()
+            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.InternalServerError, "")
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateMemberGroupAsync(
+                new CreateMemberGroupRequest { Name = "Editors" },
+                CancellationToken.None
+            );
+
+        Assert.Equal((true, "Editors"), (result.IsSuccess, result.Data!.Name));
     }
 
     [Fact]

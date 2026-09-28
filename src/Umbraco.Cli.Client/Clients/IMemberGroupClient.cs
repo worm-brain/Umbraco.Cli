@@ -26,7 +26,7 @@ public interface IMemberGroupClient
     /// <summary>Creates a member group.</summary>
     /// <param name="request">The group to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created group (with its id), or a mapped failure.</returns>
+    /// <returns>The created group as saved (echoed if the read-back fails), or a mapped failure.</returns>
     Task<UmbracoResponse<MemberGroupResponse>> CreateMemberGroupAsync(
         CreateMemberGroupRequest request,
         CancellationToken ct = default
