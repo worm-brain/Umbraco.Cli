@@ -244,7 +244,7 @@ public class ContentUpdateMergeClientTests
                     },
                 ],
             },
-            replace: true,
+            WriteMode.Replace,
             ct: CancellationToken.None
         );
 

@@ -15,7 +15,7 @@ public sealed partial class UmbracoManagementClient
     public Task<UmbracoResponse<MediaItemResponse>> UpdateMediaAsync(
         Guid id,
         UpdateMediaRequest request,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -28,7 +28,7 @@ public sealed partial class UmbracoManagementClient
                     ?? throw new ApiException("The media body was not a JSON object.");
 
                 // Media values and variants have the document shape, so the content merge applies.
-                DocumentUpdateBody.Merge(media, request.Values, request.Variants, replace);
+                DocumentUpdateBody.Merge(media, request.Values, request.Variants, mode);
                 await SendRawJsonAsync(Method.PUT, path, media, ct);
 
                 var hydrated = await GetMediaByIdAsync(id, ct);

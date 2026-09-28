@@ -17,7 +17,7 @@ public sealed partial class UmbracoManagementClient
     public Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(
         Guid id,
         UpdateContentRequest request,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -36,7 +36,7 @@ public sealed partial class UmbracoManagementClient
                     request.Variants,
                     () => ExistingItemCultureAsync(document["variants"] as JsonArray, ct)
                 );
-                DocumentUpdateBody.Merge(document, request.Values, variants, replace);
+                DocumentUpdateBody.Merge(document, request.Values, variants, mode);
 
                 // Only touch the template when the caller asked for one. Omitting it means "leave
                 // it alone", never "remove it" - see UpdateContentRequest.Template.
