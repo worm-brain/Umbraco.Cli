@@ -29,7 +29,10 @@ public interface IUserGroupClient
     /// <summary>Creates a user group.</summary>
     /// <param name="request">The group to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created group (echoed with its id), or a mapped failure.</returns>
+    /// <returns>
+    /// The created group as saved (read back, so server-set fields such as isDeletable match
+    /// <c>get</c>), or a mapped failure.
+    /// </returns>
     Task<UmbracoResponse<UserGroupResponse>> CreateUserGroupAsync(
         CreateUserGroupRequest request,
         CancellationToken ct = default
@@ -120,7 +123,7 @@ public interface IUserDataClient
     /// <summary>Gets a single user-data entry by key.</summary>
     /// <param name="id">The entry key.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The user-data entry.</returns>
+    /// <returns>The user-data entry, or a mapped failure (a 404 naming the key when there is none).</returns>
     Task<UmbracoResponse<UserDataResponse>> GetUserDataByIdAsync(
         Guid id,
         CancellationToken ct = default
@@ -138,7 +141,7 @@ public interface IUserDataClient
     /// <summary>Updates a user-data entry (collection-level PUT keyed by the body).</summary>
     /// <param name="request">The entry state, including the key to update.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
+    /// <returns>An empty success response, or a mapped failure (a 404 naming the key when there is none).</returns>
     Task<UmbracoResponse<Empty>> UpdateUserDataAsync(
         UpdateUserDataRequest request,
         CancellationToken ct = default
@@ -147,6 +150,6 @@ public interface IUserDataClient
     /// <summary>Deletes a user-data entry by key.</summary>
     /// <param name="id">The entry key.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
+    /// <returns>An empty success response, or a mapped failure (a 404 naming the key when there is none).</returns>
     Task<UmbracoResponse<Empty>> DeleteUserDataAsync(Guid id, CancellationToken ct = default);
 }

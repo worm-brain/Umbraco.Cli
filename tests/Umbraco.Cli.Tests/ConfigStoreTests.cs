@@ -573,6 +573,34 @@ public class ConfigStoreTests : IDisposable
         Assert.False(cfg.IsComplete);
     }
 
+    // ── Computed properties stay out of the file (#380) ──────────────────────
+
+    [Theory]
+    [InlineData("IsComplete")]
+    [InlineData("EffectiveDefault")]
+    public void Save_ComputedProperty_IsNotWrittenToTheFile(string property)
+    {
+        Store.Save(Creds("https://h"), "A");
+
+        Assert.DoesNotContain($"\"{property}\"", File.ReadAllText(_tempPath));
+    }
+
+    [Fact]
+    public void Load_FileAnOlderVersionWroteWithComputedProperties_StillLoads()
+    {
+        // alpha.14 and earlier wrote IsComplete and EffectiveDefault; such a file must still load.
+        File.WriteAllText(
+            _tempPath,
+            """
+            { "defaultProfile": "A",
+              "profiles": { "A": { "host": "https://old", "clientId": "id", "clientSecret": "s", "IsComplete": true } },
+              "EffectiveDefault": "A" }
+            """
+        );
+
+        Assert.Equal("https://old", Store.Load().Host);
+    }
+
     // ── Environment variable precedence ──────────────────────────────────────
 
     [Fact]

@@ -2465,8 +2465,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// Creates a member via <c>POST member</c> (generated client, #79). Like content create, the
     /// member type is passed by alias and resolved to an id first; the display name goes in a
     /// variant and property values map to <see cref="UntypedNode"/>. The id is client-supplied
-    /// (defaulting to a fresh GUID) so it is known despite the empty create response, which is
-    /// echoed back with the accepted fields (consistent with the other migrated creates).
+    /// (defaulting to a fresh GUID) so it is known despite the empty create response. The saved
+    /// member is then read back (#378), so the result is what <c>member get</c> shows; only when
+    /// that read fails is the accepted request echoed instead.
     /// </summary>
     /// <remarks>
     /// Umbraco requires a username, but the CLI collects only an email, so the email doubles as
@@ -2475,7 +2476,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// </remarks>
     /// <param name="request">The member to create (member type by alias, email, name, values).</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created member (id + echoed fields), or a mapped failure.</returns>
+    /// <returns>The created member as saved (or the echoed request), or a mapped failure.</returns>
     public Task<UmbracoResponse<MemberResponse>> CreateMemberAsync(
         CreateMemberRequest request,
         CancellationToken ct = default
@@ -2512,6 +2513,24 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                         .ToList(),
                 };
                 await _api.Umbraco.Management.Api.V1.Member.PostAsync(body, cancellationToken: ct);
+
+                // #378: read what was saved, so the result carries the server's fields (createDate,
+                // username, groups, labels) exactly as `member get` shows them, instead of an echo
+                // whose createDate is 0001-01-01.
+                try
+                {
+                    if (
+                        await _api
+                            .Umbraco.Management.Api.V1.Member[id]
+                            .GetAsync(cancellationToken: ct) is
+                        { } saved
+                    )
+                        return await LabelMemberAsync(MapMember(saved), ct);
+                }
+                catch (ApiException)
+                {
+                    // Fall through: the member exists, only the read-back failed.
+                }
 
                 return new MemberResponse
                 {

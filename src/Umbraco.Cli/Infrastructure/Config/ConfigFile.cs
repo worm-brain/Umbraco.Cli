@@ -19,7 +19,12 @@ public sealed class ConfigFile
     public Dictionary<string, CliConfig> Profiles { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The default profile name, falling back to <c>default</c> when unset.</summary>
+    /// <summary>
+    /// The default profile name, falling back to <c>default</c> when unset. Computed, so never
+    /// written to the file (#380). A file an older version wrote with it still loads: a property
+    /// with no setter is not read back.
+    /// </summary>
+    [JsonIgnore]
     public string EffectiveDefault =>
         string.IsNullOrWhiteSpace(DefaultProfile) ? "default" : DefaultProfile;
 }
