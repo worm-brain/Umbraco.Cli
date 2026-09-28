@@ -7371,6 +7371,24 @@
       "acceptsJsonBody": false
     },
     {
+      "name": "completion",
+      "description": "Print a tab-completion script for bash, zsh or PowerShell.\n\nLoad it from your shell's startup file; it asks the installed CLI for suggestions, so it never goes stale.\n\nExamples:\n  umbraco completion bash > ~/.umbraco-completion.bash   # then source it from ~/.bashrc\n  umbraco completion zsh > ~/.zfunc/_umbraco           # a directory on $fpath\n  umbraco completion pwsh | Out-String | Invoke-Expression",
+      "arguments": [
+        {
+          "name": "shell",
+          "description": "The shell to print the script for: bash, zsh or pwsh.",
+          "type": "string",
+          "required": true,
+          "hasDefault": false
+        }
+      ],
+      "options": [],
+      "commands": [],
+      "mutating": false,
+      "destructive": false,
+      "acceptsJsonBody": false
+    },
+    {
       "name": "commands",
       "description": "List every command, with its arguments, options, types and help.\n\nAgents and scripts can discover the whole CLI surface in one call. JSON by default; --output human prints an outline.\n\nExamples:\n  umbraco commands\n  umbraco commands --output human\n  umbraco commands | jq '.data.commands[].name'",
       "arguments": [],

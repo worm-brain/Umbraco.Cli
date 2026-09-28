@@ -20,6 +20,7 @@ follows are in [conventions.md](conventions.md).
 
 - [Global options](#global-options)
 - [Discovery: `commands` and `--schema`](#discovery-commands-and---schema)
+- [Shell completion: `completion`](#shell-completion-completion)
 - [`auth`](#auth)
 - [`content`](#content)
 - [`document-blueprint`](#document-blueprint)
@@ -143,6 +144,26 @@ unnecessary). A `--json-body` command carries `jsonBodySchema`, the command line
 body's schema.
 
 See [agent-guide.md](agent-guide.md#1-discover-the-surface-umbraco-commands) for details.
+
+---
+
+## Shell completion: `completion`
+
+```bash
+umbraco completion bash                 # prints a bash completion script
+umbraco completion zsh                  # prints a zsh completion script
+umbraco completion pwsh                 # prints a PowerShell completion script
+```
+
+Tab-completes nouns, verbs, options and fixed option values. The script asks the installed CLI
+for suggestions each time (through System.CommandLine's `[suggest]` directive), so it follows
+the tree across upgrades and needs nothing else installed. Local; no host or auth.
+
+| Shell | Install |
+|---|---|
+| bash | add `eval "$(umbraco completion bash)"` to `~/.bashrc` |
+| zsh | add `eval "$(umbraco completion zsh)"` to `~/.zshrc` after `compinit`, or save the output as `_umbraco` in a directory on `$fpath` |
+| PowerShell | add `umbraco completion pwsh \| Out-String \| Invoke-Expression` to `$PROFILE` |
 
 ---
 

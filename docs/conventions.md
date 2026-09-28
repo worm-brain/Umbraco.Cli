@@ -172,6 +172,9 @@ Each exception is deliberate or tracked; don't copy it.
 - `user-group add-users` / `remove-users` are verb-noun compounds (membership has no better home
   yet).
 - `property-type is-used` is a top-level noun with one verb and no `list`/`get`.
+- `completion <shell>` and `commands` are local tool commands, not resource nouns: they have no
+  verb, and `completion`'s positional is `shell`, not `id`. `completion` prints a bare shell
+  script, never the envelope, because a shell sources it.
 
 ## Changelog
 
@@ -209,3 +212,6 @@ Each exception is deliberate or tracked; don't copy it.
 - **2026-09-28** - 4.1: `content create --example --document-type <alias>` (#174) builds its
   example from the document type and its data types, since there is no one real item whose values
   show every editor. Still `--example`, not a per-type `--schema`, which stays the offline schema.
+- **2026-09-28** - 9: `completion <bash|zsh|pwsh>` (#92) is recorded as an exception alongside
+  `commands`. Shell completion is a property of the tool, not of an Umbraco resource, and `gh`
+  and `az` name it the same way.

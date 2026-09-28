@@ -70,6 +70,10 @@ on NuGet.org; the command it installs is `umbraco`. While the tool is in alpha, 
 dotnet tool install -g Umbraco.Community.Cli --prerelease
 ```
 
+Tab completion for bash, zsh and PowerShell comes with it: `umbraco completion <bash|zsh|pwsh>`
+prints the script to load from your shell's startup file (see
+[Shell completion](docs/commands.md#shell-completion-completion)).
+
 ## Quick start
 
 ```bash
