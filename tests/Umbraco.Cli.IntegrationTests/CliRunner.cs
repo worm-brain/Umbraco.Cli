@@ -68,6 +68,9 @@ public static class CliRunner
             // Pipe stdin as UTF-8 so a non-ASCII --json-body survives (the CLI reads stdin as
             // UTF-8); without this the harness would encode using the console code page.
             StandardInputEncoding = System.Text.Encoding.UTF8,
+            // Read the output as UTF-8 too: the CLI writes UTF-8 to pipes (ConsoleEncoding).
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8,
             UseShellExecute = false,
             // "dotnet exec <dll> <args>" runs the framework-dependent CLI assembly.
             ArgumentList = { "exec", CliDllPath.Value },
