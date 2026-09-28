@@ -62,40 +62,27 @@ public sealed partial class UmbracoManagementClient
     /// <param name="ct">Cancellation token.</param>
     /// <exception cref="InvalidArgumentException">An alias is blank or unknown (invalid_argument).</exception>
     /// <exception cref="ApiException">The event list could not be read (mapped to 400).</exception>
-    private async Task GuardWebhookEventsAsync(IEnumerable<string> events, CancellationToken ct)
-    {
-        var requested = events.ToList();
-        if (requested.Count == 0)
-            return;
-
-        if (requested.Any(string.IsNullOrWhiteSpace))
-            throw new InvalidArgumentException("A webhook event alias cannot be empty.");
-
-        var known = await KnownWebhookEventAliasesAsync(ct);
-
-        // An unreadable list is a failure to validate, not a pass: letting the request through
-        // would restore the saved-but-never-fires behaviour this guard exists to stop.
-        if (known is null)
-            throw BadRequest(
-                "Could not read this instance's webhook events (GET webhook/events) to check the "
-                    + "--event aliases. Umbraco saves a webhook with an unknown event but never "
-                    + "fires it, so the request was not sent."
-            );
-
-        var unknown = requested.Where(e => !known.Contains(e)).ToList();
-        if (unknown.Count == 0)
-            return;
-
-        var described = unknown.Select(u =>
-            NearestWebhookEvent(u, [.. known]) is { } nearest
-                ? $"'{u}' (did you mean '{nearest}'?)"
-                : $"'{u}'"
+    private Task GuardWebhookEventsAsync(IEnumerable<string> events, CancellationToken ct) =>
+        GuardKnownValuesAsync(
+            events.ToList(),
+            KnownWebhookEventAliasesAsync,
+            "A webhook event alias cannot be empty.",
+            "Could not read this instance's webhook events (GET webhook/events) to check the "
+                + "--event aliases. Umbraco saves a webhook with an unknown event but never "
+                + "fires it, so the request was not sent.",
+            (unknown, known) =>
+            {
+                var described = unknown.Select(u =>
+                    NearestWebhookEvent(u, [.. known]) is { } nearest
+                        ? $"'{u}' (did you mean '{nearest}'?)"
+                        : $"'{u}'"
+                );
+                return $"Unknown webhook event {string.Join(", ", described)}. Umbraco would save "
+                    + "the webhook but never fire it. Run 'umbraco webhook event list' for the "
+                    + "valid aliases.";
+            },
+            ct
         );
-        throw new InvalidArgumentException(
-            $"Unknown webhook event {string.Join(", ", described)}. Umbraco would save the webhook "
-                + "but never fire it. Run 'umbraco webhook event list' for the valid aliases."
-        );
-    }
 
     /// <summary>
     /// Every event alias the instance knows, read through <see cref="GetWebhookEventsAsync"/>, or

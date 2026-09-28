@@ -144,6 +144,17 @@ public class WebhookEventsWireTests
     }
 
     [Fact]
+    public async Task CreateWebhookAsync_BlankAlias_IsRefusedWithoutPosting()
+    {
+        // #277: the shared guard rejects a blank value before reading the event list.
+        var handler = Wire.Routed(("/webhook/events", Events));
+
+        var result = await Create(handler, "");
+
+        Assert.Equal("A webhook event alias cannot be empty.", result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task CreateWebhookAsync_EmptyEventList_IsRefused()
     {
         var handler = Wire.Routed(("/webhook/events", """{ "total": 0, "items": [] }"""));
