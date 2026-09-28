@@ -187,12 +187,12 @@ public static class ContentApplier
         var plan = new List<Step>();
         plan.AddRange(
             documents
-                .Where(d => d.Change == ContentChangeKind.Added)
+                .Where(d => d.Change == TreeChangeKind.Added)
                 .Select(d => new Step(ContentOperation.Create, d))
         );
         plan.AddRange(
             documents
-                .Where(d => d.Change == ContentChangeKind.Changed && d.BodyChanged)
+                .Where(d => d.Change == TreeChangeKind.Changed && d.BodyChanged)
                 .Select(d => new Step(ContentOperation.Update, d))
         );
 
@@ -220,7 +220,7 @@ public static class ContentApplier
             );
             for (var i = documents.Count - 1; i >= 0; i--)
                 if (
-                    documents[i].Change == ContentChangeKind.Removed
+                    documents[i].Change == TreeChangeKind.Removed
                     && !kept.Contains(documents[i].Id)
                 )
                     plan.Add(

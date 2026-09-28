@@ -52,6 +52,25 @@ dotnet format                                  # or CSharpier - formatting stand
 
 There is no linter beyond the compiler + analyzers; formatting is CSharpier.
 
+### Live integration tests: use the dev site
+
+`tests/Umbraco.Cli.IntegrationTests` runs the built CLI against a live Umbraco instance, and
+skips every test when there is none. Don't rely on a hand-built instance (such as
+`https://localhost:45000`): use the harness's throwaway dev site, which any machine can create.
+
+```bash
+python3 tests/hands-on/dev-site.py test                      # create/start sites/dev, run the suite
+python3 tests/hands-on/dev-site.py test --filter "FullyQualifiedName~EffectIntegrationTests"
+python3 tests/hands-on/dev-site.py down                      # stop it (keeps its content)
+python3 tests/hands-on/dev-site.py env                       # host + credentials, e.g. for scripts/fetch-spec.ps1
+```
+
+The first run takes a few minutes: it creates an Umbraco 17 site and fills it with the hands-on
+fixture site (content, languages, media, dictionary). Later runs just start it. The suite runs
+with its own CLI config (`UMBRACO_TEST_CONFIG`, a single `dev` profile), so it never reads or
+writes your personal `umbraco` profiles. On Windows type `python` for `python3`. See
+[`tests/hands-on/README.md`](tests/hands-on/README.md).
+
 ### Keep the CI SDK and target framework in sync
 
 `*.csproj` target `net9.0` and both CI workflows (`ci.yml`, `publish.yml`) pin

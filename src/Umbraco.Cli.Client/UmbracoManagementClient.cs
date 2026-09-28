@@ -167,30 +167,34 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var d = await _api
-                    .Umbraco.Management.Api.V1.Document[id]
-                    .GetAsync(cancellationToken: ct);
-                var variant = (d?.Variants ?? []).FirstOrDefault();
+                // A 200 with no body is not a document: say so (#119) rather than return a
+                // hollow item carrying only the id asked for.
+                var d =
+                    await _api
+                        .Umbraco.Management.Api.V1.Document[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No content item found with id '{id}'.");
+                var variant = (d.Variants ?? []).FirstOrDefault();
                 // #154: a name and dates are critical fields; defaulting them ("" and 0001-01-01)
                 // would report drift as a successful read.
                 RequireVariant($"document/{id}", variant?.Name);
                 return new ContentItemResponse
                 {
-                    Id = d?.Id ?? id,
+                    Id = d.Id ?? id,
                     Name = variant?.Name ?? "",
-                    DocumentType = MapDocumentTypeRef(d?.DocumentType) is { } type
+                    DocumentType = MapDocumentTypeRef(d.DocumentType) is { } type
                         ? type with
                         {
                             Alias = await DocumentTypeAliasAsync(type.Id, ct),
                         }
                         : null,
-                    IsPublished = (d?.Variants ?? []).Any(v =>
+                    IsPublished = (d.Variants ?? []).Any(v =>
                         v.State
                             is Gen.DocumentVariantStateModel.Published
                                 or Gen.DocumentVariantStateModel.PublishedPendingChanges
                     ),
-                    IsTrashed = d?.IsTrashed ?? false,
-                    Flags = MapFlags(d?.Flags),
+                    IsTrashed = d.IsTrashed ?? false,
+                    Flags = MapFlags(d.Flags),
                     // #205: the by-id body has no parent at all, so it comes from the tree.
                     Parent = await DocumentParentAsync(id, ct),
                     // #289: nor any URL, so it comes from /document/urls, as media's does.
@@ -199,9 +203,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     UpdateDate = variant?.UpdateDate,
                     // #168: the whole document, not a summary of its first variant. Without these
                     // a get -> edit -> update round-trip is impossible through the CLI alone.
-                    Values = MapValueResponses(d?.Values),
-                    Variants = MapVariantResponses(d?.Variants),
-                    Template = d?.Template?.Id is { } tplId
+                    Values = MapValueResponses(d.Values),
+                    Variants = MapVariantResponses(d.Variants),
+                    Template = d.Template?.Id is { } tplId
                         ? new ContentTemplateReference { Id = tplId }
                         : null,
                 };
@@ -1008,17 +1012,18 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var m = await _api
-                    .Umbraco.Management.Api.V1.Media[id]
-                    .GetAsync(cancellationToken: ct);
-                var variant = (m?.Variants ?? []).FirstOrDefault();
+                // A 200 with no body is not a media item (#119).
+                var m =
+                    await _api.Umbraco.Management.Api.V1.Media[id].GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No media item found with id '{id}'.");
+                var variant = (m.Variants ?? []).FirstOrDefault();
                 // #154: as for a document, a missing name or date is drift, not data.
                 RequireVariant($"media/{id}", variant?.Name);
 
                 // The media type's alias and the item's URLs are two independent follow-up reads.
                 // Started together rather than awaited inside the initializer below, where the
                 // ordering would be invisible and they would run one after the other.
-                var aliasTask = m?.MediaType?.Id is { } typeId
+                var aliasTask = m.MediaType?.Id is { } typeId
                     ? MediaTypeAliasAsync(typeId, ct)
                     : Task.FromResult<string?>(null);
                 var urlsTask = MediaUrlsAsync(id, ct);
@@ -1028,11 +1033,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
 
                 return new MediaItemResponse
                 {
-                    Id = m?.Id ?? id,
+                    Id = m.Id ?? id,
                     Name = variant?.Name ?? "",
                     // The real alias (#222; this used to be the name, because upload matched names
                     // only). Upload now takes the alias or the name, so the value round-trips.
-                    MediaType = m?.MediaType?.Id is { } mtId
+                    MediaType = m.MediaType?.Id is { } mtId
                         ? new ContentTypeRef { Id = mtId, Alias = aliasTask.Result }
                         : null,
                     CreateDate = variant?.CreateDate ?? default,
@@ -1040,7 +1045,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     UpdateDate = variant?.UpdateDate,
                     // #172: width, height, bytes and extension are all in values[]; they were
                     // being fetched and thrown away on every read.
-                    Values = MapMediaValueResponses(m?.Values),
+                    Values = MapMediaValueResponses(m.Values),
                     Urls = urlsTask.Result,
                 };
             }
@@ -1572,30 +1577,32 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => GuardedApiAsync(ct, () => ReadDocumentTypeAsync(id, ct));
 
-    /// <summary>Reads the by-id body and maps it, shared with the by-key lookup (#159).</summary>
+    /// <summary>Reads the by-id body and maps it.</summary>
     /// <param name="id">The type id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The mapped type.</returns>
+    /// <exception cref="ApiException">The read failed, or returned no body (404).</exception>
     private async Task<DocumentTypeResponse> ReadDocumentTypeAsync(Guid id, CancellationToken ct)
     {
-        var dt = await _api
-            .Umbraco.Management.Api.V1.DocumentType[id]
-            .GetAsync(cancellationToken: ct);
+        // A 200 with no body is not a document type (#119).
+        var dt =
+            await _api.Umbraco.Management.Api.V1.DocumentType[id].GetAsync(cancellationToken: ct)
+            ?? throw NotFound($"No document type found with id '{id}'.");
         return new DocumentTypeResponse
         {
-            Id = dt?.Id ?? id,
-            Name = dt?.Name ?? "",
-            Alias = dt?.Alias ?? "",
-            Description = dt?.Description,
-            IsElement = dt?.IsElement ?? false,
-            AllowedAsRoot = dt?.AllowedAsRoot ?? false,
-            Icon = dt?.Icon,
-            VariesByCulture = dt?.VariesByCulture ?? false,
-            VariesBySegment = dt?.VariesBySegment ?? false,
+            Id = dt.Id ?? id,
+            Name = dt.Name ?? "",
+            Alias = dt.Alias ?? "",
+            Description = dt.Description,
+            IsElement = dt.IsElement ?? false,
+            AllowedAsRoot = dt.AllowedAsRoot ?? false,
+            Icon = dt.Icon,
+            VariesByCulture = dt.VariesByCulture ?? false,
+            VariesBySegment = dt.VariesBySegment ?? false,
             // #160: the help text promised these for three releases while the mapping
             // dropped them, which is why authoring a property needed a schema round-trip.
             Properties = dt
-                ?.Properties?.Select(p => new DocumentTypePropertyResponse
+                .Properties?.Select(p => new DocumentTypePropertyResponse
                 {
                     Id = p.Id,
                     Alias = p.Alias ?? "",
@@ -1609,7 +1616,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 })
                 .ToList(),
             Containers = dt
-                ?.Containers?.Select(c => new DocumentTypeContainerResponse
+                .Containers?.Select(c => new DocumentTypeContainerResponse
                 {
                     Id = c.Id,
                     Name = c.Name ?? "",
@@ -1618,16 +1625,16 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 })
                 .ToList(),
             Compositions = dt
-                ?.Compositions?.Select(c => c.DocumentType?.Id)
+                .Compositions?.Select(c => c.DocumentType?.Id)
                 .Where(g => g is not null)
                 .Select(g => g!.Value)
                 .ToList(),
             AllowedTemplates = dt
-                ?.AllowedTemplates?.Select(t => t.Id)
+                .AllowedTemplates?.Select(t => t.Id)
                 .Where(g => g is not null)
                 .Select(g => g!.Value)
                 .ToList(),
-            DefaultTemplate = dt?.DefaultTemplate?.Id,
+            DefaultTemplate = dt.DefaultTemplate?.Id,
         };
     }
 
@@ -1841,22 +1848,26 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => GuardedApiAsync(ct, () => ReadDataTypeAsync(id, ct));
 
-    /// <summary>Reads the by-id body and maps it, shared with the by-key lookup (#159).</summary>
+    /// <summary>Reads the by-id body and maps it, shared with the list's hydration (#176).</summary>
     /// <param name="id">The type id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The mapped type.</returns>
+    /// <exception cref="ApiException">The read failed, or returned no body (404).</exception>
     private async Task<DataTypeResponse> ReadDataTypeAsync(Guid id, CancellationToken ct)
     {
-        var dt = await _api.Umbraco.Management.Api.V1.DataType[id].GetAsync(cancellationToken: ct);
+        // A 200 with no body is not a data type (#119).
+        var dt =
+            await _api.Umbraco.Management.Api.V1.DataType[id].GetAsync(cancellationToken: ct)
+            ?? throw NotFound($"No data type found with id '{id}'.");
         return new DataTypeResponse
         {
-            Id = dt?.Id ?? id,
-            Name = dt?.Name ?? "",
-            EditorAlias = dt?.EditorAlias ?? "",
-            EditorUiAlias = dt?.EditorUiAlias,
+            Id = dt.Id ?? id,
+            Name = dt.Name ?? "",
+            EditorAlias = dt.EditorAlias ?? "",
+            EditorUiAlias = dt.EditorUiAlias,
             // #170: the editor configuration - a dropdown's items, a picker's filters.
             Values = dt
-                ?.Values?.Select(v => new DataTypeValueResponse
+                .Values?.Select(v => new DataTypeValueResponse
                 {
                     Alias = v.Alias ?? "",
                     Value = UntypedNodeFactory.ToJsonNode(v.Value),
@@ -2295,12 +2306,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var m = await _api
-                    .Umbraco.Management.Api.V1.Member[id]
-                    .GetAsync(cancellationToken: ct);
-                return m is null
-                    ? new MemberResponse { Id = id }
-                    : await LabelMemberAsync(MapMember(m), ct);
+                // A 200 with no body is not a member (#119).
+                var m =
+                    await _api.Umbraco.Management.Api.V1.Member[id].GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No member found with id '{id}'.");
+                return await LabelMemberAsync(MapMember(m), ct);
             }
         );
 
@@ -2836,10 +2846,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var user = await _api
-                    .Umbraco.Management.Api.V1.User[id]
-                    .GetAsync(cancellationToken: ct);
-                return user is null ? new UserResponse { Id = id } : MapUser(user);
+                // A 200 with no body is not a user (#119).
+                var user =
+                    await _api.Umbraco.Management.Api.V1.User[id].GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No user found with id '{id}'.");
+                return MapUser(user);
             }
         );
 
@@ -2948,28 +2959,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    /// <summary>
-    /// Gets a dictionary item by its human key (name) OR id (issue #44 — the endpoint is
-    /// <c>GET /dictionary/{id}</c> keyed by GUID, so a human key 404'd despite the help
-    /// saying "by key"). A GUID argument is fetched directly; otherwise the key is
-    /// resolved to an id by matching the item name in the dictionary list.
-    /// </summary>
-    /// <param name="keyOrId">The dictionary item key (name) or its id (GUID).</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The dictionary item, or a 404 failure when no matching key exists.</returns>
-    public async Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByKeyAsync(
-        string keyOrId,
+    /// <inheritdoc />
+    /// <remarks>
+    /// The same by-id read the writes use to report what was saved, so get, create and update
+    /// agree, parent included (#290).
+    /// </remarks>
+    public Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByIdAsync(
+        Guid id,
         CancellationToken ct = default
-    )
-    {
-        // #211: the shared resolver reads every page (this used to stop at 1,000 items).
-        var resolved = await ResolveIdAsync(EntityKind.DictionaryItem, keyOrId, ct);
-        if (!resolved.IsSuccess)
-            return UmbracoResponse<DictionaryItemResponse>.FailureFrom(resolved);
-        // The same by-id read the writes use to report what was saved, so get, create and update
-        // agree, parent included (#290).
-        return await ReadDictionaryItemAsync(resolved.Data, ct);
-    }
+    ) => ReadDictionaryItemAsync(id, ct);
 
     /// <summary>
     /// Creates a dictionary item via <c>POST dictionary</c> (generated client). The id is

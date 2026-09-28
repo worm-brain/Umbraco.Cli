@@ -43,15 +43,20 @@ public class TypeLookupAndDictionaryTests
     // ── #159: get by the key the docs promised ────────────────────────────────
 
     [Fact]
-    public async Task GetDocumentTypeAsync_Guid_ReadsItDirectlyWithoutSearching()
+    public async Task ResolveThenGetDocumentType_Guid_ReadsItDirectlyWithoutSearching()
     {
         var id = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var handler = Wire.Routed(
             ($"document-type/{id}", $$"""{ "id": "{{id}}", "alias": "blogPost" }""")
         );
 
-        var result = await Wire.Client(handler)
-            .GetDocumentTypeAsync(id.ToString(), CancellationToken.None);
+        // Resolution is the caller's (#262): a GUID resolves without a request, then is read.
+        var client = Wire.Client(handler);
+        var result = await client.WithResolvedAsync(
+            EntityKind.DocumentType,
+            id.ToString(),
+            resolved => client.GetDocumentTypeByIdAsync(resolved, CancellationToken.None)
+        );
 
         Assert.Equal("blogPost", result.Data!.Alias);
         handler.AssertNoRequest(HttpMethod.Get, "/item/document-type/search");

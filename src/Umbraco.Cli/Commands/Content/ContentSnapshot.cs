@@ -11,7 +11,7 @@ namespace Umbraco.Cli.Commands.Content;
 /// separately during export and re-applied on create - it is the piece that lets a snapshot be
 /// rebuilt in the right shape in another environment (issue #100 / ADR 0006).
 /// </summary>
-public sealed class ContentNode
+public sealed class ContentNode : ISnapshotTreeNode
 {
     /// <summary>The document's GUID. Preserved across environments (apply recreates with this id).</summary>
     [JsonPropertyName("id")]

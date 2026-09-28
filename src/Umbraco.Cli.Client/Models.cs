@@ -607,11 +607,26 @@ public record UpdateContentRequest
 /// </summary>
 public record ContentTemplateReference
 {
+    /// <summary>The template's id. Wins over <see cref="Alias"/> when both are set.</summary>
     [JsonPropertyName("id")]
     public Guid? Id { get; init; }
 
+    /// <summary>The template's alias, resolved to an id by the client before the write.</summary>
     [JsonPropertyName("alias")]
     public string? Alias { get; init; }
+
+    /// <summary>
+    /// Reads a template reference typed by a user (a <c>--template</c> value) as either a GUID or
+    /// an alias, so callers can use whichever they have to hand without a second flag. The rule
+    /// lives here, with the model it builds, so every caller shares it (#190).
+    /// </summary>
+    /// <param name="value">The raw reference text.</param>
+    /// <returns>A reference carrying the id when <paramref name="value"/> parses as a GUID, the
+    /// alias otherwise.</returns>
+    public static ContentTemplateReference Parse(string value) =>
+        Guid.TryParse(value, out var id)
+            ? new ContentTemplateReference { Id = id }
+            : new ContentTemplateReference { Alias = value };
 }
 
 public record ContentValue
