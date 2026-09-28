@@ -302,10 +302,18 @@ public sealed partial class UmbracoManagementClient
             .Where(p => documents is null || p.DocumentPermissionPresentationModel is null)
             .Select(p => new Gen.UpdateUserGroupRequestModel.UpdateUserGroupRequestModel_permissions
             {
-                DocumentPermissionPresentationModel = p.DocumentPermissionPresentationModel,
+                // Re-wrapped so each carried-through permission writes $type first, as
+                // Umbraco requires (see UserGroupPermissionBodies).
+                DocumentPermissionPresentationModel = p.DocumentPermissionPresentationModel is { } d
+                    ? UserGroupPermissionBodies.Document(d)
+                    : null,
                 DocumentPropertyValuePermissionPresentationModel =
-                    p.DocumentPropertyValuePermissionPresentationModel,
-                UnknownTypePermissionPresentationModel = p.UnknownTypePermissionPresentationModel,
+                    UserGroupPermissionBodies.PropertyValue(
+                        p.DocumentPropertyValuePermissionPresentationModel
+                    ),
+                UnknownTypePermissionPresentationModel = UserGroupPermissionBodies.Unknown(
+                    p.UnknownTypePermissionPresentationModel
+                ),
             });
         var given = (documents ?? []).Select(
             p => new Gen.UpdateUserGroupRequestModel.UpdateUserGroupRequestModel_permissions
@@ -318,17 +326,21 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// A per-document permission as the API takes it. The <c>$type</c> discriminator is required:
-    /// Umbraco picks the permission kind from it, and Kiota does not fill it in.
+    /// Umbraco picks the permission kind from it, and Kiota does not fill it in. It must also be
+    /// written first, so the model is the discriminator-first one from
+    /// <see cref="UserGroupPermissionBodies"/>.
     /// </summary>
     /// <param name="permission">The permission.</param>
     /// <returns>The generated model.</returns>
     private static Gen.DocumentPermissionPresentationModel ToWire(DocumentPermission permission) =>
-        new()
-        {
-            Type = nameof(Gen.DocumentPermissionPresentationModel),
-            Document = new Gen.ReferenceByIdModel { Id = permission.Document },
-            Verbs = [.. permission.Verbs],
-        };
+        UserGroupPermissionBodies.Document(
+            new Gen.DocumentPermissionPresentationModel
+            {
+                Type = nameof(Gen.DocumentPermissionPresentationModel),
+                Document = new Gen.ReferenceByIdModel { Id = permission.Document },
+                Verbs = [.. permission.Verbs],
+            }
+        );
 
     /// <summary>A node reference for a start node, or null for none.</summary>
     private static Gen.ReferenceByIdModel? Ref(Guid? id) =>

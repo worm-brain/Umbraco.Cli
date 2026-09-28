@@ -95,6 +95,48 @@ public class UserGroupPermissionWireTests
         );
     }
 
+    // Umbraco binds permissions[] polymorphically with System.Text.Json, which only honours the
+    // discriminator as an object's FIRST property (found live on 17.7.0: a later $type was a 400).
+    [Fact]
+    public async Task CreateUserGroupAsync_DocumentPermission_WritesTheDiscriminatorFirst()
+    {
+        var handler = Wire.Blank();
+
+        await Wire.Client(handler)
+            .CreateUserGroupAsync(
+                new CreateUserGroupRequest
+                {
+                    Alias = "editors",
+                    Name = "Editors",
+                    DocumentPermissions =
+                    [
+                        new DocumentPermission { Document = Blog, Verbs = ["Umb.Document.Read"] },
+                    ],
+                },
+                CancellationToken.None
+            );
+
+        var sent = Assert.Single(PermissionsSent(handler, HttpMethod.Post, "/user-group"))!;
+        Assert.Equal("$type", sent.AsObject().First().Key);
+    }
+
+    [Fact]
+    public async Task UpdateUserGroupAsync_CarriedThroughPermissions_WriteTheDiscriminatorFirst()
+    {
+        var handler = Wire.Existing(Existing);
+
+        await Wire.Client(handler)
+            .UpdateUserGroupAsync(
+                GroupId,
+                new UpdateUserGroupRequest { Alias = "editors", Name = "Renamed" },
+                CancellationToken.None
+            );
+
+        var firstKeys = PermissionsSent(handler, HttpMethod.Put, $"/user-group/{GroupId}")
+            .Select(p => p!.AsObject().First().Key);
+        Assert.All(firstKeys, key => Assert.Equal("$type", key));
+    }
+
     [Fact]
     public async Task UpdateUserGroupAsync_NoDocumentPermissionsGiven_KeepsTheCurrentOnes()
     {
