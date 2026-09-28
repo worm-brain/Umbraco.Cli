@@ -100,6 +100,33 @@ public class WebhookCommandTests
     }
 
     [Fact]
+    public async Task WebhookGet_NoHeaders_WritesAnEmptyHeadersObject()
+    {
+        // A webhook without headers left the key out entirely, while contentTypeKeys showed [].
+        var (out_, err) = (Console.Out, Console.Error);
+        using var stdout = new StringWriter();
+        Console.SetOut(stdout);
+        Console.SetError(new StringWriter());
+        try
+        {
+            await BuildRoot(WithHook())
+                .Parse("--host https://x --token t --output json webhook get Deploy")
+                .InvokeAsync();
+        }
+        finally
+        {
+            Console.SetOut(out_);
+            Console.SetError(err);
+        }
+
+        var headers = System
+            .Text.Json.JsonDocument.Parse(stdout.ToString())
+            .RootElement.GetProperty("data")
+            .GetProperty("headers");
+        Assert.Equal("{}", headers.GetRawText().Replace(" ", ""));
+    }
+
+    [Fact]
     public async Task WebhookGet_UnknownName_Fails()
     {
         var exit = await Run(WithHook(), "webhook get Nope");
