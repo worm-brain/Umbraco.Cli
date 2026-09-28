@@ -28,4 +28,17 @@ public interface IMediaTypeClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> DeleteMediaTypeAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// What deleting the media type would take with it (#287): its media items, counting the
+    /// recycle bin, and the types that use it as a composition. The items are counted with one walk
+    /// of the media tree and the recycle bin per client, shared by every type checked.
+    /// </summary>
+    /// <param name="id">The media type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The usage, or a mapped failure.</returns>
+    Task<UmbracoResponse<TypeUsage>> GetMediaTypeUsageAsync(
+        Guid id,
+        CancellationToken ct = default
+    );
 }

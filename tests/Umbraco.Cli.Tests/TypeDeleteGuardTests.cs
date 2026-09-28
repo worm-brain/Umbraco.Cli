@@ -206,27 +206,67 @@ public class TypeDeleteGuardTests
         Assert.Empty(fake.SchemaDeletedIds);
     }
 
-    // ── document and media types (#253): Umbraco cannot count their items ─────
+    // ── document and media types (#253, #287): refused only while something uses them ─────
 
     [Theory]
     [InlineData("document-type")]
     [InlineData("media-type")]
-    public async Task TypeDelete_WithoutForce_IsRefused(string noun)
+    public async Task TypeDelete_UnusedType_DeletesWithJustYes(string noun)
     {
+        // #287: a fresh type with no items used to need --force, which made --force routine.
         var fake = new FakeUmbracoManagementClient();
 
         var (exit, _) = await Run(fake, $"{noun} delete {TypeId} --yes");
 
-        Assert.Equal(2, exit);
-        Assert.Empty(fake.SchemaDeletedIds);
+        Assert.Equal((0, true), (exit, fake.SchemaDeletedIds.Contains(TypeId)));
+    }
+
+    [Theory]
+    [InlineData("document-type", "3 document item(s)")]
+    [InlineData("media-type", "3 media item(s)")]
+    public async Task TypeDelete_WithItems_IsRefusedQuotingTheCount(string noun, string count)
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.TypeUsages[TypeId] = new TypeUsage(3, []);
+
+        var (exit, stderr) = await Run(fake, $"{noun} delete {TypeId} --yes");
+
+        Assert.Equal(
+            (2, true, 0),
+            (exit, Message(stderr).Contains(count), fake.SchemaDeletedIds.Count)
+        );
+    }
+
+    [Fact]
+    public async Task DocumentTypeDelete_UsedAsAComposition_IsRefusedNamingTheUsers()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.TypeUsages[TypeId] = new TypeUsage(0, ["Blog Post"]);
+
+        var (exit, stderr) = await Run(fake, $"document-type delete {TypeId} --yes");
+
+        Assert.Equal((2, true), (exit, Message(stderr).Contains("composition of Blog Post")));
+    }
+
+    [Fact]
+    public async Task DocumentTypeDelete_ElementType_IsRefused()
+    {
+        // Block content that uses an element type cannot be counted, and an unknown is not a yes.
+        var fake = new FakeUmbracoManagementClient();
+        fake.TypeUsages[TypeId] = new TypeUsage(0, [], IsElement: true);
+
+        var (exit, _) = await Run(fake, $"document-type delete {TypeId} --yes");
+
+        Assert.Equal((2, 0), (exit, fake.SchemaDeletedIds.Count));
     }
 
     [Theory]
     [InlineData("document-type")]
     [InlineData("media-type")]
-    public async Task TypeDelete_WithForce_Deletes(string noun)
+    public async Task TypeDelete_WithItemsAndForce_Deletes(string noun)
     {
         var fake = new FakeUmbracoManagementClient();
+        fake.TypeUsages[TypeId] = new TypeUsage(3, []);
 
         var (exit, _) = await Run(fake, $"{noun} delete {TypeId} --force --yes");
 

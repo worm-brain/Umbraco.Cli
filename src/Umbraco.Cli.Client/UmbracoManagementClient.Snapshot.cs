@@ -447,7 +447,7 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// Recursively enumerates the document tree beneath <paramref name="parent"/> in pre-order,
-    /// recording each document's id and its parent. Every level is paged; the recursion depth is
+    /// recording each document's id, its parent and its document type (#287). Every level is paged; the recursion depth is
     /// bounded by the content tree's real nesting.
     /// </summary>
     /// <param name="parent">The parent whose children to list, or null for the content root.</param>
@@ -486,7 +486,7 @@ public sealed partial class UmbracoManagementClient
             {
                 var id = item.Id ?? Guid.Empty;
                 // Pre-order: emit the node before descending, so parents precede their children.
-                nodes.Add(new ContentTreeNode(id, parent));
+                nodes.Add(new ContentTreeNode(id, parent, item.DocumentType?.Id));
                 if (item.HasChildren ?? false)
                     nodes.AddRange(await WalkDocumentTreeAsync(id, ct));
             }

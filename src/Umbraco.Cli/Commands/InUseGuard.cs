@@ -32,8 +32,8 @@ public static class InUseGuard
     /// <summary>
     /// Why deleting the <paramref name="kind"/> <paramref name="id"/> would destroy or orphan more
     /// than the item itself, or null when it is safe. A failed check is a reason too: an unknown is
-    /// not a yes. Document and media types always have a reason, because Umbraco has no endpoint
-    /// that says how many items use one. Languages are not id-keyed; see <see cref="LanguageReason"/>.
+    /// not a yes. Document and media types are checked by counting their items (#287); see
+    /// <see cref="TypeUsageReason"/>. Languages are not id-keyed; see <see cref="LanguageReason"/>.
     /// </summary>
     /// <param name="client">The client to check with.</param>
     /// <param name="kind">What the id names.</param>
@@ -50,8 +50,8 @@ public static class InUseGuard
         {
             EntityKind.DataType => DataTypeAsync(client, id, ct),
             EntityKind.MemberType => MemberTypeAsync(client, id, ct),
-            EntityKind.DocumentType => Task.FromResult<string?>(Uncountable("document", id)),
-            EntityKind.MediaType => Task.FromResult<string?>(Uncountable("media", id)),
+            EntityKind.DocumentType => DocumentTypeAsync(client, id, ct),
+            EntityKind.MediaType => MediaTypeAsync(client, id, ct),
             EntityKind.Template => TemplateAsync(client, id, ct),
             EntityKind.MemberGroup => MemberGroupAsync(client, id, ct),
             EntityKind.UserGroup => UserGroupAsync(client, id, ct),
@@ -278,10 +278,82 @@ public static class InUseGuard
                 + "deletes them and their translations.";
     }
 
-    /// <summary>The reason for a type whose items Umbraco cannot count (document, media).</summary>
-    private static string Uncountable(string item, Guid id) =>
-        $"Deleting {item} type {id} also deletes every {item} item of that type, and Umbraco "
-        + "does not report how many there are, so the CLI cannot check.";
+    /// <summary>
+    /// Why deleting document type <paramref name="id"/> would lose content, or null when nothing
+    /// uses it (#287). Before, every document type delete needed <c>--force</c>, so it became
+    /// routine and meant nothing when it mattered.
+    /// </summary>
+    /// <param name="client">The client to check with.</param>
+    /// <param name="id">The document type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The reason, or null.</returns>
+    private static async Task<string?> DocumentTypeAsync(
+        IDocumentTypeClient client,
+        Guid id,
+        CancellationToken ct
+    )
+    {
+        var usage = await client.GetDocumentTypeUsageAsync(id, ct);
+        return usage.IsSuccess
+            ? TypeUsageReason("document", id, usage.Data!)
+            : CouldNotCheck("document type", id, usage.ErrorMessage);
+    }
+
+    /// <summary>The media twin of <see cref="DocumentTypeAsync"/> (#287).</summary>
+    /// <param name="client">The client to check with.</param>
+    /// <param name="id">The media type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The reason, or null.</returns>
+    private static async Task<string?> MediaTypeAsync(
+        IMediaTypeClient client,
+        Guid id,
+        CancellationToken ct
+    )
+    {
+        var usage = await client.GetMediaTypeUsageAsync(id, ct);
+        return usage.IsSuccess
+            ? TypeUsageReason("media", id, usage.Data!)
+            : CouldNotCheck("media type", id, usage.ErrorMessage);
+    }
+
+    /// <summary>
+    /// Why deleting a document or media type with this <paramref name="usage"/> would lose more
+    /// than the type, or null when it would not (#287). Umbraco deletes every item of the type,
+    /// the recycle bin included, and removes the type's properties and their values from every
+    /// type that uses it as a composition. An element type's content lives in block values that
+    /// no endpoint reports, so it cannot be counted, and an unknown is not a yes.
+    /// </summary>
+    /// <param name="item">The item word: <c>document</c> or <c>media</c>.</param>
+    /// <param name="id">The type id.</param>
+    /// <param name="usage">What uses the type.</param>
+    /// <returns>The reason, or null.</returns>
+    internal static string? TypeUsageReason(string item, Guid id, TypeUsage usage)
+    {
+        var reasons = new List<string>();
+        if (usage.Items > 0)
+            reasons.Add(
+                $"{Capitalised(item)} type {id} has {usage.Items} {item} item(s), counting the "
+                    + "recycle bin. Deleting it also deletes them."
+            );
+        if (usage.ComposedBy.Count > 0)
+            reasons.Add(
+                $"{Capitalised(item)} type {id} is a composition of {Summarise([.. usage.ComposedBy])}. "
+                    + "Deleting it removes its properties, and the values stored in them, from "
+                    + "those types."
+            );
+        if (usage.IsElement)
+            reasons.Add(
+                $"{Capitalised(item)} type {id} is an element type. Block content in other "
+                    + "documents can use it, and Umbraco does not report where, so the CLI "
+                    + "cannot check."
+            );
+        return reasons.Count == 0 ? null : string.Join(" ", reasons);
+    }
+
+    /// <summary>The word with its first letter in upper case (<c>document</c> to <c>Document</c>).</summary>
+    /// <param name="word">The word.</param>
+    /// <returns>The capitalised word.</returns>
+    private static string Capitalised(string word) => char.ToUpperInvariant(word[0]) + word[1..];
 
     /// <summary>The reason given when the usage check itself failed.</summary>
     private static string CouldNotCheck(string kind, Guid id, string? error) =>

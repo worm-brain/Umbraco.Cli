@@ -14,6 +14,10 @@ namespace Umbraco.Cli.Commands.Content;
 /// <c>state</c>. Publish state is not part of the body an update writes, so it is compared on
 /// its own rather than as a body difference. <c>values</c> and <c>variants</c> are sorted by alias/culture/segment, because the
 /// server does not promise an order and the comparison is order-sensitive for arrays.
+///
+/// The diff compares <see cref="ForComparison"/>, which also leaves out values of read-only
+/// editors (#291): Umbraco ignores a value sent for them, so the target keeps its own and the
+/// document would never diff clean. Apply still sends them as before; it cannot change them.
 /// </summary>
 public static class ContentBodyNormaliser
 {
@@ -29,6 +33,17 @@ public static class ContentBodyNormaliser
         "flags",
         "state",
     ];
+
+    /// <summary>
+    /// The property editors whose values Umbraco does not take from a create or update (#291).
+    /// <c>Umbraco.Label</c> is the core editor for values set by code; its value editor is read
+    /// only, so the Management API saves nothing for it. Other editors are compared as usual: a
+    /// value that differs there is one apply can write.
+    /// </summary>
+    public static readonly IReadOnlySet<string> ReadOnlyEditors = new HashSet<string>(
+        ["Umbraco.Label"],
+        StringComparer.OrdinalIgnoreCase
+    );
 
     /// <summary>Returns a normalised copy of <paramref name="body"/>; the input is not mutated.</summary>
     /// <param name="body">A verbatim document body (a snapshot's or a live export's).</param>
@@ -58,6 +73,34 @@ public static class ContentBodyNormaliser
 
         return doc;
     }
+
+    /// <summary>
+    /// The body the diff compares: <see cref="Normalise"/>, without the values of read-only
+    /// editors (<see cref="ReadOnlyEditors"/>, #291), which a promotion can never change.
+    /// </summary>
+    /// <param name="body">A verbatim or already normalised document body; not mutated.</param>
+    /// <returns>The normalised clone without read-only values.</returns>
+    public static JsonNode ForComparison(JsonNode body)
+    {
+        var doc = Normalise(body);
+        if (doc["values"] is JsonArray values)
+            doc["values"] = new JsonArray([
+                .. values.Where(v => !IsReadOnly(v)).Select(v => v?.DeepClone()),
+            ]);
+        return doc;
+    }
+
+    /// <summary>The values of read-only editors in <paramref name="body"/> (#291).</summary>
+    /// <param name="body">A document body.</param>
+    /// <returns>Each read-only value object, in body order.</returns>
+    public static IEnumerable<JsonObject> ReadOnlyValues(JsonNode? body) =>
+        (body?["values"] as JsonArray ?? []).OfType<JsonObject>().Where(IsReadOnly);
+
+    /// <summary>Whether a value belongs to a read-only editor, by its <c>editorAlias</c>.</summary>
+    /// <param name="value">A value object from a document body.</param>
+    /// <returns>True for a read-only editor's value.</returns>
+    private static bool IsReadOnly(JsonNode? value) =>
+        Text(value, "editorAlias") is { } editor && ReadOnlyEditors.Contains(editor);
 
     /// <summary>
     /// Rebuilds <paramref name="array"/> in key order. Ordinal comparison keeps the order the same

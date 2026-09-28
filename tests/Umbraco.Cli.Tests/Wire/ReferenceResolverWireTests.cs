@@ -201,6 +201,35 @@ public class ReferenceResolverWireTests
         Assert.Equal(minRead, result.Data);
     }
 
+    [Theory]
+    [InlineData("relateDocumentOnCopy")]
+    [InlineData("Relate Document On Copy")]
+    public async Task ResolveIdAsync_RelationTypeByAliasOrName_Resolves(string reference)
+    {
+        // #300: relation-type list shows the alias, so the relation commands take it.
+        var onCopy = Guid.NewGuid();
+        var handler = Wire.Routed(
+            (
+                "relation-type",
+                $$"""{"total":1,"items":[{"id":"{{onCopy}}","alias":"relateDocumentOnCopy","name":"Relate Document On Copy"}]}"""
+            )
+        );
+
+        var result = await Wire.Client(handler).ResolveIdAsync(EntityKind.RelationType, reference);
+
+        Assert.Equal(onCopy, result.Data);
+    }
+
+    [Fact]
+    public async Task ResolveIdAsync_UnknownRelationType_IsInvalidArgumentNamingTheListCommand()
+    {
+        var handler = Wire.Routed(("relation-type", """{"total":0,"items":[]}"""));
+
+        var result = await Wire.Client(handler).ResolveIdAsync(EntityKind.RelationType, "nope");
+
+        Assert.Contains("umbraco relation-type list", result.ErrorMessage);
+    }
+
     [Fact]
     public async Task ResolveIdAsync_UserGroupAlias_WinsOverAnotherGroupsName()
     {

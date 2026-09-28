@@ -16,6 +16,19 @@ namespace Umbraco.Cli.Commands.Content;
 public sealed record ContentAction(ContentOperation Operation, Guid Id, string Status)
 {
     /// <summary>
+    /// The document's name (#293), so a plan - above all its deletes - can be reviewed before
+    /// <c>--yes</c>. Always serialized, as null when the body has none.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? Name { get; init; }
+
+    /// <summary>
+    /// The document type's alias (#293). Always serialized, as null when it could not be read.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? DocumentType { get; init; }
+
+    /// <summary>
     /// For a publish or unpublish of a culture-variant document, the cultures it acts on. Null for
     /// every other step, and for an invariant document (the call covers the whole document).
     /// Always serialized, as null when empty (#229).
@@ -93,7 +106,12 @@ public static class ContentApplier
         /// <param name="status">The status to report, unless the step is skipped.</param>
         /// <returns>The action row.</returns>
         public ContentAction ToAction(string status) =>
-            new(Operation, Change.Id, Skipped ? "skipped" : status) { Cultures = Scope?.Cultures };
+            new(Operation, Change.Id, Skipped ? "skipped" : status)
+            {
+                Name = Change.Name,
+                DocumentType = Change.DocumentType,
+                Cultures = Scope?.Cultures,
+            };
     }
 
     /// <summary>

@@ -613,7 +613,7 @@ public class SchemaBreadthTests
     public async Task ApplyAsync_PruneTemplateUsedOnlyByAPrunedDocumentType_DoesNotBlameTheTemplate()
     {
         // #269: the prune deletes the page type too, so its template is not "in use". The document
-        // type still needs --force on its own (Umbraco cannot count its items).
+        // type still needs --force on its own, because it has a document (#287).
         var (page, template) = (Guid.NewGuid(), Guid.NewGuid());
         var diff = Diff() with
         {
@@ -636,6 +636,7 @@ public class SchemaBreadthTests
         };
         var fake = new FakeUmbracoManagementClient();
         fake.TemplateUsers[template] = [new TemplateUser(page, "Page")];
+        fake.TypeUsages[page] = new TypeUsage(1, []);
 
         var refusal = await Assert.ThrowsAsync<SafetyRefusalException>(() =>
             Apply(fake, diff, prune: true)

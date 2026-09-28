@@ -39,11 +39,13 @@ public static class ContentDiffCommand
                             c
                         ),
                     diff => diff?.Rows ?? [],
-                    new[] { "Change", "Id", "Parent", "Changes" },
+                    new[] { "Change", "Id", "Name", "Document Type", "Parent", "Changes" },
                     change =>
                         [
                             change.Change.ToString(),
                             change.Id.ToString(),
+                            change.Name ?? "",
+                            change.DocumentType ?? "",
                             change.Parent?.ToString() ?? "",
                             string.Join(", ", change.Changes ?? []),
                         ],

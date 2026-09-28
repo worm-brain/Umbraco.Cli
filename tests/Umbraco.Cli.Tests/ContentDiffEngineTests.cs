@@ -198,4 +198,109 @@ public class ContentDiffEngineTests
 
         Assert.Equal(1, diff.Unchanged);
     }
+
+    // ── #291: Label values; #293: names and types on every row ──────────────
+
+    /// <summary>A document with a Label value and a title, of the given type.</summary>
+    private static ContentNode Labelled(Guid id, string submittedAt, string title = "Hi") =>
+        new()
+        {
+            Id = id,
+            Body = JsonNode.Parse(
+                $$"""
+                {"id":"{{id}}","documentType":{"id":"{{PageType}}"},
+                 "values":[
+                   {"editorAlias":"Umbraco.Label","alias":"submittedAt","culture":null,"segment":null,"value":"{{submittedAt}}"},
+                   {"editorAlias":"Umbraco.TextBox","alias":"title","culture":null,"segment":null,"value":"{{title}}"}],
+                 "variants":[{"culture":"da-DK","name":"Kontakt"},{"culture":"en-US","name":"Contact"}]}
+                """
+            )!,
+        };
+
+    private static readonly Guid PageType = Guid.NewGuid();
+
+    [Fact]
+    public void Compare_OnlyALabelValueDiffers_IsUnchanged()
+    {
+        var id = Guid.NewGuid();
+
+        var diff = ContentDiffEngine.Compare(
+            Snap(Labelled(id, "2026-09-01")),
+            Snap(Labelled(id, "2026-09-28"))
+        );
+
+        Assert.Equal(1, diff.Unchanged);
+    }
+
+    [Fact]
+    public void Compare_ALabelValueDiffers_IsCountedAsNotPromoted()
+    {
+        var (a, b) = (Guid.NewGuid(), Guid.NewGuid());
+
+        var diff = ContentDiffEngine.Compare(
+            Snap(Labelled(a, "2026-09-01"), Labelled(b, "2026-09-02")),
+            Snap(Labelled(a, "2026-09-28"), Labelled(b, "2026-09-02"))
+        );
+
+        Assert.Equal(1, diff.UnpromotedValues["submittedAt"]);
+    }
+
+    [Fact]
+    public void Compare_ALabelValueOnAnAddedDocument_IsCountedAsNotPromoted()
+    {
+        var diff = ContentDiffEngine.Compare(Snap(Labelled(Guid.NewGuid(), "2026-09-01")), Snap());
+
+        Assert.Equal(1, diff.UnpromotedValues["submittedAt"]);
+    }
+
+    [Fact]
+    public void Compare_ATextValueDiffersBesideALabel_IsChangedWithoutTheLabel()
+    {
+        var id = Guid.NewGuid();
+
+        var diff = ContentDiffEngine.Compare(
+            Snap(Labelled(id, "2026-09-01", title: "Hello")),
+            Snap(Labelled(id, "2026-09-28", title: "Hi"))
+        );
+
+        Assert.Equal(["values.title"], Assert.Single(diff.Changed).Changes);
+    }
+
+    [Theory]
+    [InlineData("en-US", "Contact")]
+    [InlineData("da-DK", "Kontakt")]
+    [InlineData(null, "Kontakt")] // no default language known: the first variant
+    public void Compare_RemovedDocument_IsNamedInTheDefaultLanguage(string? culture, string name)
+    {
+        // #293: a prune plan must say what it deletes, not only the id.
+        var diff = ContentDiffEngine.Compare(
+            Snap(),
+            Snap(Labelled(Guid.NewGuid(), "x")),
+            defaultCulture: culture
+        );
+
+        Assert.Equal(name, Assert.Single(diff.Rows).Name);
+    }
+
+    [Fact]
+    public void Compare_AddedDocument_CarriesItsDocumentTypeId()
+    {
+        var diff = ContentDiffEngine.Compare(Snap(Labelled(Guid.NewGuid(), "x")), Snap());
+
+        Assert.Equal(PageType, Assert.Single(diff.Added).DocumentTypeId);
+    }
+
+    [Fact]
+    public void NameOf_InvariantDocument_IsTheInvariantVariantsName()
+    {
+        var body = JsonNode.Parse("""{"variants":[{"culture":null,"name":"Home"}]}""");
+
+        Assert.Equal("Home", ContentDiffEngine.NameOf(body, "en-US"));
+    }
+
+    [Fact]
+    public void NameOf_NoVariants_IsNull()
+    {
+        Assert.Null(ContentDiffEngine.NameOf(JsonNode.Parse("{}"), "en-US"));
+    }
 }

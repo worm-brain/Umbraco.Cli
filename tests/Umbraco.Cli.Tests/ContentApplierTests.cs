@@ -434,5 +434,40 @@ public class ContentApplierTests
         Assert.StartsWith($"Apply failed on publish document '{id}'", result.ErrorMessage);
     }
 
+    [Fact]
+    public async Task ApplyAsync_DryRunPrune_DeleteRowsNameTheDocumentAndItsType()
+    {
+        // #293: a prune plan read "delete 6dcb814d-..."; it has to say what that is before --yes.
+        var removed = Removed(Guid.NewGuid()) with
+        {
+            Name = "Staging post",
+            DocumentType = "blogPost",
+        };
+
+        var result = await ContentApplier.ApplyAsync(
+            new FakeUmbracoManagementClient(),
+            Diff(removed: [removed]),
+            new ContentApplyOptions(Prune: true, DryRun: true),
+            CancellationToken.None
+        );
+
+        var action = Assert.Single(result.Data!.Actions);
+        Assert.Equal(("Staging post", "blogPost"), (action.Name, action.DocumentType));
+    }
+
+    [Fact]
+    public async Task ApplyAsync_UnlabelledChange_RowsCarryNulls()
+    {
+        var result = await ContentApplier.ApplyAsync(
+            new FakeUmbracoManagementClient(),
+            Diff(changed: [Changed(Guid.NewGuid())]),
+            new ContentApplyOptions(Prune: false, DryRun: true),
+            CancellationToken.None
+        );
+
+        var action = Assert.Single(result.Data!.Actions);
+        Assert.Equal((null, null), (action.Name, action.DocumentType));
+    }
+
     private static UmbracoResponse<Empty> Ok() => UmbracoResponse<Empty>.Success(Empty.Value);
 }

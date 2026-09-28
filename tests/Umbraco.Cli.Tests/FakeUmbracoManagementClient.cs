@@ -776,9 +776,31 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
 
+    /// <summary>The languages <see cref="GetLanguagesAsync"/> returns (the content diff reads the default, #293).</summary>
+    public List<LanguageResponse> LanguageList { get; } = [];
+
     public Task<UmbracoResponse<IEnumerable<LanguageResponse>>> GetLanguagesAsync(
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<IEnumerable<LanguageResponse>>.Success(LanguageList.ToList())
+        );
+
+    /// <summary>How many times <see cref="GetDocumentTypeAliasesAsync"/> was called (#293).</summary>
+    public int DocumentTypeAliasLookups { get; private set; }
+
+    public Task<UmbracoResponse<IReadOnlyDictionary<Guid, string>>> GetDocumentTypeAliasesAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken ct = default
+    )
+    {
+        DocumentTypeAliasLookups++;
+        var wanted = ids.ToHashSet();
+        IReadOnlyDictionary<Guid, string> aliases = DocumentTypeList
+            .Where(t => wanted.Contains(t.Id))
+            .ToDictionary(t => t.Id, t => t.Alias);
+        return Task.FromResult(UmbracoResponse<IReadOnlyDictionary<Guid, string>>.Success(aliases));
+    }
 
     public Task<UmbracoResponse<LanguageResponse>> CreateLanguageAsync(
         CreateLanguageRequest request,
@@ -965,6 +987,25 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         Task.FromResult(
             UmbracoResponse<int>.Success(MemberCountsByType.GetValueOrDefault(memberTypeId))
         );
+
+    /// <summary>
+    /// What uses each document or media type (#287); absent means nothing (no items, no
+    /// compositions, not an element type).
+    /// </summary>
+    public Dictionary<Guid, TypeUsage> TypeUsages { get; } = [];
+
+    public Task<UmbracoResponse<TypeUsage>> GetDocumentTypeUsageAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<TypeUsage>.Success(TypeUsages.GetValueOrDefault(id) ?? new(0, []))
+        );
+
+    public Task<UmbracoResponse<TypeUsage>> GetMediaTypeUsageAsync(
+        Guid id,
+        CancellationToken ct = default
+    ) => GetDocumentTypeUsageAsync(id, ct);
 
     /// <summary>The users <see cref="GetUsersAsync"/> pages through.</summary>
     public List<UserResponse> UserList { get; } = [];

@@ -1931,7 +1931,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a media type by id or alias.\n\nUmbraco deletes every media item of this type along with it, and cannot report how many there are, so the delete is refused unless --force is given.\n\nExamples:\n  umbraco media-type delete brochure --force --yes",
+          "description": "Delete a media type by id or alias.\n\nUmbraco deletes every media item of this type along with it. The delete is refused unless --force is given while any media item uses the type (the recycle bin included) or another type uses it as a composition.\n\nExamples:\n  umbraco media-type delete brochure --yes\n  umbraco media-type delete brochure --force --yes",
           "arguments": [
             {
               "name": "id",
@@ -1945,7 +1945,7 @@
             {
               "name": "--force",
               "aliases": [],
-              "description": "Delete the media type and every media item of that type.",
+              "description": "Delete the media type even while media items or other types use it.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -2157,7 +2157,7 @@
         },
         {
           "name": "delete",
-          "description": "Delete a document type by id or alias.\n\nUmbraco deletes every document of this type along with it, and cannot report how many there are, so the delete is refused unless --force is given.\n\nExamples:\n  umbraco document-type delete blogPost --force --yes",
+          "description": "Delete a document type by id or alias.\n\nUmbraco deletes every document of this type along with it. The delete is refused unless --force is given while any document uses the type (the recycle bin included), another type uses it as a composition, or it is an element type.\n\nExamples:\n  umbraco document-type delete blogPost --yes\n  umbraco document-type delete blogPost --force --yes",
           "arguments": [
             {
               "name": "id",
@@ -2171,7 +2171,7 @@
             {
               "name": "--force",
               "aliases": [],
-              "description": "Delete the document type and every document of that type.",
+              "description": "Delete the document type even while documents or other types use it.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -6265,12 +6265,12 @@
         },
         {
           "name": "get",
-          "description": "Get a relation type by id.\n\nExamples:\n  umbraco relation-type get 3f7a8b2e-...",
+          "description": "Get a relation type by id or alias.\n\nExamples:\n  umbraco relation-type get relateDocumentOnCopy\n  umbraco relation-type get 3f7a8b2e-...",
           "arguments": [
             {
               "name": "id",
-              "description": "Relation type ID.",
-              "type": "guid",
+              "description": "The relation type's id, or its alias or name.",
+              "type": "string",
               "required": true,
               "hasDefault": false
             }
@@ -6294,14 +6294,14 @@
       "commands": [
         {
           "name": "list",
-          "description": "List the relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relation-type-id>\n  umbraco relation list --relation-type <relation-type-id> --take 20",
+          "description": "List the relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type relateDocumentOnCopy\n  umbraco relation list --relation-type <relation-type-id> --take 20",
           "arguments": [],
           "options": [
             {
               "name": "--relation-type",
               "aliases": [],
-              "description": "The relation type ID to list relations for.",
-              "type": "guid",
+              "description": "The relation type to list relations for: its id, or its alias or name.",
+              "type": "string",
               "required": true,
               "hasDefault": false
             },

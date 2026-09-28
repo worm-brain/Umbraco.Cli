@@ -22,17 +22,24 @@ public static class RelationCommand
         return cmd;
     }
 
+    /// <summary>
+    /// Builds <c>relation list</c>. <c>--relation-type</c> takes the id or the alias that
+    /// <c>relation-type list</c> shows (#300); it was GUID-only, so the alias was a parse error.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     private static Command BuildList(CommandExecutor executor)
     {
         var cmd = new Command(
             "list",
-            "List the relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type <relation-type-id>\n  umbraco relation list --relation-type <relation-type-id> --take 20"
+            "List the relations of a relation type.\n\nExamples:\n  umbraco relation list --relation-type relateDocumentOnCopy\n  umbraco relation list --relation-type <relation-type-id> --take 20"
         );
-        var typeOpt = new Option<Guid>("--relation-type")
-        {
-            Required = true,
-            Description = "The relation type ID to list relations for.",
-        };
+        var typeOpt = Reference.Option(
+            "--relation-type",
+            EntityKind.RelationType,
+            "The relation type to list relations for"
+        );
+        typeOpt.Required = true;
         cmd.Add(typeOpt);
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
@@ -40,10 +47,10 @@ public static class RelationCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) =>
-                        client.GetRelationsByTypeAsync(
-                            parseResult.GetValue(typeOpt),
-                            skip,
-                            take,
+                        typeOpt.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.GetRelationsByTypeAsync(id, skip, take, c),
                             c
                         ),
                     new[] { "Parent", "Child", "Comment" },

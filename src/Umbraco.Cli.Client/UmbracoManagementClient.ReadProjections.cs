@@ -118,6 +118,25 @@ public sealed partial class UmbracoManagementClient
             ct
         );
 
+    /// <inheritdoc />
+    public Task<UmbracoResponse<IReadOnlyDictionary<Guid, string>>> GetDocumentTypeAliasesAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync<IReadOnlyDictionary<Guid, string>>(
+            ct,
+            async () =>
+            {
+                // One at a time: the alias cache is not thread-safe, and a diff rarely names more
+                // than a handful of types.
+                var aliases = new Dictionary<Guid, string>();
+                foreach (var id in ids.Distinct())
+                    if (await DocumentTypeAliasAsync(id, ct) is { } alias)
+                        aliases[id] = alias;
+                return aliases;
+            }
+        );
+
     /// <summary>
     /// Reads a label (alias or name) for a type id, caching it for the life of the client.
     /// <para>

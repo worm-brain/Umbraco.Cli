@@ -84,11 +84,20 @@ public class SchemaApplyCommandTests
     }
 
     /// <summary>A fake instance holding one live document type (for prune tests).</summary>
-    private static FakeUmbracoManagementClient InstanceWith(Guid id, string alias)
+    /// <summary>
+    /// A live instance holding one document type. By default the type has two documents, so a
+    /// prune of it is refused without --force (#252, #287).
+    /// </summary>
+    private static FakeUmbracoManagementClient InstanceWith(
+        Guid id,
+        string alias,
+        int documents = 2
+    )
     {
         var fake = new FakeUmbracoManagementClient();
         fake.DocumentTypeList.Add(new DocumentTypeResponse { Id = id, Alias = alias });
         fake.DocumentTypeRaw[id] = JsonNode.Parse($$"""{"id":"{{id}}","alias":"{{alias}}"}""")!;
+        fake.TypeUsages[id] = new TypeUsage(documents, []);
         return fake;
     }
 
@@ -146,7 +155,7 @@ public class SchemaApplyCommandTests
     {
         var liveId = Guid.NewGuid();
         // Snapshot contains a DIFFERENT doc type, so the live "legacy" one is a prune candidate.
-        // A document type always needs --force: its documents go with it (#252).
+        // A document type with documents needs --force: its documents go with it (#252).
         var path = WriteSnapshot(Guid.NewGuid(), "keep");
         var fake = InstanceWith(liveId, "legacy");
         var root = BuildRoot(fake, new Prompt(interactive: false, answer: false));
@@ -160,6 +169,30 @@ public class SchemaApplyCommandTests
 
             Assert.Equal(0, exit);
             Assert.Contains(liveId, fake.SchemaDeletedIds);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Apply_PruneOfAnUnusedDocumentType_DeletesWithoutForce()
+    {
+        // #287: a type no document uses is counted as such, so the prune needs only --yes.
+        var liveId = Guid.NewGuid();
+        var path = WriteSnapshot(Guid.NewGuid(), "keep");
+        var fake = InstanceWith(liveId, "legacy", documents: 0);
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: false));
+
+        try
+        {
+            var exit = await Run(
+                root,
+                $"--host https://x --token t --output json schema apply {path} --prune --yes"
+            );
+
+            Assert.Equal((0, true), (exit, fake.SchemaDeletedIds.Contains(liveId)));
         }
         finally
         {
