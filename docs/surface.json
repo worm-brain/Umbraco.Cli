@@ -987,7 +987,7 @@
         },
         {
           "name": "bulk",
-          "description": "Run an operation over many content ids read from stdin or a file.\n\nEach id gets its own result.\n\nExamples:\n  umbraco content list --fields id | umbraco content bulk publish\n  umbraco content bulk delete --file ids.txt --yes",
+          "description": "Run an operation over many content ids read from stdin or a file.\n\nIds are one per line, or the JSON or CSV output of a list command. Each id gets its own result.\n\nExamples:\n  umbraco content list --fields id | umbraco content bulk publish\n  umbraco content bulk delete --file ids.txt --yes",
           "arguments": [],
           "options": [],
           "commands": [
@@ -999,7 +999,7 @@
                 {
                   "name": "--file",
                   "aliases": [],
-                  "description": "File of ids (one per line). Reads stdin when omitted.",
+                  "description": "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted.",
                   "type": "file",
                   "required": false,
                   "hasDefault": false
@@ -1018,7 +1018,7 @@
                 {
                   "name": "--file",
                   "aliases": [],
-                  "description": "File of ids (one per line). Reads stdin when omitted.",
+                  "description": "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted.",
                   "type": "file",
                   "required": false,
                   "hasDefault": false
@@ -1045,7 +1045,7 @@
                 {
                   "name": "--file",
                   "aliases": [],
-                  "description": "File of ids (one per line). Reads stdin when omitted.",
+                  "description": "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted.",
                   "type": "file",
                   "required": false,
                   "hasDefault": false

@@ -538,7 +538,8 @@ On the `clitest` content items only.
 | T-G-02 | include one bogus id in the stdin list | exit `1` (any item failed); the good ids still report their own status; the bogus one reports its error. |
 | T-G-03 | `... | umbraco content bulk unpublish --yes` | exit 0; per-item results. |
 | T-G-04 | `... | umbraco content bulk delete --yes` (test ids only) | exit 0; per-item results; a single confirmation, never per-item. (This doubles as part of teardown - only ever the test ids.) |
-| T-G-05 | pipe from a query: `umbraco content list --parent $CLITEST_CONTENT_ROOT --fields id | jq -r '.data[].id' | umbraco content bulk publish` | exit 0; documents the documented piping recipe end to end. |
+| T-G-05 | pipe from a query: `umbraco content list --parent $CLITEST_CONTENT_ROOT --fields id | umbraco content bulk publish` | exit 0; the JSON envelope is read as ids (#288), one result per listed item. |
+| T-G-06 | the same with `-o csv` on the list | exit 0; the `id` header is skipped, not reported as an invalid GUID (#288). |
 
 ---
 

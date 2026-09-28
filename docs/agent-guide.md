@@ -658,21 +658,24 @@ A media snapshot is a directory (`media.json` plus `files/`), so it cannot be pi
 
 ### Bulk operations from a query
 
-Bulk commands read ids one per line from `--file` or stdin, and report each id independently in
+Bulk commands read ids from `--file` or stdin, and report each id independently in
 the `data` results array (`{id, status, error}`); the exit code is `1` if any item failed. The
 envelope's `status` says how the batch went - `success`, `partial`, `error` (every item failed)
 or `dry-run` - with the counts in `meta.summary`, and it is written to stdout in every case.
 Under `--dry-run` each item carries the `request` it would have sent.
 
+The input can be the CLI's own output, so a list pipes straight in with no `jq` (#288):
+
 ```bash
-umbraco content list --fields id | jq -r '.data[].id' | umbraco content bulk publish
+umbraco content list --fields id | umbraco content bulk publish
 ```
 
-On Windows PowerShell (no `jq`), use the built-in `ConvertFrom-Json`:
-
-```powershell
-(umbraco content list --fields id --output json | ConvertFrom-Json).data.id | umbraco content bulk publish
-```
+The format is read from the content. JSON (first character `{` or `[`) is the success envelope,
+whose `data` items each give their `id`, an array of objects with `id`, or an array of id strings.
+CSV is recognised by a header row with an `id` column (`-o csv`), and that column is used. Anything
+else is one id per line. JSON items without an `id`, or a CSV row with an empty `id`, refuse the
+whole batch as `invalid_argument` (exit 1) before anything runs; an id that is not a GUID is still
+reported per item.
 
 ### A read-only audit agent
 
