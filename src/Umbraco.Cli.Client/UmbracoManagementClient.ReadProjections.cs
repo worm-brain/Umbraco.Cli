@@ -36,7 +36,12 @@ public sealed partial class UmbracoManagementClient
             })
             .ToList();
 
-    /// <summary>Maps generated variants to the CLI-facing shape (#168).</summary>
+    /// <summary>
+    /// Maps generated variants to the CLI-facing shape (#168), field for field: every property of
+    /// the API's <c>DocumentVariantResponseModel</c>, including the schedule dates (#297) and the
+    /// variant's <c>id</c> and <c>flags</c> (#306). <c>ContentReadModelWireTests</c> checks the
+    /// list against the spec, so a field added to the API fails a test rather than being dropped.
+    /// </summary>
     /// <param name="variants">The generated variants, or null.</param>
     /// <returns>The mapped variants, or null.</returns>
     private static List<ContentVariantResponse>? MapVariantResponses(
@@ -52,8 +57,38 @@ public sealed partial class UmbracoManagementClient
                 CreateDate = v.CreateDate,
                 UpdateDate = v.UpdateDate,
                 PublishDate = v.PublishDate,
+                ScheduledPublishDate = v.ScheduledPublishDate,
+                ScheduledUnpublishDate = v.ScheduledUnpublishDate,
+                Id = v.Id,
+                Flags = MapFlags(v.Flags),
             })
             .ToList();
+
+    /// <summary>Maps the API's flags (#306). Null in, null out, so an endpoint without them adds no key.</summary>
+    /// <param name="flags">The generated flags, or null.</param>
+    /// <returns>The mapped flags, or null.</returns>
+    private static List<FlagResponse>? MapFlags(List<Gen.FlagModel>? flags) =>
+        flags?.Select(f => new FlagResponse { Alias = f.Alias ?? "" }).ToList();
+
+    /// <summary>
+    /// Maps the API's document-type reference with every field it carries (#306): id, icon and
+    /// collection. The alias is not on the reference; <see cref="DocumentTypeAliasAsync"/> fills it.
+    /// </summary>
+    /// <param name="type">The generated reference, or null.</param>
+    /// <returns>The mapped reference, or null when there is none or it has no id.</returns>
+    private static ContentTypeRef? MapDocumentTypeRef(
+        Gen.DocumentTypeReferenceResponseModel? type
+    ) =>
+        type?.Id is { } id
+            ? new ContentTypeRef
+            {
+                Id = id,
+                Icon = type.Icon,
+                Collection = type.Collection?.Id is { } collection
+                    ? new ContentParentReference { Id = collection }
+                    : null,
+            }
+            : null;
 
     /// <summary>Document-type id to alias, for #163. Filled in on first use, then reused.</summary>
     private readonly Dictionary<Guid, string> _documentTypeAliasById = [];
@@ -273,8 +308,36 @@ public sealed partial class UmbracoManagementClient
     }
 
     /// <summary>
+    /// Reads a document's public URLs (#289) via <c>GET document/urls</c>, the twin of
+    /// <see cref="MediaUrlsAsync"/>: the by-id body has no URL, so a script checking a publish on
+    /// the front end had to build the route by hand. One entry per culture. A failure yields null
+    /// (the key is left out) rather than failing the whole read.
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The URLs, or null when they could not be read.</returns>
+    private async Task<List<UrlInfo>?> DocumentUrlsAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var urls = await _api.Umbraco.Management.Api.V1.Document.Urls.GetAsync(
+                c => c.QueryParameters.Id = [id],
+                ct
+            );
+            return (urls ?? [])
+                .SelectMany(u => u.UrlInfos ?? [])
+                .Select(u => new UrlInfo { Culture = u.Culture, Url = u.Url ?? "" })
+                .ToList();
+        }
+        catch (ApiException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Fills each row's document-type alias (#202): tree rows carry only the type id, so a list
-    /// said <c>contentType: {id}</c> where <c>get</c> said <c>{id, alias}</c>.
+    /// said <c>documentType: {id}</c> where <c>get</c> said <c>{id, alias}</c>.
     /// </summary>
     /// <param name="rows">The mapped rows.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -285,8 +348,8 @@ public sealed partial class UmbracoManagementClient
     ) =>
         WithTypeAliasesAsync(
             rows,
-            r => r.ContentType,
-            (r, type) => r with { ContentType = type },
+            r => r.DocumentType,
+            (r, type) => r with { DocumentType = type },
             DocumentTypeAliasAsync,
             ct
         );
@@ -367,6 +430,46 @@ public sealed partial class UmbracoManagementClient
             async token =>
                 (
                     await _api.Umbraco.Management.Api.V1.Tree.Media.Ancestors.GetAsync(
+                        c => c.QueryParameters.DescendantId = id,
+                        token
+                    )
+                )?.Select(a => (a.Id, a.Parent?.Id)),
+            ct
+        );
+
+    /// <summary>
+    /// A dictionary item's parent (#290). <c>GET /dictionary/{id}</c> has no parent field, so it is
+    /// read from <c>GET /tree/dictionary/ancestors</c>, as for documents; best-effort.
+    /// </summary>
+    /// <param name="id">The dictionary item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parent, or null at the root or when it could not be read.</returns>
+    private Task<ContentParentReference?> DictionaryParentAsync(Guid id, CancellationToken ct) =>
+        ParentFromTreeAsync(
+            id,
+            async token =>
+                (
+                    await _api.Umbraco.Management.Api.V1.Tree.Dictionary.Ancestors.GetAsync(
+                        c => c.QueryParameters.DescendantId = id,
+                        token
+                    )
+                )?.Select(a => (a.Id, a.Parent?.Id)),
+            ct
+        );
+
+    /// <summary>
+    /// A document blueprint's parent folder (#298), from <c>GET /tree/document-blueprint/ancestors</c>
+    /// (the blueprint body has no parent field); best-effort.
+    /// </summary>
+    /// <param name="id">The blueprint id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parent folder, or null at the root or when it could not be read.</returns>
+    private Task<ContentParentReference?> BlueprintParentAsync(Guid id, CancellationToken ct) =>
+        ParentFromTreeAsync(
+            id,
+            async token =>
+                (
+                    await _api.Umbraco.Management.Api.V1.Tree.DocumentBlueprint.Ancestors.GetAsync(
                         c => c.QueryParameters.DescendantId = id,
                         token
                     )

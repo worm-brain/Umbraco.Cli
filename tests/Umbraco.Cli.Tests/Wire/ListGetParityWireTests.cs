@@ -27,7 +27,7 @@ public class ListGetParityWireTests
 
         var result = await Wire.Client(handler).GetContentAsync(ct: CancellationToken.None);
 
-        Assert.Equal("blogPost", Assert.Single(result.Data!.Items).ContentType!.Alias);
+        Assert.Equal("blogPost", Assert.Single(result.Data!.Items).DocumentType!.Alias);
     }
 
     [Fact]

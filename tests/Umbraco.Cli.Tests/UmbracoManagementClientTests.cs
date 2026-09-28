@@ -764,7 +764,8 @@ public class UmbracoManagementClientTests
         var result = await client.DeleteDictionaryItemAsync(id, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.EndsWith($"/dictionary/{id}", handler.LastRequestUri!.AbsolutePath);
+        // The by-id read is followed by the parent lookup (#290), so it is not the last request.
+        Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith($"/dictionary/{id}"));
     }
 
     [Fact]
@@ -1120,12 +1121,11 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task CreateWebhookAsync_201EmptyBody_EchoesRequestWithGeneratedId()
+    public async Task CreateWebhookAsync_ReadBackEmpty_ReturnsTheRequestWithEventsAsAliases()
     {
-        // Umbraco returns 201 Created with an empty body. On the generated-client path the
-        // client supplies the id up front (Umbraco 14+ accepts a client GUID) and echoes the
-        // accepted request, so the create reports success with a non-empty id and the request
-        // fields populated instead of a blank payload (guards #74).
+        // Umbraco returns 201 Created with an empty body, and here the read-back returns nothing
+        // either. The create still succeeded, so the request is returned with a non-empty id
+        // (guards #74) - and each event as its alias, never in eventName (#295).
         // The create checks its events against GET webhook/events first (#234).
         var routes = Wire.Routed(
             ("/webhook/events", """{ "items": [ { "alias": "ContentPublished" } ] }""")
@@ -1141,11 +1141,52 @@ public class UmbracoManagementClientTests
             CancellationToken.None
         );
 
-        Assert.True(result.IsSuccess);
-        Assert.NotEqual(Guid.Empty, result.Data!.Id);
-        Assert.Equal("https://example.com/hook", result.Data.Url);
-        var evt = Assert.Single(result.Data.Events!);
-        Assert.Equal("ContentPublished", evt.EventName);
+        var evt = Assert.Single(result.Data!.Events!);
+        Assert.Equal(
+            (true, false, "https://example.com/hook", "ContentPublished", (string?)null),
+            (
+                result.IsSuccess,
+                result.Data.Id == Guid.Empty,
+                result.Data.Url,
+                evt.Alias,
+                evt.EventName
+            )
+        );
+    }
+
+    [Fact]
+    public async Task CreateWebhookAsync_ReadsTheWebhookBack_SoEventsHaveTheListShape()
+    {
+        // #295: create returned eventName = the alias; list returns the display name + alias.
+        var id = Guid.NewGuid();
+        var routes = Wire.Routed(
+            ("/webhook/events", """{ "items": [ { "alias": "Umbraco.ContentPublish" } ] }"""),
+            (
+                $"/webhook/{id}",
+                $$"""{ "id": "{{id}}", "url": "https://example.com/hook", "enabled": true, "events": [ { "eventName": "Content Published", "eventType": "Content", "alias": "Umbraco.ContentPublish" } ] }"""
+            )
+        );
+
+        var result = await Wire.Client(routes)
+            .CreateWebhookAsync(
+                new CreateWebhookRequest
+                {
+                    Id = id,
+                    Url = "https://example.com/hook",
+                    Events = ["Umbraco.ContentPublish"],
+                },
+                CancellationToken.None
+            );
+
+        Assert.Equal(
+            new WebhookEvent
+            {
+                EventName = "Content Published",
+                EventType = "Content",
+                Alias = "Umbraco.ContentPublish",
+            },
+            Assert.Single(result.Data!.Events!)
+        );
     }
 
     [Fact]
@@ -1217,7 +1258,8 @@ public class UmbracoManagementClientTests
         var result = await client.GetDictionaryItemByKeyAsync("Admin", CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.EndsWith($"/dictionary/{id}", handler.LastRequestUri!.AbsolutePath);
+        // The by-id read is followed by the parent lookup (#290), so it is not the last request.
+        Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith($"/dictionary/{id}"));
     }
 
     [Fact]

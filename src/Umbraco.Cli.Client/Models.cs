@@ -250,25 +250,52 @@ public record CurrentUserResponse
 
 // ── Content ──────────────────────────────────────────────────────────────────
 
+/// <summary>
+/// A document as the content commands return it. <c>content get</c> fills every field of the
+/// Management API's <c>DocumentResponseModel</c> under the API's own keys (#306, #284), plus the
+/// fields the CLI adds: <see cref="Name"/>, <see cref="Parent"/>, <see cref="Urls"/> and
+/// <see cref="IsPublished"/>. List, tree and search rows use the same record, so a row and a
+/// <c>get</c> agree key for key; a row leaves out what its endpoint does not return (null, and so
+/// omitted from JSON).
+/// </summary>
 public record ContentItemResponse
 {
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
 
+    /// <summary>The first variant's name, flattened to the top level (CLI-added).</summary>
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
 
-    [JsonPropertyName("contentType")]
-    public ContentTypeRef? ContentType { get; init; }
+    /// <summary>
+    /// The document type, under the API's key (#284): the same name the create body, the
+    /// <c>--document-type</c> option and <c>content version get</c> use.
+    /// </summary>
+    [JsonPropertyName("documentType")]
+    public ContentTypeRef? DocumentType { get; init; }
 
+    /// <summary>Where the item lives (CLI-added, #205); null at the root.</summary>
     [JsonPropertyName("parent")]
     public ContentParentReference? Parent { get; init; }
 
+    /// <summary>
+    /// The item's public URLs, one per culture (CLI-added, #289), from <c>GET /document/urls</c>.
+    /// Only a <c>get</c> reads them; null on list rows and when the read failed.
+    /// </summary>
     [JsonPropertyName("urls")]
     public IEnumerable<UrlInfo>? Urls { get; init; }
 
+    /// <summary>Whether any variant is published (CLI-added, derived from the variant states).</summary>
     [JsonPropertyName("isPublished")]
     public bool IsPublished { get; init; }
+
+    /// <summary>Whether the item is in the recycle bin (#306).</summary>
+    [JsonPropertyName("isTrashed")]
+    public bool IsTrashed { get; init; }
+
+    /// <summary>The item's flags, as the API returns them (#306); null when the endpoint has none.</summary>
+    [JsonPropertyName("flags")]
+    public IEnumerable<FlagResponse>? Flags { get; init; }
 
     [JsonPropertyName("createDate")]
     public DateTimeOffset CreateDate { get; init; }
@@ -348,6 +375,30 @@ public record ContentVariantResponse
 
     [JsonPropertyName("publishDate")]
     public DateTimeOffset? PublishDate { get; init; }
+
+    /// <summary>When a pending schedule publishes this variant (#297); null when none is set.</summary>
+    [JsonPropertyName("scheduledPublishDate")]
+    public DateTimeOffset? ScheduledPublishDate { get; init; }
+
+    /// <summary>When a pending schedule unpublishes this variant (#297); null when none is set.</summary>
+    [JsonPropertyName("scheduledUnpublishDate")]
+    public DateTimeOffset? ScheduledUnpublishDate { get; init; }
+
+    /// <summary>The variant's own id, as the API returns it (#306).</summary>
+    [JsonPropertyName("id")]
+    public Guid? Id { get; init; }
+
+    /// <summary>The variant's flags, as the API returns them (#306).</summary>
+    [JsonPropertyName("flags")]
+    public IEnumerable<FlagResponse>? Flags { get; init; }
+}
+
+/// <summary>One flag on an item or variant, as the Management API returns it (#306).</summary>
+public record FlagResponse
+{
+    /// <summary>The flag's alias.</summary>
+    [JsonPropertyName("alias")]
+    public string Alias { get; init; } = "";
 }
 
 /// <summary>A document's culture-and-hostname bindings (#180).</summary>
@@ -412,6 +463,17 @@ public record ContentTypeRef
 
     [JsonPropertyName("alias")]
     public string? Alias { get; init; }
+
+    /// <summary>
+    /// The type's icon, as the API's document-type reference carries it (#306). Null where the
+    /// read does not map it (media and member reads).
+    /// </summary>
+    [JsonPropertyName("icon")]
+    public string? Icon { get; init; }
+
+    /// <summary>The type's collection view, when it has one (#306); null otherwise.</summary>
+    [JsonPropertyName("collection")]
+    public ContentParentReference? Collection { get; init; }
 }
 
 public record ContentParentReference
@@ -1429,6 +1491,14 @@ public record DictionaryItemResponse
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
 
+    /// <summary>
+    /// The parent item (#290), as content and media show theirs (#205); null at the dictionary
+    /// root. <c>get</c>, <c>create</c> and <c>update</c> read it from the dictionary tree; list rows
+    /// take it from the overview, which carries it.
+    /// </summary>
+    [JsonPropertyName("parent")]
+    public ContentParentReference? Parent { get; init; }
+
     [JsonPropertyName("translations")]
     public IEnumerable<DictionaryTranslation>? Translations { get; init; }
 }
@@ -1533,8 +1603,13 @@ public record WebhookResponse
 /// <summary>A single event a webhook is subscribed to, as returned by the API (issue #46).</summary>
 public record WebhookEvent
 {
+    /// <summary>
+    /// The event's display name (e.g. <c>Content Published</c>). Null only in the fallback a
+    /// <c>webhook create</c> returns when it cannot read the webhook back (#295): the request
+    /// carries the alias alone, and the alias is never passed off as the display name.
+    /// </summary>
     [JsonPropertyName("eventName")]
-    public string EventName { get; init; } = "";
+    public string? EventName { get; init; }
 
     [JsonPropertyName("eventType")]
     public string? EventType { get; init; }

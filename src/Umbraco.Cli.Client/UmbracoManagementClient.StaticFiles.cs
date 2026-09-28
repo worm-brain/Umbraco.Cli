@@ -1,3 +1,4 @@
+using Microsoft.Kiota.Abstractions;
 using Gen = Umbraco.Cli.Client.Generated.Models;
 
 namespace Umbraco.Cli.Client;
@@ -20,7 +21,7 @@ public sealed partial class UmbracoManagementClient
     private sealed record StaticFileOps(
         Func<string?, int, int, CancellationToken, Task<PagedResponse<StaticFileTreeItem>>> List,
         Func<string, CancellationToken, Task<StaticFileResponse>> Get,
-        Func<CreateStaticFileRequest, CancellationToken, Task<StaticFileResponse>> Create,
+        Func<CreateStaticFileRequest, CancellationToken, Task<Empty>> Create,
         Func<string, UpdateStaticFileRequest, CancellationToken, Task<Empty>> Update,
         Func<string, CancellationToken, Task<Empty>> Delete
     );
@@ -48,12 +49,43 @@ public sealed partial class UmbracoManagementClient
         CancellationToken ct = default
     ) => GuardedApiAsync(ct, () => StaticFileOpsMap[kind].Get(path, ct));
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Creates a script, stylesheet or partial view, then reads it back so the result is the file
+    /// as <c>get</c> shows it (#296): the path in Umbraco's own <c>/folder/name</c> form, not one
+    /// built from the flags as typed. The create response is empty, so the path to read is worked
+    /// out from the normalised parent and the name. The read-back is best-effort, as for the other
+    /// creates: when it fails the create still succeeded, so the same normalised path is returned
+    /// with the request's fields.
+    /// </summary>
+    /// <param name="kind">Which kind of file.</param>
+    /// <param name="request">The file to create; its parent may have leading or trailing slashes.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created file, or a mapped failure.</returns>
     public Task<UmbracoResponse<StaticFileResponse>> CreateStaticFileAsync(
         StaticFileKind kind,
         CreateStaticFileRequest request,
         CancellationToken ct = default
-    ) => GuardedApiAsync(ct, () => StaticFileOpsMap[kind].Create(request, ct));
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var ops = StaticFileOpsMap[kind];
+                var normalised = request with { ParentPath = NormaliseFolder(request.ParentPath) };
+                await ops.Create(normalised, ct);
+                try
+                {
+                    // An empty read (no body) maps to a blank path: treat it as a failed read.
+                    if (await ops.Get(CreatedPath(normalised), ct) is { Path.Length: > 0 } saved)
+                        return saved;
+                }
+                catch (ApiException)
+                {
+                    // Fall through: the file exists, only the read-back failed.
+                }
+                return Echo(normalised);
+            }
+        );
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Empty>> UpdateStaticFileAsync(
@@ -103,7 +135,7 @@ public sealed partial class UmbracoManagementClient
                         },
                         cancellationToken: ct
                     );
-                    return Echo(req);
+                    return Empty.Value;
                 },
                 Update: async (path, req, ct) =>
                 {
@@ -146,7 +178,7 @@ public sealed partial class UmbracoManagementClient
                         },
                         cancellationToken: ct
                     );
-                    return Echo(req);
+                    return Empty.Value;
                 },
                 Update: async (path, req, ct) =>
                 {
@@ -189,7 +221,7 @@ public sealed partial class UmbracoManagementClient
                         },
                         cancellationToken: ct
                     );
-                    return Echo(req);
+                    return Empty.Value;
                 },
                 Update: async (path, req, ct) =>
                 {
@@ -234,17 +266,36 @@ public sealed partial class UmbracoManagementClient
         parentPath is null ? null : new Gen.FileSystemFolderModel { Path = parentPath };
 
     /// <summary>
-    /// Best-effort echo of a just-created file: the create response is empty, so the returned path
-    /// is synthesised client-side as <c>parent/name</c> (Umbraco joins with a forward slash). This
-    /// is advisory - if the server sanitises the name the real path may differ; a follow-up
-    /// <see cref="GetStaticFileAsync"/> returns the authoritative record.
+    /// A <c>--parent</c> folder path without leading or trailing slashes (<c>/blocklist/</c> becomes
+    /// <c>blocklist</c>), so the path typed and the path <c>list</c> prints both work (#296). Blank
+    /// or <c>/</c> alone means the root.
     /// </summary>
+    /// <param name="parentPath">The folder path as typed, or null.</param>
+    /// <returns>The trimmed path, or null for the root.</returns>
+    internal static string? NormaliseFolder(string? parentPath) =>
+        parentPath?.Trim().Trim('/') is { Length: > 0 } trimmed ? trimmed : null;
+
+    /// <summary>
+    /// The path a just-created file has, in Umbraco's form: a leading <c>/</c>, then the folder
+    /// and the name joined with <c>/</c> (<c>/blocklist/Components/title.cshtml</c>).
+    /// </summary>
+    /// <param name="req">The create request, with its parent already normalised.</param>
+    /// <returns>The file's path.</returns>
+    internal static string CreatedPath(CreateStaticFileRequest req) =>
+        req.ParentPath is null ? $"/{req.Name}" : $"/{req.ParentPath}/{req.Name}";
+
+    /// <summary>
+    /// The fallback result when the read-back after a create fails (#296): the request's fields
+    /// under the path the file was created at, in the same form <c>get</c> prints.
+    /// </summary>
+    /// <param name="req">The create request, with its parent already normalised.</param>
+    /// <returns>The file as far as the request describes it.</returns>
     private static StaticFileResponse Echo(CreateStaticFileRequest req) =>
         new()
         {
-            Path = req.ParentPath is null ? req.Name : $"{req.ParentPath.TrimEnd('/')}/{req.Name}",
+            Path = CreatedPath(req),
             Name = req.Name,
-            ParentPath = req.ParentPath,
+            ParentPath = req.ParentPath is null ? null : $"/{req.ParentPath}",
             Content = req.Content,
         };
 

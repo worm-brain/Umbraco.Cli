@@ -54,11 +54,11 @@ public static class DataTypesCreateCommand
                     SchemaNoun.DataTypes,
                     body,
                     idOpt,
-                    (client, c) =>
+                    (client, id, c) =>
                         client.CreateDataTypeAsync(
                             new CreateDataTypeRequest
                             {
-                                Id = parseResult.GetValue(idOpt),
+                                Id = id,
                                 Name = parseResult.GetValue(nameOpt)!,
                                 EditorAlias = parseResult.GetValue(editorAliasOpt)!,
                                 EditorUiAlias = parseResult.GetValue(editorUiAliasOpt)!,

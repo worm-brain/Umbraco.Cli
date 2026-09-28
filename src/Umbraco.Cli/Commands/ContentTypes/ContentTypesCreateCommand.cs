@@ -74,11 +74,11 @@ public static class ContentTypesCreateCommand
                     SchemaNoun.DocumentTypes,
                     body,
                     idOpt,
-                    (client, c) =>
+                    (client, id, c) =>
                         client.CreateDocumentTypeAsync(
                             new CreateDocumentTypeRequest
                             {
-                                Id = parseResult.GetValue(idOpt) ?? Guid.NewGuid(),
+                                Id = id,
                                 Name = parseResult.GetValue(nameOpt)!,
                                 Alias = parseResult.GetValue(aliasOpt)!,
                                 Description = parseResult.GetValue(descOpt),

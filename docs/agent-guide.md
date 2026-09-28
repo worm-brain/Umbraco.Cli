@@ -213,8 +213,8 @@ schemaVersion 3, the one exception to that rule.
 - An absent `meta` field means **unknown**, never a default. A list with no `total` is one whose
   source could not count, not one that is complete.
 
-**What changed in schemaVersion 6**, if you are moving from `"5"`: Umbraco's error details and
-the `auth` profile commands.
+**What changed in schemaVersion 6**, if you are moving from `"5"`: Umbraco's error details, the
+`auth` profile commands, what creates return, and the content read model.
 
 | Before | Now |
 |---|---|
@@ -223,6 +223,13 @@ the `auth` profile commands.
 | `auth profile list` `"default": "*"` or `""` | `"default": true` / `false` |
 | `auth logout` `{"removed": true}` (no `profile` unless `--profile` was given) | `{"profile": "<name>", "removed": true, "defaultCleared": false}` - always the profile it acted on |
 | `auth login` `profile` missing without `--profile` | always the profile the credentials were saved to |
+| `document-type` / `media-type` / `member-type` / `data-type create --json-body` `{id, name, alias}`; the flag-only creates echoed the flags (`properties: []`) | the saved item read back, exactly as `get` prints it (#285) |
+| `webhook create` `events: [{"eventName": "Umbraco.ContentPublish"}]` (the alias) | `events: [{"eventName": "Content Published", "eventType": "Content", "alias": "Umbraco.ContentPublish"}]`, as `webhook list` (#295) |
+| `stylesheet` / `script` / `partial-view create` `path: "blocklist/site.css"` | `path: "/blocklist/site.css"`, as `list` and `get` (#296); `--parent` accepts `/blocklist/` too |
+| `content get` / `list` / `find` `"contentType": {id, alias}` | `"documentType": {id, alias, icon, collection?}` - the key the create body, `--document-type` and `content version get` use (#284). `content create --json-body` still reads either key |
+| `content get` without `isTrashed`, `flags`, `urls`; variants without `id`, `flags`; `scheduledPublishDate` / `scheduledUnpublishDate` always null | every field of `GET /document/{id}` (#306, #297), plus `urls: [{culture, url}]` (#289). List rows carry `isTrashed` and `flags` too |
+| `dictionary get` / `create` / `update` / `list` without `parent` | `parent: {id}` (null at the root, #290) |
+| `document-blueprint get` / `create` with no top-level `name` or `parent` | `name` (the first variant's, as `content get`) and `parent: {id}` when it is in a folder (#298) |
 
 Behaviour that changed with it: `auth login` and `auth logout` resolve the profile like every
 other command (`--profile`, else `UMBRACO_PROFILE`, else the default); before, both ignored
@@ -419,17 +426,19 @@ the CLI alone:
 
 | Command | Returns |
 |---|---|
-| `content get` | `values` (with each value's `editorAlias`), every `variant` and its publication `state`, and `template` |
+| `content get` | every field of `GET /document/{id}` under the API's keys - `documentType`, `values` (with each value's `editorAlias`), every `variant` with its `state`, `id`, `flags` and `scheduledPublishDate` / `scheduledUnpublishDate`, `template`, `isTrashed`, `flags` - plus `name`, `parent` and `urls` per culture |
 | `media get` | `values` carrying `umbracoWidth`/`umbracoHeight`/`umbracoBytes`/`umbracoExtension`, plus `urls` per culture |
 | `document-type`, `media-type`, `member-type`, `data-type`, `template` `get` | the Management API body verbatim - `properties`, `containers`, `compositions`, `allowedTemplates`, `collection`, allowed children, per-property `validation`; a data type's `values`; a template's `content` - which is a valid `update --json-body` as it stands |
 
 `member get` returns the member's `groups` and `values` too
 ([#185](https://github.com/worm-brain/Umbraco.Cli/issues/185)). `content get` and `media get`
-carry `parent` (read from the tree, because the by-id body has none; left out at the root), and
-`data-type list` rows carry their folder. List rows leave out `updateDate`, which the tree does
-not provide, rather than showing a default date.
+carry `parent` (read from the tree, because the by-id body has none; left out at the root), as do
+`dictionary get` and `document-blueprint get`, and `data-type list` rows carry their folder.
+`content list` rows leave out `updateDate`, `values`, `urls` and the full `variants`: the tree
+endpoint behind them does not return those, so read one item with `content get` when you need
+them, rather than trusting a default date.
 
-Type references (`contentType`, `mediaType`) carry a resolved `alias`
+Type references (`documentType`, `mediaType`) carry a resolved `alias`
 ([#163](https://github.com/worm-brain/Umbraco.Cli/issues/163)). When it cannot be resolved the
 field is **omitted** rather than returned as an empty string, so treat its absence as "unknown"
 rather than "no alias".

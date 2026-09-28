@@ -375,7 +375,10 @@ public sealed partial class UmbracoManagementClient
     private static string MediaName(Gen.MediaTreeItemResponseModel item) =>
         (item.Variants ?? []).FirstOrDefault()?.Name ?? "";
 
-    /// <summary>Maps a generated document search item onto the command-facing <see cref="ContentItemResponse"/>.</summary>
+    /// <summary>
+    /// Maps a generated document search item onto the command-facing <see cref="ContentItemResponse"/>,
+    /// under the same keys <c>content get</c> uses (#284).
+    /// </summary>
     /// <param name="item">The generated document search item.</param>
     /// <returns>The mapped content item.</returns>
     private static ContentItemResponse MapDocumentSearchItem(Gen.DocumentItemResponseModel item) =>
@@ -383,9 +386,9 @@ public sealed partial class UmbracoManagementClient
         {
             Id = item.Id ?? Guid.Empty,
             Name = (item.Variants ?? []).FirstOrDefault()?.Name ?? "",
-            ContentType = item.DocumentType?.Id is { } dtId
-                ? new ContentTypeRef { Id = dtId }
-                : null,
+            DocumentType = MapDocumentTypeRef(item.DocumentType),
+            IsTrashed = item.IsTrashed ?? false,
+            Flags = MapFlags(item.Flags),
             Parent = item.Parent?.Id is { } pId ? new ContentParentReference { Id = pId } : null,
             IsPublished = (item.Variants ?? []).Any(v =>
                 v.State

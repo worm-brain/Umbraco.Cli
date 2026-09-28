@@ -731,10 +731,32 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
+    /// <summary>Every flag-built data-type create, in call order (#285 read-back tests).</summary>
+    public List<CreateDataTypeRequest> DataTypeCreates { get; } = [];
+
+    /// <summary>When set, a flag-built data-type create returns this failure instead.</summary>
+    public UmbracoResponse<DataTypeResponse>? DataTypeCreateFailure { get; set; }
+
+    /// <summary>
+    /// Records the create and echoes the request, as the real flag-built create does; the command
+    /// reads the saved item back through <see cref="GetSchemaRawAsync"/>.
+    /// </summary>
+    /// <param name="request">The create request.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The echo, or <see cref="DataTypeCreateFailure"/>.</returns>
     public Task<UmbracoResponse<DataTypeResponse>> CreateDataTypeAsync(
         CreateDataTypeRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        DataTypeCreates.Add(request);
+        return Task.FromResult(
+            DataTypeCreateFailure
+                ?? UmbracoResponse<DataTypeResponse>.Success(
+                    new DataTypeResponse { Id = request.Id ?? Guid.Empty, Name = request.Name }
+                )
+        );
+    }
 
     public Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
         Guid id,

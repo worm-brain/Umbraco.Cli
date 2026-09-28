@@ -200,9 +200,10 @@ public sealed partial class UmbracoManagementClient
         );
 
     /// <summary>
-    /// Reads a dictionary item by id, for the post-create read-back (#181). By id rather than by
-    /// name: the by-key read lists every item and string-matches, which is both wasteful and
-    /// ambiguous if two items share a name.
+    /// Reads a dictionary item by id: for <c>get</c>, and for the read-back after a create or
+    /// update (#181). By id rather than by name: the by-key read lists every item and
+    /// string-matches, which is both wasteful and ambiguous if two items share a name. The by-id
+    /// body has no parent, so it is added from the dictionary tree (#290), best-effort.
     /// </summary>
     /// <param name="id">The dictionary item id.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -218,17 +219,13 @@ public sealed partial class UmbracoManagementClient
                 var d = await _api
                     .Umbraco.Management.Api.V1.Dictionary[id]
                     .GetAsync(cancellationToken: ct);
-                return new DictionaryItemResponse
+                var item = d is null
+                    ? new DictionaryItemResponse { Id = id }
+                    : MapDictionaryItem(d);
+                return item with
                 {
-                    Id = d?.Id ?? id,
-                    Name = d?.Name ?? "",
-                    Translations = (d?.Translations ?? [])
-                        .Select(t => new DictionaryTranslation
-                        {
-                            IsoCode = t.IsoCode ?? "",
-                            Translation = t.Translation ?? "",
-                        })
-                        .ToList(),
+                    Id = item.Id == Guid.Empty ? id : item.Id,
+                    Parent = await DictionaryParentAsync(id, ct),
                 };
             }
         );
