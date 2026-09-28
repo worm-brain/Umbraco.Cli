@@ -172,6 +172,11 @@ Keep the sites until the human has read the report: they're the evidence.
 - **Culture-variant content:** `publish` with no `--culture` publishes every culture; a document with only en-US can't be
   published with `--culture en-US,da-DK`. A child can't be published before its parent.
 - **Version ids look like `0000003e-0000-…`.** That's Umbraco's int-to-GUID encoding, not a bug.
+- **Git Bash rewrites leading-slash arguments** (`/site.css` becomes `C:/Program Files/Git/site.css`), so file paths 404. Set
+  `export MSYS_NO_PATHCONV=1`. **On Windows, `jq -r`/`-j` write CRLF**, so strip `\r` before re-uploading a file or using a URL list.
+  `winget install jqlang.jq` if `jq` is missing (it lands in `%LOCALAPPDATA%\Microsoft\WinGet\Links`).
+- **Parallel lanes share one SQLite site.** Five agents on `sites/source` at once hung Umbraco for ~10 min on `database table is locked`
+  (round 5). Keep heavy writes on different sites (a third site from `new-site.py --no-default` is cheap), and don't read a stall as a CLI bug.
 
 ## Troubleshooting
 

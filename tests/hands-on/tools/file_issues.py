@@ -16,6 +16,7 @@ Everything the script needs is in LEDGER.md (see the format at the top of that f
 A row with anything in its Issue column (an issue number, "covered by #N", "not a bug") is skipped.
 `L-NNN` references in bodies become issue links, including earlier rounds via ledger-history.json.
 """
+import argparse
 import json
 import re
 import subprocess
@@ -45,10 +46,17 @@ def rows(text):
 ENTRY = re.compile(r"^### (L-\d{3}) · (\w+) (🔴|🟠|🟡) · .*?\n(.*?)(?=^### L-|^# |^---\s*$|\Z)", re.S | re.M)
 
 
-def args():
-    a = sys.argv[1:]
-    get = lambda flag: a[a.index(flag) + 1] if flag in a else None
-    return {"dry": "--dry-run" in a, "round": get("--round"), "epic": get("--epic"), "repo": get("--repo") or REPO}
+def args(argv=None):
+    """Parse the command line. argparse, not a hand scan, so `--help` prints usage and an unknown
+    or mistyped flag stops the script: this one files real issues, so it must never fall through
+    to a live run on input it didn't understand (round 5 filed a whole round from `--help`)."""
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--dry-run", action="store_true", help="show what would be filed, file nothing")
+    p.add_argument("--round", help="only this round's rows (needed with --epic)")
+    p.add_argument("--epic", metavar="SUMMARY.md", help="also open a tracking issue, with this file as its opening section")
+    p.add_argument("--repo", default=REPO, help=f"target repository (default {REPO})")
+    o = p.parse_args(argv)
+    return {"dry": o.dry_run, "round": o.round, "epic": o.epic, "repo": o.repo}
 
 
 def gh(*cmd):
