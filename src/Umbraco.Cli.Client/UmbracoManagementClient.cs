@@ -1492,8 +1492,10 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     // ── Document Types ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Lists document types from <c>tree/document-type/root</c> (issue #39 — no flat
-    /// <c>/document-type</c> collection). Tree items expose <c>name</c> directly.
+    /// Lists document types from <c>tree/document-type/root</c> (issue #39 - no flat
+    /// <c>/document-type</c> collection), with each type's alias. Neither the tree nor the item
+    /// model carries the alias, so each type costs one by-id read, as for media and member types
+    /// (#221, #213); the reads are cached for the client's life.
     /// </summary>
     /// <param name="skip">Number of items to skip (paging).</param>
     /// <param name="take">Maximum number of items to return.</param>
@@ -1510,52 +1512,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             {
                 // #97: the document-type tree groups types into folders whose ids 404 on `get`.
                 // Walk the whole tree, keeping only real types (folders excluded, nested types
-                // included), then page client-side so Total and Items agree.
-                var all = await CollectTreeLeavesAsync<DocumentTypeResponse>(
-                    async (parentId, s, t, c) =>
-                    {
-                        var items = parentId is null
-                            ? (
-                                await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Root.GetAsync(
-                                    q =>
-                                    {
-                                        q.QueryParameters.Skip = s;
-                                        q.QueryParameters.Take = t;
-                                    },
-                                    c
-                                )
-                            )?.Items
-                            : (
-                                await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Children.GetAsync(
-                                    q =>
-                                    {
-                                        q.QueryParameters.ParentId = parentId;
-                                        q.QueryParameters.Skip = s;
-                                        q.QueryParameters.Take = t;
-                                    },
-                                    c
-                                )
-                            )?.Items;
-                        return
-                        [
-                            .. (items ?? [])
-                                .Where(i => i.Id is not null)
-                                .Select(i =>
-                                    (
-                                        i.Id!.Value,
-                                        i.IsFolder ?? false,
-                                        new DocumentTypeResponse
-                                        {
-                                            Id = i.Id!.Value,
-                                            Name = i.Name ?? "",
-                                            IsElement = i.IsElement ?? false,
-                                        }
-                                    )
-                                ),
-                        ];
-                    },
-                    ct
-                );
+                // included), then page client-side so Total and Items agree. The alias used to be
+                // left as "" because the tree items do not carry it.
+                var all = await DocumentTypesWithAliasAsync(ct);
                 return new PagedResponse<DocumentTypeResponse>
                 {
                     Total = all.Count,
@@ -1563,6 +1522,62 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                 };
             }
         );
+
+    /// <summary>
+    /// Fetches one page of the document-type tree as <c>(id, isFolder, item)</c>: the root level
+    /// when <paramref name="parentId"/> is null, otherwise the children of that folder. The item
+    /// has only what the tree carries (id, name, element flag, icon); the alias is filled later.
+    /// </summary>
+    /// <param name="parentId">The parent folder id, or null for the tree root.</param>
+    /// <param name="s">Items to skip.</param>
+    /// <param name="t">Page size.</param>
+    /// <param name="c">Cancellation token.</param>
+    /// <returns>The page.</returns>
+    private async Task<
+        IReadOnlyList<(Guid Id, bool IsFolder, DocumentTypeResponse Item)>
+    > FetchDocumentTypeTreeAsync(Guid? parentId, int s, int t, CancellationToken c)
+    {
+        var items = parentId is null
+            ? (
+                await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Root.GetAsync(
+                    q =>
+                    {
+                        q.QueryParameters.Skip = s;
+                        q.QueryParameters.Take = t;
+                    },
+                    c
+                )
+            )?.Items
+            : (
+                await _api.Umbraco.Management.Api.V1.Tree.DocumentType.Children.GetAsync(
+                    q =>
+                    {
+                        q.QueryParameters.ParentId = parentId;
+                        q.QueryParameters.Skip = s;
+                        q.QueryParameters.Take = t;
+                    },
+                    c
+                )
+            )?.Items;
+        return
+        [
+            .. (items ?? [])
+                .Where(i => i.Id is not null)
+                .Select(i =>
+                    (
+                        i.Id!.Value,
+                        i.IsFolder ?? false,
+                        new DocumentTypeResponse
+                        {
+                            Id = i.Id!.Value,
+                            Name = i.Name ?? "",
+                            IsElement = i.IsElement ?? false,
+                            Icon = i.Icon,
+                        }
+                    )
+                ),
+        ];
+    }
 
     /// <summary>
     /// Gets a single document type by id via <c>GET document-type/{id}</c> (generated client,
@@ -2949,7 +2964,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <summary>
     /// Maps a generated webhook model onto the command-facing <see cref="WebhookResponse"/>.
     /// Events are objects, not strings (#46). Custom headers land in the generated model's
-    /// additional-data bag; they are flattened to a string map best-effort.
+    /// additional-data bag; they are flattened to a string map best-effort, which is empty (never
+    /// null) when the webhook has none.
     /// </summary>
     /// <param name="webhook">The generated webhook model.</param>
     /// <returns>The mapped webhook.</returns>
@@ -2973,17 +2989,18 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
                     Alias = e.Alias,
                 })
                 .ToList(),
-            Headers = webhook.Headers?.AdditionalData is { Count: > 0 } headers
-                ? headers.ToDictionary(
-                    kv => kv.Key,
-                    kv =>
-                        kv.Value switch
-                        {
-                            UntypedString s => s.GetValue() ?? "",
-                            _ => kv.Value?.ToString() ?? "",
-                        }
-                )
-                : null,
+            // No headers is an empty map, not a missing key, as for contentTypeKeys above.
+            Headers = (
+                webhook.Headers?.AdditionalData ?? new Dictionary<string, object>()
+            ).ToDictionary(
+                kv => kv.Key,
+                kv =>
+                    kv.Value switch
+                    {
+                        UntypedString s => s.GetValue() ?? "",
+                        _ => kv.Value?.ToString() ?? "",
+                    }
+            ),
         };
 
     /// <summary>Lists webhooks via <c>GET webhook?skip=&amp;take=</c> (generated client, #79).</summary>

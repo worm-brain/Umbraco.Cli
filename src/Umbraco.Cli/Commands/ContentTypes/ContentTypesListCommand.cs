@@ -2,8 +2,16 @@ using System.CommandLine;
 
 namespace Umbraco.Cli.Commands.ContentTypes;
 
+/// <summary>Wires the <c>document-type list</c> command.</summary>
 public static class ContentTypesListCommand
 {
+    /// <summary>
+    /// Builds the <c>document-type list</c> command. Backed by the document-type tree, walked
+    /// through its folders; the tree items carry no alias, so the client reads each type by id to
+    /// fill it in, as <c>media-type list</c> and <c>member-type list</c> do.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
@@ -16,11 +24,10 @@ public static class ContentTypesListCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) => client.GetDocumentTypesAsync(skip, take, c),
-                    // Alias is intentionally omitted: the document-type tree list items don't
-                    // carry an alias, so the column was always blank (#75). Use
-                    // 'document-type get <id|alias>' for the full alias.
-                    ["ID", "Name", "IsElement"],
-                    i => new[] { i.Id.ToString(), i.Name, i.IsElement.ToString() },
+                    // The alias column was left out while the list could not fill it (#75); the
+                    // client now reads it per type, so the table shows it again.
+                    ["ID", "Name", "Alias", "IsElement"],
+                    i => new[] { i.Id.ToString(), i.Name, i.Alias, i.IsElement.ToString() },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
                     ct

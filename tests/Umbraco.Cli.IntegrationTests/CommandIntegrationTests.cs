@@ -384,9 +384,8 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     /// <summary>
     /// Finds a document-type alias that exists on the live instance, or skips the test. The alias
     /// cannot be hard-coded: a dry-run content create now resolves the alias against the real
-    /// instance (#79), and every instance has a different schema. `document-type list` exposes only
-    /// name + id (and includes folders, whose ids 404 on get - see issue #97), so each candidate is
-    /// read by-id until one yields an alias.
+    /// instance (#79), and every instance has a different schema. Each listed type is read by-id
+    /// until one yields an alias, so the alias comes from <c>get</c>, independently of the list.
     /// </summary>
     /// <returns>The id and alias of an existing document type.</returns>
     private static (string Id, string Alias) FindDocumentType()
@@ -410,6 +409,21 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
 
         Skip.If(true, "No document type with an alias found on the live instance.");
         return ("", ""); // unreachable - the Skip above always throws.
+    }
+
+    [SkippableFact]
+    public void DocumentTypeList_ExistingType_ShowsTheAliasThatGetShows()
+    {
+        RequireLive();
+        // The list used to report "alias": "" for every type, while get showed the real one.
+        var (id, alias) = FindDocumentType();
+
+        var list = CliRunner.Run("document-type", "list", "--take", "500");
+
+        var listed = list.Data()
+            .EnumerateArray()
+            .Single(i => i.GetProperty("id").GetString() == id);
+        Assert.Equal(alias, listed.GetProperty("alias").GetString());
     }
 
     [SkippableFact]

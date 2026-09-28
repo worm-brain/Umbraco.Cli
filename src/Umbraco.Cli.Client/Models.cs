@@ -1787,9 +1787,13 @@ public record WebhookResponse
     [JsonPropertyName("contentTypeKeys")]
     public IEnumerable<Guid>? ContentTypeKeys { get; init; }
 
-    /// <summary>Custom HTTP headers sent with the webhook request.</summary>
+    /// <summary>
+    /// Custom HTTP headers sent with the webhook request, by name. Never null: a webhook without
+    /// headers has <c>{}</c>, as <see cref="ContentTypeKeys"/> has <c>[]</c>, so the key is always
+    /// in the output rather than missing only when it is empty.
+    /// </summary>
     [JsonPropertyName("headers")]
-    public Dictionary<string, string>? Headers { get; init; }
+    public Dictionary<string, string> Headers { get; init; } = [];
 }
 
 /// <summary>A single event a webhook is subscribed to, as returned by the API (issue #46).</summary>

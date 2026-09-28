@@ -79,7 +79,23 @@ public class WebhookWireTests
 
         var result = await Wire.Client(handler).GetWebhookAsync(HookId, CancellationToken.None);
 
-        Assert.Equal("old", result.Data!.Headers!["X-Api-Key"]);
+        Assert.Equal("old", result.Data!.Headers["X-Api-Key"]);
+    }
+
+    [Theory]
+    [InlineData("\"headers\": {},")] // an empty object
+    [InlineData("")] // or no headers member at all
+    public async Task GetWebhookAsync_NoHeaders_MapsAnEmptyMap(string headersMember)
+    {
+        var body = $$"""
+            { "id": "{{HookId}}", "name": "Bare", "url": "https://my.app/hook", {{headersMember}}
+              "events": [], "contentTypeKeys": [] }
+            """;
+
+        var result = await Wire.Client(Wire.Returning(body))
+            .GetWebhookAsync(HookId, CancellationToken.None);
+
+        Assert.Empty(result.Data!.Headers);
     }
 
     [Fact]
