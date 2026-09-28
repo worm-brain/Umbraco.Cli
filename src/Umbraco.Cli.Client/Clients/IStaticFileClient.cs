@@ -88,4 +88,30 @@ public interface IStaticFileClient
         string path,
         CancellationToken ct = default
     );
+
+    /// <summary>
+    /// Creates a folder in a kind's tree (#238) and returns it as the instance holds it.
+    /// </summary>
+    /// <param name="kind">Which static-file resource.</param>
+    /// <param name="name">The folder name (one path segment).</param>
+    /// <param name="parentPath">The parent folder path, with or without slashes; null for the root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created folder, or a mapped failure.</returns>
+    Task<UmbracoResponse<StaticFileFolderResponse>> CreateStaticFileFolderAsync(
+        StaticFileKind kind,
+        string name,
+        string? parentPath,
+        CancellationToken ct = default
+    );
+
+    /// <summary>Deletes a folder by path (#238). Umbraco refuses a folder that is not empty.</summary>
+    /// <param name="kind">Which static-file resource.</param>
+    /// <param name="path">The folder path (raw, unencoded).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> DeleteStaticFileFolderAsync(
+        StaticFileKind kind,
+        string path,
+        CancellationToken ct = default
+    );
 }

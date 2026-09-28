@@ -139,4 +139,44 @@ public class StaticFileCommandTests
         var created = Assert.Single(fake.StaticFilesCreated);
         Assert.Equal("", created.Request.Content);
     }
+
+    [Fact]
+    public async Task FolderCreate_PassesNameAndParent()
+    {
+        // #238: a folder a fresh site lacks can now be made from the CLI.
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await Run(
+            BuildRoot(fake),
+            $"{Auth} script folder create --name Components --parent blocklist"
+        );
+
+        Assert.Equal(
+            (0, (StaticFileKind.Script, "Components", (string?)"blocklist")),
+            (exit, Assert.Single(fake.StaticFileFoldersCreated))
+        );
+    }
+
+    [Fact]
+    public async Task FolderDelete_WithYes_DeletesThePath()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await Run(BuildRoot(fake), $"{Auth} script folder delete lib --yes");
+
+        Assert.Equal(
+            (0, (StaticFileKind.Script, "lib")),
+            (exit, Assert.Single(fake.StaticFileFoldersDeleted))
+        );
+    }
+
+    [Fact]
+    public async Task FolderDelete_WithoutYes_IsRefusedAndDeletesNothing()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await Run(BuildRoot(fake), $"{Auth} script folder delete lib");
+
+        Assert.Equal((2, 0), (exit, fake.StaticFileFoldersDeleted.Count));
+    }
 }

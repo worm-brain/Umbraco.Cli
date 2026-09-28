@@ -1500,19 +1500,91 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>Recorded deletes: the kind and target path.</summary>
     public List<(StaticFileKind Kind, string Path)> StaticFilesDeleted { get; } = [];
 
+    /// <summary>
+    /// The live static files per kind (#292), keyed by path in Umbraco's <c>/a/b</c> form: a null
+    /// content marks a folder. The list and get methods read it, so an export walks it like the
+    /// real tree. Empty by default, which lists nothing.
+    /// </summary>
+    public Dictionary<StaticFileKind, Dictionary<string, string?>> StaticFileTree { get; } =
+        new()
+        {
+            [StaticFileKind.PartialView] = [],
+            [StaticFileKind.Stylesheet] = [],
+            [StaticFileKind.Script] = [],
+        };
+
+    /// <summary>When set, listing static files returns this failure (export error path).</summary>
+    public UmbracoResponse<PagedResponse<StaticFileTreeItem>>? StaticFileListFailure { get; set; }
+
+    /// <summary>Recorded folder creates (#238): the kind, name and parent path as passed.</summary>
+    public List<(
+        StaticFileKind Kind,
+        string Name,
+        string? ParentPath
+    )> StaticFileFoldersCreated { get; } = [];
+
+    /// <summary>Recorded folder deletes (#238): the kind and path.</summary>
+    public List<(StaticFileKind Kind, string Path)> StaticFileFoldersDeleted { get; } = [];
+
+    /// <summary>Every static-file write in call order, as "verb kind path", for ordering tests.</summary>
+    public List<string> StaticFileWrites { get; } = [];
+
+    /// <summary>
+    /// Lists the direct children of <paramref name="parentPath"/> in <see cref="StaticFileTree"/>,
+    /// ordered by path.
+    /// </summary>
+    /// <param name="kind">Which kind.</param>
+    /// <param name="parentPath">The folder, or null for the root.</param>
+    /// <param name="skip">Rows to skip.</param>
+    /// <param name="take">Rows to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The page.</returns>
     public Task<UmbracoResponse<PagedResponse<StaticFileTreeItem>>> GetStaticFilesAsync(
         StaticFileKind kind,
         string? parentPath = null,
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
-    ) =>
-        Task.FromResult(
+    )
+    {
+        if (StaticFileListFailure is { } failure)
+            return Task.FromResult(failure);
+        var parent = parentPath is null ? "" : "/" + parentPath.Trim('/');
+        var children = StaticFileTree[kind]
+            .Where(e =>
+                e.Key.StartsWith(parent + "/", StringComparison.Ordinal)
+                && !e.Key[(parent.Length + 1)..].Contains('/')
+            )
+            .OrderBy(e => e.Key, StringComparer.Ordinal)
+            .Select(e => new StaticFileTreeItem
+            {
+                Path = e.Key,
+                Name = e.Key[(e.Key.LastIndexOf('/') + 1)..],
+                IsFolder = e.Value is null,
+                HasChildren =
+                    e.Value is null
+                    && StaticFileTree[kind].Keys.Any(k => k.StartsWith(e.Key + "/")),
+            })
+            .ToList();
+        return Task.FromResult(
             UmbracoResponse<PagedResponse<StaticFileTreeItem>>.Success(
-                new PagedResponse<StaticFileTreeItem> { Total = 0, Items = [] }
+                new PagedResponse<StaticFileTreeItem>
+                {
+                    Total = children.Count,
+                    Items = [.. children.Skip(skip).Take(take)],
+                }
             )
         );
+    }
 
+    /// <summary>
+    /// Returns a file from <see cref="StaticFileTree"/> with its content, or, when the tree does
+    /// not hold it, a bare record naming the path.
+    /// </summary>
+    /// <param name="kind">Which kind.</param>
+    /// <param name="path">The file path.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The file.</returns>
     public Task<UmbracoResponse<StaticFileResponse>> GetStaticFileAsync(
         StaticFileKind kind,
         string path,
@@ -1520,9 +1592,56 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     ) =>
         Task.FromResult(
             UmbracoResponse<StaticFileResponse>.Success(
-                new StaticFileResponse { Path = path, Name = path }
+                StaticFileTree[kind].TryGetValue(path, out var content) && content is not null
+                    ? new StaticFileResponse
+                    {
+                        Path = path,
+                        Name = path[(path.LastIndexOf('/') + 1)..],
+                        Content = content,
+                    }
+                    : new StaticFileResponse { Path = path, Name = path }
             )
         );
+
+    /// <summary>Records a folder create.</summary>
+    /// <param name="kind">Which kind.</param>
+    /// <param name="name">The folder name.</param>
+    /// <param name="parentPath">The parent path.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The folder under the normalised path.</returns>
+    public Task<UmbracoResponse<StaticFileFolderResponse>> CreateStaticFileFolderAsync(
+        StaticFileKind kind,
+        string name,
+        string? parentPath,
+        CancellationToken ct = default
+    )
+    {
+        StaticFileFoldersCreated.Add((kind, name, parentPath));
+        var parent = parentPath?.Trim('/');
+        var path = string.IsNullOrEmpty(parent) ? $"/{name}" : $"/{parent}/{name}";
+        StaticFileWrites.Add($"create-folder {kind} {path}");
+        return Task.FromResult(
+            UmbracoResponse<StaticFileFolderResponse>.Success(
+                new StaticFileFolderResponse { Path = path, Name = name }
+            )
+        );
+    }
+
+    /// <summary>Records a folder delete.</summary>
+    /// <param name="kind">Which kind.</param>
+    /// <param name="path">The folder path.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success.</returns>
+    public Task<UmbracoResponse<Empty>> DeleteStaticFileFolderAsync(
+        StaticFileKind kind,
+        string path,
+        CancellationToken ct = default
+    )
+    {
+        StaticFileFoldersDeleted.Add((kind, path));
+        StaticFileWrites.Add($"delete-folder {kind} {path}");
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<StaticFileResponse>> CreateStaticFileAsync(
         StaticFileKind kind,
@@ -1531,6 +1650,9 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     )
     {
         StaticFilesCreated.Add((kind, request));
+        StaticFileWrites.Add(
+            $"create {kind} /{(request.ParentPath is { } p ? p.Trim('/') + "/" : "")}{request.Name}"
+        );
         return Task.FromResult(
             UmbracoResponse<StaticFileResponse>.Success(
                 new StaticFileResponse
@@ -1551,6 +1673,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     )
     {
         StaticFilesUpdated.Add((kind, path, request.Content));
+        StaticFileWrites.Add($"update {kind} {path}");
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
 
@@ -1561,6 +1684,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     )
     {
         StaticFilesDeleted.Add((kind, path));
+        StaticFileWrites.Add($"delete {kind} {path}");
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
 

@@ -202,6 +202,98 @@ public class StaticFileClientTests
         Assert.Equal(400, result.StatusCode);
     }
 
+    [Fact]
+    public async Task CreateStaticFileFolderAsync_PostsNameAndTrimmedParent()
+    {
+        // #238: the folder endpoint, with the parent in the form the live round showed working.
+        var handler = Wire.Blank();
+
+        await Wire.Client(handler)
+            .CreateStaticFileFolderAsync(
+                StaticFileKind.PartialView,
+                "Components",
+                "/blocklist/",
+                CancellationToken.None
+            );
+
+        var body = handler.BodyOf(HttpMethod.Post, "/partial-view/folder");
+        Assert.Equal(
+            ("Components", "blocklist"),
+            ((string?)body["name"], (string?)body["parent"]!["path"])
+        );
+    }
+
+    [Fact]
+    public async Task CreateStaticFileFolderAsync_ReadsTheFolderBack()
+    {
+        var handler = new RoutingHandler()
+            .When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                """{"path":"/blocklist/Components","name":"Components","parent":{"path":"/blocklist"}}"""
+            )
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateStaticFileFolderAsync(
+                StaticFileKind.Stylesheet,
+                "Components",
+                "blocklist",
+                CancellationToken.None
+            );
+
+        Assert.Equal(
+            ("/blocklist/Components", "/blocklist"),
+            (result.Data!.Path, result.Data.ParentPath)
+        );
+    }
+
+    [Fact]
+    public async Task CreateStaticFileFolderAsync_ReadBackFails_ReturnsTheWorkedOutPath()
+    {
+        var handler = new RoutingHandler()
+            .When(r => r.Method == HttpMethod.Get, HttpStatusCode.NotFound, "")
+            .When(_ => true, HttpStatusCode.Created, "");
+
+        var result = await Wire.Client(handler)
+            .CreateStaticFileFolderAsync(
+                StaticFileKind.Script,
+                "lib",
+                null,
+                CancellationToken.None
+            );
+
+        Assert.Equal((true, "/lib"), (result.IsSuccess, result.Data!.Path));
+    }
+
+    [Fact]
+    public async Task DeleteStaticFileFolderAsync_DeletesTheFolderPath()
+    {
+        var handler = Wire.Blank();
+
+        await Wire.Client(handler)
+            .DeleteStaticFileFolderAsync(StaticFileKind.Script, "lib", CancellationToken.None);
+
+        handler.AssertRequested(HttpMethod.Delete, "/script/folder/lib");
+    }
+
+    [Fact]
+    public async Task DeleteStaticFileFolderAsync_NotEmpty_ReturnsTheFailure()
+    {
+        var (client, _) = ClientReturning(
+            """{"title":"Not empty","status":400}""",
+            HttpStatusCode.BadRequest
+        );
+
+        var result = await client.DeleteStaticFileFolderAsync(
+            StaticFileKind.PartialView,
+            "blocklist",
+            CancellationToken.None
+        );
+
+        Assert.Equal(400, result.StatusCode);
+    }
+
     [Theory]
     [InlineData(null, null)]
     [InlineData("/", null)]

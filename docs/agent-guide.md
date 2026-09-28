@@ -456,9 +456,11 @@ Two escape hatches remain useful:
 
 1. **`umbraco schema export`** returns the verbatim get-by-id body of every document type,
    media type, member type, data type and template - full fidelity, no projection - plus every
-   language, dictionary item, and member and user group
+   language, dictionary item, and member and user group, and the partial views, stylesheets and
+   scripts with their content
    ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186),
-   [#227](https://github.com/worm-brain/Umbraco.Cli/issues/227)). This is the right way to read
+   [#227](https://github.com/worm-brain/Umbraco.Cli/issues/227),
+   [#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)). This is the right way to read
    schema.
 2. **A direct Management API call** for everything else, using the same credentials - see
    "Getting a token for the direct calls above" below.
@@ -527,6 +529,22 @@ umbraco schema export --out schema.json     # full-fidelity bodies
 umbraco schema apply schema.json --dry-run  # preview the plan
 umbraco schema apply schema.json
 ```
+
+**Templates travel with their partials.** The snapshot (format `"4"`) carries `partialViews`,
+`stylesheets` and `scripts` as `{path, content}` per file and `{path, isFolder: true}` per folder,
+so a promoted template no longer 500s for want of its partial
+([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)). Apply creates the folders and
+files before the templates, and writes each file byte for byte. If your views deploy from git,
+export with `--no-files`: a snapshot **without** those sections (including every format `"3"`
+file) does not manage files at all, so diff and apply leave the target's files alone and
+`--prune` never deletes one. A section that is present but empty **does** manage them: `--prune`
+then deletes every live file of that kind. `--prune` refuses to delete a file a template names
+(`Html.PartialAsync("header")` names `/header.cshtml`) unless you add `--force`. A diff row
+noted `line endings only` differs only in CRLF/LF or a trailing newline.
+
+Folders for these files are CLI verbs too:
+`umbraco partial-view folder create --name Components --parent blocklist` (and `delete`, and the
+same for `stylesheet` and `script`, [#238](https://github.com/worm-brain/Umbraco.Cli/issues/238)).
 
 **Media folders** and **domains** are CLI verbs now, not direct API calls:
 
@@ -642,8 +660,9 @@ umbraco content create --document-type blogPost --name "Hello" --id 3f2a...  # s
 ### Move schema between environments
 
 Export every schema entity - document types, media types, member types, data types,
-templates, languages, dictionary items, and member and user groups - to a portable snapshot, diff
-it against a target, then apply. See [commands.md](commands.md#schema-export--diff--apply).
+templates, languages, dictionary items, member and user groups, and the partial views,
+stylesheets and scripts the templates render - to a portable snapshot, diff it against a target,
+then apply. See [commands.md](commands.md#schema-export--diff--apply).
 
 ```bash
 umbraco schema export --out schema.json                 # from source

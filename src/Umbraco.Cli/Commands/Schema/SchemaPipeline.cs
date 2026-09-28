@@ -25,7 +25,13 @@ public static class SchemaPipeline
     )
     {
         var desired = await SchemaFile.LoadAsync(snapshotPath, ct);
-        var current = await SchemaExporter.ExportAsync(client, ct);
+        // The live files are only read when the snapshot manages some (#292): a snapshot without
+        // file sections leaves them alone, so reading every file would be wasted.
+        var current = await SchemaExporter.ExportAsync(
+            client,
+            ct,
+            includeFiles: desired.ManagesFiles
+        );
         if (!current.IsSuccess)
             return UmbracoResponse<SchemaDiff>.FailureFrom(current);
 

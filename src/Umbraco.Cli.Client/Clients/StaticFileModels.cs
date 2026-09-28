@@ -49,6 +49,22 @@ public record StaticFileTreeItem
     public bool HasChildren { get; init; }
 }
 
+/// <summary>A static-file folder (#238), as <c>GET /{kind}/folder/{path}</c> returns it.</summary>
+public record StaticFileFolderResponse
+{
+    /// <summary>The folder's path, in Umbraco's <c>/a/b</c> form; its identity.</summary>
+    [JsonPropertyName("path")]
+    public string Path { get; init; } = "";
+
+    /// <summary>The folder name (last path segment).</summary>
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = "";
+
+    /// <summary>The parent folder path, or null at the tree root.</summary>
+    [JsonPropertyName("parentPath")]
+    public string? ParentPath { get; init; }
+}
+
 /// <summary>Create payload for a static file (issue #105).</summary>
 public record CreateStaticFileRequest
 {

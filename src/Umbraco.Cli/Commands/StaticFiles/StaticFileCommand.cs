@@ -41,6 +41,112 @@ public static class StaticFileCommand
         cmd.Add(BuildCreate(executor, kind, noun));
         cmd.Add(BuildUpdate(executor, kind, noun, humanName));
         cmd.Add(BuildDelete(executor, kind, noun, humanName));
+        cmd.Add(BuildFolder(executor, kind, noun));
+        return cmd;
+    }
+
+    /// <summary>
+    /// Builds the <c>folder</c> sub-noun (#238): <c>create</c> and <c>delete</c>, as
+    /// <c>data-type folder</c> has, but addressed by path like the files. Without it a file could
+    /// not go in a folder a fresh site lacks (<c>blocklist/Components</c>).
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="kind">Which static-file resource.</param>
+    /// <param name="noun">The command name.</param>
+    /// <returns>The <c>folder</c> command.</returns>
+    private static Command BuildFolder(CommandExecutor executor, StaticFileKind kind, string noun)
+    {
+        var cmd = new Command("folder", $"Manage {noun} folders (addressed by path).");
+        cmd.Add(BuildFolderCreate(executor, kind, noun));
+        cmd.Add(BuildFolderDelete(executor, kind, noun));
+        return cmd;
+    }
+
+    /// <summary>Builds <c>folder create</c>, which returns the folder as the instance holds it.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="kind">Which static-file resource.</param>
+    /// <param name="noun">The command name.</param>
+    /// <returns>The command.</returns>
+    private static Command BuildFolderCreate(
+        CommandExecutor executor,
+        StaticFileKind kind,
+        string noun
+    )
+    {
+        var cmd = new Command(
+            "create",
+            $"Create a {noun} folder.\n\n"
+                + "Examples:\n"
+                + $"  umbraco {noun} folder create --name blocklist\n"
+                + $"  umbraco {noun} folder create --name Components --parent blocklist"
+        ).Mutating();
+        var nameOpt = new Option<string>("--name")
+        {
+            Required = true,
+            Description = "Folder name (one path segment).",
+        };
+        var parentOpt = new Option<string?>("--parent")
+        {
+            Description =
+                "Parent folder path, with or without slashes; omit to create at the root.",
+        };
+        cmd.Add(nameOpt);
+        cmd.Add(parentOpt);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunObjectAsync(
+                    parseResult,
+                    (client, c) =>
+                        client.CreateStaticFileFolderAsync(
+                            kind,
+                            parseResult.GetValue(nameOpt)!,
+                            parseResult.GetValue(parentOpt),
+                            c
+                        ),
+                    ct
+                )
+        );
+        return cmd;
+    }
+
+    /// <summary>Builds <c>folder delete</c> (destructive; Umbraco refuses a folder that is not empty).</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="kind">Which static-file resource.</param>
+    /// <param name="noun">The command name.</param>
+    /// <returns>The command.</returns>
+    private static Command BuildFolderDelete(
+        CommandExecutor executor,
+        StaticFileKind kind,
+        string noun
+    )
+    {
+        var cmd = new Command(
+            "delete",
+            $"Delete an empty {noun} folder by path.\n\n"
+                + "Examples:\n"
+                + $"  umbraco {noun} folder delete blocklist/Components\n"
+                + $"  umbraco {noun} folder delete blocklist --yes"
+        ).Mutating();
+        var pathArg = new Argument<string>("path")
+        {
+            Description = "The folder path. Umbraco refuses a folder that is not empty.",
+        };
+        cmd.Add(pathArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete {noun} folder '{parseResult.GetValue(pathArg)}'?"
+        );
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunMessageAsync(
+                    parseResult,
+                    (client, c) =>
+                        client
+                            .DeleteStaticFileFolderAsync(kind, parseResult.GetValue(pathArg)!, c)
+                            .Then(ItemRef.Of(parseResult.GetValue(pathArg)!)),
+                    "Folder deleted.",
+                    ct
+                )
+        );
         return cmd;
     }
 

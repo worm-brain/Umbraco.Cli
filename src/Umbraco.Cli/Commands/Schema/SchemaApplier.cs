@@ -51,14 +51,16 @@ public sealed record SchemaApplyResult(
 /// (issue #68 / ADR 0005 §4). It never computes a diff itself — the command feeds it one — so
 /// the ordering/execution logic is testable in isolation.
 ///
-/// Order respects cross-kind dependencies: creates/updates run languages -> dictionary items ->
+/// Order respects cross-kind dependencies: creates/updates run static files first (#292: folders
+/// shallowest first, then files, so no template renders against a missing partial), then languages -> dictionary items ->
 /// member groups -> data types -> templates -> media types -> member types -> document types ->
 /// user groups (dictionary translations name languages, every type's properties reference data
 /// types, a document type's <c>allowedTemplates</c> reference templates, and a user group's
 /// property permissions reference document types). Within a kind, <b>creates</b> are
 /// topologically ordered so a referenced same-kind entity (a composition, a template's master, a
 /// dictionary item's parent, a language's fallback) is created before the entity that references
-/// it. Deletes (prune) run in the reverse cross-kind order. Dictionary items and languages are
+/// it. Deletes (prune) run in the reverse cross-kind order, static files last (files, then
+/// folders deepest first). Dictionary items and languages are
 /// deleted referrers-first (children before parents, a language before its fallback); the other
 /// kinds in enumeration order — Umbraco rejects a delete that is still depended on, which
 /// fail-fast surfaces and a re-run resolves.
@@ -77,8 +79,9 @@ public static class SchemaApplier
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The apply result, or the first write failure.</returns>
     /// <exception cref="SafetyRefusalException">
-    /// A real (not dry-run) prune would delete a type still in use, a language, or a dictionary
-    /// item with children the snapshot keeps, and <see cref="SchemaApplyOptions.Force"/> is false.
+    /// A real (not dry-run) prune would delete a type still in use, a language, a dictionary
+    /// item with children the snapshot keeps, or a static file a template names (#292), and
+    /// <see cref="SchemaApplyOptions.Force"/> is false.
     /// Nothing has been applied.
     /// </exception>
     public static async Task<UmbracoResponse<SchemaApplyResult>> ApplyAsync(
@@ -210,9 +213,33 @@ public static class SchemaApplier
                 templateUsage = usage.Data;
         }
 
+        // #292: a pruned static file breaks a template that names it. The templates are read once,
+        // as they will stand after this apply; null when they could not be read (an unknown is
+        // not a yes, so every pruned file then needs --force).
+        IReadOnlyList<(string Name, string Content)>? templates = null;
+        if (
+            deletes.Any(o =>
+                SchemaKinds.StaticFileKindOf(o.Change.Kind) is not null
+                && !SchemaStaticFiles.IsFolder(o.Change.CurrentBody)
+            )
+        )
+            templates = await TemplatesAfterApplyAsync(client, plan, ct);
+
         foreach (var op in deletes)
         {
             var change = op.Change;
+            if (SchemaKinds.StaticFileKindOf(change.Kind) is { } fileKind)
+            {
+                // A folder holds nothing the snapshot keeps (the diff implies those folders), so
+                // only files are checked.
+                if (
+                    !SchemaStaticFiles.IsFolder(change.CurrentBody)
+                    && FileReason(fileKind, change.Identity, templates) is { } fileReason
+                )
+                    blocked[op] = fileReason;
+                continue;
+            }
+
             var reason = change.Kind switch
             {
                 SchemaKinds.Language => InUseGuard.LanguageReason(change.Identity),
@@ -244,6 +271,91 @@ public static class SchemaApplier
         }
         return blocked;
     }
+
+    /// <summary>
+    /// Why pruning a static file would break a template (#292), or null when no template names
+    /// it. A template "names" a file when its content contains the file name, or, for a partial
+    /// view, its path without the extension in quotes (<c>Html.PartialAsync("header")</c>); see
+    /// <see cref="SchemaStaticFiles.SearchTerms"/>. A text search can miss a reference built at
+    /// run time, and can match a longer name, but it errs towards asking for <c>--force</c>.
+    /// </summary>
+    /// <param name="kind">The file's kind.</param>
+    /// <param name="path">The file path.</param>
+    /// <param name="templates">The templates after the apply, or null when they could not be read.</param>
+    /// <returns>The reason, or null.</returns>
+    internal static string? FileReason(
+        StaticFileKind kind,
+        string path,
+        IReadOnlyList<(string Name, string Content)>? templates
+    )
+    {
+        if (templates is null)
+            return $"Could not read the templates to check whether '{path}' is in use.";
+        var users = templates
+            .Where(t => SchemaStaticFiles.Mentions(t.Content, kind, path))
+            .Select(t => $"'{t.Name}'")
+            .ToList();
+        return users.Count == 0
+            ? null
+            : $"'{path}' is named by template(s) {string.Join(", ", users)}; deleting it breaks them.";
+    }
+
+    /// <summary>
+    /// Every template's name and content as they will stand after this apply (#292): the live
+    /// templates, less the ones the plan deletes, with the snapshot content for the ones it
+    /// updates, plus the ones it creates. So a template the same apply rewrites to stop using a
+    /// file does not block that file's prune, and one it adds does.
+    /// </summary>
+    /// <param name="client">The management client.</param>
+    /// <param name="plan">The ordered plan.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The templates, or null when the live ones could not be read.</returns>
+    private static async Task<IReadOnlyList<(
+        string Name,
+        string Content
+    )>?> TemplatesAfterApplyAsync(
+        IUmbracoManagementClient client,
+        IReadOnlyList<Op> plan,
+        CancellationToken ct
+    )
+    {
+        var ids = await client.GetTemplateIdsAsync(ct);
+        if (!ids.IsSuccess)
+            return null;
+
+        var ops = plan.Where(o => o.Change.Kind == SchemaKinds.Template).ToList();
+        var deleted = ops.Where(o => o.Operation == "delete")
+            .Select(o => o.Change.CurrentId)
+            .ToHashSet();
+        var updated = ops.Where(o => o.Operation == "update")
+            .ToDictionary(o => o.Change.CurrentId!.Value, o => o.Change.DesiredBody!);
+
+        var result = new List<(string, string)>();
+        foreach (var id in ids.Data!.Where(i => !deleted.Contains(i)))
+        {
+            JsonNode body;
+            if (updated.TryGetValue(id, out var desired))
+                body = desired;
+            else
+            {
+                var live = await client.GetSchemaRawAsync(EntityKind.Template, id, ct);
+                if (!live.IsSuccess)
+                    return null;
+                body = live.Data!;
+            }
+            result.Add(TemplateText(body));
+        }
+        result.AddRange(
+            ops.Where(o => o.Operation == "create").Select(o => TemplateText(o.Change.DesiredBody!))
+        );
+        return result;
+    }
+
+    /// <summary>A template body's display name (its name, else alias) and its Razor content.</summary>
+    /// <param name="body">The template body.</param>
+    /// <returns>The name and content.</returns>
+    private static (string Name, string Content) TemplateText(JsonNode body) =>
+        ((string?)body["name"] ?? (string?)body["alias"] ?? "", (string?)body["content"] ?? "");
 
     /// <summary>
     /// Why deleting a dictionary item would also delete children the snapshot keeps under it, or
@@ -303,6 +415,20 @@ public static class SchemaApplier
     {
         var ops = new List<Op>();
 
+        // #292: static files first, so a template never renders against a missing partial. Folders
+        // shallowest first, then the files, then updates.
+        foreach (var files in FileKinds(diff))
+        {
+            ops.AddRange(
+                files
+                    .Added.OrderBy(c => SchemaStaticFiles.IsFolder(c.DesiredBody) ? 0 : 1)
+                    .ThenBy(c => SchemaStaticFiles.Depth(c.Identity))
+                    .ThenBy(c => c.Identity, StringComparer.Ordinal)
+                    .Select(c => new Op("create", c))
+            );
+            ops.AddRange(files.Changed.Select(c => new Op("update", c)));
+        }
+
         // Creates + updates, dependency order across kinds.
         foreach (
             var kind in new[]
@@ -350,10 +476,29 @@ public static class SchemaApplier
                 foreach (var removed in DeleteOrder(kind.Removed))
                     ops.Add(new Op("delete", removed));
             }
+
+            // #292: static files last, after the templates that use them. Files before folders,
+            // and folders deepest first, because Umbraco refuses to delete a folder that is not
+            // empty. A pruned folder never holds a kept entry: the diff implies a folder entry for
+            // every folder a kept entry sits in.
+            foreach (var files in FileKinds(diff))
+                ops.AddRange(
+                    files
+                        .Removed.OrderBy(c => SchemaStaticFiles.IsFolder(c.CurrentBody) ? 1 : 0)
+                        .ThenByDescending(c => SchemaStaticFiles.Depth(c.Identity))
+                        .ThenBy(c => c.Identity, StringComparer.Ordinal)
+                        .Select(c => new Op("delete", c))
+                );
         }
 
         return ops;
     }
+
+    /// <summary>The three static-file kinds' diffs (#292), in snapshot order.</summary>
+    /// <param name="diff">The diff.</param>
+    /// <returns>The partial view, stylesheet and script diffs.</returns>
+    private static SchemaKindDiff[] FileKinds(SchemaDiff diff) =>
+        [diff.PartialViews, diff.Stylesheets, diff.Scripts];
 
     /// <summary>
     /// Orders a kind's creates so a referenced entity is created first. Languages reference each
@@ -524,6 +669,9 @@ public static class SchemaApplier
     )
     {
         var change = op.Change;
+        if (SchemaKinds.StaticFileKindOf(change.Kind) is { } fileKind)
+            return ExecuteFileAsync(client, op.Operation, fileKind, change, ct);
+
         return (op.Operation, change.Kind) switch
         {
             // #227: languages are addressed by ISO code, dictionary items and user groups need
@@ -593,6 +741,77 @@ public static class SchemaApplier
                 $"Unknown schema operation {op.Operation}/{change.Kind}."
             ),
         };
+    }
+
+    /// <summary>
+    /// Runs one static-file operation (#292), addressed by path. A create or update sends the
+    /// snapshot content byte for byte; a folder is created under its parent (the plan has created
+    /// the parent already) and deleted by path.
+    /// </summary>
+    /// <param name="client">The management client.</param>
+    /// <param name="operation">create, update or delete.</param>
+    /// <param name="kind">The static-file kind.</param>
+    /// <param name="change">The diff entry; its identity is the path.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The write result.</returns>
+    /// <exception cref="InvalidOperationException">The operation is not create, update or delete.</exception>
+    private static async Task<UmbracoResponse<Empty>> ExecuteFileAsync(
+        IUmbracoManagementClient client,
+        string operation,
+        StaticFileKind kind,
+        SchemaEntityChange change,
+        CancellationToken ct
+    )
+    {
+        var path = change.Identity;
+        var folder = SchemaStaticFiles.IsFolder(change.DesiredBody ?? change.CurrentBody);
+        switch (operation, folder)
+        {
+            case ("create", true):
+                return Done(
+                    await client.CreateStaticFileFolderAsync(
+                        kind,
+                        SchemaStaticFiles.NameOf(path),
+                        SchemaStaticFiles.ParentOf(path),
+                        ct
+                    )
+                );
+            case ("create", false):
+                return Done(
+                    await client.CreateStaticFileAsync(
+                        kind,
+                        new CreateStaticFileRequest
+                        {
+                            Name = SchemaStaticFiles.NameOf(path),
+                            ParentPath = SchemaStaticFiles.ParentOf(path),
+                            Content = SchemaStaticFiles.ContentOf(change.DesiredBody),
+                        },
+                        ct
+                    )
+                );
+            case ("update", _):
+                return await client.UpdateStaticFileAsync(
+                    kind,
+                    path,
+                    new UpdateStaticFileRequest
+                    {
+                        Content = SchemaStaticFiles.ContentOf(change.DesiredBody),
+                    },
+                    ct
+                );
+            case ("delete", true):
+                return await client.DeleteStaticFileFolderAsync(kind, path, ct);
+            case ("delete", false):
+                return await client.DeleteStaticFileAsync(kind, path, ct);
+            default:
+                throw new InvalidOperationException($"Unknown file operation {operation}.");
+        }
+
+        // The creates return the new item; the plan only needs to know it worked.
+        static UmbracoResponse<Empty> Done<T>(UmbracoResponse<T> result) =>
+            result.IsSuccess
+                ? UmbracoResponse<Empty>.Success(Empty.Value)
+                : UmbracoResponse<Empty>.FailureFrom(result);
     }
 
     /// <summary>

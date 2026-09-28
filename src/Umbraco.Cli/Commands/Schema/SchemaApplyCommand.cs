@@ -36,17 +36,18 @@ public static class SchemaApplyCommand
         {
             Description =
                 "Also DELETE live schema items (types, data types, templates, languages, "
-                + "dictionary items, member and user groups) that the snapshot does not contain. "
+                + "dictionary items, member and user groups, and the partial views, stylesheets "
+                + "and scripts of a snapshot that has them) that the snapshot does not contain. "
                 + "Destructive: requires --yes when non-interactive. A type still in use, a "
-                + "language, or a dictionary item with children the snapshot keeps is refused "
-                + "unless --force is given.",
+                + "language, a dictionary item with children the snapshot keeps, or a file a "
+                + "template names is refused unless --force is given.",
         };
         var forceOpt = new Option<bool>(InUseGuard.ForceOption)
         {
             Description =
                 "With --prune, delete them anyway. Umbraco deletes what they take with them: the "
                 + "content of a type, a language's variants and translations, a dictionary item's "
-                + "children.",
+                + "children, and a template's use of a deleted file.",
         };
         cmd.Add(snapshotArg);
         cmd.Add(pruneOpt);
@@ -66,7 +67,8 @@ public static class SchemaApplyCommand
             pruneOpt,
             _ =>
                 "This will DELETE live schema items (types, data types, templates, languages, "
-                + "dictionary items, member and user groups) that are not present in the snapshot."
+                + "dictionary items, member and user groups, and any files the snapshot manages) "
+                + "that are not present in the snapshot."
         );
         cmd.SetAction(
             (parseResult, ct) =>

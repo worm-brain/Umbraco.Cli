@@ -80,7 +80,69 @@ public static class SchemaDiffEngine
                         ? "Umbraco does not allow this user group to be deleted."
                         : null
             ),
+            // #292. A section the snapshot does not have is not managed: no rows at all.
+            PartialViews = CompareFiles(SchemaKinds.PartialView, desired, current),
+            Stylesheets = CompareFiles(SchemaKinds.Stylesheet, desired, current),
+            Scripts = CompareFiles(SchemaKinds.Script, desired, current),
         };
+
+    /// <summary>
+    /// Diffs one static-file kind by path (#292). Returns <see cref="SchemaKindDiff.None"/> when
+    /// the snapshot has no section for the kind, so a snapshot that does not manage files never
+    /// adds, changes or prunes one. Otherwise the snapshot's entries are completed with the
+    /// folders their paths imply (<see cref="SchemaStaticFiles.WithImpliedFolders"/>) and matched
+    /// by path. A change that is only line endings or trailing newlines carries the note
+    /// <c>line endings only</c>; a path that is a file on one side and a folder on the other is
+    /// skipped, since no update can turn one into the other.
+    /// </summary>
+    /// <param name="kind">The static-file kind tag.</param>
+    /// <param name="desired">The snapshot.</param>
+    /// <param name="current">The live export.</param>
+    /// <returns>The diff for the kind.</returns>
+    private static SchemaKindDiff CompareFiles(
+        string kind,
+        SchemaSnapshot desired,
+        SchemaSnapshot current
+    )
+    {
+        if (desired.FilesOf(kind) is not { } entries)
+            return SchemaKindDiff.None;
+
+        var diff = CompareKind(
+            kind,
+            "path",
+            SchemaStaticFiles.WithImpliedFolders(entries),
+            SchemaStaticFiles.WithImpliedFolders(current.FilesOf(kind) ?? [])
+        );
+
+        var changed = new List<SchemaEntityChange>();
+        var skipped = diff.Skipped.ToList();
+        foreach (var change in diff.Changed)
+        {
+            var (want, have) = (change.DesiredBody, change.CurrentBody);
+            if (SchemaStaticFiles.IsFolder(want) != SchemaStaticFiles.IsFolder(have))
+                skipped.Add(
+                    change with
+                    {
+                        Change = SchemaChangeKind.Skipped,
+                        Note = "A file on one side and a folder on the other; delete one by hand.",
+                    }
+                );
+            else
+                changed.Add(
+                    SchemaStaticFiles.DifferOnlyInLineEndings(
+                        SchemaStaticFiles.ContentOf(want),
+                        SchemaStaticFiles.ContentOf(have)
+                    )
+                        ? change with
+                        {
+                            Note = "line endings only",
+                        }
+                        : change
+                );
+        }
+        return diff with { Changed = changed, Skipped = skipped };
+    }
 
     /// <summary>An entity reduced to what matching needs: its id, human key, and raw body.</summary>
     private readonly record struct Entry(Guid? Id, string Key, JsonNode Body);

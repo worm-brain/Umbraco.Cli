@@ -8,8 +8,9 @@ namespace Umbraco.Cli.Commands.Schema;
 /// A portable, round-trippable dump of an Umbraco instance's schema — every document type,
 /// media type, member type, data type, template, language, dictionary item, member group and
 /// user group — as the **verbatim** Management-API JSON body of each entity
-/// (issue #68 / ADR 0005 §1, "raw-JSON passthrough"). Produced by <c>schema export</c> and
-/// consumed by <c>schema diff</c> / <c>schema apply</c>.
+/// (issue #68 / ADR 0005 §1, "raw-JSON passthrough"), plus the partial views, stylesheets and
+/// scripts the templates need (#292). Produced by <c>schema export</c> and consumed by
+/// <c>schema diff</c> / <c>schema apply</c>.
 ///
 /// The bodies are stored as <see cref="JsonNode"/> rather than typed records precisely so
 /// nothing is dropped: the CLI's own response records omit doc-type properties/compositions,
@@ -36,8 +37,16 @@ public sealed class SchemaSnapshot
     /// Bumped to <c>"3"</c> when languages, the dictionary and member and user groups joined it
     /// (#227). A version-2 file is refused for the same reason.
     /// </para>
+    /// <para>
+    /// Bumped to <c>"4"</c> when partial views, stylesheets and scripts joined it (#292). A
+    /// version-3 file is still read: it has no file sections, and an absent section means "files
+    /// not managed", so diff and apply leave the instance's files alone rather than pruning them.
+    /// </para>
     /// </remarks>
-    public const string CurrentVersion = "3";
+    public const string CurrentVersion = "4";
+
+    /// <summary>The layout versions this CLI reads: the current one, and "3", which predates the file sections.</summary>
+    public static readonly IReadOnlyList<string> ReadableVersions = ["3", CurrentVersion];
 
     /// <summary>Verbatim <c>GET /document-type/{id}</c> bodies, one per document type.</summary>
     [JsonPropertyName("documentTypes")]
@@ -83,6 +92,45 @@ public sealed class SchemaSnapshot
     public List<JsonNode> UserGroups { get; init; } = [];
 
     /// <summary>
+    /// Partial views and their folders (#292): <c>{path, content}</c> per file and
+    /// <c>{path, isFolder: true}</c> per folder (see <see cref="SchemaStaticFiles"/>).
+    /// <para>
+    /// <b>Null means the section is absent</b>, and an absent section does not manage partial
+    /// views: diff and apply skip them and <c>--prune</c> deletes none. That is every format "3"
+    /// file and every <c>schema export --no-files</c>. An empty array is different: it manages
+    /// them, and says there are none, so a prune deletes the live ones.
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("partialViews")]
+    public List<JsonNode>? PartialViews { get; init; }
+
+    /// <summary>Stylesheets and their folders (#292); null when the section is absent (see <see cref="PartialViews"/>).</summary>
+    [JsonPropertyName("stylesheets")]
+    public List<JsonNode>? Stylesheets { get; init; }
+
+    /// <summary>Scripts and their folders (#292); null when the section is absent (see <see cref="PartialViews"/>).</summary>
+    [JsonPropertyName("scripts")]
+    public List<JsonNode>? Scripts { get; init; }
+
+    /// <summary>Whether this snapshot manages any static-file kind (has at least one file section).</summary>
+    [JsonIgnore]
+    public bool ManagesFiles =>
+        PartialViews is not null || Stylesheets is not null || Scripts is not null;
+
+    /// <summary>The section for a static-file kind tag, or null when it is absent.</summary>
+    /// <param name="kind">A static-file kind tag, e.g. <see cref="SchemaKinds.PartialView"/>.</param>
+    /// <returns>The entries, or null.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The tag is not a static-file kind.</exception>
+    public List<JsonNode>? FilesOf(string kind) =>
+        kind switch
+        {
+            SchemaKinds.PartialView => PartialViews,
+            SchemaKinds.Stylesheet => Stylesheets,
+            SchemaKinds.Script => Scripts,
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a file kind."),
+        };
+
+    /// <summary>
     /// The <see cref="JsonSerializerOptions"/> used to read and write snapshot files: indented
     /// for human-diffable output, camelCase to match the Management API, and null-tolerant.
     /// Shared so export, diff, and apply serialize identically.
@@ -112,6 +160,9 @@ public sealed class SchemaSnapshot
         "dictionaryItems",
         "memberGroups",
         "userGroups",
+        "partialViews",
+        "stylesheets",
+        "scripts",
     ];
 
     /// <summary>
@@ -152,20 +203,22 @@ public sealed class SchemaSnapshot
             throw new JsonException(
                 "Not a schema snapshot: expected a 'schemaVersion' and/or "
                     + "documentTypes/mediaTypes/memberTypes/dataTypes/templates/languages/"
-                    + "dictionaryItems/memberGroups/userGroups arrays "
-                    + "(produced by 'schema export')."
+                    + "dictionaryItems/memberGroups/userGroups/partialViews/stylesheets/scripts "
+                    + "arrays (produced by 'schema export')."
             );
 
-        // Guard against a future snapshot format: refuse a version we do not understand rather
-        // than mis-reading its shape.
+        // Guard against another snapshot format: refuse a version we do not understand rather
+        // than mis-reading its shape. "3" is still read: it only lacks the file sections, which
+        // then count as not managed (#292).
         if (
             obj["schemaVersion"] is JsonValue versionNode
             && versionNode.TryGetValue<string>(out var version)
-            && version != CurrentVersion
+            && !ReadableVersions.Contains(version)
         )
             throw new JsonException(
-                $"Unsupported snapshot schemaVersion '{version}' (this CLI writes and reads "
-                    + $"'{CurrentVersion}'). Re-export with a matching CLI version."
+                $"Unsupported snapshot schemaVersion '{version}' (this CLI writes "
+                    + $"'{CurrentVersion}' and reads {string.Join(" and ", ReadableVersions.Select(v => $"'{v}'"))}). "
+                    + "Re-export with a matching CLI version."
             );
 
         return obj.Deserialize<SchemaSnapshot>(SerializerOptions)

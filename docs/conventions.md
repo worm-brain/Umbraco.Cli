@@ -188,3 +188,8 @@ Each exception is deliberate or tracked; don't copy it.
 - **2026-09-28** - 7: errors carry `details`, Umbraco's ProblemDetails body as sent, and the
   message is built from it (#286). Chosen over a curated field set so new Umbraco fields are
   never dropped.
+- **2026-09-28** - 2 (`export`/`diff`/`apply`): the schema snapshot, format "4", carries partial
+  views, stylesheets and scripts (#292). A section that is **absent** means that kind is not
+  managed: diff and apply skip it and `--prune` never deletes one. So format "3" files and
+  `schema export --no-files` leave the target's files alone, and a section that is present but
+  **empty** does manage them. Chosen so sites that deploy views from git keep doing so.
