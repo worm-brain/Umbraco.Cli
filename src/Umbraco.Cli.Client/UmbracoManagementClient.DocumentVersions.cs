@@ -119,12 +119,12 @@ public sealed partial class UmbracoManagementClient
     /// Reads one version of a document, with its values, via <c>GET document-version/{id}</c>
     /// (#209). The body is returned raw so every property value survives, which is what a
     /// diff before <c>content version rollback</c> needs.
-    /// </summary>
     /// <para>
     /// Like <c>content get</c> and <c>document-blueprint get</c>, it adds a top-level <c>name</c>
-    /// (the first variant's) and the document's current <c>parent</c> (#315); the rest of the body
-    /// is left exactly as Umbraco sent it.
+    /// (the first variant's), the document's current <c>parent</c> (#315) and the document type's
+    /// <c>alias</c> (#320); the rest of the body is left exactly as Umbraco sent it.
     /// </para>
+    /// </summary>
     /// <param name="versionId">The version id, from <see cref="GetDocumentVersionsAsync"/>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The version body as JSON, or a mapped failure.</returns>
@@ -158,6 +158,21 @@ public sealed partial class UmbracoManagementClient
                     && await DocumentParentAsync(documentId, ct) is { } parent
                 )
                     obj["parent"] = new JsonObject { ["id"] = parent.Id.ToString() };
+
+                // The type reference carries only id/icon/collection; add the alias (cached, as
+                // content get and list do) so one jq filter reads current and past versions
+                // alike (#320). A null collection is dropped, as the mapped reads omit it.
+                if (obj["documentType"] is JsonObject type)
+                {
+                    if (type["collection"] is null && type.ContainsKey("collection"))
+                        type.Remove("collection");
+                    if (
+                        type["id"]?.GetValue<string>() is { } rawType
+                        && Guid.TryParse(rawType, out var typeId)
+                        && await DocumentTypeAliasAsync(typeId, ct) is { } alias
+                    )
+                        type["alias"] = alias;
+                }
                 return obj;
             }
         );
