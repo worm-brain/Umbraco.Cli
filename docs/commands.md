@@ -768,10 +768,33 @@ check as `create`.
 
 ```bash
 umbraco webhook list
-umbraco webhook create --url <url> --event <name>... [--name <name>] [--description <text>]   # --event repeatable
-umbraco webhook delete <id>                               # needs --yes non-interactively
+umbraco webhook get <id|name>
+umbraco webhook create --url <url> --event <name>... [--name <name>] [--description <text>] [--header <name=value>]... [--type <id|alias>]... [--id <guid>]   # --event repeatable
+umbraco webhook update <id|name> [--url <url>] [--event <name>...] [--name <name>] [--description <text>] [--enabled [true|false]] [--header <name=value>]... [--type <id|alias>]...
+umbraco webhook delete <id|name>                          # needs --yes non-interactively
 umbraco webhook event list                                # the aliases --event accepts
+umbraco webhook log list [<id|name>] [--skip <n>] [--take <n>]   # deliveries of one webhook, or of all
 ```
+
+`get`, `update` and `delete` take the webhook's id or its name (ignoring case; a name shared by
+two webhooks is refused with both ids). A webhook without a name can only be named by its id.
+
+`update` merges: omitted options keep their values, `--event` and `--type` replace those lists,
+and `--header` merges by header name (ignoring case), so naming one header leaves the others
+alone. Enable or disable a webhook with `--enabled true` / `--enabled false`; there are no
+separate `enable`/`disable` verbs. `update` returns the webhook read back from the instance, as
+`get` shows it. New `--event` aliases get the same check as on `create`.
+
+`--header name=value` is repeat-only (a value may contain a comma) and is sent with every
+delivery - typically an API key the receiver checks. `--type` restricts the webhook to items
+of the given types: document types for content events, media types for media events, member
+types for member events. It takes ids or aliases; an alias is looked up across all three kinds
+and must name exactly one type. With no `--type` the webhook fires for every type (the JSON
+field is `contentTypeKeys`, as Umbraco names it).
+
+`log list` shows delivery attempts: `statusCode` (as Umbraco records it, e.g. `OK (200)`),
+`isSuccessStatusCode`, `exceptionOccurred`, `retryCount`, and the request and response headers
+and bodies. With no webhook it lists every webhook's deliveries.
 
 `create` returns the webhook read back from the instance, in the same shape as `list`: each event
 is `{eventName, eventType, alias}`, with the display name in `eventName` and what you passed to
