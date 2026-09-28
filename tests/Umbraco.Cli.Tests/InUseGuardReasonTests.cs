@@ -193,4 +193,38 @@ public class InUseGuardReasonTests
         // Assert
         Assert.Contains("'Home'", reason);
     }
+
+    [Theory]
+    [InlineData(EntityKind.DocumentType)]
+    [InlineData(EntityKind.MediaType)]
+    public async Task ReasonAsync_PrunedTypeWithItems_NamesTheTypeByAliasAndId(EntityKind kind)
+    {
+        // Arrange: a prune knows the type's alias from the diff (#396).
+        var fake = new FakeUmbracoManagementClient();
+        fake.TypeUsages[PageType] = new TypeUsage(2, []);
+
+        // Act
+        var reason = await Reason(fake, new DeleteTarget.Item(kind, PageType, "page"), Plan());
+
+        // Assert
+        Assert.Contains($"type page ({PageType}) has 2", reason);
+    }
+
+    [Fact]
+    public async Task ReasonAsync_TypeWithoutAKnownAlias_NamesTheTypeById()
+    {
+        // Arrange: a single delete has no alias to hand.
+        var fake = new FakeUmbracoManagementClient();
+        fake.TypeUsages[PageType] = new TypeUsage(0, [], IsElement: true);
+
+        // Act
+        var reason = await Reason(
+            fake,
+            new DeleteTarget.Item(EntityKind.DocumentType, PageType),
+            null
+        );
+
+        // Assert
+        Assert.Contains($"Document type {PageType} is an element type", reason);
+    }
 }

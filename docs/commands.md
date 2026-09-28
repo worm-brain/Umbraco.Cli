@@ -1136,7 +1136,11 @@ How it works:
   you leave out is removed, with its values). List order does not matter: properties are matched
   by alias, containers by id, and `allowedDocumentTypes` / `compositions` entries by the type they
   name (ids ignore letter case), and order is carried by `sortOrder` and `parent`
-  ([#350](https://github.com/worm-brain/Umbraco.Cli/issues/350)). Run `schema diff` first; its
+  ([#350](https://github.com/worm-brain/Umbraco.Cli/issues/350)). A container whose id is not on
+  the target (a snapshot exported from another instance) is matched to the one target container
+  with the same type, name and parent, and diff and apply use the target's id; when several
+  match, the type is skipped with a note naming them
+  ([#397](https://github.com/worm-brain/Umbraco.Cli/issues/397)). Run `schema diff` first; its
   `changes` column shows exactly which fields differ.
 - **Static files** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)) - the
   snapshot's `partialViews`, `stylesheets` and `scripts` sections hold each file as

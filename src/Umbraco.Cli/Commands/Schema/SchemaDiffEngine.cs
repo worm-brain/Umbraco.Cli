@@ -117,7 +117,11 @@ public static class SchemaDiffEngine
     /// <summary>An entity reduced to what matching needs: its id, human key, and raw body.</summary>
     private readonly record struct Entry(Guid? Id, string Key, JsonNode Body);
 
-    /// <summary>Diffs one entity kind by the GUID-primary, alias-fallback rules (two passes).</summary>
+    /// <summary>
+    /// Diffs one entity kind by the GUID-primary, alias-fallback rules (two passes). A matched
+    /// type's containers are then matched to the target's (<see cref="SchemaContainers"/>, #397);
+    /// a type with a container that matches several target containers is skipped with a note.
+    /// </summary>
     /// <param name="kind">The entity-kind tag for the resulting changes.</param>
     /// <param name="keyField">The JSON field holding the human key (<c>alias</c>, <c>name</c> or <c>isoCode</c>).</param>
     /// <param name="desiredBodies">The desired entities' raw bodies.</param>
@@ -239,6 +243,26 @@ public static class SchemaDiffEngine
         foreach (var (d, live, idMismatch) in pairs)
         {
             var want = Rewritten(d);
+            // #397: a type's containers carry the source instance's ids in a snapshot from
+            // elsewhere; match them to the target's by type, name and parent, and skip the type
+            // rather than guess when a container matches several.
+            var (matched, ambiguity) = SchemaContainers.MatchToLive(want.Body, live.Body);
+            if (ambiguity is not null)
+            {
+                skipped.Add(
+                    new SchemaEntityChange(
+                        kind,
+                        SchemaChangeKind.Skipped,
+                        d.Key,
+                        d.Id,
+                        live.Id,
+                        idMismatch,
+                        ambiguity
+                    )
+                );
+                continue;
+            }
+            want = want with { Body = matched };
             if (omittedIsUnmanaged)
                 want = want with { Body = WithUnmanagedFromLive(want.Body, live.Body) };
             Classify(kind, want, live, idMismatch, changed, ref unchanged);
