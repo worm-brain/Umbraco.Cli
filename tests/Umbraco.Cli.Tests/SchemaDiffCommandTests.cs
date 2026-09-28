@@ -76,9 +76,9 @@ public class SchemaDiffCommandTests
         var snap = new SchemaSnapshot
         {
             DocumentTypes =
-            {
+            [
                 JsonNode.Parse($$"""{"id":"{{id}}","alias":"{{alias}}","name":"{{name}}"}""")!,
-            },
+            ],
         };
         File.WriteAllText(path, snap.ToJson());
         return path;

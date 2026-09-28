@@ -30,18 +30,41 @@ public static class SchemaExporter
     /// diff against a snapshot that does not manage them (no point reading every file).
     /// </param>
     /// <returns>The assembled snapshot, or the first failure encountered.</returns>
-    public static async Task<UmbracoResponse<SchemaSnapshot>> ExportAsync(
+    public static Task<UmbracoResponse<SchemaSnapshot>> ExportAsync(
         IUmbracoManagementClient client,
         CancellationToken ct,
         bool includeFiles = true
+    ) =>
+        ExportAsync(
+            client,
+            SchemaKinds.All.Where(k => includeFiles || k.File is null).ToList(),
+            ct
+        );
+
+    /// <summary>
+    /// Exports only <paramref name="kinds"/>; every other section is absent. The live side of a
+    /// diff reads just the kinds the snapshot manages (#198), so a partial snapshot does not read
+    /// the whole instance.
+    /// </summary>
+    /// <param name="client">The authenticated management client.</param>
+    /// <param name="kinds">The kinds to read.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The assembled snapshot, or the first failure encountered.</returns>
+    public static async Task<UmbracoResponse<SchemaSnapshot>> ExportAsync(
+        IUmbracoManagementClient client,
+        IReadOnlyCollection<SchemaKindSpec> kinds,
+        CancellationToken ct
     )
     {
-        // One read per kind in the kind table (#273). A kind left out keeps its section absent.
+        // One read per kind in the kind table (#273). A kind left out is absent.
         var snapshot = new SchemaSnapshot();
         foreach (var kind in SchemaKinds.All)
         {
-            if (kind.File is not null && !includeFiles)
+            if (!kinds.Contains(kind))
+            {
+                kind.SetSection(snapshot, null);
                 continue;
+            }
             var entries = await kind.Export(client, ct);
             if (!entries.IsSuccess)
                 return UmbracoResponse<SchemaSnapshot>.FailureFrom(entries);

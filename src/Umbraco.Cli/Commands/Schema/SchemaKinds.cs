@@ -69,6 +69,18 @@ public sealed record SchemaKindSpec
     /// </summary>
     public Func<JsonNode, IReadOnlyDictionary<Guid, Guid>, JsonNode>? Rewrite { get; init; }
 
+    /// <summary>
+    /// Where the kind's bodies reference other schema items by id, which a hand-written snapshot
+    /// may give by name instead (#198; see <see cref="SchemaReferences"/>).
+    /// </summary>
+    public IReadOnlyList<SchemaReference> References { get; init; } = [];
+
+    /// <summary>
+    /// Whether the kind's bodies carry <c>properties</c> and <c>containers</c> (the three types),
+    /// whose ids a hand-written snapshot may leave out (#198).
+    /// </summary>
+    public bool HasProperties { get; init; }
+
     /// <summary>Orders the kind's creates among themselves (referenced entities first).</summary>
     public Func<
         IReadOnlyList<SchemaEntityChange>,
@@ -157,12 +169,22 @@ public static class SchemaKinds
             EntityKind.DocumentType,
             stage: 10,
             s => s.DocumentTypes,
-            (s, v) => s.DocumentTypes = v!,
+            (s, v) => s.DocumentTypes = v,
             d => d.DocumentTypes,
             (d, k) => d with { DocumentTypes = k },
             (c, ct) => c.GetDocumentTypeIdsAsync(ct),
             (c, id, ct) => c.DeleteDocumentTypeAsync(id, ct)
-        ),
+        ) with
+        {
+            HasProperties = true,
+            References =
+            [
+                .. TypeReferences("documentType", EntityKind.DocumentType),
+                new("allowedDocumentTypes", "documentType", EntityKind.DocumentType),
+                new("allowedTemplates", null, EntityKind.Template),
+                new(null, "defaultTemplate", EntityKind.Template),
+            ],
+        },
         // Media and member types carry an alias, exactly as document types do (#186).
         TypeKind(
             MediaType,
@@ -170,24 +192,36 @@ public static class SchemaKinds
             EntityKind.MediaType,
             stage: 8,
             s => s.MediaTypes,
-            (s, v) => s.MediaTypes = v!,
+            (s, v) => s.MediaTypes = v,
             d => d.MediaTypes,
             (d, k) => d with { MediaTypes = k },
             (c, ct) => c.GetMediaTypeIdsAsync(ct),
             (c, id, ct) => c.DeleteMediaTypeAsync(id, ct)
-        ),
+        ) with
+        {
+            HasProperties = true,
+            References =
+            [
+                .. TypeReferences("mediaType", EntityKind.MediaType),
+                new("allowedMediaTypes", "mediaType", EntityKind.MediaType),
+            ],
+        },
         TypeKind(
             MemberType,
             "memberTypes",
             EntityKind.MemberType,
             stage: 9,
             s => s.MemberTypes,
-            (s, v) => s.MemberTypes = v!,
+            (s, v) => s.MemberTypes = v,
             d => d.MemberTypes,
             (d, k) => d with { MemberTypes = k },
             (c, ct) => c.GetMemberTypeIdsAsync(ct),
             (c, id, ct) => c.DeleteMemberTypeAsync(id, ct)
-        ),
+        ) with
+        {
+            HasProperties = true,
+            References = TypeReferences("memberType", EntityKind.MemberType),
+        },
         // Data types have no alias: they match on name.
         TypeKind(
             DataType,
@@ -195,7 +229,7 @@ public static class SchemaKinds
             EntityKind.DataType,
             stage: 6,
             s => s.DataTypes,
-            (s, v) => s.DataTypes = v!,
+            (s, v) => s.DataTypes = v,
             d => d.DataTypes,
             (d, k) => d with { DataTypes = k },
             (c, ct) => c.GetDataTypeIdsAsync(ct),
@@ -210,12 +244,15 @@ public static class SchemaKinds
             EntityKind.Template,
             stage: 7,
             s => s.Templates,
-            (s, v) => s.Templates = v!,
+            (s, v) => s.Templates = v,
             d => d.Templates,
             (d, k) => d with { Templates = k },
             (c, ct) => c.GetTemplateIdsAsync(ct),
             (c, id, ct) => c.DeleteTemplateAsync(id, ct)
-        ),
+        ) with
+        {
+            References = [new(null, "masterTemplate", EntityKind.Template)],
+        },
         // #227. Languages have no id at all, so they match on the ISO code alone and are written
         // by it.
         new SchemaKindSpec
@@ -225,7 +262,7 @@ public static class SchemaKinds
             KeyField = "isoCode",
             ApplyStage = 3,
             Section = s => s.Languages,
-            SetSection = (s, v) => s.Languages = v!,
+            SetSection = (s, v) => s.Languages = v,
             Diff = d => d.Languages,
             WithDiff = (d, k) => d with { Languages = k },
             Export = async (c, ct) =>
@@ -262,11 +299,12 @@ public static class SchemaKinds
             ApplyStage = 4,
             Entity = EntityKind.DictionaryItem,
             Section = s => s.DictionaryItems,
-            SetSection = (s, v) => s.DictionaryItems = v!,
+            SetSection = (s, v) => s.DictionaryItems = v,
             Diff = d => d.DictionaryItems,
             WithDiff = (d, k) => d with { DictionaryItems = k },
             Export = SchemaExporter.CollectDictionaryAsync,
             Rewrite = SchemaBodies.WithLiveParent,
+            References = [new(null, "parent", EntityKind.DictionaryItem)],
             DeleteOrder = SchemaOrder.DictionaryDeletes,
             Create = SchemaWrites.Create(EntityKind.DictionaryItem),
             Update = SchemaWrites.UpdateDictionaryItemAsync,
@@ -279,7 +317,7 @@ public static class SchemaKinds
             EntityKind.MemberGroup,
             stage: 5,
             s => s.MemberGroups,
-            (s, v) => s.MemberGroups = v!,
+            (s, v) => s.MemberGroups = v,
             d => d.MemberGroups,
             (d, k) => d with { MemberGroups = k },
             (c, ct) => c.GetMemberGroupIdsAsync(ct),
@@ -294,13 +332,15 @@ public static class SchemaKinds
             EntityKind.UserGroup,
             stage: 11,
             s => s.UserGroups,
-            (s, v) => s.UserGroups = v!,
+            (s, v) => s.UserGroups = v,
             d => d.UserGroups,
             (d, k) => d with { UserGroups = k },
             (c, ct) => c.GetUserGroupIdsAsync(ct),
             (c, id, ct) => c.DeleteUserGroupAsync(id, ct)
         ) with
         {
+            // A property-value permission names the document type it applies to.
+            References = [new("permissions", "documentType", EntityKind.DocumentType)],
             // Start nodes and per-document permissions name content on one instance only.
             Export = async (c, ct) =>
             {
@@ -478,6 +518,20 @@ public static class SchemaKinds
                 SchemaStaticFiles.IsFolder(change.CurrentBody)
             ),
         };
+
+    /// <summary>
+    /// The references every type body carries (#198): each property's data type, the list view's
+    /// data type (<c>collection</c>), and its compositions, which name types of its own kind.
+    /// </summary>
+    /// <param name="self">The body field a composition names its type by (<c>documentType</c>, ...).</param>
+    /// <param name="kind">The type's own kind.</param>
+    /// <returns>The references.</returns>
+    private static SchemaReference[] TypeReferences(string self, EntityKind kind) =>
+        [
+            new("properties", "dataType", EntityKind.DataType),
+            new(null, "collection", EntityKind.DataType),
+            new("compositions", self, kind),
+        ];
 
     /// <summary>The delete target of a removed id-keyed entity: its live id, named by its identity.</summary>
     /// <param name="entity">The client entity kind.</param>

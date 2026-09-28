@@ -27,7 +27,9 @@ public static class SchemaDiffEngine
     /// <summary>
     /// Compares a desired snapshot against the live one and returns the full diff: one pass per
     /// kind in the kind table (<see cref="SchemaKinds.All"/>, #273), each by the kind's own key,
-    /// undeletable rule and reference rewrite.
+    /// undeletable rule and reference rewrite. A kind whose section the desired snapshot does not
+    /// have is not managed (#292, #198): it gets no rows at all, so it is never created, changed or
+    /// pruned.
     /// </summary>
     /// <param name="desired">The target schema (typically loaded from a snapshot file).</param>
     /// <param name="current">The live schema (typically a fresh export).</param>
@@ -36,44 +38,43 @@ public static class SchemaDiffEngine
     {
         var diff = SchemaDiff.Empty;
         foreach (var kind in SchemaKinds.All)
+        {
+            if (kind.Section(desired) is not { } entries)
+                continue;
             diff = kind.WithDiff(
                 diff,
                 kind.File is not null
-                    ? CompareFiles(kind, desired, current)
+                    ? CompareFiles(kind, entries, current)
                     : CompareKind(
                         kind.Tag,
                         kind.KeyField,
-                        kind.Section(desired) ?? [],
+                        entries,
                         kind.Section(current) ?? [],
                         kind.Undeletable,
                         kind.Rewrite
                     )
             );
+        }
         return diff;
     }
 
     /// <summary>
-    /// Diffs one static-file kind by path (#292). Returns <see cref="SchemaKindDiff.None"/> when
-    /// the snapshot has no section for the kind, so a snapshot that does not manage files never
-    /// adds, changes or prunes one. Otherwise the snapshot's entries are completed with the
+    /// Diffs one static-file kind by path (#292). The snapshot's entries are completed with the
     /// folders their paths imply (<see cref="SchemaStaticFiles.WithImpliedFolders"/>) and matched
     /// by path. A change that is only line endings or trailing newlines carries the note
     /// <c>line endings only</c>; a path that is a file on one side and a folder on the other is
     /// skipped, since no update can turn one into the other.
     /// </summary>
     /// <param name="kind">The static-file kind.</param>
-    /// <param name="desired">The snapshot.</param>
+    /// <param name="entries">The snapshot's section for the kind.</param>
     /// <param name="current">The live export.</param>
     /// <returns>The diff for the kind.</returns>
     private static SchemaKindDiff CompareFiles(
         SchemaKindSpec kind,
-        SchemaSnapshot desired,
+        IReadOnlyList<JsonNode> entries,
         SchemaSnapshot current
     )
     {
-        if (kind.Section(desired) is not { } entries)
-            return SchemaKindDiff.None;
-
         var diff = CompareKind(
             kind.Tag,
             kind.KeyField,

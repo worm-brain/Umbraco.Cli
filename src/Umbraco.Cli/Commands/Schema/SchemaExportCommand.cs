@@ -108,15 +108,16 @@ public static class SchemaExportCommand
                         File.WriteAllText(outFile.FullName, snapshot!.ToJson());
                         ctx.Output.WriteSuccess(
                             new SchemaExportSummary(
-                                snapshot.DocumentTypes.Count,
-                                snapshot.MediaTypes.Count,
-                                snapshot.MemberTypes.Count,
-                                snapshot.DataTypes.Count,
-                                snapshot.Templates.Count,
-                                snapshot.Languages.Count,
-                                snapshot.DictionaryItems.Count,
-                                snapshot.MemberGroups.Count,
-                                snapshot.UserGroups.Count,
+                                // An export reads every type kind, so those sections are present.
+                                snapshot.DocumentTypes!.Count,
+                                snapshot.MediaTypes!.Count,
+                                snapshot.MemberTypes!.Count,
+                                snapshot.DataTypes!.Count,
+                                snapshot.Templates!.Count,
+                                snapshot.Languages!.Count,
+                                snapshot.DictionaryItems!.Count,
+                                snapshot.MemberGroups!.Count,
+                                snapshot.UserGroups!.Count,
                                 snapshot.PartialViews?.Count,
                                 snapshot.Stylesheets?.Count,
                                 snapshot.Scripts?.Count,

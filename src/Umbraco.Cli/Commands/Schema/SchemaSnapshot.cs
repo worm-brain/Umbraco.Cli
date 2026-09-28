@@ -48,40 +48,46 @@ public sealed class SchemaSnapshot
     /// <summary>The layout versions this CLI reads: the current one, and "3", which predates the file sections.</summary>
     public static readonly IReadOnlyList<string> ReadableVersions = ["3", CurrentVersion];
 
+    // Every section below is nullable, and null means ABSENT: the snapshot does not manage that
+    // kind, so diff and apply skip it and --prune deletes none of it (#292 for the files, #198 for
+    // the rest). A snapshot built in code starts with every type section present and empty, as an
+    // export would make it; FromJson makes a section the file leaves out absent, which is what
+    // lets a hand-written snapshot carry only the kinds it means to change.
+
     /// <summary>Verbatim <c>GET /document-type/{id}</c> bodies, one per document type.</summary>
     [JsonPropertyName("documentTypes")]
-    public List<JsonNode> DocumentTypes { get; set; } = [];
+    public List<JsonNode>? DocumentTypes { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /media-type/{id}</c> bodies, one per media type (#186).</summary>
     [JsonPropertyName("mediaTypes")]
-    public List<JsonNode> MediaTypes { get; set; } = [];
+    public List<JsonNode>? MediaTypes { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /member-type/{id}</c> bodies, one per member type (#186).</summary>
     [JsonPropertyName("memberTypes")]
-    public List<JsonNode> MemberTypes { get; set; } = [];
+    public List<JsonNode>? MemberTypes { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /data-type/{id}</c> bodies, one per data type.</summary>
     [JsonPropertyName("dataTypes")]
-    public List<JsonNode> DataTypes { get; set; } = [];
+    public List<JsonNode>? DataTypes { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /template/{id}</c> bodies, one per template.</summary>
     [JsonPropertyName("templates")]
-    public List<JsonNode> Templates { get; set; } = [];
+    public List<JsonNode>? Templates { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /language</c> items, one per language (#227). Keyed by <c>isoCode</c>.</summary>
     [JsonPropertyName("languages")]
-    public List<JsonNode> Languages { get; set; } = [];
+    public List<JsonNode>? Languages { get; set; } = [];
 
     /// <summary>
     /// <c>GET /dictionary/{id}</c> bodies, one per dictionary item (#227), with the item's
     /// <c>parent</c> added (the item read has none) and its translations sorted by ISO code.
     /// </summary>
     [JsonPropertyName("dictionaryItems")]
-    public List<JsonNode> DictionaryItems { get; set; } = [];
+    public List<JsonNode>? DictionaryItems { get; set; } = [];
 
     /// <summary>Verbatim <c>GET /member-group/{id}</c> bodies, one per member group (#227).</summary>
     [JsonPropertyName("memberGroups")]
-    public List<JsonNode> MemberGroups { get; set; } = [];
+    public List<JsonNode>? MemberGroups { get; set; } = [];
 
     /// <summary>
     /// <c>GET /user-group/{id}</c> bodies, one per user group (#227), without the parts that name
@@ -89,7 +95,7 @@ public sealed class SchemaSnapshot
     /// permissions. See <see cref="SchemaBodies.PortableUserGroup"/>.
     /// </summary>
     [JsonPropertyName("userGroups")]
-    public List<JsonNode> UserGroups { get; set; } = [];
+    public List<JsonNode>? UserGroups { get; set; } = [];
 
     /// <summary>
     /// Partial views and their folders (#292): <c>{path, content}</c> per file and
@@ -200,7 +206,25 @@ public sealed class SchemaSnapshot
                     + "Re-export with a matching CLI version."
             );
 
-        return obj.Deserialize<SchemaSnapshot>(SerializerOptions)
+        var snapshot =
+            obj.Deserialize<SchemaSnapshot>(SerializerOptions)
             ?? throw new JsonException("The snapshot could not be parsed.");
+
+        // #198: a section the file leaves out (or sets to null) is absent, not empty, so a
+        // hand-written snapshot with only the kinds it changes never prunes the rest. Every
+        // exported file has every type section, so this changes nothing for them.
+        foreach (var kind in SchemaKinds.All)
+            if (!HasSection(obj, kind.Member))
+                kind.SetSection(snapshot, null);
+        return snapshot;
     }
+
+    /// <summary>Whether a snapshot object carries a non-null member, matched ignoring case as the deserializer does.</summary>
+    /// <param name="obj">The snapshot object.</param>
+    /// <param name="member">The section member, e.g. <c>documentTypes</c>.</param>
+    /// <returns>True when the section is present.</returns>
+    private static bool HasSection(JsonObject obj, string member) =>
+        obj.Any(p =>
+            string.Equals(p.Key, member, StringComparison.OrdinalIgnoreCase) && p.Value is not null
+        );
 }

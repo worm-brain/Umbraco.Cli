@@ -193,3 +193,10 @@ Each exception is deliberate or tracked; don't copy it.
   managed: diff and apply skip it and `--prune` never deletes one. So format "3" files and
   `schema export --no-files` leave the target's files alone, and a section that is present but
   **empty** does manage them. Chosen so sites that deploy views from git keep doing so.
+- **2026-09-28** - 2 (`export`/`diff`/`apply`): the #292 rule now covers **every** schema snapshot
+  section (#198). A section that is absent (or null) is not managed: diff and apply skip that
+  kind and `--prune` deletes none of it; a present section is the whole list for its kind. Before,
+  an absent type section read as empty, so `--prune` on a hand-written partial file deleted every
+  kind it left out. The format stays `"4"`: every exported file has every type section, so no
+  exported file changes meaning. A hand-written snapshot may also name references instead of ids
+  and leave ids out of new entries.

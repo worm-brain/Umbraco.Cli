@@ -34,9 +34,9 @@ public class SchemaExporterTests
         Assert.True(result.IsSuccess);
         var snap = result.Data!;
         Assert.Equal(SchemaSnapshot.CurrentVersion, snap.SchemaVersion);
-        Assert.Equal("blogPost", (string?)snap.DocumentTypes.Single()["alias"]);
-        Assert.Equal("My Slider", (string?)snap.DataTypes.Single()["alias"]);
-        Assert.Equal("home", (string?)snap.Templates.Single()["alias"]);
+        Assert.Equal("blogPost", (string?)snap.DocumentTypes!.Single()["alias"]);
+        Assert.Equal("My Slider", (string?)snap.DataTypes!.Single()["alias"]);
+        Assert.Equal("home", (string?)snap.Templates!.Single()["alias"]);
     }
 
     /// <summary>
@@ -58,8 +58,8 @@ public class SchemaExporterTests
         var result = await SchemaExporter.ExportAsync(fake, CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
-        Assert.Equal("customImage", (string?)result.Data!.MediaTypes.Single()["alias"]);
-        Assert.Equal("subscriber", (string?)result.Data!.MemberTypes.Single()["alias"]);
+        Assert.Equal("customImage", (string?)result.Data!.MediaTypes!.Single()["alias"]);
+        Assert.Equal("subscriber", (string?)result.Data!.MemberTypes!.Single()["alias"]);
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class SchemaExporterTests
         var result = await SchemaExporter.ExportAsync(fake, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(150, result.Data!.DocumentTypes.Count);
+        Assert.Equal(150, result.Data!.DocumentTypes!.Count);
     }
 
     [Fact]
@@ -119,8 +119,8 @@ public class SchemaExporterTests
         var result = await SchemaExporter.ExportAsync(fake, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Empty(result.Data!.DocumentTypes);
-        Assert.Empty(result.Data!.DataTypes);
-        Assert.Empty(result.Data!.Templates);
+        Assert.Empty(result.Data!.DocumentTypes!);
+        Assert.Empty(result.Data!.DataTypes!);
+        Assert.Empty(result.Data!.Templates!);
     }
 }
