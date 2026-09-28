@@ -34,6 +34,8 @@ public class SchemaClientRawTests
             CancellationToken ct
         )
         {
+            // Every client test is a contract test (#76).
+            ManagementSpec.AssertDeclared(request);
             LastRequestUri = request.RequestUri;
             LastMethod = request.Method;
             LastBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);

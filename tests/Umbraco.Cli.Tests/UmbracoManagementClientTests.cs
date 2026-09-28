@@ -58,6 +58,8 @@ public class UmbracoManagementClientTests
             CancellationToken ct
         )
         {
+            // Every client test is a contract test (#76).
+            ManagementSpec.AssertDeclared(request);
             LastRequestUri = request.RequestUri;
             if (request.RequestUri is not null)
                 Requests.Add(request.RequestUri);
@@ -272,8 +274,11 @@ public class UmbracoManagementClientTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken ct
-        ) =>
-            Task.FromResult(
+        )
+        {
+            // Every client test is a contract test (#76).
+            ManagementSpec.AssertDeclared(request);
+            return Task.FromResult(
                 new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent(
@@ -283,6 +288,7 @@ public class UmbracoManagementClientTests
                     ),
                 }
             );
+        }
     }
 
     private static UmbracoManagementClient TreeRouteClient(Func<Uri, string> route) =>
