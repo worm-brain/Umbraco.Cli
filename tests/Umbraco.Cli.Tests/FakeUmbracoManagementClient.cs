@@ -144,30 +144,47 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     }
 
     /// <summary>
-    /// The cultures the document varies by, for <see cref="PublishCulturesAsync"/> when no cultures
-    /// are named. Null answers as an invariant document (no cultures), as the real client does.
+    /// The cultures the document varies by, for <see cref="PublishCulturesAsync"/>. Null (or an
+    /// empty list) answers as an invariant document, as the real client does.
     /// </summary>
     public Func<Guid, UmbracoResponse<IReadOnlyList<string>>>? PublishCulturesHandler { get; set; }
 
     /// <summary>
-    /// Resolves like the real client: the named cultures when given, otherwise
-    /// <see cref="PublishCulturesHandler"/> (or none, for an invariant document).
+    /// The document's cultures that are Draft rather than published, which
+    /// <see cref="PublishCulturesAsync"/> leaves out when asked for published cultures only (#362).
+    /// </summary>
+    public HashSet<string> DraftCultures { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Resolves like the real client: null for an invariant document whatever was named, else the
+    /// named cultures or every culture from <see cref="PublishCulturesHandler"/>, less
+    /// <see cref="DraftCultures"/> when <paramref name="publishedOnly"/> is set.
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">The cultures asked for.</param>
+    /// <param name="publishedOnly">True to keep only the cultures that are published.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved cultures, or the handler's failure.</returns>
-    public Task<UmbracoResponse<IReadOnlyList<string>>> PublishCulturesAsync(
+    public Task<UmbracoResponse<IReadOnlyList<string>?>> PublishCulturesAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
+        bool publishedOnly = false,
         CancellationToken ct = default
-    ) =>
-        Task.FromResult(
-            cultures?.ToList() is { Count: > 0 } named
-                ? UmbracoResponse<IReadOnlyList<string>>.Success(named)
-                : PublishCulturesHandler?.Invoke(id)
-                    ?? UmbracoResponse<IReadOnlyList<string>>.Success([])
-        );
+    )
+    {
+        var document =
+            PublishCulturesHandler?.Invoke(id) ?? UmbracoResponse<IReadOnlyList<string>>.Success([]);
+        if (!document.IsSuccess)
+            return Task.FromResult(UmbracoResponse<IReadOnlyList<string>?>.FailureFrom(document));
+        if (document.Data is not { Count: > 0 } all)
+            return Task.FromResult(UmbracoResponse<IReadOnlyList<string>?>.Success(null));
+
+        var requested = cultures?.ToList() is { Count: > 0 } named ? named : [.. all];
+        IReadOnlyList<string> result = publishedOnly
+            ? [.. requested.Where(c => !DraftCultures.Contains(c))]
+            : requested;
+        return Task.FromResult(UmbracoResponse<IReadOnlyList<string>?>.Success(result));
+    }
 
     public Task<UmbracoResponse<Empty>> PublishContentAsync(
         Guid id,

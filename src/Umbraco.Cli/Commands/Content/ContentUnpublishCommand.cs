@@ -59,7 +59,8 @@ public static class ContentUnpublishCommand
     /// the unpublish side of #325. With no <c>--culture</c> a variant document is unpublished in
     /// every culture it has, so the result names them rather than leaving the field out. The
     /// cultures come from the same resolver as <c>content publish</c>
-    /// (<see cref="IContentClient.PublishCulturesAsync"/>), so the two commands report alike.
+    /// (<see cref="IContentClient.PublishCulturesAsync"/>), so the two commands report alike, but
+    /// only the cultures that were published count (#362): one already in Draft is not listed.
     /// </summary>
     /// <param name="client">The Management API client.</param>
     /// <param name="id">The content item id.</param>
@@ -75,19 +76,20 @@ public static class ContentUnpublishCommand
     {
         // A document that cannot be read (including an empty 200, #119) fails here, before any
         // unpublish is sent.
-        var scope = await client.PublishCulturesAsync(
-            id,
-            cultures is { Length: > 0 } ? cultures : null,
-            ct
-        );
+        var requested = cultures is { Length: > 0 } ? cultures : null;
+        var scope = await client.PublishCulturesAsync(id, requested, publishedOnly: true, ct: ct);
         if (!scope.IsSuccess)
             return UmbracoResponse<UnpublishResult>.FailureFrom(scope);
 
-        // Empty means an invariant document: it is unpublished whole, and says so with a null.
-        var named = scope.Data is { Count: > 0 } list ? list : null;
+        // Null: an invariant document, even when --culture named one (#362); it is unpublished
+        // whole and reports null. Otherwise the cultures that were live, which are what go offline.
+        // When none of them was live the request goes out as asked, so Umbraco still answers for
+        // it, and the result reports that nothing was taken offline ([]).
+        var live = scope.Data;
+        var send = live is { Count: 0 } ? requested : live;
         return await client
-            .UnpublishContentAsync(id, named, ct)
-            .Then(new UnpublishResult(id.ToString(), named));
+            .UnpublishContentAsync(id, send, ct)
+            .Then(new UnpublishResult(id.ToString(), live));
     }
 
     /// <summary>
@@ -96,7 +98,10 @@ public static class ContentUnpublishCommand
     /// of an invariant document is written out rather than dropped.
     /// </summary>
     /// <param name="Id">The content item's id.</param>
-    /// <param name="Cultures">The cultures unpublished; null for an invariant document, which has none.</param>
+    /// <param name="Cultures">
+    /// The cultures taken offline (empty when none was published); null for an invariant document,
+    /// which has none.
+    /// </param>
     internal sealed record UnpublishResult(
         string Id,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)]

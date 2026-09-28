@@ -69,7 +69,23 @@ public sealed partial class UmbracoManagementClient
     /// <exception cref="Microsoft.Kiota.Abstractions.ApiException">
     /// A 404 when the read answers 200 with no body (#119).
     /// </exception>
-    private async Task<List<string>> DocumentCulturesAsync(Guid id, CancellationToken ct)
+    private async Task<List<string>> DocumentCulturesAsync(Guid id, CancellationToken ct) =>
+        NamedCultures((await DocumentVariantsAsync(id, ct)).Select(v => v.Culture));
+
+    /// <summary>
+    /// Reads a document's variants, for the culture resolvers that need each culture's state as
+    /// well as its code (<see cref="DocumentCulturesAsync"/>, <see cref="PublishCulturesAsync"/>).
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The variants as read; an invariant document has one null-culture variant.</returns>
+    /// <exception cref="Microsoft.Kiota.Abstractions.ApiException">
+    /// A 404 when the read answers 200 with no body (#119).
+    /// </exception>
+    private async Task<List<Gen.DocumentVariantResponseModel>> DocumentVariantsAsync(
+        Guid id,
+        CancellationToken ct
+    )
     {
         // A 200 with no body is not a document (#119). Reading it as invariant would let a
         // publish or unpublish go ahead with a null culture for a document that was never read,
@@ -77,7 +93,7 @@ public sealed partial class UmbracoManagementClient
         var document =
             await _api.Umbraco.Management.Api.V1.Document[id].GetAsync(cancellationToken: ct)
             ?? throw NotFound($"No content item found with id '{id}'.");
-        return NamedCultures((document.Variants ?? []).Select(v => v.Culture));
+        return document.Variants ?? [];
     }
 
     /// <summary>The distinct non-empty cultures; empty for an invariant item (one null-culture variant).</summary>

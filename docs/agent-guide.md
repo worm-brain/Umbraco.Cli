@@ -129,12 +129,12 @@ there is nothing to read back (`empty-recycle-bin`). `content publish` returns
 `{ id, published, publishAt, unpublishAt, cultures }`, so a scheduled publish reads as
 `"published": false`. All five fields are always present. `cultures` lists the cultures it
 published: the ones named with `--culture`, or without it every culture the document has. It is
-`null` for an invariant document, which is published whole. `publishAt` and `unpublishAt` are
-`null` when nothing was scheduled (#325). `content unpublish` returns `{ id, cultures }` on the
-same rule: `cultures` lists the cultures it unpublished (the ones named with `--culture`, or
-without it every culture the document has), or `null` for an invariant document, which is
-unpublished whole. Both read the document first when no `--culture` is given, and fail with a
-404 without writing anything when it cannot be read. The confirmation text ("Deleted.") is human output only.
+`null` for an invariant document, which is published whole, even when `--culture` named one.
+`publishAt` and `unpublishAt` are `null` when nothing was scheduled (#325). `content unpublish`
+returns `{ id, cultures }` on the same rule, except that `cultures` lists only the cultures that
+were published and so went offline: a culture already in Draft is left out, and `[]` means
+nothing was live (#362). Both read the document first, and fail with a 404 without writing
+anything when it cannot be read. The confirmation text ("Deleted.") is human output only.
 
 Errors go to **stderr**:
 

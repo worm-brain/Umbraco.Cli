@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.Kiota.Abstractions;
 using Gen = Umbraco.Cli.Client.Generated.Models;
 
@@ -117,6 +118,29 @@ public sealed partial class UmbracoManagementClient
                 )?.Alias,
             ct
         );
+
+    /// <summary>
+    /// Adds the alias to a raw read's <c>documentType</c> reference, which carries only
+    /// id/icon/collection, so one jq filter reads a raw read (version get, blueprint get and
+    /// scaffold) as it reads <c>content get</c> and <c>list</c> (#320, #361). A null collection is
+    /// dropped, as the mapped reads omit it. The alias is left out when it cannot be read.
+    /// </summary>
+    /// <param name="obj">The raw read; its <c>documentType</c> is changed in place.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when the alias has been added (or could not be).</returns>
+    private async Task AddDocumentTypeAliasAsync(JsonObject obj, CancellationToken ct)
+    {
+        if (obj["documentType"] is not JsonObject type)
+            return;
+        if (type["collection"] is null && type.ContainsKey("collection"))
+            type.Remove("collection");
+        if (
+            type["id"]?.GetValue<string>() is { } rawType
+            && Guid.TryParse(rawType, out var typeId)
+            && await DocumentTypeAliasAsync(typeId, ct) is { } alias
+        )
+            type["alias"] = alias;
+    }
 
     /// <inheritdoc />
     public Task<UmbracoResponse<IReadOnlyDictionary<Guid, string>>> GetDocumentTypeAliasesAsync(

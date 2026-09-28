@@ -585,28 +585,58 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// The cultures a publish or unpublish of a document covers (#325); see
-    /// <see cref="IContentClient.PublishCulturesAsync"/>.
+    /// The cultures a publish or unpublish of a document covers (#325, #362); see
+    /// <see cref="IContentClient.PublishCulturesAsync"/>. The document is always read, so a
+    /// culture named for an invariant document resolves to "invariant" rather than being echoed.
     /// </summary>
     /// <param name="id">The content item id.</param>
-    /// <param name="cultures">Cultures to publish; null/empty publishes every culture the document has.</param>
+    /// <param name="cultures">Cultures asked for; null/empty means every culture the document has.</param>
+    /// <param name="publishedOnly">True to keep only the cultures that are published now (unpublish).</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The culture codes (empty for an invariant document), or a mapped failure.</returns>
-    public Task<UmbracoResponse<IReadOnlyList<string>>> PublishCulturesAsync(
+    /// <returns>The culture codes (null for an invariant document), or a mapped failure.</returns>
+    public Task<UmbracoResponse<IReadOnlyList<string>?>> PublishCulturesAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
+        bool publishedOnly = false,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync<IReadOnlyList<string>>(
+        GuardedApiAsync<IReadOnlyList<string>?>(
             ct,
-            async () => await ResolvePublishCulturesAsync(id, cultures, ct)
+            async () =>
+            {
+                var variants = (await DocumentVariantsAsync(id, ct))
+                    .Where(v => !string.IsNullOrEmpty(v.Culture))
+                    .ToList();
+
+                // No named culture on any variant: the document is invariant, whatever was asked.
+                if (variants.Count == 0)
+                    return null;
+
+                var requested = cultures?.ToList() is { Count: > 0 } named
+                    ? named
+                    : NamedCultures(variants.Select(v => v.Culture));
+                if (!publishedOnly)
+                    return requested;
+
+                // A culture already in Draft is not taken offline by an unpublish, so it is not
+                // reported as unpublished (#362).
+                var live = variants
+                    .Where(v =>
+                        v.State
+                            is Gen.DocumentVariantStateModel.Published
+                                or Gen.DocumentVariantStateModel.PublishedPendingChanges
+                    )
+                    .Select(v => v.Culture!)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                return requested.Where(live.Contains).ToList();
+            }
         );
 
     /// <summary>
-    /// The one place a publish's or unpublish's cultures are resolved, shared by
-    /// <see cref="PublishCulturesAsync"/>, <see cref="PublishContentAsync"/> and
-    /// <see cref="UnpublishContentAsync"/> so they cannot disagree: the named cultures, else the
-    /// document's own (none for an invariant document).
+    /// The cultures <see cref="PublishContentAsync"/> and <see cref="UnpublishContentAsync"/> send:
+    /// the named cultures as given (no read), else the document's own (none for an invariant
+    /// document). The commands resolve through <see cref="PublishCulturesAsync"/> first and pass
+    /// the result here, so what they report is what is sent.
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">The cultures asked for; null/empty reads the document.</param>
@@ -710,8 +740,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                // Resolved by the same step as publish, so what `content unpublish` reports (via
-                // PublishCulturesAsync) is what is sent. Nothing named: a variant document needs
+                // `content unpublish` resolves through PublishCulturesAsync and passes its cultures
+                // here, so what it reports is what is sent. Nothing named: a variant document needs
                 // its cultures listed, an invariant one (no named cultures) needs the field omitted.
                 var named = await ResolvePublishCulturesAsync(id, cultures, ct);
                 var body = new Gen.UnpublishDocumentRequestModel

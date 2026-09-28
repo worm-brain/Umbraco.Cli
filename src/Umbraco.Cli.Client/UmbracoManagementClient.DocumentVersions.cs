@@ -159,20 +159,8 @@ public sealed partial class UmbracoManagementClient
                 )
                     obj["parent"] = new JsonObject { ["id"] = parent.Id.ToString() };
 
-                // The type reference carries only id/icon/collection; add the alias (cached, as
-                // content get and list do) so one jq filter reads current and past versions
-                // alike (#320). A null collection is dropped, as the mapped reads omit it.
-                if (obj["documentType"] is JsonObject type)
-                {
-                    if (type["collection"] is null && type.ContainsKey("collection"))
-                        type.Remove("collection");
-                    if (
-                        type["id"]?.GetValue<string>() is { } rawType
-                        && Guid.TryParse(rawType, out var typeId)
-                        && await DocumentTypeAliasAsync(typeId, ct) is { } alias
-                    )
-                        type["alias"] = alias;
-                }
+                // The alias, so one jq filter reads current and past versions alike (#320).
+                await AddDocumentTypeAliasAsync(obj, ct);
                 return obj;
             }
         );

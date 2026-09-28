@@ -60,7 +60,8 @@ public static class ContentPublishCommand
     /// <summary>
     /// Resolves the cultures the publish covers, publishes exactly those, and reports them (#325):
     /// with no <c>--culture</c> that is every culture the document has, so the result names them
-    /// rather than leaving the field out.
+    /// rather than leaving the field out. An invariant document reports null whatever
+    /// <c>--culture</c> said (#362), because it is published whole.
     /// </summary>
     /// <param name="client">The Management API client.</param>
     /// <param name="id">The content item id.</param>
@@ -81,13 +82,14 @@ public static class ContentPublishCommand
         var scope = await client.PublishCulturesAsync(
             id,
             cultures is { Length: > 0 } ? cultures : null,
-            ct
+            ct: ct
         );
         if (!scope.IsSuccess)
             return UmbracoResponse<PublishResult>.FailureFrom(scope);
 
-        // Empty means an invariant document: it is published whole, and says so with a null.
-        var named = scope.Data is { Count: > 0 } list ? list : null;
+        // Null means an invariant document, even when --culture named one (#362): it is published
+        // whole, and says so with a null.
+        var named = scope.Data;
         return await client
             .PublishContentAsync(id, named, publishAt, unpublishAt, ct)
             // The data says what happened, as the message does: a scheduled publish leaves the
