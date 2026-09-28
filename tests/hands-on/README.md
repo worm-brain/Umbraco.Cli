@@ -10,31 +10,34 @@ existing instance. This harness creates and deletes its own sites, so it can tes
 
 ## Requirements
 
-- macOS or Linux (WSL works; plain Windows / Git Bash doesn't, since the scripts need `bash` and `lsof`)
+- macOS, Linux or Windows. The scripts are Python (standard library only), so they run the same on all three.
+- Python 3.9+. On Windows, type `python` (or `py`) wherever these docs say `python3`.
 - .NET SDK 10+ (Umbraco 17) **and** the .NET 9 runtime (the CLI targets net9.0)
 - A trusted HTTPS dev certificate: `dotnet dev-certs https --trust`. On Linux, `--trust` isn't supported everywhere: see
   [Microsoft's Linux instructions](https://learn.microsoft.com/aspnet/core/security/enforcing-ssl#trust-https-certificate-on-linux).
-- `curl`, `jq`, `openssl`, `lsof`, `python3`, `git`; `gh` (authenticated) only for filing issues
+- `git`; `gh` (authenticated) only for re-tests and filing issues
 - Internet access to nuget.org; about 1 GB of disk per site
+- Only for the hand-run snippets in `TEST-PLAN.md`: `bash`, `jq` and `curl`. On Windows that means Git Bash plus
+  `winget install jqlang.jq` (curl ships with Windows).
 
-`./preflight.sh` checks all of this.
+`python3 preflight.py` checks all of this.
 
 ## Quick start
 
 ```bash
 cd tests/hands-on
-./preflight.sh
-./setup-round.sh              # packs the CLI from this checkout, creates sites/source + sites/staging, builds Part A
+python3 preflight.py
+python3 setup-round.py        # packs the CLI from this checkout, creates sites/source + sites/staging, builds Part A
 ```
 
-Other CLI builds: `./setup-round.sh --nupkg path/to/Umbraco.Community.Cli.<ver>.nupkg` or `--nuget <version|latest>`.
+Other CLI builds: `python3 setup-round.py --nupkg path/to/Umbraco.Community.Cli.<ver>.nupkg` or `--nuget <version|latest>`.
 Other Umbraco versions: `--umbraco 17.6.0` (or a major, or `latest`).
 
 Then use a site's CLI directly, from anywhere:
 
 ```bash
-sites/source/umb content list -o human
-sites/source/umb auth doctor
+sites/source/umb content list -o human       # macOS, Linux, Git Bash
+sites\source\umb.cmd auth doctor              # Windows PowerShell or cmd
 ```
 
 The harness keeps its CLI profiles in `tests/hands-on/.cli/config.json`. Your own `umbraco` profiles are never read or changed.
@@ -54,12 +57,13 @@ Open an agent (Claude Code or similar) at the repository root and give it someth
 ## Single sites
 
 ```bash
-./new-site.sh --help                                  # any Umbraco version × any CLI build
-./new-site.sh --name v18-smoke --umbraco 18 --cli latest        # a published CLI on Umbraco 18
-./new-site.sh --name local --cli-source nupkg --cli "$(./pack-cli.sh | tail -1)"   # this checkout's CLI
-./remove-site.sh --list                               # all sites, versions, ports, running or not
-./remove-site.sh <name>                               # stop, remove its profile, delete the folder
-sites/<name>/stop.sh; sites/<name>/start.sh           # logs in sites/<name>/logs/site.log
+python3 new-site.py --help                                        # any Umbraco version × any CLI build
+python3 new-site.py --name v18-smoke --umbraco 18 --cli latest    # a published CLI on Umbraco 18
+python3 pack-cli.py                                               # pack this checkout; prints the version last
+python3 new-site.py --name local --cli-source nupkg --cli <that version>
+python3 remove-site.py --list                                     # all sites, versions, ports, running or not
+python3 remove-site.py <name>                                     # stop, remove its profile, delete the folder
+python3 sites/<name>/stop.py; python3 sites/<name>/start.py       # logs in sites/<name>/logs/site.log
 ```
 
 Each site has an admin (`admin@example.com` / `Password1234!`) and an API user whose client credentials are in

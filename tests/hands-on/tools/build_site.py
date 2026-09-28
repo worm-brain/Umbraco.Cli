@@ -2,6 +2,7 @@
 """Part A of TEST-PLAN.md (A1-A8) in one go: rebuild the multilingual test site with the CLI only.
 
 Usage (from tests/hands-on): UMB_SITE=sites/<name> python3 tools/build_site.py [--only step,step]
+(PowerShell: $env:UMB_SITE='sites/<name>'; python tools/build_site.py)
 
 Reads fixtures/schema.json and fixtures/content.json (a `schema export` + `content export` of a finished
 test site) and recreates
@@ -11,23 +12,25 @@ Writes $UMB_SITE/work/ids.json (home, blog, years, posts, images, ...) for the P
 """
 import json
 import os
-import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent  # tests/hands-on
-SITE = Path(os.environ["UMB_SITE"]).resolve()
-UMB = str(SITE / "umb")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import harness  # noqa: E402
+
+ROOT = harness.ROOT  # tests/hands-on
+TARGET = harness.Site(os.environ["UMB_SITE"])
+SITE = TARGET.dir
 WORK = SITE / "work"
 FIX = ROOT / "fixtures"
-SCHEMA = json.loads((FIX / "schema.json").read_text())
-CONTENT = json.loads((FIX / "content.json").read_text())
+SCHEMA = json.loads((FIX / "schema.json").read_text(encoding="utf-8"))
+CONTENT = json.loads((FIX / "content.json").read_text(encoding="utf-8"))
 IMAGES_DIR = FIX / "images"
 PDFS_DIR = FIX / "pdfs"
 ASSETS = ROOT / "assets"
-PORT = json.loads((SITE / "credentials.json").read_text())["host"].rsplit(":", 1)[1]
+PORT = str(TARGET.port)
 
 MEDIA_FOLDER = "105a6d0b-c324-4947-bed2-df65d2fb30b1"
 IMAGE_IDS = ["e3fd5d93-334c-43af-87d7-fde496ecf038", "ded8006b-d16f-4e96-b525-69b0367cbb2a",
@@ -50,7 +53,7 @@ def umb(*args, body=None):
     if body is not None:
         args = (*args, "--json-body", "-")
     t0 = time.monotonic()
-    res = subprocess.run([UMB, *args, "-o", "json"], input=stdin, capture_output=True, text=True)
+    res = TARGET.umb(*args, "-o", "json", input=stdin)
     dt = time.monotonic() - t0
     if dt > 5:
         SLOW.append((round(dt, 1), " ".join(a for a in args if a != "-")[:90]))
@@ -86,7 +89,7 @@ def fx(kind, key, value):
 
 def write(name, text):
     p = TMP / name
-    p.write_text(text)
+    p.write_text(text, encoding="utf-8")
     return str(p)
 
 
@@ -281,6 +284,7 @@ def snapshot_docs_in_parent_order():
 
 
 def main():
+    harness.utf8_stdio()
     WORK.mkdir(exist_ok=True)
     only = sys.argv[sys.argv.index("--only") + 1].split(",") if "--only" in sys.argv else None
     if only:  # re-run selected steps on an already-built site, e.g. --only publish
@@ -298,7 +302,7 @@ def main():
            "brochures": [b[0] for b in BROCHURES], "brochureFolder": BROCHURE_FOLDER,
            "contact": next(d["id"] for d in docs if d["body"]["documentType"]["id"] == fx("documentTypes", "alias", "contactPage")["id"]),
            "submissions": next(d["id"] for d in docs if d["body"]["documentType"]["id"] == fx("documentTypes", "alias", "formSubmissions")["id"])}
-    (WORK / "ids.json").write_text(json.dumps(ids, indent=2))
+    (WORK / "ids.json").write_text(json.dumps(ids, indent=2), encoding="utf-8")
     print(f"ids -> {WORK / 'ids.json'}")
     report()
 

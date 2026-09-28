@@ -10,6 +10,11 @@ second site, and works through every command group. You record what you find in 
 
 Work from this folder: `cd tests/hands-on`. Every path below is relative to it.
 
+**Platforms.** The harness scripts are Python and run the same on macOS, Linux and Windows. On Windows, type `python`
+where this file says `python3`, and use `sites\<s>\umb.cmd` from PowerShell or cmd. The hand-run snippets here and in
+`TEST-PLAN.md` are bash with `jq` and `curl`: on Windows run them in Git Bash (with `jq` installed), where `sites/<s>/umb`
+works as written.
+
 ---
 
 ## Operating contract
@@ -45,20 +50,20 @@ NuGet restores) and T5, which waits for Umbraco's scheduler.
 ## Step 0 · Preflight
 
 ```bash
-./preflight.sh
+python3 preflight.py
 ```
 
-It checks: bash, curl, jq, openssl, lsof, python3, git, .NET SDK 10+, the .NET 9 runtime (the CLI targets net9.0), the
-ASP.NET Core 10 runtime, a trusted HTTPS dev certificate, access to nuget.org, and free ports 44800+. Every line must be `pass`
-(`note` is informational). Typical fixes: `dotnet dev-certs https --trust`; install the .NET 9 runtime alongside SDK 10.
+It checks: Python 3.9+, git, .NET SDK 10+, the .NET 9 runtime (the CLI targets net9.0), the ASP.NET Core 10 runtime, a
+trusted HTTPS dev certificate, access to nuget.org, and free ports 44800+. Every line must be `pass` (`note` is informational:
+it flags a missing `bash`, `jq`, `curl` or `gh`, which the snippets and re-tests need). Typical fixes: `dotnet dev-certs https --trust`; install the .NET 9 runtime alongside SDK 10.
 
 ## Step 1 · Set up the round
 
 ```bash
-./setup-round.sh                                   # CLI packed from this checkout (default)
-./setup-round.sh --nupkg ~/Downloads/Umbraco.Community.Cli.0.1.0-alpha.14.nupkg   # a build the human handed you
-./setup-round.sh --nuget latest                    # a published version
-./setup-round.sh --replace …                       # remove last round's 'source' / 'staging' first
+python3 setup-round.py                             # CLI packed from this checkout (default)
+python3 setup-round.py --nupkg ~/Downloads/Umbraco.Community.Cli.0.1.0-alpha.14.nupkg   # a build the human handed you
+python3 setup-round.py --nuget latest              # a published version
+python3 setup-round.py --replace …                 # remove last round's 'source' / 'staging' first
 ```
 
 It runs preflight, gets the CLI build, creates `sites/source` (port 44800 if free) and `sites/staging` (the next free port),
@@ -68,9 +73,9 @@ version and commit, Umbraco version, site hosts).
 **Success looks like:** `All steps passed` from the build, no `SLOW` lines, `8/8 checks passed`, and `Part A build: PASS  Forms: PASS`
 at the end. A `FAIL` line in Part A is a candidate finding. Reproduce it by hand (the TEST-PLAN Part A table says how) before logging it.
 
-Each site folder has `umb` (the CLI pinned to that site: `sites/source/umb content list`), `start.sh`, `stop.sh`, `site.env`,
-`credentials.json` (admin `admin@example.com` / `Password1234!`, and the API user's client id/secret) and `logs/site.log`.
-`./remove-site.sh --list` shows every site and whether it's running.
+Each site folder has `umb` (the CLI pinned to that site: `sites/source/umb content list`; `umb.cmd` too on Windows),
+`start.py`, `stop.py`, `site.env`, `credentials.json` (admin `admin@example.com` / `Password1234!`, and the API user's client
+id/secret) and `logs/site.log`. `python3 remove-site.py --list` shows every site and whether it's running.
 
 ## Step 2 · Open the round in `LEDGER.md`
 
@@ -92,7 +97,7 @@ fix was meant to do), run its repro on the new build, and write one re-test row:
 Also check what changed in the command surface since the last round:
 
 ```bash
-sites/source/umb commands > /tmp/surface-now.json      # the whole command tree
+sites/source/umb commands > sites/source/work/surface-now.json  # the whole command tree
 git log --oneline <previous round's commit>..HEAD -- src   # when testing this checkout
 ```
 
@@ -106,7 +111,7 @@ Follow [`TEST-PLAN.md`](TEST-PLAN.md) Part B. Use the conventions block at its t
   do other tests, come back. T10's auth checks use an isolated `--config`.
 - **Subagents:** T2–T9 are independent once T1 is done. When fanning out, give each subagent this file, `TEST-PLAN.md` and its
   test, and tell it to **return** findings rather than edit `LEDGER.md` (one writer avoids clobbered edits).
-- **Compare, don't guess:** `tools/compare_sites.sh <portA> <portB>` diffs every page of two sites. Use it after T1 and whenever
+- **Compare, don't guess:** `python3 tools/compare_sites.py <portA> <portB>` diffs every page of two sites. Use it after T1 and whenever
   a change should (or shouldn't) be visible on the front end.
 
 ## Step 5 · Logging findings
@@ -146,7 +151,7 @@ on the previous round's tracking issue with this round's re-test table.
 ## Step 8 · Teardown (only when asked)
 
 ```bash
-./remove-site.sh source && ./remove-site.sh staging    # stops the site, removes its profile from the harness config, deletes the folder
+python3 remove-site.py source && python3 remove-site.py staging    # stops the site, removes its profile from the harness config, deletes the folder
 ```
 
 Keep the sites until the human has read the report: they're the evidence.
@@ -172,12 +177,12 @@ Keep the sites until the human has read the report: they're the evidence.
 
 | Symptom | Fix |
 |---|---|
-| A site won't start | `tail -50 sites/<s>/logs/site.log`; stop stray processes with `sites/<s>/stop.sh`; check the port with `lsof -i :<port>` |
+| A site won't start | `tail -50 sites/<s>/logs/site.log`; `python3 sites/<s>/stop.py` stops it and anything left on its port |
 | `BootFailed` / 500 on every page | Umbraco's log: `sites/<s>/UmbracoSite/umbraco/Logs/UmbracoTraceLog.*.json` (one JSON event per line; `jq 'select(."@l"=="Error")'`) |
 | CLI TLS errors | `dotnet dev-certs https --trust`, then restart the site |
-| `setup-round.sh` says a site exists | `--replace`, or `./remove-site.sh source` |
-| An old CLI build seems to run | `pack-cli.sh` versions are unique per run; for `--nupkg`, `new-site.sh` clears that version from `~/.nuget/packages` first |
-| The front end differs after a change | `tools/compare_sites.sh` against a site that doesn't have the change |
+| `setup-round.py` says a site exists | `--replace`, or `python3 remove-site.py source` |
+| An old CLI build seems to run | `pack-cli.py` versions are unique per run; for `--nupkg`, `new-site.py` clears that version from the NuGet cache first |
+| The front end differs after a change | `tools/compare_sites.py` against a site that doesn't have the change |
 
 **Direct Management API** (for verification only, never as the test itself):
 
@@ -194,17 +199,18 @@ curl -sk -H "Authorization: Bearer $TOK" $H/umbraco/management/api/v1/document/<
 
 | Path | What |
 |---|---|
-| `preflight.sh`, `setup-round.sh` | Check the machine; set up a whole round in one command |
-| `new-site.sh`, `remove-site.sh` | Create / remove one throwaway site (`--help` for options; `remove-site.sh --list`) |
-| `pack-cli.sh` | Pack this checkout's CLI into `nupkg/` with a unique `0.1.0-local.<timestamp>` version |
+| `preflight.py`, `setup-round.py` | Check the machine; set up a whole round in one command |
+| `new-site.py`, `remove-site.py` | Create / remove one throwaway site (`--help` for options; `remove-site.py --list`) |
+| `pack-cli.py` | Pack this checkout's CLI into `nupkg/` with a unique `0.1.0-local.<timestamp>` version |
 | `TEST-PLAN.md` | What to test: Part A (scripted) and T1–T10, pass criteria, Known issues per test |
 | `LEDGER.md`, `ledger-history.json` | Findings per round (format at the top); ids of rounds 1–4 → issue numbers |
 | `tools/build_site.py` | Part A: rebuild the fixture site with the CLI (ok/FAIL per step, timings) |
-| `tools/compare_sites.sh` | Page-by-page diff of two sites |
-| `tools/submit_forms.py`, `tools/install_controller.sh` | Contact + sign-up form checks (8); install the form controller (site code) |
-| `tools/safety_matrix.sh` | T10: 23 guardrail and exit-code cases |
+| `tools/compare_sites.py` | Page-by-page diff of two sites |
+| `tools/submit_forms.py`, `tools/install_controller.py` | Contact + sign-up form checks (8); install the form controller (site code) |
+| `tools/safety_matrix.py` | T10: 23 guardrail and exit-code cases |
 | `tools/webhook_listener.py` | T3: local webhook receiver |
 | `tools/file_issues.py` | File unfiled ledger rows as GitHub issues (+ optional tracking issue) |
+| `tools/harness.py` | Shared cross-platform plumbing: sites, the pinned CLI, start/stop, ports, HTTP |
 | `fixtures/` | `schema.json` + `content.json` (exports of the finished test site), images, PDFs |
 | `assets/` | Header/footer/block partials, site.css/js, and the contact form controller (C#, site code) |
 | `sites/`, `.cli/`, `nupkg/`, `round.env` | Created by a round; git-ignored |
