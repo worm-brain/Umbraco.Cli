@@ -246,6 +246,64 @@ public class ContentVersionsWireTests
         Assert.Equal(parentId.ToString(), result.Data!["parent"]!["id"]!.GetValue<string>());
     }
 
+    /// <summary>A version whose document type is <paramref name="typeId"/>, and that type's read.</summary>
+    /// <param name="versionId">The version id.</param>
+    /// <param name="typeId">The document type id.</param>
+    /// <param name="typeStatus">The status the document-type read answers with.</param>
+    /// <returns>The handler.</returns>
+    private static RoutingHandler VersionWithType(
+        Guid versionId,
+        Guid typeId,
+        HttpStatusCode typeStatus = HttpStatusCode.OK
+    ) =>
+        new RoutingHandler()
+            .When(
+                r => r.RequestUri!.AbsolutePath.EndsWith($"/document-version/{versionId}"),
+                HttpStatusCode.OK,
+                $$"""{ "documentType": { "id": "{{typeId}}", "icon": "icon-document", "collection": null } }"""
+            )
+            .When(
+                r => r.RequestUri!.AbsolutePath.EndsWith($"/document-type/{typeId}"),
+                typeStatus,
+                typeStatus == HttpStatusCode.OK ? """{ "alias": "blogPost" }""" : ""
+            );
+
+    [Fact]
+    public async Task GetDocumentVersionAsync_AddsTheDocumentTypesAlias()
+    {
+        // #320: content get and list have documentType.alias; version get had none.
+        var versionId = Guid.NewGuid();
+
+        var result = await Wire.Client(VersionWithType(versionId, Guid.NewGuid()))
+            .GetDocumentVersionAsync(versionId, CancellationToken.None);
+
+        Assert.Equal("blogPost", result.Data!["documentType"]!["alias"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task GetDocumentVersionAsync_NullCollection_DropsTheKeyAsContentGetDoes()
+    {
+        var versionId = Guid.NewGuid();
+
+        var result = await Wire.Client(VersionWithType(versionId, Guid.NewGuid()))
+            .GetDocumentVersionAsync(versionId, CancellationToken.None);
+
+        Assert.False(result.Data!["documentType"]!.AsObject().ContainsKey("collection"));
+    }
+
+    [Fact]
+    public async Task GetDocumentVersionAsync_TypeUnreadable_StillReturnsTheVersionWithoutAnAlias()
+    {
+        var versionId = Guid.NewGuid();
+
+        var result = await Wire.Client(
+                VersionWithType(versionId, Guid.NewGuid(), HttpStatusCode.NotFound)
+            )
+            .GetDocumentVersionAsync(versionId, CancellationToken.None);
+
+        Assert.False(result.Data!["documentType"]!.AsObject().ContainsKey("alias"));
+    }
+
     [Fact]
     public async Task GetDocumentVersionAsync_UnknownVersion_ReturnsTheFailure()
     {
