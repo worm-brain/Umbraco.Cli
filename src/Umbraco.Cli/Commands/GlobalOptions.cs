@@ -39,8 +39,8 @@ public sealed class GlobalOptions
         new("--quiet", new[] { "-q" })
         {
             Description =
-                "Suppress success confirmations (e.g. \"Deleted.\"). Requested data, errors, and "
-                + "exit codes are unaffected.",
+                "Print nothing when a write succeeds (no confirmation, no result). Reads still "
+                + "print their data; errors, dry-run previews and exit codes are unaffected.",
             Recursive = true,
         };
 
@@ -108,7 +108,8 @@ public sealed class GlobalOptions
     /// Builds the output writer a command asked for: <c>--output</c>, <c>--fields</c> and
     /// <c>--quiet</c>. Every command builds its writer here, including the <c>auth</c> commands
     /// that run without a <see cref="CommandContext"/>, so the global output options behave the
-    /// same everywhere (#305).
+    /// same everywhere (#305). Under <c>--quiet</c> a write (a command declared mutating) drops
+    /// its whole result, unless it is a <c>--dry-run</c> preview (#347).
     /// </summary>
     /// <param name="parseResult">The parsed command line.</param>
     /// <returns>The writer.</returns>
@@ -116,7 +117,9 @@ public sealed class GlobalOptions
         OutputWriterFactory.Create(
             OutputFormatParser.Parse(parseResult.GetValue(Output)),
             ParseFields(parseResult.GetValue(Fields)),
-            parseResult.GetValue(Quiet)
+            parseResult.GetValue(Quiet),
+            isWrite: CommandSafety.IsDeclaredMutating(parseResult.CommandResult.Command)
+                && !parseResult.GetValue(DryRun)
         );
 
     /// <summary>
