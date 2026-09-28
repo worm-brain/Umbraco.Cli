@@ -338,6 +338,35 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.DoesNotContain(marker, list.Stdout);
     }
 
+    [SkippableFact]
+    public void DryRun_UserCreateWithPassword_PreviewsBothStepsWithThePasswordRedacted()
+    {
+        RequireLive();
+        const string password = "DryRunPw98765!";
+
+        // #353: user create --password is a POST /user and then a change-password POST; both
+        // are previewed. #352: the password is redacted, as under -v.
+        var dry = CliRunner.Run(
+            "user",
+            "create",
+            "--email",
+            "dry-run-must-not-exist@example.com",
+            "--name",
+            "Dry Run",
+            "--group",
+            "editor",
+            "--password",
+            password,
+            "--dry-run"
+        );
+        Assert.True(dry.Ok, dry.Stderr);
+
+        using var doc = JsonDocument.Parse(dry.Stdout);
+        var then = doc.RootElement.GetProperty("data").GetProperty("then");
+        Assert.EndsWith("/change-password", then[0].GetProperty("url").GetString());
+        Assert.DoesNotContain(password, dry.Stdout);
+    }
+
     [Fact]
     public void Schema_ContentCreate_EmitsJsonSchema()
     {

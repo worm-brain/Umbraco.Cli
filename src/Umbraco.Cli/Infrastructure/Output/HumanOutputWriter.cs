@@ -111,22 +111,39 @@ public sealed class HumanOutputWriter : IOutputWriter
         );
     }
 
+    /// <inheritdoc />
     public void WriteDryRun(
         string method,
         string url,
         string? body,
         string? commandName,
-        long? durationMs = null
+        long? durationMs = null,
+        IReadOnlyList<Umbraco.Cli.Infrastructure.Http.PreviewedRequest>? then = null
     )
     {
+        List<Umbraco.Cli.Infrastructure.Http.PreviewedRequest> requests =
+        [
+            new(method, url, body),
+            .. then ?? [],
+        ];
         AnsiConsole.MarkupLine(
-            "[yellow]● DRY RUN[/] — the following request would be sent (nothing was executed):"
+            requests.Count > 1
+                ? "[yellow]● DRY RUN[/] — the following requests would be sent (nothing was executed):"
+                : "[yellow]● DRY RUN[/] — the following request would be sent (nothing was executed):"
         );
-        AnsiConsole.MarkupLine($"  [bold]{Markup.Escape(method)}[/] {Markup.Escape(url)}");
-        if (!string.IsNullOrWhiteSpace(body))
+        // Each request in the order it would be sent (#353), its body under it.
+        for (var i = 0; i < requests.Count; i++)
         {
-            AnsiConsole.WriteLine();
-            AnsiConsole.WriteLine(body!);
+            if (i > 0)
+                AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine(
+                $"  [bold]{Markup.Escape(requests[i].Method)}[/] {Markup.Escape(requests[i].Url)}"
+            );
+            if (!string.IsNullOrWhiteSpace(requests[i].Body))
+            {
+                AnsiConsole.WriteLine();
+                AnsiConsole.WriteLine(requests[i].Body!);
+            }
         }
     }
 }

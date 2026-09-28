@@ -153,12 +153,17 @@ public interface IOutputWriter
     /// <param name="body">The request body, or null for a body-less request (e.g. DELETE).</param>
     /// <param name="commandName">The dotted command name for <c>meta.command</c>.</param>
     /// <param name="durationMs">The command duration for <c>meta.durationMs</c>, or null.</param>
+    /// <param name="then">
+    /// The requests a multi-step write would send after the first, in order (#353); null or empty
+    /// for a single-request write.
+    /// </param>
     void WriteDryRun(
         string method,
         string url,
         string? body,
         string? commandName,
-        long? durationMs = null
+        long? durationMs = null,
+        IReadOnlyList<Umbraco.Cli.Infrastructure.Http.PreviewedRequest>? then = null
     );
 
     /// <summary>

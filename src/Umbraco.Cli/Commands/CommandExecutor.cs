@@ -48,10 +48,9 @@ public sealed class CommandExecutor
     /// Context-aware variant of <see cref="RunAsync{T}"/>: the operation receives the whole
     /// <see cref="CommandContext"/> (not just the client), so a command that must branch on
     /// <see cref="CommandContext.DryRun"/> / <see cref="CommandContext.ReadOnly"/> before doing
-    /// its work can. Used by <c>schema apply</c>, whose <c>--dry-run</c> previews a *multi-write*
-    /// plan and so cannot rely on the per-request mutation interceptor (which aborts on the first
-    /// write). Shares the identical context-build, confirmation gate, error mapping, and
-    /// exit-code handling.
+    /// its work can. Used by <c>schema apply</c>, whose <c>--dry-run</c> previews a *plan* rather
+    /// than the raw requests the mutation interceptor records. Shares the identical context-build,
+    /// confirmation gate, error mapping, dry-run preview and exit-code handling.
     /// </summary>
     /// <typeparam name="T">The rendered payload type.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
@@ -107,6 +106,14 @@ public sealed class CommandExecutor
         try
         {
             var result = await call(ctx, ct);
+
+            // --dry-run: the interceptor recorded the writes instead of sending them, and answered
+            // each with a fake success. Whatever the call made of those answers (a read-back of an
+            // item that was never created fails), what matters is the requests: preview them,
+            // exit 0 - nothing was changed.
+            if (WritePreview(ctx))
+                return (int)ExitCode.Success;
+
             if (!result.IsSuccess)
             {
                 // Permission-aware failure (#70): a raw 403 is opaque, so translate it into an
@@ -156,20 +163,6 @@ public sealed class CommandExecutor
             render(ctx, result.Data);
             return (int)ExitCode.Success;
         }
-        catch (DryRunException dry)
-        {
-            // --dry-run: the mutation-interceptor aborted a write before it was sent. Print
-            // the captured request instead of executing it, and report success (exit 0) —
-            // nothing was changed.
-            ctx.Output.WriteDryRun(
-                dry.Method,
-                dry.Url,
-                dry.Body,
-                ctx.CommandName,
-                ctx.Stopwatch.ElapsedMilliseconds
-            );
-            return (int)ExitCode.Success;
-        }
         catch (ReadOnlyModeException ro)
         {
             // --readonly: the mutation-interceptor refused a write. Report a clear error and a
@@ -193,12 +186,39 @@ public sealed class CommandExecutor
         }
         catch (Exception ex)
         {
+            // A dry-run step that tripped over a fake response (a missing body) still previews
+            // the writes recorded before it.
+            if (WritePreview(ctx))
+                return (int)ExitCode.Success;
+
             // Backstop: nothing escapes as a raw stack trace. Input the caller must fix (a
             // malformed --json-body, a file that is not there) is invalid_argument (#256);
             // anything else is a CLI bug, and says so.
             ctx.Output.WriteError(ExitCode.Failed, CategoryOf(ex), ex.Message, ctx.CommandName);
             return (int)ExitCode.Failed;
         }
+    }
+
+    /// <summary>
+    /// Writes the <c>--dry-run</c> preview of every write the command would have sent (#353): the
+    /// first request, then the rest in order. Does nothing when no write was recorded.
+    /// </summary>
+    /// <param name="ctx">The command context, whose <see cref="CommandContext.Previewed"/> holds the recorded writes.</param>
+    /// <returns>True when a preview was written, so the caller should exit 0.</returns>
+    private static bool WritePreview(CommandContext ctx)
+    {
+        if (ctx.Previewed.Count == 0)
+            return false;
+        var first = ctx.Previewed[0];
+        ctx.Output.WriteDryRun(
+            first.Method,
+            first.Url,
+            first.Body,
+            ctx.CommandName,
+            ctx.Stopwatch.ElapsedMilliseconds,
+            [.. ctx.Previewed.Skip(1)]
+        );
+        return true;
     }
 
     /// <summary>
@@ -376,6 +396,16 @@ public sealed class CommandExecutor
         if (Confirm(ctx, parseResult, "a destructive bulk operation") is { } declined)
             return declined;
 
+        // The first write recorded under --dry-run since `before`, as a bulk item's request.
+        BulkRequest? PreviewedSince(int before) =>
+            ctx.Previewed.Count > before
+                ? BulkRequest.From(
+                    ctx.Previewed[before].Method,
+                    ctx.Previewed[before].Url,
+                    ctx.Previewed[before].Body
+                )
+                : null;
+
         var results = new List<BulkItemResult>(rawIds.Count);
         foreach (var raw in rawIds)
         {
@@ -385,28 +415,31 @@ public sealed class CommandExecutor
                 continue;
             }
 
+            // Under --dry-run each write is recorded rather than sent; the first one this item
+            // recorded goes on the item (#236), rather than printing N request envelopes.
+            var previewedBefore = ctx.Previewed.Count;
             try
             {
                 var result = await callPerId(ctx.Client, id, ct);
-                if (result.IsSuccess)
-                {
+                if (PreviewedSince(previewedBefore) is { } dry)
+                    results.Add(new BulkItemResult(raw, BulkItemStatus.DryRun, null, dry));
+                else if (result.IsSuccess)
                     results.Add(new BulkItemResult(raw, BulkItemStatus.Success, null));
-                }
                 else
-                {
                     results.Add(new BulkItemResult(raw, BulkItemStatus.Error, result.ErrorMessage));
-                }
             }
-            catch (DryRunException dry)
+            catch (Exception ex)
+                when (ex is not OperationCanceledException
+                    && PreviewedSince(previewedBefore) is not null
+                )
             {
-                // Under --dry-run each write is aborted before it is sent; record the request it
-                // would have been (#236) on the item, rather than printing N request envelopes.
+                // A dry-run step that tripped over a fake response still previews its write.
                 results.Add(
                     new BulkItemResult(
                         raw,
                         BulkItemStatus.DryRun,
                         null,
-                        BulkRequest.From(dry.Method, dry.Url, dry.Body)
+                        PreviewedSince(previewedBefore)
                     )
                 );
             }

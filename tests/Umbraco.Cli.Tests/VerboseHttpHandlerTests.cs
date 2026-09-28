@@ -238,10 +238,78 @@ public class VerboseHttpHandlerTests
     }
 
     [Fact]
-    public void Redact_InvalidJson_ReturnsTextUnchanged()
+    public async Task SendAsync_ApiKeyHeader_IsRedacted()
     {
-        var result = VerboseHttpHandler.Redact("{not json", new("application/json"));
+        // #349: header names are normalised, so X-Api-Key matches like apiKey.
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://x/a");
+        request.Headers.Add("X-Api-Key", "r5d-apikey");
 
-        Assert.Equal("{not json", result);
+        var (log, _) = await Send(request, () => Json("{}"));
+
+        Assert.DoesNotContain("r5d-apikey", log);
+    }
+
+    [Fact]
+    public async Task SendAsync_UrlQueryToken_IsRedacted()
+    {
+        var (log, _) = await Send(
+            new HttpRequestMessage(HttpMethod.Get, "https://x/a?token=abc123"),
+            () => Json("{}")
+        );
+
+        Assert.DoesNotContain("abc123", log);
+    }
+
+    [Fact]
+    public async Task SendAsync_StateDisabled_LogsNothing()
+    {
+        // #374: the handler is on every client, and stays silent unless --verbose switched it on.
+        var handler = new VerboseHttpHandler(new VerboseState { Enabled = false })
+        {
+            InnerHandler = new Canned(() => Json("{}")),
+        };
+        using var invoker = new HttpMessageInvoker(handler);
+        var original = Console.Error;
+        using var err = new StringWriter();
+        Console.SetError(err);
+        try
+        {
+            await invoker.SendAsync(
+                new HttpRequestMessage(HttpMethod.Get, "https://x/a"),
+                CancellationToken.None
+            );
+        }
+        finally
+        {
+            Console.SetError(original);
+        }
+
+        Assert.Empty(err.ToString());
+    }
+
+    [Fact]
+    public async Task SendAsync_StateEnabled_LogsTheRequest()
+    {
+        var handler = new VerboseHttpHandler(new VerboseState { Enabled = true })
+        {
+            InnerHandler = new Canned(() => Json("{}")),
+        };
+        using var invoker = new HttpMessageInvoker(handler);
+        var original = Console.Error;
+        using var err = new StringWriter();
+        Console.SetError(err);
+        try
+        {
+            await invoker.SendAsync(
+                new HttpRequestMessage(HttpMethod.Post, "https://x/token"),
+                CancellationToken.None
+            );
+        }
+        finally
+        {
+            Console.SetError(original);
+        }
+
+        Assert.Contains("> POST https://x/token", err.ToString());
     }
 }

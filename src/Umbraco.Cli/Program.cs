@@ -43,7 +43,15 @@ ConsoleColorSetup.ApplyFromEnvironment();
 
 // ── DI ────────────────────────────────────────────────────────────────────────
 var services = new ServiceCollection();
-services.AddHttpClient();
+
+// --verbose (#374): one gated logging handler on every client, switched on after parsing below.
+// The default client carries the OAuth token exchange and the auth doctor probes, so they are
+// logged too (with the client secret and tokens redacted).
+services.AddSingleton<VerboseState>();
+services.AddTransient<VerboseHttpHandler>();
+services
+    .AddHttpClient(Microsoft.Extensions.Options.Options.DefaultName)
+    .AddHttpMessageHandler<VerboseHttpHandler>();
 
 // Mutation interceptor: powers --dry-run (and, later, #69/#70). Registered as the innermost
 // handler on both Management-API clients so it sees the fully-built request; gated by the
@@ -61,16 +69,11 @@ services.AddTransient<TokenRefreshHandler>();
 // Error bodies are read as ProblemDetails (#286); one that is not JSON (a proxy's HTML page) is
 // dropped here so the failure keeps its status instead of crashing the parse.
 services.AddTransient<UnreadableErrorBodyHandler>();
+
+// The verbose handler sits inside the 401 retry (so both attempts are logged) and outside the
+// dry-run interceptor (so a recorded write is logged with its fake "not sent" response).
 services
     .AddHttpClient("umbraco")
-    .AddHttpMessageHandler<TokenRefreshHandler>()
-    .AddHttpMessageHandler<UnreadableErrorBodyHandler>()
-    .AddHttpMessageHandler<MutationInterceptorHandler>();
-
-// A second named client that logs request/response to stderr; selected by --verbose.
-services.AddTransient<VerboseHttpHandler>();
-services
-    .AddHttpClient("umbraco-verbose")
     .AddHttpMessageHandler<TokenRefreshHandler>()
     .AddHttpMessageHandler<UnreadableErrorBodyHandler>()
     .AddHttpMessageHandler<VerboseHttpHandler>()
@@ -120,6 +123,10 @@ var root = CliRoot.Build(
 // Parse with response-file expansion disabled (#115) so option values beginning with '@'
 // (e.g. Serilog log-viewer filters like "@Level='Error'") are passed through verbatim.
 var parsed = root.Parse(args, CliParserConfiguration.Create());
+
+// Switch on the HTTP logging for every client at once, before any command (auth login and
+// auth doctor included) makes a request (#374).
+sp.GetRequiredService<VerboseState>().Enabled = parsed.GetValue(globalOptions.Verbose);
 
 // #167: System.CommandLine reports a parse error as plain text plus the help screen, whichever
 // output format was asked for - so `... -o json | jq` failed on the help text instead of reading

@@ -97,8 +97,37 @@ public class QuietOutputWriterTests
             string url,
             string? body,
             string? commandName,
-            long? durationMs = null
-        ) => DryRunCalled = true;
+            long? durationMs = null,
+            IReadOnlyList<Umbraco.Cli.Infrastructure.Http.PreviewedRequest>? then = null
+        )
+        {
+            DryRunCalled = true;
+            LastDryRunThen = then;
+        }
+
+        public IReadOnlyList<Umbraco.Cli.Infrastructure.Http.PreviewedRequest>? LastDryRunThen
+        {
+            get;
+            private set;
+        }
+    }
+
+    [Fact]
+    public void WriteDryRun_FollowUpRequests_ArePassedToTheInnerWriter()
+    {
+        // #353: --quiet must not drop the later steps of a multi-step dry run.
+        var inner = new RecordingWriter();
+        var quiet = new QuietOutputWriter(inner);
+
+        quiet.WriteDryRun(
+            "POST",
+            "https://x/user",
+            null,
+            "user.create",
+            then: [new("POST", "https://x/user/1/change-password", null)]
+        );
+
+        Assert.Single(inner.LastDryRunThen!);
     }
 
     [Fact]

@@ -131,16 +131,23 @@ public sealed class CsvOutputWriter : IOutputWriter
             );
     }
 
+    /// <inheritdoc />
     public void WriteDryRun(
         string method,
         string url,
         string? body,
         string? commandName,
-        long? durationMs = null
+        long? durationMs = null,
+        IReadOnlyList<Umbraco.Cli.Infrastructure.Http.PreviewedRequest>? then = null
     )
     {
+        // One row per request, in the order they would be sent (#353).
         Console.Out.WriteLine("method,url,body");
         Console.Out.WriteLine($"{Escape(method)},{Escape(url)},{Escape(body ?? "")}");
+        foreach (var next in then ?? [])
+            Console.Out.WriteLine(
+                $"{Escape(next.Method)},{Escape(next.Url)},{Escape(next.Body ?? "")}"
+            );
     }
 
     /// <summary>

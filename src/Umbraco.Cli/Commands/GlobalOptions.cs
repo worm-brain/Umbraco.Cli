@@ -56,8 +56,8 @@ public sealed class GlobalOptions
         new("--dry-run")
         {
             Description =
-                "Preview the HTTP request a write command would send (method, URL, body) "
-                + "without executing it. No effect on read commands.",
+                "Preview the HTTP requests a write command would send (method, URL, body; secrets "
+                + "redacted) without executing them. No effect on read commands.",
             Recursive = true,
         };
 
