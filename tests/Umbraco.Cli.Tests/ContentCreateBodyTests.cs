@@ -106,4 +106,33 @@ public class ContentCreateBodyTests
 
         Assert.Contains("contentType", ex.Message);
     }
+
+    [Fact]
+    public void ReadCreateRequest_MediaPlaceholderLeftIn_NamesTheProperty()
+    {
+        // #376: the --example body went to Umbraco as it was printed, which answered 500.
+        const string body = """
+            { "contentType": { "alias": "blogPost" }, "variants": [ { "name": "P" } ],
+              "values": [ { "alias": "featuredImage", "value": [ { "key": "k", "mediaKey": "<media id>" } ] } ] }
+            """;
+
+        var ex = Assert.Throws<InvalidInputException>(() =>
+            ContentCreateCommand.ReadCreateRequest(body, null)
+        );
+
+        Assert.Contains("'featuredImage' still holds the placeholder \"<media id>\"", ex.Message);
+    }
+
+    [Fact]
+    public void ReadCreateRequest_RealIds_AreAccepted()
+    {
+        var body = $$"""
+            { "contentType": { "alias": "blogPost" }, "variants": [ { "name": "P" } ],
+              "values": [ { "alias": "relatedPost", "value": "{{Guid.NewGuid()}}" } ] }
+            """;
+
+        var request = ContentCreateCommand.ReadCreateRequest(body, null);
+
+        Assert.Single(request.Values);
+    }
 }

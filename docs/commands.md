@@ -185,7 +185,7 @@ Run it first in any new environment. See [getting-started.md](getting-started.md
 ## `content`
 
 ```bash
-umbraco content list [--parent <id>] [--skip <n>] [--take <n>] [--all]
+umbraco content list [--parent <id>] [--trashed] [--skip <n>] [--take <n>] [--all]   # --trashed: the recycle bin
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco content get <id>                                   # every field of GET /document/{id} (documentType, values, variants, schedule dates, isTrashed, flags) plus name, parent, urls
@@ -195,13 +195,13 @@ umbraco content create --example --document-type <alias> [--name <name>] [--cult
 umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default; --replace needs --yes
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
 umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; no --culture publishes every culture the item has
-umbraco content unpublish <id> [--culture <csv>]          # takes offline; needs --yes; no --culture = every culture; data.cultures lists them (null if invariant)
+umbraco content unpublish <id> [--culture <csv>]          # takes offline; needs --yes; no --culture = every culture; data.cultures lists the ones that were live (null if invariant)
 umbraco content version list <id> [--culture <code>]           # version history; no --culture = every culture, rows tagged `culture`
 umbraco content version get <id>                           # one version (its id from version list), values included
 umbraco content version rollback <id> [--culture <code>] [--publish]   # draft only unless --publish; see below
 umbraco content trash <id>                                 # move to recycle bin (reversible)
 umbraco content restore <id> [--parent <id> | --to-root] [--publish]   # comes back unpublished, last in sort order; default = original parent
-umbraco content empty-recycle-bin                          # permanent; needs --yes
+umbraco content empty-recycle-bin                          # permanent; needs --yes; see it first with list --trashed
 umbraco content move <id> [--parent <id>]                  # --target works too
 umbraco content sort [--parent <id>] (--order <id>,<id>... | --by name|createDate|updateDate|publishDate [--desc])   # reorder a parent's children
 umbraco content copy <id> [--parent <id>] [--include-descendants] [--relate]   # returns the copy, with its new id
@@ -351,8 +351,8 @@ not in the table (a block editor, a package's own) gets `"value": null`. Every e
 back in. On a type that varies by culture the variant and the varying values get `--culture`, or
 the default language. `--name` names the variant. Where the table shows `<new guid>` (an id the
 caller need not choose), `--example` writes a fresh GUID, so it can be sent as it is. The other
-`<...>` placeholders (`<media id>`, `<document id>`) name an item only you know: Umbraco rejects
-the body until you replace them.
+`<...>` placeholders (`<media id>`, `<document id>`) name an item only you know: `content create`
+refuses the body, naming the property, until you replace them or remove the entry.
 
 The table is the one `--example` uses (Umbraco 17.7.0):
 
@@ -518,7 +518,7 @@ umbraco document-blueprint folder delete <id>              # needs --yes non-int
 ## `media`
 
 ```bash
-umbraco media list [--parent <id>]
+umbraco media list [--parent <id>] [--trashed]           # --trashed: the recycle bin
 umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco media get <id>                                     # includes urls[] and file metadata in values[]; mediaType.alias is the real alias
@@ -529,7 +529,7 @@ umbraco media update <id> [--name <name>] [--value alias=value]... [--json-body 
 umbraco media delete <id>                                  # permanent; needs --yes
 umbraco media trash <id>                                   # move to recycle bin (reversible)
 umbraco media restore <id> [--parent <id> | --to-root]     # restore from recycle bin; default = original parent
-umbraco media empty-recycle-bin                            # permanent; needs --yes
+umbraco media empty-recycle-bin                            # permanent; needs --yes; see it first with list --trashed
 umbraco media move <id> [--parent <id>]                    # --target works too
 umbraco media sort [--parent <id>] (--order <id>,<id>... | --by name|createDate|updateDate [--desc])   # reorder a folder's children
 

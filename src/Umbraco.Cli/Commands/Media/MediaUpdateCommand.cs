@@ -29,7 +29,7 @@ public static class MediaUpdateCommand
         // Optional at parse level only so --schema can describe the body without it.
         var idArg = new Argument<Guid?>("id")
         {
-            Description = "Media item ID. Required unless --schema is used.",
+            Description = "Media item ID.",
             Arity = ArgumentArity.ZeroOrOne,
         }.RequiredUnless("--schema");
         var nameOpt = new Option<string?>("--name") { Description = "New display name." };

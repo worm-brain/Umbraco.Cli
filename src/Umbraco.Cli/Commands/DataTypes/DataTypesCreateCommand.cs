@@ -22,10 +22,7 @@ public static class DataTypesCreateCommand
                 "umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
             )
             .Mutating();
-        var nameOpt = new Option<string>("--name")
-        {
-            Description = "Name of the new data type. Required unless --json-body is given.",
-        };
+        var nameOpt = new Option<string>("--name") { Description = "Name of the new data type." };
         var editorAliasOpt = new Option<string>("--editor-alias")
         {
             Description = "Backend property editor alias (e.g. Umbraco.TextBox).",

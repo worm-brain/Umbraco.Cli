@@ -266,6 +266,28 @@ public class PublishScheduleCommandTests
     }
 
     [Fact]
+    public async Task Publish_InvariantDocumentWithCulture_DataCarriesNullCultures()
+    {
+        // #362: --culture en-US on an invariant document was echoed as ["en-US"].
+        var data = await DataOf(
+            Document(),
+            $"{Auth} content publish {Guid.NewGuid()} --culture en-US"
+        );
+
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, data.GetProperty("cultures").ValueKind);
+    }
+
+    [Fact]
+    public async Task Publish_InvariantDocumentWithCulture_PublishesItWhole()
+    {
+        var fake = Document();
+
+        await DataOf(fake, $"{Auth} content publish {Guid.NewGuid()} --culture en-US");
+
+        Assert.Null(fake.StateCalls.Single().Cultures);
+    }
+
+    [Fact]
     public async Task Publish_WithoutSchedule_DataCarriesNullScheduleTimes()
     {
         var data = await DataOf(Document("en-US"), $"{Auth} content publish {Guid.NewGuid()}");
@@ -348,6 +370,69 @@ public class PublishScheduleCommandTests
         var data = await DataOf(
             Unpublishable(),
             $"{Auth} content unpublish {Guid.NewGuid()} --yes"
+        );
+
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, data.GetProperty("cultures").ValueKind);
+    }
+
+    [Fact]
+    public async Task Unpublish_WithoutCulture_DataLeavesOutDraftCultures()
+    {
+        // #362: a culture already in Draft was listed as unpublished.
+        var fake = Unpublishable("en-US", "da-DK");
+        fake.DraftCultures.Add("da-DK");
+
+        var data = await DataOf(fake, $"{Auth} content unpublish {Guid.NewGuid()} --yes");
+
+        Assert.Equal(
+            ["en-US"],
+            data.GetProperty("cultures").EnumerateArray().Select(c => c.GetString())
+        );
+    }
+
+    [Fact]
+    public async Task Unpublish_WithoutCulture_SendsOnlyThePublishedCultures()
+    {
+        var fake = Unpublishable("en-US", "da-DK");
+        fake.DraftCultures.Add("da-DK");
+
+        await DataOf(fake, $"{Auth} content unpublish {Guid.NewGuid()} --yes");
+
+        Assert.Equal(["en-US"], fake.StateCalls.Single().Cultures);
+    }
+
+    [Fact]
+    public async Task Unpublish_NamedCultureAlreadyDraft_DataCarriesAnEmptyList()
+    {
+        var fake = Unpublishable("en-US", "da-DK");
+        fake.DraftCultures.Add("da-DK");
+
+        var data = await DataOf(
+            fake,
+            $"{Auth} content unpublish {Guid.NewGuid()} --culture da-DK --yes"
+        );
+
+        Assert.Equal(0, data.GetProperty("cultures").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Unpublish_NamedCultureAlreadyDraft_StillSendsTheRequest()
+    {
+        var fake = Unpublishable("en-US", "da-DK");
+        fake.DraftCultures.Add("da-DK");
+
+        await DataOf(fake, $"{Auth} content unpublish {Guid.NewGuid()} --culture da-DK --yes");
+
+        Assert.Equal(["da-DK"], fake.StateCalls.Single().Cultures);
+    }
+
+    [Fact]
+    public async Task Unpublish_InvariantDocumentWithCulture_DataCarriesNullCultures()
+    {
+        // #362: --culture en-US on an invariant document was echoed as ["en-US"].
+        var data = await DataOf(
+            Unpublishable(),
+            $"{Auth} content unpublish {Guid.NewGuid()} --culture en-US --yes"
         );
 
         Assert.Equal(System.Text.Json.JsonValueKind.Null, data.GetProperty("cultures").ValueKind);

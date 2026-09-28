@@ -44,18 +44,34 @@ public static class MediaSortCommand
                     async (client, c) =>
                     {
                         var parent = parseResult.GetValue(parentOpt);
+                        Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> Page(
+                            int skip,
+                            int take
+                        ) => client.GetMediaAsync(parent, skip, take, c);
+
                         var order = await sort.OrderAsync(
                             parseResult,
-                            (skip, take) => client.GetMediaAsync(parent, skip, take, c),
+                            Page,
                             (child, key) => CandidateAsync(client, child, key, c),
                             c
                         );
+                        if (!order.IsSuccess)
+                            return UmbracoResponse<ItemRefs>.FailureFrom(order);
+
+                        // A rejected order names the ids that are not children (#363).
+                        var sorted = await ChildSort.ExplainRefusalAsync(
+                            await client.SortMediaAsync(parent, order.Data!, c),
+                            order.Data!,
+                            Page,
+                            child => child.Id,
+                            parent?.ToString() ?? "the media root",
+                            parent is null
+                                ? "umbraco media list"
+                                : $"umbraco media list --parent {parent}"
+                        );
+
                         // The data is the children in their new order (docs/conventions.md 6.2).
-                        return order.IsSuccess
-                            ? await client
-                                .SortMediaAsync(parent, order.Data!, c)
-                                .Then(ItemRefs.Of(order.Data!))
-                            : UmbracoResponse<ItemRefs>.FailureFrom(order);
+                        return sorted.Map(_ => ItemRefs.Of(order.Data!));
                     },
                     "Media children reordered.",
                     ct

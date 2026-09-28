@@ -87,6 +87,52 @@ public static class ChildSort
         }
     }
 
+    /// <summary>
+    /// Explains a rejected sort (#363). Umbraco answers an order that names an item which is not a
+    /// child of the parent with a 400 <c>SortingInvalid</c> that says only "invalid sorting
+    /// options", so on a 400 the parent's children are read and the ids that are not among them
+    /// are named. Only a failure pays for the read. Any other response, or a 400 whose ids are all
+    /// children, is returned unchanged; Umbraco's body still travels as the error's <c>details</c>.
+    /// </summary>
+    /// <typeparam name="T">The sort response's payload type.</typeparam>
+    /// <typeparam name="TChild">The noun's child item.</typeparam>
+    /// <param name="response">The sort response.</param>
+    /// <param name="order">The ids that were sent, in order.</param>
+    /// <param name="page">Reads one page of the parent's children: (skip, take).</param>
+    /// <param name="idOf">A child's id.</param>
+    /// <param name="parentText">The parent, for the message (e.g. <c>3f7a8b2e-...</c> or <c>the content root</c>).</param>
+    /// <param name="listCommand">The command that lists the children, for the message.</param>
+    /// <returns>The response, with the message naming the strangers when there are any.</returns>
+    public static async Task<UmbracoResponse<T>> ExplainRefusalAsync<T, TChild>(
+        UmbracoResponse<T> response,
+        IReadOnlyList<Guid> order,
+        Func<int, int, Task<UmbracoResponse<PagedResponse<TChild>>>> page,
+        Func<TChild, Guid> idOf,
+        string parentText,
+        string listCommand
+    )
+    {
+        if (response.IsSuccess || response.StatusCode != 400)
+            return response;
+
+        // Best-effort: when the children cannot be read, Umbraco's own answer is still the error.
+        var children = await ReadAllAsync(page);
+        if (!children.IsSuccess)
+            return response;
+
+        var ids = children.Data!.Select(idOf).ToHashSet();
+        var strangers = order.Where(id => !ids.Contains(id)).Distinct().ToList();
+        if (strangers.Count == 0)
+            return response;
+
+        return response with
+        {
+            ErrorMessage =
+                $"Not children of {parentText}: {string.Join(", ", strangers)}. "
+                + $"List the children with '{listCommand}'. ({response.ErrorMessage?.TrimEnd('.')}.)",
+        };
+    }
+
     // Enough to overlap the per-child reads without hammering the server.
     private const int DetailConcurrency = 4;
 

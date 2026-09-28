@@ -212,6 +212,8 @@ public class ReferenceCommandTests
         var fake = new FakeUmbracoManagementClient
         {
             PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+            PublishCulturesHandler = _ =>
+                UmbracoResponse<IReadOnlyList<string>>.Success(["en-US", "da-DK", "ja-JP"]),
         };
 
         await Run(fake, $"content publish {Guid.NewGuid()} --culture en-US,da-DK");

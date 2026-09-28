@@ -110,27 +110,64 @@ public class ContentPublishWireTests
     }
 
     [Fact]
-    public async Task PublishCulturesAsync_InvariantDocument_ReturnsNoCultures()
+    public async Task PublishCulturesAsync_InvariantDocument_ReturnsNull()
     {
         var id = Guid.NewGuid();
         var client = Wire.Client(Handler(id));
 
         var result = await client.PublishCulturesAsync(id, ct: CancellationToken.None);
 
-        Assert.Empty(result.Data!);
+        Assert.Equal((true, null), (result.IsSuccess, result.Data));
     }
 
     [Fact]
-    public async Task PublishCulturesAsync_ExplicitCultures_ReturnsThoseWithoutReadingTheDocument()
+    public async Task PublishCulturesAsync_InvariantDocumentWithCultureNamed_ReturnsNull()
+    {
+        // #362: a culture named for an invariant document was echoed back as if published.
+        var id = Guid.NewGuid();
+        var client = Wire.Client(Handler(id));
+
+        var result = await client.PublishCulturesAsync(id, ["en-US"], ct: CancellationToken.None);
+
+        Assert.Null(result.Data);
+    }
+
+    [Fact]
+    public async Task PublishCulturesAsync_ExplicitCultures_ReturnsThose()
     {
         var id = Guid.NewGuid();
-        var handler = Handler(id, "en-US", "da-DK");
-        var client = Wire.Client(handler);
+        var client = Wire.Client(Handler(id, "en-US", "da-DK"));
 
-        var result = await client.PublishCulturesAsync(id, ["da-DK"], CancellationToken.None);
+        var result = await client.PublishCulturesAsync(id, ["da-DK"], ct: CancellationToken.None);
 
         Assert.Equal(["da-DK"], result.Data);
-        handler.AssertNoRequest(HttpMethod.Get, $"/document/{id}");
+    }
+
+    [Fact]
+    public async Task PublishCulturesAsync_PublishedOnly_LeavesOutDraftCultures()
+    {
+        // #362: an unpublish listed cultures that were already Draft as unpublished.
+        var id = Guid.NewGuid();
+        var client = Wire.Client(
+            new RoutingHandler().When(
+                r => r.Method == HttpMethod.Get,
+                HttpStatusCode.OK,
+                $$"""
+                { "id": "{{id}}", "variants": [
+                  { "culture": "en-US", "name": "a", "state": "PublishedPendingChanges" },
+                  { "culture": "da-DK", "name": "b", "state": "Draft" },
+                  { "culture": "ja-JP", "name": "c", "state": "Published" } ] }
+                """
+            )
+        );
+
+        var result = await client.PublishCulturesAsync(
+            id,
+            publishedOnly: true,
+            ct: CancellationToken.None
+        );
+
+        Assert.Equal(["en-US", "ja-JP"], result.Data);
     }
 
     [Fact]

@@ -406,6 +406,54 @@ public class CommandCatalogTests
     }
 
     [Fact]
+    public void Describe_EveryRequiredUnless_IsTheSentenceItsHelpEndsWith()
+    {
+        // #377: the help said "Required unless --schema" where the catalog said
+        // [--schema, --template]. The sentence is now generated from the declaration, and exactly
+        // once: a hand-written copy left in a description would show up here as a second one.
+        var broken = Leaves(CommandCatalog.Describe(TestCliRoot.Build()), "")
+            .SelectMany(l =>
+                l.Node.Options.Select(o => (o.Name, o.Description, o.RequiredUnless))
+                    .Concat(l.Node.Arguments.Select(a => (a.Name, a.Description, a.RequiredUnless)))
+                    .Where(s => s.RequiredUnless is not null)
+                    .Where(s =>
+                        !(s.Description ?? "").EndsWith(
+                            CommandRequirements.Sentence(s.RequiredUnless!),
+                            StringComparison.Ordinal
+                        )
+                        || (s.Description ?? "").Split("Required unless").Length != 2
+                    )
+                    .Select(s => $"{l.Path} {s.Name}")
+            )
+            .ToList();
+
+        Assert.True(broken.Count == 0, "Help disagrees: " + string.Join(", ", broken));
+    }
+
+    [Theory]
+    [InlineData(new[] { "--schema" }, "Required unless --schema is used.")]
+    [InlineData(
+        new[] { "--schema", "--template" },
+        "Required unless --schema or --template is used."
+    )]
+    [InlineData(
+        new[] { "--json-body", "--schema", "--example" },
+        "Required unless --json-body, --schema or --example is used."
+    )]
+    public void Sentence_Alternatives_ListsThemAsProse(string[] alternatives, string expected)
+    {
+        Assert.Equal(expected, CommandRequirements.Sentence(alternatives));
+    }
+
+    [Fact]
+    public void Describe_ContentUpdateJsonBody_HelpNamesTemplate()
+    {
+        var body = Shipped("content update").Options.Single(o => o.Name == "--json-body");
+
+        Assert.EndsWith("Required unless --schema or --template is used.", body.Description);
+    }
+
+    [Fact]
     public void Describe_JsonBodyCommand_PointsAtItsSchemaCommand()
     {
         Assert.Equal("umbraco content create --schema", Shipped("content create").JsonBodySchema);

@@ -234,8 +234,7 @@ public static class RawBodyCommand
     {
         var id = new Argument<string?>("id")
         {
-            Description =
-                $"The {noun.Singular}'s id, or its {noun.Kind.KeyName()}. Required unless --schema or --example is used.",
+            Description = $"The {noun.Singular}'s id, or its {noun.Kind.KeyName()}.",
             Arity = ArgumentArity.ZeroOrOne,
         }.RequiredUnless("--schema", "--example");
         cmd.Add(id);

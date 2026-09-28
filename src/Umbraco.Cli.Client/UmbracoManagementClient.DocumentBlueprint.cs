@@ -52,24 +52,33 @@ public sealed partial class UmbracoManagementClient
                         },
                         ct
                     );
-                return new PagedResponse<DocumentBlueprintTreeItem>
-                {
-                    Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? [])
-                        .Select(i => new DocumentBlueprintTreeItem
+                // One row at a time: the tree row carries only the type id, so the alias is looked
+                // up from the (not thread-safe) cache, as content list does (#361).
+                var items = new List<DocumentBlueprintTreeItem>();
+                foreach (var i in paged?.Items ?? [])
+                    items.Add(
+                        new DocumentBlueprintTreeItem
                         {
                             Id = i.Id ?? Guid.Empty,
                             Name = i.Name ?? "",
                             DocumentType = i.DocumentType?.Id is { } dtId
-                                ? new ContentTypeReference { Id = dtId }
+                                ? new ContentTypeRef
+                                {
+                                    Id = dtId,
+                                    Alias = await DocumentTypeAliasAsync(dtId, ct),
+                                }
                                 : null,
                             IsFolder = i.IsFolder ?? false,
                             HasChildren = i.HasChildren ?? false,
                             Parent = i.Parent?.Id is { } pId
                                 ? new ContentParentReference { Id = pId }
                                 : null,
-                        })
-                        .ToList(),
+                        }
+                    );
+                return new PagedResponse<DocumentBlueprintTreeItem>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = items,
                 };
             }
         );
@@ -101,7 +110,8 @@ public sealed partial class UmbracoManagementClient
     /// Adds what a blueprint body lacks and <c>content get</c> shows (#298): a top-level
     /// <c>name</c>, the first variant's (the same rule as <c>content get</c>), and a
     /// <c>parent: {id}</c> read from the blueprint tree. A blueprint at the root gets no
-    /// <c>parent</c>, as a root document has none; a name already on the body is kept.
+    /// <c>parent</c>, as a root document has none; a name already on the body is kept. The
+    /// <c>documentType</c> reference also gains its alias (#361).
     /// </summary>
     /// <param name="blueprint">The blueprint as read; changed in place when it is an object.</param>
     /// <param name="id">The blueprint id.</param>
@@ -125,6 +135,9 @@ public sealed partial class UmbracoManagementClient
 
         if (await BlueprintParentAsync(id, ct) is { } parent)
             obj["parent"] = new JsonObject { ["id"] = parent.Id.ToString() };
+
+        // The document type's alias, as content get shows it (#361).
+        await AddDocumentTypeAliasAsync(obj, ct);
         return obj;
     }
 
@@ -143,7 +156,13 @@ public sealed partial class UmbracoManagementClient
                 // blueprint's own id. Dropped here, so a create can keep a body's id like every
                 // other create does (#299) and a piped scaffold still makes a new document.
                 if (body is JsonObject obj)
+                {
                     obj.Remove("id");
+
+                    // The document type's alias, as content get shows it (#361). A create reads
+                    // the type by its id when both are given, so the piped body is unaffected.
+                    await AddDocumentTypeAliasAsync(obj, ct);
+                }
                 return body;
             }
         );

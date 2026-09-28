@@ -37,15 +37,39 @@ public static class PropertyValueExamples
         // id, which only the caller knows.
         ["Umbraco.MediaPicker3"] = new(
             "Image media picker",
-            $$"""[{"key":"{{NewGuid}}","mediaKey":"<media id>","mediaTypeAlias":"Image","crops":[],"focalPoint":null}]"""
+            $$"""[{"key":"{{NewGuid}}","mediaKey":"{{MediaId}}","mediaTypeAlias":"Image","crops":[],"focalPoint":null}]"""
         ),
         ["Umbraco.DateTime"] = new("Date picker", "\"2026-05-01 00:00:00\""),
         ["Umbraco.DropDown.Flexible"] = new("Dropdown", """["News","Opinion"]"""),
         ["Umbraco.Tags"] = new("Tags", """["umbraco","cli"]"""),
         ["Umbraco.Integer"] = new("Numeric", "5"),
         ["Umbraco.TrueFalse"] = new("True/false", "true"),
-        ["Umbraco.ContentPicker"] = new("Content picker", "\"<document id>\""),
+        ["Umbraco.ContentPicker"] = new("Content picker", $"\"{DocumentId}\""),
     };
+
+    /// <summary>The placeholder for a media item's id, which only the caller knows.</summary>
+    public const string MediaId = "<media id>";
+
+    /// <summary>The placeholder for a document's id, which only the caller knows.</summary>
+    public const string DocumentId = "<document id>";
+
+    /// <summary>
+    /// The first caller-only placeholder (<see cref="MediaId"/>, <see cref="DocumentId"/>) left
+    /// anywhere in a value (#376). Umbraco answers such a value with a 500 ("could not be
+    /// converted to System.Guid") that does not say which property is wrong, so
+    /// <c>content create</c> refuses it first, naming the property.
+    /// </summary>
+    /// <param name="value">A property value from a body; null finds nothing.</param>
+    /// <returns>The placeholder found, or null.</returns>
+    public static string? FindPlaceholder(JsonNode? value) =>
+        value switch
+        {
+            JsonValue v when v.TryGetValue<string>(out var s) && s is MediaId or DocumentId => s,
+            JsonObject obj => obj.Select(p => FindPlaceholder(p.Value))
+                .FirstOrDefault(p => p is not null),
+            JsonArray array => array.Select(FindPlaceholder).FirstOrDefault(p => p is not null),
+            _ => null,
+        };
 
     /// <summary>
     /// A fresh example value for an editor, or null when the editor is not known. Every

@@ -26,13 +26,12 @@ public static class ContentUpdateCommand
         // the parse-level validator below (a proper, local parse error).
         var idArg = new Argument<Guid?>("id")
         {
-            Description = "Content item ID. Required unless --schema is used.",
+            Description = "Content item ID.",
             Arity = ArgumentArity.ZeroOrOne,
         }.RequiredUnless("--schema");
         // A --template change needs no body (#208), so --template is an alternative too.
         var body = new JsonBodyOption(
-            "Path to a JSON file (or - for stdin) containing the update request body. "
-                + "Required unless --schema is used."
+            "Path to a JSON file (or - for stdin) containing the update request body."
         ).BodyRequiredUnless("--schema", "--template");
         var replaceOpt = new Option<bool>("--replace")
         {

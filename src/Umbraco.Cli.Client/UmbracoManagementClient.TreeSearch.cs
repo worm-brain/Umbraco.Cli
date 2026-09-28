@@ -70,7 +70,11 @@ public sealed partial class UmbracoManagementClient
                 return new PagedResponse<ContentItemResponse>
                 {
                     Total = (int)(paged?.Total ?? 0),
-                    Items = (paged?.Items ?? []).Select(MapDocumentSearchItem).ToList(),
+                    // The search row's type reference has no alias; fill it as list does (#361).
+                    Items = await WithDocumentTypeAliasesAsync(
+                        (paged?.Items ?? []).Select(MapDocumentSearchItem),
+                        ct
+                    ),
                 };
             }
         );
@@ -90,7 +94,10 @@ public sealed partial class UmbracoManagementClient
                     ProjectDocument,
                     ct
                 );
-                return match is null ? [] : [MapDocumentTreeItem(match)];
+                // The tree row's type reference has no alias; fill it as list does (#361).
+                return match is null
+                    ? []
+                    : await WithDocumentTypeAliasesAsync([MapDocumentTreeItem(match)], ct);
             }
         );
 

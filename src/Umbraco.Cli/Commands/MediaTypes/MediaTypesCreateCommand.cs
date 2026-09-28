@@ -26,13 +26,11 @@ public static class MediaTypesCreateCommand
             .Mutating();
         var nameOpt = new Option<string>("--name")
         {
-            Description =
-                "Display name of the new media type. Required unless --json-body is given.",
+            Description = "Display name of the new media type.",
         };
         var aliasOpt = new Option<string>("--alias")
         {
-            Description =
-                "Alias of the new media type, e.g. blogPost. Required unless --json-body is given.",
+            Description = "Alias of the new media type, e.g. blogPost.",
         };
         var descOpt = new Option<string?>("--description")
         {

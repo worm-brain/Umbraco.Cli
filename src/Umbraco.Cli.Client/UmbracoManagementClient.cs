@@ -594,28 +594,58 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// The cultures a publish or unpublish of a document covers (#325); see
-    /// <see cref="IContentClient.PublishCulturesAsync"/>.
+    /// The cultures a publish or unpublish of a document covers (#325, #362); see
+    /// <see cref="IContentClient.PublishCulturesAsync"/>. The document is always read, so a
+    /// culture named for an invariant document resolves to "invariant" rather than being echoed.
     /// </summary>
     /// <param name="id">The content item id.</param>
-    /// <param name="cultures">Cultures to publish; null/empty publishes every culture the document has.</param>
+    /// <param name="cultures">Cultures asked for; null/empty means every culture the document has.</param>
+    /// <param name="publishedOnly">True to keep only the cultures that are published now (unpublish).</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The culture codes (empty for an invariant document), or a mapped failure.</returns>
-    public Task<UmbracoResponse<IReadOnlyList<string>>> PublishCulturesAsync(
+    /// <returns>The culture codes (null for an invariant document), or a mapped failure.</returns>
+    public Task<UmbracoResponse<IReadOnlyList<string>?>> PublishCulturesAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
+        bool publishedOnly = false,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync<IReadOnlyList<string>>(
+        GuardedApiAsync<IReadOnlyList<string>?>(
             ct,
-            async () => await ResolvePublishCulturesAsync(id, cultures, ct)
+            async () =>
+            {
+                var variants = (await DocumentVariantsAsync(id, ct))
+                    .Where(v => !string.IsNullOrEmpty(v.Culture))
+                    .ToList();
+
+                // No named culture on any variant: the document is invariant, whatever was asked.
+                if (variants.Count == 0)
+                    return null;
+
+                var requested = cultures?.ToList() is { Count: > 0 } named
+                    ? named
+                    : NamedCultures(variants.Select(v => v.Culture));
+                if (!publishedOnly)
+                    return requested;
+
+                // A culture already in Draft is not taken offline by an unpublish, so it is not
+                // reported as unpublished (#362).
+                var live = variants
+                    .Where(v =>
+                        v.State
+                            is Gen.DocumentVariantStateModel.Published
+                                or Gen.DocumentVariantStateModel.PublishedPendingChanges
+                    )
+                    .Select(v => v.Culture!)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                return requested.Where(live.Contains).ToList();
+            }
         );
 
     /// <summary>
-    /// The one place a publish's or unpublish's cultures are resolved, shared by
-    /// <see cref="PublishCulturesAsync"/>, <see cref="PublishContentAsync"/> and
-    /// <see cref="UnpublishContentAsync"/> so they cannot disagree: the named cultures, else the
-    /// document's own (none for an invariant document).
+    /// The cultures <see cref="PublishContentAsync"/> and <see cref="UnpublishContentAsync"/> send:
+    /// the named cultures as given (no read), else the document's own (none for an invariant
+    /// document). The commands resolve through <see cref="PublishCulturesAsync"/> first and pass
+    /// the result here, so what they report is what is sent.
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">The cultures asked for; null/empty reads the document.</param>
@@ -719,8 +749,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                // Resolved by the same step as publish, so what `content unpublish` reports (via
-                // PublishCulturesAsync) is what is sent. Nothing named: a variant document needs
+                // `content unpublish` resolves through PublishCulturesAsync and passes its cultures
+                // here, so what it reports is what is sent. Nothing named: a variant document needs
                 // its cultures listed, an invariant one (no named cultures) needs the field omitted.
                 var named = await ResolvePublishCulturesAsync(id, cultures, ct);
                 var body = new Gen.UnpublishDocumentRequestModel
@@ -743,26 +773,70 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="id">The document id.</param>
     /// <param name="parentId">Target parent id; null moves to the content root.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
-    public Task<UmbracoResponse<Empty>> MoveContentAsync(
+    /// <returns>An empty success response, or a mapped failure (a refusal says why, #363).</returns>
+    public async Task<UmbracoResponse<Empty>> MoveContentAsync(
         Guid id,
         Guid? parentId = null,
         CancellationToken ct = default
     ) =>
-        GuardedApiAsync(
-            ct,
-            async () =>
-            {
-                var body = new Gen.MoveDocumentRequestModel
+        ExplainPlacementRefusal(
+            await GuardedApiAsync(
+                ct,
+                async () =>
                 {
-                    Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
-                };
-                await _api
-                    .Umbraco.Management.Api.V1.Document[id]
-                    .Move.PutAsync(body, cancellationToken: ct);
-                return Empty.Value;
-            }
+                    var body = new Gen.MoveDocumentRequestModel
+                    {
+                        Target = parentId is { } p ? new Gen.ReferenceByIdModel { Id = p } : null,
+                    };
+                    await _api
+                        .Umbraco.Management.Api.V1.Document[id]
+                        .Move.PutAsync(body, cancellationToken: ct);
+                    return Empty.Value;
+                }
+            ),
+            "move",
+            id,
+            parentId
         );
+
+    /// <summary>
+    /// Rewords Umbraco's generic placement refusal for a move or copy (#363), as
+    /// <see cref="RestoreContentAsync"/> does for a restore (#230). Umbraco answers a document type
+    /// that is not allowed under the target (or at the root) with a 400 <c>NotAllowed</c> whose
+    /// text blames "a permission/configuration mismatch", which does not say what to check. The
+    /// message now names where the item was going and what to check; Umbraco's body still travels
+    /// as the error's <c>details</c>. Any other response is returned unchanged.
+    /// </summary>
+    /// <typeparam name="T">The response payload type.</typeparam>
+    /// <param name="response">The move or copy response.</param>
+    /// <param name="verb">The verb, for the message (<c>move</c> or <c>copy</c>).</param>
+    /// <param name="id">The document being placed.</param>
+    /// <param name="parentId">The target parent; null for the content root.</param>
+    /// <returns>The response, with the message reworded when it is a placement refusal.</returns>
+    internal static UmbracoResponse<T> ExplainPlacementRefusal<T>(
+        UmbracoResponse<T> response,
+        string verb,
+        Guid id,
+        Guid? parentId
+    )
+    {
+        var notAllowed =
+            response.Details?["operationStatus"]?.ToString() == "NotAllowed"
+            || response.ErrorMessage?.Contains("not permitted", StringComparison.OrdinalIgnoreCase)
+                == true;
+        if (response.IsSuccess || response.StatusCode != 400 || !notAllowed)
+            return response;
+
+        var where = parentId is { } p ? $"under {p}" : "at the content root";
+        return response with
+        {
+            ErrorMessage =
+                $"Umbraco would not {verb} {id} {where}: {response.ErrorMessage?.TrimEnd('.')}. "
+                + "Its document type may not be allowed there: check the parent's allowed "
+                + "document types (or 'allow at root') with 'document-type get <id>', or pass "
+                + $"--parent <id> to {verb} it somewhere else.",
+        };
+    }
 
     /// <summary>
     /// Copies a document under a new parent via <c>POST document/{id}/copy</c> (issue #67) and
@@ -792,12 +866,18 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             IncludeDescendants = includeDescendants,
             RelateToOriginal = relateToOriginal,
         };
-        return await CopyViaLocationAsync(
-            config => _api.Umbraco.Management.Api.V1.Document[id].Copy.PostAsync(body, config, ct),
-            newId => GetContentByIdAsync(newId, ct),
-            newId => new ContentItemResponse { Id = newId },
-            "document",
-            ct
+        return ExplainPlacementRefusal(
+            await CopyViaLocationAsync(
+                config =>
+                    _api.Umbraco.Management.Api.V1.Document[id].Copy.PostAsync(body, config, ct),
+                newId => GetContentByIdAsync(newId, ct),
+                newId => new ContentItemResponse { Id = newId },
+                "document",
+                ct
+            ),
+            "copy",
+            id,
+            parentId
         );
     }
 

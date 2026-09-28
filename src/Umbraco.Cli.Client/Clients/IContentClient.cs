@@ -70,20 +70,26 @@ public interface IContentClient
     );
 
     /// <summary>
-    /// The cultures a publish or unpublish of this document covers, resolved exactly as
-    /// <see cref="PublishContentAsync"/> and <see cref="UnpublishContentAsync"/> resolve them:
-    /// <paramref name="cultures"/> when given, otherwise every culture the document varies by
-    /// (read from the document). Callers pass the result straight to the publish or unpublish and
-    /// report it, so what they report is what was sent (#325). A document read that answers 200
-    /// with no body fails as a 404 (#119) rather than passing for an invariant document.
+    /// The cultures a publish or unpublish of this document covers, for the command to send and
+    /// report (#325): <paramref name="cultures"/> when given, otherwise every culture the document
+    /// varies by. The document is always read (#362): an invariant document resolves to null even
+    /// when a culture was named, since it is published or unpublished whole, and with
+    /// <paramref name="publishedOnly"/> only the cultures published now are kept, so an unpublish
+    /// does not report a culture that was already Draft. A document read that answers 200 with no
+    /// body fails as a 404 (#119) rather than passing for an invariant document.
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">The cultures asked for; null/empty means every culture the document has.</param>
+    /// <param name="publishedOnly">True to keep only the cultures that are published now.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The culture codes; empty for an invariant document. Or a mapped failure.</returns>
-    Task<UmbracoResponse<IReadOnlyList<string>>> PublishCulturesAsync(
+    /// <returns>
+    /// The culture codes: null for an invariant document, and possibly empty with
+    /// <paramref name="publishedOnly"/>. Or a mapped failure.
+    /// </returns>
+    Task<UmbracoResponse<IReadOnlyList<string>?>> PublishCulturesAsync(
         Guid id,
         IEnumerable<string>? cultures = null,
+        bool publishedOnly = false,
         CancellationToken ct = default
     );
 
@@ -199,6 +205,24 @@ public interface IContentClient
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> EmptyContentRecycleBinAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Lists one level of the content recycle bin (#364): its top level, or the trashed children
+    /// of a trashed item. The rows have the shape of <see cref="GetContentAsync"/>'s, with
+    /// <c>isTrashed</c> set, so what <c>empty-recycle-bin</c> would delete can be seen first and a
+    /// trashed id found to <c>restore</c>.
+    /// </summary>
+    /// <param name="parentId">A trashed item whose children to list; null lists the bin's top level.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of trashed documents, or a mapped failure.</returns>
+    Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> GetContentRecycleBinAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    );
 
     /// <summary>Moves a document under a new parent (issue #67).</summary>
     /// <param name="id">The document id.</param>

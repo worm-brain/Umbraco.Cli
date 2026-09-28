@@ -259,16 +259,25 @@
       "commands": [
         {
           "name": "list",
-          "description": "List content items at the root, or the children of a parent.\n\nReturns a paginated list of top-level or child content nodes.\n\nExamples:\n  umbraco content list\n  umbraco content list --parent <id> --take 50\n  umbraco content list --output json | jq '.data[].name'",
+          "description": "List content items at the root, or the children of a parent.\n\nReturns a paginated list of top-level or child content nodes. With --trashed, lists the recycle bin instead.\n\nExamples:\n  umbraco content list\n  umbraco content list --parent <id> --take 50\n  umbraco content list --trashed   # what empty-recycle-bin would delete\n  umbraco content list --output json | jq '.data[].name'",
           "arguments": [],
           "options": [
             {
               "name": "--parent",
               "aliases": [],
-              "description": "Parent content item id; lists root items if omitted.",
+              "description": "Parent content item id; lists root items if omitted. With --trashed, a trashed item.",
               "type": "guid",
               "required": false,
               "hasDefault": false
+            },
+            {
+              "name": "--trashed",
+              "aliases": [],
+              "description": "List the recycle bin (its top level, or a trashed parent's children).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--skip",
@@ -305,6 +314,7 @@
           "examples": [
             "umbraco content list",
             "umbraco content list --parent <id> --take 50",
+            "umbraco content list --trashed   # what empty-recycle-bin would delete",
             "umbraco content list --output json | jq '.data[].name'"
           ]
         },
@@ -576,7 +586,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the update request body. Required unless --schema is used.",
+              "description": "Path to a JSON file (or - for stdin) containing the update request body. Required unless --schema or --template is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -1001,7 +1011,7 @@
         },
         {
           "name": "empty-recycle-bin",
-          "description": "Permanently delete all content items in the recycle bin.\n\nExamples:\n  umbraco content empty-recycle-bin --yes",
+          "description": "Permanently delete all content items in the recycle bin.\n\nSee what it holds first with 'content list --trashed'.\n\nExamples:\n  umbraco content empty-recycle-bin --yes",
           "arguments": [],
           "options": [],
           "commands": [],
@@ -1430,16 +1440,25 @@
       "commands": [
         {
           "name": "list",
-          "description": "List media items in the media library.\n\nExamples:\n  umbraco media list\n  umbraco media list --parent <folder-id> --output json",
+          "description": "List media items in the media library.\n\nWith --trashed, lists the media recycle bin instead.\n\nExamples:\n  umbraco media list\n  umbraco media list --parent <folder-id> --output json\n  umbraco media list --trashed   # what empty-recycle-bin would delete",
           "arguments": [],
           "options": [
             {
               "name": "--parent",
               "aliases": [],
-              "description": "Parent media folder id; lists root media items if omitted.",
+              "description": "Parent media folder id; lists root media items if omitted. With --trashed, a trashed item.",
               "type": "guid",
               "required": false,
               "hasDefault": false
+            },
+            {
+              "name": "--trashed",
+              "aliases": [],
+              "description": "List the recycle bin (its top level, or a trashed parent's children).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--skip",
@@ -1475,7 +1494,8 @@
           "acceptsJsonBody": false,
           "examples": [
             "umbraco media list",
-            "umbraco media list --parent <folder-id> --output json"
+            "umbraco media list --parent <folder-id> --output json",
+            "umbraco media list --trashed   # what empty-recycle-bin would delete"
           ]
         },
         {
@@ -1883,7 +1903,7 @@
         },
         {
           "name": "empty-recycle-bin",
-          "description": "Permanently delete all media items in the recycle bin.\n\nExamples:\n  umbraco media empty-recycle-bin --yes",
+          "description": "Permanently delete all media items in the recycle bin.\n\nSee what it holds first with 'media list --trashed'.\n\nExamples:\n  umbraco media empty-recycle-bin --yes",
           "arguments": [],
           "options": [],
           "commands": [],
@@ -2198,7 +2218,7 @@
             {
               "name": "--name",
               "aliases": [],
-              "description": "Display name of the new media type. Required unless --json-body is given.",
+              "description": "Display name of the new media type. Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2211,7 +2231,7 @@
             {
               "name": "--alias",
               "aliases": [],
-              "description": "Alias of the new media type, e.g. blogPost. Required unless --json-body is given.",
+              "description": "Alias of the new media type, e.g. blogPost. Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2296,7 +2316,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2492,7 +2512,7 @@
             {
               "name": "--name",
               "aliases": [],
-              "description": "Display name of the new document type. Required unless --json-body is given.",
+              "description": "Display name of the new document type. Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2505,7 +2525,7 @@
             {
               "name": "--alias",
               "aliases": [],
-              "description": "Alias of the new document type, e.g. blogPost. Required unless --json-body is given.",
+              "description": "Alias of the new document type, e.g. blogPost. Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2592,7 +2612,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2796,7 +2816,7 @@
             {
               "name": "--name",
               "aliases": [],
-              "description": "Name of the new data type. Required unless --json-body is given.",
+              "description": "Name of the new data type. Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2809,7 +2829,7 @@
             {
               "name": "--editor-alias",
               "aliases": [],
-              "description": "Backend property editor alias (e.g. Umbraco.TextBox).",
+              "description": "Backend property editor alias (e.g. Umbraco.TextBox). Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2822,7 +2842,7 @@
             {
               "name": "--editor-ui-alias",
               "aliases": [],
-              "description": "Backoffice editor UI alias (e.g. Umb.PropertyEditorUi.TextBox).",
+              "description": "Backoffice editor UI alias (e.g. Umb.PropertyEditorUi.TextBox). Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -4028,7 +4048,7 @@
             {
               "name": "--name",
               "aliases": [],
-              "description": "Display name of the new member type. Required unless --json-body is given.",
+              "description": "Display name of the new member type. Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -4041,7 +4061,7 @@
             {
               "name": "--alias",
               "aliases": [],
-              "description": "Alias of the new member type, e.g. author. Required unless --json-body is given.",
+              "description": "Alias of the new member type, e.g. author. Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -7173,7 +7193,7 @@
             {
               "name": "--document-type",
               "aliases": [],
-              "description": "Document type alias, name or id the blueprint is based on. Required unless --json-body or --schema is used.",
+              "description": "Document type alias, name or id the blueprint is based on. Required unless --json-body, --schema or --from-document is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,

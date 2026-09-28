@@ -85,9 +85,12 @@ public record DocumentBlueprintTreeItem
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
 
-    /// <summary>The document type the blueprint is based on; null for folders.</summary>
+    /// <summary>
+    /// The document type the blueprint is based on; null for folders. Its alias is looked up
+    /// (#361) and left out when that read fails, rather than shown as <c>""</c>.
+    /// </summary>
     [JsonPropertyName("documentType")]
-    public ContentTypeReference? DocumentType { get; init; }
+    public ContentTypeRef? DocumentType { get; init; }
 
     /// <summary>Whether this item is a folder rather than a blueprint.</summary>
     [JsonPropertyName("isFolder")]

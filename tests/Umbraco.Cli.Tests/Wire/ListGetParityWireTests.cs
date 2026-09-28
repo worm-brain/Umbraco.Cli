@@ -114,6 +114,92 @@ public class ListGetParityWireTests
         Assert.Equal(Parent, result.Data!.Parent!.Id);
     }
 
+    // ── #361: blueprint list/get/scaffold and content find carry the alias too ──
+
+    [Fact]
+    public async Task GetDocumentBlueprintsAsync_TreeRows_CarryTheDocumentTypeAlias()
+    {
+        var handler = Wire.Routed(
+            ($"/document-type/{Type}", """{ "alias": "blogPost" }"""),
+            (
+                "tree/document-blueprint/root",
+                $$"""{ "total": 1, "items": [ { "id": "{{Item}}", "name": "BP", "documentType": { "id": "{{Type}}" } } ] }"""
+            )
+        );
+
+        var result = await Wire.Client(handler)
+            .GetDocumentBlueprintsAsync(ct: CancellationToken.None);
+
+        Assert.Equal("blogPost", Assert.Single(result.Data!.Items).DocumentType!.Alias);
+    }
+
+    [Fact]
+    public async Task GetDocumentBlueprintsAsync_TypeUnreadable_LeavesTheAliasOutRatherThanEmpty()
+    {
+        var handler = Wire.Routed(
+            (
+                "tree/document-blueprint/root",
+                $$"""{ "total": 1, "items": [ { "id": "{{Item}}", "name": "BP", "documentType": { "id": "{{Type}}" } } ] }"""
+            )
+        );
+
+        var result = await Wire.Client(handler)
+            .GetDocumentBlueprintsAsync(ct: CancellationToken.None);
+
+        Assert.Null(Assert.Single(result.Data!.Items).DocumentType!.Alias);
+    }
+
+    [Fact]
+    public async Task GetDocumentBlueprintAsync_AddsTheDocumentTypesAlias()
+    {
+        var handler = Wire.Routed(
+            ($"/document-type/{Type}", """{ "alias": "blogPost" }"""),
+            (
+                $"/document-blueprint/{Item}",
+                $$"""{ "id": "{{Item}}", "documentType": { "id": "{{Type}}", "icon": "icon-rss", "collection": null } }"""
+            )
+        );
+
+        var result = await Wire.Client(handler)
+            .GetDocumentBlueprintAsync(Item, CancellationToken.None);
+
+        Assert.Equal("blogPost", result.Data!["documentType"]!["alias"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ScaffoldDocumentBlueprintAsync_AddsTheDocumentTypesAlias()
+    {
+        var handler = Wire.Routed(
+            ($"/document-type/{Type}", """{ "alias": "blogPost" }"""),
+            (
+                $"/document-blueprint/{Item}/scaffold",
+                $$"""{ "id": "{{Item}}", "documentType": { "id": "{{Type}}" } }"""
+            )
+        );
+
+        var result = await Wire.Client(handler)
+            .ScaffoldDocumentBlueprintAsync(Item, CancellationToken.None);
+
+        Assert.Equal("blogPost", result.Data!["documentType"]!["alias"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task FindContentByNameAsync_Rows_CarryTheDocumentTypeAlias()
+    {
+        var handler = Wire.Routed(
+            ($"/document-type/{Type}", """{ "alias": "blogPost" }"""),
+            (
+                "item/document/search",
+                $$"""{ "total": 1, "items": [ { "id": "{{Item}}", "documentType": { "id": "{{Type}}" }, "variants": [ { "name": "Post" } ] } ] }"""
+            )
+        );
+
+        var result = await Wire.Client(handler)
+            .FindContentByNameAsync("post", null, 0, 10, CancellationToken.None);
+
+        Assert.Equal("blogPost", Assert.Single(result.Data!.Items).DocumentType!.Alias);
+    }
+
     [Theory]
     [InlineData(true, true)]
     [InlineData(false, true)]

@@ -17,7 +17,7 @@ public static class MediaEmptyRecycleBinCommand
     {
         var cmd = new Command(
             "empty-recycle-bin",
-            "Permanently delete all media items in the recycle bin."
+            "Permanently delete all media items in the recycle bin.\n\nSee what it holds first with 'media list --trashed'."
         )
             .WithExamples("umbraco media empty-recycle-bin --yes")
             .Mutating();

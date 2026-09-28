@@ -4,8 +4,9 @@ using Gen = Umbraco.Cli.Client.Generated.Models;
 namespace Umbraco.Cli.Client;
 
 /// <summary>
-/// The content recycle bin on <see cref="UmbracoManagementClient"/> (issues #67, #230): trash a
-/// document, restore it (to its original parent by default), and empty the bin.
+/// The recycle bins on <see cref="UmbracoManagementClient"/> (issues #67, #230, #364): trash a
+/// document, restore it (to its original parent by default), list the content and media bins, and
+/// empty the content bin.
 /// </summary>
 public sealed partial class UmbracoManagementClient
 {
@@ -85,6 +86,129 @@ public sealed partial class UmbracoManagementClient
                     );
                 }
                 return Empty.Value;
+            }
+        );
+
+    /// <summary>
+    /// Lists one level of the content recycle bin via <c>GET recycle-bin/document/root</c> or
+    /// <c>/children</c> (#364), mapped like <see cref="GetContentAsync"/>'s tree rows (with the
+    /// document-type alias filled) and flagged <c>isTrashed</c>.
+    /// </summary>
+    /// <param name="parentId">A trashed item whose children to list; null lists the bin's top level.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of trashed documents, or a mapped failure.</returns>
+    public Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> GetContentRecycleBinAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var bin = _api.Umbraco.Management.Api.V1.RecycleBin.Document;
+                var paged = parentId is { } pid
+                    ? await bin.Children.GetAsync(
+                        c =>
+                        {
+                            c.QueryParameters.ParentId = pid;
+                            c.QueryParameters.Skip = skip;
+                            c.QueryParameters.Take = take;
+                        },
+                        ct
+                    )
+                    : await bin.Root.GetAsync(
+                        c =>
+                        {
+                            c.QueryParameters.Skip = skip;
+                            c.QueryParameters.Take = take;
+                        },
+                        ct
+                    );
+                return new PagedResponse<ContentItemResponse>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = await WithDocumentTypeAliasesAsync(
+                        (paged?.Items ?? []).Select(i => new ContentItemResponse
+                        {
+                            Id = i.Id ?? Guid.Empty,
+                            Name = (i.Variants ?? []).FirstOrDefault()?.Name ?? "",
+                            DocumentType = MapDocumentTypeRef(i.DocumentType),
+                            IsTrashed = true,
+                            Parent = i.Parent?.Id is { } p
+                                ? new ContentParentReference { Id = p }
+                                : null,
+                            // A trashed document is not live, whatever state its variants kept.
+                            IsPublished = false,
+                            CreateDate = i.CreateDate ?? default,
+                        }),
+                        ct
+                    ),
+                };
+            }
+        );
+
+    /// <summary>
+    /// Lists one level of the media recycle bin via <c>GET recycle-bin/media/root</c> or
+    /// <c>/children</c> (#364), mapped like <see cref="GetMediaAsync"/>'s tree rows (with the
+    /// media-type alias filled).
+    /// </summary>
+    /// <param name="parentId">A trashed item whose children to list; null lists the bin's top level.</param>
+    /// <param name="skip">Number of items to skip (paging).</param>
+    /// <param name="take">Maximum number of items to return.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of trashed media, or a mapped failure.</returns>
+    public Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> GetMediaRecycleBinAsync(
+        Guid? parentId = null,
+        int skip = 0,
+        int take = 20,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                var bin = _api.Umbraco.Management.Api.V1.RecycleBin.Media;
+                var paged = parentId is { } pid
+                    ? await bin.Children.GetAsync(
+                        c =>
+                        {
+                            c.QueryParameters.ParentId = pid;
+                            c.QueryParameters.Skip = skip;
+                            c.QueryParameters.Take = take;
+                        },
+                        ct
+                    )
+                    : await bin.Root.GetAsync(
+                        c =>
+                        {
+                            c.QueryParameters.Skip = skip;
+                            c.QueryParameters.Take = take;
+                        },
+                        ct
+                    );
+                return new PagedResponse<MediaItemResponse>
+                {
+                    Total = (int)(paged?.Total ?? 0),
+                    Items = await WithMediaTypeAliasesAsync(
+                        (paged?.Items ?? []).Select(i => new MediaItemResponse
+                        {
+                            Id = i.Id ?? Guid.Empty,
+                            Name = (i.Variants ?? []).FirstOrDefault()?.Name ?? "",
+                            MediaType = i.MediaType?.Id is { } mt
+                                ? new ContentTypeRef { Id = mt }
+                                : null,
+                            Parent = i.Parent?.Id is { } p
+                                ? new ContentParentReference { Id = p }
+                                : null,
+                            CreateDate = i.CreateDate ?? default,
+                        }),
+                        ct
+                    ),
+                };
             }
         );
 
