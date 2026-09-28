@@ -173,6 +173,12 @@ public sealed partial class UmbracoManagementClient
     // ── Property-type usage ──────────────────────────────────────────────────────
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Umbraco answers <c>false</c> for an alias the type does not have, which reads as "not in
+    /// use, safe to remove" for a typo (#371). So the type and its compositions are read first,
+    /// and an alias none of them has is refused as invalid_argument, listing the aliases they do
+    /// have, the same way an unknown <c>--document-type</c> is.
+    /// </remarks>
     public Task<UmbracoResponse<bool>> IsPropertyTypeUsedAsync(
         Guid contentTypeId,
         string propertyAlias,
@@ -182,6 +188,19 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
+                var aliases = await DocumentTypePropertyAliasesAsync(contentTypeId, ct);
+                if (!aliases.Contains(propertyAlias, StringComparer.OrdinalIgnoreCase))
+                    throw new UnresolvedReferenceException(
+                        $"Document type {contentTypeId} has no property with the alias "
+                            + $"'{propertyAlias}' (compositions included). "
+                            + (
+                                aliases.Count == 0
+                                    ? "It has no properties."
+                                    : $"Its properties: {string.Join(", ", aliases)}."
+                            ),
+                        404
+                    );
+
                 var used = await _api.Umbraco.Management.Api.V1.PropertyType.IsUsed.GetAsync(
                     c =>
                     {
@@ -193,4 +212,41 @@ public sealed partial class UmbracoManagementClient
                 return used ?? false;
             }
         );
+
+    /// <summary>
+    /// Every property alias a document type has: its own, then those of its compositions,
+    /// followed transitively (a composition can itself have compositions). Each type is read once.
+    /// </summary>
+    /// <param name="documentTypeId">The document type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The aliases, in the order found, without duplicates.</returns>
+    /// <exception cref="ApiException">A type could not be read (e.g. a 404 for an unknown id).</exception>
+    private async Task<List<string>> DocumentTypePropertyAliasesAsync(
+        Guid documentTypeId,
+        CancellationToken ct
+    )
+    {
+        var aliases = new List<string>();
+        var seen = new HashSet<Guid>();
+        var pending = new Queue<Guid>([documentTypeId]);
+        while (pending.TryDequeue(out var id))
+        {
+            // A composition cycle is not possible in Umbraco, but a type is never read twice.
+            if (!seen.Add(id))
+                continue;
+            var type = await _api
+                .Umbraco.Management.Api.V1.DocumentType[id]
+                .GetAsync(cancellationToken: ct);
+            foreach (var property in type?.Properties ?? [])
+                if (
+                    property.Alias is { } alias
+                    && !aliases.Contains(alias, StringComparer.OrdinalIgnoreCase)
+                )
+                    aliases.Add(alias);
+            foreach (var composition in type?.Compositions ?? [])
+                if (composition.DocumentType?.Id is { } compositionId)
+                    pending.Enqueue(compositionId);
+        }
+        return aliases;
+    }
 }

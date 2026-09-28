@@ -143,7 +143,7 @@ public static class DocumentBlueprintCommand
         var typeOpt = new Option<string>("--document-type")
         {
             Description =
-                "Document type alias or id the blueprint is based on. "
+                "Document type alias, name or id the blueprint is based on. "
                 + "Required unless --json-body or --schema is used.",
         }.RequiredUnless("--json-body", "--schema", "--from-document");
         var nameOpt = new Option<string>("--name")
