@@ -25,7 +25,7 @@ public static class MediaUpdateCommand
         {
             Description = "Media item ID. Required unless --schema is used.",
             Arity = ArgumentArity.ZeroOrOne,
-        };
+        }.RequiredUnless("--schema");
         var nameOpt = new Option<string?>("--name") { Description = "New display name." };
         var valueOpt = new Option<string[]>("--value")
         {

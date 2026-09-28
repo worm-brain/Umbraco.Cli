@@ -38,6 +38,16 @@ umbraco commands | jq '.data.commands[].name'         # top-level nouns
 umbraco commands | jq '.. | .name? // empty'          # every command name
 ```
 
+Each option and argument also says what it defaults to (`default`, when it has one) and, when it
+is required only in some modes, which options make it unnecessary (`requiredUnless`, e.g.
+`content create --name` has `["--json-body", "--schema"]` and reports `required: false`). A
+command that takes `--json-body` names the command that prints the body's schema
+(`jsonBodySchema: "umbraco content create --schema"`).
+
+```bash
+umbraco commands | jq '.. | objects | select(.requiredUnless) | {name, requiredUnless}'
+```
+
 Prefer this over hard-coding command knowledge. When you diff the catalog across CLI versions,
 compare `.data` only - `meta.timestamp` changes on every call.
 

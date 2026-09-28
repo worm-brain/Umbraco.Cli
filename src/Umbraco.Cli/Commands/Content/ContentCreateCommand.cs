@@ -69,13 +69,13 @@ public static class ContentCreateCommand
             Description =
                 "Alias of the document type to create (e.g. textPage, blogPost). "
                 + "Required unless --json-body or --schema is used.",
-        };
+        }.RequiredUnless("--json-body", "--schema");
         var nameOpt = new Option<string>("--name")
         {
             Description =
                 "Display name for the new content item. "
                 + "Required unless --json-body or --schema is used.",
-        };
+        }.RequiredUnless("--json-body", "--schema");
         var parentOpt = new Option<Guid?>("--parent")
         {
             Description = "Parent content item id. Omit to create at the root.",

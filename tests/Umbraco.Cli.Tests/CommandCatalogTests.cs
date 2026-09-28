@@ -326,4 +326,122 @@ public class CommandCatalogTests
 
         Assert.False(arg.Required);
     }
+
+    // ── #84: default values, conditional requirements, body schema pointer ────
+
+    /// <summary>Finds a command node by its space-separated path under the shipped root.</summary>
+    /// <param name="path">E.g. <c>content create</c>.</param>
+    /// <returns>The node.</returns>
+    private static CommandCatalogNode Shipped(string path) =>
+        path.Split(' ')
+            .Aggregate(
+                CommandCatalog.Describe(TestCliRoot.Build()),
+                (node, name) => node.Commands.Single(c => c.Name == name)
+            );
+
+    [Fact]
+    public void Describe_OptionWithDefault_ReportsTheValue()
+    {
+        var take = Shipped("user list").Options.Single(o => o.Name == "--take");
+
+        Assert.Equal(100, take.Default);
+    }
+
+    [Fact]
+    public void Describe_StringDefault_ReportsTheValue()
+    {
+        var icon = Shipped("document-type create").Options.Single(o => o.Name == "--icon");
+
+        Assert.Equal("icon-document", icon.Default);
+    }
+
+    [Fact]
+    public void Describe_OptionWithoutDefault_ReportsNoValue()
+    {
+        var name = Shipped("content create").Options.Single(o => o.Name == "--name");
+
+        Assert.Null(name.Default);
+    }
+
+    [Fact]
+    public void Describe_ConditionallyRequiredOption_ReportsRequiredUnless()
+    {
+        var name = Shipped("content create").Options.Single(o => o.Name == "--name");
+
+        Assert.Equal(["--json-body", "--schema"], name.RequiredUnless);
+    }
+
+    [Fact]
+    public void Describe_ConditionallyRequiredArgument_ReportsRequiredUnless()
+    {
+        var id = Shipped("content update").Arguments.Single(a => a.Name == "id");
+
+        Assert.Equal(["--schema"], id.RequiredUnless);
+    }
+
+    [Fact]
+    public void Describe_UnconditionalOption_HasNoRequiredUnless()
+    {
+        var parent = Shipped("content create").Options.Single(o => o.Name == "--parent");
+
+        Assert.Null(parent.RequiredUnless);
+    }
+
+    [Fact]
+    public void Describe_EveryRequiredUnless_NamesARealOptionOfItsCommand()
+    {
+        // A declaration is only useful if the alternatives it names exist on that command; a
+        // renamed option would otherwise leave the catalog pointing at nothing.
+        var broken = Leaves(CommandCatalog.Describe(TestCliRoot.Build()), "")
+            .SelectMany(l =>
+                l.Node.Options.Select(o => (o.Name, o.RequiredUnless))
+                    .Concat(l.Node.Arguments.Select(a => (a.Name, a.RequiredUnless)))
+                    .SelectMany(s => s.RequiredUnless ?? [])
+                    .Where(alt => l.Node.Options.All(o => o.Name != alt))
+                    .Select(alt => $"{l.Path}: {alt}")
+            )
+            .ToList();
+
+        Assert.True(broken.Count == 0, "Unknown alternatives: " + string.Join(", ", broken));
+    }
+
+    [Fact]
+    public void Describe_JsonBodyCommand_PointsAtItsSchemaCommand()
+    {
+        Assert.Equal("umbraco content create --schema", Shipped("content create").JsonBodySchema);
+    }
+
+    [Fact]
+    public void Describe_CommandWithoutJsonBody_HasNoSchemaPointer()
+    {
+        Assert.Null(Shipped("content list").JsonBodySchema);
+    }
+
+    [Fact]
+    public void RequiredUnless_NoAlternatives_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => new Option<string>("--name").RequiredUnless());
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(5, 5)]
+    [InlineData("x", "x")]
+    [InlineData(true, true)]
+    public void DefaultOf_Primitive_IsKept(object? value, object? expected)
+    {
+        Assert.Equal(expected, CommandCatalog.DefaultOf(value));
+    }
+
+    [Fact]
+    public void DefaultOf_Enum_IsItsName()
+    {
+        Assert.Equal("Friday", CommandCatalog.DefaultOf(DayOfWeek.Friday));
+    }
+
+    [Fact]
+    public void DefaultOf_Array_IsAList()
+    {
+        Assert.Equal(new List<object?> { "a", "b" }, CommandCatalog.DefaultOf(new[] { "a", "b" }));
+    }
 }

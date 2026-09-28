@@ -130,12 +130,12 @@ public static class DocumentBlueprintCommand
             Description =
                 "Document type alias or id the blueprint is based on. "
                 + "Required unless --json-body or --schema is used.",
-        };
+        }.RequiredUnless("--json-body", "--schema", "--from-document");
         var nameOpt = new Option<string>("--name")
         {
             Description =
                 "Blueprint display name. Required unless --json-body or --schema is used.",
-        };
+        }.RequiredUnless("--json-body", "--schema");
         var parentOpt = new Option<Guid?>("--parent")
         {
             Description = "Parent folder id. Omit to create at the blueprint root.",
@@ -302,11 +302,11 @@ public static class DocumentBlueprintCommand
         {
             Description = "Blueprint ID. Required unless --schema is used.",
             Arity = ArgumentArity.ZeroOrOne,
-        };
+        }.RequiredUnless("--schema");
         var nameOpt = new Option<string>("--name")
         {
             Description = "New display name. Required unless --json-body or --schema is used.",
-        };
+        }.RequiredUnless("--json-body", "--schema");
         var updateCultureOpt = new Option<string?>("--culture")
         {
             Description =

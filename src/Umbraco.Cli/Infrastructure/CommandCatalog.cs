@@ -29,6 +29,12 @@ namespace Umbraco.Cli.Infrastructure;
 /// shape via <c>--schema</c>); in that case its individual field options/args are alternatives
 /// to the body, which is why they report <c>required: false</c> (#84).
 /// </param>
+/// <param name="DestructiveWhen">The option that makes the command destructive, when it only is with it.</param>
+/// <param name="JsonBodySchema">
+/// For a command that takes <c>--json-body</c>, the command line that prints the body's JSON Schema
+/// offline (e.g. <c>umbraco content create --schema</c>) (#84). A pointer rather than the schema
+/// itself, which would make the catalog many times larger for a caller that needs one body.
+/// </param>
 public sealed record CommandCatalogNode(
     string Name,
     string? Description,
@@ -38,7 +44,8 @@ public sealed record CommandCatalogNode(
     bool Mutating = false,
     bool Destructive = false,
     bool AcceptsJsonBody = false,
-    string? DestructiveWhen = null
+    string? DestructiveWhen = null,
+    string? JsonBodySchema = null
 );
 
 /// <summary>A positional argument in the catalog.</summary>
@@ -47,12 +54,19 @@ public sealed record CommandCatalogNode(
 /// <param name="Type">A friendly type name (e.g. <c>string</c>, <c>guid</c>).</param>
 /// <param name="Required">Whether the argument must be supplied.</param>
 /// <param name="HasDefault">Whether the argument has a default value (so omitting it is valid) (#84).</param>
+/// <param name="Default">The default value itself, when there is one and it is not null (#84).</param>
+/// <param name="RequiredUnless">
+/// The options that make this argument unnecessary; it is required when none is given (#84).
+/// Null when the argument has no conditional requirement.
+/// </param>
 public sealed record CommandCatalogArgument(
     string Name,
     string? Description,
     string Type,
     bool Required,
-    bool HasDefault = false
+    bool HasDefault = false,
+    object? Default = null,
+    IReadOnlyList<string>? RequiredUnless = null
 );
 
 /// <summary>An option in the catalog.</summary>
@@ -62,13 +76,20 @@ public sealed record CommandCatalogArgument(
 /// <param name="Type">A friendly type name; <c>flag</c> for a boolean switch.</param>
 /// <param name="Required">Whether the option must be supplied.</param>
 /// <param name="HasDefault">Whether the option has a default value (so omitting it is valid) (#84).</param>
+/// <param name="Default">The default value itself, when there is one and it is not null (#84).</param>
+/// <param name="RequiredUnless">
+/// The options that make this option unnecessary; it is required when none is given (#84). Null
+/// when the option has no conditional requirement.
+/// </param>
 public sealed record CommandCatalogOption(
     string Name,
     IReadOnlyList<string> Aliases,
     string? Description,
     string Type,
     bool Required,
-    bool HasDefault = false
+    bool HasDefault = false,
+    object? Default = null,
+    IReadOnlyList<string>? RequiredUnless = null
 );
 
 /// <summary>
@@ -81,7 +102,14 @@ public static class CommandCatalog
     /// <summary>Describes a command and everything beneath it.</summary>
     /// <param name="command">The command to describe (typically the root).</param>
     /// <returns>The catalog node for the command tree.</returns>
-    public static CommandCatalogNode Describe(Command command)
+    public static CommandCatalogNode Describe(Command command) =>
+        Describe(command, command is RootCommand ? "umbraco" : command.Name);
+
+    /// <summary>Describes a command and everything beneath it, knowing its full command line.</summary>
+    /// <param name="command">The command to describe.</param>
+    /// <param name="path">The command line that invokes it (e.g. <c>umbraco content create</c>).</param>
+    /// <returns>The catalog node for the command tree.</returns>
+    private static CommandCatalogNode Describe(Command command, string path)
     {
         // A leaf command (no sub-commands) is the thing that actually runs; only a leaf can be
         // mutating/destructive. Nouns (content, media, ...) just group verbs.
@@ -105,11 +133,14 @@ public static class CommandCatalog
             NullIfEmpty(command.Description),
             command.Arguments.Select(DescribeArgument).ToList(),
             command.Options.Where(o => !IsHelpOrVersion(o)).Select(DescribeOption).ToList(),
-            command.Subcommands.Select(Describe).ToList(),
+            command.Subcommands.Select(sub => Describe(sub, path + " " + sub.Name)).ToList(),
             mutating,
             destructive,
             acceptsJsonBody,
-            destructiveWhen
+            destructiveWhen,
+            // Every --json-body comes with --schema (JsonBodyOption adds both), so the pointer is
+            // always a command that runs.
+            acceptsJsonBody ? path + " --schema" : null
         );
     }
 
@@ -123,7 +154,9 @@ public static class CommandCatalog
             // omitted, so it is not required).
             argument.Arity.MinimumNumberOfValues > 0
                 && !argument.HasDefaultValue,
-            argument.HasDefaultValue
+            argument.HasDefaultValue,
+            argument.HasDefaultValue ? DefaultOf(argument.GetDefaultValue()) : null,
+            CommandRequirements.RequiredUnlessOf(argument)
         );
 
     private static CommandCatalogOption DescribeOption(Option option) =>
@@ -133,8 +166,30 @@ public static class CommandCatalog
             NullIfEmpty(option.Description),
             FriendlyType(option.ValueType),
             option.Required,
-            option.HasDefaultValue
+            option.HasDefaultValue,
+            option.HasDefaultValue ? DefaultOf(option.GetDefaultValue()) : null,
+            CommandRequirements.RequiredUnlessOf(option)
         );
+
+    /// <summary>
+    /// Turns a default value into something that serializes as a caller would type it: numbers,
+    /// strings and booleans as they are, an enum by its name, an array element by element, and
+    /// anything else by its string form - never a CLR object graph.
+    /// </summary>
+    /// <param name="value">The default value.</param>
+    /// <returns>The value to put in the catalog, or null when there is none.</returns>
+    internal static object? DefaultOf(object? value) =>
+        value switch
+        {
+            null => null,
+            string or bool or int or long or double or decimal => value,
+            Enum e => e.ToString(),
+            System.Collections.IEnumerable items => items
+                .Cast<object?>()
+                .Select(DefaultOf)
+                .ToList(),
+            _ => value.ToString(),
+        };
 
     /// <summary>
     /// Auto-generated help/version options are noise in the catalog — filter them out. Matched

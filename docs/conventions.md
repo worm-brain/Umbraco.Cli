@@ -85,6 +85,9 @@ disagree, this file wins; the older document is rationale that may be out of dat
    `invalid_argument` error, never a silent precedence.
 6. **Short aliases** belong to global options (`-H -o -q -v -y -p`), plus `-O` for `--out`. An
    alias never means two things.
+7. **Conditionally required inputs** (required unless `--json-body`, `--schema`, ...) are optional
+   at parse level, enforced by the command's validator, and declared with `.RequiredUnless(...)`
+   so `umbraco commands` reports them as `requiredUnless` rather than a bare `required: false`.
 
 ## 5. Behaviour
 
@@ -199,3 +202,7 @@ Each exception is deliberate or tracked; don't copy it.
 - **2026-09-28** - 4.1 and 5.3: every paged command takes `--all` (#196), added once in
   `PagingOptions` and run by the executor, so it cannot differ between commands. A real loop with
   a loud 10,000-item cap, not a large `--take`, which would be the same silent cap further out.
+- **2026-09-28** - 4.7: conditionally required inputs are declared with `.RequiredUnless(...)`
+  (#84), so the catalog tells an agent what it needs instead of reporting them optional. The
+  catalog also gains each input's `default` and a `jsonBodySchema` pointer; both additive, so no
+  `schemaVersion` bump.

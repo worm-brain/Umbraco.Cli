@@ -135,6 +135,11 @@ umbraco document-type create --example  # a real document type from the instance
 printed offline. `--example` (on the document, media, member and data type verbs) prints a real
 item instead - the most useful starting point for a body the schema cannot fully describe.
 
+In the catalog every option and argument carries its `default` (when it has one) and, when it is
+required only without some other option, `requiredUnless` (the options that make it
+unnecessary). A `--json-body` command carries `jsonBodySchema`, the command line that prints its
+body's schema.
+
 See [agent-guide.md](agent-guide.md#1-discover-the-surface-umbraco-commands) for details.
 
 ---
