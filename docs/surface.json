@@ -4960,7 +4960,7 @@
         },
         {
           "name": "update",
-          "description": "Update a webhook by id or name. Omitted options keep their values.\n\n--event and --type replace the current lists; --header merges by header name. With --replace, the headers and types given are the whole set: any not given are removed.\n\nExamples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook\n  umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter",
+          "description": "Update a webhook by id or name. Omitted options keep their values.\n\n--event and --type replace the current lists; --header merges by header name, and --header Name= (an empty value) removes that header. With --replace, the headers and types given are the whole set: any not given are removed.\n\nExamples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook\n  umbraco webhook update \"Deploy hook\" --header X-Old-Token=   # remove one header, keep the rest\n  umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter",
           "arguments": [
             {
               "name": "id",
@@ -5023,7 +5023,7 @@
             {
               "name": "--header",
               "aliases": [],
-              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several; each replaces a current header of the same name and the others are kept.",
+              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several; each replaces a current header of the same name and the others are kept. An empty value (name=) removes that header.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -5046,6 +5046,7 @@
             "umbraco webhook update \"Deploy hook\" --enabled false",
             "umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost",
             "umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook",
+            "umbraco webhook update \"Deploy hook\" --header X-Old-Token=   # remove one header, keep the rest",
             "umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter"
           ]
         },
@@ -5079,7 +5080,7 @@
           "commands": [
             {
               "name": "list",
-              "description": "List the event aliases that 'webhook create --event' accepts.\n\nExamples:\n  umbraco webhook event list\n  umbraco webhook event list -o json | jq -r '.data.items[].alias'",
+              "description": "List the event aliases that 'webhook create --event' accepts.\n\nExamples:\n  umbraco webhook event list\n  umbraco webhook event list -o json | jq -r '.data[].alias'",
               "arguments": [],
               "options": [
                 {
@@ -5116,7 +5117,7 @@
               "acceptsJsonBody": false,
               "examples": [
                 "umbraco webhook event list",
-                "umbraco webhook event list -o json | jq -r '.data.items[].alias'"
+                "umbraco webhook event list -o json | jq -r '.data[].alias'"
               ]
             }
           ],
@@ -5135,7 +5136,7 @@
           "commands": [
             {
               "name": "list",
-              "description": "List webhook delivery attempts: what was sent and what came back.\n\nGive a webhook to see only its deliveries; omit it to see every webhook's.\n\nExamples:\n  umbraco webhook log list \"Deploy hook\"\n  umbraco webhook log list\n  umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'",
+              "description": "List webhook delivery attempts: what was sent and what came back.\n\nGive a webhook to see only its deliveries; omit it to see every webhook's.\n\nExamples:\n  umbraco webhook log list \"Deploy hook\"\n  umbraco webhook log list\n  umbraco webhook log list 3f7a8b2e-... -o json | jq '.data[] | select(.isSuccessStatusCode | not)'",
               "arguments": [
                 {
                   "name": "id",
@@ -5181,7 +5182,7 @@
               "examples": [
                 "umbraco webhook log list \"Deploy hook\"",
                 "umbraco webhook log list",
-                "umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'"
+                "umbraco webhook log list 3f7a8b2e-... -o json | jq '.data[] | select(.isSuccessStatusCode | not)'"
               ]
             }
           ],

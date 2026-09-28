@@ -22,7 +22,7 @@ public static class WebhookLogListCommand
         ).WithExamples(
             "umbraco webhook log list \"Deploy hook\"",
             "umbraco webhook log list",
-            "umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'"
+            "umbraco webhook log list 3f7a8b2e-... -o json | jq '.data[] | select(.isSuccessStatusCode | not)'"
         );
         // Optional: the log endpoint has an all-webhooks form, and 'log list' with no webhook is
         // the natural way to ask "what failed recently?".

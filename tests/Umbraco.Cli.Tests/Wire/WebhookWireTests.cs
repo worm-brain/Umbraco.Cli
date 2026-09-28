@@ -419,7 +419,7 @@ public class WebhookWireTests
     public async Task ResolveWebhookTypesAsync_MediaTypeAlias_IsThatType()
     {
         var result = await Wire.Client(Types())
-            .ResolveWebhookTypesAsync(["image"], CancellationToken.None);
+            .ResolveWebhookTypesAsync(["image"], null, CancellationToken.None);
 
         Assert.Equal([Image], result.Data!);
     }
@@ -430,7 +430,7 @@ public class WebhookWireTests
         var handler = Types();
 
         await Wire.Client(handler)
-            .ResolveWebhookTypesAsync([BlogPost.ToString()], CancellationToken.None);
+            .ResolveWebhookTypesAsync([BlogPost.ToString()], null, CancellationToken.None);
 
         Assert.Empty(handler.Requests);
     }
@@ -440,7 +440,7 @@ public class WebhookWireTests
     {
         // The filter does not say which kind it holds, so the alias cannot be guessed.
         var result = await Wire.Client(Types())
-            .ResolveWebhookTypesAsync(["author"], CancellationToken.None);
+            .ResolveWebhookTypesAsync(["author"], null, CancellationToken.None);
 
         Assert.Equal(
             (FailureCategory.InvalidArgument, true, true),
@@ -456,7 +456,7 @@ public class WebhookWireTests
     public async Task ResolveWebhookTypesAsync_UnknownAlias_IsAnInvalidArgument()
     {
         var result = await Wire.Client(Types())
-            .ResolveWebhookTypesAsync(["nope"], CancellationToken.None);
+            .ResolveWebhookTypesAsync(["nope"], null, CancellationToken.None);
 
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);
     }

@@ -355,4 +355,85 @@ public class WebhookCommandTests
     {
         Assert.Empty(WebhookOptions.Headers(null));
     }
+
+    [Fact]
+    public async Task WebhookCreate_EmptyHeaderValue_SendsNoSuchHeader()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        await Run(
+            fake,
+            "webhook create --url https://my.app/hook --event Umbraco.ContentPublish --header X-Old= --header X-Key=a"
+        );
+
+        Assert.Equal(["X-Key"], Assert.Single(fake.WebhooksCreated).Headers.Keys);
+    }
+
+    [Fact]
+    public async Task WebhookUpdate_EmptyHeaderValue_PassesItOnForRemoval()
+    {
+        var fake = WithHook();
+
+        await Run(fake, "webhook update Deploy --header X-Old=");
+
+        Assert.Equal("", Assert.Single(fake.WebhooksUpdated).Request.Headers!["X-Old"]);
+    }
+
+    [Fact]
+    public async Task WebhookUpdate_TypeWithoutEvents_ChecksItAgainstTheCurrentEvents()
+    {
+        var fake = WithHook();
+        fake.WebhooksById[HookId] = new WebhookResponse
+        {
+            Id = HookId,
+            Events = [new WebhookEvent { Alias = "Umbraco.MediaSave" }],
+        };
+        fake.References[(EntityKind.MediaType, "image")] = Guid.NewGuid();
+
+        await Run(fake, "webhook update Deploy --type image");
+
+        Assert.Equal(["Umbraco.MediaSave"], Assert.Single(fake.WebhookTypeCheckEvents)!);
+    }
+
+    [Fact]
+    public async Task WebhookUpdate_TypeAndEvents_ChecksItAgainstTheGivenEvents()
+    {
+        var fake = WithHook();
+        fake.References[(EntityKind.MediaType, "image")] = Guid.NewGuid();
+
+        await Run(fake, "webhook update Deploy --type image --event Umbraco.ContentPublish");
+
+        Assert.Equal(["Umbraco.ContentPublish"], Assert.Single(fake.WebhookTypeCheckEvents)!);
+    }
+
+    [Fact]
+    public void WithTypeSuggestions_UnknownNearAlias_SuggestsIt()
+    {
+        var failed = UmbracoResponse<IReadOnlyList<Guid>>.Failure(
+            0,
+            "unknown",
+            FailureCategory.InvalidArgument
+        ) with
+        {
+            UnknownValues = new UnknownValues(["blogpst"], ["home", "blogPost", "image"]),
+        };
+
+        var result = WebhookOptions.WithTypeSuggestions(failed);
+
+        Assert.Contains("'blogpst' (did you mean 'blogPost'?)", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void WithTypeSuggestions_OtherFailure_IsUnchanged()
+    {
+        var failed = UmbracoResponse<IReadOnlyList<Guid>>.Failure(
+            0,
+            "ambiguous",
+            FailureCategory.InvalidArgument
+        );
+
+        var result = WebhookOptions.WithTypeSuggestions(failed);
+
+        Assert.Equal("ambiguous", result.ErrorMessage);
+    }
 }

@@ -1872,8 +1872,8 @@ public record UpdateWebhookRequest
 
     /// <summary>
     /// Headers merged into the current ones by name (a given header replaces one of the same
-    /// name, ignoring case; the rest are kept); null or empty keeps them all. With
-    /// <see cref="Replace"/> they are the whole set instead.
+    /// name, ignoring case; the rest are kept); null or empty keeps them all. A header with an
+    /// empty value removes that header. With <see cref="Replace"/> they are the whole set instead.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 

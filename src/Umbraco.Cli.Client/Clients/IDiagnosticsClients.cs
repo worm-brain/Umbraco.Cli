@@ -68,7 +68,10 @@ public interface IHealthClient
         CancellationToken ct = default
     );
 
-    /// <summary>Runs a health-check group and returns its results.</summary>
+    /// <summary>
+    /// Runs a health-check group and returns its results, each check carrying its name and
+    /// description from the group read (#370).
+    /// </summary>
     /// <param name="name">The group name.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The run results.</returns>

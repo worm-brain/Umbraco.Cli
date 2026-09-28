@@ -862,7 +862,7 @@ two webhooks is refused with both ids). A webhook without a name can only be nam
 
 `update` merges: omitted options keep their values, `--event` and `--type` replace those lists,
 and `--header` merges by header name (ignoring case), so naming one header leaves the others
-alone. Enable or disable a webhook with `--enabled true` / `--enabled false`; there are no
+alone; `--header Name=` (an empty value) removes that header. Enable or disable a webhook with `--enabled true` / `--enabled false`; there are no
 separate `enable`/`disable` verbs. `update` returns the webhook read back from the instance, as
 `get` shows it. New `--event` aliases get the same check as on `create`.
 
@@ -876,8 +876,11 @@ because a webhook with no events never fires.
 delivery - typically an API key the receiver checks. `--type` restricts the webhook to items
 of the given types: document types for content events, media types for media events, member
 types for member events. It takes ids or aliases; an alias is looked up across all three kinds
-and must name exactly one type. With no `--type` the webhook fires for every type (the JSON
-field is `contentTypeKeys`, as Umbraco names it).
+and must name exactly one type; an unknown alias is refused with the nearest real one suggested.
+A filter the webhook's events can never match (only document types on media events, say) is
+refused, as Umbraco would never fire the webhook; a type given by id skips that check. With no
+`--type` the webhook fires for every type (the JSON field is `contentTypeKeys`, as Umbraco
+names it).
 
 `log list` shows delivery attempts: `statusCode` (as Umbraco records it, e.g. `OK (200)`),
 `isSuccessStatusCode`, `exceptionOccurred`, `retryCount`, and the request and response headers
@@ -955,6 +958,9 @@ umbraco health get <group>                                 # a group and the che
 umbraco health run <group>                                 # run the group (POST, so blocked by --readonly)
 ```
 
+Each check in a `run` result carries its `id`, `name` and `description` (read from the group),
+then its `results`.
+
 ## `log-viewer`
 
 ```bash
@@ -978,6 +984,9 @@ expansion), so no escaping is needed:
 umbraco log-viewer list --filter "@Level='Error'"
 umbraco log-viewer saved-search create --name Errors --query "@Level='Error'"
 ```
+
+`list --all` newest-first pins every page after the first to end at the first page's newest
+entry, so entries logged during the walk do not shift the pages and repeat rows.
 
 ## `models-builder`
 

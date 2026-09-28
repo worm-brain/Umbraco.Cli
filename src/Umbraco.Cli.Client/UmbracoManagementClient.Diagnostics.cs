@@ -183,6 +183,17 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
+                // The run returns only each check's id, so the group is read first for the names
+                // and descriptions (#370). Reading first also means an unknown group fails before
+                // anything runs.
+                var group = await _api
+                    .Umbraco.Management.Api.V1.HealthCheckGroup[name]
+                    .GetAsync(cancellationToken: ct);
+                var info = (group?.Checks ?? [])
+                    .Where(c => c.Id is not null)
+                    .GroupBy(c => c.Id!.Value)
+                    .ToDictionary(g => g.Key, g => g.First());
+
                 var r = await _api
                     .Umbraco.Management.Api.V1.HealthCheckGroup[name]
                     .Check.PostAsync(cancellationToken: ct);
@@ -192,6 +203,9 @@ public sealed partial class UmbracoManagementClient
                         .Select(c => new HealthCheckRunItem
                         {
                             Id = c.Id ?? Guid.Empty,
+                            Name = info.GetValueOrDefault(c.Id ?? Guid.Empty)?.Name ?? "",
+                            Description =
+                                info.GetValueOrDefault(c.Id ?? Guid.Empty)?.Description ?? "",
                             Results = (c.Results ?? [])
                                 .Select(res => new HealthCheckResult
                                 {

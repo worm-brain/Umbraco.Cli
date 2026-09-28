@@ -1373,13 +1373,16 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// type kinds, and anything else is an invalid_argument failure.
     /// </summary>
     /// <param name="references">Type ids or aliases.</param>
+    /// <param name="events">Recorded in <see cref="WebhookTypeCheckEvents"/>; the kind check is the real client's.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The ids, or the failure for the first value that does not resolve to one type.</returns>
     public Task<UmbracoResponse<IReadOnlyList<Guid>>> ResolveWebhookTypesAsync(
         IEnumerable<string> references,
+        IReadOnlyCollection<string>? events = null,
         CancellationToken ct = default
     )
     {
+        WebhookTypeCheckEvents.Add(events);
         EntityKind[] kinds = [EntityKind.DocumentType, EntityKind.MediaType, EntityKind.MemberType];
         var ids = new List<Guid>();
         foreach (var reference in references)
@@ -1399,12 +1402,29 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
                         0,
                         $"'{reference}' names {matches.Count} types.",
                         FailureCategory.InvalidArgument
-                    )
+                    ) with
+                    {
+                        // As the real client: an unknown alias carries every known one (#368).
+                        UnknownValues =
+                            matches.Count == 0
+                                ? new UnknownValues(
+                                    [reference],
+                                    [
+                                        .. References
+                                            .Keys.Where(k => kinds.Contains(k.Kind))
+                                            .Select(k => k.Reference),
+                                    ]
+                                )
+                                : null,
+                    }
                 );
             ids.Add(one);
         }
         return Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(ids));
     }
+
+    /// <summary>The events passed to each <see cref="ResolveWebhookTypesAsync"/> call, in order.</summary>
+    public List<IReadOnlyCollection<string>?> WebhookTypeCheckEvents { get; } = [];
 
     /// <summary>The webhook id (null for all) of each <see cref="GetWebhookLogsAsync"/> call.</summary>
     public List<Guid?> WebhookLogReads { get; } = [];
