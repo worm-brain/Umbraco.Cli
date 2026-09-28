@@ -800,6 +800,8 @@ umbraco script get <path>                                  # includes the file c
 umbraco script create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
 umbraco script update <path> [--content <text> | --content-file <file>]
 umbraco script delete <path>                               # needs --yes non-interactively
+umbraco script folder create --name <name> [--parent <folder>]   # a folder a file can go in
+umbraco script folder delete <path>                        # an empty folder; needs --yes non-interactively
 
 # stylesheet
 umbraco stylesheet list [--parent <folder>]
@@ -807,6 +809,8 @@ umbraco stylesheet get <path>
 umbraco stylesheet create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
 umbraco stylesheet update <path> [--content <text> | --content-file <file>]
 umbraco stylesheet delete <path>                           # needs --yes non-interactively
+umbraco stylesheet folder create --name <name> [--parent <folder>]
+umbraco stylesheet folder delete <path>                    # an empty folder; needs --yes non-interactively
 
 # partial-view
 umbraco partial-view list [--parent <folder>]
@@ -814,6 +818,8 @@ umbraco partial-view get <path>
 umbraco partial-view create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
 umbraco partial-view update <path> [--content <text> | --content-file <file>]
 umbraco partial-view delete <path>                         # needs --yes non-interactively
+umbraco partial-view folder create --name <name> [--parent <folder>]   # e.g. --name Components --parent blocklist
+umbraco partial-view folder delete <path>                  # an empty folder; needs --yes non-interactively
 ```
 
 ## `tag` / `culture` (read-only)
@@ -926,20 +932,41 @@ umbraco property-type is-used --document-type <id|alias> --alias <alias>
 ## `schema` (export / diff / apply)
 
 Dump the site's **schema** - document types, media types, member types, data types,
-templates, languages, dictionary items, and member and user groups - to a portable JSON snapshot, diff it against a live instance, and apply the difference. Complements uSync for CI
+templates, languages, dictionary items, member and user groups, and the partial views,
+stylesheets and scripts the templates render - to a portable JSON snapshot, diff it against a live instance, and apply the difference. Complements uSync for CI
 pipelines. (Issue #68; [ADR 0005](adr/0005-schema-export-diff-apply.md).)
 
 ```bash
-umbraco schema export --out schema.json                    # export every schema entity
+umbraco schema export --out schema.json                    # export every schema entity, static files included
+umbraco schema export --no-files --out schema.json         # leave the static files out (views deploy from git)
 umbraco schema diff schema.json                            # what differs (read-only; empty == in sync)
 umbraco schema export | umbraco schema diff -              # pipe an export straight into a diff
 umbraco schema apply schema.json --dry-run                 # preview the full apply plan
 umbraco schema apply schema.json                           # reconcile (create + update; never deletes by default)
 umbraco schema apply schema.json --prune --yes             # also delete live entities absent from the snapshot
-umbraco schema apply schema.json --prune --force --yes     # ...even types in use, languages, dictionary parents
+umbraco schema apply schema.json --prune --force --yes     # ...even types in use, languages, dictionary parents, files a template names
 ```
 
 How it works:
+
+- **Static files** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)) - the
+  snapshot's `partialViews`, `stylesheets` and `scripts` sections hold each file as
+  `{ "path": "/blocklist/default.cshtml", "content": "..." }` and each folder as
+  `{ "path": "/blocklist", "isFolder": true }`, matched by path. **A section that is absent
+  means those files are not managed**: diff and apply skip them and `--prune` deletes none. That
+  is every version-3 snapshot and every `export --no-files`. A section that is present but empty
+  does manage them, so `--prune` deletes the live ones. Apply writes the snapshot content byte
+  for byte. It creates folders shallowest first, then files, all before the templates that
+  render them; a folder a file sits in is created even when the snapshot does not list it.
+  `--prune` deletes files after the templates, then folders deepest first. A folder that still
+  holds something the snapshot keeps is never pruned. A change that is only line endings or
+  trailing newlines is `Changed` with the note `line endings only`.
+- **Pruning a file a template names is refused** - before `--prune` deletes a partial view,
+  stylesheet or script, it searches the templates (as they will be after the apply) for the file
+  name, and for a partial view also its path without the extension in quotes
+  (`Html.PartialAsync("header")` names `/header.cshtml`). A match is refused unless `--force`,
+  naming the templates. A text search cannot see a name built at run time, or a partial that
+  block list/grid rendering finds by convention, so check those yourself.
 
 - **In-use prunes are refused** - before the first write, `--prune` checks every item it would
   delete. A data type still in use, a member type with members, any document or media type
@@ -952,13 +979,15 @@ How it works:
 - **Fidelity** - the snapshot stores each entity's verbatim Management-API body, so nothing is
   lost (document-type properties/compositions, data-type configuration, template Razor). The
   snapshot is
-  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[] }`.
+  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[], partialViews[]?, stylesheets[]?, scripts[]? }`.
   Media types and member types joined in snapshot version 2
   ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)); languages, the dictionary and
-  member and user groups in **snapshot version 3**
-  ([#227](https://github.com/worm-brain/Umbraco.Cli/issues/227)). An older file is refused rather
-  than read as "this instance should have none of the newer kinds", which `apply --prune` would
-  act on. Re-export.
+  member and user groups in snapshot version 3
+  ([#227](https://github.com/worm-brain/Umbraco.Cli/issues/227)); the static files in
+  **snapshot version 4** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)). A
+  version-3 file is still read, as not managing files. An older file is refused rather than read
+  as "this instance should have none of the newer kinds", which `apply --prune` would act on.
+  Re-export.
 - **Two kinds are shaped, not verbatim** - a dictionary item gets its `parent` (the item read has
   none) and its translations sorted by ISO code. A user group leaves out its document and media
   start nodes and its per-document permissions, since they name content on one instance; apply
@@ -974,7 +1003,7 @@ How it works:
   instance matches by key and applies under the right parents.
 - **Safety** - `apply` respects the global guardrails: `--dry-run` previews and writes nothing,
   `--readonly` blocks it, and `--prune` requires confirmation / `--yes`. Writes run in dependency
-  order (languages -> dictionary items -> member groups -> data types -> templates -> media types
+  order (static files -> languages -> dictionary items -> member groups -> data types -> templates -> media types
   -> member types -> document types -> user groups, topologically sorted within each: a
   language's fallback and a dictionary item's parent come first) and stop at the first failure;
   prune deletes in reverse, dictionary children before their parents. A dictionary item whose

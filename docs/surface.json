@@ -3960,7 +3960,7 @@
       "commands": [
         {
           "name": "export",
-          "description": "Export the schema to a portable JSON snapshot.\n\nCovers document, media and member types, data types, templates, languages, dictionary items, and member and user groups. User group start nodes and per-document permissions are left out: they name content on this instance.\n\nExamples:\n  umbraco schema export --out schema.json\n  umbraco schema export | jq '.data.documentTypes | length'",
+          "description": "Export the schema to a portable JSON snapshot.\n\nCovers document, media and member types, data types, templates, languages, dictionary items, member and user groups, and the partial views, stylesheets and scripts the templates use. User group start nodes and per-document permissions are left out: they name content on this instance.\n\nExamples:\n  umbraco schema export --out schema.json\n  umbraco schema export --no-files --out schema.json   # views deploy from git\n  umbraco schema export | jq '.data.documentTypes | length'",
           "arguments": [],
           "options": [
             {
@@ -3972,6 +3972,14 @@
               "type": "file",
               "required": false,
               "hasDefault": false
+            },
+            {
+              "name": "--no-files",
+              "aliases": [],
+              "description": "Leave out partial views, stylesheets and scripts. The snapshot then does not manage them: diff and apply leave the target's files alone, and --prune deletes none. For sites that deploy their views from source control.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true
             }
           ],
           "commands": [],
@@ -4013,7 +4021,7 @@
             {
               "name": "--prune",
               "aliases": [],
-              "description": "Also DELETE live schema items (types, data types, templates, languages, dictionary items, member and user groups) that the snapshot does not contain. Destructive: requires --yes when non-interactive. A type still in use, a language, or a dictionary item with children the snapshot keeps is refused unless --force is given.",
+              "description": "Also DELETE live schema items (types, data types, templates, languages, dictionary items, member and user groups, and the partial views, stylesheets and scripts of a snapshot that has them) that the snapshot does not contain. Destructive: requires --yes when non-interactive. A type still in use, a language, a dictionary item with children the snapshot keeps, or a file a template names is refused unless --force is given.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -4021,7 +4029,7 @@
             {
               "name": "--force",
               "aliases": [],
-              "description": "With --prune, delete them anyway. Umbraco deletes what they take with them: the content of a type, a language's variants and translations, a dictionary item's children.",
+              "description": "With --prune, delete them anyway. Umbraco deletes what they take with them: the content of a type, a language's variants and translations, a dictionary item's children, and a template's use of a deleted file.",
               "type": "flag",
               "required": false,
               "hasDefault": true
@@ -4192,6 +4200,62 @@
           "mutating": true,
           "destructive": true,
           "acceptsJsonBody": false
+        },
+        {
+          "name": "folder",
+          "description": "Manage script folders (addressed by path).",
+          "arguments": [],
+          "options": [],
+          "commands": [
+            {
+              "name": "create",
+              "description": "Create a script folder.\n\nExamples:\n  umbraco script folder create --name blocklist\n  umbraco script folder create --name Components --parent blocklist",
+              "arguments": [],
+              "options": [
+                {
+                  "name": "--name",
+                  "aliases": [],
+                  "description": "Folder name (one path segment).",
+                  "type": "string",
+                  "required": true,
+                  "hasDefault": false
+                },
+                {
+                  "name": "--parent",
+                  "aliases": [],
+                  "description": "Parent folder path, with or without slashes; omit to create at the root.",
+                  "type": "string",
+                  "required": false,
+                  "hasDefault": false
+                }
+              ],
+              "commands": [],
+              "mutating": true,
+              "destructive": false,
+              "acceptsJsonBody": false
+            },
+            {
+              "name": "delete",
+              "description": "Delete an empty script folder by path.\n\nExamples:\n  umbraco script folder delete blocklist/Components\n  umbraco script folder delete blocklist --yes",
+              "arguments": [
+                {
+                  "name": "path",
+                  "description": "The folder path. Umbraco refuses a folder that is not empty.",
+                  "type": "string",
+                  "required": true,
+                  "hasDefault": false
+                }
+              ],
+              "options": [],
+              "commands": [],
+              "mutating": true,
+              "destructive": true,
+              "acceptsJsonBody": false
+            }
+          ],
+          "mutating": false,
+          "destructive": false,
+          "acceptsJsonBody": false
         }
       ],
       "mutating": false,
@@ -4352,6 +4416,62 @@
           "mutating": true,
           "destructive": true,
           "acceptsJsonBody": false
+        },
+        {
+          "name": "folder",
+          "description": "Manage stylesheet folders (addressed by path).",
+          "arguments": [],
+          "options": [],
+          "commands": [
+            {
+              "name": "create",
+              "description": "Create a stylesheet folder.\n\nExamples:\n  umbraco stylesheet folder create --name blocklist\n  umbraco stylesheet folder create --name Components --parent blocklist",
+              "arguments": [],
+              "options": [
+                {
+                  "name": "--name",
+                  "aliases": [],
+                  "description": "Folder name (one path segment).",
+                  "type": "string",
+                  "required": true,
+                  "hasDefault": false
+                },
+                {
+                  "name": "--parent",
+                  "aliases": [],
+                  "description": "Parent folder path, with or without slashes; omit to create at the root.",
+                  "type": "string",
+                  "required": false,
+                  "hasDefault": false
+                }
+              ],
+              "commands": [],
+              "mutating": true,
+              "destructive": false,
+              "acceptsJsonBody": false
+            },
+            {
+              "name": "delete",
+              "description": "Delete an empty stylesheet folder by path.\n\nExamples:\n  umbraco stylesheet folder delete blocklist/Components\n  umbraco stylesheet folder delete blocklist --yes",
+              "arguments": [
+                {
+                  "name": "path",
+                  "description": "The folder path. Umbraco refuses a folder that is not empty.",
+                  "type": "string",
+                  "required": true,
+                  "hasDefault": false
+                }
+              ],
+              "options": [],
+              "commands": [],
+              "mutating": true,
+              "destructive": true,
+              "acceptsJsonBody": false
+            }
+          ],
+          "mutating": false,
+          "destructive": false,
+          "acceptsJsonBody": false
         }
       ],
       "mutating": false,
@@ -4511,6 +4631,62 @@
           "commands": [],
           "mutating": true,
           "destructive": true,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "folder",
+          "description": "Manage partial-view folders (addressed by path).",
+          "arguments": [],
+          "options": [],
+          "commands": [
+            {
+              "name": "create",
+              "description": "Create a partial-view folder.\n\nExamples:\n  umbraco partial-view folder create --name blocklist\n  umbraco partial-view folder create --name Components --parent blocklist",
+              "arguments": [],
+              "options": [
+                {
+                  "name": "--name",
+                  "aliases": [],
+                  "description": "Folder name (one path segment).",
+                  "type": "string",
+                  "required": true,
+                  "hasDefault": false
+                },
+                {
+                  "name": "--parent",
+                  "aliases": [],
+                  "description": "Parent folder path, with or without slashes; omit to create at the root.",
+                  "type": "string",
+                  "required": false,
+                  "hasDefault": false
+                }
+              ],
+              "commands": [],
+              "mutating": true,
+              "destructive": false,
+              "acceptsJsonBody": false
+            },
+            {
+              "name": "delete",
+              "description": "Delete an empty partial-view folder by path.\n\nExamples:\n  umbraco partial-view folder delete blocklist/Components\n  umbraco partial-view folder delete blocklist --yes",
+              "arguments": [
+                {
+                  "name": "path",
+                  "description": "The folder path. Umbraco refuses a folder that is not empty.",
+                  "type": "string",
+                  "required": true,
+                  "hasDefault": false
+                }
+              ],
+              "options": [],
+              "commands": [],
+              "mutating": true,
+              "destructive": true,
+              "acceptsJsonBody": false
+            }
+          ],
+          "mutating": false,
+          "destructive": false,
           "acceptsJsonBody": false
         }
       ],

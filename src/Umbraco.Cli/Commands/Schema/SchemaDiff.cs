@@ -36,6 +36,27 @@ public static class SchemaKinds
     /// <summary>User group kind tag (#227), keyed by alias.</summary>
     public const string UserGroup = "userGroup";
 
+    /// <summary>Partial view kind tag (#292), keyed by path. Covers its folders too.</summary>
+    public const string PartialView = "partialView";
+
+    /// <summary>Stylesheet kind tag (#292), keyed by path. Covers its folders too.</summary>
+    public const string Stylesheet = "stylesheet";
+
+    /// <summary>Script kind tag (#292), keyed by path. Covers its folders too.</summary>
+    public const string Script = "script";
+
+    /// <summary>The client's <see cref="Umbraco.Cli.Client.StaticFileKind"/> for a static-file kind tag.</summary>
+    /// <param name="kind">The kind tag.</param>
+    /// <returns>The static-file kind, or null when the tag is not a static-file kind.</returns>
+    public static Umbraco.Cli.Client.StaticFileKind? StaticFileKindOf(string kind) =>
+        kind switch
+        {
+            PartialView => Umbraco.Cli.Client.StaticFileKind.PartialView,
+            Stylesheet => Umbraco.Cli.Client.StaticFileKind.Stylesheet,
+            Script => Umbraco.Cli.Client.StaticFileKind.Script,
+            _ => null,
+        };
+
     /// <summary>The client's <see cref="Umbraco.Cli.Client.EntityKind"/> for a snapshot kind tag.</summary>
     /// <param name="kind">The kind tag, e.g. <see cref="DocumentType"/>.</param>
     /// <returns>The entity kind.</returns>
@@ -200,6 +221,18 @@ public sealed record SchemaDiff(
     /// <summary>User group differences (#227).</summary>
     public SchemaKindDiff UserGroups { get; init; } = SchemaKindDiff.None;
 
+    /// <summary>
+    /// Partial view differences (#292). <see cref="SchemaKindDiff.None"/> when the snapshot has
+    /// no <c>partialViews</c> section, so a snapshot that does not manage files never prunes one.
+    /// </summary>
+    public SchemaKindDiff PartialViews { get; init; } = SchemaKindDiff.None;
+
+    /// <summary>Stylesheet differences (#292); none when the snapshot has no such section.</summary>
+    public SchemaKindDiff Stylesheets { get; init; } = SchemaKindDiff.None;
+
+    /// <summary>Script differences (#292); none when the snapshot has no such section.</summary>
+    public SchemaKindDiff Scripts { get; init; } = SchemaKindDiff.None;
+
     /// <summary>Every kind's diff, in the order the diff output lists them.</summary>
     [JsonIgnore]
     public IEnumerable<SchemaKindDiff> Kinds =>
@@ -213,6 +246,9 @@ public sealed record SchemaDiff(
             DictionaryItems,
             MemberGroups,
             UserGroups,
+            PartialViews,
+            Stylesheets,
+            Scripts,
         ];
 
     /// <summary>Whether any kind has an actionable difference — i.e. apply would do something.</summary>

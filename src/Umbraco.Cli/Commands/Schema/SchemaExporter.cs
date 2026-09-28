@@ -19,14 +19,21 @@ public static class SchemaExporter
     /// <summary>
     /// Exports the full schema (document types, media types, member types, data types,
     /// templates, languages, dictionary items, member groups and user groups) of the instance
-    /// behind <paramref name="client"/> into a snapshot.
+    /// behind <paramref name="client"/> into a snapshot, with its partial views, stylesheets and
+    /// scripts unless <paramref name="includeFiles"/> is false (#292).
     /// </summary>
     /// <param name="client">The authenticated management client.</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <param name="includeFiles">
+    /// Whether to read the static files. False leaves the three sections out (null), which marks
+    /// the snapshot as not managing files: <c>schema export --no-files</c>, and the live side of a
+    /// diff against a snapshot that does not manage them (no point reading every file).
+    /// </param>
     /// <returns>The assembled snapshot, or the first failure encountered.</returns>
     public static async Task<UmbracoResponse<SchemaSnapshot>> ExportAsync(
         IUmbracoManagementClient client,
-        CancellationToken ct
+        CancellationToken ct,
+        bool includeFiles = true
     )
     {
         var docTypes = await CollectAsync(
@@ -93,6 +100,18 @@ public static class SchemaExporter
         if (!userGroups.IsSuccess)
             return Fail(userGroups);
 
+        // #292: the files the templates render travel with them, so a promoted site does not
+        // answer every page with a 500.
+        var files = new Dictionary<string, List<JsonNode>>();
+        if (includeFiles)
+            foreach (var (tag, kind) in SchemaStaticFiles.Kinds)
+            {
+                var collected = await SchemaStaticFiles.CollectAsync(client, kind, ct);
+                if (!collected.IsSuccess)
+                    return Fail(collected);
+                files[tag] = collected.Data!;
+            }
+
         return UmbracoResponse<SchemaSnapshot>.Success(
             new SchemaSnapshot
             {
@@ -106,6 +125,9 @@ public static class SchemaExporter
                 MemberGroups = memberGroups.Data!,
                 // Start nodes and per-document permissions name content on this instance only.
                 UserGroups = [.. userGroups.Data!.Select(SchemaBodies.PortableUserGroup)],
+                PartialViews = files.GetValueOrDefault(SchemaKinds.PartialView),
+                Stylesheets = files.GetValueOrDefault(SchemaKinds.Stylesheet),
+                Scripts = files.GetValueOrDefault(SchemaKinds.Script),
             }
         );
     }

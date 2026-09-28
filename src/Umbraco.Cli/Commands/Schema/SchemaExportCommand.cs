@@ -16,6 +16,9 @@ namespace Umbraco.Cli.Commands.Schema;
 /// <param name="DictionaryItems">Number of dictionary items exported (#227).</param>
 /// <param name="MemberGroups">Number of member groups exported (#227).</param>
 /// <param name="UserGroups">Number of user groups exported (#227).</param>
+/// <param name="PartialViews">Number of partial view files and folders exported (#292); null with <c>--no-files</c>.</param>
+/// <param name="Stylesheets">Number of stylesheet files and folders exported (#292); null with <c>--no-files</c>.</param>
+/// <param name="Scripts">Number of script files and folders exported (#292); null with <c>--no-files</c>.</param>
 /// <param name="Path">The absolute path the snapshot was written to.</param>
 public sealed record SchemaExportSummary(
     int DocumentTypes,
@@ -27,6 +30,9 @@ public sealed record SchemaExportSummary(
     int DictionaryItems,
     int MemberGroups,
     int UserGroups,
+    int? PartialViews,
+    int? Stylesheets,
+    int? Scripts,
     string Path
 );
 
@@ -35,8 +41,8 @@ public static class SchemaExportCommand
 {
     /// <summary>
     /// Builds the <c>schema export</c> command: dumps every document type, media type, member
-    /// type, data type, template, language, dictionary item, member group and user group to a
-    /// portable snapshot. With no <c>--out</c> the snapshot is written to stdout
+    /// type, data type, template, language, dictionary item, member group and user group, and
+    /// (unless <c>--no-files</c>) every partial view, stylesheet and script, to a portable snapshot. With no <c>--out</c> the snapshot is written to stdout
     /// inside the normal success envelope (pipe/redirect friendly); with <c>--out &lt;file&gt;</c>
     /// the bare snapshot is written to that file and a count summary is emitted.
     /// </summary>
@@ -48,10 +54,12 @@ public static class SchemaExportCommand
             "export",
             "Export the schema to a portable JSON snapshot.\n\n"
                 + "Covers document, media and member types, data types, templates, languages, "
-                + "dictionary items, and member and user groups. User group start nodes and "
-                + "per-document permissions are left out: they name content on this instance.\n\n"
+                + "dictionary items, member and user groups, and the partial views, stylesheets and "
+                + "scripts the templates use. User group start nodes and per-document permissions "
+                + "are left out: they name content on this instance.\n\n"
                 + "Examples:\n"
                 + "  umbraco schema export --out schema.json\n"
+                + "  umbraco schema export --no-files --out schema.json   # views deploy from git\n"
                 + "  umbraco schema export | jq '.data.documentTypes | length'"
         );
         var outOpt = new Option<FileInfo?>("--out", new[] { "-O" })
@@ -60,13 +68,26 @@ public static class SchemaExportCommand
                 "Write the snapshot to this file (bare JSON, no envelope). "
                 + "Omit to write the snapshot to stdout inside the success envelope.",
         };
+        var noFilesOpt = new Option<bool>("--no-files")
+        {
+            Description =
+                "Leave out partial views, stylesheets and scripts. The snapshot then does not "
+                + "manage them: diff and apply leave the target's files alone, and --prune "
+                + "deletes none. For sites that deploy their views from source control.",
+        };
         cmd.Add(outOpt);
+        cmd.Add(noFilesOpt);
 
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunAsync(
                     parseResult,
-                    (client, c) => SchemaExporter.ExportAsync(client, c),
+                    (client, c) =>
+                        SchemaExporter.ExportAsync(
+                            client,
+                            c,
+                            includeFiles: !parseResult.GetValue(noFilesOpt)
+                        ),
                     (ctx, snapshot) =>
                     {
                         var outFile = parseResult.GetValue(outOpt);
@@ -96,6 +117,9 @@ public static class SchemaExportCommand
                                 snapshot.DictionaryItems.Count,
                                 snapshot.MemberGroups.Count,
                                 snapshot.UserGroups.Count,
+                                snapshot.PartialViews?.Count,
+                                snapshot.Stylesheets?.Count,
+                                snapshot.Scripts?.Count,
                                 outFile.FullName
                             ),
                             ctx.CommandName,
