@@ -1761,6 +1761,12 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>Recorded deletes: the kind and target path.</summary>
     public List<(StaticFileKind Kind, string Path)> StaticFilesDeleted { get; } = [];
 
+    /// <summary>Recorded renames (#365): the kind, the path renamed and the new name.</summary>
+    public List<(StaticFileKind Kind, string Path, string Name)> StaticFilesRenamed { get; } = [];
+
+    /// <summary>When set, renaming a static file returns this failure.</summary>
+    public UmbracoResponse<Empty>? StaticFileRenameFailure { get; set; }
+
     /// <summary>
     /// The live static files per kind (#292), keyed by path in Umbraco's <c>/a/b</c> form: a null
     /// content marks a folder. The list and get methods read it, so an export walks it like the
@@ -1935,6 +1941,31 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     {
         StaticFilesUpdated.Add((kind, path, request.Content));
         StaticFileWrites.Add($"update {kind} {path}");
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
+    /// <summary>
+    /// Records a rename, or returns <see cref="StaticFileRenameFailure"/> when set. A renamed
+    /// file in <see cref="StaticFileTree"/> moves to its new path.
+    /// </summary>
+    /// <param name="kind">Which kind.</param>
+    /// <param name="path">The file path.</param>
+    /// <param name="name">The new name.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success, or the configured failure.</returns>
+    public Task<UmbracoResponse<Empty>> RenameStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        string name,
+        CancellationToken ct = default
+    )
+    {
+        if (StaticFileRenameFailure is { } failure)
+            return Task.FromResult(failure);
+        StaticFilesRenamed.Add((kind, path, name));
+        StaticFileWrites.Add($"rename {kind} {path}");
+        if (StaticFileTree[kind].Remove(path, out var content))
+            StaticFileTree[kind][UmbracoManagementClient.RenamedPath(path, name)] = content;
         return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
     }
 

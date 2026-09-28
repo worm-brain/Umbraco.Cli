@@ -88,6 +88,68 @@ public class StaticFileCommandTests
         Assert.Empty(fake.StaticFilesUpdated);
     }
 
+    /// <summary>Runs <paramref name="args"/> and returns the exit code and stdout.</summary>
+    /// <param name="root">The root command.</param>
+    /// <param name="args">The command line.</param>
+    /// <returns>The exit code and what the command wrote to stdout.</returns>
+    private static async Task<(int Exit, string Out)> RunCapturing(RootCommand root, string args)
+    {
+        var sw = new StringWriter();
+        var orig = Console.Out;
+        Console.SetOut(sw);
+        try
+        {
+            return (await root.Parse(args).InvokeAsync(), sw.ToString());
+        }
+        finally
+        {
+            Console.SetOut(orig);
+        }
+    }
+
+    [Fact]
+    public async Task Update_WithName_RenamesAndReturnsTheFileAtItsNewPath()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake);
+
+        var (exit, stdout) = await RunCapturing(
+            root,
+            $"{Auth} script update lib/site.js --name main.js"
+        );
+
+        var path = (string?)System.Text.Json.Nodes.JsonNode.Parse(stdout)!["data"]!["path"];
+        Assert.Equal(
+            (0, (StaticFileKind.Script, "lib/site.js", "main.js"), "lib/main.js", 0),
+            (exit, Assert.Single(fake.StaticFilesRenamed), path, fake.StaticFilesUpdated.Count)
+        );
+    }
+
+    [Fact]
+    public async Task Update_WithContentAndName_WritesTheContentThenRenames()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake);
+
+        await Run(root, $"{Auth} script update site.js --content \"// hi\" --name main.js");
+
+        Assert.Equal(["update Script site.js", "rename Script site.js"], fake.StaticFileWrites);
+    }
+
+    [Fact]
+    public async Task Update_RenameRefused_FailsWithExitOne()
+    {
+        var fake = new FakeUmbracoManagementClient
+        {
+            StaticFileRenameFailure = UmbracoResponse<Empty>.Failure(400, "Invalid file extension"),
+        };
+        var root = BuildRoot(fake);
+
+        var exit = await Run(root, $"{Auth} script update site.js --name main");
+
+        Assert.Equal(1, exit);
+    }
+
     [Fact]
     public async Task Update_WithContent_SendsThatContent()
     {

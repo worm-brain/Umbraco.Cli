@@ -65,7 +65,7 @@ public interface IStaticFileClient
         CancellationToken ct = default
     );
 
-    /// <summary>Replaces a file's content by path (the only updatable field; rename is separate).</summary>
+    /// <summary>Replaces a file's content by path (renaming is <see cref="RenameStaticFileAsync"/>).</summary>
     /// <param name="kind">Which static-file resource.</param>
     /// <param name="path">The file path (raw, unencoded).</param>
     /// <param name="request">The new content.</param>
@@ -75,6 +75,22 @@ public interface IStaticFileClient
         StaticFileKind kind,
         string path,
         UpdateStaticFileRequest request,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
+    /// Renames a file in place (#365): it stays in its folder under the new name. Umbraco has no
+    /// rename for static-file folders, only for files.
+    /// </summary>
+    /// <param name="kind">Which static-file resource.</param>
+    /// <param name="path">The file path (raw, unencoded).</param>
+    /// <param name="name">The new file name, including its extension.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
+    Task<UmbracoResponse<Empty>> RenameStaticFileAsync(
+        StaticFileKind kind,
+        string path,
+        string name,
         CancellationToken ct = default
     );
 
