@@ -150,7 +150,7 @@ public class SchemaAuthoringTests
     }
 
     [Fact]
-    public async Task UpdateDataTypeAsync_ByName_ResolvesItThenPutsToTheResolvedId()
+    public async Task UpdateDataTypeAsync_AfterResolvingAName_PutsToTheResolvedId()
     {
         var id = Guid.Parse("66666666-6666-6666-6666-666666666666");
         var handler = Wire.Routed(
@@ -164,12 +164,18 @@ public class SchemaAuthoringTests
             )
         );
 
-        var result = await Wire.Client(handler)
-            .UpdateDataTypeAsync(
-                "Textstring",
-                new UpdateDataTypeRequest { Name = "Short Text" },
-                CancellationToken.None
-            );
+        // Resolution is the caller's (#262); this composes the two as `data-type update` does.
+        var client = Wire.Client(handler);
+        var result = await client.WithResolvedAsync(
+            EntityKind.DataType,
+            "Textstring",
+            resolved =>
+                client.UpdateDataTypeAsync(
+                    resolved,
+                    new UpdateDataTypeRequest { Name = "Short Text" },
+                    CancellationToken.None
+                )
+        );
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
         Assert.Equal(
@@ -179,16 +185,21 @@ public class SchemaAuthoringTests
     }
 
     [Fact]
-    public async Task UpdateDataTypeAsync_UnknownName_FailsWithoutWriting()
+    public async Task ResolveThenUpdateDataType_UnknownName_FailsWithoutWriting()
     {
         var handler = Wire.Routed(("item/data-type/search", """{ "total": 0, "items": [] }"""));
 
-        var result = await Wire.Client(handler)
-            .UpdateDataTypeAsync(
-                "NotARealDataType",
-                new UpdateDataTypeRequest { Name = "Short Text" },
-                CancellationToken.None
-            );
+        var client = Wire.Client(handler);
+        var result = await client.WithResolvedAsync(
+            EntityKind.DataType,
+            "NotARealDataType",
+            resolved =>
+                client.UpdateDataTypeAsync(
+                    resolved,
+                    new UpdateDataTypeRequest { Name = "Short Text" },
+                    CancellationToken.None
+                )
+        );
 
         Assert.False(result.IsSuccess);
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);

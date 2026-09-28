@@ -2943,28 +2943,15 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             }
         );
 
-    /// <summary>
-    /// Gets a dictionary item by its human key (name) OR id (issue #44 — the endpoint is
-    /// <c>GET /dictionary/{id}</c> keyed by GUID, so a human key 404'd despite the help
-    /// saying "by key"). A GUID argument is fetched directly; otherwise the key is
-    /// resolved to an id by matching the item name in the dictionary list.
-    /// </summary>
-    /// <param name="keyOrId">The dictionary item key (name) or its id (GUID).</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The dictionary item, or a 404 failure when no matching key exists.</returns>
-    public async Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByKeyAsync(
-        string keyOrId,
+    /// <inheritdoc />
+    /// <remarks>
+    /// The same by-id read the writes use to report what was saved, so get, create and update
+    /// agree, parent included (#290).
+    /// </remarks>
+    public Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByIdAsync(
+        Guid id,
         CancellationToken ct = default
-    )
-    {
-        // #211: the shared resolver reads every page (this used to stop at 1,000 items).
-        var resolved = await ResolveIdAsync(EntityKind.DictionaryItem, keyOrId, ct);
-        if (!resolved.IsSuccess)
-            return UmbracoResponse<DictionaryItemResponse>.FailureFrom(resolved);
-        // The same by-id read the writes use to report what was saved, so get, create and update
-        // agree, parent included (#290).
-        return await ReadDictionaryItemAsync(resolved.Data, ct);
-    }
+    ) => ReadDictionaryItemAsync(id, ct);
 
     /// <summary>
     /// Creates a dictionary item via <c>POST dictionary</c> (generated client). The id is

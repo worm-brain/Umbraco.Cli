@@ -193,7 +193,7 @@ public static class ContentApplyCommand
     /// <param name="roots">The excluded root ids.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The exclusions, or the failure of the first reference that did not resolve.</returns>
-    private static async Task<UmbracoResponse<PruneExclusions>> ResolveExclusionsAsync(
+    internal static async Task<UmbracoResponse<PruneExclusions>> ResolveExclusionsAsync(
         IUmbracoManagementClient client,
         IReadOnlyList<string> types,
         IReadOnlyList<Guid> roots,
@@ -203,7 +203,14 @@ public static class ContentApplyCommand
         var typeIds = new HashSet<Guid>();
         foreach (var type in types)
         {
-            var resolved = await client.GetDocumentTypeAsync(type, ct);
+            // Resolve, then read: the read keeps an id that names no document type an error
+            // rather than an exclusion that silently matches nothing (#262).
+            var resolved = await client.WithResolvedAsync(
+                EntityKind.DocumentType,
+                type,
+                id => client.GetDocumentTypeByIdAsync(id, ct),
+                ct
+            );
             if (!resolved.IsSuccess)
                 return UmbracoResponse<PruneExclusions>.FailureFrom(resolved);
             typeIds.Add(resolved.Data!.Id);

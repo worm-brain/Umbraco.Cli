@@ -1238,17 +1238,22 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task GetDictionaryItemByKeyAsync_ResolvesHumanKeyToId()
+    public async Task GetDictionaryItemByIdAsync_AfterResolvingAHumanKey_ReadsTheResolvedId()
     {
         // Regression for #44: a human key must be resolved to the item id (the endpoint is
         // keyed by GUID) rather than 404ing. The stub returns a list containing the key, so
-        // the by-id GET should target the resolved id.
+        // the by-id GET should target the resolved id. Resolution is the caller's (#262), so
+        // this composes the two the way `dictionary get` does.
         var id = Guid.NewGuid();
         var (client, handler) = ClientReturning(
             $$"""{"total":1,"items":[{"id":"{{id}}","name":"Admin"}]}"""
         );
 
-        var result = await client.GetDictionaryItemByKeyAsync("Admin", CancellationToken.None);
+        var result = await client.WithResolvedAsync(
+            EntityKind.DictionaryItem,
+            "Admin",
+            resolved => client.GetDictionaryItemByIdAsync(resolved, CancellationToken.None)
+        );
 
         Assert.True(result.IsSuccess);
         // The by-id read is followed by the parent lookup (#290), so it is not the last request.
@@ -1256,12 +1261,16 @@ public class UmbracoManagementClientTests
     }
 
     [Fact]
-    public async Task GetDictionaryItemByKeyAsync_UnknownKey_IsInvalidArgument()
+    public async Task ResolveIdAsync_UnknownDictionaryKey_IsInvalidArgument()
     {
         // Regression for #44: an unmatched key yields a clear 404, not a silent empty item.
         var (client, _) = ClientReturning("""{"total":0,"items":[]}""");
 
-        var result = await client.GetDictionaryItemByKeyAsync("Nope", CancellationToken.None);
+        var result = await client.ResolveIdAsync(
+            EntityKind.DictionaryItem,
+            "Nope",
+            CancellationToken.None
+        );
 
         Assert.False(result.IsSuccess);
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);

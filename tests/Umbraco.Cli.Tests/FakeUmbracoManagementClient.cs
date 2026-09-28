@@ -684,26 +684,24 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => Page(DocumentTypeList, skip, take);
 
-    /// <summary>The alias or id passed to <see cref="GetDocumentTypeAsync"/>, for #159.</summary>
-    public string? LastDocumentTypeLookup { get; private set; }
-
-    public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeAsync(
-        string aliasOrId,
-        CancellationToken ct = default
-    )
-    {
-        LastDocumentTypeLookup = aliasOrId;
-        return Task.FromResult(
-            UmbracoResponse<DocumentTypeResponse>.Success(
-                new DocumentTypeResponse { Name = "Blog Post", Alias = "blogPost" }
-            )
-        );
-    }
-
+    /// <summary>Answers with a fixed document type carrying <paramref name="id"/>.</summary>
+    /// <param name="id">The document type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A success carrying the id.</returns>
     public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            UmbracoResponse<DocumentTypeResponse>.Success(
+                new DocumentTypeResponse
+                {
+                    Id = id,
+                    Name = "Blog Post",
+                    Alias = "blogPost",
+                }
+            )
+        );
 
     public Task<UmbracoResponse<Guid>> CreateDocumentTypeAsync(
         CreateDocumentTypeRequest request,
@@ -755,17 +753,23 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>Recorded flag-built data type updates, by id (#262).</summary>
+    public List<(Guid Id, UpdateDataTypeRequest Request)> DataTypeUpdates { get; } = [];
+
+    /// <summary>Records the update and answers with a bare success.</summary>
+    /// <param name="id">The data type id.</param>
+    /// <param name="request">The update.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A bare success.</returns>
     public Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
         Guid id,
         UpdateDataTypeRequest request,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
-
-    public Task<UmbracoResponse<Empty>> UpdateDataTypeAsync(
-        string nameOrId,
-        UpdateDataTypeRequest request,
-        CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    )
+    {
+        DataTypeUpdates.Add((id, request));
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
 
     public Task<UmbracoResponse<Empty>> DeleteDataTypeAsync(Guid id, CancellationToken ct = default)
     {
@@ -1045,10 +1049,25 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByKeyAsync(
-        string key,
+    /// <summary>Dictionary items <see cref="GetDictionaryItemByIdAsync"/> can return, by id.</summary>
+    public Dictionary<Guid, DictionaryItemResponse> DictionaryItemsById { get; } = [];
+
+    /// <summary>Answers from <see cref="DictionaryItemsById"/>, or a 404.</summary>
+    /// <param name="id">The dictionary item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The item, or a 404 failure.</returns>
+    public Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByIdAsync(
+        Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            DictionaryItemsById.TryGetValue(id, out var item)
+                ? UmbracoResponse<DictionaryItemResponse>.Success(item)
+                : UmbracoResponse<DictionaryItemResponse>.Failure(
+                    404,
+                    $"No dictionary item found with id '{id}'."
+                )
+        );
 
     /// <summary>Recorded dictionary creates (#110 asserts the mapped parent).</summary>
     public List<CreateDictionaryItemRequest> DictionaryItemsCreated { get; } = [];
