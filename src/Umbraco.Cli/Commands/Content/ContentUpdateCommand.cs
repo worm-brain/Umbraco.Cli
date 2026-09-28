@@ -96,7 +96,10 @@ public static class ContentUpdateCommand
                         // --template wins over a template in the body, the way an explicit flag
                         // normally beats a file the caller may not have written.
                         if (TemplateValue(parseResult.GetValue(templateOpt)) is { } template)
-                            request = request with { Template = TemplateReference(template) };
+                            request = request with
+                            {
+                                Template = ContentTemplateReference.Parse(template),
+                            };
 
                         return await client.UpdateContentAsync(
                             id,
@@ -120,15 +123,4 @@ public static class ContentUpdateCommand
     /// <param name="raw">The raw option value.</param>
     /// <returns>The template reference text, or null.</returns>
     private static string? TemplateValue(string? raw) => raw is { Length: > 0 } ? raw : null;
-
-    /// <summary>
-    /// Reads a <c>--template</c> value as either a UUID or an alias, so callers can use whichever
-    /// they have to hand without a second flag.
-    /// </summary>
-    /// <param name="value">The raw option value.</param>
-    /// <returns>A reference carrying the id when it parsed as a GUID, the alias otherwise.</returns>
-    internal static ContentTemplateReference TemplateReference(string value) =>
-        Guid.TryParse(value, out var id)
-            ? new ContentTemplateReference { Id = id }
-            : new ContentTemplateReference { Alias = value };
 }
