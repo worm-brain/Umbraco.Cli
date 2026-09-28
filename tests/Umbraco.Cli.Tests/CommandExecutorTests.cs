@@ -772,6 +772,34 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task AllowList_PreRenameNounEntry_NoLongerMatchesTheRenamedCommand()
+    {
+        // #272: the pre-#268 plural nouns are gone, so an allow-list still naming one is not
+        // translated to the new name - `webhooks` no longer allows `webhook.list`.
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            allowedCommands: "webhooks",
+            command: "webhook.list"
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) =>
+                {
+                    called = true;
+                    return c.GetWebhooksAsync(0, 20, ct);
+                },
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.False(called);
+    }
+
+    [Fact]
     public async Task AllowList_ConfigOverrideWithoutAllowList_DoesNotBypassDefaultAllowList()
     {
         // #83 M2: the allow-list is a supervisor guardrail, so pointing --config at a file without

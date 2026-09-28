@@ -626,10 +626,6 @@ run. Entries are noun groups (`content`, `media`) and/or full command names (`co
 command runs only if its group or full name is listed. The `auth` group is always allowed. A
 blocked command aborts before running with exit `2` and category `not_allowed`.
 
-- **Renamed nouns still match:** an entry written before the #268 renames
-  (`UMBRACO_ALLOWED_COMMANDS=content-types`, `content.domains.set`) allows exactly what it allowed
-  before, under the new names (`document-type`, `content.domain.set`) - and nothing more.
-
 - **Unset vs lockdown:** only a *truly unset* value (variable absent and no config
   `allowedCommands`) means no restriction. Any *present* value that is blank or separators-only
   (`" "`, `","`) is an explicit lockdown - nothing runs but the always-allowed `auth` group.
