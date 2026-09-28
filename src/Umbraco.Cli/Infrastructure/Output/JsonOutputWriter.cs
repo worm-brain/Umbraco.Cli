@@ -37,9 +37,11 @@ public sealed class JsonOutputWriter : IOutputWriter
     /// `idMismatch` is a boolean, an empty id/parent/note is null rather than `""`, rows carry a
     /// `changes` list and `meta.total`, and `content apply` rows carry `cultures` (#229); and a
     /// member's `groups` are `{id, name}` objects instead of bare ids (#212). Both changed before
-    /// "5" was released, so they share it.
+    /// "5" was released, so they share it. "6" `auth profile list` marks the default with a
+    /// boolean `default` instead of `"*"` / `""` (#283), and `auth logout` names the profile it
+    /// acted on and carries `defaultCleared` (#301, #304).
     /// </summary>
-    public const string SchemaVersion = "5";
+    public const string SchemaVersion = "6";
 
     private static readonly JsonSerializerOptions Options = new()
     {

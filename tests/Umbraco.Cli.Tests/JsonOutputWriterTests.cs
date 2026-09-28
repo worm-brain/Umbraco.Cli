@@ -48,7 +48,7 @@ public class JsonOutputWriterTests
         var doc = JsonDocument.Parse(stdout);
         var version = doc.RootElement.GetProperty("meta").GetProperty("schemaVersion").GetString();
         // Assert the literal so a deliberate contract bump is a deliberate test change.
-        Assert.Equal("5", version);
+        Assert.Equal("6", version);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class JsonOutputWriterTests
         // #61: message-shaped success envelopes (delete/publish) are versioned too.
         var (stdout, _) = Capture(() => _writer.WriteMessage(new { id = "1" }, "Done."));
         var meta = JsonDocument.Parse(stdout).RootElement.GetProperty("meta");
-        Assert.Equal("5", meta.GetProperty("schemaVersion").GetString());
+        Assert.Equal("6", meta.GetProperty("schemaVersion").GetString());
     }
 
     // ── meta parity across output shapes (#137) ────────────────────────────────
@@ -343,7 +343,7 @@ public class JsonOutputWriterTests
 
         // #177: it used to sit at the top level, so the error envelope was the one shape that did
         // not carry a meta object at all.
-        Assert.Equal("5", root.GetProperty("meta").GetProperty("schemaVersion").GetString());
+        Assert.Equal("6", root.GetProperty("meta").GetProperty("schemaVersion").GetString());
     }
 
     [Fact]

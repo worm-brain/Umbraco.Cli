@@ -95,6 +95,56 @@ public class CommandContextFactoryTests
     }
 
     [Fact]
+    public async Task CreateAsync_DefaultProfileLoggedOut_AbortsNamingProfileUse()
+    {
+        // #304: with the default logged out and another profile left, the error points at
+        // 'auth profile use' rather than suggesting a fresh login.
+        var configPath = Path.Combine(Path.GetTempPath(), $"cfg-{Guid.NewGuid()}.json");
+        var store = new ConfigStore(configPath);
+        foreach (var name in new[] { "a", "b" })
+            store.Save(
+                new CliConfig
+                {
+                    Host = $"https://{name}.test",
+                    ClientId = "id",
+                    ClientSecret = "secret",
+                },
+                name
+            );
+        store.Logout("a");
+        var http = new Factory(new TokenEndpoint());
+        var global = new GlobalOptions();
+        var factory = new CommandContextFactory(
+            store,
+            new UmbracoAuthService(http),
+            http,
+            global,
+            new ClientFactory(),
+            new MutationInterceptState(),
+            new TokenRefreshState()
+        );
+        var root = new RootCommand();
+        global.AddTo(root);
+        var original = Console.Error;
+        var stderr = new StringWriter();
+        Console.SetError(stderr);
+
+        try
+        {
+            await Assert.ThrowsAsync<CommandAbortedException>(() =>
+                factory.CreateAsync(root.Parse("--output json"))
+            );
+        }
+        finally
+        {
+            Console.SetError(original);
+            File.Delete(configPath);
+        }
+
+        Assert.Contains("auth profile use", stderr.ToString());
+    }
+
+    [Fact]
     public async Task CreateAsync_TokenFlag_HasNothingToRefreshWith()
     {
         var (state, _) = await CreateWith("--token given --output json");

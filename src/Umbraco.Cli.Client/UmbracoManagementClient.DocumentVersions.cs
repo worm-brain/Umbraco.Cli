@@ -63,7 +63,7 @@ public sealed partial class UmbracoManagementClient
                     Total = pages.Sum(p => p.Total),
                     Items = pages
                         .SelectMany(p => p.Items)
-                        .OrderByDescending(v => v.VersionDate)
+                        .NewestFirst()
                         .Skip(skip)
                         .Take(take)
                         .ToList(),
@@ -110,6 +110,7 @@ public sealed partial class UmbracoManagementClient
                     IsCurrentPublishedVersion = v.IsCurrentPublishedVersion ?? false,
                     PreventCleanup = v.PreventCleanup ?? false,
                 })
+                .NewestFirst()
                 .ToList(),
         };
     }
@@ -188,4 +189,24 @@ public sealed partial class UmbracoManagementClient
                 return Empty.Value;
             }
         );
+}
+
+/// <summary>The one order <c>content version list</c> shows versions in.</summary>
+internal static class DocumentVersionOrdering
+{
+    /// <summary>
+    /// Orders versions newest first. Publishing turns the draft into the published version and
+    /// starts a new draft at the same moment, so the two share a <c>versionDate</c> (#294); the
+    /// current draft goes first, then the current published version, so the order is stable
+    /// instead of whatever order the server or the merge happened to produce.
+    /// </summary>
+    /// <param name="versions">The versions to order.</param>
+    /// <returns>The versions, newest first.</returns>
+    public static IEnumerable<DocumentVersionResponse> NewestFirst(
+        this IEnumerable<DocumentVersionResponse> versions
+    ) =>
+        versions
+            .OrderByDescending(v => v.VersionDate)
+            .ThenByDescending(v => v.IsCurrentDraftVersion)
+            .ThenByDescending(v => v.IsCurrentPublishedVersion);
 }

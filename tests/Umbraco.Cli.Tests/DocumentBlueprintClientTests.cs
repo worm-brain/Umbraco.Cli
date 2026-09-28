@@ -126,6 +126,22 @@ public class DocumentBlueprintClientTests
         );
     }
 
+    [Fact]
+    public async Task ScaffoldDocumentBlueprintAsync_LeavesOutTheBlueprintsId()
+    {
+        // #299: the scaffold is a body for a new document, so it must not carry the blueprint's id.
+        var (client, _) = ClientReturning(
+            """{"id":"4b1e0c6a-0000-0000-0000-000000000001","documentType":{"id":"4b1e0c6a-0000-0000-0000-000000000002"},"values":[],"variants":[]}"""
+        );
+
+        var result = await client.ScaffoldDocumentBlueprintAsync(
+            Guid.NewGuid(),
+            CancellationToken.None
+        );
+
+        Assert.Null(result.Data?["id"]);
+    }
+
     /// <summary>A blueprint with a title and a featured image, as Umbraco returns it.</summary>
     private static string ExistingBlueprint(Guid id) =>
         $$"""

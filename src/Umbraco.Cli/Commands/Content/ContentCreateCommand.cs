@@ -11,10 +11,10 @@ public static class ContentCreateCommand
     /// <summary>
     /// Reads a <c>--json-body</c> into a create request. Besides the CLI's own shape it takes the
     /// Management API's, which is what <c>document-blueprint scaffold</c> prints (#241): a
-    /// <c>documentType</c> is read as the <c>contentType</c>, and the body's <c>id</c> - the
-    /// blueprint's, in a scaffold - is dropped, so piping a scaffold into a create makes a new item
-    /// rather than colliding with the blueprint. In the CLI's shape an <c>id</c> is kept, which is
-    /// how an idempotent create is scripted (#140).
+    /// <c>documentType</c> is read as the <c>contentType</c>. In either shape a body's <c>id</c> is
+    /// kept (#299), which is how an idempotent create is scripted (#140) and how exported ids
+    /// survive; <c>scaffold</c> no longer prints the blueprint's id, so a piped scaffold still
+    /// makes a new item.
     /// </summary>
     /// <param name="json">The body text.</param>
     /// <param name="id">The <c>--id</c> value, or null.</param>
@@ -33,7 +33,6 @@ public static class ContentCreateCommand
         {
             obj.Remove("documentType");
             obj["contentType"] = documentType.DeepClone();
-            obj.Remove("id");
         }
 
         if (obj["contentType"] is null)

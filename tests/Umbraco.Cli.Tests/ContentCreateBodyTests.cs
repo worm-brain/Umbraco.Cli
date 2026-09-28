@@ -10,10 +10,10 @@ namespace Umbraco.Cli.Tests;
 public class ContentCreateBodyTests
 {
     private static readonly Guid TypeId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid BlueprintId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
+    // What 'document-blueprint scaffold' prints: the API shape, without the blueprint's id (#299).
     private static readonly string Scaffold = $$"""
-        { "id": "{{BlueprintId}}", "documentType": { "id": "{{TypeId}}" }, "flags": [],
+        { "documentType": { "id": "{{TypeId}}" }, "flags": [],
           "values": [ { "alias": "title", "value": "Starter", "editorAlias": "Umbraco.TextBox" } ],
           "variants": [ { "culture": null, "name": "Starter", "state": "Draft" } ] }
         """;
@@ -27,11 +27,28 @@ public class ContentCreateBodyTests
     }
 
     [Fact]
-    public void ReadCreateRequest_ScaffoldShape_DropsTheBlueprintsId()
+    public void ReadCreateRequest_ApiShapeWithAnId_KeepsIt()
     {
-        var request = ContentCreateCommand.ReadCreateRequest(Scaffold, null);
+        // #299: the id was dropped from API-shaped bodies, so exported ids were lost and a
+        // retried create made a duplicate instead of a 409.
+        var id = Guid.NewGuid();
 
-        Assert.Null(request.Id);
+        var request = ContentCreateCommand.ReadCreateRequest(
+            $$"""{ "id": "{{id}}", "documentType": { "alias": "blogYear" }, "variants": [ { "name": "2026" } ] }""",
+            null
+        );
+
+        Assert.Equal(id, request.Id);
+    }
+
+    [Fact]
+    public void ReadCreateRequest_ApiShapeIdContradictsIdFlag_IsRefused()
+    {
+        var body = $$"""{ "id": "{{Guid.NewGuid()}}", "documentType": { "alias": "blogYear" } }""";
+
+        Assert.Throws<InvalidInputException>(() =>
+            ContentCreateCommand.ReadCreateRequest(body, Guid.NewGuid())
+        );
     }
 
     [Fact]

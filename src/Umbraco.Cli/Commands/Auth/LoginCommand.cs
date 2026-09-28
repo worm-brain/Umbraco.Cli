@@ -7,20 +7,27 @@ using Umbraco.Cli.Infrastructure.Output;
 
 namespace Umbraco.Cli.Commands.Auth;
 
+/// <summary>Wires <c>auth login</c>.</summary>
 public static class LoginCommand
 {
+    /// <summary>
+    /// Builds <c>auth login</c>: checks the credentials against the host, then saves them to the
+    /// profile resolved as for every other command: <c>--profile</c>, else <c>UMBRACO_PROFILE</c>,
+    /// else the default (#303).
+    /// </summary>
+    /// <param name="global">The global options (<c>--host</c>, <c>--output</c>, <c>--config</c>, <c>--profile</c>...).</param>
+    /// <param name="configStore">The default config store.</param>
+    /// <param name="authService">Fetches a token to prove the credentials work.</param>
+    /// <returns>The command.</returns>
     public static Command Build(
-        Option<string?> hostOption,
-        Option<string?> outputOption,
-        Option<string?> configOption,
-        Option<string?> profileOption,
+        GlobalOptions global,
         ConfigStore configStore,
         UmbracoAuthService authService
     )
     {
         var cmd = new Command(
             "login",
-            "Authenticate with an Umbraco instance using Client Credentials.\nCredentials are saved to config for future calls.\n\nExamples:\n  umbraco auth login\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth login --output json --host https://mysite.com --client-id <id> --client-secret <secret>"
+            "Authenticate with an Umbraco instance using Client Credentials.\nCredentials are saved to config for future calls, in the profile named by --profile, else UMBRACO_PROFILE, else the default profile.\n\nExamples:\n  umbraco auth login\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth login --output json --host https://mysite.com --client-id <id> --client-secret <secret>"
         );
 
         var clientIdOpt = new Option<string?>("--client-id")
@@ -38,11 +45,12 @@ public static class LoginCommand
         cmd.SetAction(
             async (parseResult, ct) =>
             {
-                var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(outputOption));
-                var writer = OutputWriterFactory.Create(outputFormat);
+                // The format decides whether to prompt for missing values (never under JSON).
+                var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(global.Output));
+                var writer = global.CreateWriter(parseResult);
 
                 var host =
-                    parseResult.GetValue(hostOption)
+                    parseResult.GetValue(global.Host)
                     ?? (
                         outputFormat != OutputFormat.Json
                             ? AnsiConsole.Ask<string>("Umbraco host URL (e.g. https://mysite.com):")
@@ -97,10 +105,11 @@ public static class LoginCommand
                     return (int)ExitCode.Aborted;
                 }
 
-                var store = ConfigStore.Resolve(parseResult.GetValue(configOption), configStore);
-                var profile = parseResult.GetValue(profileOption);
-                // Save saves to the named profile (or the current default) and preserves that
-                // profile's existing allow-list (#69), so no manual merge is needed here.
+                var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
+                // Resolved once, so the save and the response name the same profile (#303).
+                var profile = store.ResolveProfileName(parseResult.GetValue(global.Profile));
+                // Save preserves the profile's existing allow-list (#69), so no manual merge is
+                // needed here.
                 store.Save(
                     new CliConfig
                     {
@@ -111,11 +120,10 @@ public static class LoginCommand
                     profile
                 );
 
-                var where = string.IsNullOrWhiteSpace(profile) ? "" : $" (profile '{profile}')";
                 // Every success has data (docs/conventions.md 6.2): where the credentials went.
                 writer.WriteMessage(
                     new { host, profile },
-                    $"Logged in to {host}{where}",
+                    $"Logged in to {host} (profile '{profile}').",
                     CommandPath.Of(parseResult)
                 );
                 return 0;

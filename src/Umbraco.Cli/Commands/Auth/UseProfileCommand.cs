@@ -13,15 +13,10 @@ namespace Umbraco.Cli.Commands.Auth;
 public static class UseProfileCommand
 {
     /// <summary>Builds the <c>use</c> command.</summary>
-    /// <param name="outputOption">The global output-format option.</param>
-    /// <param name="configOption">The global config-path option.</param>
+    /// <param name="global">The global options (<c>--output</c>, <c>--config</c>, <c>--fields</c>...).</param>
     /// <param name="configStore">The fallback config store.</param>
     /// <returns>The configured command.</returns>
-    public static Command Build(
-        Option<string?> outputOption,
-        Option<string?> configOption,
-        ConfigStore configStore
-    )
+    public static Command Build(GlobalOptions global, ConfigStore configStore)
     {
         var cmd = new Command(
             "use",
@@ -36,10 +31,8 @@ public static class UseProfileCommand
         cmd.SetAction(
             (parseResult, ct) =>
             {
-                var writer = OutputWriterFactory.Create(
-                    OutputFormatParser.Parse(parseResult.GetValue(outputOption))
-                );
-                var store = ConfigStore.Resolve(parseResult.GetValue(configOption), configStore);
+                var writer = global.CreateWriter(parseResult);
+                var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
                 var name = parseResult.GetValue(nameArg)!;
 
                 if (store.SetDefaultProfile(name))

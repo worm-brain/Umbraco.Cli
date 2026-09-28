@@ -11,16 +11,16 @@ namespace Umbraco.Cli.Commands.Auth;
 /// </summary>
 public static class ProfilesCommand
 {
-    /// <summary>Builds the <c>profiles</c> command.</summary>
-    /// <param name="outputOption">The global output-format option.</param>
-    /// <param name="configOption">The global config-path option.</param>
+    /// <summary>One saved profile, as structured output shows it (#283).</summary>
+    /// <param name="Profile">The profile name.</param>
+    /// <param name="Default">Whether commands without <c>--profile</c> use it.</param>
+    public sealed record ProfileRow(string Profile, bool Default);
+
+    /// <summary>Builds the <c>auth profile list</c> command.</summary>
+    /// <param name="global">The global options (<c>--output</c>, <c>--config</c>, <c>--fields</c>...).</param>
     /// <param name="configStore">The fallback config store.</param>
     /// <returns>The configured command.</returns>
-    public static Command Build(
-        Option<string?> outputOption,
-        Option<string?> configOption,
-        ConfigStore configStore
-    )
+    public static Command Build(GlobalOptions global, ConfigStore configStore)
     {
         var cmd = new Command(
             "list",
@@ -31,23 +31,24 @@ public static class ProfilesCommand
         cmd.SetAction(
             (parseResult, ct) =>
             {
-                var writer = OutputWriterFactory.Create(
-                    OutputFormatParser.Parse(parseResult.GetValue(outputOption))
-                );
-                var store = ConfigStore.Resolve(parseResult.GetValue(configOption), configStore);
+                var writer = global.CreateWriter(parseResult);
+                var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
                 var (names, defaultProfile) = store.ListProfiles();
 
-                writer.WriteTable(
+                var rows = names
+                    .Select(name => new ProfileRow(
+                        name,
+                        string.Equals(name, defaultProfile, StringComparison.OrdinalIgnoreCase)
+                    ))
+                    .ToList();
+
+                // Structured output gets a real boolean; only the human table marks the
+                // default with "*" (#283).
+                writer.WriteList(
+                    [.. rows.Cast<object>()],
                     ["Profile", "Default"],
-                    names.Select(name =>
-                        new[]
-                        {
-                            name,
-                            string.Equals(name, defaultProfile, StringComparison.OrdinalIgnoreCase)
-                                ? "*"
-                                : "",
-                        }
-                    ),
+                    rows.Select(r => new[] { r.Profile, r.Default ? "*" : "" }),
+                    ListPaging.Complete(rows.Count),
                     CommandPath.Of(parseResult)
                 );
                 return Task.CompletedTask;

@@ -64,13 +64,9 @@ public sealed class CommandContextFactory
         var commandName = CommandPath.Of(parseResult) ?? "umbraco";
         var hostOverride = parseResult.GetValue(_globalOptions.Host);
         var tokenOverride = parseResult.GetValue(_globalOptions.Token);
-        var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(_globalOptions.Output));
 
-        // --fields projection (#63): split the comma-separated list once and hand it to the
-        // JSON writer, which trims each result to those fields.
-        var fields = ParseFields(parseResult.GetValue(_globalOptions.Fields));
-        var quiet = parseResult.GetValue(_globalOptions.Quiet);
-        var output = OutputWriterFactory.Create(outputFormat, fields, quiet);
+        // --output, --fields (#63) and --quiet, built the same way as for the auth commands.
+        var output = _globalOptions.CreateWriter(parseResult);
 
         var store = ResolveConfigStore(parseResult);
 
@@ -118,10 +114,16 @@ public sealed class CommandContextFactory
         var host = hostOverride ?? config.Host;
         if (string.IsNullOrEmpty(host))
         {
+            // The default profile was logged out of while others remain (#304): say so, rather
+            // than suggesting a fresh login when the fix is to pick one of the saved profiles.
+            var noDefault =
+                string.IsNullOrWhiteSpace(requestedProfile) && store.DefaultProfileMissing;
             output.WriteError(
                 ExitCode.Aborted,
                 FailureCategory.NotAuthenticated,
-                "No Umbraco host configured. Run 'umbraco auth login' or set UMBRACO_HOST.",
+                noDefault
+                    ? "No default profile is set (it was logged out of). Run 'umbraco auth profile use <name>', or pass --profile."
+                    : "No Umbraco host configured. Run 'umbraco auth login' or set UMBRACO_HOST.",
                 commandName
             );
             throw new CommandAbortedException();
@@ -214,24 +216,6 @@ public sealed class CommandContextFactory
     /// </summary>
     private ConfigStore ResolveConfigStore(ParseResult parseResult) =>
         ConfigStore.Resolve(parseResult.GetValue(_globalOptions.Config), _configStore);
-
-    /// <summary>
-    /// Splits the <c>--fields</c> value into a trimmed, non-empty field list (#63), or null when
-    /// nothing usable was supplied.
-    /// </summary>
-    /// <param name="raw">The raw comma-separated option value.</param>
-    /// <returns>The field names, or null for no projection.</returns>
-    private static string[]? ParseFields(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-        var fields = raw.Split(
-                ',',
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-            )
-            .ToArray();
-        return fields.Length > 0 ? fields : null;
-    }
 
     /// <summary>
     /// Whether read-only mode is active for this invocation: the <c>--readonly</c> flag or a

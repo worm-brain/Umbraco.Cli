@@ -46,9 +46,7 @@ public static class AuthDoctorCommand
         cmd.SetAction(
             async (parseResult, ct) =>
             {
-                var writer = OutputWriterFactory.Create(
-                    OutputFormatParser.Parse(parseResult.GetValue(global.Output))
-                );
+                var writer = global.CreateWriter(parseResult);
                 var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
                 var config = store.Load(parseResult.GetValue(global.Profile));
                 var host = parseResult.GetValue(global.Host) ?? config.Host;

@@ -410,14 +410,14 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     public void AuthProfiles_ListsProfilesWithDefault()
     {
         RequireLive();
-        // #64: profiles are listed with the default marked. The live config resolves to at
+        // #64: profiles are listed with the default marked (a boolean since #283). The live config resolves to at
         // least one profile (a legacy flat config migrates to 'default').
         var result = CliRunner.Run("auth", "profile", "list");
         Assert.True(result.Ok, result.Stderr);
 
         var rows = result.Data().EnumerateArray().ToList();
         Assert.NotEmpty(rows);
-        Assert.Contains(rows, r => r.GetProperty("default").GetString() == "*");
+        Assert.Contains(rows, r => r.GetProperty("default").GetBoolean());
     }
 
     [SkippableFact]
@@ -430,7 +430,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         var defaultName = profiles
             .Data()
             .EnumerateArray()
-            .First(r => r.GetProperty("default").GetString() == "*")
+            .First(r => r.GetProperty("default").GetBoolean())
             .GetProperty("profile")
             .GetString()!;
 

@@ -113,7 +113,7 @@
       "commands": [
         {
           "name": "login",
-          "description": "Authenticate with an Umbraco instance using Client Credentials.\nCredentials are saved to config for future calls.\n\nExamples:\n  umbraco auth login\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth login --output json --host https://mysite.com --client-id <id> --client-secret <secret>",
+          "description": "Authenticate with an Umbraco instance using Client Credentials.\nCredentials are saved to config for future calls, in the profile named by --profile, else UMBRACO_PROFILE, else the default profile.\n\nExamples:\n  umbraco auth login\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth login --output json --host https://mysite.com --client-id <id> --client-secret <secret>",
           "arguments": [],
           "options": [
             {
@@ -140,7 +140,7 @@
         },
         {
           "name": "logout",
-          "description": "Remove stored Umbraco credentials for a profile.\n\nThe default profile is used unless --profile is given.\n\nExamples:\n  umbraco auth logout\n  umbraco auth logout --profile prod",
+          "description": "Remove stored Umbraco credentials for a profile.\n\nThe profile is --profile, else UMBRACO_PROFILE, else the default profile. Logging out of the default profile leaves no default: choose one with 'auth profile use'.\n\nExamples:\n  umbraco auth logout\n  umbraco auth logout --profile prod",
           "arguments": [],
           "options": [],
           "commands": [],
@@ -714,7 +714,7 @@
             },
             {
               "name": "rollback",
-              "description": "Roll a content item back to a previous version.\n\nThe ID is a version ID from 'content version list', not the content ID. A rollback only changes the draft: the live site keeps the published version until you publish, or pass --publish.\n\nExamples:\n  umbraco content version rollback 7a1c2d3e-...\n  umbraco content version rollback 7a1c2d3e-... --culture en-US\n  umbraco content version rollback 7a1c2d3e-... --culture en-US --publish",
+              "description": "Roll a content item back to a previous version.\n\nThe ID is a version ID from 'content version list', not the content ID. A rollback only changes the draft: the live site keeps the published version until you publish, or pass --publish.\n\nTo undo the last published edit, roll back to the version listed after the one marked isCurrentPublishedVersion: publishing turns the edited draft into the published version, so that version holds the edit.\n\nExamples:\n  umbraco content version rollback 7a1c2d3e-...\n  umbraco content version rollback 7a1c2d3e-... --culture en-US\n  umbraco content version rollback 7a1c2d3e-... --culture en-US --publish",
               "arguments": [
                 {
                   "name": "id",
