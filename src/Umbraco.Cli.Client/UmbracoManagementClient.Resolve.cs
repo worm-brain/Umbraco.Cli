@@ -86,6 +86,7 @@ public sealed partial class UmbracoManagementClient
                     EntityKind.MemberGroup => FindMemberGroupIdAsync(reference, ct),
                     EntityKind.DictionaryItem => FindDictionaryIdAsync(reference, ct),
                     EntityKind.RelationType => FindRelationTypeIdAsync(reference, ct),
+                    EntityKind.Webhook => FindWebhookIdAsync(reference, ct),
                     EntityKind.User => FindUserIdAsync(reference, ct),
                     _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
                 }

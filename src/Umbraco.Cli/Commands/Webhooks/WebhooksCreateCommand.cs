@@ -4,20 +4,20 @@ using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
 
-/// <summary>Wires <c>webhook create</c>.</summary>
+/// <summary><c>webhook create</c>: subscribe a URL to one or more events.</summary>
 public static class WebhooksCreateCommand
 {
     /// <summary>
-    /// Builds <c>webhook create</c>: checks the <c>--event</c> aliases against the instance, then
-    /// posts the webhook and returns it as <c>get</c> would show it.
+    /// Builds the <c>create</c> leaf. Custom headers and the type filter (#237) are optional; with
+    /// no <c>--type</c> the webhook fires for items of every type.
     /// </summary>
     /// <param name="executor">The shared command executor.</param>
-    /// <returns>The configured command.</returns>
+    /// <returns>The command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
             "create",
-            "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\""
+            "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\"\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish --type blogPost --header X-Api-Key=abc123"
         ).Mutating();
         var urlOpt = new Option<string>("--url")
         {
@@ -47,12 +47,29 @@ public static class WebhooksCreateCommand
         cmd.Add(idOpt);
         cmd.Add(nameOpt);
         cmd.Add(descOpt);
+        var headerOpt = WebhookOptions.AddHeader(
+            cmd,
+            "A custom HTTP header sent with each delivery, as name=value. Repeat for several."
+        );
+        var typeOpt = WebhookOptions.AddType(
+            cmd,
+            "Document, media or member types (id or alias) the webhook fires for; omit to fire for every type."
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
                     async (client, c) =>
-                        WithEventSuggestions(
+                    {
+                        // Resolve the type aliases first, so a typo creates nothing.
+                        var types = await client.ResolveWebhookTypesAsync(
+                            parseResult.GetValue(typeOpt) ?? [],
+                            c
+                        );
+                        if (!types.IsSuccess)
+                            return UmbracoResponse<WebhookResponse>.FailureFrom(types);
+
+                        return WithEventSuggestions(
                             await client.CreateWebhookAsync(
                                 new CreateWebhookRequest
                                 {
@@ -61,10 +78,15 @@ public static class WebhooksCreateCommand
                                     Description = parseResult.GetValue(descOpt),
                                     Url = parseResult.GetValue(urlOpt)!,
                                     Events = parseResult.GetValue(eventsOpt) ?? [],
+                                    Headers = WebhookOptions.Headers(
+                                        parseResult.GetValue(headerOpt)
+                                    ),
+                                    ContentTypeKeys = types.Data!,
                                 },
                                 c
                             )
-                        ),
+                        );
+                    },
                     ct
                 )
         );

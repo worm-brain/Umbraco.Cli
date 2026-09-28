@@ -133,6 +133,7 @@ public class CommandParseTests
                 "member-type.update --replace",
                 "schema.apply --prune",
                 "template.update --replace",
+                "webhook.update --replace",
             ],
             actual
         );
@@ -670,6 +671,12 @@ public class CommandParseTests
     [InlineData("webhook list")]
     [InlineData("webhook event list")]
     [InlineData("webhook event list --take 50")]
+    [InlineData("webhook get \"Deploy hook\"")] // #237
+    [InlineData("webhook update 3f7a8b2e-1234-5678-abcd-ef0123456789")] // all fields optional (read-merge)
+    [InlineData("webhook update Deploy --enabled false --header X-Key=a --header X-Env=live")]
+    [InlineData("webhook update Deploy --event A,B --type blogPost,Image")]
+    [InlineData("webhook log list")]
+    [InlineData("webhook log list Deploy --skip 10 --take 5")]
     [InlineData("auth login --host https://example.com --client-id foo --client-secret bar")]
     [InlineData("auth logout")]
     [InlineData("auth whoami")]

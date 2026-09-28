@@ -1838,3 +1838,104 @@ public record CreateWebhookRequest
     [JsonPropertyName("contentTypeKeys")]
     public IEnumerable<Guid> ContentTypeKeys { get; init; } = [];
 }
+
+/// <summary>
+/// A <c>webhook update</c> (#237). Every member is optional: a null keeps the webhook's current
+/// value, because the client reads the webhook and lays these over it before the <c>PUT</c>
+/// (docs/conventions.md 5.1), where the API itself takes the whole webhook.
+/// </summary>
+public record UpdateWebhookRequest
+{
+    /// <summary>New name, or null to keep it.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>New description, or null to keep it.</summary>
+    public string? Description { get; init; }
+
+    /// <summary>New target URL, or null to keep it.</summary>
+    public string? Url { get; init; }
+
+    /// <summary>Enable (true) or disable (false) the webhook; null keeps its state.</summary>
+    public bool? Enabled { get; init; }
+
+    /// <summary>Event aliases that replace the current ones; null keeps them.</summary>
+    public IReadOnlyList<string>? Events { get; init; }
+
+    /// <summary>
+    /// Document, media or member type ids that replace the current type filter; null keeps it.
+    /// </summary>
+    public IReadOnlyList<Guid>? ContentTypeKeys { get; init; }
+
+    /// <summary>
+    /// Headers merged into the current ones by name (a given header replaces one of the same
+    /// name, ignoring case; the rest are kept); null or empty keeps them all. With
+    /// <see cref="Replace"/> they are the whole set instead.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    /// <summary>
+    /// Replace instead of merge (docs/conventions.md 5.1): <see cref="Headers"/> become exactly the
+    /// webhook's headers and <see cref="ContentTypeKeys"/> exactly its type filter, so leaving
+    /// either out clears it. Events and the scalar fields keep their usual rules.
+    /// </summary>
+    public bool Replace { get; init; }
+}
+
+/// <summary>
+/// One delivery attempt from a webhook's log (#237, <c>GET webhook/{id}/logs</c> and
+/// <c>GET webhook/logs</c>): what was sent, what came back, and whether it worked.
+/// </summary>
+public record WebhookLog
+{
+    /// <summary>The log entry's id (Umbraco's <c>key</c>).</summary>
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    /// <summary>The id of the webhook that fired (Umbraco's <c>webhookKey</c>).</summary>
+    [JsonPropertyName("webhookId")]
+    public Guid WebhookId { get; init; }
+
+    /// <summary>When the attempt was made.</summary>
+    [JsonPropertyName("date")]
+    public DateTimeOffset? Date { get; init; }
+
+    /// <summary>The alias of the event that fired, e.g. <c>Umbraco.ContentPublish</c>.</summary>
+    [JsonPropertyName("eventAlias")]
+    public string? EventAlias { get; init; }
+
+    /// <summary>The URL the payload was posted to.</summary>
+    [JsonPropertyName("url")]
+    public string? Url { get; init; }
+
+    /// <summary>The response status as Umbraco records it (a string, e.g. <c>OK (200)</c>).</summary>
+    [JsonPropertyName("statusCode")]
+    public string? StatusCode { get; init; }
+
+    /// <summary>Whether the receiver answered with a 2xx status.</summary>
+    [JsonPropertyName("isSuccessStatusCode")]
+    public bool IsSuccessStatusCode { get; init; }
+
+    /// <summary>Whether sending threw (the receiver was unreachable, timed out, ...).</summary>
+    [JsonPropertyName("exceptionOccurred")]
+    public bool ExceptionOccurred { get; init; }
+
+    /// <summary>How many times the delivery was retried.</summary>
+    [JsonPropertyName("retryCount")]
+    public int RetryCount { get; init; }
+
+    /// <summary>The request headers sent, as Umbraco records them (one string).</summary>
+    [JsonPropertyName("requestHeaders")]
+    public string? RequestHeaders { get; init; }
+
+    /// <summary>The request body sent.</summary>
+    [JsonPropertyName("requestBody")]
+    public string? RequestBody { get; init; }
+
+    /// <summary>The response headers received, as Umbraco records them (one string).</summary>
+    [JsonPropertyName("responseHeaders")]
+    public string? ResponseHeaders { get; init; }
+
+    /// <summary>The response body received.</summary>
+    [JsonPropertyName("responseBody")]
+    public string? ResponseBody { get; init; }
+}

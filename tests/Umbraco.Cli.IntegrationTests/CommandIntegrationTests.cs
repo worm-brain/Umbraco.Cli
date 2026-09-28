@@ -645,4 +645,63 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             Assert.True(delete.Ok, delete.Stderr);
         }
     }
+
+    /// <summary>
+    /// #237: a webhook named on create is found by that name, <c>update</c> disables it and merges
+    /// a header without dropping the one it had, and its delivery log can be read.
+    /// </summary>
+    [SkippableFact]
+    public void Webhook_UpdateByName_DisablesAndMergesHeaders()
+    {
+        RequireLive();
+        var name = $"it-hook-{Guid.NewGuid():N}";
+        var create = CliRunner.Run(
+            "webhook",
+            "create",
+            "--url",
+            "https://example.com/integration-test-hook",
+            "--event",
+            "Umbraco.ContentPublish",
+            "--name",
+            name,
+            "--header",
+            "X-Api-Key=abc"
+        );
+        Assert.True(create.Ok, create.Stderr);
+        var id = create.Data().GetProperty("id").GetString();
+
+        try
+        {
+            var update = CliRunner.Run(
+                "webhook",
+                "update",
+                name,
+                "--enabled",
+                "false",
+                "--header",
+                "X-Env=test"
+            );
+            Assert.True(update.Ok, update.Stderr);
+
+            var get = CliRunner.Run("webhook", "get", name);
+            Assert.True(get.Ok, get.Stderr);
+            var hook = get.Data();
+            var headers = hook.GetProperty("headers");
+            Assert.Equal(
+                (false, "abc", "test"),
+                (
+                    hook.GetProperty("enabled").GetBoolean(),
+                    headers.GetProperty("X-Api-Key").GetString(),
+                    headers.GetProperty("X-Env").GetString()
+                )
+            );
+
+            var log = CliRunner.Run("webhook", "log", "list", name);
+            Assert.True(log.Ok, log.Stderr);
+        }
+        finally
+        {
+            CliRunner.Run("webhook", "delete", id!, "--yes");
+        }
+    }
 }

@@ -10,7 +10,7 @@ using Umbraco.Cli.Infrastructure.Http;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// <c>webhook create</c> with an unknown <c>--event</c> (#234, #278): the client reports which
+/// <c>webhook create</c> and <c>webhook update</c> with an unknown <c>--event</c> (#234, #278): the client reports which
 /// aliases were unknown, and the command turns that into a "did you mean" hint and a pointer to
 /// <c>webhook event list</c>. Runs the real command over the real client, so the whole path from
 /// the refused alias to the error envelope is covered.
@@ -50,7 +50,13 @@ public class WebhookCreateCommandTests
     /// <summary>Runs <c>webhook create</c> with <paramref name="events"/> and returns the error message.</summary>
     /// <param name="events">The <c>--event</c> value.</param>
     /// <returns>The <c>message</c> of the error envelope written to stderr.</returns>
-    private static async Task<string> ErrorMessageFor(string events)
+    private static Task<string> ErrorMessageFor(string events) =>
+        ErrorMessageForCommand($"webhook create --url https://my.app/hook --event {events}");
+
+    /// <summary>Runs one <c>webhook</c> command line and returns the error message it reports.</summary>
+    /// <param name="command">The command line after the global options, e.g. <c>webhook update ...</c>.</param>
+    /// <returns>The <c>message</c> of the error envelope written to stderr.</returns>
+    private static async Task<string> ErrorMessageForCommand(string command)
     {
         var client = Wire.Client(Wire.Routed(("/webhook/events", Events)));
         var stub = new StubHttpClientFactory();
@@ -73,10 +79,7 @@ public class WebhookCreateCommandTests
         Console.SetError(err);
         try
         {
-            await root.Parse(
-                    $"--host https://x --token t --output json webhook create --url https://my.app/hook --event {events}"
-                )
-                .InvokeAsync();
+            await root.Parse($"--host https://x --token t --output json {command}").InvokeAsync();
         }
         finally
         {
@@ -115,6 +118,17 @@ public class WebhookCreateCommandTests
         var message = await ErrorMessageFor("MemberGroupDeleted");
 
         Assert.StartsWith("Unknown webhook event 'MemberGroupDeleted'. Umbraco", message);
+    }
+
+    [Fact]
+    public async Task Update_UnknownEvent_SuggestsTheNearestAlias()
+    {
+        // The event guard runs before the webhook is read, so no webhook route is needed.
+        var message = await ErrorMessageForCommand(
+            $"webhook update {Guid.NewGuid()} --event ContentPublished"
+        );
+
+        Assert.Contains("did you mean 'Umbraco.ContentPublish'", message);
     }
 
     [Fact]

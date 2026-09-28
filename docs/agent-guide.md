@@ -247,7 +247,10 @@ values, which Umbraco never accepts from a write, and `content apply` warns on s
 Label property it could not promote (#291). `document-type` / `media-type delete` (and
 `schema apply --prune`) count the items of the type and refuse only when there are some, or when
 the type is a composition or an element type; before, they always needed `--force` (#287).
-`relation list --relation-type` and `relation-type get` take the alias (#300).
+`relation list --relation-type` and `relation-type get` take the alias (#300). `webhook delete`
+takes the webhook's name as well as its id, like the new `webhook get`, `webhook update` (which
+enables and disables with `--enabled true|false`, and with `--replace` sets exactly the headers
+and types given) and `webhook log list` (#237).
 
 **What changed in schemaVersion 5**, if you are moving from `"4"`: the **diff and apply**
 reports (`content diff`, `schema diff`, `content apply`, `schema apply`), a member's `groups`, and
