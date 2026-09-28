@@ -380,6 +380,122 @@ public class SchemaDiffEngineTests
         Assert.Equal("subscriber", Assert.Single(diff.MemberTypes.Added).Identity);
     }
 
+    // ── #397: container ids from another instance ───────────────────────────────
+
+    /// <summary>
+    /// A document type with a Content tab, a Hero group in it and a title property in the group,
+    /// using the given container ids and property name.
+    /// </summary>
+    /// <param name="id">The type id.</param>
+    /// <param name="tab">The tab's id.</param>
+    /// <param name="group">The group's id.</param>
+    /// <param name="propertyName">The property's name.</param>
+    /// <returns>The body.</returns>
+    private static JsonNode TypeWithContainers(
+        Guid id,
+        string tab,
+        string group,
+        string propertyName = "Title"
+    ) =>
+        JsonNode.Parse(
+            $$"""
+            {"id":"{{id}}","alias":"page","containers":[
+              {"id":"{{tab}}","parent":null,"name":"Content","type":"Tab","sortOrder":0},
+              {"id":"{{group}}","parent":{"id":"{{tab}}"},"name":"Hero","type":"Group","sortOrder":0}],
+             "properties":[{"id":"p1","alias":"title","name":"{{propertyName}}","container":{"id":"{{group}}"} }] }
+            """
+        )!;
+
+    [Fact]
+    public void Compare_ContainerIdsFromAnotherInstance_IsUnchanged()
+    {
+        // Arrange: the same tab and group, created on each instance, so their ids differ.
+        var id = Guid.NewGuid();
+        var desired = TypeWithContainers(id, "src-tab", "src-group");
+        var current = TypeWithContainers(id, "tgt-tab", "tgt-group");
+
+        // Act
+        var diff = SchemaDiffEngine.Compare(DocSnapshot(desired), DocSnapshot(current));
+
+        // Assert
+        Assert.Equal(1, diff.DocumentTypes.Unchanged);
+    }
+
+    [Fact]
+    public void Compare_ContainerIdsFromAnotherInstance_AppliesWithTheTargetIds()
+    {
+        // Arrange: a real change as well, so apply has a body to send.
+        var id = Guid.NewGuid();
+        var desired = TypeWithContainers(id, "src-tab", "src-group", "Heading");
+        var current = TypeWithContainers(id, "tgt-tab", "tgt-group");
+
+        // Act
+        var diff = SchemaDiffEngine.Compare(DocSnapshot(desired), DocSnapshot(current));
+
+        // Assert: the body to send names the target's containers everywhere.
+        var body = Assert.Single(diff.DocumentTypes.Changed).DesiredBody!;
+        Assert.Equal(
+            ("tgt-tab", "tgt-group", "tgt-tab", "tgt-group"),
+            (
+                (string?)body["containers"]![0]!["id"],
+                (string?)body["containers"]![1]!["id"],
+                (string?)body["containers"]![1]!["parent"]!["id"],
+                (string?)body["properties"]![0]!["container"]!["id"]
+            )
+        );
+    }
+
+    [Fact]
+    public void Compare_ContainerMatchingSeveralTargetContainers_IsSkippedAsAmbiguous()
+    {
+        // Arrange: the target has two top-level Content tabs, so either could be meant.
+        var id = Guid.NewGuid();
+        var desired = JsonNode.Parse(
+            $$"""
+            {"id":"{{id}}","alias":"page","containers":[
+              {"id":"src-tab","parent":null,"name":"Content","type":"Tab","sortOrder":0}]}
+            """
+        )!;
+        var current = JsonNode.Parse(
+            $$"""
+            {"id":"{{id}}","alias":"page","containers":[
+              {"id":"tgt-a","parent":null,"name":"Content","type":"Tab","sortOrder":0},
+              {"id":"tgt-b","parent":null,"name":"Content","type":"Tab","sortOrder":1}]}
+            """
+        )!;
+
+        // Act
+        var diff = SchemaDiffEngine.Compare(DocSnapshot(desired), DocSnapshot(current));
+
+        // Assert
+        Assert.Contains(
+            "matches 2 target containers",
+            Assert.Single(diff.DocumentTypes.Skipped).Note
+        );
+    }
+
+    [Fact]
+    public void Compare_ContainerWithNoTargetMatch_KeepsTheSnapshotId()
+    {
+        // Arrange: a new group the target does not have yet.
+        var id = Guid.NewGuid();
+        var desired = TypeWithContainers(id, "tab", "new-group");
+        var current = JsonNode.Parse(
+            $$"""
+            {"id":"{{id}}","alias":"page","containers":[
+              {"id":"tab","parent":null,"name":"Content","type":"Tab","sortOrder":0}],
+             "properties":[{"id":"p1","alias":"title","name":"Title","container":{"id":"tab"} }] }
+            """
+        )!;
+
+        // Act
+        var diff = SchemaDiffEngine.Compare(DocSnapshot(desired), DocSnapshot(current));
+
+        // Assert
+        var body = Assert.Single(diff.DocumentTypes.Changed).DesiredBody!;
+        Assert.Equal("new-group", (string?)body["containers"]![1]!["id"]);
+    }
+
     /// <summary>An entity body carrying an id, an alias and a name.</summary>
     /// <param name="id">The entity id.</param>
     /// <param name="alias">The alias it is matched on.</param>

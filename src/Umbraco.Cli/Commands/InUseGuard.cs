@@ -85,12 +85,12 @@ public static class InUseGuard
             ),
             DeleteTarget.Item { Kind: EntityKind.DocumentType } item => await DocumentTypeAsync(
                 client,
-                item.Id,
+                item,
                 ct
             ),
             DeleteTarget.Item { Kind: EntityKind.MediaType } item => await MediaTypeAsync(
                 client,
-                item.Id,
+                item,
                 ct
             ),
             DeleteTarget.Item { Kind: EntityKind.MemberGroup } item => await MemberGroupAsync(
@@ -403,41 +403,41 @@ public static class InUseGuard
     }
 
     /// <summary>
-    /// Why deleting document type <paramref name="id"/> would lose content, or null when nothing
+    /// Why deleting document type <paramref name="item"/> would lose content, or null when nothing
     /// uses it (#287). Before, every document type delete needed <c>--force</c>, so it became
     /// routine and meant nothing when it mattered.
     /// </summary>
     /// <param name="client">The client to check with.</param>
-    /// <param name="id">The document type id.</param>
+    /// <param name="item">The document type: its id, and its alias when known (a prune, #396).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The reason, or null.</returns>
     private static async Task<string?> DocumentTypeAsync(
         IDocumentTypeClient client,
-        Guid id,
+        DeleteTarget.Item item,
         CancellationToken ct
     )
     {
-        var usage = await client.GetDocumentTypeUsageAsync(id, ct);
+        var usage = await client.GetDocumentTypeUsageAsync(item.Id, ct);
         return usage.IsSuccess
-            ? TypeUsageReason("document", id, usage.Data!)
-            : CouldNotCheck("document type", id, usage.ErrorMessage);
+            ? TypeUsageReason("document", item.Id, usage.Data!, item.Identity)
+            : CouldNotCheck("document type", item.Id, usage.ErrorMessage);
     }
 
     /// <summary>The media twin of <see cref="DocumentTypeAsync"/> (#287).</summary>
     /// <param name="client">The client to check with.</param>
-    /// <param name="id">The media type id.</param>
+    /// <param name="item">The media type: its id, and its alias when known (a prune, #396).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The reason, or null.</returns>
     private static async Task<string?> MediaTypeAsync(
         IMediaTypeClient client,
-        Guid id,
+        DeleteTarget.Item item,
         CancellationToken ct
     )
     {
-        var usage = await client.GetMediaTypeUsageAsync(id, ct);
+        var usage = await client.GetMediaTypeUsageAsync(item.Id, ct);
         return usage.IsSuccess
-            ? TypeUsageReason("media", id, usage.Data!)
-            : CouldNotCheck("media type", id, usage.ErrorMessage);
+            ? TypeUsageReason("media", item.Id, usage.Data!, item.Identity)
+            : CouldNotCheck("media type", item.Id, usage.ErrorMessage);
     }
 
     /// <summary>
@@ -450,24 +450,38 @@ public static class InUseGuard
     /// <param name="item">The item word: <c>document</c> or <c>media</c>.</param>
     /// <param name="id">The type id.</param>
     /// <param name="usage">What uses the type.</param>
-    /// <returns>The reason, or null.</returns>
-    internal static string? TypeUsageReason(string item, Guid id, TypeUsage usage)
+    /// <param name="alias">
+    /// The type's alias, or null when not known. A prune knows it from the snapshot diff; a delete
+    /// named the type itself on the command line.
+    /// </param>
+    /// <returns>The reason, naming the type by alias (when known) and id, or null.</returns>
+    internal static string? TypeUsageReason(
+        string item,
+        Guid id,
+        TypeUsage usage,
+        string? alias = null
+    )
     {
+        // Name the type by alias as well as id when the alias is known (#396), so a prune
+        // refusal says which type it means without a lookup.
+        var type = alias is { Length: > 0 }
+            ? $"{Capitalised(item)} type {alias} ({id})"
+            : $"{Capitalised(item)} type {id}";
         var reasons = new List<string>();
         if (usage.Items > 0)
             reasons.Add(
-                $"{Capitalised(item)} type {id} has {usage.Items} {item} item(s), counting the "
+                $"{type} has {usage.Items} {item} item(s), counting the "
                     + "recycle bin. Deleting it also deletes them."
             );
         if (usage.ComposedBy.Count > 0)
             reasons.Add(
-                $"{Capitalised(item)} type {id} is a composition of {Summarise([.. usage.ComposedBy])}. "
+                $"{type} is a composition of {Summarise([.. usage.ComposedBy])}. "
                     + "Deleting it removes its properties, and the values stored in them, from "
                     + "those types."
             );
         if (usage.IsElement)
             reasons.Add(
-                $"{Capitalised(item)} type {id} is an element type. Block content in other "
+                $"{type} is an element type. Block content in other "
                     + "documents can use it, and Umbraco does not report where, so the CLI "
                     + "cannot check."
             );
