@@ -17,10 +17,11 @@ public static class DataTypesCreateCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a data type (property editor configuration).\n\nExamples:\n  umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
-        ).Mutating();
+        var cmd = new Command("create", "Create a data type (property editor configuration).")
+            .WithExamples(
+                "umbraco data-type create --name \"My Text\" --editor-alias Umbraco.TextBox --editor-ui-alias Umb.PropertyEditorUi.TextBox"
+            )
+            .Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Description = "Name of the new data type. Required unless --json-body is given.",

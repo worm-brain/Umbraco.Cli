@@ -12,10 +12,12 @@ public static class DictionaryMoveCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "move",
-            "Move a dictionary item under a new parent.\n\nExamples:\n  umbraco dictionary move Blog.Tags --parent Blog\n  umbraco dictionary move Blog.Tags   # to the dictionary root"
-        ).Mutating();
+        var cmd = new Command("move", "Move a dictionary item under a new parent.")
+            .WithExamples(
+                "umbraco dictionary move Blog.Tags --parent Blog",
+                "umbraco dictionary move Blog.Tags   # to the dictionary root"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.DictionaryItem);
         var targetOpt = Reference.Option(
             "--parent",

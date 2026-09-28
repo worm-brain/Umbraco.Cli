@@ -15,10 +15,12 @@ public static class WebhooksDeleteCommand
     /// <returns>The command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "delete",
-            "Delete a webhook subscription by id or name.\n\nExamples:\n  umbraco webhook delete 3f7a8b2e-...\n  umbraco webhook delete \"Deploy hook\" --yes"
-        ).Mutating();
+        var cmd = new Command("delete", "Delete a webhook subscription by id or name.")
+            .WithExamples(
+                "umbraco webhook delete 3f7a8b2e-...",
+                "umbraco webhook delete \"Deploy hook\" --yes"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.Webhook);
         cmd.Add(idArg);
         cmd.Destructive(parseResult => $"Delete webhook {parseResult.GetValue(idArg)}?");

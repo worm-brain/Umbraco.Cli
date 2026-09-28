@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Dictionary;
 
@@ -17,7 +18,11 @@ public static class DictionaryTreeCommand
     {
         var cmd = new Command(
             "tree",
-            "Walk the dictionary into a flat list of items.\n\nEach item carries its depth and parent id.\n\nExamples:\n  umbraco dictionary tree                    # direct children of the root\n  umbraco dictionary tree --parent Blog --recursive\n  umbraco dictionary tree --depth 3 --output json"
+            "Walk the dictionary into a flat list of items.\n\nEach item carries its depth and parent id."
+        ).WithExamples(
+            "umbraco dictionary tree                    # direct children of the root",
+            "umbraco dictionary tree --parent Blog --recursive",
+            "umbraco dictionary tree --depth 3 --output json"
         );
         var parentOpt = Reference.Option(
             "--parent",

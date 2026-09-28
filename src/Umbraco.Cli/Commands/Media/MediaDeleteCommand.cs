@@ -7,10 +7,9 @@ public static class MediaDeleteCommand
 {
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "delete",
-            "Delete a media item permanently, by id.\n\nExamples:\n  umbraco media delete 3f7a8b2e-...\n  umbraco media delete <id> --yes"
-        ).Mutating();
+        var cmd = new Command("delete", "Delete a media item permanently, by id.")
+            .WithExamples("umbraco media delete 3f7a8b2e-...", "umbraco media delete <id> --yes")
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Media item id." };
         cmd.Add(idArg);
 

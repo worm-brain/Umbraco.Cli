@@ -27,7 +27,11 @@ public static class LoginCommand
     {
         var cmd = new Command(
             "login",
-            "Authenticate with an Umbraco instance using Client Credentials.\nCredentials are saved to config for future calls, in the profile named by --profile, else UMBRACO_PROFILE, else the default profile.\n\nExamples:\n  umbraco auth login\n  umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>\n  umbraco auth login --output json --host https://mysite.com --client-id <id> --client-secret <secret>"
+            "Authenticate with an Umbraco instance using Client Credentials.\nCredentials are saved to config for future calls, in the profile named by --profile, else UMBRACO_PROFILE, else the default profile."
+        ).WithExamples(
+            "umbraco auth login",
+            "umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>",
+            "umbraco auth login --output json --host https://mysite.com --client-id <id> --client-secret <secret>"
         );
 
         var clientIdOpt = new Option<string?>("--client-id")

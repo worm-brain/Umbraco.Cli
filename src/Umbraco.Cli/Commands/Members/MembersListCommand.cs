@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Members;
 
@@ -8,7 +9,10 @@ public static class MembersListCommand
     {
         var cmd = new Command(
             "list",
-            "List Umbraco members, optionally filtered by member group.\n\nExamples:\n  umbraco member list\n  umbraco member list --group Subscribers --output json"
+            "List Umbraco members, optionally filtered by member group."
+        ).WithExamples(
+            "umbraco member list",
+            "umbraco member list --group Subscribers --output json"
         );
         var groupOpt = new Option<string?>("--group")
         {

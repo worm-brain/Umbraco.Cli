@@ -74,10 +74,8 @@ public partial class HelpTextTests
     {
         AssertNone(
             Commands()
-                .Where(c =>
-                    c.Node.Commands.Count == 0
-                    && !(c.Node.Description ?? "").Contains("\nExamples:\n")
-                )
+                // Examples are declared as data (#276), so "has a block" means "declared some".
+                .Where(c => c.Node.Commands.Count == 0 && c.Node.Examples is not { Count: > 0 })
                 .Select(c => c.Path),
             "Leaf command without an \"Examples:\" block"
         );

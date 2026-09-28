@@ -9,8 +9,13 @@ public static class ContentDeleteCommand
     {
         var cmd = new Command(
             "delete",
-            "Delete a content item permanently, by id. This cannot be undone.\n\nExamples:\n  umbraco content delete 3f7a8b2e-1234-5678-abcd-ef0123456789\n  umbraco content delete <id> --yes"
-        ).Mutating();
+            "Delete a content item permanently, by id. This cannot be undone."
+        )
+            .WithExamples(
+                "umbraco content delete 3f7a8b2e-1234-5678-abcd-ef0123456789",
+                "umbraco content delete <id> --yes"
+            )
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
         cmd.Add(idArg);
 

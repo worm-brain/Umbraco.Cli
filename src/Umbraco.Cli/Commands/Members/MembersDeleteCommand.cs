@@ -7,10 +7,9 @@ public static class MembersDeleteCommand
 {
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "delete",
-            "Delete a member permanently, by id.\n\nExamples:\n  umbraco member delete 3f7a8b2e-..."
-        ).Mutating();
+        var cmd = new Command("delete", "Delete a member permanently, by id.")
+            .WithExamples("umbraco member delete 3f7a8b2e-...")
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Member id." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult =>

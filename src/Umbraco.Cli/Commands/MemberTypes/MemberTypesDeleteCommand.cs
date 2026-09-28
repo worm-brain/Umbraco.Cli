@@ -20,9 +20,10 @@ public static class MemberTypesDeleteCommand
             "delete",
             "Delete a member type by id or alias.\n\n"
                 + "A member type that still has members is refused unless --force is given: Umbraco "
-                + "deletes its members with it.\n\n"
-                + "Examples:\n  umbraco member-type delete siteMember --yes"
-        ).Mutating();
+                + "deletes its members with it."
+        )
+            .WithExamples("umbraco member-type delete siteMember --yes")
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.MemberType);
         cmd.Add(idArg);
         InUseGuard.Protect(

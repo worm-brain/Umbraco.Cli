@@ -17,10 +17,12 @@ public static class LanguagesCreateCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a language.\n\nExamples:\n  umbraco language create --culture da-DK\n  umbraco language create --culture da-DK --fallback en-US --mandatory"
-        ).Mutating();
+        var cmd = new Command("create", "Create a language.")
+            .WithExamples(
+                "umbraco language create --culture da-DK",
+                "umbraco language create --culture da-DK --fallback en-US --mandatory"
+            )
+            .Mutating();
         var cultureOpt = new Option<string>("--culture")
         {
             Description = "ISO 4646 culture code for the language (e.g. en-US, fr-FR, da-DK).",

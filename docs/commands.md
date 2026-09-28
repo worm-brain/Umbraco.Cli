@@ -135,7 +135,7 @@ every property of that type (see [Property value formats](#property-value-format
 In the catalog every option and argument carries its `default` (when it has one) and, when it is
 required only without some other option, `requiredUnless` (the options that make it
 unnecessary). A `--json-body` command carries `jsonBodySchema`, the command line that prints its
-body's schema.
+body's schema. Every command with help examples lists them in `examples`.
 
 See [agent-guide.md](agent-guide.md#1-discover-the-surface-umbraco-commands) for details.
 

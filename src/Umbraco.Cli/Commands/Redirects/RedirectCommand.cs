@@ -16,9 +16,9 @@ public static class RedirectCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "redirect",
-            "List and manage tracked URL redirects.\n\nExamples:\n  umbraco redirect list --filter old-page\n  umbraco redirect tracking status"
+        var cmd = new Command("redirect", "List and manage tracked URL redirects.").WithExamples(
+            "umbraco redirect list --filter old-page",
+            "umbraco redirect tracking status"
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildDelete(executor));
@@ -30,7 +30,11 @@ public static class RedirectCommand
     {
         var cmd = new Command(
             "list",
-            "List redirects. With --content-item, lists redirects pointing at that document.\n\nExamples:\n  umbraco redirect list\n  umbraco redirect list --filter old-page\n  umbraco redirect list --content-item <id>"
+            "List redirects. With --content-item, lists redirects pointing at that document."
+        ).WithExamples(
+            "umbraco redirect list",
+            "umbraco redirect list --filter old-page",
+            "umbraco redirect list --content-item <id>"
         );
         var contentOpt = new Option<Guid?>("--content-item")
         {
@@ -73,8 +77,8 @@ public static class RedirectCommand
     {
         var cmd = new Command(
             "status",
-            "Show whether automatic URL-redirect tracking is enabled.\n\nExamples:\n  umbraco redirect tracking status"
-        );
+            "Show whether automatic URL-redirect tracking is enabled."
+        ).WithExamples("umbraco redirect tracking status");
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
@@ -88,10 +92,9 @@ public static class RedirectCommand
 
     private static Command BuildDelete(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "delete",
-            "Delete a redirect by id.\n\nExamples:\n  umbraco redirect delete 3f7a8b2e-... --yes"
-        ).Mutating();
+        var cmd = new Command("delete", "Delete a redirect by id.")
+            .WithExamples("umbraco redirect delete 3f7a8b2e-... --yes")
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Redirect ID." };
         cmd.Add(idArg);
         cmd.Destructive(parseResult => $"Delete redirect {parseResult.GetValue(idArg)}?");
@@ -130,10 +133,9 @@ public static class RedirectCommand
     /// <returns>The configured verb command.</returns>
     private static Command BuildTrackingToggle(CommandExecutor executor, string verb, bool enabled)
     {
-        var cmd = new Command(
-            verb,
-            $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking.\n\nExamples:\n  umbraco redirect tracking {verb}{(enabled ? "" : " --yes")}"
-        ).Mutating();
+        var cmd = new Command(verb, $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking.")
+            .WithExamples($"umbraco redirect tracking {verb}{(enabled ? "" : " --yes")}")
+            .Mutating();
         // Only disabling is gated: it stops Umbraco recording redirects site-wide, so moved pages
         // start to 404. Enabling turns a protection on and needs no --yes (#249).
         if (!enabled)

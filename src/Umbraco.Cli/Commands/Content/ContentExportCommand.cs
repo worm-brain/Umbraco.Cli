@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -28,11 +29,11 @@ public static class ContentExportCommand
     {
         var cmd = new Command(
             "export",
-            "Export a content subtree to a portable JSON snapshot.\n\n"
-                + "Examples:\n"
-                + "  umbraco content export --out content.json\n"
-                + "  umbraco content export --root 3f7a8b2e-... --out subtree.json\n"
-                + "  umbraco content export | jq '.data.documents | length'"
+            "Export a content subtree to a portable JSON snapshot."
+        ).WithExamples(
+            "umbraco content export --out content.json",
+            "umbraco content export --root 3f7a8b2e-... --out subtree.json",
+            "umbraco content export | jq '.data.documents | length'"
         );
         var rootOpt = new Option<Guid?>("--root")
         {

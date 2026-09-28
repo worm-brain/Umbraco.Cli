@@ -26,9 +26,15 @@ public static class WebhookUpdateCommand
             "update",
             "Update a webhook by id or name. Omitted options keep their values.\n\n"
                 + "--event and --type replace the current lists; --header merges by header name. "
-                + "With --replace, the headers and types given are the whole set: any not given are removed.\n\n"
-                + "Examples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook\n  umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter"
-        ).Mutating();
+                + "With --replace, the headers and types given are the whole set: any not given are removed."
+        )
+            .WithExamples(
+                "umbraco webhook update \"Deploy hook\" --enabled false",
+                "umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost",
+                "umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook",
+                "umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.Webhook);
         var urlOpt = new Option<string?>("--url")
         {

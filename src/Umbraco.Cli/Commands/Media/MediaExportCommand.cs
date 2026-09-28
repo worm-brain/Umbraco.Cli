@@ -38,10 +38,10 @@ public static class MediaExportCommand
             "Export media items and their files to a snapshot directory.\n\n"
                 + "The directory gets media.json (every item's body and placement, by id) and "
                 + "files/<id>/<name>. It must be new, empty, or an earlier media export, which is "
-                + "replaced.\n\n"
-                + "Examples:\n"
-                + "  umbraco media export --out ./media-snapshot\n"
-                + "  umbraco media export --root 3f7a8b2e-... -O ./blog-images"
+                + "replaced."
+        ).WithExamples(
+            "umbraco media export --out ./media-snapshot",
+            "umbraco media export --root 3f7a8b2e-... -O ./blog-images"
         );
         var rootOpt = new Option<Guid?>("--root")
         {

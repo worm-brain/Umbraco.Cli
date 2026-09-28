@@ -29,8 +29,13 @@ public static class MediaFolderCommand
     {
         var cmd = new Command(
             "create",
-            "Create a media folder.\n\nA folder is an ordinary media item of the Folder media type, so it is deleted, moved and trashed with the usual media verbs.\n\nExamples:\n  umbraco media folder create --name Blog\n  umbraco media folder create --name 2026 --parent 3f7a8b2e-..."
-        ).Mutating();
+            "Create a media folder.\n\nA folder is an ordinary media item of the Folder media type, so it is deleted, moved and trashed with the usual media verbs."
+        )
+            .WithExamples(
+                "umbraco media folder create --name Blog",
+                "umbraco media folder create --name 2026 --parent 3f7a8b2e-..."
+            )
+            .Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,

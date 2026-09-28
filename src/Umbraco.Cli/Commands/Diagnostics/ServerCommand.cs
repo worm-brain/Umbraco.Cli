@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Diagnostics;
 
@@ -16,31 +17,41 @@ public static class ServerCommand
     {
         var cmd = new Command(
             "server",
-            "Inspect the Umbraco server's status and configuration.\n\nExamples:\n  umbraco server status\n  umbraco server info\n  umbraco server troubleshooting"
+            "Inspect the Umbraco server's status and configuration."
+        ).WithExamples(
+            "umbraco server status",
+            "umbraco server info",
+            "umbraco server troubleshooting"
         );
         cmd.Add(
-            DiagnosticsVerb.Object(
-                executor,
-                "status",
-                "Show the server's runtime status.\n\nExamples:\n  umbraco server status\n  umbraco server status --output json",
-                (c, ct) => c.GetServerStatusAsync(ct)
-            )
+            DiagnosticsVerb
+                .Object(
+                    executor,
+                    "status",
+                    "Show the server's runtime status.",
+                    (c, ct) => c.GetServerStatusAsync(ct)
+                )
+                .WithExamples("umbraco server status", "umbraco server status --output json")
         );
         cmd.Add(
-            DiagnosticsVerb.Object(
-                executor,
-                "info",
-                "Show server version and runtime-mode information.\n\nExamples:\n  umbraco server info",
-                (c, ct) => c.GetServerInformationAsync(ct)
-            )
+            DiagnosticsVerb
+                .Object(
+                    executor,
+                    "info",
+                    "Show server version and runtime-mode information.",
+                    (c, ct) => c.GetServerInformationAsync(ct)
+                )
+                .WithExamples("umbraco server info")
         );
         cmd.Add(
-            DiagnosticsVerb.Object(
-                executor,
-                "configuration",
-                "Show public server configuration flags.\n\nExamples:\n  umbraco server configuration",
-                (c, ct) => c.GetServerConfigurationAsync(ct)
-            )
+            DiagnosticsVerb
+                .Object(
+                    executor,
+                    "configuration",
+                    "Show public server configuration flags.",
+                    (c, ct) => c.GetServerConfigurationAsync(ct)
+                )
+                .WithExamples("umbraco server configuration")
         );
         cmd.Add(BuildTroubleshooting(executor));
         return cmd;
@@ -48,9 +59,9 @@ public static class ServerCommand
 
     private static Command BuildTroubleshooting(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "troubleshooting",
-            "List server troubleshooting items.\n\nExamples:\n  umbraco server troubleshooting\n  umbraco server troubleshooting --output json"
+        var cmd = new Command("troubleshooting", "List server troubleshooting items.").WithExamples(
+            "umbraco server troubleshooting",
+            "umbraco server troubleshooting --output json"
         );
         cmd.SetAction(
             (parseResult, ct) =>

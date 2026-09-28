@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
 
@@ -15,7 +16,10 @@ public static class WebhookEventListCommand
     {
         var cmd = new Command(
             "list",
-            "List the event aliases that 'webhook create --event' accepts.\n\nExamples:\n  umbraco webhook event list\n  umbraco webhook event list -o json | jq -r '.data.items[].alias'"
+            "List the event aliases that 'webhook create --event' accepts."
+        ).WithExamples(
+            "umbraco webhook event list",
+            "umbraco webhook event list -o json | jq -r '.data.items[].alias'"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(

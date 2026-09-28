@@ -20,8 +20,13 @@ public static class DictionaryUpdateCommand
     {
         var cmd = new Command(
             "update",
-            "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped.\n\nExamples:\n  umbraco dictionary update Blog.MinRead --value da-DK=Hjem\n  umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --value en-US=Home"
-        ).Mutating();
+            "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped."
+        )
+            .WithExamples(
+                "umbraco dictionary update Blog.MinRead --value da-DK=Hjem",
+                "umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --value en-US=Home"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.DictionaryItem);
         var keyOpt = new Option<string?>("--key")
         {

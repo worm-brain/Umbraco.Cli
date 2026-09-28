@@ -20,8 +20,16 @@ public static class ContentTypesCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new document type, from flags or from a full Management API body.\n\nPass the body with --json-body. --example prints a real document type (or, on a site with none, a minimal valid body) to start from.\n\nExamples:\n  umbraco document-type create --example -o json | jq .data > t.json\n  umbraco document-type create --json-body t.json\n  umbraco document-type create --name \"Blog Post\" --alias blogPost\n  umbraco document-type create --name \"Widget\" --alias widget --is-element\n  umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
-        ).Mutating();
+            "Create a new document type, from flags or from a full Management API body.\n\nPass the body with --json-body. --example prints a real document type (or, on a site with none, a minimal valid body) to start from."
+        )
+            .WithExamples(
+                "umbraco document-type create --example -o json | jq .data > t.json",
+                "umbraco document-type create --json-body t.json",
+                "umbraco document-type create --name \"Blog Post\" --alias blogPost",
+                "umbraco document-type create --name \"Widget\" --alias widget --is-element",
+                "umbraco document-type create --name \"Home Page\" --alias homePage --allow-at-root --icon icon-home"
+            )
+            .Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Description =

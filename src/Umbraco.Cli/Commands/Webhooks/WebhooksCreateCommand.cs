@@ -15,10 +15,13 @@ public static class WebhooksCreateCommand
     /// <returns>The command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\"\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish --type blogPost --header X-Api-Key=abc123"
-        ).Mutating();
+        var cmd = new Command("create", "Create a webhook.")
+            .WithExamples(
+                "umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish",
+                "umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\"",
+                "umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish --type blogPost --header X-Api-Key=abc123"
+            )
+            .Mutating();
         var urlOpt = new Option<string>("--url")
         {
             Required = true,

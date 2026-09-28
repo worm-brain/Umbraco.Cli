@@ -18,9 +18,9 @@ public static class UseProfileCommand
     /// <returns>The configured command.</returns>
     public static Command Build(GlobalOptions global, ConfigStore configStore)
     {
-        var cmd = new Command(
-            "use",
-            "Set the default credential profile.\n\nExamples:\n  umbraco auth profile use prod\n  umbraco auth profile use default"
+        var cmd = new Command("use", "Set the default credential profile.").WithExamples(
+            "umbraco auth profile use prod",
+            "umbraco auth profile use default"
         );
         var nameArg = new Argument<string>("name")
         {

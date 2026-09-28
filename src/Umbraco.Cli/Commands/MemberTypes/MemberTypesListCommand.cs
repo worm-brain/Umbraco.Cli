@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.MemberTypes;
 
@@ -15,7 +16,10 @@ public static class MemberTypesListCommand
     {
         var cmd = new Command(
             "list",
-            "List member types defined in the Umbraco instance.\n\nExamples:\n  umbraco member-type list\n  umbraco member-type list --output json | jq '.data[].name'"
+            "List member types defined in the Umbraco instance."
+        ).WithExamples(
+            "umbraco member-type list",
+            "umbraco member-type list --output json | jq '.data[].name'"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(

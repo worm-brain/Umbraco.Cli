@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Tags;
 
@@ -12,17 +13,17 @@ public static class TagsCommand
     {
         var cmd = new Command(
             "tag",
-            "List tags, optionally filtered by group and culture.\n\nExamples:\n  umbraco tag list\n  umbraco tag list --group default --culture en-US"
-        );
+            "List tags, optionally filtered by group and culture."
+        ).WithExamples("umbraco tag list", "umbraco tag list --group default --culture en-US");
         cmd.Add(BuildList(executor));
         return cmd;
     }
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "list",
-            "List tags.\n\nExamples:\n  umbraco tag list\n  umbraco tag list --group default --culture en-US"
+        var cmd = new Command("list", "List tags.").WithExamples(
+            "umbraco tag list",
+            "umbraco tag list --group default --culture en-US"
         );
         var groupOpt = new Option<string?>("--group")
         {

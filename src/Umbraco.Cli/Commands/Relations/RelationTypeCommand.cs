@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Relations;
 
@@ -14,9 +15,8 @@ public static class RelationTypeCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "relation-type",
-            "List and inspect relation types.\n\nExamples:\n  umbraco relation-type list"
+        var cmd = new Command("relation-type", "List and inspect relation types.").WithExamples(
+            "umbraco relation-type list"
         );
         cmd.Add(BuildList(executor));
         cmd.Add(BuildGet(executor));
@@ -25,9 +25,8 @@ public static class RelationTypeCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "list",
-            "List relation types.\n\nExamples:\n  umbraco relation-type list"
+        var cmd = new Command("list", "List relation types.").WithExamples(
+            "umbraco relation-type list"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
@@ -53,9 +52,9 @@ public static class RelationTypeCommand
     /// <returns>The configured command.</returns>
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "get",
-            "Get a relation type by id or alias.\n\nExamples:\n  umbraco relation-type get relateDocumentOnCopy\n  umbraco relation-type get 3f7a8b2e-..."
+        var cmd = new Command("get", "Get a relation type by id or alias.").WithExamples(
+            "umbraco relation-type get relateDocumentOnCopy",
+            "umbraco relation-type get 3f7a8b2e-..."
         );
         var idArg = Reference.Argument(EntityKind.RelationType);
         cmd.Add(idArg);

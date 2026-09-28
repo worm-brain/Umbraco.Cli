@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Schema;
 
@@ -56,11 +57,11 @@ public static class SchemaExportCommand
                 + "Covers document, media and member types, data types, templates, languages, "
                 + "dictionary items, member and user groups, and the partial views, stylesheets and "
                 + "scripts the templates use. User group start nodes and per-document permissions "
-                + "are left out: they name content on this instance.\n\n"
-                + "Examples:\n"
-                + "  umbraco schema export --out schema.json\n"
-                + "  umbraco schema export --no-files --out schema.json   # views deploy from git\n"
-                + "  umbraco schema export | jq '.data.documentTypes | length'"
+                + "are left out: they name content on this instance."
+        ).WithExamples(
+            "umbraco schema export --out schema.json",
+            "umbraco schema export --no-files --out schema.json   # views deploy from git",
+            "umbraco schema export | jq '.data.documentTypes | length'"
         );
         var outOpt = new Option<FileInfo?>("--out", new[] { "-O" })
         {

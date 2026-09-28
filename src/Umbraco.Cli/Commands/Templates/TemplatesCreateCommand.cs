@@ -16,10 +16,12 @@ public static class TemplatesCreateCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a Razor view template.\n\nExamples:\n  umbraco template create --name \"Blog Post\" --alias blogPost\n  umbraco template create --name Home --alias home --content-file ./home.cshtml"
-        ).Mutating();
+        var cmd = new Command("create", "Create a Razor view template.")
+            .WithExamples(
+                "umbraco template create --name \"Blog Post\" --alias blogPost",
+                "umbraco template create --name Home --alias home --content-file ./home.cshtml"
+            )
+            .Mutating();
         var nameOpt = new Option<string>("--name")
         {
             Required = true,

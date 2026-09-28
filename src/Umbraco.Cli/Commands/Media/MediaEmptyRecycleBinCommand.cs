@@ -17,8 +17,10 @@ public static class MediaEmptyRecycleBinCommand
     {
         var cmd = new Command(
             "empty-recycle-bin",
-            "Permanently delete all media items in the recycle bin.\n\nExamples:\n  umbraco media empty-recycle-bin --yes"
-        ).Mutating();
+            "Permanently delete all media items in the recycle bin."
+        )
+            .WithExamples("umbraco media empty-recycle-bin --yes")
+            .Mutating();
         cmd.Destructive(parseResult =>
             "Permanently delete ALL items in the media recycle bin? This cannot be undone."
         );

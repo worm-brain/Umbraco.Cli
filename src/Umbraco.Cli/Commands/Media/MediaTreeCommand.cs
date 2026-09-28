@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -12,7 +13,11 @@ public static class MediaTreeCommand
     {
         var cmd = new Command(
             "tree",
-            "Walk the media tree into a flat list of nodes.\n\nEach node carries its depth and parent id.\n\nExamples:\n  umbraco media tree                       # direct children of the root\n  umbraco media tree --parent <folder-id> --recursive\n  umbraco media tree --depth 3 --output json"
+            "Walk the media tree into a flat list of nodes.\n\nEach node carries its depth and parent id."
+        ).WithExamples(
+            "umbraco media tree                       # direct children of the root",
+            "umbraco media tree --parent <folder-id> --recursive",
+            "umbraco media tree --depth 3 --output json"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {

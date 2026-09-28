@@ -8,10 +8,13 @@ public static class DictionaryCreateCommand
 {
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil"
-        ).Mutating();
+        var cmd = new Command("create", "Create a new dictionary item with translations.")
+            .WithExamples(
+                "umbraco dictionary create --key \"Common.Search\"",
+                "umbraco dictionary create --key \"Blog.MinRead\" --parent Blog",
+                "umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil"
+            )
+            .Mutating();
         var keyOpt = new Option<string>("--key")
         {
             Required = true,

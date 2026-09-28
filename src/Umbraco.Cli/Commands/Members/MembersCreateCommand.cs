@@ -8,10 +8,11 @@ public static class MembersCreateCommand
 {
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a new Umbraco member.\n\nExamples:\n  umbraco member create --email user@example.com --name \"Jane Doe\" --member-type Member"
-        ).Mutating();
+        var cmd = new Command("create", "Create a new Umbraco member.")
+            .WithExamples(
+                "umbraco member create --email user@example.com --name \"Jane Doe\" --member-type Member"
+            )
+            .Mutating();
         var emailOpt = new Option<string>("--email")
         {
             Required = true,

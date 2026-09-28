@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
 
@@ -12,7 +13,11 @@ public static class ContentTreeCommand
     {
         var cmd = new Command(
             "tree",
-            "Walk the content tree into a flat list of nodes.\n\nEach node carries its depth and parent id.\n\nExamples:\n  umbraco content tree                       # direct children of the root\n  umbraco content tree --parent <id> --recursive\n  umbraco content tree --depth 3 --output json"
+            "Walk the content tree into a flat list of nodes.\n\nEach node carries its depth and parent id."
+        ).WithExamples(
+            "umbraco content tree                       # direct children of the root",
+            "umbraco content tree --parent <id> --recursive",
+            "umbraco content tree --depth 3 --output json"
         );
         var parentOpt = new Option<Guid?>("--parent")
         {

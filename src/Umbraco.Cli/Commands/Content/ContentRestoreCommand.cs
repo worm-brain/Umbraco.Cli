@@ -19,8 +19,15 @@ public static class ContentRestoreCommand
     {
         var cmd = new Command(
             "restore",
-            "Restore a content item from the recycle bin.\n\nThe item comes back unpublished and last in its parent's sort order. Pass --publish to publish it, and use 'content sort' to reorder.\n\nExamples:\n  umbraco content restore 3f7a8b2e-...\n  umbraco content restore 3f7a8b2e-... --parent 1a2b3c4d-...\n  umbraco content restore 3f7a8b2e-... --to-root\n  umbraco content restore 3f7a8b2e-... --publish"
-        ).Mutating();
+            "Restore a content item from the recycle bin.\n\nThe item comes back unpublished and last in its parent's sort order. Pass --publish to publish it, and use 'content sort' to reorder."
+        )
+            .WithExamples(
+                "umbraco content restore 3f7a8b2e-...",
+                "umbraco content restore 3f7a8b2e-... --parent 1a2b3c4d-...",
+                "umbraco content restore 3f7a8b2e-... --to-root",
+                "umbraco content restore 3f7a8b2e-... --publish"
+            )
+            .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Trashed content item ID." };
         var parentOpt = new Option<Guid?>("--parent", "--target")
         {

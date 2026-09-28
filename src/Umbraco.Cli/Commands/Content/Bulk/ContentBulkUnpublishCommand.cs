@@ -16,8 +16,13 @@ public static class ContentBulkUnpublishCommand
     {
         var cmd = new Command(
             "unpublish",
-            "Unpublish many content items by id (ids from --file or stdin).\n\nExamples:\n  umbraco content bulk unpublish --file ids.txt\n  umbraco content bulk unpublish --file ids.txt --culture da-DK"
-        ).Mutating();
+            "Unpublish many content items by id (ids from --file or stdin)."
+        )
+            .WithExamples(
+                "umbraco content bulk unpublish --file ids.txt",
+                "umbraco content bulk unpublish --file ids.txt --culture da-DK"
+            )
+            .Mutating();
         var fileOpt = new Option<FileInfo?>("--file")
         {
             Description =

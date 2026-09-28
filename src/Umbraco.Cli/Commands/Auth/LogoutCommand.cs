@@ -27,9 +27,8 @@ public static class LogoutCommand
             "logout",
             "Remove stored Umbraco credentials for a profile.\n\n"
                 + "The profile is --profile, else UMBRACO_PROFILE, else the default profile. "
-                + "Logging out of the default profile leaves no default: choose one with 'auth profile use'.\n\n"
-                + "Examples:\n  umbraco auth logout\n  umbraco auth logout --profile prod"
-        );
+                + "Logging out of the default profile leaves no default: choose one with 'auth profile use'."
+        ).WithExamples("umbraco auth logout", "umbraco auth logout --profile prod");
 
         cmd.SetAction(
             (parseResult, ct) =>

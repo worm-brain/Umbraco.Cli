@@ -17,8 +17,8 @@ public static class MemberGroupsCommand
     {
         var cmd = new Command(
             "member-group",
-            "List, inspect, and manage Umbraco member groups.\n\nExamples:\n  umbraco member-group list\n  umbraco member-group create --name Editors"
-        );
+            "List, inspect, and manage Umbraco member groups."
+        ).WithExamples("umbraco member-group list", "umbraco member-group create --name Editors");
         cmd.Add(BuildList(executor));
         cmd.Add(BuildGet(executor));
         cmd.Add(BuildCreate(executor));
@@ -29,9 +29,9 @@ public static class MemberGroupsCommand
 
     private static Command BuildList(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "list",
-            "List member groups.\n\nExamples:\n  umbraco member-group list\n  umbraco member-group list --output json"
+        var cmd = new Command("list", "List member groups.").WithExamples(
+            "umbraco member-group list",
+            "umbraco member-group list --output json"
         );
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
@@ -51,9 +51,9 @@ public static class MemberGroupsCommand
 
     private static Command BuildGet(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "get",
-            "Get a member group by id or name.\n\nExamples:\n  umbraco member-group get Subscribers\n  umbraco member-group get 3f7a8b2e-..."
+        var cmd = new Command("get", "Get a member group by id or name.").WithExamples(
+            "umbraco member-group get Subscribers",
+            "umbraco member-group get 3f7a8b2e-..."
         );
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         cmd.Add(idArg);
@@ -76,10 +76,9 @@ public static class MemberGroupsCommand
 
     private static Command BuildCreate(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "create",
-            "Create a member group.\n\nExamples:\n  umbraco member-group create --name Editors"
-        ).Mutating();
+        var cmd = new Command("create", "Create a member group.")
+            .WithExamples("umbraco member-group create --name Editors")
+            .Mutating();
         var nameOpt = new Option<string>("--name") { Required = true, Description = "Group name." };
         var idOpt = new Option<Guid?>("--id")
         {
@@ -108,10 +107,11 @@ public static class MemberGroupsCommand
 
     private static Command BuildUpdate(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "update",
-            "Update a member group's name by id or name.\n\nExamples:\n  umbraco member-group update Subscribers --name \"Newsletter subscribers\""
-        ).Mutating();
+        var cmd = new Command("update", "Update a member group's name by id or name.")
+            .WithExamples(
+                "umbraco member-group update Subscribers --name \"Newsletter subscribers\""
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         var nameOpt = new Option<string>("--name") { Required = true, Description = "New name." };
         cmd.Add(idArg);
@@ -150,9 +150,13 @@ public static class MemberGroupsCommand
             "delete",
             "Delete a member group by id or name.\n\n"
                 + "A group with members is refused unless --force is given: they lose the membership, "
-                + "and access rules that name the group stop matching anyone.\n\n"
-                + "Examples:\n  umbraco member-group delete Subscribers --yes\n  umbraco member-group delete Subscribers --force --yes"
-        ).Mutating();
+                + "and access rules that name the group stop matching anyone."
+        )
+            .WithExamples(
+                "umbraco member-group delete Subscribers --yes",
+                "umbraco member-group delete Subscribers --force --yes"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.MemberGroup);
         cmd.Add(idArg);
         InUseGuard.Protect(

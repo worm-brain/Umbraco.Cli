@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Webhooks;
 
@@ -17,8 +18,11 @@ public static class WebhookLogListCommand
         var cmd = new Command(
             "list",
             "List webhook delivery attempts: what was sent and what came back.\n\n"
-                + "Give a webhook to see only its deliveries; omit it to see every webhook's.\n\n"
-                + "Examples:\n  umbraco webhook log list \"Deploy hook\"\n  umbraco webhook log list\n  umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'"
+                + "Give a webhook to see only its deliveries; omit it to see every webhook's."
+        ).WithExamples(
+            "umbraco webhook log list \"Deploy hook\"",
+            "umbraco webhook log list",
+            "umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'"
         );
         // Optional: the log endpoint has an all-webhooks form, and 'log list' with no webhook is
         // the natural way to ask "what failed recently?".

@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Schema;
 
@@ -18,10 +19,10 @@ public static class SchemaDiffCommand
     {
         var cmd = new Command(
             "diff",
-            "Compare a schema snapshot against the live instance (read-only).\n\n"
-                + "Examples:\n"
-                + "  umbraco schema diff schema.json\n"
-                + "  umbraco schema export | umbraco schema diff -"
+            "Compare a schema snapshot against the live instance (read-only)."
+        ).WithExamples(
+            "umbraco schema diff schema.json",
+            "umbraco schema export | umbraco schema diff -"
         );
         var snapshotArg = new Argument<string>("snapshot")
         {

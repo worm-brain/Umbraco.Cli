@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Templates;
 
@@ -8,8 +9,8 @@ public static class TemplatesListCommand
     {
         var cmd = new Command(
             "list",
-            "List all Razor view templates in the Umbraco instance.\n\nExamples:\n  umbraco template list --output json"
-        );
+            "List all Razor view templates in the Umbraco instance."
+        ).WithExamples("umbraco template list --output json");
         var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
         cmd.SetAction(
             (parseResult, ct) =>

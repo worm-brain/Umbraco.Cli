@@ -19,9 +19,13 @@ public static class UsersDeleteCommand
             "delete",
             "Delete one or more backoffice users permanently, by id, email or username.\n\n"
                 + "Umbraco may refuse to delete a user who has signed in; disable them instead with "
-                + "'user update --disabled'.\n\n"
-                + "Examples:\n  umbraco user delete editor@example.com\n  umbraco user delete 3f7a8b2e-... writer@example.com --yes"
-        ).Mutating();
+                + "'user update --disabled'."
+        )
+            .WithExamples(
+                "umbraco user delete editor@example.com",
+                "umbraco user delete 3f7a8b2e-... writer@example.com --yes"
+            )
+            .Mutating();
         var idsArg = new Argument<string[]>("id")
         {
             Description = "The users to delete: each an id, email or username.",

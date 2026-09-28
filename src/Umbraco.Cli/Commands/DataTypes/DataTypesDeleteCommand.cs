@@ -19,9 +19,13 @@ public static class DataTypesDeleteCommand
             "delete",
             "Delete a data type by id or name.\n\n"
                 + "A data type that is in use is refused unless --force is given: Umbraco deletes "
-                + "every property that uses it, and all the values in those properties, with it.\n\n"
-                + "Examples:\n  umbraco data-type delete \"Homepage Blocks\" --yes\n  umbraco data-type delete \"Homepage Blocks\" --force --yes"
-        ).Mutating();
+                + "every property that uses it, and all the values in those properties, with it."
+        )
+            .WithExamples(
+                "umbraco data-type delete \"Homepage Blocks\" --yes",
+                "umbraco data-type delete \"Homepage Blocks\" --force --yes"
+            )
+            .Mutating();
         var idArg = Reference.Argument(EntityKind.DataType);
         cmd.Add(idArg);
         InUseGuard.Protect(

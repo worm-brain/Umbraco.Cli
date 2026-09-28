@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.ContentTypes;
 
@@ -17,7 +18,10 @@ public static class ContentTypesGetCommand
     {
         var cmd = new Command(
             "get",
-            "Get a document type by alias or id, as the full Management API body.\n\nThe body has its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'.\n\nExamples:\n  umbraco document-type get blogPost\n  umbraco document-type get blogPost -o json | jq .data > t.json"
+            "Get a document type by alias or id, as the full Management API body.\n\nThe body has its properties, property groups, allowed templates and child types, compositions and list view. The output is a valid 'update --json-body'."
+        ).WithExamples(
+            "umbraco document-type get blogPost",
+            "umbraco document-type get blogPost -o json | jq .data > t.json"
         );
         var idArg = Reference.Argument(EntityKind.DocumentType);
         cmd.Add(idArg);

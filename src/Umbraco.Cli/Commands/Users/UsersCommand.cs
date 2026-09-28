@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Users;
 
@@ -14,10 +15,11 @@ public static class UsersCommand
             "user",
             "Manage Umbraco backoffice users (not front-end members).\n\n"
                 + "Umbraco hides the super-user (the installer's administrator) from every other user, "
-                + "so it is missing from 'user list' and cannot be named unless you are signed in as it.\n\n"
-                + "Examples:\n  umbraco user list\n"
-                + "  umbraco user create --email editor@example.com --name \"John Smith\" --group editor --password <secret>\n"
-                + "  umbraco user get editor@example.com"
+                + "so it is missing from 'user list' and cannot be named unless you are signed in as it."
+        ).WithExamples(
+            "umbraco user list",
+            "umbraco user create --email editor@example.com --name \"John Smith\" --group editor --password <secret>",
+            "umbraco user get editor@example.com"
         );
         cmd.Add(UsersListCommand.Build(executor));
         cmd.Add(UsersGetCommand.Build(executor));

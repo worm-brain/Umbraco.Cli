@@ -16,8 +16,8 @@ public static class ImagingCommand
     {
         var cmd = new Command(
             "imaging",
-            "Generate resized image URLs for media items.\n\nExamples:\n  umbraco imaging resize-urls <id> --width 300 --height 200 --mode Crop"
-        );
+            "Generate resized image URLs for media items."
+        ).WithExamples("umbraco imaging resize-urls <id> --width 300 --height 200 --mode Crop");
         cmd.Add(BuildResizeUrls(executor));
         return cmd;
     }
@@ -26,7 +26,10 @@ public static class ImagingCommand
     {
         var cmd = new Command(
             "resize-urls",
-            "Get resized URLs for one or more media items.\n\nExamples:\n  umbraco imaging resize-urls <id> --width 300\n  umbraco imaging resize-urls <id> <id> --width 300 --height 200 --mode Crop --format webp"
+            "Get resized URLs for one or more media items."
+        ).WithExamples(
+            "umbraco imaging resize-urls <id> --width 300",
+            "umbraco imaging resize-urls <id> <id> --width 300 --height 200 --mode Crop --format webp"
         );
         // Several known targets are a variadic positional (docs/conventions.md 3.3).
         var idOpt = new Argument<Guid[]>("id")

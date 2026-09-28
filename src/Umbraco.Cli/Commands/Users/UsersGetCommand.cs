@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Users;
 
@@ -15,9 +16,11 @@ public static class UsersGetCommand
             "get",
             "Get a backoffice user by id, email or username.\n\n"
                 + "Shows the user's groups (id, alias and name), the sections they grant, start nodes, "
-                + "UI language and login record.\n\n"
-                + "Examples:\n  umbraco user get 3f7a8b2e-...\n  umbraco user get editor@example.com\n"
-                + "  umbraco user get <id> -o json | jq .data.userGroups"
+                + "UI language and login record."
+        ).WithExamples(
+            "umbraco user get 3f7a8b2e-...",
+            "umbraco user get editor@example.com",
+            "umbraco user get <id> -o json | jq .data.userGroups"
         );
         var idArg = Reference.Argument(EntityKind.User);
         cmd.Add(idArg);
