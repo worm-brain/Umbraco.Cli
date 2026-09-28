@@ -181,10 +181,9 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         // Regression for #136: `member create` had no --password, so it sent an empty password
         // that the default complexity policy rejected with HTTP 400. It now generates a compliant
         // password when none is supplied. Create a throwaway member type, then a member with no
-        // --password (the auto-generated path), and read it back.
-        // NOTE: this does not assert `member delete` - that returns HTTP 500 on Umbraco 17.x
-        // (tracked separately); cleanup deletes the member best-effort and relies on the
-        // member-type delete cascading to remove any member of that type.
+        // --password (the auto-generated path), read it back, and delete it: `member delete`
+        // returned HTTP 500 on Umbraco 17.x until #150, so the delete is asserted too, by
+        // re-reading the member and expecting a 404.
         var mtAlias = "clitestMember" + Guid.NewGuid().ToString("N")[..8];
         var memberType = CliRunner.Run(
             "member-type",
@@ -219,12 +218,79 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             var get = CliRunner.Run("member", "get", memberId!);
             Assert.True(get.Ok, get.Stderr);
             Assert.Equal(memberId, get.Data().GetProperty("id").GetString());
+
+            var delete = CliRunner.Run("member", "delete", memberId!, "--yes");
+            Assert.True(delete.Ok, delete.Stderr); // was HTTP 500 on 17.x before #150
+            Assert.True(
+                IsNotFound(CliRunner.Run("member", "get", memberId!)),
+                "member delete reported success but the member can still be read."
+            );
         }
         finally
         {
-            if (memberId is not null)
-                CliRunner.Run("member", "delete", memberId, "--yes");
-            CliRunner.Run("member-type", "delete", memberTypeId!, "--yes");
+            // --force: if an assertion above failed before the member was deleted, the type still
+            // has a member and a plain delete would be refused, stranding both (#269).
+            CliRunner.Run("member-type", "delete", memberTypeId!, "--force", "--yes");
+        }
+    }
+
+    [SkippableFact]
+    public void MemberType_UpdateName_ChangesTheNameAndKeepsTheProperty()
+    {
+        RequireLive();
+
+        // #101: `member-type update` is a raw read-merge-write - GET the type verbatim, patch the
+        // flags' scalars, PUT the whole document back. Unit tests prove the merge against a fake;
+        // only a real server shows that PUT member-type/{id} accepts its own GET body (the GET
+        // carries member-only fields such as isSensitive and visibility) and that a name-only
+        // update leaves the type's properties alone.
+        var alias = ScratchAlias("clitestMtUpdate");
+        var containerId = Guid.NewGuid();
+        var create = CliRunner.RunWithInput(
+            $$"""
+            {
+              "alias": "{{alias}}",
+              "name": "{{alias}}",
+              "icon": "icon-user",
+              "properties": [{
+                "id": "{{Guid.NewGuid()}}",
+                "container": { "id": "{{containerId}}" },
+                "sortOrder": 0,
+                "alias": "nickname",
+                "name": "Nickname",
+                "dataType": { "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae" }
+              }],
+              "containers": [{ "id": "{{containerId}}", "name": "Details", "type": "Group", "sortOrder": 0 }]
+            }
+            """,
+            "member-type",
+            "create",
+            "--json-body",
+            "-"
+        );
+        Assert.True(create.Ok, create.Stderr);
+        var id = create.Data().GetProperty("id").GetString()!;
+        try
+        {
+            // Act
+            var update = CliRunner.Run("member-type", "update", id, "--name", "clitest renamed");
+
+            // Assert: re-read the instance, not the command's echo.
+            Assert.True(update.Ok, update.Stderr);
+            var get = CliRunner.Run("member-type", "get", id);
+            Assert.True(get.Ok, get.Stderr);
+            Assert.Equal("clitest renamed", get.Data().GetProperty("name").GetString());
+            Assert.Equal(
+                new string?[] { "nickname" },
+                get.Data()
+                    .GetProperty("properties")
+                    .EnumerateArray()
+                    .Select(p => p.GetProperty("alias").GetString())
+            );
+        }
+        finally
+        {
+            CliRunner.Run("member-type", "delete", id, "--force", "--yes");
         }
     }
 
