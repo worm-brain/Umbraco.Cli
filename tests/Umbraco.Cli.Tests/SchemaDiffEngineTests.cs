@@ -207,9 +207,9 @@ public class SchemaDiffEngineTests
     }
 
     [Fact]
-    public void Compare_NestedArrayOrderDiffers_IsChanged()
+    public void Compare_NestedArrayOrderDiffers_IsUnchanged()
     {
-        // Arrays are order-sensitive (property order in a doc type is meaningful).
+        // #350: properties are matched by alias; order lives in sortOrder, not array position.
         var id = Guid.NewGuid();
         var desired = JsonNode.Parse(
             $$"""{"id":"{{id}}","alias":"x","properties":[{"alias":"a"},{"alias":"b"}]}"""
@@ -220,7 +220,111 @@ public class SchemaDiffEngineTests
 
         var diff = SchemaDiffEngine.Compare(DocSnapshot(desired), DocSnapshot(current));
 
-        Assert.Single(diff.DocumentTypes.Changed);
+        Assert.Equal(1, diff.DocumentTypes.Unchanged);
+    }
+
+    // ── #350: containers in another order ───────────────────────────────────────
+
+    [Fact]
+    public void Compare_ContainersInAnotherOrder_IsUnchanged()
+    {
+        // Arrange: the order a hand-written snapshot uses vs the order Umbraco returns.
+        var id = Guid.NewGuid();
+        var desired = JsonNode.Parse(
+            $$"""
+            {"id":"{{id}}","alias":"x","containers":[
+              {"id":"c1","parent":null,"name":"Content","type":"Tab","sortOrder":0},
+              {"id":"c2","parent":{"id":"c1"},"name":"Hero","type":"Group","sortOrder":0},
+              {"id":"c3","parent":null,"name":"Settings","type":"Tab","sortOrder":1},
+              {"id":"c4","parent":{"id":"c3"},"name":"Hero","type":"Group","sortOrder":0}]}
+            """
+        )!;
+        var current = JsonNode.Parse(
+            $$"""
+            {"id":"{{id}}","alias":"x","containers":[
+              {"id":"c1","parent":null,"name":"Content","type":"Tab","sortOrder":0},
+              {"id":"c2","parent":{"id":"c1"},"name":"Hero","type":"Group","sortOrder":0},
+              {"id":"c4","parent":{"id":"c3"},"name":"Hero","type":"Group","sortOrder":0},
+              {"id":"c3","parent":null,"name":"Settings","type":"Tab","sortOrder":1}]}
+            """
+        )!;
+
+        // Act
+        var diff = SchemaDiffEngine.Compare(DocSnapshot(desired), DocSnapshot(current));
+
+        // Assert
+        Assert.Equal(1, diff.DocumentTypes.Unchanged);
+    }
+
+    // ── #351: fields a snapshot leaves out, and server-computed fields ───────────
+
+    [Fact]
+    public void Compare_DesiredOmitsATopLevelField_IsUnchanged()
+    {
+        var id = Guid.NewGuid();
+        var desired = JsonNode.Parse($$"""{"id":"{{id}}","alias":"x"}""")!;
+        var current = JsonNode.Parse(
+            $$$"""{"id":"{{{id}}}","alias":"x","cleanup":{"preventCleanup":false}}"""
+        )!;
+
+        var diff = SchemaDiffEngine.Compare(DocSnapshot(desired), DocSnapshot(current));
+
+        Assert.Equal(1, diff.DocumentTypes.Unchanged);
+    }
+
+    [Fact]
+    public void Compare_DesiredOmitsAFieldAndChangesAnother_WritesTheLiveValueForTheOmittedOne()
+    {
+        // Arrange: the update is a full replace, so an omitted field must carry the live value
+        // rather than be reset.
+        var id = Guid.NewGuid();
+        var desired = JsonNode.Parse($$"""{"id":"{{id}}","alias":"x","name":"New"}""")!;
+        var current = JsonNode.Parse(
+            $$$"""{"id":"{{{id}}}","alias":"x","name":"Old","cleanup":{"preventCleanup":true}}"""
+        )!;
+
+        // Act
+        var change = Assert.Single(
+            SchemaDiffEngine
+                .Compare(DocSnapshot(desired), DocSnapshot(current))
+                .DocumentTypes.Changed
+        );
+
+        // Assert
+        Assert.True(change.DesiredBody!["cleanup"]!["preventCleanup"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Compare_DesiredSetsAFieldToNull_IsChanged()
+    {
+        // A field the snapshot names, even as null, is managed.
+        var id = Guid.NewGuid();
+        var desired = JsonNode.Parse($$"""{"id":"{{id}}","alias":"x","description":null}""")!;
+        var current = JsonNode.Parse($$"""{"id":"{{id}}","alias":"x","description":"Live"}""")!;
+
+        var diff = SchemaDiffEngine.Compare(DocSnapshot(desired), DocSnapshot(current));
+
+        Assert.Equal(["description"], Assert.Single(diff.DocumentTypes.Changed).Changes);
+    }
+
+    [Fact]
+    public void Compare_DataTypeServerComputedFlagsDiffer_IsUnchanged()
+    {
+        // isDeletable and canIgnoreStartNodes are computed by the server; no write changes them.
+        var id = Guid.NewGuid();
+        var desired = JsonNode.Parse(
+            $$"""{"id":"{{id}}","name":"Headline","isDeletable":false,"canIgnoreStartNodes":false}"""
+        )!;
+        var current = JsonNode.Parse(
+            $$"""{"id":"{{id}}","name":"Headline","isDeletable":true,"canIgnoreStartNodes":true}"""
+        )!;
+
+        var diff = SchemaDiffEngine.Compare(
+            new SchemaSnapshot { DataTypes = [desired] },
+            new SchemaSnapshot { DataTypes = [current] }
+        );
+
+        Assert.Equal(1, diff.DataTypes.Unchanged);
     }
 
     // ── empty ────────────────────────────────────────────────────────────────────

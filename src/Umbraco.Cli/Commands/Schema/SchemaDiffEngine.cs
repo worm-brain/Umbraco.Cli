@@ -75,11 +75,14 @@ public static class SchemaDiffEngine
         SchemaSnapshot current
     )
     {
+        // A file entry is compared whole (path, content, isFolder): laying live fields under it
+        // would turn a snapshot file into a folder where the live path is one.
         var diff = CompareKind(
             kind.Tag,
             kind.KeyField,
             SchemaStaticFiles.WithImpliedFolders(entries),
-            SchemaStaticFiles.WithImpliedFolders(kind.Section(current) ?? [])
+            SchemaStaticFiles.WithImpliedFolders(kind.Section(current) ?? []),
+            omittedIsUnmanaged: false
         );
 
         var changed = new List<SchemaEntityChange>();
@@ -128,6 +131,11 @@ public static class SchemaDiffEngine
     /// Rewrites a desired body once matching is done, given the snapshot-to-live id pairs: for
     /// same-kind references that must name the target's ids. Null leaves bodies as they are.
     /// </param>
+    /// <param name="omittedIsUnmanaged">
+    /// Whether a top-level field a desired body leaves out is not managed (#351): compared and
+    /// written as the live value (see <see cref="WithUnmanagedFromLive"/>). True for every entity
+    /// kind; false for static files, which are compared whole.
+    /// </param>
     /// <returns>The diff for this kind.</returns>
     private static SchemaKindDiff CompareKind(
         string kind,
@@ -135,7 +143,8 @@ public static class SchemaDiffEngine
         IReadOnlyList<JsonNode> desiredBodies,
         IReadOnlyList<JsonNode> currentBodies,
         Func<JsonNode, string?>? undeletable = null,
-        Func<JsonNode, IReadOnlyDictionary<Guid, Guid>, JsonNode>? rewrite = null
+        Func<JsonNode, IReadOnlyDictionary<Guid, Guid>, JsonNode>? rewrite = null,
+        bool omittedIsUnmanaged = true
     )
     {
         var desired = desiredBodies.Select(b => ToEntry(b, keyField)).ToList();
@@ -228,7 +237,12 @@ public static class SchemaDiffEngine
             rewrite is null ? e : e with { Body = rewrite(e.Body, liveIds) };
 
         foreach (var (d, live, idMismatch) in pairs)
-            Classify(kind, Rewritten(d), live, idMismatch, changed, ref unchanged);
+        {
+            var want = Rewritten(d);
+            if (omittedIsUnmanaged)
+                want = want with { Body = WithUnmanagedFromLive(want.Body, live.Body) };
+            Classify(kind, want, live, idMismatch, changed, ref unchanged);
+        }
         foreach (var d in unmatched)
             added.Add(
                 new SchemaEntityChange(kind, SchemaChangeKind.Added, d.Key, d.Id, null)
@@ -280,10 +294,10 @@ public static class SchemaDiffEngine
     /// <summary>
     /// Classifies a matched desired/live pair as Changed (bodies differ) or Unchanged. A change
     /// carries the desired body (for apply), the live id (the update target) and the paths that
-    /// differ. <see cref="JsonPathDiff"/> is empty exactly when the bodies are
-    /// <see cref="JsonNode.DeepEquals(JsonNode?, JsonNode?)"/> — order-insensitive for object
-    /// members, order-sensitive for arrays — so two <c>GET</c> bodies of the same unchanged entity
-    /// compare equal regardless of the field order the server emitted.
+    /// differ. <see cref="JsonPathDiff"/> ignores object member order and, for arrays of items with
+    /// an identity (properties by alias, containers by id), item order too (#350), so two bodies
+    /// of the same unchanged entity compare equal whatever order they list things in. Server-computed fields
+    /// (<see cref="ServerComputedFields"/>) are left out on both sides (#351).
     /// </summary>
     /// <param name="kind">The entity-kind tag.</param>
     /// <param name="desired">The desired-side entry.</param>
@@ -307,8 +321,15 @@ public static class SchemaDiffEngine
         var compared =
             idMismatch && current.Id is { } liveId
                 ? WithLiveId(desired.Body, liveId)
-                : desired.Body;
-        var changes = JsonPathDiff.Paths(compared, current.Body);
+                : desired.Body.DeepClone();
+        // Fields the server computes are never compared (#351): no write can change them.
+        var live = current.Body.DeepClone();
+        foreach (var field in ServerComputedFields)
+        {
+            (compared as JsonObject)?.Remove(field);
+            (live as JsonObject)?.Remove(field);
+        }
+        var changes = JsonPathDiff.Paths(compared, live);
         if (changes.Count == 0)
         {
             unchanged++;
@@ -330,6 +351,35 @@ public static class SchemaDiffEngine
                 Changes = changes,
             }
         );
+    }
+
+    /// <summary>
+    /// Top-level fields the Management API computes and returns but never takes from a write: a
+    /// data type's <c>isDeletable</c> (whether it is in use or built in) and
+    /// <c>canIgnoreStartNodes</c> (from its editor). They differ across instances and a
+    /// hand-written snapshot leaves them out, so comparing them would report changes no apply can
+    /// make (#351).
+    /// </summary>
+    private static readonly string[] ServerComputedFields = ["isDeletable", "canIgnoreStartNodes"];
+
+    /// <summary>
+    /// The body a matched desired entity is compared and written as (#351): the live body with
+    /// every top-level field of <paramref name="desired"/> laid over it. A field the snapshot
+    /// leaves out (a hand-written entry without <c>cleanup</c>, say) is not managed: it takes the
+    /// live value, so it never shows as a change, and the full-replace update writes the live
+    /// value back rather than resetting it. A field the snapshot has, even as null, is managed.
+    /// Nested fields are not merged: a <c>properties</c> array is the complete list.
+    /// </summary>
+    /// <param name="desired">The desired body (references already rewritten).</param>
+    /// <param name="live">The matched live body.</param>
+    /// <returns>A new merged body, or <paramref name="desired"/> when either side is not an object.</returns>
+    internal static JsonNode WithUnmanagedFromLive(JsonNode desired, JsonNode live)
+    {
+        if (desired is not JsonObject want || live.DeepClone() is not JsonObject merged)
+            return desired;
+        foreach (var (key, value) in want)
+            merged[key] = value?.DeepClone();
+        return merged;
     }
 
     /// <summary>A copy of <paramref name="body"/> whose top-level <c>id</c> is <paramref name="id"/>.</summary>

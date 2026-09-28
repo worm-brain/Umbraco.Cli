@@ -38,7 +38,8 @@ public static class MediaBody
     /// <summary>
     /// Returns a normalised copy of <paramref name="body"/> (the input is not mutated): without the
     /// instance's bookkeeping (<c>isTrashed</c>, <c>flags</c>, variant dates), without the
-    /// file-derived values and the file's <c>src</c>, and with values and variants sorted.
+    /// file-derived values and the file's <c>src</c>, with the media type cut to its <c>id</c>
+    /// (#346: its icon belongs to the schema), and with values and variants sorted.
     /// </summary>
     /// <param name="body">A verbatim media body.</param>
     /// <returns>The normalised clone.</returns>
@@ -50,6 +51,7 @@ public static class MediaBody
 
         foreach (var field in TopLevelNoise)
             item.Remove(field);
+        SnapshotBody.ReduceTypeToId(item, "mediaType");
 
         if (item["variants"] is JsonArray variants)
         {

@@ -79,26 +79,50 @@ public class JsonPathDiffTests
         Assert.Empty(paths);
     }
 
+    // #350: Umbraco carries order in sortOrder, not array position, and returns items in its own
+    // order, so a hand-written snapshot in another order must still compare equal.
     [Fact]
-    public void Paths_ReorderedAliasedItemsMissingANullMember_StillReportsTheArray()
+    public void Paths_ReorderedAliasedItemsMissingANullMember_IsEmpty()
     {
         var paths = Paths(
             """{"properties":[{"alias":"a"},{"alias":"b"}]}""",
             """{"properties":[{"alias":"b","description":null},{"alias":"a"}]}"""
         );
 
-        Assert.Equal(["properties"], paths);
+        Assert.Empty(paths);
     }
 
     [Fact]
-    public void Paths_ReorderedAliasedItems_ReportsTheArray()
+    public void Paths_ReorderedAliasedItems_IsEmpty()
     {
         var paths = Paths(
             """{"properties":[{"alias":"a"},{"alias":"b"}]}""",
             """{"properties":[{"alias":"b"},{"alias":"a"}]}"""
         );
 
-        Assert.Equal(["properties"], paths);
+        Assert.Empty(paths);
+    }
+
+    [Fact]
+    public void Paths_ReorderedItemsWithIds_IsEmpty()
+    {
+        var paths = Paths(
+            """{"containers":[{"id":"c1","name":"Content"},{"id":"c2","name":"Settings"}]}""",
+            """{"containers":[{"id":"c2","name":"Settings"},{"id":"c1","name":"Content"}]}"""
+        );
+
+        Assert.Empty(paths);
+    }
+
+    [Fact]
+    public void Paths_ReorderedItemsWithIdsAndAChange_NamesTheItemById()
+    {
+        var paths = Paths(
+            """{"containers":[{"id":"c1","sortOrder":1},{"id":"c2","sortOrder":0}]}""",
+            """{"containers":[{"id":"c2","sortOrder":0},{"id":"c1","sortOrder":0}]}"""
+        );
+
+        Assert.Equal(["containers[c1].sortOrder"], paths);
     }
 
     [Fact]
