@@ -132,7 +132,7 @@ public interface IUserDataClient
     /// <summary>Creates a user-data entry.</summary>
     /// <param name="request">The entry to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created entry (echoed with its key), or a mapped failure.</returns>
+    /// <returns>The created entry as saved (echoed if the read-back fails), or a mapped failure.</returns>
     Task<UmbracoResponse<UserDataResponse>> CreateUserDataAsync(
         CreateUserDataRequest request,
         CancellationToken ct = default

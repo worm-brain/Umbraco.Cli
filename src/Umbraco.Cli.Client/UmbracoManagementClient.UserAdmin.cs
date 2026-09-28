@@ -464,7 +464,13 @@ public sealed partial class UmbracoManagementClient
                 )
         );
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Creates a user-data entry via <c>POST user-data</c>, then reads it back (#391) so the result
+    /// is what <c>user-data get</c> shows. Only when that read fails is the request echoed.
+    /// </summary>
+    /// <param name="request">The entry to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created entry as saved (or the echoed request), or a mapped failure.</returns>
     public Task<UmbracoResponse<UserDataResponse>> CreateUserDataAsync(
         CreateUserDataRequest request,
         CancellationToken ct = default
@@ -473,7 +479,8 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                // Client-generated key (the 201 body is empty), echoed back to the caller.
+                // Client-generated key, because the 201 body is empty and the key is needed for the
+                // read-back below.
                 var key = request.Key ?? Guid.NewGuid();
                 await _api.Umbraco.Management.Api.V1.UserData.PostAsync(
                     new Gen.CreateUserDataRequestModel
@@ -485,6 +492,24 @@ public sealed partial class UmbracoManagementClient
                     },
                     cancellationToken: ct
                 );
+
+                // #391: read what was saved, so the result is the entry as `user-data get` shows
+                // it (as #354 did for user groups). The item body has no key; use the one sent.
+                try
+                {
+                    if (
+                        await _api
+                            .Umbraco.Management.Api.V1.UserData[key]
+                            .GetAsync(cancellationToken: ct) is
+                        { } saved
+                    )
+                        return MapUserData(key, saved.Group, saved.Identifier, saved.Value);
+                }
+                catch (ApiException)
+                {
+                    // Fall through: the entry exists, only the read-back failed.
+                }
+
                 return MapUserData(key, request.Group, request.Identifier, request.Value);
             }
         );

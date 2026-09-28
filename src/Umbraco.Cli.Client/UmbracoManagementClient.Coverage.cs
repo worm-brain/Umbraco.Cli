@@ -1,3 +1,4 @@
+using Microsoft.Kiota.Abstractions;
 using Gen = Umbraco.Cli.Client.Generated.Models;
 
 namespace Umbraco.Cli.Client;
@@ -62,7 +63,13 @@ public sealed partial class UmbracoManagementClient
             }
         );
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Creates a member group via <c>POST member-group</c>, then reads it back (#391) so the result
+    /// is what <c>member-group get</c> shows. Only when that read fails is the request echoed.
+    /// </summary>
+    /// <param name="request">The group to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created group as saved (or the echoed request), or a mapped failure.</returns>
     public Task<UmbracoResponse<MemberGroupResponse>> CreateMemberGroupAsync(
         CreateMemberGroupRequest request,
         CancellationToken ct = default
@@ -71,13 +78,35 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                // Client-generated id (Umbraco 14+ accepts a supplied GUID); the 201 body is empty,
-                // so echo the created group without a follow-up read.
+                // Client-generated id (Umbraco 14+ accepts a supplied GUID), because the 201 body is
+                // empty and the id is needed for the read-back below.
                 var id = request.Id ?? Guid.NewGuid();
                 await _api.Umbraco.Management.Api.V1.MemberGroup.PostAsync(
                     new Gen.CreateMemberGroupRequestModel { Id = id, Name = request.Name },
                     cancellationToken: ct
                 );
+
+                // #391: read what was saved, so the result is the group as `member-group get`
+                // shows it (as #354 did for user groups).
+                try
+                {
+                    if (
+                        await _api
+                            .Umbraco.Management.Api.V1.MemberGroup[id]
+                            .GetAsync(cancellationToken: ct) is
+                        { } saved
+                    )
+                        return new MemberGroupResponse
+                        {
+                            Id = saved.Id ?? id,
+                            Name = saved.Name ?? "",
+                        };
+                }
+                catch (ApiException)
+                {
+                    // Fall through: the group exists, only the read-back failed.
+                }
+
                 return new MemberGroupResponse { Id = id, Name = request.Name };
             }
         );
