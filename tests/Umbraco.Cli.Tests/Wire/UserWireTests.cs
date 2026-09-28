@@ -243,6 +243,38 @@ public class UserWireTests
     }
 
     [Fact]
+    public async Task UpdateUserAsync_NewEmailWhenUserNameIsTheEmail_MovesTheUserNameToo()
+    {
+        var handler = JaneAndGroups();
+
+        await Wire.Client(handler)
+            .UpdateUserAsync(
+                UserId,
+                new UpdateUserRequest { Email = "jane.roe@example.com" },
+                CancellationToken.None
+            );
+
+        var body = handler.BodyOf(HttpMethod.Put, $"/user/{UserId}");
+        Assert.Equal("jane.roe@example.com", body["userName"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task UpdateUserAsync_NewEmailAndExplicitUserName_KeepsTheGivenUserName()
+    {
+        var handler = JaneAndGroups();
+
+        await Wire.Client(handler)
+            .UpdateUserAsync(
+                UserId,
+                new UpdateUserRequest { Email = "jane.roe@example.com", UserName = "jroe" },
+                CancellationToken.None
+            );
+
+        var body = handler.BodyOf(HttpMethod.Put, $"/user/{UserId}");
+        Assert.Equal("jroe", body["userName"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task UpdateUserAsync_Groups_ReplaceTheUsersGroups()
     {
         var handler = JaneAndGroups();

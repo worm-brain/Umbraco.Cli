@@ -30,7 +30,11 @@ public static class UsersUpdateCommand
         var idArg = Reference.Argument(EntityKind.User);
         var emailOpt = new Option<string?>("--email") { Description = "New email address." };
         var nameOpt = new Option<string?>("--name") { Description = "New display name." };
-        var userNameOpt = new Option<string?>("--username") { Description = "New login name." };
+        var userNameOpt = new Option<string?>("--username")
+        {
+            Description =
+                "New login name. When omitted with --email, a login name equal to the old email follows the new one.",
+        };
         var groupOpt = ListOption.Strings(
             "--group",
             "User groups, by alias, name or id. They REPLACE the user's groups - omit to leave them alone."

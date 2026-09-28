@@ -341,11 +341,26 @@ public sealed partial class UmbracoManagementClient
                         ),
                     ]
                     : current.UserGroupIds ?? [];
+                // A login name that mirrors the email follows a new email, as the backoffice
+                // does: Umbraco's default UsernameIsEmail setting rejects the PUT with
+                // UserNameIsNotEmail otherwise. A distinct login name is left alone.
+                var userName =
+                    request.UserName
+                    ?? (
+                        request.Email is not null
+                        && string.Equals(
+                            current.UserName,
+                            current.Email,
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                            ? request.Email
+                            : current.UserName
+                    );
                 await user.PutAsync(
                     new Gen.UpdateUserRequestModel
                     {
                         Email = request.Email ?? current.Email,
-                        UserName = request.UserName ?? current.UserName,
+                        UserName = userName,
                         Name = request.Name ?? current.Name,
                         UserGroupIds = groups,
                         LanguageIsoCode = request.LanguageIsoCode ?? current.LanguageIsoCode,
