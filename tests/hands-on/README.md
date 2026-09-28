@@ -54,6 +54,23 @@ Open an agent (Claude Code or similar) at the repository root and give it someth
 [`TEST-PLAN.md`](TEST-PLAN.md) says what to test and what counts as a pass. [`LEDGER.md`](LEDGER.md) holds the findings, and
 `tools/file_issues.py` files them as GitHub issues when you ask.
 
+## The dev site (live integration tests)
+
+`dev-site.py` keeps one persistent site, `sites/dev`, for day-to-day development: the live integration suite
+(`tests/Umbraco.Cli.IntegrationTests`) and `scripts/fetch-spec.ps1` use it instead of a hand-built instance.
+
+```bash
+python3 dev-site.py test                  # create sites/dev on first use (Part A fixture content), start it, run the suite
+python3 dev-site.py test --filter "FullyQualifiedName~CommandIntegrationTests"   # extra options go to dotnet test
+python3 dev-site.py up | down             # start / stop it
+python3 dev-site.py env [--shell pwsh]    # host, API-user credentials and UMBRACO_TEST_CONFIG
+python3 dev-site.py reset --umbraco 17.3.5   # rebuild it, optionally on another Umbraco version
+```
+
+It has its own CLI config, `sites/dev/test-config.json` (a single default profile, `dev`). `test` points the suite at it through
+`UMBRACO_TEST_CONFIG` and clears every other `UMBRACO_*` variable for the run, so your own profiles and shell settings are never
+used. Rounds don't touch it: `setup-round.py --replace` only removes `source` and `staging`.
+
 ## Single sites
 
 ```bash
