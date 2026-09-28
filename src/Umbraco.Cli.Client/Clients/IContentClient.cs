@@ -70,11 +70,12 @@ public interface IContentClient
     );
 
     /// <summary>
-    /// The cultures a publish of this document covers, resolved exactly as
-    /// <see cref="PublishContentAsync"/> resolves them: <paramref name="cultures"/> when given,
-    /// otherwise every culture the document varies by (read from the document). Callers pass the
-    /// result straight to <see cref="PublishContentAsync"/> and report it, so what they report is
-    /// what was sent (#325).
+    /// The cultures a publish or unpublish of this document covers, resolved exactly as
+    /// <see cref="PublishContentAsync"/> and <see cref="UnpublishContentAsync"/> resolve them:
+    /// <paramref name="cultures"/> when given, otherwise every culture the document varies by
+    /// (read from the document). Callers pass the result straight to the publish or unpublish and
+    /// report it, so what they report is what was sent (#325). A document read that answers 200
+    /// with no body fails as a 404 (#119) rather than passing for an invariant document.
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">The cultures asked for; null/empty means every culture the document has.</param>
@@ -108,6 +109,16 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Unpublishes a document. With no cultures named, a document that varies by culture is
+    /// unpublished in every culture it has (listed, since Umbraco has no wildcard), and an invariant
+    /// document is unpublished whole; the cultures are resolved as <see cref="PublishCulturesAsync"/>
+    /// resolves them.
+    /// </summary>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">Cultures to unpublish; null/empty unpublishes every culture the document has.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure (a 404 when the document cannot be read).</returns>
     Task<UmbracoResponse<Empty>> UnpublishContentAsync(
         Guid id,
         IEnumerable<string>? cultures = null,

@@ -1,4 +1,6 @@
 using System.CommandLine;
+using System.Text.Json.Serialization;
+using Umbraco.Cli.Client;
 using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content;
@@ -39,16 +41,10 @@ public static class ContentUnpublishCommand
             (parseResult, ct) =>
             {
                 var cultures = parseResult.GetValue(culturesOpt);
+                var id = parseResult.GetValue(idArg);
                 return executor.RunMessageAsync(
                     parseResult,
-                    (client, c) =>
-                        client
-                            .UnpublishContentAsync(
-                                parseResult.GetValue(idArg),
-                                cultures?.Length > 0 ? cultures : null,
-                                c
-                            )
-                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
+                    (client, c) => UnpublishAsync(client, id, cultures, c),
                     "Content item unpublished.",
                     ct
                 );
@@ -57,4 +53,53 @@ public static class ContentUnpublishCommand
 
         return cmd;
     }
+
+    /// <summary>
+    /// Resolves the cultures the unpublish covers, unpublishes exactly those, and reports them -
+    /// the unpublish side of #325. With no <c>--culture</c> a variant document is unpublished in
+    /// every culture it has, so the result names them rather than leaving the field out. The
+    /// cultures come from the same resolver as <c>content publish</c>
+    /// (<see cref="IContentClient.PublishCulturesAsync"/>), so the two commands report alike.
+    /// </summary>
+    /// <param name="client">The Management API client.</param>
+    /// <param name="id">The content item id.</param>
+    /// <param name="cultures">The cultures named with <c>--culture</c>, if any.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The unpublish result, or the failure of resolving the cultures or of the unpublish.</returns>
+    internal static async Task<UmbracoResponse<UnpublishResult>> UnpublishAsync(
+        IUmbracoManagementClient client,
+        Guid id,
+        string[]? cultures,
+        CancellationToken ct
+    )
+    {
+        // A document that cannot be read (including an empty 200, #119) fails here, before any
+        // unpublish is sent.
+        var scope = await client.PublishCulturesAsync(
+            id,
+            cultures is { Length: > 0 } ? cultures : null,
+            ct
+        );
+        if (!scope.IsSuccess)
+            return UmbracoResponse<UnpublishResult>.FailureFrom(scope);
+
+        // Empty means an invariant document: it is unpublished whole, and says so with a null.
+        var named = scope.Data is { Count: > 0 } list ? list : null;
+        return await client
+            .UnpublishContentAsync(id, named, ct)
+            .Then(new UnpublishResult(id.ToString(), named));
+    }
+
+    /// <summary>
+    /// The data of an unpublish: the item and the cultures taken offline. <c>cultures</c> is always
+    /// written (#325): an absent field means "unknown" in this CLI's output contract, so the null
+    /// of an invariant document is written out rather than dropped.
+    /// </summary>
+    /// <param name="Id">The content item's id.</param>
+    /// <param name="Cultures">The cultures unpublished; null for an invariant document, which has none.</param>
+    internal sealed record UnpublishResult(
+        string Id,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+            IReadOnlyList<string>? Cultures
+    );
 }

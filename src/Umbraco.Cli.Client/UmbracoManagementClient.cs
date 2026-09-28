@@ -585,7 +585,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// The cultures a publish of a document covers (#325); see <see cref="IContentClient.PublishCulturesAsync"/>.
+    /// The cultures a publish or unpublish of a document covers (#325); see
+    /// <see cref="IContentClient.PublishCulturesAsync"/>.
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">Cultures to publish; null/empty publishes every culture the document has.</param>
@@ -602,14 +603,16 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         );
 
     /// <summary>
-    /// The one place a publish's cultures are resolved, shared by <see cref="PublishCulturesAsync"/>
-    /// and <see cref="PublishContentAsync"/> so they cannot disagree: the named cultures, else the
+    /// The one place a publish's or unpublish's cultures are resolved, shared by
+    /// <see cref="PublishCulturesAsync"/>, <see cref="PublishContentAsync"/> and
+    /// <see cref="UnpublishContentAsync"/> so they cannot disagree: the named cultures, else the
     /// document's own (none for an invariant document).
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">The cultures asked for; null/empty reads the document.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The culture codes; empty for an invariant document.</returns>
+    /// <exception cref="ApiException">A 404 when the document read answers 200 with no body (#119).</exception>
     private async Task<List<string>> ResolvePublishCulturesAsync(
         Guid id,
         IEnumerable<string>? cultures,
@@ -707,16 +710,14 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             ct,
             async () =>
             {
-                var requested = cultures?.ToList();
-                if (requested is not { Count: > 0 })
+                // Resolved by the same step as publish, so what `content unpublish` reports (via
+                // PublishCulturesAsync) is what is sent. Nothing named: a variant document needs
+                // its cultures listed, an invariant one (no named cultures) needs the field omitted.
+                var named = await ResolvePublishCulturesAsync(id, cultures, ct);
+                var body = new Gen.UnpublishDocumentRequestModel
                 {
-                    // Nothing named: a variant document needs its cultures listed, an invariant
-                    // one (no named cultures) needs the field omitted.
-                    var named = await DocumentCulturesAsync(id, ct);
-                    requested = named.Count > 0 ? named : null;
-                }
-
-                var body = new Gen.UnpublishDocumentRequestModel { Cultures = requested };
+                    Cultures = named.Count > 0 ? named : null,
+                };
                 await _api
                     .Umbraco.Management.Api.V1.Document[id]
                     .Unpublish.PutAsync(body, cancellationToken: ct);

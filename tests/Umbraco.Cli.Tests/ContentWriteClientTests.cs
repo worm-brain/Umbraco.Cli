@@ -288,7 +288,11 @@ public class ContentWriteClientTests
     public async Task PublishContentAsync_WithSchedule_SendsPublishAndUnpublishTimes()
     {
         var id = Guid.NewGuid();
-        var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
+        // The document read answers with a real invariant document (one null-culture variant):
+        // an empty 200 is a 404 (#119), not "invariant".
+        var handler = Wire.Existing(
+            $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"Home"}]}"""
+        );
         var client = Wire.Client(handler);
         var publishAt = DateTimeOffset.Parse("2026-01-01T09:00:00Z");
         var unpublishAt = DateTimeOffset.Parse("2026-02-01T18:30:00Z");
@@ -377,7 +381,11 @@ public class ContentWriteClientTests
     public async Task UnpublishContentAsync_NoCultures_OmitsCulturesSoInvariantDocsUnpublish()
     {
         var id = Guid.NewGuid();
-        var handler = new RoutingHandler().When(_ => true, HttpStatusCode.OK, "");
+        // The document read answers with a real invariant document (one null-culture variant):
+        // an empty 200 is a 404 (#119), not "invariant".
+        var handler = Wire.Existing(
+            $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"Home"}]}"""
+        );
         var client = Wire.Client(handler);
 
         var result = await client.UnpublishContentAsync(id, null, CancellationToken.None);

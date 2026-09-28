@@ -291,6 +291,83 @@ public class PublishScheduleCommandTests
         Assert.Equal((1, 0), (exit, fake.StateCalls.Count));
     }
 
+    // ── unpublish reports its cultures too (the unpublish side of #325) ────────
+
+    /// <summary>A fake whose unpublish succeeds, for a document with the given cultures (none = invariant).</summary>
+    /// <param name="cultures">The document's cultures; none means an invariant document.</param>
+    /// <returns>The configured fake.</returns>
+    private static FakeUmbracoManagementClient Unpublishable(params string[] cultures) =>
+        new()
+        {
+            UnpublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+            PublishCulturesHandler = _ => UmbracoResponse<IReadOnlyList<string>>.Success(cultures),
+        };
+
+    [Fact]
+    public async Task Unpublish_VariantDocumentWithoutCulture_DataListsEveryCulture()
+    {
+        var data = await DataOf(
+            Unpublishable("en-US", "da-DK"),
+            $"{Auth} content unpublish {Guid.NewGuid()} --yes"
+        );
+
+        Assert.Equal(
+            ["en-US", "da-DK"],
+            data.GetProperty("cultures").EnumerateArray().Select(c => c.GetString())
+        );
+    }
+
+    [Fact]
+    public async Task Unpublish_VariantDocumentWithoutCulture_UnpublishesTheCulturesItReports()
+    {
+        var fake = Unpublishable("en-US", "da-DK");
+
+        await DataOf(fake, $"{Auth} content unpublish {Guid.NewGuid()} --yes");
+
+        Assert.Equal(["en-US", "da-DK"], fake.StateCalls.Single().Cultures);
+    }
+
+    [Fact]
+    public async Task Unpublish_WithCulture_DataListsOnlyTheNamedCultures()
+    {
+        var data = await DataOf(
+            Unpublishable("en-US", "da-DK"),
+            $"{Auth} content unpublish {Guid.NewGuid()} --culture da-DK --yes"
+        );
+
+        Assert.Equal(
+            ["da-DK"],
+            data.GetProperty("cultures").EnumerateArray().Select(c => c.GetString())
+        );
+    }
+
+    [Fact]
+    public async Task Unpublish_InvariantDocument_DataCarriesNullCultures()
+    {
+        // Present and null, not absent: an absent field means "unknown" in the output contract.
+        var data = await DataOf(
+            Unpublishable(),
+            $"{Auth} content unpublish {Guid.NewGuid()} --yes"
+        );
+
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, data.GetProperty("cultures").ValueKind);
+    }
+
+    [Fact]
+    public async Task Unpublish_CulturesCannotBeRead_FailsWithoutUnpublishing()
+    {
+        var fake = new FakeUmbracoManagementClient
+        {
+            UnpublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+            PublishCulturesHandler = _ =>
+                UmbracoResponse<IReadOnlyList<string>>.Failure(404, "Content item not found"),
+        };
+
+        var exit = await Run(BuildRoot(fake), $"{Auth} content unpublish {Guid.NewGuid()} --yes");
+
+        Assert.Equal((1, 0), (exit, fake.StateCalls.Count));
+    }
+
     [Fact]
     public async Task PublishDescendants_Wait_ThreadsWaitFlag()
     {

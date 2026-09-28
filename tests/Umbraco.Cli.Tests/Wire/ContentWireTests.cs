@@ -116,7 +116,11 @@ public class ContentWireTests
     public async Task UnpublishContentAsync_NoCultures_OmitsTheCulturesField()
     {
         var id = Guid.NewGuid();
-        var handler = Wire.Blank();
+        // The document read answers with a real invariant document (one null-culture variant):
+        // an empty 200 is a 404 (#119), not "invariant".
+        var handler = Wire.Existing(
+            $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"Home"}]}"""
+        );
 
         await Wire.Client(handler).UnpublishContentAsync(id, ct: CancellationToken.None);
 

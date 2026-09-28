@@ -192,7 +192,7 @@ umbraco content create --example --document-type <alias> [--name <name>] [--cult
 umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default; --replace needs --yes
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
 umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; no --culture publishes every culture the item has
-umbraco content unpublish <id> [--culture <csv>]          # takes offline; needs --yes; no --culture = every culture
+umbraco content unpublish <id> [--culture <csv>]          # takes offline; needs --yes; no --culture = every culture; data.cultures lists them (null if invariant)
 umbraco content version list <id> [--culture <code>]           # version history; no --culture = every culture, rows tagged `culture`
 umbraco content version get <id>                           # one version (its id from version list), values included
 umbraco content version rollback <id> [--culture <code>] [--publish]   # draft only unless --publish; see below
