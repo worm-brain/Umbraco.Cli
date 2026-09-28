@@ -5450,7 +5450,7 @@
         },
         {
           "name": "update",
-          "description": "Update a script's content (by path).\n\nExamples:\n  umbraco script update site.js --content-file ./site.js\n  cat ./site.js | umbraco script update folder/site.js --content-file -",
+          "description": "Update a script's content or name (by path).\n\n--name renames the file in its folder; give the new name with its extension.\n\nExamples:\n  umbraco script update site.js --content-file ./site.js\n  cat ./site.js | umbraco script update folder/site.js --content-file -\n  umbraco script update folder/site.js --name main.js",
           "arguments": [
             {
               "name": "path",
@@ -5461,6 +5461,14 @@
             }
           ],
           "options": [
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New file name, including its extension. Renames the file in its folder.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
             {
               "name": "--content",
               "aliases": [],
@@ -5484,7 +5492,8 @@
           "acceptsJsonBody": false,
           "examples": [
             "umbraco script update site.js --content-file ./site.js",
-            "cat ./site.js | umbraco script update folder/site.js --content-file -"
+            "cat ./site.js | umbraco script update folder/site.js --content-file -",
+            "umbraco script update folder/site.js --name main.js"
           ]
         },
         {
@@ -5710,7 +5719,7 @@
         },
         {
           "name": "update",
-          "description": "Update a stylesheet's content (by path).\n\nExamples:\n  umbraco stylesheet update site.css --content-file ./site.css\n  cat ./site.css | umbraco stylesheet update folder/site.css --content-file -",
+          "description": "Update a stylesheet's content or name (by path).\n\n--name renames the file in its folder; give the new name with its extension.\n\nExamples:\n  umbraco stylesheet update site.css --content-file ./site.css\n  cat ./site.css | umbraco stylesheet update folder/site.css --content-file -\n  umbraco stylesheet update folder/site.css --name main.css",
           "arguments": [
             {
               "name": "path",
@@ -5721,6 +5730,14 @@
             }
           ],
           "options": [
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New file name, including its extension. Renames the file in its folder.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
             {
               "name": "--content",
               "aliases": [],
@@ -5744,7 +5761,8 @@
           "acceptsJsonBody": false,
           "examples": [
             "umbraco stylesheet update site.css --content-file ./site.css",
-            "cat ./site.css | umbraco stylesheet update folder/site.css --content-file -"
+            "cat ./site.css | umbraco stylesheet update folder/site.css --content-file -",
+            "umbraco stylesheet update folder/site.css --name main.css"
           ]
         },
         {
@@ -5970,7 +5988,7 @@
         },
         {
           "name": "update",
-          "description": "Update a partial-view's content (by path).\n\nExamples:\n  umbraco partial-view update card.cshtml --content-file ./card.cshtml\n  cat ./card.cshtml | umbraco partial-view update folder/card.cshtml --content-file -",
+          "description": "Update a partial-view's content or name (by path).\n\n--name renames the file in its folder; give the new name with its extension.\n\nExamples:\n  umbraco partial-view update card.cshtml --content-file ./card.cshtml\n  cat ./card.cshtml | umbraco partial-view update folder/card.cshtml --content-file -\n  umbraco partial-view update folder/card.cshtml --name tile.cshtml",
           "arguments": [
             {
               "name": "path",
@@ -5981,6 +5999,14 @@
             }
           ],
           "options": [
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New file name, including its extension. Renames the file in its folder.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
             {
               "name": "--content",
               "aliases": [],
@@ -6004,7 +6030,8 @@
           "acceptsJsonBody": false,
           "examples": [
             "umbraco partial-view update card.cshtml --content-file ./card.cshtml",
-            "cat ./card.cshtml | umbraco partial-view update folder/card.cshtml --content-file -"
+            "cat ./card.cshtml | umbraco partial-view update folder/card.cshtml --content-file -",
+            "umbraco partial-view update folder/card.cshtml --name tile.cshtml"
           ]
         },
         {

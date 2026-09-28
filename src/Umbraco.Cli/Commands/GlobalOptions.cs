@@ -13,6 +13,20 @@ namespace Umbraco.Cli.Commands;
 /// </summary>
 public sealed class GlobalOptions
 {
+    /// <summary>The values <c>--output</c> accepts, in the order tab completion offers them.</summary>
+    public static readonly IReadOnlyList<string> OutputFormats = ["json", "human", "csv"];
+
+    /// <summary>
+    /// Creates the global options. <c>--output</c> gets its values as completions (#379), so
+    /// <c>umbraco -o &lt;TAB&gt;</c> offers them instead of file names. They are completions
+    /// only, not a parse-time restriction: the value is still read case-insensitively by
+    /// <see cref="OutputFormatParser"/>.
+    /// </summary>
+    public GlobalOptions()
+    {
+        Output.CompletionSources.Add([.. OutputFormats]);
+    }
+
     public Option<string?> Host { get; } =
         new("--host", new[] { "-H" })
         {

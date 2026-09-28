@@ -271,7 +271,16 @@ public static class StaticFileCommand
         return cmd;
     }
 
-    /// <summary>Builds the <c>update</c> verb (replaces content; content is required).</summary>
+    /// <summary>
+    /// Builds the <c>update</c> verb: replaces the content, renames the file with <c>--name</c>
+    /// (#365), or both. The file stays in its folder; the result is the file as <c>get</c> shows
+    /// it at its (possibly new) path.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="kind">Which static-file resource.</param>
+    /// <param name="noun">The command name.</param>
+    /// <param name="humanName">The singular human name for the confirmation message.</param>
+    /// <returns>The command.</returns>
     private static Command BuildUpdate(
         CommandExecutor executor,
         StaticFileKind kind,
@@ -279,15 +288,25 @@ public static class StaticFileCommand
         string humanName
     )
     {
-        var cmd = new Command("update", $"Update a {noun}'s content (by path).")
+        var cmd = new Command(
+            "update",
+            $"Update a {noun}'s content or name (by path).\n\n"
+                + "--name renames the file in its folder; give the new name with its extension."
+        )
             .WithExamples(
                 $"umbraco {noun} update {SampleFile(noun)} --content-file ./{SampleFile(noun)}",
-                $"cat ./{SampleFile(noun)} | umbraco {noun} update folder/{SampleFile(noun)} --content-file -"
+                $"cat ./{SampleFile(noun)} | umbraco {noun} update folder/{SampleFile(noun)} --content-file -",
+                $"umbraco {noun} update folder/{SampleFile(noun)} --name {RenamedSampleFile(noun)}"
             )
             .Mutating();
         var pathArg = new Argument<string>("path") { Description = "The file path." };
+        var nameOpt = new Option<string?>("--name")
+        {
+            Description = "New file name, including its extension. Renames the file in its folder.",
+        };
         var (contentOpt, contentFileOpt) = FileContentInput.Options();
         cmd.Add(pathArg);
+        cmd.Add(nameOpt);
         cmd.Add(contentOpt);
         cmd.Add(contentFileOpt);
         cmd.SetAction(
@@ -302,22 +321,36 @@ public static class StaticFileCommand
                             contentFileOpt,
                             c
                         );
-                        // Update replaces content, so content is mandatory (unlike create's
-                        // default). Missing input is the caller's to fix: invalid_argument.
-                        if (content is null)
+                        var name = parseResult.GetValue(nameOpt);
+                        // Nothing to change is the caller's to fix: invalid_argument, and no
+                        // request is sent.
+                        if (content is null && string.IsNullOrWhiteSpace(name))
                             throw new InvalidInputException(
-                                "Provide --content or --content-file to update the file."
+                                "Provide --content, --content-file or --name to update the file."
                             );
                         var path = parseResult.GetValue(pathArg)!;
-                        // An update's data is the resulting file, as get shows it.
-                        return await client
-                            .UpdateStaticFileAsync(
+
+                        // Content first, at the path the caller named, then the rename; each step
+                        // runs only when the one before succeeded.
+                        var write = content is null
+                            ? Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value))
+                            : client.UpdateStaticFileAsync(
                                 kind,
                                 path,
                                 new UpdateStaticFileRequest { Content = content },
                                 c
-                            )
-                            .ThenRead(() => client.GetStaticFileAsync(kind, path, c));
+                            );
+                        if (!string.IsNullOrWhiteSpace(name))
+                        {
+                            var oldPath = path;
+                            write = write.ThenRead(() =>
+                                client.RenameStaticFileAsync(kind, oldPath, name, c)
+                            );
+                            path = UmbracoManagementClient.RenamedPath(path, name);
+                        }
+
+                        // An update's data is the resulting file, as get shows it.
+                        return await write.ThenRead(() => client.GetStaticFileAsync(kind, path, c));
                     },
                     $"{humanName} updated.",
                     ct
@@ -325,6 +358,17 @@ public static class StaticFileCommand
         );
         return cmd;
     }
+
+    /// <summary>A second sample file name, for the rename example in <c>update</c>'s help.</summary>
+    /// <param name="noun">The command name (<c>script</c>, <c>stylesheet</c> or <c>partial-view</c>).</param>
+    /// <returns>A sample file name different from <see cref="SampleFile"/>'s.</returns>
+    private static string RenamedSampleFile(string noun) =>
+        noun switch
+        {
+            "script" => "main.js",
+            "stylesheet" => "main.css",
+            _ => "tile.cshtml",
+        };
 
     /// <summary>Builds the <c>delete</c> verb (destructive; gated by confirmation).</summary>
     private static Command BuildDelete(

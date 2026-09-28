@@ -151,7 +151,10 @@ umbraco completion pwsh                 # prints a PowerShell completion script
 
 Tab-completes nouns, verbs, options and fixed option values. The script asks the installed CLI
 for suggestions each time (through System.CommandLine's `[suggest]` directive), so it follows
-the tree across upgrades and needs nothing else installed. Local; no host or auth.
+the tree across upgrades and needs nothing else installed. Local; no host or auth. The script
+runs the command as you typed it (`./umbraco`, a path to a build), not whichever `umbraco` is
+first on `PATH`; to complete a wrapper script too, register the same function for its name (the
+script's header shows how).
 
 | Shell | Install |
 |---|---|
@@ -896,8 +899,10 @@ be read ([#234](https://github.com/worm-brain/Umbraco.Cli/issues/234)).
 ## `script` / `stylesheet` / `partial-view` (static files)
 
 The three static-file resources share the same path-addressed verbs. Files are identified by
-**path** (not an id); `update` replaces the content only. Give `--content` or `--content-file`
-(`-` for stdin), not both. Paths are Umbraco's form, with a leading `/` (`/blocklist/site.css`),
+**path** (not an id); `update` replaces the content, renames the file in its folder with
+`--name` (the new name with its extension), or both, and returns the file at its new path.
+Umbraco has no rename for folders. Give `--content` or `--content-file` (`-` for stdin), not
+both. Paths are Umbraco's form, with a leading `/` (`/blocklist/site.css`),
 in every output: `create` reads the new file back, so its `path` matches `list` and `get`.
 `--parent` takes the folder with or without the slashes (`blocklist`, `/blocklist/`). The three
 nouns are spelled out below so each is complete on its own.
@@ -907,7 +912,7 @@ nouns are spelled out below so each is complete on its own.
 umbraco script list [--parent <folder>]                    # tree root, or a folder's children
 umbraco script get <path>                                  # includes the file content
 umbraco script create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
-umbraco script update <path> [--content <text> | --content-file <file>]
+umbraco script update <path> [--content <text> | --content-file <file>] [--name <file>]   # --name renames it
 umbraco script delete <path>                               # needs --yes non-interactively
 umbraco script folder create --name <name> [--parent <folder>]   # a folder a file can go in
 umbraco script folder delete <path>                        # an empty folder; needs --yes non-interactively
@@ -916,7 +921,7 @@ umbraco script folder delete <path>                        # an empty folder; ne
 umbraco stylesheet list [--parent <folder>]
 umbraco stylesheet get <path>
 umbraco stylesheet create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
-umbraco stylesheet update <path> [--content <text> | --content-file <file>]
+umbraco stylesheet update <path> [--content <text> | --content-file <file>] [--name <file>]
 umbraco stylesheet delete <path>                           # needs --yes non-interactively
 umbraco stylesheet folder create --name <name> [--parent <folder>]
 umbraco stylesheet folder delete <path>                    # an empty folder; needs --yes non-interactively
@@ -925,7 +930,7 @@ umbraco stylesheet folder delete <path>                    # an empty folder; ne
 umbraco partial-view list [--parent <folder>]
 umbraco partial-view get <path>
 umbraco partial-view create --name <file> [--parent <folder>] [--content <text> | --content-file <file>]
-umbraco partial-view update <path> [--content <text> | --content-file <file>]
+umbraco partial-view update <path> [--content <text> | --content-file <file>] [--name <file>]
 umbraco partial-view delete <path>                         # needs --yes non-interactively
 umbraco partial-view folder create --name <name> [--parent <folder>]   # e.g. --name Components --parent blocklist
 umbraco partial-view folder delete <path>                  # an empty folder; needs --yes non-interactively
