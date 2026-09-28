@@ -85,12 +85,19 @@ in `meta`:
 ```
 
 In a terminal a truncated list also prints a hint to stderr. Page with `--skip`/`--take` until
-`hasMore` is false.
+`hasMore` is false, or pass `--all` to have the CLI do it.
+
+`--all` reads page after page until the collection is exhausted and returns the whole list, with
+`meta` saying so (`total` is the item count, `skip: 0`, `hasMore: false`). It stops at 10,000
+items with an `invalid_argument` error rather than returning a truncated list, and it cannot be
+combined with `--skip` or `--take` (a parse error, not a silent precedence):
+
+```bash
+umbraco data-type list --all
+```
 
 `total` and `hasMore` are **omitted when the source cannot count** - an absent `hasMore` means
-"unknown", not "no", so do not read a missing `total` as a complete list. There is no `--all`
-yet ([#196](https://github.com/worm-brain/Umbraco.Cli/issues/196)); it is deliberately not
-faked with a large `--take`, which would be the same silent cap further out.
+"unknown", not "no", so do not read a missing `total` as a complete list.
 
 ---
 
@@ -151,7 +158,7 @@ Run it first in any new environment. See [getting-started.md](getting-started.md
 ## `content`
 
 ```bash
-umbraco content list [--parent <id>] [--skip <n>] [--take <n>]
+umbraco content list [--parent <id>] [--skip <n>] [--take <n>] [--all]
 umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; each row carries depth + parentId (cap 50)
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco content get <id>                                   # every field of GET /document/{id} (documentType, values, variants, schedule dates, isTrashed, flags) plus name, parent, urls
@@ -443,7 +450,7 @@ type. `get`/`scaffold` return raw JSON (full fidelity); `create` takes flags, a 
 `--from-document`, and `update` merges like `content update`.
 
 ```bash
-umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>]   # --parent lists a folder's children
+umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>] [--all]   # --parent lists a folder's children
 umbraco document-blueprint get <id>                        # raw JSON (full fidelity) plus top-level name and parent
 umbraco document-blueprint scaffold <id>                   # pre-filled create body; pipe it into content create --json-body -
 umbraco document-blueprint create --document-type <alias|id> --name <name> [--culture <code>] [--parent <folder>] [--id <guid>]
@@ -593,7 +600,7 @@ umbraco data-type update <name|id> --json-body <file> [--replace]   # merged; th
 umbraco data-type create --schema | --example             # the body's JSON Schema (offline), or a real data type (needs a host)
 umbraco data-type delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-type is-used <id|name>                       # whether any content type uses it
-umbraco data-type referenced-by <id|name> [--skip <n>] [--take <n>]   # a list; each row's `kind` says what it is
+umbraco data-type referenced-by <id|name> [--skip <n>] [--take <n>] [--all]   # a list; each row's `kind` says what it is
 umbraco data-type copy <id|name> [--parent <folder>]      # omit --parent to copy to the root; returns the copy; --target works too
 umbraco data-type move <id|name> [--parent <folder>]      # omit --parent to move to the root; --target works too
 
@@ -728,7 +735,7 @@ other.
 Key/value data scoped to the **authenticated** user.
 
 ```bash
-umbraco user-data list [--group <group>] [--identifier <id>] [--skip <n>] [--take <n>]
+umbraco user-data list [--group <group>] [--identifier <id>] [--skip <n>] [--take <n>] [--all]
 umbraco user-data get <id>
 umbraco user-data create --group <group> --identifier <id> --data <value> [--id <guid>]
 umbraco user-data update <id> [--group <group>] [--identifier <id>] [--data <value>]   # omitted fields are kept
@@ -840,7 +847,7 @@ umbraco server troubleshooting                             # troubleshooting ite
 ## `health`
 
 ```bash
-umbraco health list [--skip <n>] [--take <n>]              # health-check groups
+umbraco health list [--skip <n>] [--take <n>] [--all]              # health-check groups
 umbraco health get <group>                                 # a group and the checks it contains
 umbraco health run <group>                                 # run the group (POST, so blocked by --readonly)
 ```
@@ -848,13 +855,13 @@ umbraco health run <group>                                 # run the group (POST
 ## `log-viewer`
 
 ```bash
-umbraco log-viewer list [--level <Verbose|Debug|Information|Warning|Error|Fatal>]... [--filter <expr>] [--start-date <date>] [--end-date <date>] [--skip <n>] [--take <n>] [--asc]
-umbraco log-viewer levels [--skip <n>] [--take <n>]        # loggers and their minimum levels
+umbraco log-viewer list [--level <Verbose|Debug|Information|Warning|Error|Fatal>]... [--filter <expr>] [--start-date <date>] [--end-date <date>] [--skip <n>] [--take <n>] [--all] [--asc]
+umbraco log-viewer levels [--skip <n>] [--take <n>] [--all]        # loggers and their minimum levels
 umbraco log-viewer level-count [--start-date <date>] [--end-date <date>]   # message counts by level
-umbraco log-viewer message-templates [--skip <n>] [--take <n>] [--start-date <date>] [--end-date <date>]
+umbraco log-viewer message-templates [--skip <n>] [--take <n>] [--all] [--start-date <date>] [--end-date <date>]
 
 # saved-search sub-noun:
-umbraco log-viewer saved-search list [--skip <n>] [--take <n>]
+umbraco log-viewer saved-search list [--skip <n>] [--take <n>] [--all]
 umbraco log-viewer saved-search create --name <name> --query <query>
 umbraco log-viewer saved-search delete <name>              # needs --yes non-interactively
 ```
@@ -886,7 +893,7 @@ umbraco manifest list [--scope All|Public|Private]         # default: All
 ## `redirect`
 
 ```bash
-umbraco redirect list [--content-item <id>] [--filter <s>] [--skip <n>] [--take <n>]   # --content-item lists redirects to that document
+umbraco redirect list [--content-item <id>] [--filter <s>] [--skip <n>] [--take <n>] [--all]   # --content-item lists redirects to that document
 umbraco redirect delete <id>                               # needs --yes non-interactively
 umbraco redirect tracking status                           # whether automatic URL-redirect tracking is enabled
 umbraco redirect tracking enable                           # site-wide toggle; returns the status after
@@ -900,20 +907,20 @@ accepts the request and can leave tracking as it was, because it is set by confi
 ## `relation-type` / `relation` (read-only)
 
 ```bash
-umbraco relation-type list [--skip <n>] [--take <n>]
+umbraco relation-type list [--skip <n>] [--take <n>] [--all]
 umbraco relation-type get <id|alias>
-umbraco relation list --relation-type <id|alias> [--skip <n>] [--take <n>]   # relations are listed only by relation type
+umbraco relation list --relation-type <id|alias> [--skip <n>] [--take <n>] [--all]   # relations are listed only by relation type
 ```
 
 ## `indexer` / `searcher`
 
 ```bash
-umbraco indexer list [--skip <n>] [--take <n>]             # Examine indexes, with health + document counts
+umbraco indexer list [--skip <n>] [--take <n>] [--all]             # Examine indexes, with health + document counts
 umbraco indexer get <name>
 umbraco indexer rebuild <name>                             # expensive (POST, --readonly-blocked); not gated - nothing is lost
 
-umbraco searcher list [--skip <n>] [--take <n>]            # registered multi-searchers; often empty (Umbraco 17)
-umbraco searcher query <index|searcher> --term <term> [--skip <n>] [--take <n>]   # e.g. ExternalIndex; an index's searcherName is mapped to the index
+umbraco searcher list [--skip <n>] [--take <n>] [--all]            # registered multi-searchers; often empty (Umbraco 17)
+umbraco searcher query <index|searcher> --term <term> [--skip <n>] [--take <n>] [--all]   # e.g. ExternalIndex; an index's searcherName is mapped to the index
 ```
 
 ## `imaging` (read-only)

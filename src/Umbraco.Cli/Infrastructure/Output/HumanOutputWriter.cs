@@ -52,7 +52,7 @@ public sealed class HumanOutputWriter : IOutputWriter
             && paging is { Total: { } total, Skip: { } skip }
         )
             Console.Error.WriteLine(
-                $"Showing {skip + items.Count} of {total}. Use --skip/--take to page."
+                $"Showing {skip + items.Count} of {total}. Use --skip/--take to page, or --all."
             );
     }
 

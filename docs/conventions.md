@@ -66,7 +66,7 @@ disagree, this file wins; the older document is rationale that may be out of dat
    | Parent / placement target | `--parent` (alias `--target` on placement verbs) |
    | ISO culture code | `--culture` (repeatable when several are allowed) |
    | A type reference | `--document-type`, `--media-type`, `--member-type`, `--relation-type`; `--type` only where any kind of type is accepted |
-   | Paging | `--skip` (default 0), `--take` (default 100) |
+   | Paging | `--skip` (default 0), `--take` (default 100), `--all` (every page) |
    | Idempotent create | `--id <guid>` |
    | Request body | `--json-body <file\|->`, with `--schema` (its JSON Schema) and, where a schema cannot say enough, `--example` (a real one from the instance) |
    | Output file | `--out` / `-O` |
@@ -101,6 +101,9 @@ disagree, this file wins; the older document is rationale that may be out of dat
      check runs before the confirmation prompt.
 3. **Paging:** every paged command uses the shared `PagingOptions`, and its output carries
    `meta.total/skip/take/hasMore` (omitted when unknown). A complete list or walk is not paged.
+   `--all` pages until the collection is exhausted and reports `hasMore: false`; it fails with
+   `invalid_argument` past 10,000 items rather than truncating, and combined with an explicit
+   `--skip` or `--take` it is a parse error.
 
 ## 6. Output
 
@@ -193,3 +196,6 @@ Each exception is deliberate or tracked; don't copy it.
   managed: diff and apply skip it and `--prune` never deletes one. So format "3" files and
   `schema export --no-files` leave the target's files alone, and a section that is present but
   **empty** does manage them. Chosen so sites that deploy views from git keep doing so.
+- **2026-09-28** - 4.1 and 5.3: every paged command takes `--all` (#196), added once in
+  `PagingOptions` and run by the executor, so it cannot differ between commands. A real loop with
+  a loud 10,000-item cap, not a large `--take`, which would be the same silent cap further out.

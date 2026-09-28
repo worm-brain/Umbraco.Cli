@@ -90,7 +90,10 @@ names, same types - and its `meta` says how much more there is:
 }
 ```
 
-Every paged `list` defaults to `--take 100`. `total`, `skip`, `take` and `hasMore` are
+Every paged `list` defaults to `--take 100`. To get everything, pass `--all`: the CLI pages until
+the collection is exhausted and reports `hasMore: false`, or fails with `invalid_argument` past
+10,000 items rather than truncating. `--all` cannot be combined with `--skip`/`--take`.
+`total`, `skip`, `take` and `hasMore` are
 **omitted when the source cannot report them** - an
 absent `hasMore` means "unknown", not "no". Never read a missing `total` as a complete list. Many
 commands (`content tree`, `content find --path`, `manifest list`) genuinely cannot count, and say
