@@ -73,6 +73,4 @@ Project-specific terms. Add entries as concepts are introduced.
   (`.Mutating()`, `.Destructive()`), never inferred from the verb.
 - **Write result** — the `data` every write returns: the resulting item for create/update/copy/
   upload, otherwise `{ "id" }` / `{ "ids" }` of what it acted on.
-- **Legacy name** — a command name renamed by the #268 surface batch that still runs for one
-  release, with a warning (`LegacyNames`).
 

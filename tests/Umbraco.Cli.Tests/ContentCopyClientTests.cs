@@ -21,6 +21,8 @@ public class ContentCopyClientTests
             CancellationToken ct
         )
         {
+            // Every client test is a contract test (#76).
+            ManagementSpec.AssertDeclared(request);
             Requests.Add(request.RequestUri!);
             if (
                 request.Method == HttpMethod.Post

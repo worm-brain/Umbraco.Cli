@@ -98,6 +98,7 @@ public class CommandParseTests
             "template.delete",
             "user-data.delete",
             "user-group.delete",
+            "user.delete",
             "webhook.delete",
         ];
 
@@ -765,6 +766,10 @@ public class CommandParseTests
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]
+    // The pre-#268 plural nouns were removed in #272 and are plain unknown commands now.
+    [InlineData("content-types list")]
+    [InlineData("users list")]
+    [InlineData("content domains get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     // A flag the body would silently override is refused (docs/conventions.md 4.5).
     [InlineData("content create --json-body body.json --name About")]
     [InlineData(

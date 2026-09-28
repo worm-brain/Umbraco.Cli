@@ -4,81 +4,6 @@ using System.Text.Json.Serialization;
 namespace Umbraco.Cli.Commands.Schema;
 
 /// <summary>
-/// The schema entity-kind tags (issue #68, extended by #186 and #227), shared by the diff engine,
-/// applier, and command output so the strings are defined once rather than re-declared per file.
-/// </summary>
-public static class SchemaKinds
-{
-    /// <summary>Document type kind tag.</summary>
-    public const string DocumentType = "documentType";
-
-    /// <summary>Media type kind tag (#186).</summary>
-    public const string MediaType = "mediaType";
-
-    /// <summary>Member type kind tag (#186).</summary>
-    public const string MemberType = "memberType";
-
-    /// <summary>Data type kind tag.</summary>
-    public const string DataType = "dataType";
-
-    /// <summary>Template kind tag.</summary>
-    public const string Template = "template";
-
-    /// <summary>Language kind tag (#227). Languages are keyed by ISO code and have no id.</summary>
-    public const string Language = "language";
-
-    /// <summary>Dictionary item kind tag (#227), keyed by the item's key (its name).</summary>
-    public const string DictionaryItem = "dictionaryItem";
-
-    /// <summary>Member group kind tag (#227), keyed by name.</summary>
-    public const string MemberGroup = "memberGroup";
-
-    /// <summary>User group kind tag (#227), keyed by alias.</summary>
-    public const string UserGroup = "userGroup";
-
-    /// <summary>Partial view kind tag (#292), keyed by path. Covers its folders too.</summary>
-    public const string PartialView = "partialView";
-
-    /// <summary>Stylesheet kind tag (#292), keyed by path. Covers its folders too.</summary>
-    public const string Stylesheet = "stylesheet";
-
-    /// <summary>Script kind tag (#292), keyed by path. Covers its folders too.</summary>
-    public const string Script = "script";
-
-    /// <summary>The client's <see cref="Umbraco.Cli.Client.StaticFileKind"/> for a static-file kind tag.</summary>
-    /// <param name="kind">The kind tag.</param>
-    /// <returns>The static-file kind, or null when the tag is not a static-file kind.</returns>
-    public static Umbraco.Cli.Client.StaticFileKind? StaticFileKindOf(string kind) =>
-        kind switch
-        {
-            PartialView => Umbraco.Cli.Client.StaticFileKind.PartialView,
-            Stylesheet => Umbraco.Cli.Client.StaticFileKind.Stylesheet,
-            Script => Umbraco.Cli.Client.StaticFileKind.Script,
-            _ => null,
-        };
-
-    /// <summary>The client's <see cref="Umbraco.Cli.Client.EntityKind"/> for a snapshot kind tag.</summary>
-    /// <param name="kind">The kind tag, e.g. <see cref="DocumentType"/>.</param>
-    /// <returns>The entity kind.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// The tag is not a schema kind, or is <see cref="Language"/>, which has no id and so no entity kind.
-    /// </exception>
-    public static Umbraco.Cli.Client.EntityKind EntityOf(string kind) =>
-        kind switch
-        {
-            DocumentType => Umbraco.Cli.Client.EntityKind.DocumentType,
-            MediaType => Umbraco.Cli.Client.EntityKind.MediaType,
-            MemberType => Umbraco.Cli.Client.EntityKind.MemberType,
-            DataType => Umbraco.Cli.Client.EntityKind.DataType,
-            Template => Umbraco.Cli.Client.EntityKind.Template,
-            DictionaryItem => Umbraco.Cli.Client.EntityKind.DictionaryItem,
-            MemberGroup => Umbraco.Cli.Client.EntityKind.MemberGroup,
-            UserGroup => Umbraco.Cli.Client.EntityKind.UserGroup,
-            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a schema kind."),
-        };
-}
-
-/// <summary>
 /// How a single schema entity differs between the desired snapshot and the live instance
 /// (issue #68 / ADR 0005 §2). <see cref="Skipped"/> is not a real difference — it flags an
 /// entity the pipeline refuses to touch (e.g. an ambiguous data-type name), carrying a
@@ -233,23 +158,19 @@ public sealed record SchemaDiff(
     /// <summary>Script differences (#292); none when the snapshot has no such section.</summary>
     public SchemaKindDiff Scripts { get; init; } = SchemaKindDiff.None;
 
-    /// <summary>Every kind's diff, in the order the diff output lists them.</summary>
+    /// <summary>A diff with no entities of any kind: the seed the diff engine fills kind by kind.</summary>
+    public static SchemaDiff Empty { get; } =
+        new(
+            SchemaKindDiff.None,
+            SchemaKindDiff.None,
+            SchemaKindDiff.None,
+            SchemaKindDiff.None,
+            SchemaKindDiff.None
+        );
+
+    /// <summary>Every kind's diff, in the order the diff output lists them (the kind table's, #273).</summary>
     [JsonIgnore]
-    public IEnumerable<SchemaKindDiff> Kinds =>
-        [
-            DocumentTypes,
-            MediaTypes,
-            MemberTypes,
-            DataTypes,
-            Templates,
-            Languages,
-            DictionaryItems,
-            MemberGroups,
-            UserGroups,
-            PartialViews,
-            Stylesheets,
-            Scripts,
-        ];
+    public IEnumerable<SchemaKindDiff> Kinds => SchemaKinds.All.Select(k => k.Diff(this));
 
     /// <summary>Whether any kind has an actionable difference — i.e. apply would do something.</summary>
     [JsonIgnore]

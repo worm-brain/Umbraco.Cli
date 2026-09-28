@@ -96,6 +96,63 @@ public class AuthDoctorTests
     }
 
     [Fact]
+    public async Task RunChecksAsync_VersionInRange_PassesTheSupportedVersionCheck()
+    {
+        // #153: the version read in check 6 is compared with the tested range.
+        var factory = new SingleClientFactory(
+            new StubHandler(System.Net.HttpStatusCode.OK, """{"version":"17.3.5"}""")
+        );
+
+        var checks = await AuthDoctorCommand.RunChecksAsync(
+            host: "https://localhost:44300",
+            tokenOverride: null,
+            config: new CliConfig(),
+            httpClientFactory: factory,
+            authService: new UmbracoAuthService(factory),
+            clientFactory: new UmbracoManagementClientFactory(),
+            ct: CancellationToken.None
+        );
+
+        Assert.Equal("pass", checks.Single(c => c.Check == "Supported version").Status);
+    }
+
+    [Fact]
+    public async Task RunChecksAsync_VersionOutOfRange_WarnsWithoutFailingTheRun()
+    {
+        var factory = new SingleClientFactory(
+            new StubHandler(System.Net.HttpStatusCode.OK, """{"version":"99.0.0"}""")
+        );
+
+        var checks = await AuthDoctorCommand.RunChecksAsync(
+            host: "https://localhost:44300",
+            tokenOverride: "tok",
+            config: new CliConfig(),
+            httpClientFactory: factory,
+            authService: new UmbracoAuthService(factory),
+            clientFactory: new UmbracoManagementClientFactory(),
+            ct: CancellationToken.None
+        );
+
+        Assert.Equal("warn", checks.Single(c => c.Check == "Supported version").Status);
+    }
+
+    [Fact]
+    public void SupportedVersionCheck_OutOfRange_NamesBothVersions()
+    {
+        var check = AuthDoctorCommand.SupportedVersionCheck("19.0.0");
+
+        Assert.Equal(VersionSupport.OutOfRangeMessage("19.0.0"), check.Detail);
+    }
+
+    [Fact]
+    public void SupportedVersionCheck_UnknownVersion_IsSkipped()
+    {
+        var check = AuthDoctorCommand.SupportedVersionCheck(null);
+
+        Assert.Equal("skip", check.Status);
+    }
+
+    [Fact]
     public async Task RunChecksAsync_HostUnreachable_ReportsConnectivityFailure()
     {
         // #66: a transport failure on the connectivity probe is reported as a failing check with

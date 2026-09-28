@@ -491,7 +491,7 @@ public class SchemaStaticFilesTests
     [Fact]
     public void FileReason_TemplatesUnreadable_AsksForForce()
     {
-        var reason = SchemaApplier.FileReason(StaticFileKind.PartialView, "/header.cshtml", null);
+        var reason = InUseGuard.FileReason(StaticFileKind.PartialView, "/header.cshtml", null);
 
         Assert.Contains("Could not read the templates", reason);
     }

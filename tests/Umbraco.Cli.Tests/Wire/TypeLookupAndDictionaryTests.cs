@@ -43,15 +43,20 @@ public class TypeLookupAndDictionaryTests
     // ── #159: get by the key the docs promised ────────────────────────────────
 
     [Fact]
-    public async Task GetDocumentTypeAsync_Guid_ReadsItDirectlyWithoutSearching()
+    public async Task ResolveThenGetDocumentType_Guid_ReadsItDirectlyWithoutSearching()
     {
         var id = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var handler = Wire.Routed(
             ($"document-type/{id}", $$"""{ "id": "{{id}}", "alias": "blogPost" }""")
         );
 
-        var result = await Wire.Client(handler)
-            .GetDocumentTypeAsync(id.ToString(), CancellationToken.None);
+        // Resolution is the caller's (#262): a GUID resolves without a request, then is read.
+        var client = Wire.Client(handler);
+        var result = await client.WithResolvedAsync(
+            EntityKind.DocumentType,
+            id.ToString(),
+            resolved => client.GetDocumentTypeByIdAsync(resolved, CancellationToken.None)
+        );
 
         Assert.Equal("blogPost", result.Data!.Alias);
         handler.AssertNoRequest(HttpMethod.Get, "/item/document-type/search");
@@ -203,6 +208,51 @@ public class TypeLookupAndDictionaryTests
         Assert.False(result.IsSuccess);
         Assert.Contains("Could not read", result.ErrorMessage);
         handler.AssertNoRequest(HttpMethod.Post, "/dictionary");
+    }
+
+    [Fact]
+    public async Task CreateDictionaryItemAsync_BlankIsoCode_IsRefusedWithoutPosting()
+    {
+        // #277: the shared guard rejects a blank value rather than filtering it out.
+        var handler = Wire.Routed(
+            ("/language", """{ "total": 1, "items": [ { "isoCode": "en-US" } ] }""")
+        );
+
+        var result = await Wire.Client(handler)
+            .CreateDictionaryItemAsync(
+                new CreateDictionaryItemRequest
+                {
+                    Name = "Blog.ReadMore",
+                    Translations = [new DictionaryTranslation { IsoCode = " ", Translation = "x" }],
+                },
+                CancellationToken.None
+            );
+
+        Assert.Equal("A translation's ISO code cannot be empty.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CreateDictionaryItemAsync_IsoCodeInOtherCase_Proceeds()
+    {
+        // #277: the comparer stays per guard - ISO codes match ignoring case.
+        var handler = Wire.Routed(
+            ("/language", """{ "total": 1, "items": [ { "isoCode": "en-US" } ] }""")
+        );
+
+        var result = await Wire.Client(handler)
+            .CreateDictionaryItemAsync(
+                new CreateDictionaryItemRequest
+                {
+                    Name = "Blog.ReadMore",
+                    Translations =
+                    [
+                        new DictionaryTranslation { IsoCode = "en-us", Translation = "Read more" },
+                    ],
+                },
+                CancellationToken.None
+            );
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
     }
 
     // ── #183: --fallback on create ────────────────────────────────────────────

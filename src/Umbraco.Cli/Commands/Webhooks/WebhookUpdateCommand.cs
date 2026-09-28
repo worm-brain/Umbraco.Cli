@@ -97,23 +97,26 @@ public static class WebhookUpdateCommand
                                 }
 
                                 var events = parseResult.GetValue(eventsOpt);
-                                return await client.UpdateWebhookAsync(
-                                    id,
-                                    new UpdateWebhookRequest
-                                    {
-                                        Url = parseResult.GetValue(urlOpt),
-                                        Name = parseResult.GetValue(nameOpt),
-                                        Description = parseResult.GetValue(descOpt),
-                                        Enabled = parseResult.GetValue(enabledOpt),
-                                        // An empty list means the option was not given.
-                                        Events = events is { Length: > 0 } ? events : null,
-                                        ContentTypeKeys = types,
-                                        Headers = WebhookOptions.Headers(
-                                            parseResult.GetValue(headerOpt)
-                                        ),
-                                        Replace = parseResult.GetValue(replaceOpt),
-                                    },
-                                    c
+                                // An unknown event alias gets the same did-you-mean hint as create (#278).
+                                return WebhooksCreateCommand.WithEventSuggestions(
+                                    await client.UpdateWebhookAsync(
+                                        id,
+                                        new UpdateWebhookRequest
+                                        {
+                                            Url = parseResult.GetValue(urlOpt),
+                                            Name = parseResult.GetValue(nameOpt),
+                                            Description = parseResult.GetValue(descOpt),
+                                            Enabled = parseResult.GetValue(enabledOpt),
+                                            // An empty list means the option was not given.
+                                            Events = events is { Length: > 0 } ? events : null,
+                                            ContentTypeKeys = types,
+                                            Headers = WebhookOptions.Headers(
+                                                parseResult.GetValue(headerOpt)
+                                            ),
+                                            Replace = parseResult.GetValue(replaceOpt),
+                                        },
+                                        c
+                                    )
                                 );
                             },
                             c

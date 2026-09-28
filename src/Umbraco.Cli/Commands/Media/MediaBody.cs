@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using Umbraco.Cli.Commands.Content;
 
 namespace Umbraco.Cli.Commands.Media;
 
@@ -57,14 +56,9 @@ public static class MediaBody
             foreach (var variant in variants.OfType<JsonObject>())
             foreach (var field in VariantNoise)
                 variant.Remove(field);
-            item["variants"] = ContentBodyNormaliser.Sorted(
+            item["variants"] = SnapshotBody.Sorted(
                 variants,
-                v =>
-                    (
-                        null,
-                        ContentBodyNormaliser.Text(v, "culture"),
-                        ContentBodyNormaliser.Text(v, "segment")
-                    )
+                v => (null, SnapshotBody.Text(v, "culture"), SnapshotBody.Text(v, "segment"))
             );
         }
 
@@ -72,20 +66,20 @@ public static class MediaBody
         {
             foreach (var value in values.ToList())
             {
-                var alias = ContentBodyNormaliser.Text(value, "alias");
+                var alias = SnapshotBody.Text(value, "alias");
                 if (AutoFilled.Contains(alias))
                     values.Remove(value);
                 else if (alias == FileAlias && value?["value"] is JsonObject file)
                     foreach (var field in FileInstanceFields)
                         file.Remove(field);
             }
-            item["values"] = ContentBodyNormaliser.Sorted(
+            item["values"] = SnapshotBody.Sorted(
                 values,
                 v =>
                     (
-                        ContentBodyNormaliser.Text(v, "alias"),
-                        ContentBodyNormaliser.Text(v, "culture"),
-                        ContentBodyNormaliser.Text(v, "segment")
+                        SnapshotBody.Text(v, "alias"),
+                        SnapshotBody.Text(v, "culture"),
+                        SnapshotBody.Text(v, "segment")
                     )
             );
         }
@@ -97,7 +91,7 @@ public static class MediaBody
     /// <param name="body">A verbatim media body.</param>
     /// <returns>The file's path on the site, or null.</returns>
     public static string? SrcOf(JsonNode? body) =>
-        ContentBodyNormaliser.Text(FileValueEntry(body)?["value"], "src") is { Length: > 0 } src
+        SnapshotBody.Text(FileValueEntry(body)?["value"], "src") is { Length: > 0 } src
             ? src
             : null;
 
@@ -117,7 +111,7 @@ public static class MediaBody
     public static long? BytesOf(JsonNode? body)
     {
         var value = (body?["values"] as JsonArray ?? [])
-            .FirstOrDefault(v => ContentBodyNormaliser.Text(v, "alias") == "umbracoBytes")
+            .FirstOrDefault(v => SnapshotBody.Text(v, "alias") == "umbracoBytes")
             ?["value"];
         if (value is not JsonValue v)
             return null;
@@ -159,7 +153,7 @@ public static class MediaBody
         if (clone["values"] is JsonArray values)
             foreach (
                 var value in (live["values"] as JsonArray ?? []).Where(v =>
-                    AutoFilled.Contains(ContentBodyNormaliser.Text(v, "alias"))
+                    AutoFilled.Contains(SnapshotBody.Text(v, "alias"))
                 )
             )
                 values.Add(value?.DeepClone());
@@ -171,7 +165,7 @@ public static class MediaBody
     /// <returns>The value entry.</returns>
     private static JsonNode? FileValueEntry(JsonNode? body) =>
         (body?["values"] as JsonArray ?? []).FirstOrDefault(v =>
-            ContentBodyNormaliser.Text(v, "alias") == FileAlias
+            SnapshotBody.Text(v, "alias") == FileAlias
         );
 
     /// <summary>

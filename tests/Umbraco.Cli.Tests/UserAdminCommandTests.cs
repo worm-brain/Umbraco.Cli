@@ -12,7 +12,7 @@ namespace Umbraco.Cli.Tests;
 
 /// <summary>
 /// Command-layer behaviour of the user-administration nouns (#109): option mapping into the client
-/// request (repeatable flags, the deferred-permissions defaults), and the confirmation gating on
+/// request (repeatable flags, document permissions, user references), and the confirmation gating on
 /// the destructive verbs. Client HTTP behaviour is covered separately by the client tests.
 /// </summary>
 [Collection("ConsoleCapture")]
@@ -310,5 +310,248 @@ public class UserAdminCommandTests
 
         Assert.NotEqual(0, exit);
         Assert.Null(fake.LastInvite);
+    }
+
+    // ── user create / update / delete (#214, #216) ──────────────────────────────
+
+    [Fact]
+    public async Task UserCreate_MapsOptionsIntoTheRequest()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(
+            root,
+            $"{Auth} user create --email jane@example.com --name Jane --group editor "
+                + "--group translator --password S3cure!Passw0rd"
+        );
+
+        Assert.Equal(0, exit);
+        var created = Assert.Single(fake.UsersCreated);
+        Assert.Equal(
+            ("jane@example.com", "Jane", "editor,translator", "S3cure!Passw0rd"),
+            (created.Email, created.Name, string.Join(",", created.UserGroups), created.Password)
+        );
+    }
+
+    [Fact]
+    public async Task UserCreate_ClientFails_ExitsOne()
+    {
+        var fake = new FakeUmbracoManagementClient { CreateUserFailure = "Password too weak." };
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(
+            root,
+            $"{Auth} user create --email jane@example.com --name Jane --group editor --password weak"
+        );
+
+        Assert.Equal(1, exit);
+    }
+
+    [Fact]
+    public async Task UserCreate_NoGroup_IsAParseError()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(root, $"{Auth} user create --email jane@example.com --name Jane");
+
+        Assert.NotEqual(0, exit);
+        Assert.Empty(fake.UsersCreated);
+    }
+
+    [Fact]
+    public async Task UserUpdate_ByEmail_ResolvesTheUserAndMapsTheOptions()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        fake.References[(EntityKind.User, "jane@example.com")] = id;
+        fake.UserList.Add(new UserResponse { Id = id, Email = "jane@example.com" });
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(
+            root,
+            $"{Auth} user update jane@example.com --name Roe --culture da-DK "
+                + "--new-password S3cure!Passw0rd --disabled false --unlock"
+        );
+
+        Assert.Equal(0, exit);
+        var (updatedId, request) = Assert.Single(fake.UsersUpdated);
+        Assert.Equal(
+            (id, "Roe", "da-DK", "S3cure!Passw0rd", (bool?)false, true),
+            (
+                updatedId,
+                request.Name,
+                request.LanguageIsoCode,
+                request.NewPassword,
+                request.Disabled,
+                request.Unlock
+            )
+        );
+    }
+
+    [Fact]
+    public async Task UserUpdate_NoDisabledOption_LeavesTheStateAlone()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        fake.UserList.Add(new UserResponse { Id = id });
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        await Run(root, $"{Auth} user update {id} --name Jane");
+
+        Assert.Null(Assert.Single(fake.UsersUpdated).Request.Disabled);
+    }
+
+    [Fact]
+    public async Task UserUpdate_UnknownUser_ExitsOneWithoutWriting()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(root, $"{Auth} user update nobody@example.com --name Jane");
+
+        Assert.Equal((1, 0), (exit, fake.UsersUpdated.Count));
+    }
+
+    [Fact]
+    public async Task UserGet_ByUserName_ResolvesTheUser()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        fake.References[(EntityKind.User, "jane")] = id;
+        fake.UserList.Add(new UserResponse { Id = id, UserName = "jane" });
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(root, $"{Auth} user get jane");
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
+    public async Task UserDelete_SeveralUsers_DeletesThemInOneCall()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        fake.References[(EntityKind.User, "jane@example.com")] = b;
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(root, $"{Auth} --yes user delete {a} jane@example.com");
+
+        Assert.Equal(0, exit);
+        Assert.Equal([a, b], Assert.Single(fake.UsersBulkDeleted));
+    }
+
+    [Fact]
+    public async Task UserDelete_NonInteractiveWithoutYes_AbortsAndDoesNotDelete()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(root, $"{Auth} user delete {Guid.NewGuid()}");
+
+        Assert.Equal((2, 0), (exit, fake.UsersDeleted.Count));
+    }
+
+    [Fact]
+    public async Task UserDelete_OneUnknownUser_DeletesNothing()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(root, $"{Auth} --yes user delete {Guid.NewGuid()} nobody@example.com");
+
+        Assert.Equal((1, 0, 0), (exit, fake.UsersDeleted.Count, fake.UsersBulkDeleted.Count));
+    }
+
+    [Fact]
+    public async Task UserGroupsAddUsers_UserByEmail_IsResolvedToItsId()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var user = Guid.NewGuid();
+        fake.References[(EntityKind.User, "jane@example.com")] = user;
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(
+            root,
+            $"{Auth} user-group add-users {Guid.NewGuid()} --user jane@example.com"
+        );
+
+        Assert.Equal(0, exit);
+        Assert.Equal([user], Assert.Single(fake.UserGroupUsersAdded).UserIds);
+    }
+
+    // ── user-group: document permissions (#111) ────────────────────────────────
+
+    [Fact]
+    public async Task UserGroupsCreate_DocumentPermission_MapsNodeAndVerbs()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+        var node = Guid.NewGuid();
+
+        var exit = await Run(
+            root,
+            $"{Auth} user-group create --alias blog --name Blog "
+                + $"--document-permission {node}=Umb.Document.Read,Umb.Document.Update"
+        );
+
+        Assert.Equal(0, exit);
+        var permission = Assert.Single(Assert.Single(fake.UserGroupsCreated).DocumentPermissions);
+        Assert.Equal(
+            (node, "Umb.Document.Read,Umb.Document.Update"),
+            (permission.Document, string.Join(",", permission.Verbs))
+        );
+    }
+
+    [Fact]
+    public async Task UserGroupsCreate_DocumentPermissionNotAnId_IsAParseError()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(
+            root,
+            $"{Auth} user-group create --alias blog --name Blog --document-permission Home=Umb.Document.Read"
+        );
+
+        Assert.NotEqual(0, exit);
+        Assert.Empty(fake.UserGroupsCreated);
+    }
+
+    [Fact]
+    public async Task UserGroupsUpdate_DocumentPermission_MergesOverTheGroupsCurrentOnes()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        var kept = Guid.NewGuid();
+        var added = Guid.NewGuid();
+        fake.UserGroupList.Add(
+            new UserGroupResponse
+            {
+                Id = id,
+                Alias = "editors",
+                Name = "Editors",
+                DocumentPermissions =
+                [
+                    new DocumentPermission { Document = kept, Verbs = ["Umb.Document.Read"] },
+                ],
+            }
+        );
+        var root = BuildRoot(fake, new Prompt(interactive: false, answer: true));
+
+        var exit = await Run(
+            root,
+            $"{Auth} user-group update {id} --document-permission {added}=Umb.Document.Update"
+        );
+
+        Assert.Equal(0, exit);
+        Assert.Equal(
+            [kept, added],
+            Assert
+                .Single(fake.UserGroupsUpdated)
+                .Request.DocumentPermissions!.Select(p => p.Document)
+        );
     }
 }

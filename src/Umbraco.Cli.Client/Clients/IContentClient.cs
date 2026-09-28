@@ -29,17 +29,17 @@ public interface IContentClient
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="request">The values, variants and (optionally) template to write.</param>
-    /// <param name="replace">
-    /// When true, the request's values and variants replace the document's wholesale instead of
-    /// being merged into them. The template is still preserved unless the request sets one -
-    /// dropping it was never intended behaviour (#178).
+    /// <param name="mode">
+    /// <see cref="WriteMode.Replace"/> makes the request's values and variants replace the
+    /// document's wholesale instead of being merged into them. The template is still preserved
+    /// unless the request sets one - dropping it was never intended behaviour (#178).
     /// </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The updated content item, hydrated where possible, or a mapped failure.</returns>
     Task<UmbracoResponse<ContentItemResponse>> UpdateContentAsync(
         Guid id,
         UpdateContentRequest request,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     );
 
