@@ -1,0 +1,17 @@
+@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    var home = Model.AncestorOrSelf(1)!;
+    var isDanish = System.Globalization.CultureInfo.CurrentCulture.Name == "da-DK";
+    var other = isDanish ? "en-US" : "da-DK";
+}
+<header class="site-header">
+    <a class="brand" href="@home.Url()">Umbraco CLI Test Site</a>
+    <nav>
+        <a href="@home.Url()">@home.Name</a>
+        @foreach (var item in home.Children().Where(x => x.IsVisible()))
+        {
+            <a href="@item.Url()">@item.Name</a>
+        }
+        <span class="lang"><a href="@Model.Url(other)" hreflang="@other">@(isDanish ? "English" : "Dansk")</a></span>
+    </nav>
+</header>

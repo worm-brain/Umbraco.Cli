@@ -1,0 +1,8 @@
+# Everything a round creates locally: throwaway sites, the harness CLI config, packed builds, caches, outputs.
+sites/
+.cli/
+.cache/
+nupkg/
+round.env
+webhook-requests.jsonl
+__pycache__/

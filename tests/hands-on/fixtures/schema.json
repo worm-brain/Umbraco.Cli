@@ -1,0 +1,3523 @@
+{
+  "schemaVersion": "3",
+  "documentTypes": [
+    {
+      "allowedTemplates": [
+        {
+          "id": "d9f494d8-fd66-41a8-b5ee-3f5797e066ac"
+        }
+      ],
+      "defaultTemplate": {
+        "id": "d9f494d8-fd66-41a8-b5ee-3f5797e066ac"
+      },
+      "cleanup": {
+        "preventCleanup": false,
+        "keepAllVersionsNewerThanDays": null,
+        "keepLatestVersionPerDayForDays": null
+      },
+      "allowedDocumentTypes": [
+        {
+          "documentType": {
+            "id": "e7eeefdc-f2fd-433e-93c1-f0944eb5bae3"
+          },
+          "sortOrder": 0
+        },
+        {
+          "documentType": {
+            "id": "5123d650-048b-4604-b70e-40b8017c1324"
+          },
+          "sortOrder": 1
+        }
+      ],
+      "compositions": [],
+      "id": "9b29940b-da7a-4ede-9895-b119bf4a68e9",
+      "alias": "blog",
+      "name": "Blog",
+      "description": "Drift test",
+      "icon": "icon-rss",
+      "allowedAsRoot": false,
+      "variesByCulture": true,
+      "variesBySegment": false,
+      "collection": {
+        "id": "c0808dd3-8133-4e4b-8ce8-e2bea84a96a4"
+      },
+      "isElement": false,
+      "properties": [
+        {
+          "id": "d90f28de-7ea8-4dde-8a90-e235e3602fa1",
+          "container": {
+            "id": "429b7074-7a1a-4250-a083-ac5f495345b7"
+          },
+          "sortOrder": 0,
+          "alias": "title",
+          "name": "Title",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "59c70b30-8cc9-46d9-bb3d-384843f3189a",
+          "container": {
+            "id": "429b7074-7a1a-4250-a083-ac5f495345b7"
+          },
+          "sortOrder": 1,
+          "alias": "intro",
+          "name": "Intro",
+          "description": "Short introduction shown at the top of the blog listing",
+          "dataType": {
+            "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "429b7074-7a1a-4250-a083-ac5f495345b7",
+          "parent": null,
+          "name": "Content",
+          "type": "Group",
+          "sortOrder": 0
+        }
+      ]
+    },
+    {
+      "allowedTemplates": [
+        {
+          "id": "e3d8c6bc-3ed4-4cd2-a586-263890361c9e"
+        }
+      ],
+      "defaultTemplate": {
+        "id": "e3d8c6bc-3ed4-4cd2-a586-263890361c9e"
+      },
+      "cleanup": {
+        "preventCleanup": false,
+        "keepAllVersionsNewerThanDays": null,
+        "keepLatestVersionPerDayForDays": null
+      },
+      "allowedDocumentTypes": [],
+      "compositions": [],
+      "id": "e7eeefdc-f2fd-433e-93c1-f0944eb5bae3",
+      "alias": "blogPost",
+      "name": "Blog Post",
+      "description": "A single blog article",
+      "icon": "icon-edit",
+      "allowedAsRoot": false,
+      "variesByCulture": true,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "0be20ee0-4233-48ae-b996-bbbd22e11238",
+          "container": {
+            "id": "88518d2d-6059-4ecc-b8c1-02e69db6ab0e"
+          },
+          "sortOrder": 0,
+          "alias": "title",
+          "name": "Title",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "c6fe4056-afae-4a1b-8855-f4e52f53904e",
+          "container": {
+            "id": "88518d2d-6059-4ecc-b8c1-02e69db6ab0e"
+          },
+          "sortOrder": 1,
+          "alias": "excerpt",
+          "name": "Excerpt",
+          "description": "Short summary used in listings",
+          "dataType": {
+            "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "fe4aa231-7be2-4d68-ace7-7c028ef502a4",
+          "container": {
+            "id": "88518d2d-6059-4ecc-b8c1-02e69db6ab0e"
+          },
+          "sortOrder": 2,
+          "alias": "featuredImage",
+          "name": "Featured Image",
+          "description": null,
+          "dataType": {
+            "id": "ad9f0cf2-bda2-45d5-9ea1-a63cfc873fd3"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "ea72ca28-e576-47fe-8f30-a4164874b3b4",
+          "container": {
+            "id": "88518d2d-6059-4ecc-b8c1-02e69db6ab0e"
+          },
+          "sortOrder": 3,
+          "alias": "bodyText",
+          "name": "Body Text",
+          "description": null,
+          "dataType": {
+            "id": "ca90c950-0aff-4e72-b976-a30b1ac57dad"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "c366d278-c081-4a20-8cc3-51ece5ada168",
+          "container": {
+            "id": "755db957-6758-4a04-a5e0-6cfa0229661c"
+          },
+          "sortOrder": 0,
+          "alias": "author",
+          "name": "Author",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "0c59fd1b-1a6a-44b4-b82e-1e17a4485a0a",
+          "container": {
+            "id": "755db957-6758-4a04-a5e0-6cfa0229661c"
+          },
+          "sortOrder": 1,
+          "alias": "publishDate",
+          "name": "Publish Date",
+          "description": null,
+          "dataType": {
+            "id": "5046194e-4237-453c-a547-15db3a07c4e1"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "d0ecc5ac-53dd-4902-a589-1b3e0a42da15",
+          "container": {
+            "id": "755db957-6758-4a04-a5e0-6cfa0229661c"
+          },
+          "sortOrder": 2,
+          "alias": "categories",
+          "name": "Categories",
+          "description": null,
+          "dataType": {
+            "id": "531e54e3-6652-4fc4-8097-39701348ea76"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "8a195277-5090-48e2-b771-317322dec3e2",
+          "container": {
+            "id": "755db957-6758-4a04-a5e0-6cfa0229661c"
+          },
+          "sortOrder": 3,
+          "alias": "tags",
+          "name": "Tags",
+          "description": null,
+          "dataType": {
+            "id": "b6b73142-b9c1-4bf8-a16d-e1c23320b549"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "330ae75e-d631-4c79-8370-4b2554b421c1",
+          "container": {
+            "id": "755db957-6758-4a04-a5e0-6cfa0229661c"
+          },
+          "sortOrder": 4,
+          "alias": "readingTime",
+          "name": "Reading Time (minutes)",
+          "description": null,
+          "dataType": {
+            "id": "2e6d3631-066e-44b8-aec4-96f09099b2b5"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "e3f22e63-0dac-43ee-87a1-f3fc57c95369",
+          "container": {
+            "id": "755db957-6758-4a04-a5e0-6cfa0229661c"
+          },
+          "sortOrder": 5,
+          "alias": "isFeatured",
+          "name": "Featured",
+          "description": "Highlight this post on the blog",
+          "dataType": {
+            "id": "92897bc6-a5f3-4ffe-ae27-f2e7e33dda49"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "0d04ccb6-7aa1-4377-84a4-63edf006f959",
+          "container": {
+            "id": "755db957-6758-4a04-a5e0-6cfa0229661c"
+          },
+          "sortOrder": 6,
+          "alias": "relatedPost",
+          "name": "Related Post",
+          "description": null,
+          "dataType": {
+            "id": "fd1e0da5-5606-4862-b679-5d0cf3a52a59"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "98f94388-d63e-4146-8e0c-3508b3c02993",
+          "container": {
+            "id": "272f2be0-5ac1-4d13-a728-ee673f90f66d"
+          },
+          "sortOrder": 0,
+          "alias": "metaTitle",
+          "name": "Meta Title",
+          "description": "Defaults to the post title",
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "921a6ce6-c677-460f-8487-abb1fcdadb4f",
+          "container": {
+            "id": "272f2be0-5ac1-4d13-a728-ee673f90f66d"
+          },
+          "sortOrder": 1,
+          "alias": "metaDescription",
+          "name": "Meta Description",
+          "description": null,
+          "dataType": {
+            "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "88518d2d-6059-4ecc-b8c1-02e69db6ab0e",
+          "parent": null,
+          "name": "Content",
+          "type": "Group",
+          "sortOrder": 0
+        },
+        {
+          "id": "755db957-6758-4a04-a5e0-6cfa0229661c",
+          "parent": null,
+          "name": "Details",
+          "type": "Group",
+          "sortOrder": 1
+        },
+        {
+          "id": "272f2be0-5ac1-4d13-a728-ee673f90f66d",
+          "parent": null,
+          "name": "SEO",
+          "type": "Group",
+          "sortOrder": 2
+        }
+      ]
+    },
+    {
+      "allowedTemplates": [
+        {
+          "id": "d9f494d8-fd66-41a8-b5ee-3f5797e066ac"
+        }
+      ],
+      "defaultTemplate": {
+        "id": "d9f494d8-fd66-41a8-b5ee-3f5797e066ac"
+      },
+      "cleanup": {
+        "preventCleanup": false,
+        "keepAllVersionsNewerThanDays": null,
+        "keepLatestVersionPerDayForDays": null
+      },
+      "allowedDocumentTypes": [
+        {
+          "documentType": {
+            "id": "e7eeefdc-f2fd-433e-93c1-f0944eb5bae3"
+          },
+          "sortOrder": 0
+        }
+      ],
+      "compositions": [],
+      "id": "5123d650-048b-4604-b70e-40b8017c1324",
+      "alias": "blogYear",
+      "name": "Blog Year",
+      "description": null,
+      "icon": "icon-calendar",
+      "allowedAsRoot": false,
+      "variesByCulture": true,
+      "variesBySegment": false,
+      "collection": {
+        "id": "c0808dd3-8133-4e4b-8ce8-e2bea84a96a4"
+      },
+      "isElement": false,
+      "properties": [],
+      "containers": []
+    },
+    {
+      "allowedTemplates": [
+        {
+          "id": "e1824bc4-2be1-4bae-b5ce-80481362fc40"
+        }
+      ],
+      "defaultTemplate": {
+        "id": "e1824bc4-2be1-4bae-b5ce-80481362fc40"
+      },
+      "cleanup": {
+        "preventCleanup": false,
+        "keepAllVersionsNewerThanDays": null,
+        "keepLatestVersionPerDayForDays": null
+      },
+      "allowedDocumentTypes": [],
+      "compositions": [],
+      "id": "ec629dce-a91d-4304-918b-631bf32571e9",
+      "alias": "contactPage",
+      "name": "Contact Page",
+      "description": null,
+      "icon": "icon-message",
+      "allowedAsRoot": false,
+      "variesByCulture": true,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "fba8fc38-2541-4b7b-95d2-811f38e37825",
+          "container": {
+            "id": "a7a49b09-2433-47e9-8c98-619f9ab70076"
+          },
+          "sortOrder": 0,
+          "alias": "title",
+          "name": "Title",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "a4b6e762-e6cb-46e0-afe0-9c619296729a",
+          "container": {
+            "id": "a7a49b09-2433-47e9-8c98-619f9ab70076"
+          },
+          "sortOrder": 1,
+          "alias": "intro",
+          "name": "Intro",
+          "description": null,
+          "dataType": {
+            "id": "ca90c950-0aff-4e72-b976-a30b1ac57dad"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "aa136942-1cf2-4cce-ab57-2baba31bb672",
+          "container": {
+            "id": "a7a49b09-2433-47e9-8c98-619f9ab70076"
+          },
+          "sortOrder": 2,
+          "alias": "successMessage",
+          "name": "Success Message",
+          "description": null,
+          "dataType": {
+            "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "85d01c91-36e8-41ab-bfa0-e53bc51b94a2",
+          "container": {
+            "id": "0f92d2b0-51f2-428a-9fc3-643fa3903897"
+          },
+          "sortOrder": 0,
+          "alias": "signupTitle",
+          "name": "Sign-up Title",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "bd1469e9-4479-46bc-800c-c261b0e0aa5d",
+          "container": {
+            "id": "0f92d2b0-51f2-428a-9fc3-643fa3903897"
+          },
+          "sortOrder": 1,
+          "alias": "signupIntro",
+          "name": "Sign-up Intro",
+          "description": null,
+          "dataType": {
+            "id": "ca90c950-0aff-4e72-b976-a30b1ac57dad"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "84ee6e15-0c50-48c7-9fa2-2d7476d5838b",
+          "container": {
+            "id": "0f92d2b0-51f2-428a-9fc3-643fa3903897"
+          },
+          "sortOrder": 2,
+          "alias": "signupSuccessMessage",
+          "name": "Sign-up Success Message",
+          "description": null,
+          "dataType": {
+            "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "a7a49b09-2433-47e9-8c98-619f9ab70076",
+          "parent": null,
+          "name": "Contact form",
+          "type": "Group",
+          "sortOrder": 0
+        },
+        {
+          "id": "0f92d2b0-51f2-428a-9fc3-643fa3903897",
+          "parent": null,
+          "name": "Member sign-up",
+          "type": "Group",
+          "sortOrder": 1
+        }
+      ]
+    },
+    {
+      "allowedTemplates": [],
+      "defaultTemplate": null,
+      "cleanup": {
+        "preventCleanup": false,
+        "keepAllVersionsNewerThanDays": null,
+        "keepLatestVersionPerDayForDays": null
+      },
+      "allowedDocumentTypes": [],
+      "compositions": [],
+      "id": "3607adc2-ac1c-472c-8f2e-6a26aff63b8d",
+      "alias": "contactSubmission",
+      "name": "Contact Submission",
+      "description": null,
+      "icon": "icon-message-unopened",
+      "allowedAsRoot": false,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "5c035a07-1b93-422d-966e-134a4dc3721c",
+          "container": {
+            "id": "e2f0f8a1-ef4d-4106-a9c3-37aa857a8cf7"
+          },
+          "sortOrder": 0,
+          "alias": "fullName",
+          "name": "Name",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "edd73c13-fb65-45a6-bba7-21467d97bce4",
+          "container": {
+            "id": "e2f0f8a1-ef4d-4106-a9c3-37aa857a8cf7"
+          },
+          "sortOrder": 1,
+          "alias": "email",
+          "name": "Email",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "7aca8ba4-2bbc-438d-9e69-f96f8e2bec98",
+          "container": {
+            "id": "e2f0f8a1-ef4d-4106-a9c3-37aa857a8cf7"
+          },
+          "sortOrder": 2,
+          "alias": "subject",
+          "name": "Subject",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "578afe79-3f0c-409f-98cd-6d99d721fff9",
+          "container": {
+            "id": "e2f0f8a1-ef4d-4106-a9c3-37aa857a8cf7"
+          },
+          "sortOrder": 3,
+          "alias": "message",
+          "name": "Message",
+          "description": null,
+          "dataType": {
+            "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "1a24227c-2893-4ad6-b413-7b1a727ad8a1",
+          "container": {
+            "id": "e2f0f8a1-ef4d-4106-a9c3-37aa857a8cf7"
+          },
+          "sortOrder": 4,
+          "alias": "submittedAt",
+          "name": "Submitted At",
+          "description": null,
+          "dataType": {
+            "id": "0e9794eb-f9b5-4f20-a788-93acd233a7e4"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "564aee4a-b9d2-4149-ab49-f78043918b51",
+          "container": {
+            "id": "e2f0f8a1-ef4d-4106-a9c3-37aa857a8cf7"
+          },
+          "sortOrder": 5,
+          "alias": "culture",
+          "name": "Language",
+          "description": null,
+          "dataType": {
+            "id": "f0bc4bfb-b499-40d6-ba86-058885a5178c"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "e2f0f8a1-ef4d-4106-a9c3-37aa857a8cf7",
+          "parent": null,
+          "name": "Submission",
+          "type": "Group",
+          "sortOrder": 0
+        }
+      ]
+    },
+    {
+      "allowedTemplates": [],
+      "defaultTemplate": null,
+      "cleanup": {
+        "preventCleanup": false,
+        "keepAllVersionsNewerThanDays": null,
+        "keepLatestVersionPerDayForDays": null
+      },
+      "allowedDocumentTypes": [
+        {
+          "documentType": {
+            "id": "3607adc2-ac1c-472c-8f2e-6a26aff63b8d"
+          },
+          "sortOrder": 0
+        }
+      ],
+      "compositions": [],
+      "id": "c3d0d061-64e0-43af-b74a-2a42e02f1d1c",
+      "alias": "formSubmissions",
+      "name": "Form Submissions",
+      "description": "Backoffice-only folder for form entries",
+      "icon": "icon-inbox",
+      "allowedAsRoot": true,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": {
+        "id": "c0808dd3-8133-4e4b-8ce8-e2bea84a96a4"
+      },
+      "isElement": false,
+      "properties": [],
+      "containers": []
+    },
+    {
+      "allowedTemplates": [
+        {
+          "id": "8669906f-61af-4eae-9dac-990882acec17"
+        }
+      ],
+      "defaultTemplate": {
+        "id": "8669906f-61af-4eae-9dac-990882acec17"
+      },
+      "cleanup": {
+        "preventCleanup": true,
+        "keepAllVersionsNewerThanDays": null,
+        "keepLatestVersionPerDayForDays": null
+      },
+      "allowedDocumentTypes": [
+        {
+          "documentType": {
+            "id": "9b29940b-da7a-4ede-9895-b119bf4a68e9"
+          },
+          "sortOrder": 0
+        },
+        {
+          "documentType": {
+            "id": "ec629dce-a91d-4304-918b-631bf32571e9"
+          },
+          "sortOrder": 1
+        }
+      ],
+      "compositions": [],
+      "id": "7b805bca-cf45-49a3-bff8-5acac07ad296",
+      "alias": "homePage",
+      "name": "Home Page",
+      "description": null,
+      "icon": "icon-home",
+      "allowedAsRoot": true,
+      "variesByCulture": true,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "4c10ab0c-c7ce-4481-948e-0ed19106b2df",
+          "container": {
+            "id": "d7748e06-9236-4f9b-88a6-a21d3497c73a"
+          },
+          "sortOrder": 0,
+          "alias": "title",
+          "name": "Title",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "264d877e-8be5-44d2-96d2-a9bc5f084aea",
+          "container": {
+            "id": "d7748e06-9236-4f9b-88a6-a21d3497c73a"
+          },
+          "sortOrder": 1,
+          "alias": "bodyText",
+          "name": "Body Text",
+          "description": null,
+          "dataType": {
+            "id": "ca90c950-0aff-4e72-b976-a30b1ac57dad"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "e95813aa-e4f8-41d0-b682-1f6d543e6a83",
+          "container": {
+            "id": "d7748e06-9236-4f9b-88a6-a21d3497c73a"
+          },
+          "sortOrder": 2,
+          "alias": "blocks",
+          "name": "Blocks",
+          "description": null,
+          "dataType": {
+            "id": "34239bc7-cbc7-41c3-8f10-5980f1b86f74"
+          },
+          "variesByCulture": true,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "d7748e06-9236-4f9b-88a6-a21d3497c73a",
+          "parent": null,
+          "name": "Content",
+          "type": "Group",
+          "sortOrder": 0
+        }
+      ]
+    },
+    {
+      "allowedTemplates": [],
+      "defaultTemplate": null,
+      "cleanup": {
+        "preventCleanup": false,
+        "keepAllVersionsNewerThanDays": null,
+        "keepLatestVersionPerDayForDays": null
+      },
+      "allowedDocumentTypes": [],
+      "compositions": [],
+      "id": "f2c9326c-cbeb-4e83-ac8e-70bbe125849a",
+      "alias": "titleTextBlock",
+      "name": "Title and Text",
+      "description": "Block with a heading and a paragraph",
+      "icon": "icon-document-font",
+      "allowedAsRoot": false,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": true,
+      "properties": [
+        {
+          "id": "f53d19da-f408-43d3-bc39-6518e7c8d3e8",
+          "container": {
+            "id": "3c7319c7-24c2-4f49-a09e-15a28f3f2e3d"
+          },
+          "sortOrder": 0,
+          "alias": "title",
+          "name": "Title",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "4c8c7f31-1fa1-4216-ad10-313f4471f2b5",
+          "container": {
+            "id": "3c7319c7-24c2-4f49-a09e-15a28f3f2e3d"
+          },
+          "sortOrder": 1,
+          "alias": "text",
+          "name": "Text",
+          "description": null,
+          "dataType": {
+            "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "3c7319c7-24c2-4f49-a09e-15a28f3f2e3d",
+          "parent": null,
+          "name": "Content",
+          "type": "Group",
+          "sortOrder": 0
+        }
+      ]
+    }
+  ],
+  "mediaTypes": [
+    {
+      "allowedMediaTypes": [],
+      "compositions": [],
+      "isDeletable": true,
+      "aliasCanBeChanged": true,
+      "id": "a43e3414-9599-4230-a7d3-943a21b20122",
+      "alias": "umbracoMediaArticle",
+      "name": "Article",
+      "description": null,
+      "icon": "icon-article",
+      "allowedAsRoot": true,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "e5c8c2d0-2d82-4f01-b53a-45a1d1cbf19c",
+          "container": {
+            "id": "9af3bd65-f687-4453-9518-5f180d1898ec"
+          },
+          "sortOrder": 0,
+          "alias": "umbracoFile",
+          "name": "Article",
+          "description": null,
+          "dataType": {
+            "id": "bc1e266c-dac4-4164-bf08-8a1ec6a7143d"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "ef1b4af7-36de-45eb-8c18-a2de07319227",
+          "container": {
+            "id": "9af3bd65-f687-4453-9518-5f180d1898ec"
+          },
+          "sortOrder": 1,
+          "alias": "umbracoExtension",
+          "name": "File extension",
+          "description": null,
+          "dataType": {
+            "id": "f0bc4bfb-b499-40d6-ba86-058885a5178c"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "aab7d00c-7209-4337-be3f-a4421c8d79a0",
+          "container": {
+            "id": "9af3bd65-f687-4453-9518-5f180d1898ec"
+          },
+          "sortOrder": 2,
+          "alias": "umbracoBytes",
+          "name": "File size",
+          "description": null,
+          "dataType": {
+            "id": "ba5bdbe6-ab3e-46a8-82b3-2c45f10bc47f"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "9af3bd65-f687-4453-9518-5f180d1898ec",
+          "parent": null,
+          "name": "Article",
+          "type": "Group",
+          "sortOrder": 1
+        }
+      ]
+    },
+    {
+      "allowedMediaTypes": [],
+      "compositions": [],
+      "isDeletable": true,
+      "aliasCanBeChanged": true,
+      "id": "a5ddeee0-8fd8-4cee-a658-6f1fcdb00de3",
+      "alias": "umbracoMediaAudio",
+      "name": "Audio",
+      "description": null,
+      "icon": "icon-audio-lines",
+      "allowedAsRoot": true,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "1f48d730-f174-4684-afad-a335e59d84a0",
+          "container": {
+            "id": "335fb495-0a87-4e82-b902-30eb367b767c"
+          },
+          "sortOrder": 0,
+          "alias": "umbracoFile",
+          "name": "Audio",
+          "description": null,
+          "dataType": {
+            "id": "8f430dd6-4e96-447e-9dc0-cb552c8cd1f3"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "1bee433f-a21a-4031-8e03-af01bb8d2de9",
+          "container": {
+            "id": "335fb495-0a87-4e82-b902-30eb367b767c"
+          },
+          "sortOrder": 1,
+          "alias": "umbracoExtension",
+          "name": "File extension",
+          "description": null,
+          "dataType": {
+            "id": "f0bc4bfb-b499-40d6-ba86-058885a5178c"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "3cbf538a-29ab-4317-a9eb-bbcdf1a54260",
+          "container": {
+            "id": "335fb495-0a87-4e82-b902-30eb367b767c"
+          },
+          "sortOrder": 2,
+          "alias": "umbracoBytes",
+          "name": "File size",
+          "description": null,
+          "dataType": {
+            "id": "ba5bdbe6-ab3e-46a8-82b3-2c45f10bc47f"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "335fb495-0a87-4e82-b902-30eb367b767c",
+          "parent": null,
+          "name": "Audio",
+          "type": "Group",
+          "sortOrder": 1
+        }
+      ]
+    },
+    {
+      "allowedMediaTypes": [],
+      "compositions": [],
+      "isDeletable": true,
+      "aliasCanBeChanged": true,
+      "id": "31979b16-63d8-47b7-877a-77a10ecec338",
+      "alias": "brochure",
+      "name": "Brochure",
+      "description": null,
+      "icon": "icon-picture",
+      "allowedAsRoot": true,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "a0233cba-885f-4763-8041-22923235c4eb",
+          "container": {
+            "id": "e56e8da9-b91d-4f5a-82ac-008dfa7ab1e6"
+          },
+          "sortOrder": 0,
+          "alias": "umbracoFile",
+          "name": "File",
+          "description": null,
+          "dataType": {
+            "id": "84c6b441-31df-4ffe-b67e-67d5bc3ae65a"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "c05b48bf-2d7a-40b7-9d3c-71002a9e59a9",
+          "container": {
+            "id": "e56e8da9-b91d-4f5a-82ac-008dfa7ab1e6"
+          },
+          "sortOrder": 1,
+          "alias": "umbracoExtension",
+          "name": "Type",
+          "description": null,
+          "dataType": {
+            "id": "f0bc4bfb-b499-40d6-ba86-058885a5178c"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "9c2c9b48-864d-427f-86f6-9c1e580cc025",
+          "container": {
+            "id": "e56e8da9-b91d-4f5a-82ac-008dfa7ab1e6"
+          },
+          "sortOrder": 2,
+          "alias": "umbracoBytes",
+          "name": "Size",
+          "description": null,
+          "dataType": {
+            "id": "ba5bdbe6-ab3e-46a8-82b3-2c45f10bc47f"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "38138123-a3a0-4b5d-b205-cbd0d23ba750",
+          "container": {
+            "id": "c48b3870-65bb-4afb-bdd4-56f237cee06a"
+          },
+          "sortOrder": 0,
+          "alias": "title",
+          "name": "Title",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "8c996339-9b7f-4cfe-8cc2-4e468a291d5a",
+          "container": {
+            "id": "c48b3870-65bb-4afb-bdd4-56f237cee06a"
+          },
+          "sortOrder": 1,
+          "alias": "summary",
+          "name": "Summary",
+          "description": null,
+          "dataType": {
+            "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "8d3cd657-122a-4393-b6a5-bebdd53a1473",
+          "container": {
+            "id": "c48b3870-65bb-4afb-bdd4-56f237cee06a"
+          },
+          "sortOrder": 2,
+          "alias": "department",
+          "name": "Department",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "069c9669-a88c-4a45-a60a-e670c2a60270",
+          "container": {
+            "id": "c48b3870-65bb-4afb-bdd4-56f237cee06a"
+          },
+          "sortOrder": 3,
+          "alias": "pageCount",
+          "name": "Page Count",
+          "description": null,
+          "dataType": {
+            "id": "2e6d3631-066e-44b8-aec4-96f09099b2b5"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "238e5f77-d5b4-4cb5-8238-8736b2328bf2",
+          "container": {
+            "id": "c48b3870-65bb-4afb-bdd4-56f237cee06a"
+          },
+          "sortOrder": 4,
+          "alias": "publishedOn",
+          "name": "Published On",
+          "description": null,
+          "dataType": {
+            "id": "5046194e-4237-453c-a547-15db3a07c4e1"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "e56e8da9-b91d-4f5a-82ac-008dfa7ab1e6",
+          "parent": null,
+          "name": "File",
+          "type": "Group",
+          "sortOrder": 0
+        },
+        {
+          "id": "c48b3870-65bb-4afb-bdd4-56f237cee06a",
+          "parent": null,
+          "name": "Details",
+          "type": "Group",
+          "sortOrder": 1
+        }
+      ]
+    },
+    {
+      "allowedMediaTypes": [],
+      "compositions": [],
+      "isDeletable": false,
+      "aliasCanBeChanged": false,
+      "id": "4c52d8ab-54e6-40cd-999c-7a5f24903e4d",
+      "alias": "File",
+      "name": "File",
+      "description": null,
+      "icon": "icon-document",
+      "allowedAsRoot": true,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "a0fb68f3-f427-47a6-afce-536ffa5b64e9",
+          "container": {
+            "id": "50899f9c-023a-4466-b623-aba9049885fe"
+          },
+          "sortOrder": 0,
+          "alias": "umbracoFile",
+          "name": "File",
+          "description": null,
+          "dataType": {
+            "id": "84c6b441-31df-4ffe-b67e-67d5bc3ae65a"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "3531c0a3-4e0a-4324-a621-b9d3822b071f",
+          "container": {
+            "id": "50899f9c-023a-4466-b623-aba9049885fe"
+          },
+          "sortOrder": 1,
+          "alias": "umbracoExtension",
+          "name": "File extension",
+          "description": null,
+          "dataType": {
+            "id": "f0bc4bfb-b499-40d6-ba86-058885a5178c"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "f9527050-59bc-43e4-8fa8-1658d1319ff5",
+          "container": {
+            "id": "50899f9c-023a-4466-b623-aba9049885fe"
+          },
+          "sortOrder": 2,
+          "alias": "umbracoBytes",
+          "name": "File size",
+          "description": null,
+          "dataType": {
+            "id": "ba5bdbe6-ab3e-46a8-82b3-2c45f10bc47f"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "50899f9c-023a-4466-b623-aba9049885fe",
+          "parent": null,
+          "name": "File",
+          "type": "Group",
+          "sortOrder": 1
+        }
+      ]
+    },
+    {
+      "allowedMediaTypes": [
+        {
+          "mediaType": {
+            "id": "f38bd2d7-65d0-48e6-95dc-87ce06ec2d3d"
+          },
+          "sortOrder": 0
+        },
+        {
+          "mediaType": {
+            "id": "cc07b313-0843-4aa8-bbda-871c8da728c8"
+          },
+          "sortOrder": 1
+        },
+        {
+          "mediaType": {
+            "id": "4c52d8ab-54e6-40cd-999c-7a5f24903e4d"
+          },
+          "sortOrder": 2
+        },
+        {
+          "mediaType": {
+            "id": "f6c515bb-653c-4bdc-821c-987729ebe327"
+          },
+          "sortOrder": 3
+        },
+        {
+          "mediaType": {
+            "id": "a5ddeee0-8fd8-4cee-a658-6f1fcdb00de3"
+          },
+          "sortOrder": 4
+        },
+        {
+          "mediaType": {
+            "id": "a43e3414-9599-4230-a7d3-943a21b20122"
+          },
+          "sortOrder": 5
+        },
+        {
+          "mediaType": {
+            "id": "c4b1efcf-a9d5-41c4-9621-e9d273b52a9c"
+          },
+          "sortOrder": 6
+        },
+        {
+          "mediaType": {
+            "id": "31979b16-63d8-47b7-877a-77a10ecec338"
+          },
+          "sortOrder": 7
+        }
+      ],
+      "compositions": [],
+      "isDeletable": false,
+      "aliasCanBeChanged": false,
+      "id": "f38bd2d7-65d0-48e6-95dc-87ce06ec2d3d",
+      "alias": "Folder",
+      "name": "Folder",
+      "description": null,
+      "icon": "icon-folder",
+      "allowedAsRoot": true,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": {
+        "id": "3a0156c4-3b8c-4803-bdc1-6871faa83fff"
+      },
+      "isElement": false,
+      "properties": [],
+      "containers": []
+    },
+    {
+      "allowedMediaTypes": [],
+      "compositions": [],
+      "isDeletable": false,
+      "aliasCanBeChanged": false,
+      "id": "cc07b313-0843-4aa8-bbda-871c8da728c8",
+      "alias": "Image",
+      "name": "Image",
+      "description": null,
+      "icon": "icon-picture",
+      "allowedAsRoot": true,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "b646ca8f-e469-4fc2-a48a-d4dc1aa64a53",
+          "container": {
+            "id": "79ed4d07-254a-42cf-8fa9-ebe1c116a596"
+          },
+          "sortOrder": 0,
+          "alias": "umbracoFile",
+          "name": "Image",
+          "description": null,
+          "dataType": {
+            "id": "1df9f033-e6d4-451f-b8d2-e0cbc50a836f"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "a68d453b-1f62-44f4-9f71-0b6bbd43c355",
+          "container": {
+            "id": "79ed4d07-254a-42cf-8fa9-ebe1c116a596"
+          },
+          "sortOrder": 1,
+          "alias": "umbracoWidth",
+          "name": "Width",
+          "description": null,
+          "dataType": {
+            "id": "5eb57825-e15e-4fc7-8e37-fca65cdafbde"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "854087f6-648b-40ed-bc98-b8a9789e80b9",
+          "container": {
+            "id": "79ed4d07-254a-42cf-8fa9-ebe1c116a596"
+          },
+          "sortOrder": 2,
+          "alias": "umbracoHeight",
+          "name": "Height",
+          "description": null,
+          "dataType": {
+            "id": "5eb57825-e15e-4fc7-8e37-fca65cdafbde"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "bd4c5ace-26e3-4a8b-af1a-e8206a35fa07",
+          "container": {
+            "id": "79ed4d07-254a-42cf-8fa9-ebe1c116a596"
+          },
+          "sortOrder": 3,
+          "alias": "umbracoBytes",
+          "name": "File size",
+          "description": null,
+          "dataType": {
+            "id": "ba5bdbe6-ab3e-46a8-82b3-2c45f10bc47f"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "f7786fe8-724a-4ed0-b244-72546db32a92",
+          "container": {
+            "id": "79ed4d07-254a-42cf-8fa9-ebe1c116a596"
+          },
+          "sortOrder": 4,
+          "alias": "umbracoExtension",
+          "name": "File extension",
+          "description": null,
+          "dataType": {
+            "id": "f0bc4bfb-b499-40d6-ba86-058885a5178c"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "79ed4d07-254a-42cf-8fa9-ebe1c116a596",
+          "parent": null,
+          "name": "Image",
+          "type": "Group",
+          "sortOrder": 1
+        }
+      ]
+    },
+    {
+      "allowedMediaTypes": [],
+      "compositions": [],
+      "isDeletable": true,
+      "aliasCanBeChanged": true,
+      "id": "c4b1efcf-a9d5-41c4-9621-e9d273b52a9c",
+      "alias": "umbracoMediaVectorGraphics",
+      "name": "Vector Graphics (SVG)",
+      "description": null,
+      "icon": "icon-origami",
+      "allowedAsRoot": true,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "e2a2bdf2-971b-483e-95a1-4104cc06af26",
+          "container": {
+            "id": "f199b4d7-9e84-439f-8531-f87d9af37711"
+          },
+          "sortOrder": 0,
+          "alias": "umbracoFile",
+          "name": "Vector Graphics",
+          "description": null,
+          "dataType": {
+            "id": "215cb418-2153-4429-9aef-8c0f0041191b"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "0f25a89e-2eb7-49bc-a7b4-759a7e4c69f2",
+          "container": {
+            "id": "f199b4d7-9e84-439f-8531-f87d9af37711"
+          },
+          "sortOrder": 1,
+          "alias": "umbracoExtension",
+          "name": "File extension",
+          "description": null,
+          "dataType": {
+            "id": "f0bc4bfb-b499-40d6-ba86-058885a5178c"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "09a07aff-861d-4769-a2b0-c165ebd43d39",
+          "container": {
+            "id": "f199b4d7-9e84-439f-8531-f87d9af37711"
+          },
+          "sortOrder": 2,
+          "alias": "umbracoBytes",
+          "name": "File size",
+          "description": null,
+          "dataType": {
+            "id": "ba5bdbe6-ab3e-46a8-82b3-2c45f10bc47f"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "5bc7e468-c53e-41a6-a522-2723f3b94514",
+          "container": {
+            "id": "f199b4d7-9e84-439f-8531-f87d9af37711"
+          },
+          "sortOrder": 3,
+          "alias": "umbracoWidth",
+          "name": "Width",
+          "description": null,
+          "dataType": {
+            "id": "5eb57825-e15e-4fc7-8e37-fca65cdafbde"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "9e4c2b59-6bc6-4648-bb71-b0f45ddbc274",
+          "container": {
+            "id": "f199b4d7-9e84-439f-8531-f87d9af37711"
+          },
+          "sortOrder": 4,
+          "alias": "umbracoHeight",
+          "name": "Height",
+          "description": null,
+          "dataType": {
+            "id": "5eb57825-e15e-4fc7-8e37-fca65cdafbde"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "f199b4d7-9e84-439f-8531-f87d9af37711",
+          "parent": null,
+          "name": "Vector Graphics",
+          "type": "Group",
+          "sortOrder": 1
+        }
+      ]
+    },
+    {
+      "allowedMediaTypes": [],
+      "compositions": [],
+      "isDeletable": true,
+      "aliasCanBeChanged": true,
+      "id": "f6c515bb-653c-4bdc-821c-987729ebe327",
+      "alias": "umbracoMediaVideo",
+      "name": "Video",
+      "description": null,
+      "icon": "icon-video",
+      "allowedAsRoot": true,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "id": "bed8ab97-d85f-44d2-a8b9-aef6893f9610",
+          "container": {
+            "id": "2f0a61b6-cf92-4ff4-b437-751ab35eb254"
+          },
+          "sortOrder": 0,
+          "alias": "umbracoFile",
+          "name": "Video",
+          "description": null,
+          "dataType": {
+            "id": "70575fe7-9812-4396-bbe1-c81a76db71b5"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": true,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "edd2b3fd-1e57-4e57-935e-096defccdc9b",
+          "container": {
+            "id": "2f0a61b6-cf92-4ff4-b437-751ab35eb254"
+          },
+          "sortOrder": 1,
+          "alias": "umbracoExtension",
+          "name": "File extension",
+          "description": null,
+          "dataType": {
+            "id": "f0bc4bfb-b499-40d6-ba86-058885a5178c"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "id": "180eeecf-1f00-409e-8234-bba967e08b0a",
+          "container": {
+            "id": "2f0a61b6-cf92-4ff4-b437-751ab35eb254"
+          },
+          "sortOrder": 2,
+          "alias": "umbracoBytes",
+          "name": "File size",
+          "description": null,
+          "dataType": {
+            "id": "ba5bdbe6-ab3e-46a8-82b3-2c45f10bc47f"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "2f0a61b6-cf92-4ff4-b437-751ab35eb254",
+          "parent": null,
+          "name": "Video",
+          "type": "Group",
+          "sortOrder": 1
+        }
+      ]
+    }
+  ],
+  "memberTypes": [
+    {
+      "compositions": [],
+      "id": "d59be02f-1df9-4228-aa1e-01917d806cda",
+      "alias": "Member",
+      "name": "Member",
+      "description": null,
+      "icon": "icon-user",
+      "allowedAsRoot": false,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "isSensitive": false,
+          "visibility": {
+            "memberCanView": false,
+            "memberCanEdit": false
+          },
+          "id": "70f24c26-1c0e-4053-bd8e-e9e6e4ec4c01",
+          "container": {
+            "id": "0756729d-d665-46e3-b84a-37aceaa614f8"
+          },
+          "sortOrder": 0,
+          "alias": "umbracoMemberComments",
+          "name": "Comments",
+          "description": null,
+          "dataType": {
+            "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "0756729d-d665-46e3-b84a-37aceaa614f8",
+          "parent": null,
+          "name": "Membership",
+          "type": "Group",
+          "sortOrder": 1
+        }
+      ]
+    },
+    {
+      "compositions": [],
+      "id": "79b2e004-8571-496e-b7e4-c01c8ae8e7da",
+      "alias": "siteMember",
+      "name": "Site Member",
+      "description": "Members who sign up via the contact page",
+      "icon": "icon-user",
+      "allowedAsRoot": false,
+      "variesByCulture": false,
+      "variesBySegment": false,
+      "collection": null,
+      "isElement": false,
+      "properties": [
+        {
+          "isSensitive": false,
+          "visibility": {
+            "memberCanView": true,
+            "memberCanEdit": true
+          },
+          "id": "dfcba100-a433-42f7-a638-e0cdaacf8d34",
+          "container": {
+            "id": "dcfff897-9e42-4f3a-93d5-f132cfcea160"
+          },
+          "sortOrder": 0,
+          "alias": "company",
+          "name": "Company",
+          "description": null,
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "isSensitive": false,
+          "visibility": {
+            "memberCanView": true,
+            "memberCanEdit": true
+          },
+          "id": "e91df900-832a-46fd-a7c6-19e80cdfaa16",
+          "container": {
+            "id": "dcfff897-9e42-4f3a-93d5-f132cfcea160"
+          },
+          "sortOrder": 1,
+          "alias": "marketingOptIn",
+          "name": "Marketing Opt-in",
+          "description": "Member agreed to receive news by email",
+          "dataType": {
+            "id": "92897bc6-a5f3-4ffe-ae27-f2e7e33dda49"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        },
+        {
+          "isSensitive": false,
+          "visibility": {
+            "memberCanView": true,
+            "memberCanEdit": false
+          },
+          "id": "98a6096a-0d0e-4601-bd6a-76bf3f150c9a",
+          "container": {
+            "id": "dcfff897-9e42-4f3a-93d5-f132cfcea160"
+          },
+          "sortOrder": 2,
+          "alias": "signupSource",
+          "name": "Sign-up Source",
+          "description": "Where and in which language the member signed up",
+          "dataType": {
+            "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae"
+          },
+          "variesByCulture": false,
+          "variesBySegment": false,
+          "validation": {
+            "mandatory": false,
+            "mandatoryMessage": null,
+            "regEx": null,
+            "regExMessage": null
+          },
+          "appearance": {
+            "labelOnTop": false
+          }
+        }
+      ],
+      "containers": [
+        {
+          "id": "dcfff897-9e42-4f3a-93d5-f132cfcea160",
+          "parent": null,
+          "name": "Profile",
+          "type": "Group",
+          "sortOrder": 0
+        }
+      ]
+    }
+  ],
+  "dataTypes": [
+    {
+      "id": "531e54e3-6652-4fc4-8097-39701348ea76",
+      "isDeletable": true,
+      "canIgnoreStartNodes": true,
+      "name": "Blog Categories",
+      "editorAlias": "Umbraco.DropDown.Flexible",
+      "editorUiAlias": "Umb.PropertyEditorUi.Dropdown",
+      "values": [
+        {
+          "alias": "multiple",
+          "value": true
+        },
+        {
+          "alias": "items",
+          "value": [
+            "News",
+            "Tutorials",
+            "Case Studies",
+            "Opinion",
+            "Releases",
+            "Community",
+            "Events",
+            "Tips \u0026 Tricks"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "34239bc7-cbc7-41c3-8f10-5980f1b86f74",
+      "isDeletable": true,
+      "canIgnoreStartNodes": true,
+      "name": "Homepage Blocks",
+      "editorAlias": "Umbraco.BlockList",
+      "editorUiAlias": "Umb.PropertyEditorUi.BlockList",
+      "values": [
+        {
+          "alias": "blocks",
+          "value": [
+            {
+              "contentElementTypeKey": "f2c9326c-cbeb-4e83-ac8e-70bbe125849a",
+              "label": "{umbValue: title}",
+              "editorSize": "medium",
+              "forceHideContentEditorInOverlay": false
+            }
+          ]
+        },
+        {
+          "alias": "validationLimit",
+          "value": {
+            "min": 0,
+            "max": 10
+          }
+        },
+        {
+          "alias": "useSingleBlockMode",
+          "value": false
+        },
+        {
+          "alias": "useLiveEditing",
+          "value": false
+        },
+        {
+          "alias": "useInlineEditingAsDefault",
+          "value": false
+        }
+      ]
+    },
+    {
+      "id": "0225af17-b302-49cb-9176-b9f35cab9c17",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Approved Color",
+      "editorAlias": "Umbraco.ColorPicker",
+      "editorUiAlias": "Umb.PropertyEditorUi.ColorPicker",
+      "values": []
+    },
+    {
+      "id": "fbaf13a8-4036-41f2-93a3-974f678c312a",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Checkbox list",
+      "editorAlias": "Umbraco.CheckBoxList",
+      "editorUiAlias": "Umb.PropertyEditorUi.CheckBoxList",
+      "values": []
+    },
+    {
+      "id": "fd1e0da5-5606-4862-b679-5d0cf3a52a59",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Content Picker",
+      "editorAlias": "Umbraco.ContentPicker",
+      "editorUiAlias": "Umb.PropertyEditorUi.DocumentPicker",
+      "values": []
+    },
+    {
+      "id": "5046194e-4237-453c-a547-15db3a07c4e1",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Date Picker",
+      "editorAlias": "Umbraco.DateTime",
+      "editorUiAlias": "Umb.PropertyEditorUi.DatePicker",
+      "values": [
+        {
+          "alias": "format",
+          "value": "YYYY-MM-DD"
+        }
+      ]
+    },
+    {
+      "id": "e4d66c0f-b935-4200-81f0-025f7256b89a",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Date Picker with time",
+      "editorAlias": "Umbraco.DateTime",
+      "editorUiAlias": "Umb.PropertyEditorUi.DatePicker",
+      "values": [
+        {
+          "alias": "format",
+          "value": "YYYY-MM-DD HH:mm:ss"
+        }
+      ]
+    },
+    {
+      "id": "88e8a052-30ee-4d44-a507-59f2cdfc769c",
+      "isDeletable": true,
+      "canIgnoreStartNodes": true,
+      "name": "Date Time Picker (with time zone)",
+      "editorAlias": "Umbraco.DateTimeWithTimeZone",
+      "editorUiAlias": "Umb.PropertyEditorUi.DateTimeWithTimeZonePicker",
+      "values": [
+        {
+          "alias": "timeFormat",
+          "value": "HH:mm"
+        },
+        {
+          "alias": "timeZones",
+          "value": {
+            "mode": "all"
+          }
+        }
+      ]
+    },
+    {
+      "id": "0b6a45e7-44ba-430d-9da5-4e46060b9e03",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Dropdown",
+      "editorAlias": "Umbraco.DropDown.Flexible",
+      "editorUiAlias": "Umb.PropertyEditorUi.Dropdown",
+      "values": [
+        {
+          "alias": "multiple",
+          "value": false
+        }
+      ]
+    },
+    {
+      "id": "f38f0ac7-1d27-439c-9f3f-089cd8825a53",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Dropdown multiple",
+      "editorAlias": "Umbraco.DropDown.Flexible",
+      "editorUiAlias": "Umb.PropertyEditorUi.Dropdown",
+      "values": [
+        {
+          "alias": "multiple",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "1df9f033-e6d4-451f-b8d2-e0cbc50a836f",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Image Cropper",
+      "editorAlias": "Umbraco.ImageCropper",
+      "editorUiAlias": "Umb.PropertyEditorUi.ImageCropper",
+      "values": []
+    },
+    {
+      "id": "ad9f0cf2-bda2-45d5-9ea1-a63cfc873fd3",
+      "isDeletable": true,
+      "canIgnoreStartNodes": true,
+      "name": "Image Media Picker",
+      "editorAlias": "Umbraco.MediaPicker3",
+      "editorUiAlias": "Umb.PropertyEditorUi.MediaPicker",
+      "values": [
+        {
+          "alias": "filter",
+          "value": "cc07b313-0843-4aa8-bbda-871c8da728c8"
+        },
+        {
+          "alias": "multiple",
+          "value": false
+        },
+        {
+          "alias": "validationLimit",
+          "value": {
+            "min": 0,
+            "max": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "930861bf-e262-4ead-a704-f99453565708",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Label (bigint)",
+      "editorAlias": "Umbraco.Label",
+      "editorUiAlias": "Umb.PropertyEditorUi.Label",
+      "values": [
+        {
+          "alias": "umbracoDataValueType",
+          "value": "BIGINT"
+        }
+      ]
+    },
+    {
+      "id": "ba5bdbe6-ab3e-46a8-82b3-2c45f10bc47f",
+      "isDeletable": true,
+      "canIgnoreStartNodes": true,
+      "name": "Label (bytes)",
+      "editorAlias": "Umbraco.Label",
+      "editorUiAlias": "Umb.PropertyEditorUi.Label",
+      "values": [
+        {
+          "alias": "umbracoDataValueType",
+          "value": "BIGINT"
+        },
+        {
+          "alias": "labelTemplate",
+          "value": "{=value | bytes}"
+        }
+      ]
+    },
+    {
+      "id": "0e9794eb-f9b5-4f20-a788-93acd233a7e4",
+      "isDeletable": false,
+      "canIgnoreStartNodes": false,
+      "name": "Label (datetime)",
+      "editorAlias": "Umbraco.Label",
+      "editorUiAlias": "Umb.PropertyEditorUi.Label",
+      "values": [
+        {
+          "alias": "umbracoDataValueType",
+          "value": "DATETIME"
+        }
+      ]
+    },
+    {
+      "id": "8f1ef1e1-9de4-40d3-a072-6673f631ca64",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Label (decimal)",
+      "editorAlias": "Umbraco.Label",
+      "editorUiAlias": "Umb.PropertyEditorUi.Label",
+      "values": [
+        {
+          "alias": "umbracoDataValueType",
+          "value": "DECIMAL"
+        }
+      ]
+    },
+    {
+      "id": "8e7f995c-bd81-4627-9932-c40e568ec788",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Label (integer)",
+      "editorAlias": "Umbraco.Label",
+      "editorUiAlias": "Umb.PropertyEditorUi.Label",
+      "values": [
+        {
+          "alias": "umbracoDataValueType",
+          "value": "INT"
+        }
+      ]
+    },
+    {
+      "id": "5eb57825-e15e-4fc7-8e37-fca65cdafbde",
+      "isDeletable": true,
+      "canIgnoreStartNodes": true,
+      "name": "Label (pixels)",
+      "editorAlias": "Umbraco.Label",
+      "editorUiAlias": "Umb.PropertyEditorUi.Label",
+      "values": [
+        {
+          "alias": "umbracoDataValueType",
+          "value": "INT"
+        },
+        {
+          "alias": "labelTemplate",
+          "value": "{=value}px"
+        }
+      ]
+    },
+    {
+      "id": "f0bc4bfb-b499-40d6-ba86-058885a5178c",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Label (string)",
+      "editorAlias": "Umbraco.Label",
+      "editorUiAlias": "Umb.PropertyEditorUi.Label",
+      "values": [
+        {
+          "alias": "umbracoDataValueType",
+          "value": "STRING"
+        }
+      ]
+    },
+    {
+      "id": "a97cec69-9b71-4c30-8b12-ec398860d7e8",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Label (time)",
+      "editorAlias": "Umbraco.Label",
+      "editorUiAlias": "Umb.PropertyEditorUi.Label",
+      "values": [
+        {
+          "alias": "umbracoDataValueType",
+          "value": "TIME"
+        }
+      ]
+    },
+    {
+      "id": "c0808dd3-8133-4e4b-8ce8-e2bea84a96a4",
+      "isDeletable": false,
+      "canIgnoreStartNodes": false,
+      "name": "List View - Content",
+      "editorAlias": "Umbraco.ListView",
+      "editorUiAlias": "Umb.PropertyEditorUi.Collection",
+      "values": [
+        {
+          "alias": "pageSize",
+          "value": 100
+        },
+        {
+          "alias": "orderBy",
+          "value": "updateDate"
+        },
+        {
+          "alias": "orderDirection",
+          "value": "desc"
+        },
+        {
+          "alias": "layouts",
+          "value": [
+            {
+              "name": "Grid",
+              "collectionView": "Umb.CollectionView.Document.Grid",
+              "icon": "icon-thumbnails-small",
+              "isSystem": true,
+              "selected": true
+            },
+            {
+              "name": "List",
+              "collectionView": "Umb.CollectionView.Document.Table",
+              "icon": "icon-list",
+              "isSystem": true,
+              "selected": true
+            }
+          ]
+        },
+        {
+          "alias": "includeProperties",
+          "value": [
+            {
+              "alias": "updateDate",
+              "header": "Last edited",
+              "isSystem": true
+            },
+            {
+              "alias": "creator",
+              "header": "Updated by",
+              "isSystem": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3a0156c4-3b8c-4803-bdc1-6871faa83fff",
+      "isDeletable": false,
+      "canIgnoreStartNodes": false,
+      "name": "List View - Media",
+      "editorAlias": "Umbraco.ListView",
+      "editorUiAlias": "Umb.PropertyEditorUi.Collection",
+      "values": [
+        {
+          "alias": "pageSize",
+          "value": 100
+        },
+        {
+          "alias": "orderBy",
+          "value": "updateDate"
+        },
+        {
+          "alias": "orderDirection",
+          "value": "desc"
+        },
+        {
+          "alias": "layouts",
+          "value": [
+            {
+              "name": "Grid",
+              "collectionView": "Umb.CollectionView.Media.Grid",
+              "icon": "icon-thumbnails-small",
+              "isSystem": true,
+              "selected": true
+            },
+            {
+              "name": "List",
+              "collectionView": "Umb.CollectionView.Media.Table",
+              "icon": "icon-list",
+              "isSystem": true,
+              "selected": true
+            }
+          ]
+        },
+        {
+          "alias": "includeProperties",
+          "value": [
+            {
+              "alias": "updateDate",
+              "header": "Last edited",
+              "isSystem": true
+            },
+            {
+              "alias": "creator",
+              "header": "Updated by",
+              "isSystem": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4309a3ea-0d78-4329-a06c-c80b036af19a",
+      "isDeletable": true,
+      "canIgnoreStartNodes": true,
+      "name": "Media Picker",
+      "editorAlias": "Umbraco.MediaPicker3",
+      "editorUiAlias": "Umb.PropertyEditorUi.MediaPicker",
+      "values": [
+        {
+          "alias": "multiple",
+          "value": false
+        },
+        {
+          "alias": "validationLimit",
+          "value": {
+            "min": 0,
+            "max": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "1ea2e01f-ebd8-4ce1-8d71-6b1149e63548",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Member Picker",
+      "editorAlias": "Umbraco.MemberPicker",
+      "editorUiAlias": "Umb.PropertyEditorUi.MemberPicker",
+      "values": []
+    },
+    {
+      "id": "b4e3535a-1753-47e2-8568-602cf8cfee6f",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Multi URL Picker",
+      "editorAlias": "Umbraco.MultiUrlPicker",
+      "editorUiAlias": "Umb.PropertyEditorUi.MultiUrlPicker",
+      "values": []
+    },
+    {
+      "id": "0e63d883-b62b-4799-88c3-157f82e83ecc",
+      "isDeletable": true,
+      "canIgnoreStartNodes": true,
+      "name": "Multiple Image Media Picker",
+      "editorAlias": "Umbraco.MediaPicker3",
+      "editorUiAlias": "Umb.PropertyEditorUi.MediaPicker",
+      "values": [
+        {
+          "alias": "filter",
+          "value": "cc07b313-0843-4aa8-bbda-871c8da728c8"
+        },
+        {
+          "alias": "multiple",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "1b661f40-2242-4b44-b9cb-3990ee2b13c0",
+      "isDeletable": true,
+      "canIgnoreStartNodes": true,
+      "name": "Multiple Media Picker",
+      "editorAlias": "Umbraco.MediaPicker3",
+      "editorUiAlias": "Umb.PropertyEditorUi.MediaPicker",
+      "values": [
+        {
+          "alias": "multiple",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "2e6d3631-066e-44b8-aec4-96f09099b2b5",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Numeric",
+      "editorAlias": "Umbraco.Integer",
+      "editorUiAlias": "Umb.PropertyEditorUi.Integer",
+      "values": []
+    },
+    {
+      "id": "bb5f57c9-ce2b-4bb9-b697-4caca783a805",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Radiobox",
+      "editorAlias": "Umbraco.RadioButtonList",
+      "editorUiAlias": "Umb.PropertyEditorUi.RadioButtonList",
+      "values": []
+    },
+    {
+      "id": "ca90c950-0aff-4e72-b976-a30b1ac57dad",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Richtext editor",
+      "editorAlias": "Umbraco.RichText",
+      "editorUiAlias": "Umb.PropertyEditorUi.Tiptap",
+      "values": [
+        {
+          "alias": "extensions",
+          "value": [
+            "Umb.Tiptap.RichTextEssentials",
+            "Umb.Tiptap.Anchor",
+            "Umb.Tiptap.Block",
+            "Umb.Tiptap.Blockquote",
+            "Umb.Tiptap.Bold",
+            "Umb.Tiptap.BulletList",
+            "Umb.Tiptap.CodeBlock",
+            "Umb.Tiptap.Embed",
+            "Umb.Tiptap.Figure",
+            "Umb.Tiptap.Heading",
+            "Umb.Tiptap.HorizontalRule",
+            "Umb.Tiptap.HtmlAttributeClass",
+            "Umb.Tiptap.HtmlAttributeDataset",
+            "Umb.Tiptap.HtmlAttributeId",
+            "Umb.Tiptap.HtmlAttributeStyle",
+            "Umb.Tiptap.HtmlTagDiv",
+            "Umb.Tiptap.HtmlTagSpan",
+            "Umb.Tiptap.Image",
+            "Umb.Tiptap.Italic",
+            "Umb.Tiptap.Link",
+            "Umb.Tiptap.MediaUpload",
+            "Umb.Tiptap.OrderedList",
+            "Umb.Tiptap.Strike",
+            "Umb.Tiptap.Subscript",
+            "Umb.Tiptap.Superscript",
+            "Umb.Tiptap.Table",
+            "Umb.Tiptap.TextAlign",
+            "Umb.Tiptap.TextDirection",
+            "Umb.Tiptap.TextIndent",
+            "Umb.Tiptap.TrailingNode",
+            "Umb.Tiptap.Underline"
+          ]
+        },
+        {
+          "alias": "maxImageSize",
+          "value": 500
+        },
+        {
+          "alias": "overlaySize",
+          "value": "medium"
+        },
+        {
+          "alias": "toolbar",
+          "value": [
+            [
+              [
+                "Umb.Tiptap.Toolbar.SourceEditor"
+              ],
+              [
+                "Umb.Tiptap.Toolbar.Bold",
+                "Umb.Tiptap.Toolbar.Italic",
+                "Umb.Tiptap.Toolbar.Underline"
+              ],
+              [
+                "Umb.Tiptap.Toolbar.TextAlignLeft",
+                "Umb.Tiptap.Toolbar.TextAlignCenter",
+                "Umb.Tiptap.Toolbar.TextAlignRight"
+              ],
+              [
+                "Umb.Tiptap.Toolbar.BulletList",
+                "Umb.Tiptap.Toolbar.OrderedList"
+              ],
+              [
+                "Umb.Tiptap.Toolbar.Blockquote",
+                "Umb.Tiptap.Toolbar.HorizontalRule"
+              ],
+              [
+                "Umb.Tiptap.Toolbar.Link",
+                "Umb.Tiptap.Toolbar.Unlink"
+              ],
+              [
+                "Umb.Tiptap.Toolbar.MediaPicker",
+                "Umb.Tiptap.Toolbar.EmbeddedMedia"
+              ]
+            ]
+          ]
+        },
+        {
+          "alias": "allowedMediaTypes",
+          "value": "cc07b313-0843-4aa8-bbda-871c8da728c8,c4b1efcf-a9d5-41c4-9621-e9d273b52a9c"
+        }
+      ]
+    },
+    {
+      "id": "b6b73142-b9c1-4bf8-a16d-e1c23320b549",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Tags",
+      "editorAlias": "Umbraco.Tags",
+      "editorUiAlias": "Umb.PropertyEditorUi.Tags",
+      "values": [
+        {
+          "alias": "group",
+          "value": "default"
+        },
+        {
+          "alias": "storageType",
+          "value": "Json"
+        }
+      ]
+    },
+    {
+      "id": "c6bac0dd-4ab9-45b1-8e30-e4b619ee5da3",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Textarea",
+      "editorAlias": "Umbraco.TextArea",
+      "editorUiAlias": "Umb.PropertyEditorUi.TextArea",
+      "values": []
+    },
+    {
+      "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae",
+      "isDeletable": false,
+      "canIgnoreStartNodes": false,
+      "name": "Textstring",
+      "editorAlias": "Umbraco.TextBox",
+      "editorUiAlias": "Umb.PropertyEditorUi.TextBox",
+      "values": []
+    },
+    {
+      "id": "92897bc6-a5f3-4ffe-ae27-f2e7e33dda49",
+      "isDeletable": false,
+      "canIgnoreStartNodes": false,
+      "name": "True/false",
+      "editorAlias": "Umbraco.TrueFalse",
+      "editorUiAlias": "Umb.PropertyEditorUi.Toggle",
+      "values": []
+    },
+    {
+      "id": "bc1e266c-dac4-4164-bf08-8a1ec6a7143d",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Upload Article",
+      "editorAlias": "Umbraco.UploadField",
+      "editorUiAlias": "Umb.PropertyEditorUi.UploadField",
+      "values": [
+        {
+          "alias": "fileExtensions",
+          "value": [
+            "pdf",
+            "docx",
+            "doc"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "8f430dd6-4e96-447e-9dc0-cb552c8cd1f3",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Upload Audio",
+      "editorAlias": "Umbraco.UploadField",
+      "editorUiAlias": "Umb.PropertyEditorUi.UploadField",
+      "values": [
+        {
+          "alias": "fileExtensions",
+          "value": [
+            "mp3",
+            "weba",
+            "oga",
+            "opus"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "84c6b441-31df-4ffe-b67e-67d5bc3ae65a",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Upload File",
+      "editorAlias": "Umbraco.UploadField",
+      "editorUiAlias": "Umb.PropertyEditorUi.UploadField",
+      "values": []
+    },
+    {
+      "id": "215cb418-2153-4429-9aef-8c0f0041191b",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Upload Vector Graphics",
+      "editorAlias": "Umbraco.UploadField",
+      "editorUiAlias": "Umb.PropertyEditorUi.UploadField",
+      "values": [
+        {
+          "alias": "fileExtensions",
+          "value": [
+            "svg"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "70575fe7-9812-4396-bbe1-c81a76db71b5",
+      "isDeletable": true,
+      "canIgnoreStartNodes": false,
+      "name": "Upload Video",
+      "editorAlias": "Umbraco.UploadField",
+      "editorUiAlias": "Umb.PropertyEditorUi.UploadField",
+      "values": [
+        {
+          "alias": "fileExtensions",
+          "value": [
+            "mp4",
+            "webm",
+            "ogv"
+          ]
+        }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "id": "d9f494d8-fd66-41a8-b5ee-3f5797e066ac",
+      "masterTemplate": null,
+      "name": "Blog",
+      "alias": "blog",
+      "content": "@using Umbraco.Cms.Core.Models.PublishedContent\n@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage\n@{\n    Layout = null;\n    var posts = Model.Descendants().Where(x =\u003E x.ContentType.Alias == \u0022blogPost\u0022 \u0026\u0026 x.IsVisible()).OrderByDescending(x =\u003E x.Value\u003CDateTime\u003E(\u0022publishDate\u0022));\n}\n\u003C!DOCTYPE html\u003E\n\u003Chtml lang=\u0022en\u0022\u003E\n\u003Chead\u003E\u003Cmeta charset=\u0022utf-8\u0022 /\u003E\u003Ctitle\u003E@Model.Value(\u0022title\u0022)\u003C/title\u003E\u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1\u0022 /\u003E\n    \u003Clink rel=\u0022stylesheet\u0022 href=\u0022/css/site.css\u0022 /\u003E\n    \u003Cscript src=\u0022/scripts/site.js\u0022 defer\u003E\u003C/script\u003E\n\u003C/head\u003E\n\u003Cbody\u003E\n    @await Html.PartialAsync(\u0022header\u0022)\n    \u003Cmain\u003E\n    \u003Ch1\u003E@Model.Value(\u0022title\u0022)\u003C/h1\u003E\n    \u003Cp\u003E@Model.Value(\u0022intro\u0022)\u003C/p\u003E\n    \u003Cul class=\u0022posts\u0022\u003E\n    @foreach (var post in posts)\n    {\n        var image = post.Value\u003CIPublishedContent\u003E(\u0022featuredImage\u0022);\n        \u003Cli\u003E\n            @if (image != null) { \u003Cimg src=\u0022@image.GetCropUrl(width: 300)\u0022 alt=\u0022\u0022 /\u003E }\n            \u003Ch2\u003E\u003Ca href=\u0022@post.Url()\u0022\u003E@post.Value(\u0022title\u0022)\u003C/a\u003E\u003C/h2\u003E\n            \u003Cp\u003E\u003Csmall\u003E@(post.Value\u003CDateTime\u003E(\u0022publishDate\u0022).ToString(\u0022d MMM yyyy\u0022)) \u00B7 @post.Value(\u0022author\u0022)\u003C/small\u003E\u003C/p\u003E\n            \u003Cp\u003E@post.Value(\u0022excerpt\u0022)\u003C/p\u003E\n        \u003C/li\u003E\n    }\n    \u003C/ul\u003E\n    \u003C/main\u003E\n    @await Html.PartialAsync(\u0022footer\u0022)\n\u003C/body\u003E\n\u003C/html\u003E\n"
+    },
+    {
+      "id": "e3d8c6bc-3ed4-4cd2-a586-263890361c9e",
+      "masterTemplate": null,
+      "name": "Blog Post",
+      "alias": "blogPost",
+      "content": "@using Umbraco.Cms.Core.Models.PublishedContent\n@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage\n@{\n    Layout = null;\n    var image = Model.Value\u003CIPublishedContent\u003E(\u0022featuredImage\u0022);\n    var related = Model.Value\u003CIPublishedContent\u003E(\u0022relatedPost\u0022);\n    var metaTitle = Model.Value\u003Cstring\u003E(\u0022metaTitle\u0022);\n}\n\u003C!DOCTYPE html\u003E\n\u003Chtml lang=\u0022@(System.Globalization.CultureInfo.CurrentCulture.Name)\u0022\u003E\n\u003Chead\u003E\n    \u003Cmeta charset=\u0022utf-8\u0022 /\u003E\n    \u003Ctitle\u003E@(string.IsNullOrWhiteSpace(metaTitle) ? Model.Value(\u0022title\u0022) : metaTitle)\u003C/title\u003E\n    \u003Cmeta name=\u0022description\u0022 content=\u0022@Model.Value(\u0022metaDescription\u0022)\u0022 /\u003E\n\u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1\u0022 /\u003E\n    \u003Clink rel=\u0022stylesheet\u0022 href=\u0022/css/site.css\u0022 /\u003E\n    \u003Cscript src=\u0022/scripts/site.js\u0022 defer\u003E\u003C/script\u003E\n\u003C/head\u003E\n\u003Cbody\u003E\n    @await Html.PartialAsync(\u0022header\u0022)\n    \u003Cmain\u003E\n    \u003Carticle\u003E\n        @if (Model.Value\u003Cbool\u003E(\u0022isFeatured\u0022)) { \u003Cstrong\u003E\u2605 @Umbraco.GetDictionaryValue(\u0022Blog.Featured\u0022)\u003C/strong\u003E }\n        \u003Ch1\u003E@Model.Value(\u0022title\u0022)\u003C/h1\u003E\n        \u003Cp\u003E\u003Csmall\u003E@(Model.Value\u003CDateTime\u003E(\u0022publishDate\u0022).ToString(\u0022d MMMM yyyy\u0022)) \u00B7 @Model.Value(\u0022author\u0022) \u00B7 @Model.Value(\u0022readingTime\u0022) @Umbraco.GetDictionaryValue(\u0022Blog.MinRead\u0022)\u003C/small\u003E\u003C/p\u003E\n        \u003Cp\u003E@Umbraco.GetDictionaryValue(\u0022Blog.Categories\u0022): @string.Join(\u0022, \u0022, Model.Value\u003CIEnumerable\u003Cstring\u003E\u003E(\u0022categories\u0022) ?? Enumerable.Empty\u003Cstring\u003E())\u003C/p\u003E\n        @if (image != null) { \u003Cimg src=\u0022@image.GetCropUrl(width: 1200)\u0022 alt=\u0022\u0022 /\u003E }\n        \u003Cp\u003E\u003Cem\u003E@Model.Value(\u0022excerpt\u0022)\u003C/em\u003E\u003C/p\u003E\n        \u003Cdiv\u003E@Model.Value(\u0022bodyText\u0022)\u003C/div\u003E\n        \u003Cp\u003E@Umbraco.GetDictionaryValue(\u0022Blog.Tags\u0022): @string.Join(\u0022, \u0022, Model.Value\u003CIEnumerable\u003Cstring\u003E\u003E(\u0022tags\u0022) ?? Enumerable.Empty\u003Cstring\u003E())\u003C/p\u003E\n        @if (related != null) { \u003Cp\u003E@Umbraco.GetDictionaryValue(\u0022Blog.Related\u0022): \u003Ca href=\u0022@related.Url()\u0022\u003E@related.Name\u003C/a\u003E\u003C/p\u003E }\n    \u003C/article\u003E\n    \u003C/main\u003E\n    @await Html.PartialAsync(\u0022footer\u0022)\n\u003C/body\u003E\n\u003C/html\u003E\n"
+    },
+    {
+      "id": "e1824bc4-2be1-4bae-b5ce-80481362fc40",
+      "masterTemplate": null,
+      "name": "Contact Page",
+      "alias": "contactPage",
+      "content": "@using Umbraco.Cms.Core.Security\n@using Umbraco.Cms.Web.Website.Controllers\n@using Umbraco.Cms.Web.Website.Models\n@using UmbracoSite.Controllers\n@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage\n@inject IMemberManager MemberManager\n@{\n    Layout = null;\n    string T(string key) =\u003E Umbraco.GetDictionaryValue(key) ?? key;\n    var member = await MemberManager.GetCurrentMemberAsync();\n    var contactSent = TempData[\u0022contactSuccess\u0022] is true;\n    var signedUp = TempData[\u0022signupSuccess\u0022] is true;\n}\n\u003C!DOCTYPE html\u003E\n\u003Chtml lang=\u0022@(System.Globalization.CultureInfo.CurrentCulture.Name)\u0022\u003E\n\u003Chead\u003E\n    \u003Cmeta charset=\u0022utf-8\u0022 /\u003E\n    \u003Ctitle\u003E@Model.Value(\u0022title\u0022)\u003C/title\u003E\n\u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1\u0022 /\u003E\n    \u003Clink rel=\u0022stylesheet\u0022 href=\u0022/css/site.css\u0022 /\u003E\n    \u003Cscript src=\u0022/scripts/site.js\u0022 defer\u003E\u003C/script\u003E\n\u003C/head\u003E\n\u003Cbody\u003E\n    @await Html.PartialAsync(\u0022header\u0022)\n    \u003Cmain\u003E\n    \u003Ch1\u003E@Model.Value(\u0022title\u0022)\u003C/h1\u003E\n    @Model.Value(\u0022intro\u0022)\n\n    \u003Csection id=\u0022contact\u0022\u003E\n        @if (contactSent)\n        {\n            \u003Cp class=\u0022success\u0022 id=\u0022contact-success\u0022\u003E@Model.Value(\u0022successMessage\u0022)\u003C/p\u003E\n        }\n        else\n        {\n            using (Html.BeginUmbracoForm\u003CContactSurfaceController\u003E(nameof(ContactSurfaceController.Submit), null, new { id = \u0022contact-form\u0022 }))\n            {\n                @Html.ValidationSummary()\n                \u003Cp\u003E\u003Clabel\u003E@T(\u0022Form.Name\u0022)\u003Cbr /\u003E\u003Cinput name=\u0022Name\u0022 required maxlength=\u0022100\u0022 /\u003E\u003C/label\u003E\u003C/p\u003E\n                \u003Cp\u003E\u003Clabel\u003E@T(\u0022Form.Email\u0022)\u003Cbr /\u003E\u003Cinput name=\u0022Email\u0022 type=\u0022email\u0022 required /\u003E\u003C/label\u003E\u003C/p\u003E\n                \u003Cp\u003E\u003Clabel\u003E@T(\u0022Form.Subject\u0022)\u003Cbr /\u003E\u003Cinput name=\u0022Subject\u0022 maxlength=\u0022150\u0022 /\u003E\u003C/label\u003E\u003C/p\u003E\n                \u003Cp\u003E\u003Clabel\u003E@T(\u0022Form.Message\u0022)\u003Cbr /\u003E\u003Ctextarea name=\u0022Message\u0022 rows=\u00226\u0022 required\u003E\u003C/textarea\u003E\u003C/label\u003E\u003C/p\u003E\n                \u003Cbutton type=\u0022submit\u0022\u003E@T(\u0022Form.Send\u0022)\u003C/button\u003E\n            }\n        }\n    \u003C/section\u003E\n\n    \u003Csection id=\u0022signup\u0022\u003E\n        \u003Ch2\u003E@Model.Value(\u0022signupTitle\u0022)\u003C/h2\u003E\n        @if (signedUp)\n        {\n            \u003Cp class=\u0022success\u0022 id=\u0022signup-success\u0022\u003E@Model.Value(\u0022signupSuccessMessage\u0022)\u003C/p\u003E\n        }\n        @if (member is not null)\n        {\n            \u003Cp id=\u0022signed-in\u0022\u003E@T(\u0022Form.SignedInAs\u0022) \u003Cstrong\u003E@member.Name\u003C/strong\u003E (@member.Email)\u003C/p\u003E\n            using (Html.BeginUmbracoForm\u003CUmbLoginStatusController\u003E(\u0022HandleLogout\u0022, new { RedirectUrl = Model.Url() }))\n            {\n                \u003Cbutton type=\u0022submit\u0022\u003E@T(\u0022Form.SignOut\u0022)\u003C/button\u003E\n            }\n        }\n        else\n        {\n            @Model.Value(\u0022signupIntro\u0022)\n            using (Html.BeginUmbracoForm\u003CContactSurfaceController\u003E(nameof(ContactSurfaceController.SignUp), null, new { id = \u0022signup-form\u0022 }))\n            {\n                \u003Cp\u003E\u003Clabel\u003E@T(\u0022Form.Name\u0022)\u003Cbr /\u003E\u003Cinput name=\u0022Name\u0022 required maxlength=\u0022100\u0022 /\u003E\u003C/label\u003E\u003C/p\u003E\n                \u003Cp\u003E\u003Clabel\u003E@T(\u0022Form.Email\u0022)\u003Cbr /\u003E\u003Cinput name=\u0022Email\u0022 type=\u0022email\u0022 required /\u003E\u003C/label\u003E\u003C/p\u003E\n                \u003Cp\u003E\u003Clabel\u003E@T(\u0022Form.Password\u0022)\u003Cbr /\u003E\u003Cinput name=\u0022Password\u0022 type=\u0022password\u0022 required minlength=\u002210\u0022 /\u003E\u003C/label\u003E\u003C/p\u003E\n                \u003Cp\u003E\u003Clabel\u003E@T(\u0022Form.Company\u0022)\u003Cbr /\u003E\u003Cinput name=\u0022Company\u0022 maxlength=\u0022100\u0022 /\u003E\u003C/label\u003E\u003C/p\u003E\n                \u003Cp\u003E\u003Clabel\u003E\u003Cinput name=\u0022MarketingOptIn\u0022 type=\u0022checkbox\u0022 value=\u0022true\u0022 /\u003E @T(\u0022Form.MarketingOptIn\u0022)\u003C/label\u003E\u003C/p\u003E\n                \u003Cbutton type=\u0022submit\u0022\u003E@T(\u0022Form.SignUp\u0022)\u003C/button\u003E\n            }\n        }\n    \u003C/section\u003E\n    \u003C/main\u003E\n    @await Html.PartialAsync(\u0022footer\u0022)\n\u003C/body\u003E\n\u003C/html\u003E\n"
+    },
+    {
+      "id": "8669906f-61af-4eae-9dac-990882acec17",
+      "masterTemplate": null,
+      "name": "Home Page",
+      "alias": "homePage",
+      "content": "@using Umbraco.Cms.Core.Models.Blocks\n@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage\n@{\n\tLayout = null;\n\tvar blocks = Model.Value\u003CBlockListModel\u003E(\u0022blocks\u0022);\n}\n\u003C!DOCTYPE html\u003E\n\u003Chtml lang=\u0022@(System.Globalization.CultureInfo.CurrentCulture.Name)\u0022\u003E\n\u003Chead\u003E\n    \u003Cmeta charset=\u0022utf-8\u0022 /\u003E\n    \u003Ctitle\u003E@Model.Value(\u0022title\u0022)\u003C/title\u003E\n\u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1\u0022 /\u003E\n    \u003Clink rel=\u0022stylesheet\u0022 href=\u0022/css/site.css\u0022 /\u003E\n    \u003Cscript src=\u0022/scripts/site.js\u0022 defer\u003E\u003C/script\u003E\n\u003C/head\u003E\n\u003Cbody\u003E\n    @await Html.PartialAsync(\u0022header\u0022)\n    \u003Cmain\u003E\n    \u003Ch1\u003E@Model.Value(\u0022title\u0022)\u003C/h1\u003E\n    \u003Cdiv\u003E@Model.Value(\u0022bodyText\u0022)\u003C/div\u003E\n    @if (blocks?.Any() == true)\n    {\n        \u003Cdiv class=\u0022blocks\u0022\u003E@await Html.GetBlockListHtmlAsync(blocks)\u003C/div\u003E\n    }\n    \u003C/main\u003E\n    @await Html.PartialAsync(\u0022footer\u0022)\n\u003C/body\u003E\n\u003C/html\u003E\n"
+    }
+  ],
+  "languages": [
+    {
+      "isoCode": "en-US",
+      "name": "English (United States)",
+      "isDefault": true,
+      "isMandatory": false,
+      "fallbackIsoCode": null
+    },
+    {
+      "isoCode": "da-DK",
+      "name": "Danish (Denmark)",
+      "isDefault": false,
+      "isMandatory": false,
+      "fallbackIsoCode": "en-US"
+    }
+  ],
+  "dictionaryItems": [
+    {
+      "id": "3088a39e-ff09-4f2c-a0cf-8baa4bf57726",
+      "name": "Blog",
+      "translations": [],
+      "parent": null
+    },
+    {
+      "id": "ae065d02-797c-4e55-97a5-cbcfb9cd510b",
+      "name": "Blog.Categories",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Kategorier"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Categories"
+        }
+      ],
+      "parent": {
+        "id": "3088a39e-ff09-4f2c-a0cf-8baa4bf57726"
+      }
+    },
+    {
+      "id": "6d4b7174-6e71-47f5-91d1-6185976bb5cd",
+      "name": "Blog.Featured",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Fremh\u00E6vet"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Featured"
+        }
+      ],
+      "parent": {
+        "id": "3088a39e-ff09-4f2c-a0cf-8baa4bf57726"
+      }
+    },
+    {
+      "id": "c464e39e-d6f3-493f-8a36-829fac670751",
+      "name": "Blog.MinRead",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "min. l\u00E6setid"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "min read"
+        }
+      ],
+      "parent": {
+        "id": "3088a39e-ff09-4f2c-a0cf-8baa4bf57726"
+      }
+    },
+    {
+      "id": "f953123b-9ad8-48d5-8e4b-d158eeb3312a",
+      "name": "Blog.Related",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Relateret"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Related"
+        }
+      ],
+      "parent": {
+        "id": "3088a39e-ff09-4f2c-a0cf-8baa4bf57726"
+      }
+    },
+    {
+      "id": "167f9b40-21cb-46b0-9943-eefcf923e0e9",
+      "name": "Blog.Tags",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "M\u00E6rker"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Tags"
+        }
+      ],
+      "parent": {
+        "id": "3088a39e-ff09-4f2c-a0cf-8baa4bf57726"
+      }
+    },
+    {
+      "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9",
+      "name": "Form",
+      "translations": [],
+      "parent": null
+    },
+    {
+      "id": "84c0d0ab-b666-47b4-bcf0-51888dba4c67",
+      "name": "Form.Company",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Virksomhed"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Company"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "f47a9424-5371-4ba8-ad40-374f9ccab55f",
+      "name": "Form.Email",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "E-mail"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Email"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "4c8bf5af-3b11-4455-983b-e655d80cd8f8",
+      "name": "Form.MarketingOptIn",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Send mig nyheder og opdateringer p\u00E5 e-mail"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Send me news and updates by email"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "bf62a7a5-db3e-44f5-813c-5a95ecf0192b",
+      "name": "Form.Message",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Besked"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Message"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "bdadad64-f4bf-4402-876f-6f022ffa3fd7",
+      "name": "Form.Name",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Navn"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Name"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "cb970757-7585-44a7-a7bb-330496b39fd6",
+      "name": "Form.Password",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Adgangskode (min. 10 tegn)"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Password (min. 10 characters)"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "157525cf-3eb4-4563-85ca-9f12f485b4bc",
+      "name": "Form.Send",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Send besked"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Send message"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "bbab5c71-53ca-4975-87ec-313e428d8bd2",
+      "name": "Form.SignedInAs",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Du er logget ind som"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "You are signed in as"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "ac6c01e2-1881-4e9f-a19c-05ddb80c16a1",
+      "name": "Form.SignOut",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Log ud"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Sign out"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "30447737-a2a1-4c6f-9f99-6e5c381fbaa5",
+      "name": "Form.SignUp",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Opret konto"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Create account"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    },
+    {
+      "id": "d1f01000-d6ae-4160-993c-bff932ab2fe6",
+      "name": "Form.Subject",
+      "translations": [
+        {
+          "isoCode": "da-DK",
+          "translation": "Emne"
+        },
+        {
+          "isoCode": "en-US",
+          "translation": "Subject"
+        }
+      ],
+      "parent": {
+        "id": "7b447231-5e2d-4b51-86ca-c25c11cc8fc9"
+      }
+    }
+  ],
+  "memberGroups": [
+    {
+      "id": "a8742b56-3bda-4b13-be71-7b98cbbc44ad",
+      "name": "Subscribers"
+    }
+  ],
+  "userGroups": [
+    {
+      "id": "e5e7f6c8-7f9c-4b5b-8d5d-9e1e5a4f7e4d",
+      "isDeletable": false,
+      "aliasCanBeChanged": false,
+      "name": "Administrators",
+      "alias": "admin",
+      "description": "Users with full access to all sections and functionality",
+      "icon": "icon-medal",
+      "sections": [
+        "Umb.Section.Content",
+        "Umb.Section.Forms",
+        "Umb.Section.Media",
+        "Umb.Section.Members",
+        "Umb.Section.Packages",
+        "Umb.Section.Settings",
+        "Umb.Section.Translation",
+        "Umb.Section.Users"
+      ],
+      "languages": [],
+      "hasAccessToAllLanguages": true,
+      "documentRootAccess": true,
+      "mediaRootAccess": true,
+      "fallbackPermissions": [
+        "Umb.Document.Create",
+        "Umb.Document.Update",
+        "Umb.Document.Delete",
+        "Umb.Document.Move",
+        "Umb.Document.Duplicate",
+        "Umb.Document.Sort",
+        "Umb.Document.Rollback",
+        "Umb.Document.PublicAccess",
+        "Umb.Document.CultureAndHostnames",
+        "Umb.Document.Publish",
+        "Umb.Document.Permissions",
+        "Umb.Document.Unpublish",
+        "Umb.Document.Read",
+        "Umb.Document.CreateBlueprint",
+        "Umb.Document.Notifications",
+        ":",
+        "5",
+        "7",
+        "T",
+        "Umb.Document.PropertyValue.Read",
+        "Umb.Document.PropertyValue.Write"
+      ],
+      "permissions": []
+    },
+    {
+      "id": "9b840be5-c942-4f46-a493-a406c7422bd5",
+      "isDeletable": true,
+      "aliasCanBeChanged": true,
+      "name": "Blog Editors",
+      "alias": "blogEditors",
+      "description": "",
+      "icon": null,
+      "sections": [
+        "Umb.Section.Content",
+        "Umb.Section.Media"
+      ],
+      "languages": [
+        "da-DK"
+      ],
+      "hasAccessToAllLanguages": false,
+      "documentRootAccess": false,
+      "mediaRootAccess": false,
+      "fallbackPermissions": [
+        "Umb.Document.Read",
+        "Umb.Document.Update",
+        "Umb.Document.Publish"
+      ],
+      "permissions": []
+    },
+    {
+      "id": "44dc260e-b4d4-4dd9-9081-eec5598f1641",
+      "isDeletable": true,
+      "aliasCanBeChanged": true,
+      "name": "Editors",
+      "alias": "editor",
+      "description": "Users with full permission to create, update and publish content",
+      "icon": "icon-tools",
+      "sections": [
+        "Umb.Section.Content",
+        "Umb.Section.Forms",
+        "Umb.Section.Media"
+      ],
+      "languages": [],
+      "hasAccessToAllLanguages": true,
+      "documentRootAccess": true,
+      "mediaRootAccess": true,
+      "fallbackPermissions": [
+        "Umb.Document.Create",
+        "Umb.Document.Update",
+        "Umb.Document.Delete",
+        "Umb.Document.Move",
+        "Umb.Document.Duplicate",
+        "Umb.Document.Sort",
+        "Umb.Document.Rollback",
+        "Umb.Document.PublicAccess",
+        "Umb.Document.Publish",
+        "Umb.Document.Unpublish",
+        "Umb.Document.Read",
+        "Umb.Document.CreateBlueprint",
+        "Umb.Document.Notifications",
+        ":",
+        "5",
+        "T",
+        "Umb.Document.PropertyValue.Read",
+        "Umb.Document.PropertyValue.Write"
+      ],
+      "permissions": []
+    },
+    {
+      "id": "8c6ad70f-d307-4e4a-af58-72c2e4e9439d",
+      "isDeletable": false,
+      "aliasCanBeChanged": false,
+      "name": "Sensitive data",
+      "alias": "sensitiveData",
+      "description": "Users with the specific permission to be able to manage properties and data marked as sensitive",
+      "icon": "icon-lock",
+      "sections": [],
+      "languages": [],
+      "hasAccessToAllLanguages": false,
+      "documentRootAccess": false,
+      "mediaRootAccess": false,
+      "fallbackPermissions": [],
+      "permissions": []
+    },
+    {
+      "id": "f2012e4c-d232-4bd1-8eae-4384032d97d8",
+      "isDeletable": false,
+      "aliasCanBeChanged": false,
+      "name": "Translators",
+      "alias": "translator",
+      "description": "Users with permission to manage dictionary entries",
+      "icon": "icon-globe",
+      "sections": [
+        "Umb.Section.Translation"
+      ],
+      "languages": [],
+      "hasAccessToAllLanguages": true,
+      "documentRootAccess": true,
+      "mediaRootAccess": true,
+      "fallbackPermissions": [
+        "Umb.Document.Update",
+        "Umb.Document.Read",
+        "Umb.Document.PropertyValue.Read",
+        "Umb.Document.PropertyValue.Write"
+      ],
+      "permissions": []
+    },
+    {
+      "id": "9fc2a16f-528c-46d6-a014-75bf4ec2480c",
+      "isDeletable": true,
+      "aliasCanBeChanged": true,
+      "name": "Writers",
+      "alias": "writer",
+      "description": "Users with permission to create and update but not publish content",
+      "icon": "icon-edit",
+      "sections": [
+        "Umb.Section.Content"
+      ],
+      "languages": [],
+      "hasAccessToAllLanguages": true,
+      "documentRootAccess": true,
+      "mediaRootAccess": true,
+      "fallbackPermissions": [
+        "Umb.Document.Create",
+        "Umb.Document.Update",
+        "Umb.Document.Read",
+        "Umb.Document.Notifications",
+        ":",
+        "Umb.Document.PropertyValue.Read",
+        "Umb.Document.PropertyValue.Write"
+      ],
+      "permissions": []
+    }
+  ]
+}

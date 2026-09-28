@@ -10,6 +10,7 @@ an AI chat assistant that manages Umbraco conversationally, use the first-party
 | Automate the CLI in scripts, CI, or an agent | [agent-guide.md](agent-guide.md) |
 | Look up any command and its options | [commands.md](commands.md) |
 | Acceptance-test a release (agent runbook) | [testing/alpha-test-guide.md](testing/alpha-test-guide.md) |
+| Test a build end to end on throwaway local sites (agent runbook) | [../tests/hands-on/README.md](../tests/hands-on/README.md) |
 | Work on this repository (contribute code) | [../AGENTS.md](../AGENTS.md) and [../CONTRIBUTING.md](../CONTRIBUTING.md) |
 
 ## Reference material
