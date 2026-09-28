@@ -78,6 +78,12 @@ disagree, this file wins; the older document is rationale that may be out of dat
 2. **One name, one meaning.** A name never means different things on different commands.
 3. **Multi-value options are singular and repeatable** (`--culture en-US --culture da-DK`), and also
    accept commas, except `key=value` options, which are repeat-only. Pairs are `--value key=value`.
+   An **empty value** (`key=`) means "nothing for this key". Where the value is data that may be
+   empty (a property value `--value alias=`, a translation `--value en-US=`) it is set empty,
+   which clears it. Where an entry cannot exist without its value (`--header name=`,
+   `--document-permission <id>=`, `--domain host=`) it removes that entry; on a create there is
+   nothing to remove, so it is ignored. An empty *key* (`=value`) is always refused. Each
+   option's help says what `key=` does.
 4. **Booleans:** a flag names the non-default behaviour (`--desc`, `--asc`, `--no-state`). On
    `update`, an omitted flag leaves the value unchanged; `--flag false` clears it.
 5. **Inputs:** `-` means stdin on every file-valued input. Two inputs that conflict
@@ -241,3 +247,9 @@ Each exception is deliberate or tracked; don't copy it.
   vocabulary lives once, in `ExamplePlaceholders`. `HelpTextTests` reads the lists instead of
   searching descriptions for the heading, and `umbraco commands` gains an additive `examples`
   field.
+- **2026-09-28** - 4.3: what an empty value (`key=`) means for `key=value` options (#394). It
+  clears a value that may be empty (property values, dictionary translations) and removes an
+  entry that cannot exist without one (webhook headers, user-group document permissions, content
+  domain bindings). This writes down what the options already did, except `content domain set
+  --domain host=`, which sent a binding with an empty ISO code and now removes that host's
+  binding.

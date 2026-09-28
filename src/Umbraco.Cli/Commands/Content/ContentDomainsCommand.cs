@@ -62,7 +62,8 @@ public static class ContentDomainsCommand
         )
             .WithExamples(
                 "umbraco content domain set <id> --default-culture en-US --domain example.com=en-US --domain example.com/da=da-DK",
-                "umbraco content domain set <id> --replace --domain example.com=en-US"
+                "umbraco content domain set <id> --replace --domain example.com=en-US",
+                "umbraco content domain set <id> --domain example.com/da=   # remove that binding"
             )
             .Mutating();
         var idArg = new Argument<Guid>("id") { Description = "Document ID." };
@@ -73,7 +74,9 @@ public static class ContentDomainsCommand
         };
         var domainOpt = new Option<string[]>("--domain")
         {
-            Description = "A binding as host=isoCode, e.g. example.com/da=da-DK. Repeatable.",
+            Description =
+                "A binding as host=isoCode, e.g. example.com/da=da-DK. Repeatable. An empty ISO code "
+                + "(host=) removes that host's binding.",
             AllowMultipleArgumentsPerToken = true,
         };
         var replaceOpt = new Option<bool>("--replace")
@@ -125,27 +128,25 @@ public static class ContentDomainsCommand
                         // The PUT replaces the whole set, so read first and merge by hostname -
                         // otherwise adding one binding silently drops every other one, which is
                         // #178's failure in a different noun.
-                        var merged = requested;
+                        IEnumerable<DomainBinding>? current = null;
                         var defaultIso = parseResult.GetValue(defaultOpt);
                         if (!parseResult.GetValue(replaceOpt))
                         {
-                            var current = await client.GetDomainsAsync(id, c);
-                            if (!current.IsSuccess)
-                                return UmbracoResponse<DomainsResponse>.FailureFrom(current);
+                            var read = await client.GetDomainsAsync(id, c);
+                            if (!read.IsSuccess)
+                                return UmbracoResponse<DomainsResponse>.FailureFrom(read);
 
-                            merged = MergeByKey.Upsert(
-                                current.Data!.Domains,
-                                requested,
-                                b => b.DomainName,
-                                StringComparer.OrdinalIgnoreCase
-                            );
-
-                            defaultIso ??= current.Data!.DefaultIsoCode;
+                            current = read.Data!.Domains;
+                            defaultIso ??= read.Data!.DefaultIsoCode;
                         }
 
                         return await client.SetDomainsAsync(
                             id,
-                            new SetDomainsRequest { DefaultIsoCode = defaultIso, Domains = merged },
+                            new SetDomainsRequest
+                            {
+                                DefaultIsoCode = defaultIso,
+                                Domains = Merge(current, requested),
+                            },
                             c
                         );
                     },
@@ -155,4 +156,30 @@ public static class ContentDomainsCommand
 
         return cmd;
     }
+
+    /// <summary>
+    /// The binding set to send: the requested bindings merged into the current ones by hostname
+    /// (ignoring case), or on their own under <c>--replace</c>. A requested binding with an empty
+    /// ISO code (<c>host=</c>) removes that host's binding (docs/conventions.md 4.3): Umbraco has no
+    /// binding without a culture, so sending one would only be refused.
+    /// </summary>
+    /// <param name="current">The document's current bindings, or null under <c>--replace</c>.</param>
+    /// <param name="requested">The <c>--domain</c> bindings, in the order given.</param>
+    /// <returns>The complete set of bindings to write.</returns>
+    internal static List<DomainBinding> Merge(
+        IEnumerable<DomainBinding>? current,
+        IEnumerable<DomainBinding> requested
+    ) =>
+        [
+            .. (
+                current is null
+                    ? requested
+                    : MergeByKey.Upsert(
+                        current,
+                        requested,
+                        b => b.DomainName,
+                        StringComparer.OrdinalIgnoreCase
+                    )
+            ).Where(b => !string.IsNullOrEmpty(b.IsoCode)),
+        ];
 }

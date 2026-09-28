@@ -35,7 +35,9 @@ public static class MediaUpdateCommand
         var nameOpt = new Option<string?>("--name") { Description = "New display name." };
         var valueOpt = new Option<string[]>("--value")
         {
-            Description = "Property values as alias=value, e.g. summary=\"...\". Repeatable.",
+            Description =
+                "Property values as alias=value, e.g. summary=\"...\". Repeatable. An empty value "
+                + "(alias=) clears that property.",
             AllowMultipleArgumentsPerToken = true,
         };
         var replaceOpt = new Option<bool>("--replace")

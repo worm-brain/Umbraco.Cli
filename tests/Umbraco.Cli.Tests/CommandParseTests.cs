@@ -856,6 +856,8 @@ public class CommandParseTests
     [InlineData(
         "content domain set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com/da=da-DK"
     )]
+    // host= removes that binding (docs/conventions.md 4.3).
+    [InlineData("content domain set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com/da=")]
     public void PairOption_WellFormed_Parses(string args)
     {
         Assert.False(HasErrors(args), $"Unexpected parse errors for: {args}");

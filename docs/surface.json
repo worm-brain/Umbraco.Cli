@@ -716,7 +716,7 @@
             },
             {
               "name": "set",
-              "description": "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domain set <id> --default-culture en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domain set <id> --replace --domain example.com=en-US",
+              "description": "Set a document's domains.\n\nThe API replaces the whole set, so --domain adds to what is already there rather than replacing it; pass --replace to set exactly what you name and drop the rest.\n\nExamples:\n  umbraco content domain set <id> --default-culture en-US --domain example.com=en-US --domain example.com/da=da-DK\n  umbraco content domain set <id> --replace --domain example.com=en-US\n  umbraco content domain set <id> --domain example.com/da=   # remove that binding",
               "arguments": [
                 {
                   "name": "id",
@@ -738,7 +738,7 @@
                 {
                   "name": "--domain",
                   "aliases": [],
-                  "description": "A binding as host=isoCode, e.g. example.com/da=da-DK. Repeatable.",
+                  "description": "A binding as host=isoCode, e.g. example.com/da=da-DK. Repeatable. An empty ISO code (host=) removes that host's binding.",
                   "type": "string[]",
                   "required": false,
                   "hasDefault": false
@@ -760,7 +760,8 @@
               "destructiveWhen": "--replace",
               "examples": [
                 "umbraco content domain set <id> --default-culture en-US --domain example.com=en-US --domain example.com/da=da-DK",
-                "umbraco content domain set <id> --replace --domain example.com=en-US"
+                "umbraco content domain set <id> --replace --domain example.com=en-US",
+                "umbraco content domain set <id> --domain example.com/da=   # remove that binding"
               ]
             }
           ],
@@ -1677,7 +1678,7 @@
             {
               "name": "--value",
               "aliases": [],
-              "description": "Property values as alias=value, e.g. title=\"Annual report\". Repeatable. Needed for a media type with required fields.",
+              "description": "Property values as alias=value, e.g. title=\"Annual report\". Repeatable. Needed for a media type with required fields. An empty value (alias=) leaves the property empty.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -1721,7 +1722,7 @@
             {
               "name": "--value",
               "aliases": [],
-              "description": "Property values as alias=value, e.g. summary=\"...\". Repeatable.",
+              "description": "Property values as alias=value, e.g. summary=\"...\". Repeatable. An empty value (alias=) clears that property.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -3881,7 +3882,7 @@
             {
               "name": "--value",
               "aliases": [],
-              "description": "Property values as alias=value. Repeatable. Merged into the member's existing values.",
+              "description": "Property values as alias=value. Repeatable. Merged into the member's existing values. An empty value (alias=) clears that property.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -4691,7 +4692,7 @@
             {
               "name": "--value",
               "aliases": [],
-              "description": "Translation pairs in isoCode=value format, using the full culture code. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem",
+              "description": "Translation pairs in isoCode=value format, using the full culture code. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem. An empty value (en-US=) creates an empty translation.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -4747,7 +4748,7 @@
             {
               "name": "--value",
               "aliases": [],
-              "description": "Translation pairs in lang=value format. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem",
+              "description": "Translation pairs in isoCode=value format. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem. An empty value (da-DK=) clears that translation.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -4954,7 +4955,7 @@
             {
               "name": "--header",
               "aliases": [],
-              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several.",
+              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several. A header with an empty value (name=) is not sent.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -6624,7 +6625,7 @@
             {
               "name": "--document-permission",
               "aliases": [],
-              "description": "A granular permission on one document, as <id>=<verb>,<verb> (e.g. Umb.Document.Read). Repeatable. It replaces the group's fallback permissions on that document.",
+              "description": "A granular permission on one document, as <id>=<verb>,<verb> (e.g. Umb.Document.Read). Repeatable. It replaces the group's fallback permissions on that document. <id>= with no verbs removes that document's entry on update (and is ignored on create).",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -6759,7 +6760,7 @@
             {
               "name": "--document-permission",
               "aliases": [],
-              "description": "A granular permission on one document, as <id>=<verb>,<verb> (e.g. Umb.Document.Read). Repeatable. It replaces the group's fallback permissions on that document.",
+              "description": "A granular permission on one document, as <id>=<verb>,<verb> (e.g. Umb.Document.Read). Repeatable. It replaces the group's fallback permissions on that document. <id>= with no verbs removes that document's entry on update (and is ignored on create).",
               "type": "string[]",
               "required": false,
               "hasDefault": false

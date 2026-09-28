@@ -24,7 +24,7 @@ public static class DictionaryCreateCommand
         var valuesOpt = new Option<string[]>("--value")
         {
             Description =
-                "Translation pairs in isoCode=value format, using the full culture code. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem",
+                "Translation pairs in isoCode=value format, using the full culture code. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem. An empty value (en-US=) creates an empty translation.",
             AllowMultipleArgumentsPerToken = true,
         };
         var idOpt = new Option<Guid?>("--id")

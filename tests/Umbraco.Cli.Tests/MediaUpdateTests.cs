@@ -171,6 +171,20 @@ public class MediaUpdateTests
     }
 
     [Fact]
+    public async Task Update_EmptyValue_SendsAnEmptyValueToClearTheProperty()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        await Run(fake, $"update {Id} --value summary=");
+
+        // docs/conventions.md 4.3: key= clears a value that may be empty.
+        Assert.Equal(
+            ["summary="],
+            fake.LastMediaUpdate!.Value.Request.Values.Select(v => $"{v.Alias}={v.Value}")
+        );
+    }
+
+    [Fact]
     public async Task Update_Name_SendsASingleVariant()
     {
         var fake = new FakeUmbracoManagementClient();

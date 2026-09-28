@@ -52,7 +52,7 @@ public static class MediaUploadCommand
         {
             Description =
                 "Property values as alias=value, e.g. title=\"Annual report\". Repeatable. Needed "
-                + "for a media type with required fields.",
+                + "for a media type with required fields. An empty value (alias=) leaves the property empty.",
             AllowMultipleArgumentsPerToken = true,
         };
         cmd.Add(fileArg);
