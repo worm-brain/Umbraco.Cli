@@ -752,7 +752,7 @@ umbraco member-group delete <id|name> [--force]           # refused while it has
 
 ```bash
 umbraco user list                                         # the super-user is hidden from other users (see below)
-umbraco user get <id|email|username>                      # groups as [{id, alias, name}], sections, start nodes, languageIsoCode, login record
+umbraco user get <id|email|username>                      # groups as [{id, alias, name}], sections, languages + hasAccessToAllLanguages, start nodes, languageIsoCode, login record
 umbraco user create --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--password <pw>] [--id <guid>]   # no email sent; returns the user
 umbraco user update <id|email|username> [--email <email>] [--name <name>] [--username <name>] [--group <alias|name|id>...] [--culture <iso>] [--new-password <pw>] [--disabled [true|false]] [--unlock]
 umbraco user delete <id|email|username>...                # one or several; needs --yes non-interactively
@@ -776,7 +776,7 @@ lockout from failed logins. The profile, password, state and lockout are separat
 made in that order; if one fails, the error says which had already been applied. Start nodes and
 root access set on the user itself are kept as they are.
 
-`user delete` may be refused by Umbraco for a user who has signed in; disable them instead.
+`user delete` may be refused by Umbraco for a user who has signed in (the error names which users have); disable them instead.
 
 `user invite` needs SMTP configured on the site, because Umbraco emails the invitation; without it
 the invite is refused and no user is created. `--username` defaults to the email.

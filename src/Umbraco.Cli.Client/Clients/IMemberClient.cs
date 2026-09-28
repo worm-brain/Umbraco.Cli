@@ -15,6 +15,10 @@ public interface IMemberClient
         CancellationToken ct = default
     );
 
+    /// <summary>Creates a member, then reads it back so the result is what <c>get</c> shows.</summary>
+    /// <param name="request">The member to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created member, or a mapped failure.</returns>
     Task<UmbracoResponse<MemberResponse>> CreateMemberAsync(
         CreateMemberRequest request,
         CancellationToken ct = default
