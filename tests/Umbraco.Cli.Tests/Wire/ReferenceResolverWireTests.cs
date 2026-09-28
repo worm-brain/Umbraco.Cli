@@ -136,6 +136,52 @@ public class ReferenceResolverWireTests
     }
 
     [Fact]
+    public async Task GetDocumentTypesAsync_TypeInsideAFolder_IsListedWithItsAlias()
+    {
+        // document-type list showed "alias": "" for every type: the tree items carry no alias,
+        // so each type is read by id, as media and member types are.
+        var folder = Guid.NewGuid();
+        var textPage = Guid.NewGuid();
+        var handler = Wire.Routed(
+            (
+                "tree/document-type/root",
+                $$"""{"total":1,"items":[{"id":"{{folder}}","name":"Pages","isFolder":true}]}"""
+            ),
+            (
+                "tree/document-type/children",
+                $$"""{"total":1,"items":[{"id":"{{textPage}}","name":"Text Page","isFolder":false,"isElement":false}]}"""
+            ),
+            (
+                $"document-type/{textPage}",
+                $$"""{"id":"{{textPage}}","alias":"textPage","name":"Text Page"}"""
+            )
+        );
+
+        var result = await Wire.Client(handler).GetDocumentTypesAsync(0, 20);
+
+        var type = Assert.Single(result.Data!.Items);
+        Assert.Equal((textPage, "textPage"), (type.Id, type.Alias));
+    }
+
+    [Fact]
+    public async Task GetDocumentTypesAsync_ByIdBodyWithoutAlias_ListsTheTypeWithAnEmptyAlias()
+    {
+        // A by-id body without an alias still lists the type, with "" rather than a made-up alias.
+        var textPage = Guid.NewGuid();
+        var handler = Wire.Routed(
+            (
+                "tree/document-type/root",
+                $$"""{"total":1,"items":[{"id":"{{textPage}}","name":"Text Page","isFolder":false}]}"""
+            ),
+            ($"document-type/{textPage}", "{}")
+        );
+
+        var result = await Wire.Client(handler).GetDocumentTypesAsync(0, 20);
+
+        Assert.Equal("", Assert.Single(result.Data!.Items).Alias);
+    }
+
+    [Fact]
     public async Task ResolveIdAsync_TwoDataTypesWithTheName_IsRefusedWithBothIds()
     {
         var a = Guid.NewGuid();

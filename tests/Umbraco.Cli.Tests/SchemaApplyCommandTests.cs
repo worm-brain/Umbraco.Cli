@@ -77,7 +77,7 @@ public class SchemaApplyCommandTests
         var path = Path.Combine(Path.GetTempPath(), $"snap-{Guid.NewGuid()}.json");
         var snap = new SchemaSnapshot
         {
-            DocumentTypes = { JsonNode.Parse($$"""{"id":"{{id}}","alias":"{{alias}}"}""")! },
+            DocumentTypes = [JsonNode.Parse($$"""{"id":"{{id}}","alias":"{{alias}}"}""")!],
         };
         File.WriteAllText(path, snap.ToJson());
         return path;

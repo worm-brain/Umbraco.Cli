@@ -8,7 +8,7 @@ content between environments, run bulk jobs, and get structured JSON or CSV out 
 [![CI](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml/badge.svg)](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> Status: alpha, published on NuGet.org. Works against Umbraco 14+ (including v18).
+> Status: alpha, published on NuGet.org. Works against Umbraco 17+ (including v18).
 
 ## Umbraco.Cli or the official Umbraco MCP?
 
@@ -58,7 +58,7 @@ An AI agent that prefers calling a subprocess can drive it too (see the
 ## Requirements
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) or later.
-- An Umbraco 14+ instance with the Management API enabled.
+- An Umbraco 17+ instance with the Management API enabled.
 
 ## Install
 
@@ -69,6 +69,10 @@ on NuGet.org; the command it installs is `umbraco`. While the tool is in alpha, 
 ```bash
 dotnet tool install -g Umbraco.Community.Cli --prerelease
 ```
+
+Tab completion for bash, zsh and PowerShell comes with it: `umbraco completion <bash|zsh|pwsh>`
+prints the script to load from your shell's startup file (see
+[Shell completion](docs/commands.md#shell-completion-completion)).
 
 ## Quick start
 

@@ -24,7 +24,7 @@ drive-by dependency bumps) will be closed unread. The full rules, and the reason
 
 ## What this is
 
-A cross-platform .NET 9 CLI (`umbraco`) for the Umbraco 14+ Management API, shipped as a
+A cross-platform .NET 9 CLI (`umbraco`) for the Umbraco 17+ Management API, shipped as a
 NuGet global tool (`Umbraco.Community.Cli`; the command is `umbraco`). It is designed to be
 driven both by humans (Spectre.Console tables) and by AI agents/scripts (structured JSON).
 JSON is the default output whenever stdout is not a TTY.
@@ -51,6 +51,25 @@ dotnet format                                  # or CSharpier - formatting stand
 ```
 
 There is no linter beyond the compiler + analyzers; formatting is CSharpier.
+
+### Live integration tests: use the dev site
+
+`tests/Umbraco.Cli.IntegrationTests` runs the built CLI against a live Umbraco instance, and
+skips every test when there is none. Don't rely on a hand-built instance (such as
+`https://localhost:45000`): use the harness's throwaway dev site, which any machine can create.
+
+```bash
+python3 tests/hands-on/dev-site.py test                      # create/start sites/dev, run the suite
+python3 tests/hands-on/dev-site.py test --filter "FullyQualifiedName~EffectIntegrationTests"
+python3 tests/hands-on/dev-site.py down                      # stop it (keeps its content)
+python3 tests/hands-on/dev-site.py env                       # host + credentials, e.g. for scripts/fetch-spec.ps1
+```
+
+The first run takes a few minutes: it creates an Umbraco 17 site and fills it with the hands-on
+fixture site (content, languages, media, dictionary). Later runs just start it. The suite runs
+with its own CLI config (`UMBRACO_TEST_CONFIG`, a single `dev` profile), so it never reads or
+writes your personal `umbraco` profiles. On Windows type `python` for `python3`. See
+[`tests/hands-on/README.md`](tests/hands-on/README.md).
 
 ### Keep the CI SDK and target framework in sync
 
@@ -138,7 +157,9 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
   request once with a new token on a 401.
 - The generated client is produced by Kiota from `spec/management.json` and checked in, so
   building needs no live Umbraco instance. Regenerate with `./scripts/regen-client.ps1` (and
-  refresh the spec first with `./scripts/fetch-spec.ps1` if needed).
+  refresh the spec first with `./scripts/fetch-spec.ps1` if needed). The tested Umbraco range
+  lives in `VersionSupport` (the spec only says `"Latest"`): update `MinMajor`/`MaxMajor` when
+  the spec moves to a new major.
 
 ### Config & output
 

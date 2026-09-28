@@ -39,17 +39,19 @@
       "description": "Suppress success confirmations (e.g. \"Deleted.\"). Requested data, errors, and exit codes are unaffected.",
       "type": "flag",
       "required": false,
-      "hasDefault": true
+      "hasDefault": true,
+      "default": false
     },
     {
       "name": "--verbose",
       "aliases": [
         "-v"
       ],
-      "description": "Write the HTTP method, URL, selected headers and status to stderr. Request and response bodies are NOT included - use --dry-run to see the request body.",
+      "description": "Write each HTTP request and response to stderr: method, URL, headers, status, the request body and the first 4 KB of the response body. Secrets are redacted; binary bodies are summarised.",
       "type": "flag",
       "required": false,
-      "hasDefault": true
+      "hasDefault": true,
+      "default": false
     },
     {
       "name": "--dry-run",
@@ -57,7 +59,8 @@
       "description": "Preview the HTTP request a write command would send (method, URL, body) without executing it. No effect on read commands.",
       "type": "flag",
       "required": false,
-      "hasDefault": true
+      "hasDefault": true,
+      "default": false
     },
     {
       "name": "--yes",
@@ -67,7 +70,8 @@
       "description": "Skip the confirmation prompt on destructive commands (delete). Required to run a destructive command non-interactively (piped/scripted/agent).",
       "type": "flag",
       "required": false,
-      "hasDefault": true
+      "hasDefault": true,
+      "default": false
     },
     {
       "name": "--readonly",
@@ -75,7 +79,8 @@
       "description": "Block all write operations (create/update/delete/publish) for this session. Can also be set with UMBRACO_READONLY=1.",
       "type": "flag",
       "required": false,
-      "hasDefault": true
+      "hasDefault": true,
+      "default": false
     },
     {
       "name": "--fields",
@@ -237,7 +242,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -245,7 +251,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -272,7 +288,8 @@
               "description": "Descend all levels, up to a safety cap of 50. Without it, only direct children are listed.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--depth",
@@ -299,7 +316,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -307,7 +325,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--name",
@@ -359,7 +387,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --json-body ./body.json",
+          "description": "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --json-body ./body.json\n  umbraco content create --example --document-type blogPost -o json | jq .data > body.json",
           "arguments": [],
           "options": [
             {
@@ -368,15 +396,24 @@
               "description": "Alias of the document type to create (e.g. textPage, blogPost). Required unless --json-body or --schema is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema"
+              ]
             },
             {
               "name": "--name",
               "aliases": [],
-              "description": "Display name for the new content item. Required unless --json-body or --schema is used.",
+              "description": "Display name for the new content item. Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--parent",
@@ -424,13 +461,24 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an example --json-body for --document-type, with one values[] entry per property filled in for its editor, and exit. --name and --culture fill the variant. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "jsonBodySchema": "umbraco content create --schema"
         },
         {
           "name": "update",
@@ -441,7 +489,10 @@
               "description": "Content item ID. Required unless --schema is used.",
               "type": "guid",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema"
+              ]
             }
           ],
           "options": [
@@ -451,7 +502,8 @@
               "description": "Replace the item's values and variants with the body's instead of merging into them. Anything absent from the body is cleared.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--template",
@@ -467,7 +519,11 @@
               "description": "Path to a JSON file (or - for stdin) containing the update request body. Required unless --schema is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema",
+                "--template"
+              ]
             },
             {
               "name": "--schema",
@@ -475,14 +531,16 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "destructiveWhen": "--replace"
+          "destructiveWhen": "--replace",
+          "jsonBodySchema": "umbraco content update --schema"
         },
         {
           "name": "delete",
@@ -604,7 +662,8 @@
                   "description": "Set exactly the domains given, removing any others. Without it they are merged in.",
                   "type": "flag",
                   "required": false,
-                  "hasDefault": true
+                  "hasDefault": true,
+                  "default": false
                 }
               ],
               "commands": [],
@@ -678,7 +737,8 @@
                   "description": "Number of items to skip, for paging (default 0).",
                   "type": "int",
                   "required": false,
-                  "hasDefault": true
+                  "hasDefault": true,
+                  "default": 0
                 },
                 {
                   "name": "--take",
@@ -686,7 +746,17 @@
                   "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
                   "type": "int",
                   "required": false,
-                  "hasDefault": true
+                  "hasDefault": true,
+                  "default": 100
+                },
+                {
+                  "name": "--all",
+                  "aliases": [],
+                  "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+                  "type": "flag",
+                  "required": false,
+                  "hasDefault": true,
+                  "default": false
                 }
               ],
               "commands": [],
@@ -739,7 +809,8 @@
                   "description": "Publish the document after the rollback (the rolled-back culture, or every culture when --culture is omitted).",
                   "type": "flag",
                   "required": false,
-                  "hasDefault": true
+                  "hasDefault": true,
+                  "default": false
                 }
               ],
               "commands": [],
@@ -799,7 +870,8 @@
               "description": "Restore to the content root instead of the original parent.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--publish",
@@ -807,7 +879,8 @@
               "description": "Publish the item after restoring it (every culture it has).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -889,7 +962,8 @@
               "description": "With --by, order descending (newest first).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -926,7 +1000,8 @@
               "description": "Also copy the item's descendants.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--relate",
@@ -934,7 +1009,8 @@
               "description": "Create a relation from the copy back to the original.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -969,7 +1045,8 @@
               "description": "Also publish descendants that have never been published.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--wait",
@@ -977,7 +1054,8 @@
               "description": "Poll the background publish task until it completes, rather than returning as soon as it is queued.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -1135,7 +1213,8 @@
               "description": "Also DELETE live documents (within the snapshot's scope) that the snapshot does not contain. Destructive: requires --yes when non-interactive.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--no-state",
@@ -1143,7 +1222,8 @@
               "description": "Do not publish or unpublish: new documents stay drafts and live publish state is left as it is.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--exclude-type",
@@ -1198,7 +1278,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -1206,7 +1287,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -1233,7 +1324,8 @@
               "description": "Descend all levels, up to a safety cap of 50. Without it, only direct children are listed.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--depth",
@@ -1260,7 +1352,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -1268,7 +1361,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--name",
@@ -1353,7 +1456,8 @@
               "description": "Media type to create the item as: a media type id, alias or name (e.g. image, Image, File). Defaults to Image.",
               "type": "string",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": "Image"
             },
             {
               "name": "--id",
@@ -1386,7 +1490,10 @@
               "description": "Media item ID. Required unless --schema is used.",
               "type": "guid",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema"
+              ]
             }
           ],
           "options": [
@@ -1412,7 +1519,8 @@
               "description": "Replace the item's values and variants with the body's instead of merging into them. Anything absent from the body is cleared - the uploaded file included.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--json-body",
@@ -1428,14 +1536,16 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "destructiveWhen": "--replace"
+          "destructiveWhen": "--replace",
+          "jsonBodySchema": "umbraco media update --schema"
         },
         {
           "name": "folder",
@@ -1548,7 +1658,8 @@
               "description": "Restore to the media root instead of the original parent.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -1630,7 +1741,8 @@
               "description": "With --by, order descending (newest first).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -1686,7 +1798,8 @@
               "description": "Download each live file the snapshot also has and compare SHA-256 hashes. Without it, files are compared by name and size.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -1713,7 +1826,8 @@
               "description": "Download each live file the snapshot also has and compare SHA-256 hashes. Without it, files are compared by name and size.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--prune",
@@ -1721,7 +1835,8 @@
               "description": "Also move live media items (within the snapshot's scope) that the snapshot does not contain to the recycle bin. Requires --yes when non-interactive.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -1752,7 +1867,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -1760,7 +1876,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -1805,7 +1931,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--example",
@@ -1813,7 +1940,8 @@
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--name",
@@ -1821,7 +1949,12 @@
               "description": "Display name of the new media type. Required unless --json-body is given.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--alias",
@@ -1829,7 +1962,12 @@
               "description": "Alias of the new media type, e.g. blogPost. Required unless --json-body is given.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--description",
@@ -1845,7 +1983,8 @@
               "description": "Backoffice icon alias (e.g. icon-picture, icon-document).",
               "type": "string",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": "icon-picture"
             },
             {
               "name": "--is-element",
@@ -1853,7 +1992,8 @@
               "description": "Make it an element type, for use in blocks rather than as a page.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--allow-at-root",
@@ -1861,7 +2001,8 @@
               "description": "Allow items of this type at the root of the tree.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--id",
@@ -1875,7 +2016,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "jsonBodySchema": "umbraco media-type create --schema"
         },
         {
           "name": "update",
@@ -1886,7 +2028,11 @@
               "description": "The media type's id, or its alias or name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema",
+                "--example"
+              ]
             }
           ],
           "options": [
@@ -1896,7 +2042,11 @@
               "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--schema",
@@ -1904,7 +2054,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--example",
@@ -1912,7 +2063,8 @@
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--replace",
@@ -1920,14 +2072,16 @@
               "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "destructiveWhen": "--replace"
+          "destructiveWhen": "--replace",
+          "jsonBodySchema": "umbraco media-type update --schema"
         },
         {
           "name": "delete",
@@ -1948,7 +2102,8 @@
               "description": "Delete the media type even while media items or other types use it.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -1978,7 +2133,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -1986,7 +2142,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -2031,7 +2197,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--example",
@@ -2039,7 +2206,8 @@
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--name",
@@ -2047,7 +2215,12 @@
               "description": "Display name of the new document type. Required unless --json-body is given.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--alias",
@@ -2055,7 +2228,12 @@
               "description": "Alias of the new document type, e.g. blogPost. Required unless --json-body is given.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--description",
@@ -2071,7 +2249,8 @@
               "description": "Backoffice icon alias (e.g. icon-document, icon-home).",
               "type": "string",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": "icon-document"
             },
             {
               "name": "--is-element",
@@ -2079,7 +2258,8 @@
               "description": "Make it an element type, for use in blocks rather than as a page.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--allow-at-root",
@@ -2087,7 +2267,8 @@
               "description": "Allow items of this type at the root of the tree.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--id",
@@ -2101,7 +2282,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "jsonBodySchema": "umbraco document-type create --schema"
         },
         {
           "name": "update",
@@ -2112,7 +2294,11 @@
               "description": "The document type's id, or its alias. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema",
+                "--example"
+              ]
             }
           ],
           "options": [
@@ -2122,7 +2308,11 @@
               "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--schema",
@@ -2130,7 +2320,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--example",
@@ -2138,7 +2329,8 @@
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--replace",
@@ -2146,14 +2338,16 @@
               "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "destructiveWhen": "--replace"
+          "destructiveWhen": "--replace",
+          "jsonBodySchema": "umbraco document-type update --schema"
         },
         {
           "name": "delete",
@@ -2174,7 +2368,8 @@
               "description": "Delete the document type even while documents or other types use it.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -2204,7 +2399,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -2212,7 +2408,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--parent",
@@ -2265,7 +2471,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--example",
@@ -2273,7 +2480,8 @@
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--name",
@@ -2281,7 +2489,12 @@
               "description": "Name of the new data type. Required unless --json-body is given.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--editor-alias",
@@ -2289,7 +2502,12 @@
               "description": "Backend property editor alias (e.g. Umbraco.TextBox).",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--editor-ui-alias",
@@ -2297,7 +2515,12 @@
               "description": "Backoffice editor UI alias (e.g. Umb.PropertyEditorUi.TextBox).",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--id",
@@ -2311,7 +2534,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "jsonBodySchema": "umbraco data-type create --schema"
         },
         {
           "name": "update",
@@ -2322,7 +2546,11 @@
               "description": "The data type's id, or its name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema",
+                "--example"
+              ]
             }
           ],
           "options": [
@@ -2340,7 +2568,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--example",
@@ -2348,7 +2577,8 @@
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--replace",
@@ -2356,7 +2586,8 @@
               "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--name",
@@ -2387,7 +2618,8 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "destructiveWhen": "--replace"
+          "destructiveWhen": "--replace",
+          "jsonBodySchema": "umbraco data-type update --schema"
         },
         {
           "name": "delete",
@@ -2408,7 +2640,8 @@
               "description": "Delete even though the data type is in use, removing the properties that use it and their values.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -2453,7 +2686,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -2461,7 +2695,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -2684,7 +2928,8 @@
               "description": "Set this language as the default for new content.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--mandatory",
@@ -2692,7 +2937,8 @@
               "description": "Mark this language as mandatory (content must be translated into it).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--fallback",
@@ -2778,7 +3024,8 @@
               "description": "Delete the language, and every culture variant and dictionary translation in it.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -2808,7 +3055,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -2816,7 +3064,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -2902,7 +3160,11 @@
               "description": "The template's id, or its alias or name. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema",
+                "--example"
+              ]
             }
           ],
           "options": [
@@ -2920,7 +3182,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--example",
@@ -2928,7 +3191,8 @@
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--replace",
@@ -2936,7 +3200,8 @@
               "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--name",
@@ -2975,7 +3240,8 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "destructiveWhen": "--replace"
+          "destructiveWhen": "--replace",
+          "jsonBodySchema": "umbraco template update --schema"
         },
         {
           "name": "delete",
@@ -2996,7 +3262,8 @@
               "description": "Delete even though document types use the template, leaving them without it.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -3034,7 +3301,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -3042,7 +3310,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -3194,7 +3472,8 @@
               "description": "Clear a lockout caused by failed logins.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -3242,7 +3521,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -3250,7 +3530,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -3295,7 +3585,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--example",
@@ -3303,7 +3594,8 @@
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--name",
@@ -3311,7 +3603,12 @@
               "description": "Display name of the new member type. Required unless --json-body is given.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--alias",
@@ -3319,7 +3616,12 @@
               "description": "Alias of the new member type, e.g. author. Required unless --json-body is given.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--example"
+              ]
             },
             {
               "name": "--description",
@@ -3335,7 +3637,8 @@
               "description": "Backoffice icon alias (e.g. icon-user).",
               "type": "string",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": "icon-user"
             },
             {
               "name": "--id",
@@ -3349,7 +3652,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "jsonBodySchema": "umbraco member-type create --schema"
         },
         {
           "name": "update",
@@ -3360,7 +3664,11 @@
               "description": "The member type's id, or its alias. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema",
+                "--example"
+              ]
             }
           ],
           "options": [
@@ -3378,7 +3686,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--example",
@@ -3386,7 +3695,8 @@
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--replace",
@@ -3394,7 +3704,8 @@
               "description": "Send --json-body as the whole item, instead of merging its top-level keys into the current one. Keys the body leaves out are then removed or reset.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--name",
@@ -3433,7 +3744,8 @@
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "destructiveWhen": "--replace"
+          "destructiveWhen": "--replace",
+          "jsonBodySchema": "umbraco member-type update --schema"
         },
         {
           "name": "delete",
@@ -3454,7 +3766,8 @@
               "description": "Delete the member type even though it has members, deleting them too.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -3469,7 +3782,7 @@
     },
     {
       "name": "user",
-      "description": "Manage Umbraco backoffice users (not front-end members).\n\nExamples:\n  umbraco user list\n  umbraco user invite --email editor@example.com --name \"John Smith\" --group editor\n  umbraco user get <id>",
+      "description": "Manage Umbraco backoffice users (not front-end members).\n\nUmbraco hides the super-user (the installer's administrator) from every other user, so it is missing from 'user list' and cannot be named unless you are signed in as it.\n\nExamples:\n  umbraco user list\n  umbraco user create --email editor@example.com --name \"John Smith\" --group editor --password <secret>\n  umbraco user get editor@example.com",
       "arguments": [],
       "options": [],
       "commands": [
@@ -3484,7 +3797,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -3492,7 +3806,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -3502,12 +3826,12 @@
         },
         {
           "name": "get",
-          "description": "Get a backoffice user by id.\n\nExamples:\n  umbraco user get 3f7a8b2e-...\n  umbraco user get <id> -o json | jq .data.email",
+          "description": "Get a backoffice user by id, email or username.\n\nShows the user's groups (id, alias and name), the sections they grant, start nodes, UI language and login record.\n\nExamples:\n  umbraco user get 3f7a8b2e-...\n  umbraco user get editor@example.com\n  umbraco user get <id> -o json | jq .data.userGroups",
           "arguments": [
             {
               "name": "id",
-              "description": "User id.",
-              "type": "guid",
+              "description": "The user's id, or its email or username.",
+              "type": "string",
               "required": true,
               "hasDefault": false
             }
@@ -3516,6 +3840,167 @@
           "commands": [],
           "mutating": false,
           "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "create",
+          "description": "Create a backoffice user directly, without an email invitation.\n\nWithout --password the user has no password and cannot sign in until one is set with 'user update --new-password'. If Umbraco rejects the password, the new user is deleted again, so a failed create can be retried as it stands.\n\nExamples:\n  umbraco user create --email editor@example.com --name \"Jane Smith\" --group editor --password <secret>\n  umbraco user create --email writer@example.com --name \"Bob\" --group editor --group translator",
+          "arguments": [],
+          "options": [
+            {
+              "name": "--email",
+              "aliases": [],
+              "description": "Email address of the new user.",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            },
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "Display name of the new user.",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            },
+            {
+              "name": "--username",
+              "aliases": [],
+              "description": "The user's login name. Defaults to the email address.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--group",
+              "aliases": [],
+              "description": "User groups to add the user to, by alias, name or id. At least one is required. Repeat the option, or separate values with commas.",
+              "type": "string[]",
+              "required": true,
+              "hasDefault": false
+            },
+            {
+              "name": "--password",
+              "aliases": [],
+              "description": "The user's password. Omit it to create the user without one (they cannot sign in until it is set).",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--id",
+              "aliases": [],
+              "description": "Optional client-supplied id, so a retried create is idempotent.",
+              "type": "guid",
+              "required": false,
+              "hasDefault": false
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "update",
+          "description": "Update a backoffice user by id, email or username.\n\nOmitted options keep their values. --group replaces the user's groups, and --new-password is an admin reset that needs no current password.\n\nExamples:\n  umbraco user update editor@example.com --name \"Jane Roe\" --group editor --group translator\n  umbraco user update 3f7a8b2e-... --new-password <secret> --unlock\n  umbraco user update editor@example.com --disabled\n  umbraco user update editor@example.com --disabled false   # enable again",
+          "arguments": [
+            {
+              "name": "id",
+              "description": "The user's id, or its email or username.",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--email",
+              "aliases": [],
+              "description": "New email address.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New display name.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--username",
+              "aliases": [],
+              "description": "New login name. When omitted with --email, a login name equal to the old email follows the new one.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--group",
+              "aliases": [],
+              "description": "User groups, by alias, name or id. They REPLACE the user's groups - omit to leave them alone. Repeat the option, or separate values with commas.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--culture",
+              "aliases": [],
+              "description": "The user's backoffice UI language, as an ISO code (e.g. en-US).",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--new-password",
+              "aliases": [],
+              "description": "Set a new password. No current password is required (admin reset).",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--disabled",
+              "aliases": [],
+              "description": "Disable the user (--disabled), or enable them again (--disabled false).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--unlock",
+              "aliases": [],
+              "description": "Clear a lockout caused by failed logins.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "delete",
+          "description": "Delete one or more backoffice users permanently, by id, email or username.\n\nUmbraco may refuse to delete a user who has signed in; disable them instead with 'user update --disabled'.\n\nExamples:\n  umbraco user delete editor@example.com\n  umbraco user delete 3f7a8b2e-... writer@example.com --yes",
+          "arguments": [
+            {
+              "name": "id",
+              "description": "The users to delete: each an id, email or username.",
+              "type": "string[]",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [],
+          "commands": [],
+          "mutating": true,
+          "destructive": true,
           "acceptsJsonBody": false
         },
         {
@@ -3591,7 +4076,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -3599,7 +4085,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--parent",
@@ -3634,7 +4130,8 @@
               "description": "Walk the whole subtree instead of one level.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--depth",
@@ -3794,7 +4291,8 @@
               "description": "Delete even though the item has child items, deleting them and their translations too.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -3809,7 +4307,7 @@
     },
     {
       "name": "webhook",
-      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook delete <id>\n  umbraco webhook event list",
+      "description": "Manage Umbraco webhook subscriptions for event notifications.\n\nExamples:\n  umbraco webhook list\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.ContentUnpublish\n  umbraco webhook update <id> --enabled false\n  umbraco webhook delete <id>\n  umbraco webhook event list\n  umbraco webhook log list <id>",
       "arguments": [],
       "options": [],
       "commands": [
@@ -3824,7 +4322,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -3832,7 +4331,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -3841,8 +4350,26 @@
           "acceptsJsonBody": false
         },
         {
+          "name": "get",
+          "description": "Get a webhook by id or name.\n\nExamples:\n  umbraco webhook get 3f7a8b2e-...\n  umbraco webhook get \"Deploy hook\"",
+          "arguments": [
+            {
+              "name": "id",
+              "description": "The webhook's id, or its name.",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [],
+          "commands": [],
+          "mutating": false,
+          "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
           "name": "create",
-          "description": "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\"",
+          "description": "Create a webhook.\n\nExamples:\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish,Umbraco.MediaSave --name \"Deploy hook\"\n  umbraco webhook create --url https://my.app/hook --event Umbraco.ContentPublish --type blogPost --header X-Api-Key=abc123",
           "arguments": [],
           "options": [
             {
@@ -3884,6 +4411,22 @@
               "type": "string",
               "required": false,
               "hasDefault": false
+            },
+            {
+              "name": "--header",
+              "aliases": [],
+              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--type",
+              "aliases": [],
+              "description": "Document, media or member types (id or alias) the webhook fires for; omit to fire for every type. Repeat the option, or separate values with commas.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
             }
           ],
           "commands": [],
@@ -3892,13 +4435,98 @@
           "acceptsJsonBody": false
         },
         {
-          "name": "delete",
-          "description": "Delete a webhook subscription by id.\n\nExamples:\n  umbraco webhook delete 3f7a8b2e-...",
+          "name": "update",
+          "description": "Update a webhook by id or name. Omitted options keep their values.\n\n--event and --type replace the current lists; --header merges by header name. With --replace, the headers and types given are the whole set: any not given are removed.\n\nExamples:\n  umbraco webhook update \"Deploy hook\" --enabled false\n  umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost\n  umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook\n  umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter",
           "arguments": [
             {
               "name": "id",
-              "description": "Webhook id.",
-              "type": "guid",
+              "description": "The webhook's id, or its name.",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--replace",
+              "aliases": [],
+              "description": "Set exactly the headers and types given, removing any others; none given clears them. Without it headers merge and the type filter is kept.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--url",
+              "aliases": [],
+              "description": "New URL that Umbraco posts the event payload to.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--event",
+              "aliases": [],
+              "description": "Event aliases that replace the current ones, e.g. Umbraco.ContentPublish. Checked against the instance's events; see 'webhook event list'. Repeat the option, or separate values with commas.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--name",
+              "aliases": [],
+              "description": "New name for the webhook.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--description",
+              "aliases": [],
+              "description": "New description for the webhook.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--enabled",
+              "aliases": [],
+              "description": "Enable (--enabled or --enabled true) or disable (--enabled false) the webhook.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--header",
+              "aliases": [],
+              "description": "A custom HTTP header sent with each delivery, as name=value. Repeat for several; each replaces a current header of the same name and the others are kept.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--type",
+              "aliases": [],
+              "description": "Document, media or member types (id or alias) that replace the current type filter: the webhook fires only for items of these types. Repeat the option, or separate values with commas.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": false,
+          "destructiveWhen": "--replace"
+        },
+        {
+          "name": "delete",
+          "description": "Delete a webhook subscription by id or name.\n\nExamples:\n  umbraco webhook delete 3f7a8b2e-...\n  umbraco webhook delete \"Deploy hook\" --yes",
+          "arguments": [
+            {
+              "name": "id",
+              "description": "The webhook's id, or its name.",
+              "type": "string",
               "required": true,
               "hasDefault": false
             }
@@ -3926,7 +4554,8 @@
                   "description": "Number of items to skip, for paging (default 0).",
                   "type": "int",
                   "required": false,
-                  "hasDefault": true
+                  "hasDefault": true,
+                  "default": 0
                 },
                 {
                   "name": "--take",
@@ -3934,7 +4563,74 @@
                   "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
                   "type": "int",
                   "required": false,
-                  "hasDefault": true
+                  "hasDefault": true,
+                  "default": 100
+                },
+                {
+                  "name": "--all",
+                  "aliases": [],
+                  "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+                  "type": "flag",
+                  "required": false,
+                  "hasDefault": true,
+                  "default": false
+                }
+              ],
+              "commands": [],
+              "mutating": false,
+              "destructive": false,
+              "acceptsJsonBody": false
+            }
+          ],
+          "mutating": false,
+          "destructive": false,
+          "acceptsJsonBody": false
+        },
+        {
+          "name": "log",
+          "description": "List webhook delivery attempts.\n\nExamples:\n  umbraco webhook log list <id>\n  umbraco webhook log list",
+          "arguments": [],
+          "options": [],
+          "commands": [
+            {
+              "name": "list",
+              "description": "List webhook delivery attempts: what was sent and what came back.\n\nGive a webhook to see only its deliveries; omit it to see every webhook's.\n\nExamples:\n  umbraco webhook log list \"Deploy hook\"\n  umbraco webhook log list\n  umbraco webhook log list 3f7a8b2e-... -o json | jq '.data.items[] | select(.isSuccessStatusCode | not)'",
+              "arguments": [
+                {
+                  "name": "id",
+                  "description": "The webhook's id, or its name. Omit to list every webhook's deliveries.",
+                  "type": "string",
+                  "required": false,
+                  "hasDefault": false
+                }
+              ],
+              "options": [
+                {
+                  "name": "--skip",
+                  "aliases": [],
+                  "description": "Number of items to skip, for paging (default 0).",
+                  "type": "int",
+                  "required": false,
+                  "hasDefault": true,
+                  "default": 0
+                },
+                {
+                  "name": "--take",
+                  "aliases": [],
+                  "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
+                  "type": "int",
+                  "required": false,
+                  "hasDefault": true,
+                  "default": 100
+                },
+                {
+                  "name": "--all",
+                  "aliases": [],
+                  "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+                  "type": "flag",
+                  "required": false,
+                  "hasDefault": true,
+                  "default": false
                 }
               ],
               "commands": [],
@@ -3979,7 +4675,8 @@
               "description": "Leave out partial views, stylesheets and scripts. The snapshot then does not manage them: diff and apply leave the target's files alone, and --prune deletes none. For sites that deploy their views from source control.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4024,7 +4721,8 @@
               "description": "Also DELETE live schema items (types, data types, templates, languages, dictionary items, member and user groups, and the partial views, stylesheets and scripts of a snapshot that has them) that the snapshot does not contain. Destructive: requires --yes when non-interactive. A type still in use, a language, a dictionary item with children the snapshot keeps, or a file a template names is refused unless --force is given.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--force",
@@ -4032,7 +4730,8 @@
               "description": "With --prune, delete them anyway. Umbraco deletes what they take with them: the content of a type, a language's variants and translations, a dictionary item's children, and a template's use of a deleted file.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4071,7 +4770,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -4079,7 +4779,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4287,7 +4997,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -4295,7 +5006,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4503,7 +5224,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -4511,7 +5233,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4711,7 +5443,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -4719,7 +5452,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4818,7 +5561,8 @@
               "description": "Delete even though the group has members, removing their membership.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4864,7 +5608,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -4872,7 +5617,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4902,7 +5657,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -4910,7 +5666,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4940,7 +5706,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -4948,7 +5715,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -4976,7 +5753,7 @@
         },
         {
           "name": "create",
-          "description": "Create a user group.\n\nExamples:\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read",
+          "description": "Create a user group.\n\nExamples:\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read\n  umbraco user-group create --alias blogEditors --name \"Blog editors\" --document-permission 3f7a8b2e-...=Umb.Document.Read,Umb.Document.Update",
           "arguments": [],
           "options": [
             {
@@ -5076,6 +5853,14 @@
               "hasDefault": false
             },
             {
+              "name": "--document-permission",
+              "aliases": [],
+              "description": "A granular permission on one document, as <id>=<verb>,<verb> (e.g. Umb.Document.Read). Repeatable. It replaces the group's fallback permissions on that document.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
               "name": "--id",
               "aliases": [],
               "description": "Optional client-supplied id, so a retried create is idempotent.",
@@ -5091,7 +5876,7 @@
         },
         {
           "name": "update",
-          "description": "Update a user group by id, alias or name. Omitted options keep their values.\n\nExamples:\n  umbraco user-group update editors --name \"Site editors\"\n  umbraco user-group update editors --section Umb.Section.Media --document-start-node <id>",
+          "description": "Update a user group by id, alias or name. Omitted options keep their values.\n\n--document-permission replaces the permissions on the documents it names and keeps the rest; <id>= with no verbs removes that document's entry, so the fallback permissions apply to it again.\n\nExamples:\n  umbraco user-group update editors --name \"Site editors\"\n  umbraco user-group update editors --section Umb.Section.Media --document-start-node <id>\n  umbraco user-group update editors --document-permission 3f7a8b2e-...=Umb.Document.Read\n  umbraco user-group update editors --document-permission 3f7a8b2e-...=   # remove it",
           "arguments": [
             {
               "name": "id",
@@ -5197,6 +5982,14 @@
               "type": "guid",
               "required": false,
               "hasDefault": false
+            },
+            {
+              "name": "--document-permission",
+              "aliases": [],
+              "description": "A granular permission on one document, as <id>=<verb>,<verb> (e.g. Umb.Document.Read). Repeatable. It replaces the group's fallback permissions on that document.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
             }
           ],
           "commands": [],
@@ -5223,7 +6016,8 @@
               "description": "Delete even though the groups have users, taking away what the groups grant them.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -5233,7 +6027,7 @@
         },
         {
           "name": "add-users",
-          "description": "Add users to a user group.\n\nExamples:\n  umbraco user-group add-users blogEditors --user <guid> --user <guid>",
+          "description": "Add users to a user group.\n\nExamples:\n  umbraco user-group add-users blogEditors --user <guid> --user editor@example.com",
           "arguments": [
             {
               "name": "id",
@@ -5247,8 +6041,8 @@
             {
               "name": "--user",
               "aliases": [],
-              "description": "User ID to add. Repeat the option, or separate values with commas.",
-              "type": "guid[]",
+              "description": "A user to add: id, email or username. Repeat the option, or separate values with commas.",
+              "type": "string[]",
               "required": true,
               "hasDefault": false
             }
@@ -5274,8 +6068,8 @@
             {
               "name": "--user",
               "aliases": [],
-              "description": "User ID to remove. Repeat the option, or separate values with commas.",
-              "type": "guid[]",
+              "description": "A user to remove: id, email or username. Repeat the option, or separate values with commas.",
+              "type": "string[]",
               "required": true,
               "hasDefault": false
             }
@@ -5323,7 +6117,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -5331,7 +6126,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -5491,7 +6296,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -5499,7 +6305,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -5554,7 +6370,12 @@
               "description": "Document type alias or id the blueprint is based on. Required unless --json-body or --schema is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema",
+                "--from-document"
+              ]
             },
             {
               "name": "--name",
@@ -5562,7 +6383,11 @@
               "description": "Blueprint display name. Required unless --json-body or --schema is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema"
+              ]
             },
             {
               "name": "--parent",
@@ -5594,7 +6419,8 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--id",
@@ -5616,7 +6442,8 @@
           "commands": [],
           "mutating": true,
           "destructive": false,
-          "acceptsJsonBody": true
+          "acceptsJsonBody": true,
+          "jsonBodySchema": "umbraco document-blueprint create --schema"
         },
         {
           "name": "update",
@@ -5627,7 +6454,10 @@
               "description": "Blueprint ID. Required unless --schema is used.",
               "type": "guid",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--schema"
+              ]
             }
           ],
           "options": [
@@ -5637,7 +6467,11 @@
               "description": "New display name. Required unless --json-body or --schema is used.",
               "type": "string",
               "required": false,
-              "hasDefault": false
+              "hasDefault": false,
+              "requiredUnless": [
+                "--json-body",
+                "--schema"
+              ]
             },
             {
               "name": "--culture",
@@ -5653,7 +6487,8 @@
               "description": "Replace the blueprint's values and variants with the ones given, instead of merging.",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--json-body",
@@ -5669,14 +6504,16 @@
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
           "mutating": true,
           "destructive": false,
           "acceptsJsonBody": true,
-          "destructiveWhen": "--replace"
+          "destructiveWhen": "--replace",
+          "jsonBodySchema": "umbraco document-blueprint update --schema"
         },
         {
           "name": "delete",
@@ -5907,7 +6744,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -5915,7 +6753,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -5981,7 +6829,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -5989,7 +6838,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--level",
@@ -6029,7 +6888,8 @@
               "description": "Order oldest-first (default is newest-first).",
               "type": "flag",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -6048,7 +6908,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -6056,7 +6917,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -6102,7 +6973,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -6110,7 +6982,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             },
             {
               "name": "--start-date",
@@ -6151,7 +7033,8 @@
                   "description": "Number of items to skip, for paging (default 0).",
                   "type": "int",
                   "required": false,
-                  "hasDefault": true
+                  "hasDefault": true,
+                  "default": 0
                 },
                 {
                   "name": "--take",
@@ -6159,7 +7042,17 @@
                   "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
                   "type": "int",
                   "required": false,
-                  "hasDefault": true
+                  "hasDefault": true,
+                  "default": 100
+                },
+                {
+                  "name": "--all",
+                  "aliases": [],
+                  "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+                  "type": "flag",
+                  "required": false,
+                  "hasDefault": true,
+                  "default": false
                 }
               ],
               "commands": [],
@@ -6280,7 +7173,8 @@
               "description": "Which manifests to list: All (default), Public, or Private.",
               "type": "ManifestScope",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": "All"
             }
           ],
           "commands": [],
@@ -6326,7 +7220,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -6334,7 +7229,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -6423,7 +7328,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -6431,7 +7337,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -6487,7 +7403,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -6495,7 +7412,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -6525,7 +7452,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -6533,7 +7461,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -6599,7 +7537,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -6607,7 +7546,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -6642,7 +7591,8 @@
               "description": "Number of items to skip, for paging (default 0).",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 0
             },
             {
               "name": "--take",
@@ -6650,7 +7600,17 @@
               "description": "Maximum number of items to return (default 100). meta.hasMore says whether there are more.",
               "type": "int",
               "required": false,
-              "hasDefault": true
+              "hasDefault": true,
+              "default": 100
+            },
+            {
+              "name": "--all",
+              "aliases": [],
+              "description": "Read every page and return the whole list (at most 10000; more is an error). Not with --skip or --take.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -6759,6 +7719,24 @@
           "acceptsJsonBody": false
         }
       ],
+      "mutating": false,
+      "destructive": false,
+      "acceptsJsonBody": false
+    },
+    {
+      "name": "completion",
+      "description": "Print a tab-completion script for bash, zsh or PowerShell.\n\nLoad it from your shell's startup file; it asks the installed CLI for suggestions, so it never goes stale.\n\nExamples:\n  umbraco completion bash > ~/.umbraco-completion.bash   # then source it from ~/.bashrc\n  umbraco completion zsh > ~/.zfunc/_umbraco           # a directory on $fpath\n  umbraco completion pwsh | Out-String | Invoke-Expression",
+      "arguments": [
+        {
+          "name": "shell",
+          "description": "The shell to print the script for: bash, zsh or pwsh.",
+          "type": "string",
+          "required": true,
+          "hasDefault": false
+        }
+      ],
+      "options": [],
+      "commands": [],
       "mutating": false,
       "destructive": false,
       "acceptsJsonBody": false

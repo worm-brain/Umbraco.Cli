@@ -201,6 +201,7 @@ curl -sk -H "Authorization: Bearer $TOK" $H/umbraco/management/api/v1/document/<
 |---|---|
 | `preflight.py`, `setup-round.py` | Check the machine; set up a whole round in one command |
 | `new-site.py`, `remove-site.py` | Create / remove one throwaway site (`--help` for options; `remove-site.py --list`) |
+| `dev-site.py` | The persistent `sites/dev` for the live integration suite (`up`, `down`, `test`, `env`, `reset`). Not part of a round: leave it alone |
 | `pack-cli.py` | Pack this checkout's CLI into `nupkg/` with a unique `0.1.0-local.<timestamp>` version |
 | `TEST-PLAN.md` | What to test: Part A (scripted) and T1–T10, pass criteria, Known issues per test |
 | `LEDGER.md`, `ledger-history.json` | Findings per round (format at the top); ids of rounds 1–4 → issue numbers |

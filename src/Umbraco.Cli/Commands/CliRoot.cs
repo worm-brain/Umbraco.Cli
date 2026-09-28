@@ -143,6 +143,9 @@ public static class CliRoot
         root.Add(ImagingCommand.Build(executor));
         root.Add(PropertyTypeCommand.Build(executor));
 
+        // Shell tab completion (#92): a local command, like the catalog below.
+        root.Add(CompletionCommand.Build());
+
         // Machine-readable command catalog for agents (#60). Added last and given the root so it
         // can describe the fully-assembled tree (including itself).
         root.Add(CommandsCommand.Build(globalOptions, root));

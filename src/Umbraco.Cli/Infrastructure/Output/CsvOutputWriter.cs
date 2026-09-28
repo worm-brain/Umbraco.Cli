@@ -88,7 +88,7 @@ public sealed class CsvOutputWriter : IOutputWriter
         // stderr, so the CSV on stdout stays loadable as-is.
         if (paging.HasMoreAfter(items.Count) is true && paging is { Total: { } t, Skip: { } s })
             Console.Error.WriteLine(
-                $"Showing {s + items.Count} of {t}. Use --skip/--take to page."
+                $"Showing {s + items.Count} of {t}. Use --skip/--take to page, or --all."
             );
     }
 

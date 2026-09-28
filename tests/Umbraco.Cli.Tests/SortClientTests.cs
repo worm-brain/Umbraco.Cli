@@ -24,6 +24,8 @@ public class SortClientTests
             CancellationToken ct
         )
         {
+            // Every client test is a contract test (#76).
+            ManagementSpec.AssertDeclared(request);
             var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
             Requests.Add(new Recorded(request.Method, request.RequestUri!, body));
             return new HttpResponseMessage(HttpStatusCode.OK)

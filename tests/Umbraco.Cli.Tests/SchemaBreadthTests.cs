@@ -109,8 +109,8 @@ public class SchemaBreadthTests
         // Assert
         Assert.True(result.IsSuccess, result.ErrorMessage);
         Assert.Multiple(
-            () => Assert.Equal("en-US", (string?)result.Data!.Languages.Single()["isoCode"]),
-            () => Assert.Equal("VIP", (string?)result.Data!.MemberGroups.Single()["name"])
+            () => Assert.Equal("en-US", (string?)result.Data!.Languages!.Single()["isoCode"]),
+            () => Assert.Equal("VIP", (string?)result.Data!.MemberGroups!.Single()["name"])
         );
     }
 
@@ -134,7 +134,7 @@ public class SchemaBreadthTests
         var result = await SchemaExporter.ExportAsync(fake, CancellationToken.None);
 
         // Assert
-        var item = result.Data!.DictionaryItems.Single();
+        var item = result.Data!.DictionaryItems!.Single();
         Assert.True(
             JsonNode.DeepEquals(
                 JsonNode.Parse(
@@ -180,9 +180,9 @@ public class SchemaBreadthTests
                       {"$type":"DocumentPropertyValuePermissionPresentationModel","documentType":{"id":"{{docType}}"},"verbs":[]}]}
                     """
                 ),
-                result.Data!.UserGroups.Single()
+                result.Data!.UserGroups!.Single()
             ),
-            result.Data!.UserGroups.Single().ToJsonString()
+            result.Data!.UserGroups!.Single().ToJsonString()
         );
     }
 

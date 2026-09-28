@@ -66,8 +66,8 @@ public static class LogViewerCommand
                     parseResult,
                     (client, skip, take, c) =>
                         client.GetLogsAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             parseResult.GetValue(levelOpt),
                             parseResult.GetValue(filterOpt),
                             parseResult.GetValue(startOpt),
@@ -150,8 +150,8 @@ public static class LogViewerCommand
                     parseResult,
                     (client, skip, take, c) =>
                         client.GetLogMessageTemplatesAsync(
-                            parseResult.GetValue(skipOpt),
-                            parseResult.GetValue(takeOpt),
+                            skip,
+                            take,
                             parseResult.GetValue(startOpt),
                             parseResult.GetValue(endOpt),
                             c

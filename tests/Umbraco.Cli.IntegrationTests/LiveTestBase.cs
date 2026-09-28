@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Umbraco.Cli.IntegrationTests;
 
@@ -26,6 +27,177 @@ public abstract class LiveTestBase(LiveInstanceFixture live)
     /// <returns>A unique alias.</returns>
     protected static string ScratchAlias(string prefix) =>
         prefix + Guid.NewGuid().ToString("N")[..8];
+
+    /// <summary>
+    /// Whether a failed command was the server saying the item does not exist (HTTP 404).
+    /// <para>
+    /// A bare "the command failed" would also pass on an auth or network error, so an assertion
+    /// that something was deleted checks for the 404 in the JSON error envelope on stderr.
+    /// </para>
+    /// </summary>
+    /// <param name="result">The result of a read such as <c>content get</c>.</param>
+    /// <returns>True when the command failed with HTTP status 404.</returns>
+    protected static bool IsNotFound(CliResult result)
+    {
+        if (result.Ok)
+            return false;
+        try
+        {
+            using var error = JsonDocument.Parse(result.Stderr);
+            return error.RootElement.TryGetProperty("httpStatus", out var status)
+                && status.ValueKind is JsonValueKind.Number
+                && status.GetInt32() == 404;
+        }
+        catch (JsonException)
+        {
+            // Not an error envelope (e.g. a crash trace), so it is not a clean not-found.
+            return false;
+        }
+    }
+}
+
+/// <summary>
+/// A throwaway culture-variant document type for multi-variant content tests (#103), removed on
+/// dispose together with every document of that type.
+/// <para>
+/// It varies by culture, is allowed at the root, allows itself as a child (so a small subtree can
+/// be built from one type), and has a single culture-variant Textstring property,
+/// <see cref="PropertyAlias"/>. Deleting it with <c>--force</c> also deletes its documents, so a
+/// test only has to dispose this one scope to leave the instance as it found it.
+/// </para>
+/// </summary>
+public sealed class ScratchCultureType : IDisposable
+{
+    /// <summary>The id of Umbraco's built-in Textstring data type, the same on every install.</summary>
+    private const string TextstringDataTypeId = "0cc0eba1-9960-42c9-bf9b-60e150b429ae";
+
+    /// <summary>The alias of the type's one culture-variant text property.</summary>
+    public const string PropertyAlias = "title";
+
+    private ScratchCultureType(string id, string alias)
+    {
+        Id = id;
+        Alias = alias;
+    }
+
+    /// <summary>The document type's id.</summary>
+    public string Id { get; }
+
+    /// <summary>The document type's (random) alias.</summary>
+    public string Alias { get; }
+
+    /// <summary>
+    /// Creates the document type, then lets it nest under itself.
+    /// <para>
+    /// The self-reference cannot go in the create body: Umbraco drops an allowed child type that
+    /// does not exist yet, which on create includes the type itself. So it is added by a second,
+    /// merging <c>document-type update</c>.
+    /// </para>
+    /// </summary>
+    /// <returns>The scope, which deletes the type and its documents on dispose.</returns>
+    public static ScratchCultureType Create()
+    {
+        var alias = "clitestVariant" + Guid.NewGuid().ToString("N")[..8];
+        var id = Guid.NewGuid().ToString();
+        var containerId = Guid.NewGuid().ToString();
+        var created = CliRunner.RunWithInput(
+            $$"""
+            {
+              "id": "{{id}}",
+              "alias": "{{alias}}",
+              "name": "{{alias}}",
+              "icon": "icon-document",
+              "allowedAsRoot": true,
+              "variesByCulture": true,
+              "properties": [{
+                "id": "{{Guid.NewGuid()}}",
+                "container": { "id": "{{containerId}}" },
+                "sortOrder": 0,
+                "alias": "{{PropertyAlias}}",
+                "name": "Title",
+                "variesByCulture": true,
+                "dataType": { "id": "{{TextstringDataTypeId}}" }
+              }],
+              "containers": [{ "id": "{{containerId}}", "name": "Content", "type": "Group", "sortOrder": 0 }]
+            }
+            """,
+            "document-type",
+            "create",
+            "--json-body",
+            "-"
+        );
+        // An instance that will not take this document type is an environment limit.
+        Skip.IfNot(created.Ok, $"Could not create the scratch document type: {created.Stderr}");
+
+        // From here the type exists, so anything that throws must still clean it up.
+        var scope = new ScratchCultureType(id, alias);
+        try
+        {
+            var nest = CliRunner.RunWithInput(
+                $$"""{"allowedDocumentTypes":[{"documentType":{"id":"{{id}}"},"sortOrder":0}]}""",
+                "document-type",
+                "update",
+                id,
+                "--json-body",
+                "-"
+            );
+            Assert.True(nest.Ok, nest.Stderr);
+            return scope;
+        }
+        catch
+        {
+            scope.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Creates a document of this type with a name and a <see cref="PropertyAlias"/> value in
+    /// each of two cultures. It is left as a draft.
+    /// </summary>
+    /// <param name="parentId">The parent document's id, or null for the content root.</param>
+    /// <param name="variants">Per culture, the variant's name and its property value.</param>
+    /// <returns>The new document's id.</returns>
+    public string CreateDocument(
+        string? parentId,
+        params (string Culture, string Name, string Value)[] variants
+    )
+    {
+        // Built as JSON nodes rather than a string template so names and values are escaped.
+        var body = new JsonObject
+        {
+            ["documentType"] = new JsonObject { ["id"] = Id },
+            ["parent"] = parentId is null ? null : new JsonObject { ["id"] = parentId },
+            ["variants"] = new JsonArray([
+                .. variants.Select(v => new JsonObject
+                {
+                    ["culture"] = v.Culture,
+                    ["name"] = v.Name,
+                }),
+            ]),
+            ["values"] = new JsonArray([
+                .. variants.Select(v => new JsonObject
+                {
+                    ["alias"] = PropertyAlias,
+                    ["culture"] = v.Culture,
+                    ["value"] = v.Value,
+                }),
+            ]),
+        };
+        var created = CliRunner.RunWithInput(
+            body.ToJsonString(),
+            "content",
+            "create",
+            "--json-body",
+            "-"
+        );
+        Assert.True(created.Ok, created.Stderr);
+        return created.Data().GetProperty("id").GetString()!;
+    }
+
+    /// <inheritdoc />
+    // --force: the type still has documents, and deleting them with it is the point of the scope.
+    public void Dispose() => CliRunner.Run("document-type", "delete", Id, "--force", "--yes");
 }
 
 /// <summary>
