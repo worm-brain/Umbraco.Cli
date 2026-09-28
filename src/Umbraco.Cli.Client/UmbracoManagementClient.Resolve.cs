@@ -19,6 +19,7 @@ public sealed partial class UmbracoManagementClient
     private List<MemberTypeResponse>? _memberTypes;
     private List<ReferenceCandidate>? _memberGroupCandidates;
     private List<ReferenceCandidate>? _dictionaryCandidates;
+    private List<ReferenceCandidate>? _relationTypeCandidates;
 
     /// <inheritdoc />
     public Task<UmbracoResponse<Guid>> ResolveIdAsync(
@@ -84,6 +85,7 @@ public sealed partial class UmbracoManagementClient
                     EntityKind.UserGroup => FindUserGroupIdAsync(reference, ct),
                     EntityKind.MemberGroup => FindMemberGroupIdAsync(reference, ct),
                     EntityKind.DictionaryItem => FindDictionaryIdAsync(reference, ct),
+                    EntityKind.RelationType => FindRelationTypeIdAsync(reference, ct),
                     _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
                 }
         );
@@ -349,6 +351,31 @@ public sealed partial class UmbracoManagementClient
                     )
                 )?.Items?.Where(i => i.Id is not null).Select(i => new ReferenceCandidate(i.Id!.Value, null, i.Name)).ToList() ?? []);
         return ReferenceMatch.Pick(EntityKind.DictionaryItem, reference, _dictionaryCandidates);
+    }
+
+    /// <summary>
+    /// Resolves a relation type alias or name (#300). <c>relation-type list</c> shows the alias
+    /// (<c>relateDocumentOnCopy</c>), so <c>relation list --relation-type</c> and
+    /// <c>relation-type get</c> take it too. The paged list carries alias and name, so every page
+    /// is read once; there are rarely more than a dozen types.
+    /// </summary>
+    /// <param name="reference">The alias or name.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The relation type id.</returns>
+    /// <exception cref="ApiException">No match (404) or an ambiguous name (409).</exception>
+    private async Task<Guid> FindRelationTypeIdAsync(string reference, CancellationToken ct)
+    {
+        _relationTypeCandidates ??= await ReadAllPagesAsync(async (skip, take) => (
+                    await _api.Umbraco.Management.Api.V1.RelationType.GetAsync(
+                        c =>
+                        {
+                            c.QueryParameters.Skip = skip;
+                            c.QueryParameters.Take = take;
+                        },
+                        ct
+                    )
+                )?.Items?.Where(t => t.Id is not null).Select(t => new ReferenceCandidate(t.Id!.Value, t.Alias, t.Name)).ToList() ?? []);
+        return ReferenceMatch.Pick(EntityKind.RelationType, reference, _relationTypeCandidates);
     }
 
     /// <summary>Reads a paged source to the end, stopping on a short page.</summary>

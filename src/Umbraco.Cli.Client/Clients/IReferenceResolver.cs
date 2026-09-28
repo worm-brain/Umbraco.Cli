@@ -26,6 +26,9 @@ public enum EntityKind
 
     /// <summary>A dictionary item, named by its key.</summary>
     DictionaryItem,
+
+    /// <summary>A relation type, named by alias (then name) (#300).</summary>
+    RelationType,
 }
 
 /// <summary>How messages and help text name each <see cref="EntityKind"/>.</summary>
@@ -57,6 +60,7 @@ public static class EntityKindText
             EntityKind.UserGroup => ("user group", "alias or name", "user-group list"),
             EntityKind.MemberGroup => ("member group", "name", "member-group list"),
             EntityKind.DictionaryItem => ("dictionary item", "key", "dictionary list"),
+            EntityKind.RelationType => ("relation type", "alias or name", "relation-type list"),
             _ => (kind.ToString(), "reference", "--help"),
         };
 }

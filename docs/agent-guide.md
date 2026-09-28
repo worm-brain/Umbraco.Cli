@@ -230,13 +230,20 @@ schemaVersion 3, the one exception to that rule.
 | `content get` without `isTrashed`, `flags`, `urls`; variants without `id`, `flags`; `scheduledPublishDate` / `scheduledUnpublishDate` always null | every field of `GET /document/{id}` (#306, #297), plus `urls: [{culture, url}]` (#289). List rows carry `isTrashed` and `flags` too |
 | `dictionary get` / `create` / `update` / `list` without `parent` | `parent: {id}` (null at the root, #290) |
 | `document-blueprint get` / `create` with no top-level `name` or `parent` | `name` (the first variant's, as `content get`) and `parent: {id}` when it is in a folder (#298) |
+| `content diff` rows `{change, id, parent, changes}` | `{change, id, name, documentType, parent, changes}`: the document's name (invariant or default-language variant) and its document type alias, null when unknown (#293) |
+| `content apply` rows `{operation, id, status, cultures}` | `{operation, id, status, name, documentType, cultures}`, on every step including deletes and `--dry-run` (#293) |
 
 Behaviour that changed with it: `auth login` and `auth logout` resolve the profile like every
 other command (`--profile`, else `UMBRACO_PROFILE`, else the default); before, both ignored
 `UMBRACO_PROFILE` and acted on the default (#301, #303). Logging out of the default profile no
 longer promotes another profile to be the default: `defaultCleared` is `true`, and commands
 without a profile fail until `auth profile use <name>` picks one (#304). The global `--fields`
-and `--quiet` now apply under `auth` too (#305).
+and `--quiet` now apply under `auth` too (#305). `content diff` no longer reports `Umbraco.Label`
+values, which Umbraco never accepts from a write, and `content apply` warns on stderr once per
+Label property it could not promote (#291). `document-type` / `media-type delete` (and
+`schema apply --prune`) count the items of the type and refuse only when there are some, or when
+the type is a composition or an element type; before, they always needed `--force` (#287).
+`relation list --relation-type` and `relation-type get` take the alias (#300).
 
 **What changed in schemaVersion 5**, if you are moving from `"4"`: the **diff and apply**
 reports (`content diff`, `schema diff`, `content apply`, `schema apply`), a member's `groups`, and
@@ -348,8 +355,10 @@ full auth story and profiles.
   `content domain set`) only with `--replace`; the catalog says so with `"destructiveWhen"`.
   Reversible writes - `move`, `copy`, `publish`, `redirect tracking enable` - never need `--yes`.
 - **Deleting a type that content uses needs `--force` as well as `--yes`.** `data-type delete`
-  (while in use), `member-type delete` (while it has members), and every `document-type` /
-  `media-type delete` (Umbraco cannot count their items) are refused with exit `2` unless
+  (while in use), `member-type delete` (while it has members), and `document-type` /
+  `media-type delete` (while any item of the type exists, counting the recycle bin, while another
+  type uses it as a composition, or for an element type, whose block usage Umbraco does not
+  report) are refused with exit `2` unless
   `--force` is given - checked **before** any confirmation prompt, and under `--dry-run` too,
   since a refusal is what a real run would do. `schema apply --prune` applies the same check to
   every type it would delete; its `--dry-run` plan marks those steps `needs --force`.

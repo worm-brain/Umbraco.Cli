@@ -4,8 +4,8 @@ using Umbraco.Cli.Client;
 namespace Umbraco.Cli.Commands.Relations;
 
 /// <summary>
-/// Wires the read-only <c>relation-type</c> noun (issue #118): list relation types and get one by id.
-/// The generated client exposes no create/update/delete for relation types.
+/// Wires the read-only <c>relation-type</c> noun (issue #118): list relation types and get one by
+/// id or alias. The generated client exposes no create/update/delete for relation types.
 /// </summary>
 public static class RelationTypeCommand
 {
@@ -45,19 +45,31 @@ public static class RelationTypeCommand
         return cmd;
     }
 
+    /// <summary>
+    /// Builds <c>relation-type get</c>. The argument takes the id or the alias that
+    /// <c>relation-type list</c> shows (#300); it was GUID-only, so the alias was a parse error.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     private static Command BuildGet(CommandExecutor executor)
     {
         var cmd = new Command(
             "get",
-            "Get a relation type by id.\n\nExamples:\n  umbraco relation-type get 3f7a8b2e-..."
+            "Get a relation type by id or alias.\n\nExamples:\n  umbraco relation-type get relateDocumentOnCopy\n  umbraco relation-type get 3f7a8b2e-..."
         );
-        var idArg = new Argument<Guid>("id") { Description = "Relation type ID." };
+        var idArg = Reference.Argument(EntityKind.RelationType);
         cmd.Add(idArg);
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
                     parseResult,
-                    (client, c) => client.GetRelationTypeByIdAsync(parseResult.GetValue(idArg), c),
+                    (client, c) =>
+                        idArg.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.GetRelationTypeByIdAsync(id, c),
+                            c
+                        ),
                     ct
                 )
         );

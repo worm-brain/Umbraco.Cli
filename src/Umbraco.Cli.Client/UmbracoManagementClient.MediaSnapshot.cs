@@ -31,7 +31,7 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// Recursively enumerates the media tree beneath <paramref name="parent"/> in pre-order,
-    /// recording each item's id and parent. The recycle bin is its own tree, so trashed items are
+    /// recording each item's id, parent and media type (#287). The recycle bin is its own tree, so trashed items are
     /// never returned.
     /// </summary>
     /// <param name="parent">The parent whose children to list, or null for the media root.</param>
@@ -51,7 +51,7 @@ public sealed partial class UmbracoManagementClient
             {
                 var id = item.Id ?? Guid.Empty;
                 // Pre-order: emit the node before descending, so parents precede their children.
-                nodes.Add(new ContentTreeNode(id, parent));
+                nodes.Add(new ContentTreeNode(id, parent, item.MediaType?.Id));
                 if (item.HasChildren ?? false)
                     nodes.AddRange(await WalkMediaSnapshotTreeAsync(id, ct));
             }

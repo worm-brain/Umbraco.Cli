@@ -415,4 +415,28 @@ public class TypeLookupAndDictionaryTests
         Assert.Equal("Nav.HomePage", sent["name"]!.GetValue<string>());
         Assert.Single(sent["translations"]!.AsArray());
     }
+
+    // ── #293: document type aliases for a whole diff ──────────────────────────
+
+    [Fact]
+    public async Task GetDocumentTypeAliasesAsync_RepeatedIds_ReadsEachTypeOnce()
+    {
+        var page = Guid.NewGuid();
+        var handler = Wire.Routed(($"document-type/{page}", """{"alias":"page"}"""));
+
+        var result = await Wire.Client(handler).GetDocumentTypeAliasesAsync([page, page, page]);
+
+        Assert.Equal(("page", 1), (result.Data![page], handler.Requests.Count));
+    }
+
+    [Fact]
+    public async Task GetDocumentTypeAliasesAsync_UnreadableType_IsLeftOut()
+    {
+        var gone = Guid.NewGuid();
+        var handler = new RoutingHandler().When(_ => true, HttpStatusCode.NotFound, "{}");
+
+        var result = await Wire.Client(handler).GetDocumentTypeAliasesAsync([gone]);
+
+        Assert.Empty(result.Data!);
+    }
 }

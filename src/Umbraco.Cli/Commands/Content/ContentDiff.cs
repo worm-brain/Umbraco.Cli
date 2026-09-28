@@ -63,14 +63,27 @@ public sealed record ContentDocumentChange(ContentChangeKind Change, Guid Id, Gu
     public ContentPublishState.Steps State { get; init; } = ContentPublishState.Steps.None;
 
     /// <summary>
-    /// For a removed document, its live document type id, so a prune can leave whole types alone
-    /// (<c>--exclude-type</c>, #225).
+    /// The document type id: the snapshot's for an added, changed or drifted document, the live
+    /// one for a removed document, so a prune can leave whole types alone (<c>--exclude-type</c>,
+    /// #225) and every row can name the type (#293).
     /// </summary>
     public Guid? DocumentTypeId { get; init; }
 
+    /// <summary>
+    /// The document's name (#293): the invariant or default-language variant's, from the snapshot
+    /// body (the live body for a removed document). Null when the body has none.
+    /// </summary>
+    public string? Name { get; init; }
+
+    /// <summary>
+    /// The document type's alias (#293), filled by <see cref="ContentPipeline"/> in one lookup for
+    /// the whole diff. Null when it could not be read.
+    /// </summary>
+    public string? DocumentType { get; init; }
+
     /// <summary>The change as the <c>diff</c> command reports it.</summary>
     /// <returns>The row.</returns>
-    public ContentDiffRow ToRow() => new(Change, Id, Parent, Changes);
+    public ContentDiffRow ToRow() => new(Change, Id, Name, DocumentType, Parent, Changes);
 }
 
 /// <summary>
@@ -79,6 +92,11 @@ public sealed record ContentDocumentChange(ContentChangeKind Change, Guid Id, Gu
 /// </summary>
 /// <param name="Change">The kind of change.</param>
 /// <param name="Id">The document id.</param>
+/// <param name="Name">
+/// The document's name (#293), so a plan can be reviewed without a <c>content get</c> per id; null
+/// when the body has none.
+/// </param>
+/// <param name="DocumentType">The document type's alias (#293); null when it could not be read.</param>
 /// <param name="Parent">The desired parent id; null at the content root and for a removed document.</param>
 /// <param name="Changes">
 /// What differs, as paths into the normalised body (<see cref="JsonPathDiff"/>), plus
@@ -89,6 +107,8 @@ public sealed record ContentDocumentChange(ContentChangeKind Change, Guid Id, Gu
 public sealed record ContentDiffRow(
     ContentChangeKind Change,
     Guid Id,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? Name,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? DocumentType,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] Guid? Parent,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] IReadOnlyList<string>? Changes
 );
@@ -132,6 +152,14 @@ public sealed record ContentDiff(IReadOnlyList<ContentDocumentChange> Documents,
     /// </summary>
     public IReadOnlyDictionary<Guid, Guid?> LiveParents { get; init; } =
         new Dictionary<Guid, Guid?>();
+
+    /// <summary>
+    /// Per read-only property alias (<see cref="ContentBodyNormaliser.ReadOnlyEditors"/>, #291),
+    /// how many documents have a snapshot value apply cannot write, because Umbraco ignores values
+    /// sent for those editors. <c>content apply</c> warns once per property.
+    /// </summary>
+    public IReadOnlyDictionary<string, int> UnpromotedValues { get; init; } =
+        new Dictionary<string, int>();
 
     private IReadOnlyList<ContentDocumentChange> Of(ContentChangeKind kind) =>
         [.. Documents.Where(d => d.Change == kind)];

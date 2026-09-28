@@ -2,10 +2,17 @@ using System.Text.Json.Nodes;
 
 namespace Umbraco.Cli.Client;
 
-/// <summary>A document's tree placement: its id and its parent (null at the content root).</summary>
+/// <summary>
+/// A document's (or media item's) tree placement: its id, its parent (null at the root) and the
+/// id of its type, which the tree item carries, so a walk can count the items of a type (#287).
+/// </summary>
 /// <param name="Id">The document id.</param>
 /// <param name="Parent">The parent document id, or null for a content-root document.</param>
-public readonly record struct ContentTreeNode(Guid Id, Guid? Parent);
+/// <param name="TypeId">
+/// The document type id (the media type id for a media item), or null when the walk did not read
+/// it (a subtree root, which is named rather than read from the tree).
+/// </param>
+public readonly record struct ContentTreeNode(Guid Id, Guid? Parent, Guid? TypeId = null);
 
 /// <summary>
 /// Raw-JSON document access for the content export/diff/apply pipeline (issue #100, ADR 0006).

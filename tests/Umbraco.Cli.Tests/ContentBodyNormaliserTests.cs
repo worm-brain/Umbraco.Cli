@@ -120,4 +120,46 @@ public class ContentBodyNormaliserTests
 
         Assert.Equal("[1,2]", normalised.ToJsonString());
     }
+
+    // ── #291: read-only editors ──────────────────────────────────────────────
+
+    /// <summary>A body with a Label value (set by site code) and a text value.</summary>
+    private static JsonNode LabelledBody(string submittedAt, string title) =>
+        JsonNode.Parse(
+            $$"""
+            {"values":[
+              {"editorAlias":"Umbraco.Label","alias":"submittedAt","culture":null,"segment":null,"value":"{{submittedAt}}"},
+              {"editorAlias":"Umbraco.TextBox","alias":"title","culture":null,"segment":null,"value":"{{title}}"}
+            ]}
+            """
+        )!;
+
+    [Fact]
+    public void ForComparison_LabelValuesThatDiffer_CompareEqual()
+    {
+        // Umbraco ignores a value sent for a Label, so the target keeps its own: a promotion can
+        // never make them equal, and the diff must not report them.
+        var source = ContentBodyNormaliser.ForComparison(LabelledBody("2026-09-01", "Hi"));
+        var target = ContentBodyNormaliser.ForComparison(LabelledBody("2026-09-28", "Hi"));
+
+        Assert.True(JsonNode.DeepEquals(source, target));
+    }
+
+    [Fact]
+    public void ForComparison_OtherEditorValuesThatDiffer_StillDiffer()
+    {
+        var source = ContentBodyNormaliser.ForComparison(LabelledBody("2026-09-01", "Hi"));
+        var target = ContentBodyNormaliser.ForComparison(LabelledBody("2026-09-01", "Hello"));
+
+        Assert.False(JsonNode.DeepEquals(source, target));
+    }
+
+    [Fact]
+    public void Normalise_KeepsLabelValues()
+    {
+        // Apply sends the normalised body, and must send what it always did.
+        var normalised = ContentBodyNormaliser.Normalise(LabelledBody("2026-09-01", "Hi"));
+
+        Assert.Equal(2, normalised["values"]!.AsArray().Count);
+    }
 }

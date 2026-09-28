@@ -111,6 +111,8 @@ public static class ContentApplyCommand
                                 diff.ErrorMessage!
                             );
 
+                        WarnUnpromoted(diff.Data!.UnpromotedValues);
+
                         var options = new ContentApplyOptions(prune, ctx.DryRun)
                         {
                             State = !parseResult.GetValue(noStateOpt),
@@ -139,11 +141,21 @@ public static class ContentApplyCommand
                         CommandExecutor.WriteReport(
                             ctx,
                             result?.Actions ?? [],
-                            new[] { "Operation", "Id", "Cultures", "Status" },
+                            new[]
+                            {
+                                "Operation",
+                                "Id",
+                                "Name",
+                                "Document Type",
+                                "Cultures",
+                                "Status",
+                            },
                             a =>
                                 [
                                     a.Operation.ToString().ToLowerInvariant(),
                                     a.Id.ToString(),
+                                    a.Name ?? "",
+                                    a.DocumentType ?? "",
                                     a.Cultures is { } cultures ? string.Join(",", cultures) : "",
                                     a.Status,
                                 ]
@@ -154,6 +166,23 @@ public static class ContentApplyCommand
         );
 
         return cmd;
+    }
+
+    /// <summary>
+    /// Warns on stderr, once per property, about snapshot values apply cannot promote (#291):
+    /// Umbraco ignores values sent for read-only editors such as <c>Umbraco.Label</c>, so the
+    /// target keeps its own. Before, they were lost silently and the diff never came clean.
+    /// Stderr keeps stdout for the apply report, as the CLI's other warnings do.
+    /// </summary>
+    /// <param name="unpromoted">Per property alias, how many documents have such a value.</param>
+    internal static void WarnUnpromoted(IReadOnlyDictionary<string, int> unpromoted)
+    {
+        foreach (var (alias, documents) in unpromoted.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            Console.Error.WriteLine(
+                $"warning: '{alias}' is a Label property; Umbraco does not "
+                    + $"accept values for it, so its snapshot value on {documents} document(s) "
+                    + "is not promoted."
+            );
     }
 
     /// <summary>

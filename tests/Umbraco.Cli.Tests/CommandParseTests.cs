@@ -631,6 +631,8 @@ public class CommandParseTests
     [InlineData("relation-type list")]
     [InlineData("relation-type get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     [InlineData("relation list --relation-type 3f7a8b2e-1234-5678-abcd-ef0123456789")]
+    [InlineData("relation-type get relateDocumentOnCopy")] // #300: by alias
+    [InlineData("relation list --relation-type relateDocumentOnCopy")]
     [InlineData("indexer list")]
     [InlineData("indexer get ExternalIndex")]
     [InlineData("indexer rebuild ExternalIndex")]
@@ -736,9 +738,7 @@ public class CommandParseTests
     [InlineData("log-viewer list --level Nonsense")] // invalid log level rejected at parse time
     [InlineData("manifest list --scope Nonsense")] // invalid enum value
     [InlineData("redirect delete not-a-uuid")]
-    [InlineData("relation-type get not-a-uuid")]
     [InlineData("relation list")] // --relation-type is required
-    [InlineData("relation list --relation-type not-a-uuid")]
     [InlineData("indexer get")] // missing name argument
     [InlineData("searcher query ExternalSearcher")] // missing required --term
     [InlineData("imaging resize-urls")] // at least one id is required

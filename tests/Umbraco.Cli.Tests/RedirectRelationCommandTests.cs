@@ -191,4 +191,45 @@ public class RedirectRelationCommandTests
 
         Assert.NotEmpty(parse.Errors); // --relation-type is required
     }
+
+    [Fact]
+    public async Task RelationList_RelationTypeAlias_QueriesTheResolvedType()
+    {
+        // #300: the alias relation-type list shows was a GUID parse error.
+        var fake = new FakeUmbracoManagementClient();
+        var typeId = Guid.NewGuid();
+        fake.References[(EntityKind.RelationType, "relateDocumentOnCopy")] = typeId;
+
+        var exit = await Run(
+            BuildRoot(fake),
+            $"{Auth} relation list --relation-type relateDocumentOnCopy"
+        );
+
+        Assert.Equal((0, (Guid?)typeId), (exit, fake.LastRelationTypeQueried));
+    }
+
+    [Fact]
+    public async Task RelationList_UnknownRelationType_QueriesNothing()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await Run(BuildRoot(fake), $"{Auth} relation list --relation-type nope");
+
+        Assert.Equal((1, (Guid?)null), (exit, fake.LastRelationTypeQueried));
+    }
+
+    [Fact]
+    public async Task RelationTypeGet_ByAlias_ReadsTheResolvedType()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        var id = Guid.NewGuid();
+        fake.References[(EntityKind.RelationType, "relateDocumentOnCopy")] = id;
+        fake.RelationTypes.Add(
+            new RelationTypeResponse { Id = id, Alias = "relateDocumentOnCopy" }
+        );
+
+        var exit = await Run(BuildRoot(fake), $"{Auth} relation-type get relateDocumentOnCopy");
+
+        Assert.Equal(0, exit);
+    }
 }

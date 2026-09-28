@@ -541,7 +541,7 @@ umbraco media-type create --name <name> --alias <alias> [--icon <alias>] [--is-e
 umbraco media-type create --json-body <file> [--id <guid>]
 umbraco media-type update <id|alias|name> --json-body <file> [--replace]   # merged into the type; --replace needs --yes
 umbraco media-type create --schema | --example            # the body's JSON Schema (offline), or a real media type (needs a host)
-umbraco media-type delete <id|alias|name> --force                  # deletes every media item of the type too; --force always required, plus --yes non-interactively
+umbraco media-type delete <id|alias|name> [--force]                # deletes every media item of the type too; refused while items (recycle bin included) or compositions use it unless --force; --yes non-interactively
 ```
 
 ## `document-type`
@@ -554,7 +554,7 @@ umbraco document-type create --json-body <file> [--id <guid>]  # full Management
 umbraco document-type update <alias|id> --json-body <file> [--replace]   # merged into the type; --replace sends the whole type and needs --yes
 umbraco document-type create --schema                      # the create body's JSON Schema, from the Management API spec (offline)
 umbraco document-type create --example                     # a real document type (a minimal one on an empty site) to start from (needs a host)
-umbraco document-type delete <id|alias> --force                  # deletes every document of the type too; --force always required, plus --yes non-interactively
+umbraco document-type delete <id|alias> [--force]                # deletes every document of the type too; refused while documents (recycle bin included) or compositions use it, or for an element type, unless --force; --yes non-interactively
 ```
 
 ### Authoring a document type with properties
@@ -896,8 +896,8 @@ accepts the request and can leave tracking as it was, because it is set by confi
 
 ```bash
 umbraco relation-type list [--skip <n>] [--take <n>]
-umbraco relation-type get <id>
-umbraco relation list --relation-type <relationTypeId> [--skip <n>] [--take <n>]   # relations are listed only by relation-type id
+umbraco relation-type get <id|alias>
+umbraco relation list --relation-type <id|alias> [--skip <n>] [--take <n>]   # relations are listed only by relation type
 ```
 
 ## `indexer` / `searcher`
@@ -1005,6 +1005,12 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
   `createDate`, `updateDate`, `publishDate`, scheduled dates, `flags` and `state`, and the
   top-level `isTrashed` and `flags`, are ignored, and `values`/`variants` are compared in a fixed
   order. The same content on two instances is `Unchanged`, and a second `apply` does nothing.
+- **Label values are not compared** - Umbraco ignores values sent for `Umbraco.Label` properties
+  (values set by site code), so a promotion can never change them. The diff leaves them out, and
+  `apply` warns on stderr once per Label property whose snapshot value it could not promote.
+- **Rows say what they are** - every `diff` row and every `apply` / `--dry-run` row carries the
+  document's `name` (the invariant or default-language variant's) and its `documentType` alias,
+  so a prune plan can be reviewed before `--yes`.
 - **Publish state** - apply publishes each culture the snapshot has published (`Published` or
   `PublishedPendingChanges`) and unpublishes live cultures the snapshot has not, parents first.
   A difference in publish state alone is a `Changed` row that apply publishes or unpublishes

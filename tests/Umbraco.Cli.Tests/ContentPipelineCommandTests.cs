@@ -72,10 +72,13 @@ public class ContentPipelineCommandTests
 
     private static readonly Guid Home = Guid.NewGuid();
 
+    /// <summary>Home's document type, whose alias the rows carry (#293).</summary>
+    private static readonly Guid PageType = Guid.NewGuid();
+
     private static JsonNode HomeBody(string title, string state) =>
         JsonNode.Parse(
             $$"""
-            {"id":"{{Home}}","values":[{"alias":"title","culture":"en-US","segment":null,"value":"{{title}}"}],
+            {"id":"{{Home}}","documentType":{"id":"{{PageType}}"},"values":[{"alias":"title","culture":"en-US","segment":null,"value":"{{title}}"}],
              "variants":[{"culture":"en-US","segment":null,"name":"Home","state":"{{state}}"}]}
             """
         )!;
@@ -89,6 +92,7 @@ public class ContentPipelineCommandTests
         };
         fake.DocumentTree.Add(new ContentTreeNode(Home, null));
         fake.DocumentRaw[Home] = HomeBody("Hello", "Draft");
+        fake.DocumentTypeList.Add(new DocumentTypeResponse { Id = PageType, Alias = "page" });
         return fake;
     }
 
@@ -127,7 +131,7 @@ public class ContentPipelineCommandTests
             using var doc = JsonDocument.Parse(stdout);
             var row = Assert.Single(doc.RootElement.GetProperty("data").EnumerateArray());
             Assert.Equal(
-                """{"change":"Changed","id":"%ID%","parent":null,"changes":["values.title[en-US]","state[en-US]"]}""".Replace(
+                """{"change":"Changed","id":"%ID%","name":"Home","documentType":"page","parent":null,"changes":["values.title[en-US]","state[en-US]"]}""".Replace(
                     "%ID%",
                     Home.ToString()
                 ),
@@ -184,8 +188,8 @@ public class ContentPipelineCommandTests
                 .ToList();
             Assert.Equal(
                 [
-                    $$"""{"operation":"update","id":"{{Home}}","status":"success","cultures":null}""",
-                    $$"""{"operation":"publish","id":"{{Home}}","status":"success","cultures":["en-US"]}""",
+                    $$"""{"operation":"update","id":"{{Home}}","status":"success","name":"Home","documentType":"page","cultures":null}""",
+                    $$"""{"operation":"publish","id":"{{Home}}","status":"success","name":"Home","documentType":"page","cultures":["en-US"]}""",
                 ],
                 rows
             );
@@ -215,5 +219,67 @@ public class ContentPipelineCommandTests
         {
             File.Delete(path);
         }
+    }
+
+    [Fact]
+    public async Task Diff_LabelsEveryRowWithOneTypeLookup()
+    {
+        // #293: the alias needs one batched lookup for the whole diff, not a read per row.
+        var path = WriteSnapshot();
+        var fake = LiveDraftHome();
+        try
+        {
+            await Run(
+                BuildRoot(fake),
+                $"--host https://x --token t --output json content diff {path}"
+            );
+
+            Assert.Equal(1, fake.DocumentTypeAliasLookups);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void WarnUnpromoted_OneProperty_WarnsOnceOnStderrWithTheCount()
+    {
+        // #291: a Label value is not promoted, and apply says so instead of losing it silently.
+        var err = new StringWriter();
+        var orig = Console.Error;
+        Console.SetError(err);
+        try
+        {
+            ContentApplyCommand.WarnUnpromoted(new Dictionary<string, int> { ["submittedAt"] = 2 });
+        }
+        finally
+        {
+            Console.SetError(orig);
+        }
+
+        Assert.Equal(
+            "warning: 'submittedAt' is a Label property; Umbraco does not accept values for it, "
+                + "so its snapshot value on 2 document(s) is not promoted.",
+            err.ToString().Trim()
+        );
+    }
+
+    [Fact]
+    public void WarnUnpromoted_NothingUnpromoted_WritesNothing()
+    {
+        var err = new StringWriter();
+        var orig = Console.Error;
+        Console.SetError(err);
+        try
+        {
+            ContentApplyCommand.WarnUnpromoted(new Dictionary<string, int>());
+        }
+        finally
+        {
+            Console.SetError(orig);
+        }
+
+        Assert.Empty(err.ToString());
     }
 }
