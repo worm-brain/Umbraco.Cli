@@ -38,6 +38,33 @@ public static class CliRunner
     private static readonly Lazy<string> CliDllPath = new(LocateCliDll);
 
     /// <summary>
+    /// Environment variable naming a CLI config file for the suite to use instead of the
+    /// developer's own (<c>%APPDATA%/Umbraco/config.json</c>). <c>tests/hands-on/dev-site.py test</c>
+    /// sets it to the dev site's config, so the suite never reads or writes personal profiles.
+    /// </summary>
+    public const string TestConfigVariable = "UMBRACO_TEST_CONFIG";
+
+    /// <summary>
+    /// Adds <c>--config &lt;path&gt;</c> ahead of the CLI arguments when a test config is set, unless
+    /// the arguments already choose a config themselves.
+    /// </summary>
+    /// <param name="args">The CLI arguments.</param>
+    /// <param name="configPath">The test config path, or null/empty to use the CLI's default config.</param>
+    /// <returns>The arguments to pass to the CLI.</returns>
+    public static IReadOnlyList<string> WithTestConfig(
+        IReadOnlyList<string> args,
+        string? configPath
+    )
+    {
+        var ownConfig = args.Any(a =>
+            a == "--config" || a.StartsWith("--config=", StringComparison.Ordinal)
+        );
+        return string.IsNullOrWhiteSpace(configPath) || ownConfig
+            ? args
+            : ["--config", configPath, .. args];
+    }
+
+    /// <summary>
     /// Runs the CLI with the given arguments and returns the captured result. Environment
     /// variables (including any UMBRACO_* auth vars) are inherited by the child process.
     /// </summary>
@@ -75,7 +102,9 @@ public static class CliRunner
             // "dotnet exec <dll> <args>" runs the framework-dependent CLI assembly.
             ArgumentList = { "exec", CliDllPath.Value },
         };
-        foreach (var arg in args)
+        foreach (
+            var arg in WithTestConfig(args, Environment.GetEnvironmentVariable(TestConfigVariable))
+        )
             psi.ArgumentList.Add(arg);
 
         using var process =

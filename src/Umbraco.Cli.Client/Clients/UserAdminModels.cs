@@ -4,8 +4,23 @@ namespace Umbraco.Cli.Client;
 
 // Command-facing records for the user-administration nouns - user groups and user data
 // (issue #109) - co-located with their client interfaces rather than in the shared Models.cs.
-// Granular per-node user-group permissions are deferred to a follow-up; only the scalar and
-// string-list fields are surfaced here.
+// Granular per-document permissions (#111) are surfaced as DocumentPermission; the other granular
+// kinds (property-value, unknown) are not modelled, and the client carries them through updates.
+
+/// <summary>
+/// A granular permission on one document (#111): the verbs a user group has on that node, in place
+/// of its fallback permissions.
+/// </summary>
+public record DocumentPermission
+{
+    /// <summary>The document id.</summary>
+    [JsonPropertyName("document")]
+    public Guid Document { get; init; }
+
+    /// <summary>The permission verbs, e.g. <c>Umb.Document.Read</c>.</summary>
+    [JsonPropertyName("verbs")]
+    public IReadOnlyList<string> Verbs { get; init; } = [];
+}
 
 /// <summary>Command-facing view of a user group (issue #109).</summary>
 public record UserGroupResponse
@@ -62,6 +77,10 @@ public record UserGroupResponse
     [JsonPropertyName("mediaStartNode")]
     public Guid? MediaStartNode { get; init; }
 
+    /// <summary>The group's granular per-document permissions (#111).</summary>
+    [JsonPropertyName("documentPermissions")]
+    public IReadOnlyList<DocumentPermission> DocumentPermissions { get; init; } = [];
+
     /// <summary>Whether the group may be deleted (built-in groups cannot).</summary>
     [JsonPropertyName("isDeletable")]
     public bool IsDeletable { get; init; }
@@ -72,8 +91,8 @@ public record UserGroupResponse
 }
 
 /// <summary>
-/// Create payload for a user group (issue #109). Granular per-node permissions are not exposed
-/// (a deferred follow-up); the create sends an empty <c>permissions</c> array.
+/// Create payload for a user group (issue #109), with its granular per-document permissions
+/// (#111).
 /// </summary>
 public record CreateUserGroupRequest
 {
@@ -117,12 +136,14 @@ public record CreateUserGroupRequest
     /// <summary>The media node the group's media tree starts at; null for none (#217).</summary>
     [JsonPropertyName("mediaStartNode")]
     public Guid? MediaStartNode { get; init; }
+
+    /// <summary>The group's granular per-document permissions (#111); empty for none.</summary>
+    public IReadOnlyList<DocumentPermission> DocumentPermissions { get; init; } = [];
 }
 
 /// <summary>
 /// Update payload for a user group (issue #109). Mirrors <see cref="CreateUserGroupRequest"/>
-/// without the id (the id is a route parameter) and, like create, does not carry granular
-/// per-node permissions.
+/// without the id (the id is a route parameter).
 /// </summary>
 public record UpdateUserGroupRequest
 {
@@ -163,6 +184,13 @@ public record UpdateUserGroupRequest
     /// <summary>The media node the group's media tree starts at; null for none (#217).</summary>
     [JsonPropertyName("mediaStartNode")]
     public Guid? MediaStartNode { get; init; }
+
+    /// <summary>
+    /// The group's complete set of granular per-document permissions (#111), or null to keep the
+    /// ones it has. Null is the default so a caller that does not deal in permissions (the schema
+    /// applier, say) can never wipe them; the other granular kinds are always kept.
+    /// </summary>
+    public IReadOnlyList<DocumentPermission>? DocumentPermissions { get; init; }
 }
 
 /// <summary>

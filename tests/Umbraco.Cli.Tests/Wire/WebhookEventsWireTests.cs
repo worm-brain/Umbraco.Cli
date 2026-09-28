@@ -59,13 +59,36 @@ public class WebhookEventsWireTests
     }
 
     [Fact]
-    public async Task CreateWebhookAsync_UnknownAlias_SuggestsTheNearestAlias()
+    public async Task CreateWebhookAsync_UnknownAlias_ReportsTheUnknownAndKnownAliases()
     {
+        // #278: the client reports the values; the command layer builds the suggestion.
+        var handler = Wire.Routed(("/webhook/events", Events));
+
+        var result = await Create(handler, "Umbraco.ContentPublish", "ContentPublished");
+
+        Assert.Equivalent(
+            new UnknownValues(
+                ["ContentPublished"],
+                ["Umbraco.ContentPublish", "Umbraco.ContentUnpublish", "Umbraco.MediaSave"]
+            ),
+            result.UnknownValues,
+            strict: true
+        );
+    }
+
+    [Fact]
+    public async Task CreateWebhookAsync_UnknownAlias_MessageReadsWithoutTheCommandLayer()
+    {
+        // #278: no suggestion and no CLI command text from the client, but still a full sentence.
         var handler = Wire.Routed(("/webhook/events", Events));
 
         var result = await Create(handler, "ContentPublished");
 
-        Assert.Contains("did you mean 'Umbraco.ContentPublish'", result.ErrorMessage);
+        Assert.Equal(
+            "Unknown webhook event 'ContentPublished'. Umbraco would save the webhook but never "
+                + "fire it.",
+            result.ErrorMessage
+        );
     }
 
     [Fact]
@@ -98,7 +121,7 @@ public class WebhookEventsWireTests
 
         var result = await Create(handler, "umbraco.contentpublish");
 
-        Assert.Contains("did you mean 'Umbraco.ContentPublish'", result.ErrorMessage);
+        Assert.Equal(["umbraco.contentpublish"], result.UnknownValues?.Unknown);
     }
 
     [Fact]
@@ -144,6 +167,17 @@ public class WebhookEventsWireTests
     }
 
     [Fact]
+    public async Task CreateWebhookAsync_BlankAlias_IsRefusedWithoutPosting()
+    {
+        // #277: the shared guard rejects a blank value before reading the event list.
+        var handler = Wire.Routed(("/webhook/events", Events));
+
+        var result = await Create(handler, "");
+
+        Assert.Equal("A webhook event alias cannot be empty.", result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task CreateWebhookAsync_EmptyEventList_IsRefused()
     {
         var handler = Wire.Routed(("/webhook/events", """{ "total": 0, "items": [] }"""));
@@ -170,29 +204,5 @@ public class WebhookEventsWireTests
             },
             result.Data!.Items.Last()
         );
-    }
-
-    [Theory]
-    [InlineData("ContentPublished", "Umbraco.ContentPublish")]
-    [InlineData("Umbraco.ContentUnpublished", "Umbraco.ContentUnpublish")]
-    [InlineData("mediasave", "Umbraco.MediaSave")]
-    public void NearestWebhookEvent_CloseName_SuggestsTheAlias(string typed, string expected)
-    {
-        string[] known =
-        [
-            "Umbraco.ContentPublish",
-            "Umbraco.ContentUnpublish",
-            "Umbraco.MediaSave",
-        ];
-
-        Assert.Equal(expected, UmbracoManagementClient.NearestWebhookEvent(typed, known));
-    }
-
-    [Fact]
-    public void NearestWebhookEvent_UnrelatedName_SuggestsNothing()
-    {
-        string[] known = ["Umbraco.ContentPublish", "Umbraco.MediaSave"];
-
-        Assert.Null(UmbracoManagementClient.NearestWebhookEvent("MemberGroupDeleted", known));
     }
 }

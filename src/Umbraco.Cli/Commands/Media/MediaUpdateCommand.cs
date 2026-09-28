@@ -127,7 +127,7 @@ public static class MediaUpdateCommand
                         return await client.UpdateMediaAsync(
                             parseResult.GetValue(idArg)!.Value,
                             request,
-                            parseResult.GetValue(replaceOpt),
+                            WriteModes.FromReplaceFlag(parseResult.GetValue(replaceOpt)),
                             c
                         );
                     },

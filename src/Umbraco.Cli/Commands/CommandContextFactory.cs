@@ -300,8 +300,9 @@ public sealed class CommandContextFactory
     /// the always-allowed <c>auth</c> group (#83 L3). This removes the earlier asymmetry where an
     /// empty string meant "allow everything" while <c>","</c> meant "deny everything". A non-empty
     /// entry matches either the command's noun group (e.g. <c>content</c>) or its full name
-    /// (e.g. <c>content.list</c>). The <c>auth</c> group is always permitted so the session can
-    /// authenticate and be inspected.
+    /// (e.g. <c>content.list</c>), compared case-insensitively against the current command names
+    /// only: an entry naming a pre-#268 noun (e.g. <c>content-types</c>) matches nothing (#272).
+    /// The <c>auth</c> group is always permitted so the session can authenticate and be inspected.
     /// </summary>
     /// <param name="commandName">The dotted command name, e.g. <c>content.delete</c>.</param>
     /// <param name="allowedRaw">The comma-separated allow-list; <c>null</c> for no restriction, or set-but-empty for an explicit lockdown.</param>
@@ -322,12 +323,11 @@ public sealed class CommandContextFactory
             ',',
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
         );
-        // An entry written before a rename (#268) still names the same commands, and no more.
-        return entries
-            .Select(LegacyNames.Canonical)
-            .Any(entry =>
-                string.Equals(entry, group, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(entry, commandName, StringComparison.OrdinalIgnoreCase)
-            );
+        // Entries match current names only: the pre-#268 plural nouns were removed in #272, so an
+        // old entry such as `content-types` matches nothing rather than being translated.
+        return entries.Any(entry =>
+            string.Equals(entry, group, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(entry, commandName, StringComparison.OrdinalIgnoreCase)
+        );
     }
 }

@@ -17,8 +17,11 @@ public class CopyLocationClientTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken ct
-        ) =>
-            Task.FromResult(
+        )
+        {
+            // Every client test is a contract test (#76).
+            ManagementSpec.AssertDeclared(request);
+            return Task.FromResult(
                 request.Method == HttpMethod.Post
                     ? copy()
                     : new HttpResponseMessage(HttpStatusCode.OK)
@@ -30,6 +33,7 @@ public class CopyLocationClientTests
                         ),
                     }
             );
+        }
     }
 
     private static UmbracoManagementClient Client(Func<HttpResponseMessage> copy) =>

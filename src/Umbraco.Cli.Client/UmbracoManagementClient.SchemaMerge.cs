@@ -46,7 +46,7 @@ public sealed partial class UmbracoManagementClient
         EntityKind kind,
         Guid id,
         JsonNode body,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     ) =>
         GuardedApiAsync(
@@ -59,15 +59,16 @@ public sealed partial class UmbracoManagementClient
                     );
 
                 var path = $"umbraco/management/api/v1/{SchemaSegment(kind)}/{id}";
-                var merged = replace
-                    ? patch
-                    : Overlay(
-                        await GetRawJsonAsync(path, ct) as JsonObject
-                            ?? throw new ApiException(
-                                $"The {kind.Noun()} body was not a JSON object."
-                            ),
-                        patch
-                    );
+                var merged =
+                    mode == WriteMode.Replace
+                        ? patch
+                        : Overlay(
+                            await GetRawJsonAsync(path, ct) as JsonObject
+                                ?? throw new ApiException(
+                                    $"The {kind.Noun()} body was not a JSON object."
+                                ),
+                            patch
+                        );
                 await SendRawJsonAsync(Method.PUT, path, merged, ct);
                 return Empty.Value;
             }

@@ -9,8 +9,16 @@ public interface IDictionaryClient
         CancellationToken ct = default
     );
 
-    Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByKeyAsync(
-        string key,
+    /// <summary>
+    /// Gets a dictionary item and its translations by id, parent included (#290). A key is
+    /// resolved to the id by the caller, with <see cref="IReferenceResolver.ResolveIdAsync"/>
+    /// (#262).
+    /// </summary>
+    /// <param name="id">The dictionary item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The dictionary item, or a mapped failure (404 when there is none).</returns>
+    Task<UmbracoResponse<DictionaryItemResponse>> GetDictionaryItemByIdAsync(
+        Guid id,
         CancellationToken ct = default
     );
 

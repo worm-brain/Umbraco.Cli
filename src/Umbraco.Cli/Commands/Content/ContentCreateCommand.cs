@@ -235,7 +235,7 @@ public static class ContentCreateCommand
                         if (parseResult.GetValue(templateOpt) is { Length: > 0 } template)
                             request = request with
                             {
-                                Template = ContentUpdateCommand.TemplateReference(template),
+                                Template = ContentTemplateReference.Parse(template),
                             };
 
                         return await client.CreateContentAsync(request, c);

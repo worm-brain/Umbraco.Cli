@@ -24,95 +24,62 @@ namespace Umbraco.Cli.Commands.Schema;
 /// </summary>
 public static class SchemaDiffEngine
 {
-    /// <summary>Compares a desired snapshot against the live one and returns the full diff.</summary>
+    /// <summary>
+    /// Compares a desired snapshot against the live one and returns the full diff: one pass per
+    /// kind in the kind table (<see cref="SchemaKinds.All"/>, #273), each by the kind's own key,
+    /// undeletable rule and reference rewrite. A kind whose section the desired snapshot does not
+    /// have is not managed (#292, #198): it gets no rows at all, so it is never created, changed or
+    /// pruned.
+    /// </summary>
     /// <param name="desired">The target schema (typically loaded from a snapshot file).</param>
     /// <param name="current">The live schema (typically a fresh export).</param>
     /// <returns>The diff across every schema kind.</returns>
-    public static SchemaDiff Compare(SchemaSnapshot desired, SchemaSnapshot current) =>
-        new(
-            CompareKind(
-                SchemaKinds.DocumentType,
-                "alias",
-                desired.DocumentTypes,
-                current.DocumentTypes
-            ),
-            // Media and member types carry an alias, exactly as document types do.
-            CompareKind(SchemaKinds.MediaType, "alias", desired.MediaTypes, current.MediaTypes),
-            CompareKind(SchemaKinds.MemberType, "alias", desired.MemberTypes, current.MemberTypes),
-            CompareKind(SchemaKinds.DataType, "name", desired.DataTypes, current.DataTypes),
-            CompareKind(SchemaKinds.Template, "alias", desired.Templates, current.Templates)
-        )
+    public static SchemaDiff Compare(SchemaSnapshot desired, SchemaSnapshot current)
+    {
+        var diff = SchemaDiff.Empty;
+        foreach (var kind in SchemaKinds.All)
         {
-            // #227. Languages have no id at all, so they match on the ISO code alone.
-            Languages = CompareKind(
-                SchemaKinds.Language,
-                "isoCode",
-                desired.Languages,
-                current.Languages,
-                live =>
-                    Flag(live, "isDefault", true)
-                        ? "The default language cannot be deleted; make another language the default first."
-                        : null
-            ),
-            // A dictionary item's parent is another dictionary item, which usually has a different
-            // id on each instance: the parent is translated to the target's id before comparing,
-            // so a name-matched tree compares equal and apply writes the target's ids.
-            DictionaryItems = CompareKind(
-                SchemaKinds.DictionaryItem,
-                "name",
-                desired.DictionaryItems,
-                current.DictionaryItems,
-                rewrite: SchemaBodies.WithLiveParent
-            ),
-            MemberGroups = CompareKind(
-                SchemaKinds.MemberGroup,
-                "name",
-                desired.MemberGroups,
-                current.MemberGroups
-            ),
-            UserGroups = CompareKind(
-                SchemaKinds.UserGroup,
-                "alias",
-                desired.UserGroups,
-                current.UserGroups,
-                live =>
-                    Flag(live, "isDeletable", false)
-                        ? "Umbraco does not allow this user group to be deleted."
-                        : null
-            ),
-            // #292. A section the snapshot does not have is not managed: no rows at all.
-            PartialViews = CompareFiles(SchemaKinds.PartialView, desired, current),
-            Stylesheets = CompareFiles(SchemaKinds.Stylesheet, desired, current),
-            Scripts = CompareFiles(SchemaKinds.Script, desired, current),
-        };
+            if (kind.Section(desired) is not { } entries)
+                continue;
+            diff = kind.WithDiff(
+                diff,
+                kind.File is not null
+                    ? CompareFiles(kind, entries, current)
+                    : CompareKind(
+                        kind.Tag,
+                        kind.KeyField,
+                        entries,
+                        kind.Section(current) ?? [],
+                        kind.Undeletable,
+                        kind.Rewrite
+                    )
+            );
+        }
+        return diff;
+    }
 
     /// <summary>
-    /// Diffs one static-file kind by path (#292). Returns <see cref="SchemaKindDiff.None"/> when
-    /// the snapshot has no section for the kind, so a snapshot that does not manage files never
-    /// adds, changes or prunes one. Otherwise the snapshot's entries are completed with the
+    /// Diffs one static-file kind by path (#292). The snapshot's entries are completed with the
     /// folders their paths imply (<see cref="SchemaStaticFiles.WithImpliedFolders"/>) and matched
     /// by path. A change that is only line endings or trailing newlines carries the note
     /// <c>line endings only</c>; a path that is a file on one side and a folder on the other is
     /// skipped, since no update can turn one into the other.
     /// </summary>
-    /// <param name="kind">The static-file kind tag.</param>
-    /// <param name="desired">The snapshot.</param>
+    /// <param name="kind">The static-file kind.</param>
+    /// <param name="entries">The snapshot's section for the kind.</param>
     /// <param name="current">The live export.</param>
     /// <returns>The diff for the kind.</returns>
     private static SchemaKindDiff CompareFiles(
-        string kind,
-        SchemaSnapshot desired,
+        SchemaKindSpec kind,
+        IReadOnlyList<JsonNode> entries,
         SchemaSnapshot current
     )
     {
-        if (desired.FilesOf(kind) is not { } entries)
-            return SchemaKindDiff.None;
-
         var diff = CompareKind(
-            kind,
-            "path",
+            kind.Tag,
+            kind.KeyField,
             SchemaStaticFiles.WithImpliedFolders(entries),
-            SchemaStaticFiles.WithImpliedFolders(current.FilesOf(kind) ?? [])
+            SchemaStaticFiles.WithImpliedFolders(kind.Section(current) ?? [])
         );
 
         var changed = new List<SchemaEntityChange>();
@@ -309,14 +276,6 @@ public static class SchemaDiffEngine
             LiveIds = liveIds,
         };
     }
-
-    /// <summary>Whether <paramref name="body"/>[<paramref name="field"/>] is the boolean <paramref name="value"/>.</summary>
-    /// <param name="body">The entity body.</param>
-    /// <param name="field">The boolean field.</param>
-    /// <param name="value">The value to test for.</param>
-    /// <returns>True when the field is present and equals <paramref name="value"/>.</returns>
-    private static bool Flag(JsonNode body, string field, bool value) =>
-        body[field] is JsonValue v && v.TryGetValue<bool>(out var b) && b == value;
 
     /// <summary>
     /// Classifies a matched desired/live pair as Changed (bodies differ) or Unchanged. A change

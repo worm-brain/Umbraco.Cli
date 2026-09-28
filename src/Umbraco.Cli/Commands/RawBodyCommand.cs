@@ -330,7 +330,9 @@ public static class RawBodyCommand
                                     noun.Kind,
                                     id,
                                     json,
-                                    parseResult.GetValue(options.Replace),
+                                    WriteModes.FromReplaceFlag(
+                                        parseResult.GetValue(options.Replace)
+                                    ),
                                     c
                                 )
                                 .ThenRead(() => client.GetSchemaRawAsync(noun.Kind, id, c)),

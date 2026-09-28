@@ -93,8 +93,8 @@ public class UserAdminClientTests
     [Fact]
     public async Task UpdateUserGroupAsync_KeepsTheGroupsGranularPermissions()
     {
-        // #111: the CLI does not model per-node permissions, and the PUT replaces the whole group,
-        // so an update must carry the current ones through rather than wipe them.
+        // #111: the PUT replaces the whole group, so an update that gives no permissions must
+        // carry the current ones through rather than wipe them.
         var id = Guid.NewGuid();
         var node = Guid.NewGuid();
         var handler = new RoutingHandler()

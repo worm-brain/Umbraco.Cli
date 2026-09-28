@@ -37,7 +37,13 @@ public static class ContentExampleBody
         CancellationToken ct
     )
     {
-        var type = await client.GetDocumentTypeAsync(documentType, ct);
+        // Resolve, then read by id: the client takes ids only (#262).
+        var type = await client.WithResolvedAsync(
+            EntityKind.DocumentType,
+            documentType,
+            id => client.GetDocumentTypeByIdAsync(id, ct),
+            ct
+        );
         if (!type.IsSuccess || type.Data is null)
             return UmbracoResponse<JsonNode>.FailureFrom(type);
 

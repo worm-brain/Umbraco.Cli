@@ -236,7 +236,7 @@ public class ContentUpdateCommandTests
         );
 
         Assert.Equal(0, exit);
-        Assert.False(fake.LastUpdate!.Value.Replace);
+        Assert.Equal(WriteMode.Merge, fake.LastUpdate!.Value.Mode);
     }
 
     [Fact]
@@ -251,7 +251,7 @@ public class ContentUpdateCommandTests
         );
 
         Assert.Equal(0, exit);
-        Assert.True(fake.LastUpdate!.Value.Replace);
+        Assert.Equal(WriteMode.Replace, fake.LastUpdate!.Value.Mode);
     }
 
     [Fact]
@@ -281,7 +281,7 @@ public class ContentUpdateCommandTests
         var update = fake.LastUpdate!.Value;
         Assert.Equal("blogPost", update.Request.Template!.Alias);
         Assert.Empty(update.Request.Values);
-        Assert.False(update.Replace);
+        Assert.Equal(WriteMode.Merge, update.Mode);
     }
 
     [Fact]

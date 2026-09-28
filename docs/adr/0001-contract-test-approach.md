@@ -54,3 +54,13 @@ test then guards that the endpoint exists in the (possibly regenerated) spec.
   omitted `GET /document-type/{id}`. A follow-up could scan the URL string literals out of
   `UmbracoManagementClient.cs` at test time and assert *those* against the spec,
   eliminating the manual list for the hand-written set.
+
+> **Amended (#76):** the curated list is gone. The test HTTP handlers (`RoutingHandler` and
+> the client tests' own stubs) check every Management API request they answer against the spec
+> (`ManagementSpec.AssertDeclared`), so the contract is derived from what the client actually
+> sends in its tests rather than kept by hand. Matching is by method and path segment: an
+> `{id}` segment takes only a GUID, any other `{param}` takes any one segment. This was chosen
+> over scanning the client source for URL literals because the raw paths are built from
+> constants and helpers (`DataTypePath`, `SchemaSegment(kind)`) that a regex cannot resolve. An
+> endpoint no client test exercises is not checked; the Kiota request builders remain guarded
+> by the compiler.

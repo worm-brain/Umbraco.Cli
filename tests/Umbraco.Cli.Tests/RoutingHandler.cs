@@ -99,7 +99,22 @@ internal sealed class RoutingHandler : HttpMessageHandler
             : "Requests made: "
                 + string.Join(", ", Recordings.Select(r => $"{r.Method} {r.Uri.PathAndQuery}"));
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Records the request and answers it from the first matching route (200 and an empty body
+    /// when none matches).
+    /// <para>
+    /// Every request is also checked against <c>spec/management.json</c> (#76) with
+    /// <see cref="ManagementSpec.AssertDeclared"/>: the contract test for the client's raw-JSON
+    /// paths, whose URLs are strings the compiler cannot check. Deriving it from what the client
+    /// sends means there is no endpoint list to keep in sync.
+    /// </para>
+    /// </summary>
+    /// <param name="request">The request the client sent.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The canned response.</returns>
+    /// <exception cref="WireAssertionException">
+    /// The request is a Management API call the spec does not declare.
+    /// </exception>
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken
@@ -112,6 +127,8 @@ internal sealed class RoutingHandler : HttpMessageHandler
                 request.Content?.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult()
             )
         );
+
+        ManagementSpec.AssertDeclared(request);
 
         var route = _routes.FirstOrDefault(r => r.Match(request));
         var status = route.Match is null ? HttpStatusCode.OK : route.Status;

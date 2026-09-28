@@ -32,7 +32,8 @@ public enum FailureCategory
 
     /// <summary>
     /// The server responded but the body did not match what this CLI expected - a likely sign of
-    /// an Umbraco version the generated client was not built against. Reserved here; populated by #154.
+    /// an Umbraco version the generated client was not built against (#154): a body that is not
+    /// JSON, or a critical read missing a field it always carries.
     /// </summary>
     UnexpectedResponse,
 
@@ -93,6 +94,14 @@ public static class FailureCategoryExtensions
         };
 }
 
+/// <summary>
+/// The structured half of a known-value refusal (#278): the values the caller asked for that the
+/// instance does not know, and the ones it does, in the order the instance listed them.
+/// </summary>
+/// <param name="Unknown">The requested values the instance does not know, as typed.</param>
+/// <param name="Known">Every value the instance knows.</param>
+public sealed record UnknownValues(IReadOnlyList<string> Unknown, IReadOnlyList<string> Known);
+
 public record UmbracoResponse<T>
 {
     public bool IsSuccess { get; init; }
@@ -109,6 +118,14 @@ public record UmbracoResponse<T>
     /// <c>details</c> (#286). Null on success and when the failure carried no body.
     /// </summary>
     public JsonNode? Details { get; init; }
+
+    /// <summary>
+    /// For a failure that refused values the instance does not know (an unknown webhook event
+    /// alias, a translation ISO code with no language), which values were unknown and which the
+    /// instance does know (#278), so the command layer can add a "did you mean" hint. Null
+    /// otherwise. <see cref="ErrorMessage"/> already reads correctly without it.
+    /// </summary>
+    public UnknownValues? UnknownValues { get; init; }
 
     public static UmbracoResponse<T> Success(T data, int code = 200) =>
         new()
@@ -169,6 +186,7 @@ public record UmbracoResponse<T>
                 ErrorMessage = failed.ErrorMessage,
                 Category = failed.Category,
                 Details = failed.Details,
+                UnknownValues = failed.UnknownValues,
             };
 
     /// <summary>
@@ -589,11 +607,26 @@ public record UpdateContentRequest
 /// </summary>
 public record ContentTemplateReference
 {
+    /// <summary>The template's id. Wins over <see cref="Alias"/> when both are set.</summary>
     [JsonPropertyName("id")]
     public Guid? Id { get; init; }
 
+    /// <summary>The template's alias, resolved to an id by the client before the write.</summary>
     [JsonPropertyName("alias")]
     public string? Alias { get; init; }
+
+    /// <summary>
+    /// Reads a template reference typed by a user (a <c>--template</c> value) as either a GUID or
+    /// an alias, so callers can use whichever they have to hand without a second flag. The rule
+    /// lives here, with the model it builds, so every caller shares it (#190).
+    /// </summary>
+    /// <param name="value">The raw reference text.</param>
+    /// <returns>A reference carrying the id when <paramref name="value"/> parses as a GUID, the
+    /// alias otherwise.</returns>
+    public static ContentTemplateReference Parse(string value) =>
+        Guid.TryParse(value, out var id)
+            ? new ContentTemplateReference { Id = id }
+            : new ContentTemplateReference { Alias = value };
 }
 
 public record ContentValue
@@ -1429,25 +1462,184 @@ public record UpdateMemberTypeRequest
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
+/// <summary>
+/// Command-facing view of a backoffice user, as <c>user get</c> and <c>user list</c> show it. It
+/// carries what the backoffice user editor shows (#216): the groups by id, alias and name, the
+/// sections those groups grant, start nodes, UI language and the login/lockout record.
+/// </summary>
 public record UserResponse
 {
+    /// <summary>The user's id.</summary>
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
 
+    /// <summary>The user's email address.</summary>
     [JsonPropertyName("email")]
     public string Email { get; init; } = "";
 
+    /// <summary>The user's display name.</summary>
     [JsonPropertyName("name")]
     public string Name { get; init; } = "";
 
+    /// <summary>The user's login name (by default the email).</summary>
     [JsonPropertyName("userName")]
     public string UserName { get; init; } = "";
 
+    /// <summary>The state: <c>Active</c>, <c>Disabled</c>, <c>LockedOut</c>, <c>Invited</c> or <c>Inactive</c>.</summary>
     [JsonPropertyName("state")]
     public string State { get; init; } = "";
 
+    /// <summary>The kind of user: <c>Default</c> (a person) or <c>Api</c> (client credentials).</summary>
+    [JsonPropertyName("kind")]
+    public string Kind { get; init; } = "";
+
+    /// <summary>Whether the user is in the administrators group.</summary>
+    [JsonPropertyName("isAdmin")]
+    public bool IsAdmin { get; init; }
+
+    /// <summary>
+    /// The user's groups (#216). The alias and name come from the group list and are null when it
+    /// could not be read; the id is always right.
+    /// </summary>
+    [JsonPropertyName("userGroups")]
+    public IReadOnlyList<UserGroupRef> UserGroups { get; init; } = [];
+
+    /// <summary>
+    /// The backoffice sections the user can open: the union of their groups' sections, since a
+    /// user has none of their own. Empty when the group list could not be read.
+    /// </summary>
+    [JsonPropertyName("sections")]
+    public IReadOnlyList<string> Sections { get; init; } = [];
+
+    /// <summary>The backoffice UI language as an ISO code, or null for the site default.</summary>
+    [JsonPropertyName("languageIsoCode")]
+    public string? LanguageIsoCode { get; init; }
+
+    /// <summary>Content start nodes set on the user itself (on top of those from their groups).</summary>
+    [JsonPropertyName("documentStartNodes")]
+    public IReadOnlyList<Guid> DocumentStartNodes { get; init; } = [];
+
+    /// <summary>Media start nodes set on the user itself (on top of those from their groups).</summary>
+    [JsonPropertyName("mediaStartNodes")]
+    public IReadOnlyList<Guid> MediaStartNodes { get; init; } = [];
+
+    /// <summary>Whether the user itself has access to the content root.</summary>
+    [JsonPropertyName("documentRootAccess")]
+    public bool DocumentRootAccess { get; init; }
+
+    /// <summary>Whether the user itself has access to the media root.</summary>
+    [JsonPropertyName("mediaRootAccess")]
+    public bool MediaRootAccess { get; init; }
+
+    /// <summary>Failed logins since the last successful one.</summary>
+    [JsonPropertyName("failedLoginAttempts")]
+    public int FailedLoginAttempts { get; init; }
+
+    /// <summary>When the user last signed in, or null if never.</summary>
+    [JsonPropertyName("lastLoginDate")]
+    public DateTimeOffset? LastLoginDate { get; init; }
+
+    /// <summary>When the user was last locked out, or null if never.</summary>
+    [JsonPropertyName("lastLockoutDate")]
+    public DateTimeOffset? LastLockoutDate { get; init; }
+
+    /// <summary>When the password last changed, or null if never set.</summary>
+    [JsonPropertyName("lastPasswordChangeDate")]
+    public DateTimeOffset? LastPasswordChangeDate { get; init; }
+
+    /// <summary>When the user was created.</summary>
     [JsonPropertyName("createDate")]
     public DateTimeOffset CreateDate { get; init; }
+
+    /// <summary>When the user was last changed.</summary>
+    [JsonPropertyName("updateDate")]
+    public DateTimeOffset UpdateDate { get; init; }
+}
+
+/// <summary>A user's group: its id and, when the group list could be read, its alias and name (#216).</summary>
+public record UserGroupRef
+{
+    /// <summary>The user group id.</summary>
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    /// <summary>The group alias, or null when the group list could not be read.</summary>
+    [JsonPropertyName("alias")]
+    public string? Alias { get; init; }
+
+    /// <summary>The group name, or null when the group list could not be read.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+}
+
+/// <summary>
+/// What <c>user create</c> sends (#214): the <c>POST user</c> fields, plus an optional password
+/// that the client sets with a second call, because the create endpoint takes none.
+/// </summary>
+public record CreateUserRequest
+{
+    /// <summary>Caller-supplied id for an idempotent create; a GUID is generated if null.</summary>
+    public Guid? Id { get; init; }
+
+    /// <summary>The user's email address.</summary>
+    public required string Email { get; init; }
+
+    /// <summary>The user's display name.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The login name; null defaults it to the email, which Umbraco requires by default.</summary>
+    public string? UserName { get; init; }
+
+    /// <summary>User groups by alias, name or id, as typed; the client resolves them. At least one.</summary>
+    public IReadOnlyList<string> UserGroups { get; init; } = [];
+
+    /// <summary>The initial password, or null to create the user without one.</summary>
+    public string? Password { get; init; }
+}
+
+/// <summary>
+/// What <c>user update</c> changes (#216). Every field is optional: null (or false for
+/// <see cref="Unlock"/>) leaves that part of the user as it is. The profile fields are merged over
+/// the current user and written with one <c>PUT</c>; the password, enabled state and lockout are
+/// separate Umbraco operations, each sent only when asked for.
+/// </summary>
+public record UpdateUserRequest
+{
+    /// <summary>The new email, or null to keep it.</summary>
+    public string? Email { get; init; }
+
+    /// <summary>The new display name, or null to keep it.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>The new login name, or null to keep it.</summary>
+    public string? UserName { get; init; }
+
+    /// <summary>
+    /// The groups the user should end up in, by alias, name or id; they replace the current ones.
+    /// Null or empty keeps the groups.
+    /// </summary>
+    public IReadOnlyList<string>? UserGroups { get; init; }
+
+    /// <summary>The backoffice UI language ISO code, or null to keep it.</summary>
+    public string? LanguageIsoCode { get; init; }
+
+    /// <summary>A new password (an admin change: no current password needed), or null to keep it.</summary>
+    public string? NewPassword { get; init; }
+
+    /// <summary>True disables the user, false enables them, null leaves the state alone.</summary>
+    public bool? Disabled { get; init; }
+
+    /// <summary>True clears a lockout caused by failed logins.</summary>
+    public bool Unlock { get; init; }
+
+    /// <summary>Whether any of the fields the <c>PUT</c> carries was given.</summary>
+    [JsonIgnore]
+    public bool ChangesProfile =>
+        Email is not null
+        || Name is not null
+        || UserName is not null
+        || UserGroups is { Count: > 0 }
+        || LanguageIsoCode is not null;
 }
 
 public record InviteUserRequest
@@ -1645,4 +1837,105 @@ public record CreateWebhookRequest
 
     [JsonPropertyName("contentTypeKeys")]
     public IEnumerable<Guid> ContentTypeKeys { get; init; } = [];
+}
+
+/// <summary>
+/// A <c>webhook update</c> (#237). Every member is optional: a null keeps the webhook's current
+/// value, because the client reads the webhook and lays these over it before the <c>PUT</c>
+/// (docs/conventions.md 5.1), where the API itself takes the whole webhook.
+/// </summary>
+public record UpdateWebhookRequest
+{
+    /// <summary>New name, or null to keep it.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>New description, or null to keep it.</summary>
+    public string? Description { get; init; }
+
+    /// <summary>New target URL, or null to keep it.</summary>
+    public string? Url { get; init; }
+
+    /// <summary>Enable (true) or disable (false) the webhook; null keeps its state.</summary>
+    public bool? Enabled { get; init; }
+
+    /// <summary>Event aliases that replace the current ones; null keeps them.</summary>
+    public IReadOnlyList<string>? Events { get; init; }
+
+    /// <summary>
+    /// Document, media or member type ids that replace the current type filter; null keeps it.
+    /// </summary>
+    public IReadOnlyList<Guid>? ContentTypeKeys { get; init; }
+
+    /// <summary>
+    /// Headers merged into the current ones by name (a given header replaces one of the same
+    /// name, ignoring case; the rest are kept); null or empty keeps them all. With
+    /// <see cref="Replace"/> they are the whole set instead.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    /// <summary>
+    /// Replace instead of merge (docs/conventions.md 5.1): <see cref="Headers"/> become exactly the
+    /// webhook's headers and <see cref="ContentTypeKeys"/> exactly its type filter, so leaving
+    /// either out clears it. Events and the scalar fields keep their usual rules.
+    /// </summary>
+    public bool Replace { get; init; }
+}
+
+/// <summary>
+/// One delivery attempt from a webhook's log (#237, <c>GET webhook/{id}/logs</c> and
+/// <c>GET webhook/logs</c>): what was sent, what came back, and whether it worked.
+/// </summary>
+public record WebhookLog
+{
+    /// <summary>The log entry's id (Umbraco's <c>key</c>).</summary>
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    /// <summary>The id of the webhook that fired (Umbraco's <c>webhookKey</c>).</summary>
+    [JsonPropertyName("webhookId")]
+    public Guid WebhookId { get; init; }
+
+    /// <summary>When the attempt was made.</summary>
+    [JsonPropertyName("date")]
+    public DateTimeOffset? Date { get; init; }
+
+    /// <summary>The alias of the event that fired, e.g. <c>Umbraco.ContentPublish</c>.</summary>
+    [JsonPropertyName("eventAlias")]
+    public string? EventAlias { get; init; }
+
+    /// <summary>The URL the payload was posted to.</summary>
+    [JsonPropertyName("url")]
+    public string? Url { get; init; }
+
+    /// <summary>The response status as Umbraco records it (a string, e.g. <c>OK (200)</c>).</summary>
+    [JsonPropertyName("statusCode")]
+    public string? StatusCode { get; init; }
+
+    /// <summary>Whether the receiver answered with a 2xx status.</summary>
+    [JsonPropertyName("isSuccessStatusCode")]
+    public bool IsSuccessStatusCode { get; init; }
+
+    /// <summary>Whether sending threw (the receiver was unreachable, timed out, ...).</summary>
+    [JsonPropertyName("exceptionOccurred")]
+    public bool ExceptionOccurred { get; init; }
+
+    /// <summary>How many times the delivery was retried.</summary>
+    [JsonPropertyName("retryCount")]
+    public int RetryCount { get; init; }
+
+    /// <summary>The request headers sent, as Umbraco records them (one string).</summary>
+    [JsonPropertyName("requestHeaders")]
+    public string? RequestHeaders { get; init; }
+
+    /// <summary>The request body sent.</summary>
+    [JsonPropertyName("requestBody")]
+    public string? RequestBody { get; init; }
+
+    /// <summary>The response headers received, as Umbraco records them (one string).</summary>
+    [JsonPropertyName("responseHeaders")]
+    public string? ResponseHeaders { get; init; }
+
+    /// <summary>The response body received.</summary>
+    [JsonPropertyName("responseBody")]
+    public string? ResponseBody { get; init; }
 }

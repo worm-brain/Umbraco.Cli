@@ -390,7 +390,7 @@ public static class DocumentBlueprintCommand
                             .UpdateDocumentBlueprintAsync(
                                 id,
                                 request,
-                                parseResult.GetValue(replaceOpt),
+                                WriteModes.FromReplaceFlag(parseResult.GetValue(replaceOpt)),
                                 c
                             )
                             .ThenRead(() => client.GetDocumentBlueprintAsync(id, c));

@@ -31,6 +31,9 @@ public class ContentExampleBodyTests
     private static FakeUmbracoManagementClient Seeded(bool variesByCulture = false)
     {
         var fake = new FakeUmbracoManagementClient();
+        // The command resolves the alias to an id, then reads the type by id (#262).
+        var blogPost = Guid.NewGuid();
+        fake.References[(EntityKind.DocumentType, "blogPost")] = blogPost;
         fake.DataTypeList.Add(
             new DataTypeResponse { Id = TextBoxType, EditorAlias = "Umbraco.TextBox" }
         );
@@ -41,7 +44,7 @@ public class ContentExampleBodyTests
         fake.DocumentTypeList.Add(
             new DocumentTypeResponse
             {
-                Id = Guid.NewGuid(),
+                Id = blogPost,
                 Alias = "blogPost",
                 Name = "Blog Post",
                 VariesByCulture = variesByCulture,
@@ -173,6 +176,7 @@ public class ContentExampleBodyTests
     {
         var fake = Seeded();
         fake.DocumentTypeList.RemoveAll(t => t.Id == SeoComposition);
+        fake.MissingDocumentTypeIds.Add(SeoComposition);
 
         var result = await ContentExampleBody.BuildAsync(
             fake,

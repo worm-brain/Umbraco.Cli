@@ -91,9 +91,9 @@ public static class ContentPublishState
         var seen = new HashSet<string?>();
         foreach (var variant in (body?["variants"] as JsonArray ?? []).OfType<JsonObject>())
         {
-            var culture = ContentBodyNormaliser.Text(variant, "culture");
+            var culture = SnapshotBody.Text(variant, "culture");
             if (seen.Add(culture))
-                yield return (culture, ContentBodyNormaliser.Text(variant, "state"));
+                yield return (culture, SnapshotBody.Text(variant, "state"));
         }
     }
 

@@ -5,12 +5,6 @@ non-interactive rules that apply across all of them, see [agent-guide.md](agent-
 install and auth, see [getting-started.md](getting-started.md). The design rules every command
 follows are in [conventions.md](conventions.md).
 
-> **Renamed nouns.** As of the #268 batch, nouns are singular and document types are
-> `document-type` (was `content-types`). The old names (`content-types`, `media-types`,
-> `data-types`, `languages`, `templates`, `members`, `member-types`, `users`, `webhooks`,
-> `member-groups`, `tags`, `cultures`, `user-groups`, and `content domains`) still run for one
-> release, with a warning on stderr, and an allow-list entry naming an old noun still matches.
-
 > The authoritative, always-in-sync surface is `umbraco commands` (the whole tree as JSON,
 > including a `destructive` flag per command). This page is the human/agent-readable narrative
 > of the same thing. If the two ever disagree, `umbraco commands` is correct - please
@@ -179,8 +173,10 @@ umbraco auth profile use <profile>             # make a profile the default
 ```
 
 `auth doctor` runs a sequence of checks (host resolution, connectivity/TLS, credentials,
-authentication, resolved identity, instance version), reports each as `pass`/`fail`/`warn`/`skip`
-with a remediation hint, and exits `1` if any check hard-fails (warnings do not fail the run).
+authentication, resolved identity, instance version, supported version), reports each as
+`pass`/`fail`/`warn`/`skip` with a remediation hint, and exits `1` if any check hard-fails
+(warnings do not fail the run). The supported-version check warns, naming both versions, when the
+instance's Umbraco major is outside the range this build was tested against (currently 17.x-18.x).
 Run it first in any new environment. See [getting-started.md](getting-started.md#5-confirm-it-works).
 
 ## `content`
@@ -754,10 +750,32 @@ umbraco member-group delete <id|name> [--force]           # refused while it has
 ## `user`
 
 ```bash
-umbraco user list
-umbraco user get <id>
+umbraco user list                                         # the super-user is hidden from other users (see below)
+umbraco user get <id|email|username>                      # groups as [{id, alias, name}], sections, start nodes, languageIsoCode, login record
+umbraco user create --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--password <pw>] [--id <guid>]   # no email sent; returns the user
+umbraco user update <id|email|username> [--email <email>] [--name <name>] [--username <name>] [--group <alias|name|id>...] [--culture <iso>] [--new-password <pw>] [--disabled [true|false]] [--unlock]
+umbraco user delete <id|email|username>...                # one or several; needs --yes non-interactively
 umbraco user invite --email <email> --name <name> --group <alias|name|id>... [--username <name>] [--message <text>]   # --group repeatable, at least one; returns the invited user
 ```
+
+A user is named by id, email or username (email first). Umbraco hides the **super-user** (the
+installer's administrator) from every other user: it is missing from `user list` and cannot be
+named or read unless you are signed in as it. That is Umbraco, not the CLI.
+
+`user create` makes the user directly, as the backoffice's "Create user" does, so it needs no
+SMTP. `--password` is set with a second call; if Umbraco rejects it (its password policy), the new
+user is deleted again and the command fails, so it can be retried as it stands. Without
+`--password` the user exists but cannot sign in until `user update --new-password` sets one.
+`--username` defaults to the email.
+
+`user update` merges: only the options you give change. `--group` **replaces** the user's groups
+(pass every group they should end up in). `--new-password` is an admin reset and needs no current
+password; `--disabled` disables the user and `--disabled false` enables them; `--unlock` clears a
+lockout from failed logins. The profile, password, state and lockout are separate Umbraco calls,
+made in that order; if one fails, the error says which had already been applied. Start nodes and
+root access set on the user itself are kept as they are.
+
+`user delete` may be refused by Umbraco for a user who has signed in; disable them instead.
 
 `user invite` needs SMTP configured on the site, because Umbraco emails the invitation; without it
 the invite is refused and no user is created. `--username` defaults to the email.
@@ -766,18 +784,25 @@ the invite is refused and no user is created. `--username` defaults to the email
 
 ```bash
 umbraco user-group list
-umbraco user-group get <id|alias|name>
-umbraco user-group create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--id <guid>]
-umbraco user-group update <id|alias|name> [--alias <alias>] [--name <name>] [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>]
+umbraco user-group get <id|alias|name>                    # includes documentPermissions: [{document, verbs}]
+umbraco user-group create --alias <alias> --name <name> [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--document-permission <id>=<verb>,<verb>]... [--id <guid>]
+umbraco user-group update <id|alias|name> [--alias <alias>] [--name <name>] [--icon <alias>] [--description <text>] [--section <alias>]... [--culture <iso>]... [--fallback-permission <perm>]... [--has-access-to-all-languages] [--document-root-access | --document-start-node <id>] [--media-root-access | --media-start-node <id>] [--document-permission <id>=<verb>,<verb>]...
 umbraco user-group delete <id|alias|name>... [--force]   # one or several; refused while any has users unless --force; --yes non-interactively
-umbraco user-group add-users <id|alias|name> --user <id>...          # --user repeatable
-umbraco user-group remove-users <id|alias|name> --user <id>...       # --user repeatable
+umbraco user-group add-users <id|alias|name> --user <id|email|username>...      # --user repeatable
+umbraco user-group remove-users <id|alias|name> --user <id|email|username>...   # --user repeatable
 ```
 
-Granular per-node permissions are a deferred follow-up: `create`/`update` set the scalar and
-list fields but send an empty permissions set. `update` merges: omitted options keep their
-values, a list option given replaces that list, and a start node and root access clear each
-other.
+`update` merges: omitted options keep their values, a list option given replaces that list, and a
+start node and root access clear each other.
+
+`--document-permission` sets a granular permission on one document: the document id, `=`, and the
+verbs separated by commas (`--document-permission 3f7a8b2e-...=Umb.Document.Read,Umb.Document.Update`).
+It is repeatable, and on that document it takes the place of the group's fallback permissions. On
+`update` it merges by document: the documents you name get the verbs you give, the group's other
+document permissions are kept, and `<id>=` with no verbs removes that document's entry so the
+fallback permissions apply to it again. Granular permissions of other kinds (per property value)
+are not set from the CLI, and an update always keeps them. There is no media equivalent in the
+Management API.
 
 ## `user-data`
 
@@ -824,10 +849,39 @@ check as `create`.
 
 ```bash
 umbraco webhook list
-umbraco webhook create --url <url> --event <name>... [--name <name>] [--description <text>]   # --event repeatable
-umbraco webhook delete <id>                               # needs --yes non-interactively
+umbraco webhook get <id|name>
+umbraco webhook create --url <url> --event <name>... [--name <name>] [--description <text>] [--header <name=value>]... [--type <id|alias>]... [--id <guid>]   # --event repeatable
+umbraco webhook update <id|name> [--url <url>] [--event <name>...] [--name <name>] [--description <text>] [--enabled [true|false]] [--header <name=value>]... [--type <id|alias>]... [--replace]   # --replace needs --yes non-interactively
+umbraco webhook delete <id|name>                          # needs --yes non-interactively
 umbraco webhook event list                                # the aliases --event accepts
+umbraco webhook log list [<id|name>] [--skip <n>] [--take <n>]   # deliveries of one webhook, or of all
 ```
+
+`get`, `update` and `delete` take the webhook's id or its name (ignoring case; a name shared by
+two webhooks is refused with both ids). A webhook without a name can only be named by its id.
+
+`update` merges: omitted options keep their values, `--event` and `--type` replace those lists,
+and `--header` merges by header name (ignoring case), so naming one header leaves the others
+alone. Enable or disable a webhook with `--enabled true` / `--enabled false`; there are no
+separate `enable`/`disable` verbs. `update` returns the webhook read back from the instance, as
+`get` shows it. New `--event` aliases get the same check as on `create`.
+
+`update --replace` sets exactly the headers and types given instead of merging: any header or
+type not named is removed, and with none given the headers are cleared and the type filter is
+removed (the webhook then fires for every type). It is destructive, so it needs `--yes`
+non-interactively. Events and the other fields keep their usual rules - omitted events are kept,
+because a webhook with no events never fires.
+
+`--header name=value` is repeat-only (a value may contain a comma) and is sent with every
+delivery - typically an API key the receiver checks. `--type` restricts the webhook to items
+of the given types: document types for content events, media types for media events, member
+types for member events. It takes ids or aliases; an alias is looked up across all three kinds
+and must name exactly one type. With no `--type` the webhook fires for every type (the JSON
+field is `contentTypeKeys`, as Umbraco names it).
+
+`log list` shows delivery attempts: `statusCode` (as Umbraco records it, e.g. `OK (200)`),
+`isSuccessStatusCode`, `exceptionOccurred`, `retryCount`, and the request and response headers
+and bodies. With no webhook it lists every webhook's deliveries.
 
 `create` returns the webhook read back from the instance, in the same shape as `list`: each event
 is `{eventName, eventType, alias}`, with the display name in `eventName` and what you passed to
@@ -1004,6 +1058,54 @@ umbraco schema apply schema.json --prune --force --yes     # ...even types in us
 
 How it works:
 
+- **Hand-written snapshots** ([#198](https://github.com/worm-brain/Umbraco.Cli/issues/198)) - a
+  snapshot does not have to come from `export`, or carry every kind:
+  - **A section that is absent is not managed**, for every kind, not just the files: diff and
+    apply skip it and `--prune` deletes none of it. So a file with only `documentTypes` changes
+    document types and nothing else. A section that is present is the whole list for that kind:
+    `--prune` deletes the live ones it does not name.
+  - **References may name their target** instead of giving its id, as a bare string or as
+    `{ "id": "..." }`: a property's `dataType`, a type's `collection`, `compositions`,
+    `allowedDocumentTypes` / `allowedMediaTypes`, `allowedTemplates` and `defaultTemplate`, a
+    template's `masterTemplate`, a dictionary item's `parent`, and a user group permission's
+    `documentType`. A name is looked up in the snapshot first (so a snapshot can create a data
+    type and use it), then on the instance, by alias then name, ignoring case - the same rules
+    as every `<id>` argument.
+  - **Ids may be left out.** An entity, property or container without an `id` takes the id of the
+    live one it matches (an entity by its key, a property by alias, a container by type, name and
+    parent), or a new one. Reusing the live id matters: a property sent with a new id would be a
+    new property, and the old one's values would go.
+  - **Containers by name.** A property's `container` and a container's `parent` may name a
+    container of the same type by name, or by `Tab/Group` path when a name is used twice.
+  - A name that matches nothing, or more than one thing, fails the diff or apply before anything
+    is written, saying where it is (`documentType 'blogPost': properties[subtitle].dataType ...`).
+
+  ```jsonc
+  // add-subtitle.json - apply adds one property to blogPost and touches nothing else
+  {
+    "schemaVersion": "4",
+    "documentTypes": [
+      {
+        "alias": "blogPost", "name": "Blog Post", "icon": "icon-document",
+        "allowedAsRoot": false, "variesByCulture": false, "variesBySegment": false,
+        "isElement": false, "allowedTemplates": [], "allowedDocumentTypes": [], "compositions": [],
+        "containers": [{ "name": "Content", "type": "Tab", "parent": null, "sortOrder": 0 }],
+        "properties": [
+          { "alias": "title", "name": "Title", "container": "Content", "dataType": "Textstring",
+            "sortOrder": 0, "variesByCulture": false, "variesBySegment": false,
+            "validation": { "mandatory": true }, "appearance": { "labelOnTop": false } },
+          { "alias": "subtitle", "name": "Subtitle", "container": "Content", "dataType": "Textstring",
+            "sortOrder": 1, "variesByCulture": false, "variesBySegment": false,
+            "validation": { "mandatory": false }, "appearance": { "labelOnTop": false } }
+        ]
+      }
+    ]
+  }
+  ```
+
+  Each entry is still the **whole** item: apply replaces a changed type with the snapshot's body,
+  so list every property the type keeps (a property you leave out is removed, with its values).
+  Run `schema diff` first; its `changes` column shows exactly which fields differ.
 - **Static files** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)) - the
   snapshot's `partialViews`, `stylesheets` and `scripts` sections hold each file as
   `{ "path": "/blocklist/default.cshtml", "content": "..." }` and each folder as

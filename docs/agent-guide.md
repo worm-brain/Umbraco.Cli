@@ -192,9 +192,13 @@ calling Umbraco).
 
 For an API call, `category` is one of: `unreachable` (no response - DNS/connection), `timeout`,
 `request_rejected` (a 4xx - usually bad input or the request itself), `server_error` (a 5xx or an
-undeclared status - a server-side fault) or `unexpected_response` (the body did not match what the
-CLI expected, a likely version mismatch). `serverVersion` is omitted when the server could not be
-reached (`unreachable`/`timeout`) or the version could not be determined.
+undeclared status - a server-side fault) or `unexpected_response` (the server answered, but with a
+body the CLI could not read - not JSON, or a `content get`/`media get` with no named variant - a
+likely version mismatch; it has no `httpStatus`, and its message names the tested version range
+when `serverVersion` is outside it, or otherwise points at `auth doctor`). Treat
+`unexpected_response` as "do not trust this instance's output until the version is checked", not
+as bad input. `serverVersion` is omitted when the server could not be reached
+(`unreachable`/`timeout`) or the version could not be determined.
 
 The rest never reach the API, so they carry no `httpStatus` and no `serverVersion`:
 
@@ -268,7 +272,10 @@ values, which Umbraco never accepts from a write, and `content apply` warns on s
 Label property it could not promote (#291). `document-type` / `media-type delete` (and
 `schema apply --prune`) count the items of the type and refuse only when there are some, or when
 the type is a composition or an element type; before, they always needed `--force` (#287).
-`relation list --relation-type` and `relation-type get` take the alias (#300).
+`relation list --relation-type` and `relation-type get` take the alias (#300). `webhook delete`
+takes the webhook's name as well as its id, like the new `webhook get`, `webhook update` (which
+enables and disables with `--enabled true|false`, and with `--replace` sets exactly the headers
+and types given) and `webhook log list` (#237).
 
 **What changed in schemaVersion 5**, if you are moving from `"4"`: the **diff and apply**
 reports (`content diff`, `schema diff`, `content apply`, `schema apply`), a member's `groups`, and
@@ -364,7 +371,9 @@ umbraco auth doctor --output json
 ```
 
 Run `auth doctor` as the first step of any new session; it turns "why did that 401" into a
-labelled check with a remediation hint. See [getting-started.md](getting-started.md) for the
+labelled check with a remediation hint. Its `Supported version` check warns when the instance's
+Umbraco major is outside the range this CLI was tested against; the CLI still runs, but treat
+its output from that instance with suspicion. See [getting-started.md](getting-started.md) for the
 full auth story and profiles.
 
 ## 7. Running non-interactively (the rules that bite)
@@ -550,9 +559,29 @@ between environments:
 
 ```bash
 umbraco schema export --out schema.json     # full-fidelity bodies
-# edit .documentTypes[] / .dataTypes[] - generate GUIDs for new containers and properties
+# edit .documentTypes[] / .dataTypes[] - new containers and properties need no id
 umbraco schema apply schema.json --dry-run  # preview the plan
 umbraco schema apply schema.json
+```
+
+**A snapshot can be written by hand, and can be partial**
+([#198](https://github.com/worm-brain/Umbraco.Cli/issues/198)). Keep only the sections you mean
+to change: an absent section is not managed, so diff, apply and `--prune` leave that kind alone
+(a present section is the whole list for its kind). Leave `id` out of new entities, properties and
+containers: each takes the id of the live one it matches (a property by alias, so its values are
+kept), or a new one. Name what an entry references instead of giving its id:
+`"dataType": "Textstring"`, `"container": "Content"` (or `"Content/Hero"` for a group),
+`"masterTemplate": "master"`, `"compositions": [{ "documentType": "seoMixin", ... }]`. Names are
+looked up in the snapshot first, then on the instance; one that matches nothing or several things
+fails before anything is written. Each entry is still the whole item, so a changed type lists
+every property it keeps. See [commands.md](commands.md#schema-export--diff--apply) for the full
+list of references and an example.
+
+```bash
+umbraco document-type get blogPost -o json | jq '{schemaVersion: "4", documentTypes: [.data]}' > edit.json
+# ...add a property with "dataType": "Textstring" and no id...
+umbraco schema diff edit.json               # only blogPost is compared
+umbraco schema apply edit.json
 ```
 
 **Templates travel with their partials.** The snapshot (format `"4"`) carries `partialViews`,
@@ -645,10 +674,6 @@ run. Entries are noun groups (`content`, `media`) and/or full command names (`co
 command runs only if its group or full name is listed. The `auth` group is always allowed. A
 blocked command aborts before running with exit `2` and category `not_allowed`.
 
-- **Renamed nouns still match:** an entry written before the #268 renames
-  (`UMBRACO_ALLOWED_COMMANDS=content-types`, `content.domains.set`) allows exactly what it allowed
-  before, under the new names (`document-type`, `content.domain.set`) - and nothing more.
-
 - **Unset vs lockdown:** only a *truly unset* value (variable absent and no config
   `allowedCommands`) means no restriction. Any *present* value that is blank or separators-only
   (`" "`, `","`) is an explicit lockdown - nothing runs but the always-allowed `auth` group.
@@ -681,6 +706,23 @@ Create with a fixed `--id` so re-runs converge instead of duplicating:
 umbraco document-type create --name "Blog Post" --alias blogPost
 umbraco content create --document-type blogPost --name "Hello" --id 3f2a...  # same id each run
 ```
+
+### Provision a backoffice user and its group
+
+`user create` needs no SMTP (unlike `user invite`). Give the group its granular permissions, then
+the user its password in the same create; a rejected password deletes the new user again, so a
+failed run can simply be repeated:
+
+```bash
+umbraco user-group create --alias blogEditors --name "Blog editors" --section Umb.Section.Content \
+  --document-start-node "$BLOG_ID" --document-permission "$BLOG_ID=Umb.Document.Read,Umb.Document.Update"
+umbraco user create --email jane@example.com --name "Jane" --group blogEditors --password "$PASSWORD"
+umbraco user get jane@example.com            # userGroups as [{id, alias, name}], sections, start nodes
+umbraco user update jane@example.com --disabled   # --disabled false enables again; --unlock clears a lockout
+```
+
+Users are named by id, email or username. Umbraco hides the super-user from every other user, so
+it is absent from `user list` and cannot be resolved by email unless you are signed in as it.
 
 ### Move schema between environments
 

@@ -98,6 +98,7 @@ public class CommandParseTests
             "template.delete",
             "user-data.delete",
             "user-group.delete",
+            "user.delete",
             "webhook.delete",
         ];
 
@@ -132,6 +133,7 @@ public class CommandParseTests
                 "member-type.update --replace",
                 "schema.apply --prune",
                 "template.update --replace",
+                "webhook.update --replace",
             ],
             actual
         );
@@ -669,6 +671,12 @@ public class CommandParseTests
     [InlineData("webhook list")]
     [InlineData("webhook event list")]
     [InlineData("webhook event list --take 50")]
+    [InlineData("webhook get \"Deploy hook\"")] // #237
+    [InlineData("webhook update 3f7a8b2e-1234-5678-abcd-ef0123456789")] // all fields optional (read-merge)
+    [InlineData("webhook update Deploy --enabled false --header X-Key=a --header X-Env=live")]
+    [InlineData("webhook update Deploy --event A,B --type blogPost,Image")]
+    [InlineData("webhook log list")]
+    [InlineData("webhook log list Deploy --skip 10 --take 5")]
     [InlineData("auth login --host https://example.com --client-id foo --client-secret bar")]
     [InlineData("auth logout")]
     [InlineData("auth whoami")]
@@ -758,6 +766,10 @@ public class CommandParseTests
     [InlineData("totally-unknown-command")]
     [InlineData("content unknown-verb")]
     [InlineData("auth unknown-verb")]
+    // The pre-#268 plural nouns were removed in #272 and are plain unknown commands now.
+    [InlineData("content-types list")]
+    [InlineData("users list")]
+    [InlineData("content domains get 3f7a8b2e-1234-5678-abcd-ef0123456789")]
     // A flag the body would silently override is refused (docs/conventions.md 4.5).
     [InlineData("content create --json-body body.json --name About")]
     [InlineData(
