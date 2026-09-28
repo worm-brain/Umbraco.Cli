@@ -17,8 +17,8 @@ public interface IMemberTypeClient
     /// <summary>Creates a member type.</summary>
     /// <param name="request">The member type to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created member type (with the generated id), or a mapped failure.</returns>
-    Task<UmbracoResponse<MemberTypeResponse>> CreateMemberTypeAsync(
+    /// <returns>The id the member type was created with (read it back for what was saved, #314), or a mapped failure.</returns>
+    Task<UmbracoResponse<Guid>> CreateMemberTypeAsync(
         CreateMemberTypeRequest request,
         CancellationToken ct = default
     );

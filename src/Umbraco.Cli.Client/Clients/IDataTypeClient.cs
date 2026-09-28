@@ -18,8 +18,8 @@ public interface IDataTypeClient
     /// <summary>Creates a data type (issue #59).</summary>
     /// <param name="request">The data type to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created data type (with the generated id), or a mapped failure.</returns>
-    Task<UmbracoResponse<DataTypeResponse>> CreateDataTypeAsync(
+    /// <returns>The id the data type was created with (read it back for what was saved, #314), or a mapped failure.</returns>
+    Task<UmbracoResponse<Guid>> CreateDataTypeAsync(
         CreateDataTypeRequest request,
         CancellationToken ct = default
     );

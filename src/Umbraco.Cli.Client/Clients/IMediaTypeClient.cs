@@ -17,8 +17,8 @@ public interface IMediaTypeClient
     /// <summary>Creates a media type.</summary>
     /// <param name="request">The media type to create.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created media type (with the generated id), or a mapped failure.</returns>
-    Task<UmbracoResponse<MediaTypeResponse>> CreateMediaTypeAsync(
+    /// <returns>The id the media type was created with (read it back for what was saved, #314), or a mapped failure.</returns>
+    Task<UmbracoResponse<Guid>> CreateMediaTypeAsync(
         CreateMediaTypeRequest request,
         CancellationToken ct = default
     );

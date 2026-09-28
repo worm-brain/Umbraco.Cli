@@ -18,7 +18,7 @@ public static class ContentBulkPublishCommand
         var fileOpt = new Option<FileInfo?>("--file")
         {
             Description =
-                "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted.",
+                "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted or -.",
         };
         var culturesOpt = ListOption.Strings(
             "--culture",

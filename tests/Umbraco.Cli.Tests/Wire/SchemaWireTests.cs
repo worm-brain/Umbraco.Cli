@@ -47,6 +47,22 @@ public class SchemaWireTests
     }
 
     [Fact]
+    public async Task CreateDocumentTypeAsync_NoId_ReturnsTheIdItSent()
+    {
+        // #314: only the id comes back, so it must be the one the type was created with.
+        var handler = Wire.Blank();
+
+        var result = await Wire.Client(handler)
+            .CreateDocumentTypeAsync(
+                new CreateDocumentTypeRequest { Name = "Blog Post", Alias = "blogPost" },
+                CancellationToken.None
+            );
+
+        var sent = handler.BodyOf(HttpMethod.Post, "/document-type")["id"]!.GetValue<string>();
+        Assert.Equal(sent, result.Data.ToString());
+    }
+
+    [Fact]
     public async Task DeleteDocumentTypeAsync_DeletesTheType()
     {
         var id = Guid.NewGuid();

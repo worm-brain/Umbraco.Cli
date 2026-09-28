@@ -199,7 +199,7 @@ public class PromotionCommandTests
     {
         var fake = new FakeUmbracoManagementClient
         {
-            DataTypeCreateFailure = UmbracoResponse<DataTypeResponse>.Failure(400, "Name taken"),
+            DataTypeCreateFailure = UmbracoResponse<Guid>.Failure(400, "Name taken"),
         };
 
         var (_, exit) = await Run(

@@ -22,7 +22,7 @@ public static class ContentBulkDeleteCommand
         var fileOpt = new Option<FileInfo?>("--file")
         {
             Description =
-                "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted.",
+                "File of ids: one per line, or the JSON or CSV output of a list command. Reads stdin when omitted or -.",
         };
         cmd.Add(fileOpt);
         cmd.Destructive(parseResult =>

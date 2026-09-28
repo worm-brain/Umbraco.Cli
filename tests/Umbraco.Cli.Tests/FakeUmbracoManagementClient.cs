@@ -631,7 +631,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<MediaTypeResponse>> CreateMediaTypeAsync(
+    public Task<UmbracoResponse<Guid>> CreateMediaTypeAsync(
         CreateMediaTypeRequest request,
         CancellationToken ct = default
     ) => throw new NotImplementedException();
@@ -705,7 +705,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<DocumentTypeResponse>> CreateDocumentTypeAsync(
+    public Task<UmbracoResponse<Guid>> CreateDocumentTypeAsync(
         CreateDocumentTypeRequest request,
         CancellationToken ct = default
     ) => throw new NotImplementedException();
@@ -735,7 +735,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public List<CreateDataTypeRequest> DataTypeCreates { get; } = [];
 
     /// <summary>When set, a flag-built data-type create returns this failure instead.</summary>
-    public UmbracoResponse<DataTypeResponse>? DataTypeCreateFailure { get; set; }
+    public UmbracoResponse<Guid>? DataTypeCreateFailure { get; set; }
 
     /// <summary>
     /// Records the create and echoes the request, as the real flag-built create does; the command
@@ -743,18 +743,15 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// </summary>
     /// <param name="request">The create request.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The echo, or <see cref="DataTypeCreateFailure"/>.</returns>
-    public Task<UmbracoResponse<DataTypeResponse>> CreateDataTypeAsync(
+    /// <returns>The id, or <see cref="DataTypeCreateFailure"/>.</returns>
+    public Task<UmbracoResponse<Guid>> CreateDataTypeAsync(
         CreateDataTypeRequest request,
         CancellationToken ct = default
     )
     {
         DataTypeCreates.Add(request);
         return Task.FromResult(
-            DataTypeCreateFailure
-                ?? UmbracoResponse<DataTypeResponse>.Success(
-                    new DataTypeResponse { Id = request.Id ?? Guid.Empty, Name = request.Name }
-                )
+            DataTypeCreateFailure ?? UmbracoResponse<Guid>.Success(request.Id ?? Guid.Empty)
         );
     }
 
@@ -945,7 +942,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => throw new NotImplementedException();
 
-    public Task<UmbracoResponse<MemberTypeResponse>> CreateMemberTypeAsync(
+    public Task<UmbracoResponse<Guid>> CreateMemberTypeAsync(
         CreateMemberTypeRequest request,
         CancellationToken ct = default
     ) => throw new NotImplementedException();

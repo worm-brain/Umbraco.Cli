@@ -10,6 +10,22 @@ public class JsonOutputWriterTests
 {
     private readonly JsonOutputWriter _writer = new();
 
+    [Fact]
+    public void WriteError_QuotesAndNonAsciiLetters_AreWrittenAsThemselves()
+    {
+        // #311: the default encoder wrote ' as ' and æ as æ, so messages were unreadable.
+        var (_, stderr) = Capture(() =>
+            _writer.WriteError(
+                ExitCode.Failed,
+                FailureCategory.InvalidArgument,
+                "'Søren' is not \"valid\" + more",
+                "content.get"
+            )
+        );
+
+        Assert.Contains("'Søren' is not \\\"valid\\\" + more", stderr);
+    }
+
     private static (string stdout, string stderr) Capture(Action action)
     {
         var outSw = new StringWriter();
