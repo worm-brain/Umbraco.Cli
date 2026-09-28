@@ -13,8 +13,9 @@ public sealed class LiveInstanceFixture
 
     /// <summary>Reason shown on skipped tests when no instance is reachable.</summary>
     public string SkipReason =>
-        "No reachable Umbraco instance. Set UMBRACO_HOST/UMBRACO_CLIENT_ID/"
-        + "UMBRACO_CLIENT_SECRET (or run `umbraco auth login`) to enable integration tests.";
+        "No reachable Umbraco instance. Run `python3 tests/hands-on/dev-site.py test` to run the "
+        + "suite against a throwaway dev site, or set UMBRACO_HOST/UMBRACO_CLIENT_ID/"
+        + "UMBRACO_CLIENT_SECRET (or run `umbraco auth login`) to use an instance of your own.";
 
     /// <summary>Runs the one-time reachability probe.</summary>
     public LiveInstanceFixture()

@@ -6,8 +6,8 @@ namespace Umbraco.Cli.Commands.UserGroups;
 
 /// <summary>
 /// Wires the <c>user-group</c> noun (issue #109) and its verbs: list/get/create/update/delete,
-/// delete of one or several groups, and add-users/remove-users membership. Granular per-node permissions are a
-/// deferred follow-up, so create/update expose only the scalar and string-list fields as options.
+/// delete of one or several groups, and add-users/remove-users membership. Create and update set
+/// granular per-document permissions with <c>--document-permission</c> (#111).
 /// </summary>
 public static class UserGroupsCommand
 {
@@ -81,7 +81,8 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "create",
-            "Create a user group.\n\nExamples:\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read"
+            "Create a user group.\n\nExamples:\n  umbraco user-group create --alias editors --name Editors --section Umb.Section.Content --fallback-permission Umb.Document.Read\n"
+                + "  umbraco user-group create --alias blogEditors --name \"Blog editors\" --document-permission 3f7a8b2e-...=Umb.Document.Read,Umb.Document.Update"
         ).Mutating();
         var aliasOpt = new Option<string>("--alias")
         {
@@ -121,6 +122,12 @@ public static class UserGroupsCommand
                                 MediaRootAccess = s.MediaRootAccess ?? false,
                                 DocumentStartNode = s.DocumentStartNode,
                                 MediaStartNode = s.MediaStartNode,
+                                // An entry with no verbs means "none for this document" on update;
+                                // a new group has none to remove, so it is dropped.
+                                DocumentPermissions =
+                                [
+                                    .. (s.DocumentPermissions ?? []).Where(p => p.Verbs.Count > 0),
+                                ],
                             },
                             c
                         ),
@@ -142,7 +149,13 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "update",
-            "Update a user group by id, alias or name. Omitted options keep their values.\n\nExamples:\n  umbraco user-group update editors --name \"Site editors\"\n  umbraco user-group update editors --section Umb.Section.Media --document-start-node <id>"
+            "Update a user group by id, alias or name. Omitted options keep their values.\n\n"
+                + "--document-permission replaces the permissions on the documents it names and keeps the "
+                + "rest; <id>= with no verbs removes that document's entry, so the fallback permissions "
+                + "apply to it again.\n\n"
+                + "Examples:\n  umbraco user-group update editors --name \"Site editors\"\n  umbraco user-group update editors --section Umb.Section.Media --document-start-node <id>\n"
+                + "  umbraco user-group update editors --document-permission 3f7a8b2e-...=Umb.Document.Read\n"
+                + "  umbraco user-group update editors --document-permission 3f7a8b2e-...=   # remove it"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
         var aliasOpt = new Option<string?>("--alias") { Description = "New group alias." };
@@ -191,6 +204,9 @@ public static class UserGroupsCommand
     /// <summary>
     /// The update request for a group: each given value over the current one. Lists given replace
     /// the list; a start node and root access say opposite things, so setting one clears the other.
+    /// Document permissions merge by document: a given document's entry replaces the current one
+    /// (or, with no verbs, removes it) and the others are kept; none given leaves them to the client
+    /// to carry through.
     /// </summary>
     /// <param name="current">The group as it is now.</param>
     /// <param name="alias">The new alias, or null to keep it.</param>
@@ -230,8 +246,46 @@ public static class UserGroupsCommand
                 ? null
                 : given.DocumentStartNode ?? current.DocumentStartNode,
             MediaStartNode = mediaRoot ? null : given.MediaStartNode ?? current.MediaStartNode,
+            DocumentPermissions = given.DocumentPermissions is { Count: > 0 } set
+                ?
+                [
+                    .. current.DocumentPermissions.Where(p =>
+                        set.All(s => s.Document != p.Document)
+                    ),
+                    .. set.Where(p => p.Verbs.Count > 0),
+                ]
+                : null,
         };
     }
+
+    /// <summary>
+    /// Turns <c>--document-permission</c> values (<c>&lt;id&gt;=&lt;verb&gt;,&lt;verb&gt;</c>, already
+    /// validated) into permissions. Verbs are trimmed and de-duplicated, since Umbraco takes them as
+    /// a set; a document named twice keeps the last value, as a later option overrides an earlier.
+    /// </summary>
+    /// <param name="raw">The option values, or null when not given.</param>
+    /// <returns>One permission per document, in the order first named; an empty verb list is kept.</returns>
+    internal static IReadOnlyList<DocumentPermission> ParseDocumentPermissions(string[]? raw) =>
+        [
+            .. KeyValuePairs
+                .Parse(raw)
+                .Select(p => new DocumentPermission
+                {
+                    Document = Guid.Parse(p.Key),
+                    Verbs =
+                    [
+                        .. p
+                            .Value.Split(
+                                ',',
+                                StringSplitOptions.RemoveEmptyEntries
+                                    | StringSplitOptions.TrimEntries
+                            )
+                            .Distinct(StringComparer.Ordinal),
+                    ],
+                })
+                .GroupBy(p => p.Document)
+                .Select(g => g.Last()),
+        ];
 
     /// <summary>
     /// Builds <c>user-group delete &lt;id&gt;...</c>: one or more groups, by id, alias or name
@@ -295,10 +349,12 @@ public static class UserGroupsCommand
     {
         var cmd = new Command(
             "add-users",
-            "Add users to a user group.\n\nExamples:\n  umbraco user-group add-users blogEditors --user <guid> --user <guid>"
+            "Add users to a user group.\n\nExamples:\n  umbraco user-group add-users blogEditors --user <guid> --user editor@example.com"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
-        var usersOpt = ListOption.Guids("--user", "User ID to add.").AsRequired();
+        var usersOpt = ListOption
+            .Strings("--user", "A user to add: id, email or username.")
+            .AsRequired();
         cmd.Add(idArg);
         cmd.Add(usersOpt);
         cmd.SetAction(
@@ -309,10 +365,19 @@ public static class UserGroupsCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id =>
-                                client
-                                    .AddUsersToGroupAsync(id, parseResult.GetValue(usersOpt)!, c)
-                                    .Then(ItemRef.Of(id)),
+                            async id =>
+                            {
+                                var users = await client.ResolveIdsAsync(
+                                    EntityKind.User,
+                                    parseResult.GetValue(usersOpt)!,
+                                    c
+                                );
+                                if (!users.IsSuccess)
+                                    return UmbracoResponse<ItemRef>.FailureFrom(users);
+                                return await client
+                                    .AddUsersToGroupAsync(id, users.Data!, c)
+                                    .Then(ItemRef.Of(id));
+                            },
                             c
                         ),
                     "Users added to group.",
@@ -329,7 +394,9 @@ public static class UserGroupsCommand
             "Remove users from a user group.\n\nExamples:\n  umbraco user-group remove-users blogEditors --user <guid>"
         ).Mutating();
         var idArg = Reference.Argument(EntityKind.UserGroup);
-        var usersOpt = ListOption.Guids("--user", "User ID to remove.").AsRequired();
+        var usersOpt = ListOption
+            .Strings("--user", "A user to remove: id, email or username.")
+            .AsRequired();
         cmd.Add(idArg);
         cmd.Add(usersOpt);
         cmd.SetAction(
@@ -340,14 +407,19 @@ public static class UserGroupsCommand
                         idArg.WithResolvedAsync(
                             parseResult,
                             client,
-                            id =>
-                                client
-                                    .RemoveUsersFromGroupAsync(
-                                        id,
-                                        parseResult.GetValue(usersOpt)!,
-                                        c
-                                    )
-                                    .Then(ItemRef.Of(id)),
+                            async id =>
+                            {
+                                var users = await client.ResolveIdsAsync(
+                                    EntityKind.User,
+                                    parseResult.GetValue(usersOpt)!,
+                                    c
+                                );
+                                if (!users.IsSuccess)
+                                    return UmbracoResponse<ItemRef>.FailureFrom(users);
+                                return await client
+                                    .RemoveUsersFromGroupAsync(id, users.Data!, c)
+                                    .Then(ItemRef.Of(id));
+                            },
                             c
                         ),
                     "Users removed from group.",
@@ -361,8 +433,7 @@ public static class UserGroupsCommand
     /// The option set shared by <c>create</c> and <c>update</c> (everything except alias, name, and
     /// the create-only <c>--id</c>). Owning the options in one cohesive object - rather than a loose
     /// positional tuple threaded through several call sites - keeps the two verbs in step and removes
-    /// the risk of mis-ordering interchangeable options. Granular per-node permissions are a deferred
-    /// follow-up, so they are not represented here.
+    /// the risk of mis-ordering interchangeable options.
     /// </summary>
     internal sealed class SharedGroupOptions
     {
@@ -411,7 +482,16 @@ public static class UserGroupsCommand
             Description = "Media node id the group's media tree starts at (instead of the root).",
         };
 
-        /// <summary>Adds every shared option to a command.</summary>
+        // #111: granular per-document permissions. key=value options are repeat-only
+        // (docs/conventions.md 4.3); the commas separate the verbs.
+        private readonly Option<string[]> _documentPermissions = new("--document-permission")
+        {
+            Description =
+                "A granular permission on one document, as <id>=<verb>,<verb> (e.g. Umb.Document.Read). "
+                + "Repeatable. It replaces the group's fallback permissions on that document.",
+        };
+
+        /// <summary>Adds every shared option, and their validators, to a command.</summary>
         /// <param name="cmd">The command to add the options to.</param>
         public void AddTo(Command cmd)
         {
@@ -425,6 +505,26 @@ public static class UserGroupsCommand
             cmd.Add(_mediaRoot);
             cmd.Add(_documentStart);
             cmd.Add(_mediaStart);
+            cmd.Add(_documentPermissions);
+            KeyValuePairs.Validate(
+                cmd,
+                _documentPermissions,
+                "--document-permission must be <id>=<verb>,<verb>, e.g. 3f7a8b2e-1234-5678-abcd-ef0123456789=Umb.Document.Read"
+            );
+            // The document must be an id: content has no alias to resolve, and a typo'd node would
+            // otherwise reach Umbraco as a permission on nothing.
+            cmd.Validators.Add(result =>
+            {
+                var bad = KeyValuePairs
+                    .Parse(result.GetValue(_documentPermissions))
+                    .Where(p => p.Key.Length > 0 && !Guid.TryParse(p.Key, out _))
+                    .Select(p => p.Key)
+                    .ToArray();
+                if (bad.Length > 0)
+                    result.AddError(
+                        $"--document-permission takes a document id before the '='. Not an id: {string.Join(", ", bad)}."
+                    );
+            });
             // A start node and root access say opposite things; refuse rather than pick one.
             cmd.Validators.Add(result =>
             {
@@ -458,7 +558,8 @@ public static class UserGroupsCommand
                 parseResult.GetValue(_documentRoot),
                 parseResult.GetValue(_mediaRoot),
                 parseResult.GetValue(_documentStart),
-                parseResult.GetValue(_mediaStart)
+                parseResult.GetValue(_mediaStart),
+                ParseDocumentPermissions(parseResult.GetValue(_documentPermissions))
             );
     }
 
@@ -473,6 +574,10 @@ public static class UserGroupsCommand
     /// <param name="MediaRootAccess">Whether the media start node is the tree root; null when not given.</param>
     /// <param name="DocumentStartNode">The content start node, or null for none.</param>
     /// <param name="MediaStartNode">The media start node, or null for none.</param>
+    /// <param name="DocumentPermissions">
+    /// The <c>--document-permission</c> values, one per document; an entry with no verbs removes
+    /// that document's permissions on update. Null or empty when not given.
+    /// </param>
     internal readonly record struct SharedGroupValues(
         string? Icon,
         string? Description,
@@ -483,6 +588,7 @@ public static class UserGroupsCommand
         bool? DocumentRootAccess,
         bool? MediaRootAccess,
         Guid? DocumentStartNode,
-        Guid? MediaStartNode
+        Guid? MediaStartNode,
+        IReadOnlyList<DocumentPermission>? DocumentPermissions = null
     );
 }

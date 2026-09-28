@@ -42,9 +42,9 @@ public static class DocumentUpdateBody
     /// <param name="document">The document as read, mutated in place and returned.</param>
     /// <param name="values">Values to overlay.</param>
     /// <param name="variants">Variants to overlay.</param>
-    /// <param name="replace">
-    /// When true the request's values and variants stand alone rather than being merged into the
-    /// document's. The template is unaffected either way.
+    /// <param name="mode">
+    /// With <see cref="WriteMode.Replace"/> the request's values and variants stand alone rather
+    /// than being merged into the document's. The template is unaffected either way.
     /// </param>
     /// <returns>The same <paramref name="document"/> instance, patched.</returns>
     /// <exception cref="ApiException">
@@ -56,9 +56,10 @@ public static class DocumentUpdateBody
         JsonObject document,
         IEnumerable<ContentValue> values,
         IEnumerable<ContentVariant> variants,
-        bool replace = false
+        WriteMode mode = WriteMode.Merge
     )
     {
+        var replace = mode == WriteMode.Replace;
         var currentValues = replace ? null : document["values"] as JsonArray;
         var currentVariants = replace ? null : document["variants"] as JsonArray;
 

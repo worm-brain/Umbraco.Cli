@@ -48,7 +48,7 @@ public sealed class GlobalOptions
         new("--verbose", new[] { "-v" })
         {
             Description =
-                "Write the HTTP method, URL, selected headers and status to stderr. Request and response bodies are NOT included - use --dry-run to see the request body.",
+                "Write each HTTP request and response to stderr: method, URL, headers, status, the request body and the first 4 KB of the response body. Secrets are redacted; binary bodies are summarised.",
             Recursive = true,
         };
 

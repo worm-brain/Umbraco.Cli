@@ -44,7 +44,7 @@ public static class DataTypesUpdateCommand
                     "Data type updated.",
                     (client, id, c) =>
                         client.UpdateDataTypeAsync(
-                            id.ToString(),
+                            id,
                             new UpdateDataTypeRequest
                             {
                                 Name = parseResult.GetValue(nameOpt),

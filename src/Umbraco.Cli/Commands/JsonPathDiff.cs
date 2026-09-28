@@ -15,8 +15,10 @@ namespace Umbraco.Cli.Commands;
 /// array whose length changed is reported as a whole. A property value (an item with both
 /// <c>alias</c> and <c>value</c>) is reported as a whole too: its <c>value</c> can be a block
 /// editor's entire JSON, which is not a useful place to point at. A keyed array whose items all
-/// match but in another order is reported at the array's own path, so the result is empty exactly
-/// when <see cref="JsonNode.DeepEquals(JsonNode?, JsonNode?)"/> says the bodies are equal.
+/// match but in another order is reported at the array's own path. A member absent on one side
+/// and null on the other is not a difference, at any depth, so the result is empty exactly when
+/// the bodies are <see cref="JsonNode.DeepEquals(JsonNode?, JsonNode?)"/> equal once such members
+/// are ignored.
 /// </summary>
 public static class JsonPathDiff
 {
@@ -87,9 +89,12 @@ public static class JsonPathDiff
             Walk(itemPath, itemA, itemB, paths);
         }
 
-        // Every item matched, yet the arrays differ: only the order did. Order is part of the
-        // comparison (a doc type's property order is meaningful), so it is reported, at the array.
-        if (paths.Count == before)
+        // Every item matched, yet the arrays differ. If the order did, it is reported at the
+        // array: order is part of the comparison (a doc type's property order is meaningful).
+        // Otherwise the items differ only by a key that is absent on one side and null on the
+        // other, which Walk treats as equal (as it does for object members), so nothing is
+        // reported - a hand-written snapshot that omits a null field must not stay "Changed".
+        if (paths.Count == before && !keyedA.Keys.SequenceEqual(keyedB.Keys))
             paths.Add(path.Length == 0 ? "$" : path);
     }
 

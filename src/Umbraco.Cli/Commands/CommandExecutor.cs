@@ -134,6 +134,10 @@ public sealed class CommandExecutor
                         or FailureCategory.UnexpectedResponse
                     ? await ctx.Client.GetServerVersionAsync(ct)
                     : null;
+                // #154: a response the client could not read points at the version check, which
+                // the client (the API boundary) leaves to the CLI to name.
+                if (result.Category is FailureCategory.UnexpectedResponse)
+                    message += DriftHint(serverVersion);
                 // #177: exit code 1 and the server's status are different facts, so they go in
                 // different fields. StatusCode is 0 when the request never reached the server
                 // (unreachable/timeout), which is not a status - omit it rather than emit 0.
@@ -250,8 +254,24 @@ public sealed class CommandExecutor
         : FailureCategory.RequestRejected;
 
     /// <summary>
+    /// The sentence added to an <see cref="FailureCategory.UnexpectedResponse"/> error (#154).
+    /// When the server version is known to be outside the tested range (#153) it says so, naming
+    /// both; otherwise it points at <c>auth doctor</c>, which checks the version. Uses the version
+    /// the error path already fetched, so it costs no extra request.
+    /// </summary>
+    /// <param name="serverVersion">The connected server's version, or null when unknown.</param>
+    /// <returns>The hint, with a leading space.</returns>
+    internal static string DriftHint(string? serverVersion) =>
+        VersionSupport.Check(serverVersion) is VersionFit.Unsupported
+            ? " " + VersionSupport.OutOfRangeMessage(serverVersion!)
+            : " Run 'umbraco auth doctor' to check the instance's Umbraco version.";
+
+    /// <summary>
     /// The category for an exception the backstop caught: input the caller must fix is
     /// <see cref="FailureCategory.InvalidArgument"/>, anything else <see cref="FailureCategory.Internal"/>.
+    /// A <see cref="System.Text.Json.JsonException"/> here is the caller's JSON (a snapshot file, a
+    /// <c>--json-body</c>): one from reading a response is caught by the client's request guard
+    /// and reported as <see cref="FailureCategory.UnexpectedResponse"/> before it gets here (#154).
     /// </summary>
     /// <param name="ex">The exception.</param>
     /// <returns>The category to report.</returns>
@@ -586,15 +606,17 @@ public sealed class CommandExecutor
 
     /// <summary>
     /// Runs a paged list command - the common case, where the client returns a
-    /// <see cref="PagedResponse{TItem}"/> and the caller knows its own skip/take.
+    /// <see cref="PagedResponse{TItem}"/> and the caller knows its own skip/take. When the command
+    /// was run with <c>--all</c> (<see cref="PagingOptions.AllRequested"/>) the executor pages
+    /// through the whole collection itself instead (#196), and <c>meta</c> reports it complete.
     /// </summary>
     /// <typeparam name="TItem">The item type.</typeparam>
     /// <param name="parseResult">The parsed command line.</param>
-    /// <param name="call">The client call.</param>
+    /// <param name="call">The client call, given the skip and take to request.</param>
     /// <param name="headers">Human table column headers.</param>
     /// <param name="row">Projects one item into human table cells.</param>
-    /// <param name="skip">The offset requested, for <c>meta.skip</c>.</param>
-    /// <param name="take">The page size requested, for <c>meta.take</c>.</param>
+    /// <param name="skip">The offset requested, for <c>meta.skip</c>. Ignored under <c>--all</c>.</param>
+    /// <param name="take">The page size requested, for <c>meta.take</c>. Ignored under <c>--all</c>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The process exit code.</returns>
     public Task<int> RunPagedAsync<TItem>(
@@ -612,17 +634,96 @@ public sealed class CommandExecutor
         int take,
         CancellationToken ct
     ) =>
-        // The call receives the same skip/take that reach meta, so the two cannot drift - a
-        // caller cannot report a page the server was never asked for.
-        RunListAsync(
-            parseResult,
-            (client, c) => call(client, skip, take, c),
-            d => (d?.Items ?? []).ToList(),
-            headers,
-            row,
-            d => new ListPaging(d?.Total, skip, take),
-            ct
+        PagingOptions.AllRequested(parseResult)
+            ? RunListAsync(
+                parseResult,
+                (client, c) => CollectAllPagesAsync(client, call, c),
+                d => (d?.Items ?? []).ToList(),
+                headers,
+                row,
+                // Every page was read, so the list is complete: total is what was collected and
+                // hasMore is false.
+                d => ListPaging.Complete(d?.Total ?? 0),
+                ct
+            )
+            // The call receives the same skip/take that reach meta, so the two cannot drift - a
+            // caller cannot report a page the server was never asked for.
+            : RunListAsync(
+                parseResult,
+                (client, c) => call(client, skip, take, c),
+                d => (d?.Items ?? []).ToList(),
+                headers,
+                row,
+                d => new ListPaging(d?.Total, skip, take),
+                ct
+            );
+
+    /// <summary>
+    /// Pages through a collection for <c>--all</c> (#196): requests pages of
+    /// <see cref="PagingOptions.DefaultTake"/> until one comes back short or the collected count
+    /// reaches the reported total. Deliberately a real loop rather than one huge <c>take</c>, which
+    /// would only move the silent cap further out.
+    /// </summary>
+    /// <typeparam name="TItem">The item type.</typeparam>
+    /// <param name="client">The client.</param>
+    /// <param name="call">The paged client call.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// Every item, with <see cref="PagedResponse{T}.Total"/> set to how many there are; the first
+    /// failed page's failure; or an <c>invalid_argument</c> failure when the collection is larger
+    /// than <see cref="PagingOptions.MaxAllItems"/>, so nothing is ever quietly truncated.
+    /// </returns>
+    internal static async Task<UmbracoResponse<PagedResponse<TItem>>> CollectAllPagesAsync<TItem>(
+        IUmbracoManagementClient client,
+        Func<
+            IUmbracoManagementClient,
+            int,
+            int,
+            CancellationToken,
+            Task<UmbracoResponse<PagedResponse<TItem>>>
+        > call,
+        CancellationToken ct
+    )
+    {
+        const int pageSize = PagingOptions.DefaultTake;
+        var collected = new List<TItem>();
+
+        while (true)
+        {
+            var page = await call(client, collected.Count, pageSize, ct);
+            if (!page.IsSuccess)
+                return page;
+
+            var items = (page.Data?.Items ?? []).ToList();
+            var total = page.Data?.Total ?? 0;
+
+            // Fail on the first page when the server already says it is too big, rather than
+            // reading 10,000 items only to throw them away.
+            if (total > PagingOptions.MaxAllItems)
+                return TooMany(total);
+
+            collected.AddRange(items);
+            // A short page is the end. A total of 0 beside items means the source did not report
+            // one (a hand-built page), so only a positive total can end the walk early.
+            if (items.Count < pageSize || (total > 0 && collected.Count >= total))
+                break;
+            if (collected.Count >= PagingOptions.MaxAllItems)
+                return TooMany(null);
+        }
+
+        return UmbracoResponse<PagedResponse<TItem>>.Success(
+            new PagedResponse<TItem> { Items = collected, Total = collected.Count }
         );
+
+        static UmbracoResponse<PagedResponse<TItem>> TooMany(int? total) =>
+            UmbracoResponse<PagedResponse<TItem>>.Failure(
+                0,
+                $"--all stops at {PagingOptions.MaxAllItems} items and this list has "
+                    + (total is { } t ? $"{t}" : "more")
+                    + ". Page through it with --skip and --take instead.",
+                FailureCategory.InvalidArgument
+            );
+    }
 
     /// <summary>
     /// Runs a list command whose source returns everything it has, so there is nothing to page.

@@ -26,9 +26,10 @@ public static class LanguagesDeleteCommand
             Description = "The language's ISO code (e.g. en-US, fr-FR).",
         };
         cmd.Add(isoArg);
-        InUseGuard.RequireForce(
+        // The same check a prune of a language runs (#281): a language delete always has a reason.
+        InUseGuard.Protect(
             cmd,
-            parseResult => InUseGuard.LanguageReason(parseResult.GetValue(isoArg)!),
+            parseResult => new DeleteTarget.Language(parseResult.GetValue(isoArg)!),
             "Delete the language, and every culture variant and dictionary translation in it."
         );
         cmd.Destructive(parseResult =>

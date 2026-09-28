@@ -70,16 +70,17 @@ public interface IDocumentBlueprintClient
     /// <summary>Updates a blueprint's values and variants by id.</summary>
     /// <param name="id">The blueprint id.</param>
     /// <param name="request">The values and variants to write.</param>
-    /// <param name="replace">
-    /// When false (the default) the request's values and variants are merged into the blueprint's,
-    /// as <c>content update</c> does (#242); when true they replace them.
+    /// <param name="mode">
+    /// <see cref="WriteMode.Merge"/> (the default) merges the request's values and variants into
+    /// the blueprint's, as <c>content update</c> does (#242); <see cref="WriteMode.Replace"/>
+    /// replaces them.
     /// </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> UpdateDocumentBlueprintAsync(
         Guid id,
         UpdateDocumentBlueprintRequest request,
-        bool replace = false,
+        WriteMode mode = WriteMode.Merge,
         CancellationToken ct = default
     );
 

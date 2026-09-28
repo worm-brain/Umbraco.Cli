@@ -449,7 +449,7 @@ public sealed class MediaSnapshotTests : IDisposable
             [Live(id, null, Image(id, "/media/other/photo.jpg", Photo.Length))]
         );
 
-        Assert.Equal(ContentChangeKind.Drifted, Assert.Single(diff.Items).Change);
+        Assert.Equal(TreeChangeKind.Drifted, Assert.Single(diff.Items).Change);
     }
 
     // ── apply ──────────────────────────────────────────────────────────────────

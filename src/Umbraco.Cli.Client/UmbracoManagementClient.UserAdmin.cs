@@ -5,8 +5,8 @@ namespace Umbraco.Cli.Client;
 /// <summary>
 /// User-administration resources on <see cref="UmbracoManagementClient"/> - user groups (full CRUD,
 /// bulk delete, and user membership) and user data (key/value CRUD) (issue #109). Kept in their own
-/// partial so the main client file stays focused. Granular per-node user-group permissions are a
-/// deferred follow-up: creates and updates send an empty <c>permissions</c> array.
+/// partial so the main client file stays focused. Granular per-document user-group permissions
+/// (#111) are read, created and merged here; the other granular kinds are carried through.
 /// </summary>
 public sealed partial class UmbracoManagementClient
 {
@@ -98,10 +98,13 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var g = await _api
-                    .Umbraco.Management.Api.V1.UserGroup[id]
-                    .GetAsync(cancellationToken: ct);
-                return g is null ? new UserGroupResponse { Id = id } : MapUserGroup(g);
+                // A 200 with no body is not a user group (#119).
+                var g =
+                    await _api
+                        .Umbraco.Management.Api.V1.UserGroup[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No user group found with id '{id}'.");
+                return MapUserGroup(g);
             }
         );
 
@@ -133,8 +136,15 @@ public sealed partial class UmbracoManagementClient
                         MediaRootAccess = request.MediaRootAccess,
                         DocumentStartNode = Ref(request.DocumentStartNode),
                         MediaStartNode = Ref(request.MediaStartNode),
-                        // Granular per-node permissions are a deferred follow-up.
-                        Permissions = [],
+                        Permissions =
+                        [
+                            .. request.DocumentPermissions.Select(
+                                p => new Gen.CreateUserGroupRequestModel.CreateUserGroupRequestModel_permissions
+                                {
+                                    DocumentPermissionPresentationModel = ToWire(p),
+                                }
+                            ),
+                        ],
                     },
                     cancellationToken: ct
                 );
@@ -153,6 +163,7 @@ public sealed partial class UmbracoManagementClient
                     MediaRootAccess = request.MediaRootAccess,
                     DocumentStartNode = request.DocumentStartNode,
                     MediaStartNode = request.MediaStartNode,
+                    DocumentPermissions = request.DocumentPermissions,
                 };
             }
         );
@@ -168,10 +179,15 @@ public sealed partial class UmbracoManagementClient
             async () =>
             {
                 var group = _api.Umbraco.Management.Api.V1.UserGroup[id];
-                // The PUT replaces the whole group, and the CLI does not model granular per-node
-                // permissions (#111). Carry the group's current ones through, so an update never
-                // silently wipes permissions set in the backoffice.
+                // The PUT replaces the whole group. Carry the group's current granular permissions
+                // through, so an update never silently wipes permissions set in the backoffice:
+                // the kinds the CLI does not model always, and the per-document ones unless the
+                // request gives a new set (#111).
                 var current = await group.GetAsync(cancellationToken: ct);
+                var permissions = MergePermissions(
+                    current?.Permissions ?? [],
+                    request.DocumentPermissions
+                );
                 await group.PutAsync(
                     new Gen.UpdateUserGroupRequestModel
                     {
@@ -187,20 +203,7 @@ public sealed partial class UmbracoManagementClient
                         MediaRootAccess = request.MediaRootAccess,
                         DocumentStartNode = Ref(request.DocumentStartNode),
                         MediaStartNode = Ref(request.MediaStartNode),
-                        Permissions =
-                        [
-                            .. (current?.Permissions ?? []).Select(
-                                p => new Gen.UpdateUserGroupRequestModel.UpdateUserGroupRequestModel_permissions
-                                {
-                                    DocumentPermissionPresentationModel =
-                                        p.DocumentPermissionPresentationModel,
-                                    DocumentPropertyValuePermissionPresentationModel =
-                                        p.DocumentPropertyValuePermissionPresentationModel,
-                                    UnknownTypePermissionPresentationModel =
-                                        p.UnknownTypePermissionPresentationModel,
-                                }
-                            ),
-                        ],
+                        Permissions = permissions,
                     },
                     cancellationToken: ct
                 );
@@ -285,6 +288,63 @@ public sealed partial class UmbracoManagementClient
             }
         );
 
+    /// <summary>
+    /// The permissions an update sends: every current permission that is not a per-document one,
+    /// then either the current per-document ones (<paramref name="documents"/> null) or the given
+    /// set in their place.
+    /// </summary>
+    /// <param name="current">The group's permissions as read.</param>
+    /// <param name="documents">The complete new per-document set, or null to keep the current one.</param>
+    /// <returns>The permissions for the PUT body.</returns>
+    private static List<Gen.UpdateUserGroupRequestModel.UpdateUserGroupRequestModel_permissions> MergePermissions(
+        IEnumerable<Gen.UserGroupResponseModel.UserGroupResponseModel_permissions> current,
+        IReadOnlyList<DocumentPermission>? documents
+    )
+    {
+        var kept = current
+            .Where(p => documents is null || p.DocumentPermissionPresentationModel is null)
+            .Select(p => new Gen.UpdateUserGroupRequestModel.UpdateUserGroupRequestModel_permissions
+            {
+                // Re-wrapped so each carried-through permission writes $type first, as
+                // Umbraco requires (see UserGroupPermissionBodies).
+                DocumentPermissionPresentationModel = p.DocumentPermissionPresentationModel is { } d
+                    ? UserGroupPermissionBodies.Document(d)
+                    : null,
+                DocumentPropertyValuePermissionPresentationModel =
+                    UserGroupPermissionBodies.PropertyValue(
+                        p.DocumentPropertyValuePermissionPresentationModel
+                    ),
+                UnknownTypePermissionPresentationModel = UserGroupPermissionBodies.Unknown(
+                    p.UnknownTypePermissionPresentationModel
+                ),
+            });
+        var given = (documents ?? []).Select(
+            p => new Gen.UpdateUserGroupRequestModel.UpdateUserGroupRequestModel_permissions
+            {
+                DocumentPermissionPresentationModel = ToWire(p),
+            }
+        );
+        return [.. kept, .. given];
+    }
+
+    /// <summary>
+    /// A per-document permission as the API takes it. The <c>$type</c> discriminator is required:
+    /// Umbraco picks the permission kind from it, and Kiota does not fill it in. It must also be
+    /// written first, so the model is the discriminator-first one from
+    /// <see cref="UserGroupPermissionBodies"/>.
+    /// </summary>
+    /// <param name="permission">The permission.</param>
+    /// <returns>The generated model.</returns>
+    private static Gen.DocumentPermissionPresentationModel ToWire(DocumentPermission permission) =>
+        UserGroupPermissionBodies.Document(
+            new Gen.DocumentPermissionPresentationModel
+            {
+                Type = nameof(Gen.DocumentPermissionPresentationModel),
+                Document = new Gen.ReferenceByIdModel { Id = permission.Document },
+                Verbs = [.. permission.Verbs],
+            }
+        );
+
     /// <summary>A node reference for a start node, or null for none.</summary>
     private static Gen.ReferenceByIdModel? Ref(Guid? id) =>
         id is { } value ? new Gen.ReferenceByIdModel { Id = value } : null;
@@ -308,6 +368,17 @@ public sealed partial class UmbracoManagementClient
             MediaRootAccess = g.MediaRootAccess ?? false,
             DocumentStartNode = g.DocumentStartNode?.Id,
             MediaStartNode = g.MediaStartNode?.Id,
+            DocumentPermissions =
+            [
+                .. (g.Permissions ?? [])
+                    .Select(p => p.DocumentPermissionPresentationModel)
+                    .Where(p => p?.Document?.Id is not null)
+                    .Select(p => new DocumentPermission
+                    {
+                        Document = p!.Document!.Id!.Value,
+                        Verbs = p.Verbs ?? [],
+                    }),
+            ],
             IsDeletable = g.IsDeletable ?? false,
             AliasCanBeChanged = g.AliasCanBeChanged ?? false,
         };

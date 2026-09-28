@@ -14,11 +14,11 @@ namespace Umbraco.Cli.Commands;
 /// takes every item of that type, a dictionary item takes its children, and a language takes every
 /// variant and translation in it. Deleting a template, member group or user group leaves what used
 /// it pointing at nothing. The backoffice warns first; the CLI must be at least as careful.
-/// <see cref="ReasonAsync"/> is the per-item check the single deletes run (through
-/// <see cref="Protect"/> and <see cref="ProtectEach"/>). <c>schema apply --prune</c> runs it too,
-/// except where the plan changes the answer: a dictionary item's children, or a template's users,
-/// that the same prune deletes. Those use <see cref="TemplateReason"/> and the prune's own
-/// dictionary rule.
+/// <see cref="ReasonAsync"/> is the one place that decides (#281). The single deletes run it with
+/// no plan (through <see cref="Protect(Command, ReferenceArgument, string)"/> and
+/// <see cref="ProtectEach"/>); <c>schema apply --prune</c> runs it for every planned delete with
+/// the plan (<see cref="DeletePlanContext"/>), because the plan changes some answers: a dictionary
+/// item's children, or a template's users, that the same prune deletes are expected to go.
 /// </para>
 /// </summary>
 public static class InUseGuard
@@ -30,48 +30,81 @@ public static class InUseGuard
     public const string ForceOption = "--force";
 
     /// <summary>
-    /// Why deleting the <paramref name="kind"/> <paramref name="id"/> would destroy or orphan more
-    /// than the item itself, or null when it is safe. A failed check is a reason too: an unknown is
-    /// not a yes. Document and media types are checked by counting their items (#287); see
-    /// <see cref="TypeUsageReason"/>. Languages are not id-keyed; see <see cref="LanguageReason"/>.
+    /// Why deleting <paramref name="target"/> would destroy or orphan more than the item itself, or
+    /// null when it is safe. A failed check is a reason too: an unknown is not a yes. Document and
+    /// media types are checked by counting their items (#287); see <see cref="TypeUsageReason"/>.
+    /// <para>
+    /// With a <paramref name="plan"/> (a prune), what the plan also deletes or moves away does not
+    /// count against the target: a template's users the prune deletes, a dictionary item's
+    /// children it deletes or moves, and a static file is checked against the templates as the
+    /// plan leaves them. Where the plan changes what is being asked, the message says so (a
+    /// dictionary item's children "the snapshot keeps"); where the question is the same, so is
+    /// the message.
+    /// </para>
     /// </summary>
     /// <param name="client">The client to check with.</param>
-    /// <param name="kind">What the id names.</param>
-    /// <param name="id">The item id.</param>
+    /// <param name="target">What the delete removes.</param>
+    /// <param name="plan">The rest of the prune plan, or null for a single delete.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The reason, or null.</returns>
-    public static Task<string?> ReasonAsync(
+    public static async Task<string?> ReasonAsync(
         IUmbracoManagementClient client,
-        EntityKind kind,
-        Guid id,
+        DeleteTarget target,
+        DeletePlanContext? plan,
         CancellationToken ct
     ) =>
-        kind switch
+        target switch
         {
-            EntityKind.DataType => DataTypeAsync(client, id, ct),
-            EntityKind.MemberType => MemberTypeAsync(client, id, ct),
-            EntityKind.DocumentType => DocumentTypeAsync(client, id, ct),
-            EntityKind.MediaType => MediaTypeAsync(client, id, ct),
-            EntityKind.Template => TemplateAsync(client, id, ct),
-            EntityKind.MemberGroup => MemberGroupAsync(client, id, ct),
-            EntityKind.UserGroup => UserGroupAsync(client, id, ct),
-            EntityKind.DictionaryItem => DictionaryItemAsync(client, id, ct),
-            _ => Task.FromResult<string?>(null),
+            DeleteTarget.Language language => LanguageReason(language.IsoCode),
+            // A folder holds nothing the snapshot keeps (the diff implies those folders), and
+            // Umbraco refuses to delete a folder that is not empty, so only files are checked.
+            DeleteTarget.StaticFile { IsFolder: true } => null,
+            DeleteTarget.StaticFile file => FileReason(
+                file.Kind,
+                file.Path,
+                await (plan ?? DeletePlanContext.Nothing()).TemplatesAfterAsync(client, ct)
+            ),
+            DeleteTarget.Item { Kind: EntityKind.Template } item => await TemplateAsync(
+                client,
+                item.Id,
+                plan,
+                ct
+            ),
+            DeleteTarget.Item { Kind: EntityKind.DictionaryItem } item => plan is null
+                ? await DictionaryItemAsync(client, item.Id, ct)
+                : await KeptChildrenAsync(client, item, plan, ct),
+            DeleteTarget.Item { Kind: EntityKind.DataType } item => await DataTypeAsync(
+                client,
+                item.Id,
+                ct
+            ),
+            DeleteTarget.Item { Kind: EntityKind.MemberType } item => await MemberTypeAsync(
+                client,
+                item.Id,
+                ct
+            ),
+            DeleteTarget.Item { Kind: EntityKind.DocumentType } item => await DocumentTypeAsync(
+                client,
+                item.Id,
+                ct
+            ),
+            DeleteTarget.Item { Kind: EntityKind.MediaType } item => await MediaTypeAsync(
+                client,
+                item.Id,
+                ct
+            ),
+            DeleteTarget.Item { Kind: EntityKind.MemberGroup } item => await MemberGroupAsync(
+                client,
+                item.Id,
+                ct
+            ),
+            DeleteTarget.Item { Kind: EntityKind.UserGroup } item => await UserGroupAsync(
+                client,
+                item.Id,
+                ct
+            ),
+            _ => null,
         };
-
-    /// <summary>
-    /// Why deleting template <paramref name="id"/> would leave document types without it, or null
-    /// when none of <paramref name="users"/> uses it. The prune passes the users left once the
-    /// document types it also deletes are taken out.
-    /// </summary>
-    /// <param name="id">The template id.</param>
-    /// <param name="users">The document types that allow the template or default to it.</param>
-    /// <returns>The reason, or null.</returns>
-    public static string? TemplateReason(Guid id, IReadOnlyCollection<TemplateUser> users) =>
-        users.Count == 0
-            ? null
-            : $"Template {id} is used by {Summarise([.. users.Select(u => u.Name)])}. Deleting it "
-                + "leaves those document types, and the documents that render with it, without it.";
 
     /// <summary>
     /// Why deleting a language is never safe to do by default: Umbraco deletes every culture variant
@@ -80,9 +113,71 @@ public static class InUseGuard
     /// </summary>
     /// <param name="isoCode">The language's ISO code.</param>
     /// <returns>The reason.</returns>
-    public static string LanguageReason(string isoCode) =>
+    private static string LanguageReason(string isoCode) =>
         $"Deleting language {isoCode} also deletes every culture variant and dictionary "
         + "translation in that language.";
+
+    /// <summary>
+    /// Why pruning a static file would break a template (#292), or null when no template names
+    /// it. A template "names" a file when its content contains the file name, or, for a partial
+    /// view, its path without the extension in quotes (<c>Html.PartialAsync("header")</c>); see
+    /// <see cref="Schema.SchemaStaticFiles.SearchTerms"/>. A text search can miss a reference
+    /// built at run time, and can match a longer name, but it errs towards asking for
+    /// <c>--force</c>.
+    /// </summary>
+    /// <param name="kind">The file's kind.</param>
+    /// <param name="path">The file path.</param>
+    /// <param name="templates">The templates after the plan, or null when they could not be read.</param>
+    /// <returns>The reason, or null.</returns>
+    internal static string? FileReason(
+        StaticFileKind kind,
+        string path,
+        IReadOnlyList<(string Name, string Content)>? templates
+    )
+    {
+        if (templates is null)
+            return $"Could not read the templates to check whether '{path}' is in use.";
+        var users = templates
+            .Where(t => Schema.SchemaStaticFiles.Mentions(t.Content, kind, path))
+            .Select(t => $"'{t.Name}'")
+            .ToList();
+        return users.Count == 0
+            ? null
+            : $"'{path}' is named by template(s) {string.Join(", ", users)}; deleting it breaks them.";
+    }
+
+    /// <summary>
+    /// Why a prune's delete of a dictionary item would also delete children the snapshot keeps
+    /// under it, or null when every child is pruned too, moved elsewhere by the same apply
+    /// (updates run before deletes), or there are none. It asks about the children the plan
+    /// keeps, not all of them, which is why its message differs from the single delete's.
+    /// </summary>
+    /// <param name="client">The client to read the tree with.</param>
+    /// <param name="item">The dictionary item.</param>
+    /// <param name="plan">The prune plan.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The reason, or null.</returns>
+    private static async Task<string?> KeptChildrenAsync(
+        ISchemaClient client,
+        DeleteTarget.Item item,
+        DeletePlanContext plan,
+        CancellationToken ct
+    )
+    {
+        var liveChildren = await plan.DictionaryChildrenAsync(client, ct);
+        if (liveChildren is null)
+            return $"Could not read the dictionary tree to check whether '{item.Identity}' "
+                + "has children.";
+        if (!liveChildren.TryGetValue(item.Id, out var children))
+            return null;
+        var kept = children.Count(c =>
+            !plan.Deletes(EntityKind.DictionaryItem, c) && !plan.MovesAway(c)
+        );
+        return kept == 0
+            ? null
+            : $"Dictionary item '{item.Identity}' has {kept} child item(s) the snapshot keeps. "
+                + "Deleting it also deletes them.";
+    }
 
     /// <summary>
     /// Adds <c>--force</c> to a delete command and has the executor refuse the delete, before it is
@@ -100,7 +195,14 @@ public static class InUseGuard
                 // A reference that does not resolve is not a safety question: the delete itself
                 // then fails with the resolver's 404, which says what was not found.
                 var id = await idArg.ResolveAsync(parseResult, client, ct);
-                return id.IsSuccess ? await ReasonAsync(client, idArg.Kind, id.Data, ct) : null;
+                return id.IsSuccess
+                    ? await ReasonAsync(
+                        client,
+                        new DeleteTarget.Item(idArg.Kind, id.Data),
+                        plan: null,
+                        ct
+                    )
+                    : null;
             },
             forceDescription
         );
@@ -128,7 +230,9 @@ public static class InUseGuard
                 if (!ids.IsSuccess)
                     return null;
                 var reasons = await Task.WhenAll(
-                    ids.Data!.Select(id => ReasonAsync(client, kind, id, ct))
+                    ids.Data!.Select(id =>
+                        ReasonAsync(client, new DeleteTarget.Item(kind, id), plan: null, ct)
+                    )
                 );
                 return reasons.OfType<string>().ToList() is { Count: > 0 } found
                     ? string.Join(" ", found)
@@ -138,20 +242,21 @@ public static class InUseGuard
         );
 
     /// <summary>
-    /// Adds <c>--force</c> to a delete that is never safe by default, because nothing can say what
-    /// it would take with it (a language), and refuses the delete without it.
+    /// <see cref="Protect(Command, ReferenceArgument, string)"/> for a delete whose target is not
+    /// an id-keyed reference, such as a language named by its ISO code (which is never safe by
+    /// default, because nothing can say what it would take with it).
     /// </summary>
     /// <param name="command">The delete command.</param>
-    /// <param name="reason">The reason, from the parsed command line.</param>
+    /// <param name="target">The target, from the parsed command line.</param>
     /// <param name="forceDescription">Help text for <c>--force</c>, saying what else the delete removes.</param>
-    public static void RequireForce(
+    public static void Protect(
         Command command,
-        Func<ParseResult, string> reason,
+        Func<ParseResult, DeleteTarget> target,
         string forceDescription
     ) =>
         Refuse(
             command,
-            (parseResult, _, _) => Task.FromResult<string?>(reason(parseResult)),
+            (parseResult, client, ct) => ReasonAsync(client, target(parseResult), plan: null, ct),
             forceDescription
         );
 
@@ -217,17 +322,36 @@ public static class InUseGuard
             : $"Member type {id} has {count.Data} member(s). Deleting it also deletes them.";
     }
 
-    /// <summary>Why deleting template <paramref name="id"/> would orphan document types, or null when none use it.</summary>
+    /// <summary>
+    /// Why deleting template <paramref name="id"/> would leave document types without it, or null
+    /// when none use it. A document type the <paramref name="plan"/> also deletes does not count,
+    /// and the usage is read once per plan.
+    /// </summary>
+    /// <param name="client">The client to check with.</param>
+    /// <param name="id">The template id.</param>
+    /// <param name="plan">The rest of the prune plan, or null for a single delete.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The reason, or null.</returns>
     private static async Task<string?> TemplateAsync(
         ITemplateClient client,
         Guid id,
+        DeletePlanContext? plan,
         CancellationToken ct
     )
     {
-        var usage = await client.GetTemplateUsageAsync(ct);
+        var usage = plan is null
+            ? await client.GetTemplateUsageAsync(ct)
+            : await plan.TemplateUsageAsync(client, ct);
         if (!usage.IsSuccess)
             return CouldNotCheck("template", id, usage.ErrorMessage);
-        return TemplateReason(id, usage.Data!.GetValueOrDefault(id) ?? []);
+        var users = (usage.Data!.GetValueOrDefault(id) ?? [])
+            .Where(u => plan?.Deletes(EntityKind.DocumentType, u.DocumentTypeId) != true)
+            .Select(u => u.Name)
+            .ToList();
+        return users.Count == 0
+            ? null
+            : $"Template {id} is used by {Summarise(users)}. Deleting it leaves those document "
+                + "types, and the documents that render with it, without it.";
     }
 
     /// <summary>Why deleting member group <paramref name="id"/> would drop members from it, or null when it is empty.</summary>

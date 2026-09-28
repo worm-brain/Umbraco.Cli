@@ -94,6 +94,9 @@ public static class RawBodyCommand
     )
     {
         var body = AddBodyOptions(cmd);
+        // Declared for the catalog (#84), next to the validator that enforces the same rule.
+        foreach (var option in required)
+            option.RequiredUnless("--json-body", "--schema", "--example");
         cmd.Validators.Add(result =>
         {
             if (
@@ -234,9 +237,12 @@ public static class RawBodyCommand
             Description =
                 $"The {noun.Singular}'s id, or its {noun.Kind.KeyName()}. Required unless --schema or --example is used.",
             Arity = ArgumentArity.ZeroOrOne,
-        };
+        }.RequiredUnless("--schema", "--example");
         cmd.Add(id);
         var body = AddBodyOptions(cmd);
+        // A verb with no update flags can only take a body (the validator below).
+        if (!hasFlags)
+            body.BodyRequiredUnless("--schema", "--example");
         var replace = new Option<bool>("--replace")
         {
             Description =
@@ -324,7 +330,9 @@ public static class RawBodyCommand
                                     noun.Kind,
                                     id,
                                     json,
-                                    parseResult.GetValue(options.Replace),
+                                    WriteModes.FromReplaceFlag(
+                                        parseResult.GetValue(options.Replace)
+                                    ),
                                     c
                                 )
                                 .ThenRead(() => client.GetSchemaRawAsync(noun.Kind, id, c)),

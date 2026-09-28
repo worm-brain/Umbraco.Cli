@@ -66,9 +66,9 @@ disagree, this file wins; the older document is rationale that may be out of dat
    | Parent / placement target | `--parent` (alias `--target` on placement verbs) |
    | ISO culture code | `--culture` (repeatable when several are allowed) |
    | A type reference | `--document-type`, `--media-type`, `--member-type`, `--relation-type`; `--type` only where any kind of type is accepted |
-   | Paging | `--skip` (default 0), `--take` (default 100) |
+   | Paging | `--skip` (default 0), `--take` (default 100), `--all` (every page) |
    | Idempotent create | `--id <guid>` |
-   | Request body | `--json-body <file\|->`, with `--schema` (its JSON Schema) and, where a schema cannot say enough, `--example` (a real one from the instance) |
+   | Request body | `--json-body <file\|->`, with `--schema` (its JSON Schema) and, where a schema cannot say enough, `--example` (a real one from the instance, or one built from it: `content create --example --document-type <alias>`) |
    | Output file | `--out` / `-O` |
    | Inline file text vs file | `--content <text>` / `--content-file <file\|->` |
    | Replace instead of merge | `--replace` |
@@ -85,6 +85,9 @@ disagree, this file wins; the older document is rationale that may be out of dat
    `invalid_argument` error, never a silent precedence.
 6. **Short aliases** belong to global options (`-H -o -q -v -y -p`), plus `-O` for `--out`. An
    alias never means two things.
+7. **Conditionally required inputs** (required unless `--json-body`, `--schema`, ...) are optional
+   at parse level, enforced by the command's validator, and declared with `.RequiredUnless(...)`
+   so `umbraco commands` reports them as `requiredUnless` rather than a bare `required: false`.
 
 ## 5. Behaviour
 
@@ -101,6 +104,9 @@ disagree, this file wins; the older document is rationale that may be out of dat
      check runs before the confirmation prompt.
 3. **Paging:** every paged command uses the shared `PagingOptions`, and its output carries
    `meta.total/skip/take/hasMore` (omitted when unknown). A complete list or walk is not paged.
+   `--all` pages until the collection is exhausted and reports `hasMore: false`; it fails with
+   `invalid_argument` past 10,000 items rather than truncating, and combined with an explicit
+   `--skip` or `--take` it is a parse error.
 
 ## 6. Output
 
@@ -166,6 +172,9 @@ Each exception is deliberate or tracked; don't copy it.
 - `user-group add-users` / `remove-users` are verb-noun compounds (membership has no better home
   yet).
 - `property-type is-used` is a top-level noun with one verb and no `list`/`get`.
+- `completion <shell>` and `commands` are local tool commands, not resource nouns: they have no
+  verb, and `completion`'s positional is `shell`, not `id`. `completion` prints a bare shell
+  script, never the envelope, because a shell sources it.
 
 ## Changelog
 
@@ -193,3 +202,29 @@ Each exception is deliberate or tracked; don't copy it.
   managed: diff and apply skip it and `--prune` never deletes one. So format "3" files and
   `schema export --no-files` leave the target's files alone, and a section that is present but
   **empty** does manage them. Chosen so sites that deploy views from git keep doing so.
+- **2026-09-28** - 2 (`export`/`diff`/`apply`): the #292 rule now covers **every** schema snapshot
+  section (#198). A section that is absent (or null) is not managed: diff and apply skip that
+  kind and `--prune` deletes none of it; a present section is the whole list for its kind. Before,
+  an absent type section read as empty, so `--prune` on a hand-written partial file deleted every
+  kind it left out. The format stays `"4"`: every exported file has every type section, so no
+  exported file changes meaning. A hand-written snapshot may also name references instead of ids
+  and leave ids out of new entries.
+- **2026-09-28** - 1.2 and 1.4: the pre-#268 names are removed (#272). `content-types`,
+  `media-types`, `data-types`, `languages`, `templates`, `members`, `member-types`, `users`,
+  `webhooks`, `member-groups`, `tags`, `cultures`, `user-groups` and `content domains` are now
+  unknown commands (a parse error), and an allow-list entry naming one
+  (`UMBRACO_ALLOWED_COMMANDS=content-types`, `content.domains.set`) no longer matches anything;
+  use the singular names. Removed before alpha.13 is published, so no public release carries them.
+- **2026-09-28** - 4.1 and 5.3: every paged command takes `--all` (#196), added once in
+  `PagingOptions` and run by the executor, so it cannot differ between commands. A real loop with
+  a loud 10,000-item cap, not a large `--take`, which would be the same silent cap further out.
+- **2026-09-28** - 4.7: conditionally required inputs are declared with `.RequiredUnless(...)`
+  (#84), so the catalog tells an agent what it needs instead of reporting them optional. The
+  catalog also gains each input's `default` and a `jsonBodySchema` pointer; both additive, so no
+  `schemaVersion` bump.
+- **2026-09-28** - 4.1: `content create --example --document-type <alias>` (#174) builds its
+  example from the document type and its data types, since there is no one real item whose values
+  show every editor. Still `--example`, not a per-type `--schema`, which stays the offline schema.
+- **2026-09-28** - 9: `completion <bash|zsh|pwsh>` (#92) is recorded as an exception alongside
+  `commands`. Shell completion is a property of the tool, not of an Umbraco resource, and `gh`
+  and `az` name it the same way.

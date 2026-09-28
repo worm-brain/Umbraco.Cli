@@ -15,6 +15,7 @@ public sealed partial class UmbracoManagementClient
     private const int TemplateItemBatch = 40;
 
     private List<ReferenceCandidate>? _templateCandidates;
+    private List<DocumentTypeResponse>? _documentTypes;
     private List<MediaTypeResponse>? _mediaTypes;
     private List<MemberTypeResponse>? _memberTypes;
     private List<ReferenceCandidate>? _memberGroupCandidates;
@@ -86,6 +87,8 @@ public sealed partial class UmbracoManagementClient
                     EntityKind.MemberGroup => FindMemberGroupIdAsync(reference, ct),
                     EntityKind.DictionaryItem => FindDictionaryIdAsync(reference, ct),
                     EntityKind.RelationType => FindRelationTypeIdAsync(reference, ct),
+                    EntityKind.Webhook => FindWebhookIdAsync(reference, ct),
+                    EntityKind.User => FindUserIdAsync(reference, ct),
                     _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
                 }
         );
@@ -208,6 +211,31 @@ public sealed partial class UmbracoManagementClient
             (type, alias) => type with { Alias = alias },
             t => t.Id,
             _mediaTypeAliasById,
+            ct
+        );
+
+    /// <summary>
+    /// Every document type (folders excluded, nested types included) with its alias, read once per
+    /// client, for <c>document-type list</c>. The list used to report <c>"alias": ""</c> for every
+    /// type because the tree items do not carry it. The by-id reads also fill the id-to-alias cache
+    /// that content reads use for their document-type reference.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every document type, with its alias ("" when it could not be read).</returns>
+    private async Task<List<DocumentTypeResponse>> DocumentTypesWithAliasAsync(
+        CancellationToken ct
+    ) =>
+        _documentTypes ??= await TypesWithAliasAsync(
+            FetchDocumentTypeTreeAsync,
+            async (id, c) =>
+                (
+                    await _api
+                        .Umbraco.Management.Api.V1.DocumentType[id]
+                        .GetAsync(cancellationToken: c)
+                )?.Alias,
+            (type, alias) => type with { Alias = alias },
+            t => t.Id,
+            _documentTypeAliasById,
             ct
         );
 
@@ -376,6 +404,31 @@ public sealed partial class UmbracoManagementClient
                     )
                 )?.Items?.Where(t => t.Id is not null).Select(t => new ReferenceCandidate(t.Id!.Value, t.Alias, t.Name)).ToList() ?? []);
         return ReferenceMatch.Pick(EntityKind.RelationType, reference, _relationTypeCandidates);
+    }
+
+    /// <summary>
+    /// Resolves a user's email or username (#216). Users have no alias, so the email takes the
+    /// alias's place - it is the key the backoffice shows and matches first - and the username the
+    /// name's. Every page of users is read; the item search matches display names, which are not
+    /// unique. Umbraco hides the super-user from other users, so it resolves only for itself.
+    /// </summary>
+    /// <param name="reference">The email or username.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The user id.</returns>
+    /// <exception cref="ApiException">No match (404) or an ambiguous username (409).</exception>
+    private async Task<Guid> FindUserIdAsync(string reference, CancellationToken ct)
+    {
+        var users = await ReadAllPagesAsync(async (skip, take) => (
+                    await _api.Umbraco.Management.Api.V1.User.GetAsync(
+                        c =>
+                        {
+                            c.QueryParameters.Skip = skip;
+                            c.QueryParameters.Take = take;
+                        },
+                        ct
+                    )
+                )?.Items?.Where(u => u.Id is not null).Select(u => new ReferenceCandidate(u.Id!.Value, u.Email, u.UserName)).ToList() ?? []);
+        return ReferenceMatch.Pick(EntityKind.User, reference, users);
     }
 
     /// <summary>Reads a paged source to the end, stopping on a short page.</summary>

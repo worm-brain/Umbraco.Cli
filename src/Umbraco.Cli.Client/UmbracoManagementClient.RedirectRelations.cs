@@ -210,10 +210,13 @@ public sealed partial class UmbracoManagementClient
             ct,
             async () =>
             {
-                var t = await _api
-                    .Umbraco.Management.Api.V1.RelationType[id]
-                    .GetAsync(cancellationToken: ct);
-                return t is null ? new RelationTypeResponse { Id = id } : MapRelationType(t);
+                // A 200 with no body is not a relation type (#119).
+                var t =
+                    await _api
+                        .Umbraco.Management.Api.V1.RelationType[id]
+                        .GetAsync(cancellationToken: ct)
+                    ?? throw NotFound($"No relation type found with id '{id}'.");
+                return MapRelationType(t);
             }
         );
 

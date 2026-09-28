@@ -3,31 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace Umbraco.Cli.Commands.Content;
 
-/// <summary>How a document in the desired snapshot relates to the live instance. Serialized by name (#229).</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<ContentChangeKind>))]
-public enum ContentChangeKind
-{
-    /// <summary>In the snapshot, absent live - apply creates it (with its snapshot id and parent).</summary>
-    Added,
-
-    /// <summary>
-    /// Present in both but the body or the publish state differs - apply updates the live document
-    /// and/or publishes and unpublishes its cultures.
-    /// </summary>
-    Changed,
-
-    /// <summary>Live but absent from the snapshot - apply deletes it, but only under <c>--prune</c>.</summary>
-    Removed,
-
-    /// <summary>
-    /// Present in both with an identical body and publish state but a different parent. This is <b>advisory only</b>:
-    /// apply replaces bodies, it does not move documents, so a drift is reported by <c>diff</c> but
-    /// never generates an apply step (which is why it is separate from <see cref="Changed"/> - an
-    /// update here would be a no-op that could never converge the drift).
-    /// </summary>
-    Drifted,
-}
-
 /// <summary>
 /// One document-level difference between a snapshot and a live instance (issue #100), with what
 /// apply needs to act on it. Documents are matched by GUID only - unlike schema entities they have
@@ -38,7 +13,7 @@ public enum ContentChangeKind
 /// <param name="Change">The kind of change.</param>
 /// <param name="Id">The document id the change targets.</param>
 /// <param name="Parent">The desired parent id; null at the content root and for a removed document.</param>
-public sealed record ContentDocumentChange(ContentChangeKind Change, Guid Id, Guid? Parent = null)
+public sealed record ContentDocumentChange(TreeChangeKind Change, Guid Id, Guid? Parent = null)
 {
     /// <summary>What differs, for the row's <c>changes</c> (see <see cref="ContentDiffRow.Changes"/>).</summary>
     public IReadOnlyList<string>? Changes { get; init; }
@@ -105,7 +80,7 @@ public sealed record ContentDocumentChange(ContentChangeKind Change, Guid Id, Gu
 /// is the change.
 /// </param>
 public sealed record ContentDiffRow(
-    ContentChangeKind Change,
+    TreeChangeKind Change,
     Guid Id,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? Name,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? DocumentType,
@@ -124,22 +99,22 @@ public sealed record ContentDiffRow(
 public sealed record ContentDiff(IReadOnlyList<ContentDocumentChange> Documents, int Unchanged)
 {
     /// <summary>Documents to create.</summary>
-    public IReadOnlyList<ContentDocumentChange> Added => Of(ContentChangeKind.Added);
+    public IReadOnlyList<ContentDocumentChange> Added => Of(TreeChangeKind.Added);
 
     /// <summary>Documents to update and/or (un)publish.</summary>
-    public IReadOnlyList<ContentDocumentChange> Changed => Of(ContentChangeKind.Changed);
+    public IReadOnlyList<ContentDocumentChange> Changed => Of(TreeChangeKind.Changed);
 
     /// <summary>Documents a prune would delete.</summary>
-    public IReadOnlyList<ContentDocumentChange> Removed => Of(ContentChangeKind.Removed);
+    public IReadOnlyList<ContentDocumentChange> Removed => Of(TreeChangeKind.Removed);
 
     /// <summary>Documents whose body and state match but whose parent differs (not applied).</summary>
-    public IReadOnlyList<ContentDocumentChange> Drifted => Of(ContentChangeKind.Drifted);
+    public IReadOnlyList<ContentDocumentChange> Drifted => Of(TreeChangeKind.Drifted);
 
     /// <summary>
     /// True when applying would create, change, or remove at least one document. Drift does not
     /// count - apply cannot act on it, so a diff that is only drift is "no changes to apply".
     /// </summary>
-    public bool HasChanges => Documents.Any(d => d.Change is not ContentChangeKind.Drifted);
+    public bool HasChanges => Documents.Any(d => d.Change is not TreeChangeKind.Drifted);
 
     /// <summary>The <c>diff</c> command's rows: added, changed, removed, then drifted.</summary>
     public IReadOnlyList<ContentDiffRow> Rows =>
@@ -161,6 +136,6 @@ public sealed record ContentDiff(IReadOnlyList<ContentDocumentChange> Documents,
     public IReadOnlyDictionary<string, int> UnpromotedValues { get; init; } =
         new Dictionary<string, int>();
 
-    private IReadOnlyList<ContentDocumentChange> Of(ContentChangeKind kind) =>
+    private IReadOnlyList<ContentDocumentChange> Of(TreeChangeKind kind) =>
         [.. Documents.Where(d => d.Change == kind)];
 }

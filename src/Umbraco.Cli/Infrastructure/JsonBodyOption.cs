@@ -36,6 +36,18 @@ public sealed class JsonBodyOption
             _example = new Option<bool>("--example") { Description = exampleDescription };
     }
 
+    /// <summary>
+    /// Declares <c>--json-body</c> required unless one of <paramref name="alternatives"/> is given,
+    /// for the catalog's <c>requiredUnless</c> (#84). The command's validator still enforces it.
+    /// </summary>
+    /// <param name="alternatives">The option names that make the body unnecessary.</param>
+    /// <returns>This instance, for chaining.</returns>
+    public JsonBodyOption BodyRequiredUnless(params string[] alternatives)
+    {
+        _body.RequiredUnless(alternatives);
+        return this;
+    }
+
     /// <summary>Adds the options to a command.</summary>
     /// <param name="cmd">The command to add the options to.</param>
     public void AddTo(Command cmd)

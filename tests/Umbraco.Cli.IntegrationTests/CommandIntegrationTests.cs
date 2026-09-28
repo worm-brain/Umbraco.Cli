@@ -181,10 +181,9 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         // Regression for #136: `member create` had no --password, so it sent an empty password
         // that the default complexity policy rejected with HTTP 400. It now generates a compliant
         // password when none is supplied. Create a throwaway member type, then a member with no
-        // --password (the auto-generated path), and read it back.
-        // NOTE: this does not assert `member delete` - that returns HTTP 500 on Umbraco 17.x
-        // (tracked separately); cleanup deletes the member best-effort and relies on the
-        // member-type delete cascading to remove any member of that type.
+        // --password (the auto-generated path), read it back, and delete it: `member delete`
+        // returned HTTP 500 on Umbraco 17.x until #150, so the delete is asserted too, by
+        // re-reading the member and expecting a 404.
         var mtAlias = "clitestMember" + Guid.NewGuid().ToString("N")[..8];
         var memberType = CliRunner.Run(
             "member-type",
@@ -219,12 +218,79 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             var get = CliRunner.Run("member", "get", memberId!);
             Assert.True(get.Ok, get.Stderr);
             Assert.Equal(memberId, get.Data().GetProperty("id").GetString());
+
+            var delete = CliRunner.Run("member", "delete", memberId!, "--yes");
+            Assert.True(delete.Ok, delete.Stderr); // was HTTP 500 on 17.x before #150
+            Assert.True(
+                IsNotFound(CliRunner.Run("member", "get", memberId!)),
+                "member delete reported success but the member can still be read."
+            );
         }
         finally
         {
-            if (memberId is not null)
-                CliRunner.Run("member", "delete", memberId, "--yes");
-            CliRunner.Run("member-type", "delete", memberTypeId!, "--yes");
+            // --force: if an assertion above failed before the member was deleted, the type still
+            // has a member and a plain delete would be refused, stranding both (#269).
+            CliRunner.Run("member-type", "delete", memberTypeId!, "--force", "--yes");
+        }
+    }
+
+    [SkippableFact]
+    public void MemberType_UpdateName_ChangesTheNameAndKeepsTheProperty()
+    {
+        RequireLive();
+
+        // #101: `member-type update` is a raw read-merge-write - GET the type verbatim, patch the
+        // flags' scalars, PUT the whole document back. Unit tests prove the merge against a fake;
+        // only a real server shows that PUT member-type/{id} accepts its own GET body (the GET
+        // carries member-only fields such as isSensitive and visibility) and that a name-only
+        // update leaves the type's properties alone.
+        var alias = ScratchAlias("clitestMtUpdate");
+        var containerId = Guid.NewGuid();
+        var create = CliRunner.RunWithInput(
+            $$"""
+            {
+              "alias": "{{alias}}",
+              "name": "{{alias}}",
+              "icon": "icon-user",
+              "properties": [{
+                "id": "{{Guid.NewGuid()}}",
+                "container": { "id": "{{containerId}}" },
+                "sortOrder": 0,
+                "alias": "nickname",
+                "name": "Nickname",
+                "dataType": { "id": "0cc0eba1-9960-42c9-bf9b-60e150b429ae" }
+              }],
+              "containers": [{ "id": "{{containerId}}", "name": "Details", "type": "Group", "sortOrder": 0 }]
+            }
+            """,
+            "member-type",
+            "create",
+            "--json-body",
+            "-"
+        );
+        Assert.True(create.Ok, create.Stderr);
+        var id = create.Data().GetProperty("id").GetString()!;
+        try
+        {
+            // Act
+            var update = CliRunner.Run("member-type", "update", id, "--name", "clitest renamed");
+
+            // Assert: re-read the instance, not the command's echo.
+            Assert.True(update.Ok, update.Stderr);
+            var get = CliRunner.Run("member-type", "get", id);
+            Assert.True(get.Ok, get.Stderr);
+            Assert.Equal("clitest renamed", get.Data().GetProperty("name").GetString());
+            Assert.Equal(
+                new string?[] { "nickname" },
+                get.Data()
+                    .GetProperty("properties")
+                    .EnumerateArray()
+                    .Select(p => p.GetProperty("alias").GetString())
+            );
+        }
+        finally
+        {
+            CliRunner.Run("member-type", "delete", id, "--force", "--yes");
         }
     }
 
@@ -318,9 +384,8 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     /// <summary>
     /// Finds a document-type alias that exists on the live instance, or skips the test. The alias
     /// cannot be hard-coded: a dry-run content create now resolves the alias against the real
-    /// instance (#79), and every instance has a different schema. `document-type list` exposes only
-    /// name + id (and includes folders, whose ids 404 on get - see issue #97), so each candidate is
-    /// read by-id until one yields an alias.
+    /// instance (#79), and every instance has a different schema. Each listed type is read by-id
+    /// until one yields an alias, so the alias comes from <c>get</c>, independently of the list.
     /// </summary>
     /// <returns>The id and alias of an existing document type.</returns>
     private static (string Id, string Alias) FindDocumentType()
@@ -344,6 +409,21 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
 
         Skip.If(true, "No document type with an alias found on the live instance.");
         return ("", ""); // unreachable - the Skip above always throws.
+    }
+
+    [SkippableFact]
+    public void DocumentTypeList_ExistingType_ShowsTheAliasThatGetShows()
+    {
+        RequireLive();
+        // The list used to report "alias": "" for every type, while get showed the real one.
+        var (id, alias) = FindDocumentType();
+
+        var list = CliRunner.Run("document-type", "list", "--take", "500");
+
+        var listed = list.Data()
+            .EnumerateArray()
+            .Single(i => i.GetProperty("id").GetString() == id);
+        Assert.Equal(alias, listed.GetProperty("alias").GetString());
     }
 
     [SkippableFact]
@@ -577,6 +657,65 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             // --yes: delete is destructive and the harness runs non-interactively (#70).
             var delete = CliRunner.Run("webhook", "delete", id!, "--yes");
             Assert.True(delete.Ok, delete.Stderr);
+        }
+    }
+
+    /// <summary>
+    /// #237: a webhook named on create is found by that name, <c>update</c> disables it and merges
+    /// a header without dropping the one it had, and its delivery log can be read.
+    /// </summary>
+    [SkippableFact]
+    public void Webhook_UpdateByName_DisablesAndMergesHeaders()
+    {
+        RequireLive();
+        var name = $"it-hook-{Guid.NewGuid():N}";
+        var create = CliRunner.Run(
+            "webhook",
+            "create",
+            "--url",
+            "https://example.com/integration-test-hook",
+            "--event",
+            "Umbraco.ContentPublish",
+            "--name",
+            name,
+            "--header",
+            "X-Api-Key=abc"
+        );
+        Assert.True(create.Ok, create.Stderr);
+        var id = create.Data().GetProperty("id").GetString();
+
+        try
+        {
+            var update = CliRunner.Run(
+                "webhook",
+                "update",
+                name,
+                "--enabled",
+                "false",
+                "--header",
+                "X-Env=test"
+            );
+            Assert.True(update.Ok, update.Stderr);
+
+            var get = CliRunner.Run("webhook", "get", name);
+            Assert.True(get.Ok, get.Stderr);
+            var hook = get.Data();
+            var headers = hook.GetProperty("headers");
+            Assert.Equal(
+                (false, "abc", "test"),
+                (
+                    hook.GetProperty("enabled").GetBoolean(),
+                    headers.GetProperty("X-Api-Key").GetString(),
+                    headers.GetProperty("X-Env").GetString()
+                )
+            );
+
+            var log = CliRunner.Run("webhook", "log", "list", name);
+            Assert.True(log.Ok, log.Stderr);
+        }
+        finally
+        {
+            CliRunner.Run("webhook", "delete", id!, "--yes");
         }
     }
 }

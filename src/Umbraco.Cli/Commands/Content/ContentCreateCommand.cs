@@ -58,7 +58,7 @@ public static class ContentCreateCommand
     {
         var cmd = new Command(
             "create",
-            "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --json-body ./body.json"
+            "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --json-body ./body.json\n  umbraco content create --example --document-type blogPost -o json | jq .data > body.json"
         ).Mutating();
         // Not marked Required at parse level: a create can be driven by --document-type + --name
         // OR by --json-body OR short-circuited by --schema. The conditional requirement is
@@ -69,13 +69,13 @@ public static class ContentCreateCommand
             Description =
                 "Alias of the document type to create (e.g. textPage, blogPost). "
                 + "Required unless --json-body or --schema is used.",
-        };
+        }.RequiredUnless("--json-body", "--schema");
         var nameOpt = new Option<string>("--name")
         {
             Description =
                 "Display name for the new content item. "
-                + "Required unless --json-body or --schema is used.",
-        };
+                + "Required unless --json-body, --schema or --example is used.",
+        }.RequiredUnless("--json-body", "--schema", "--example");
         var parentOpt = new Option<Guid?>("--parent")
         {
             Description = "Parent content item id. Omit to create at the root.",
@@ -94,7 +94,12 @@ public static class ContentCreateCommand
         };
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) containing the full create request body. "
-                + "--id and --template still apply; the other field flags go in the body instead."
+                + "--id and --template still apply; the other field flags go in the body instead.",
+            // #174: a schema cannot say what each property's value looks like, because that is
+            // decided by the data type behind it, so --example reads the document type instead.
+            "Print an example --json-body for --document-type, with one values[] entry per "
+                + "property filled in for its editor, and exit. --name and --culture fill the "
+                + "variant. Requires a host."
         );
         var templateOpt = new Option<string?>("--template")
         {
@@ -116,6 +121,26 @@ public static class ContentCreateCommand
         {
             if (body.SchemaRequested(result))
                 return;
+            if (body.ExampleRequested(result))
+            {
+                // The example is built from the document type; --name and --culture fill it in,
+                // and anything else would be silently ignored, so it is refused (conventions 4.5).
+                if (string.IsNullOrEmpty(result.GetValue(typeOpt)))
+                    result.AddError(
+                        "--example needs --document-type: the type to build a body for."
+                    );
+                else if (
+                    body.HasBody(result)
+                    || result.GetValue(parentOpt) is not null
+                    || result.GetValue(idOpt) is not null
+                    || result.GetValue(templateOpt) is not null
+                )
+                    result.AddError(
+                        "--example prints a body and exits; it takes --document-type, --name and "
+                            + "--culture only, not --json-body, --parent, --id or --template."
+                    );
+                return;
+            }
             if (body.HasBody(result))
             {
                 // The body carries these; a flag beside it would be silently dropped
@@ -152,6 +177,22 @@ public static class ContentCreateCommand
                     JsonBodySchema.Print<CreateContentRequest>();
                     return Task.FromResult(0);
                 }
+
+                // --example reads the document type and its data types, so unlike --schema it
+                // needs a host; the validator guarantees --document-type is set here.
+                if (body.ExampleRequested(parseResult))
+                    return executor.RunObjectAsync(
+                        parseResult,
+                        (client, c) =>
+                            ContentExampleBody.BuildAsync(
+                                client,
+                                parseResult.GetValue(typeOpt)!,
+                                parseResult.GetValue(cultureOpt),
+                                parseResult.GetValue(nameOpt),
+                                c
+                            ),
+                        ct
+                    );
 
                 return executor.RunObjectAsync(
                     parseResult,
@@ -194,7 +235,7 @@ public static class ContentCreateCommand
                         if (parseResult.GetValue(templateOpt) is { Length: > 0 } template)
                             request = request with
                             {
-                                Template = ContentUpdateCommand.TemplateReference(template),
+                                Template = ContentTemplateReference.Parse(template),
                             };
 
                         return await client.CreateContentAsync(request, c);

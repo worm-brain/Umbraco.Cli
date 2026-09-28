@@ -214,6 +214,18 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public void FailureFrom_CarriesTheUnknownValuesAcross()
+    {
+        // #278: a re-wrapped known-value refusal keeps what the suggestion is built from.
+        var values = new UnknownValues(["ContentPublished"], ["Umbraco.ContentPublish"]);
+        var read = UmbracoResponse<string>.Failure(0, "Unknown.") with { UnknownValues = values };
+
+        var rewrapped = UmbracoResponse<int>.FailureFrom(read);
+
+        Assert.Same(values, rewrapped.UnknownValues);
+    }
+
+    [Fact]
     public async Task RunObject_ApiFailure_WritesErrorAndReturnsOne()
     {
         var client = new FakeUmbracoManagementClient
@@ -267,6 +279,87 @@ public class CommandExecutorTests
         using var doc = JsonDocument.Parse(stderr);
         Assert.Equal("server_error", doc.RootElement.GetProperty("category").GetString());
         Assert.Equal("17.3.5", doc.RootElement.GetProperty("serverVersion").GetString());
+    }
+
+    /// <summary>Runs a command whose call fails as an unexpected response (#154).</summary>
+    /// <param name="serverVersion">The version the fake server reports.</param>
+    /// <returns>The error envelope's <c>category</c> and <c>message</c>.</returns>
+    private async Task<(string? Category, string? Message)> RunUnexpectedResponse(
+        string? serverVersion
+    )
+    {
+        var client = new FakeUmbracoManagementClient
+        {
+            ServerVersion = serverVersion,
+            ContentByIdResponse = UmbracoResponse<ContentItemResponse>.Failure(
+                0,
+                "Unreadable.",
+                FailureCategory.UnexpectedResponse
+            ),
+        };
+        var (executor, parse) = Build(client);
+
+        var (_, stderr, _) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) => c.GetContentByIdAsync(Guid.NewGuid(), ct),
+                CancellationToken.None
+            )
+        );
+
+        using var doc = JsonDocument.Parse(stderr);
+        return (
+            doc.RootElement.GetProperty("category").GetString(),
+            doc.RootElement.GetProperty("message").GetString()
+        );
+    }
+
+    [Fact]
+    public void CategoryOf_JsonExceptionFromTheCallersInput_IsInvalidArgument()
+    {
+        // A response-side JsonException never gets here (the client guard labels it, #154), so
+        // one the backstop sees is a snapshot or body the caller supplied.
+        Assert.Equal(
+            FailureCategory.InvalidArgument,
+            CommandExecutor.CategoryOf(new JsonException("bad snapshot"))
+        );
+    }
+
+    [Fact]
+    public void CategoryOf_UnrecognisedException_IsInternal()
+    {
+        Assert.Equal(
+            FailureCategory.Internal,
+            CommandExecutor.CategoryOf(new InvalidOperationException("bug"))
+        );
+    }
+
+    [Fact]
+    public async Task RunObject_UnexpectedResponse_KeepsTheCategory()
+    {
+        var (category, _) = await RunUnexpectedResponse("17.3.5");
+
+        Assert.Equal("unexpected_response", category);
+    }
+
+    [Fact]
+    public async Task RunObject_UnexpectedResponse_PointsAtAuthDoctor()
+    {
+        var (_, message) = await RunUnexpectedResponse("17.3.5");
+
+        Assert.Equal(
+            "Unreadable. Run 'umbraco auth doctor' to check the instance's Umbraco version.",
+            message
+        );
+    }
+
+    [Fact]
+    public async Task RunObject_UnexpectedResponseFromAnUnsupportedVersion_NamesTheRange()
+    {
+        // #153: when the version is known to be out of range, say so instead of "go and check".
+        var (_, message) = await RunUnexpectedResponse("99.0.0");
+
+        Assert.Equal($"Unreadable. {VersionSupport.OutOfRangeMessage("99.0.0")}", message);
     }
 
     [Fact]
@@ -676,6 +769,34 @@ public class CommandExecutorTests
 
         Assert.Equal(0, exit);
         Assert.True(called); // not aborted by the allow-list
+    }
+
+    [Fact]
+    public async Task AllowList_PreRenameNounEntry_NoLongerMatchesTheRenamedCommand()
+    {
+        // #272: the pre-#268 plural nouns are gone, so an allow-list still naming one is not
+        // translated to the new name - `webhooks` no longer allows `webhook.list`.
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            allowedCommands: "webhooks",
+            command: "webhook.list"
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) =>
+                {
+                    called = true;
+                    return c.GetWebhooksAsync(0, 20, ct);
+                },
+                CancellationToken.None
+            )
+        );
+
+        Assert.Equal(2, exit);
+        Assert.False(called);
     }
 
     [Fact]
