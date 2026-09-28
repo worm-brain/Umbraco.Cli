@@ -10,8 +10,9 @@ namespace Umbraco.Cli.Commands.Auth;
 
 /// <summary>
 /// Wires <c>auth doctor</c> (issue #66): a first-run diagnostic that checks host resolution,
-/// connectivity/TLS, credentials, authentication, the resolved identity, and the instance
-/// version — each with a clear pass/fail and a remediation hint. Unlike normal commands it is
+/// connectivity/TLS, credentials, authentication, the resolved identity, the instance version,
+/// and whether that version is in the tested range (#153) — each with a clear pass/fail and a
+/// remediation hint. Unlike normal commands it is
 /// tolerant of failure: a failed check is reported as data, never a crash or an early abort, so
 /// the whole picture is shown in one run.
 /// </summary>
@@ -303,6 +304,7 @@ public static class AuthDoctorCommand
         }
 
         // 6. Instance version — best-effort (warn, never fail the run).
+        string? version = null;
         try
         {
             using var http = httpClientFactory.CreateClient();
@@ -314,7 +316,7 @@ public static class AuthDoctorCommand
             {
                 var body = await resp.Content.ReadAsStringAsync(ct);
                 using var doc = JsonDocument.Parse(body);
-                var version =
+                version =
                     doc.RootElement.TryGetProperty("version", out var v)
                     && v.ValueKind == JsonValueKind.String
                         ? v.GetString()
@@ -346,6 +348,37 @@ public static class AuthDoctorCommand
             );
         }
 
+        // 7. Supported version (#153) — a warning, never a failure: the CLI may well work, but a
+        // mismatch is the first thing to suspect when a later command misbehaves.
+        checks.Add(SupportedVersionCheck(version));
+
         return checks;
     }
+
+    /// <summary>
+    /// The "Supported version" check (#153): pass when the instance's Umbraco major is in the range
+    /// this build was tested against (<see cref="VersionSupport"/>), warn naming both versions when
+    /// it is not, and skip when the version is unknown.
+    /// </summary>
+    /// <param name="version">The instance version from <c>server/information</c>, or null when unknown.</param>
+    /// <returns>The check result.</returns>
+    internal static DoctorCheck SupportedVersionCheck(string? version) =>
+        VersionSupport.Check(version) switch
+        {
+            VersionFit.Supported => new DoctorCheck(
+                "Supported version",
+                "pass",
+                $"Umbraco {version} is in the tested range (Umbraco {VersionSupport.Range})."
+            ),
+            VersionFit.Unsupported => new DoctorCheck(
+                "Supported version",
+                "warn",
+                VersionSupport.OutOfRangeMessage(version!)
+            ),
+            _ => new DoctorCheck(
+                "Supported version",
+                "skip",
+                $"Instance version unknown; this CLI is tested against Umbraco {VersionSupport.Range}."
+            ),
+        };
 }

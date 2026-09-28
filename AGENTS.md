@@ -138,7 +138,9 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
   request once with a new token on a 401.
 - The generated client is produced by Kiota from `spec/management.json` and checked in, so
   building needs no live Umbraco instance. Regenerate with `./scripts/regen-client.ps1` (and
-  refresh the spec first with `./scripts/fetch-spec.ps1` if needed).
+  refresh the spec first with `./scripts/fetch-spec.ps1` if needed). The tested Umbraco range
+  lives in `VersionSupport` (the spec only says `"Latest"`): update `MinMajor`/`MaxMajor` when
+  the spec moves to a new major.
 
 ### Config & output
 

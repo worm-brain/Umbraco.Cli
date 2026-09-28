@@ -137,7 +137,7 @@ public sealed class CommandExecutor
                 // #154: a response the client could not read points at the version check, which
                 // the client (the API boundary) leaves to the CLI to name.
                 if (result.Category is FailureCategory.UnexpectedResponse)
-                    message += DriftHint();
+                    message += DriftHint(serverVersion);
                 // #177: exit code 1 and the server's status are different facts, so they go in
                 // different fields. StatusCode is 0 when the request never reached the server
                 // (unreachable/timeout), which is not a status - omit it rather than emit 0.
@@ -254,12 +254,17 @@ public sealed class CommandExecutor
         : FailureCategory.RequestRejected;
 
     /// <summary>
-    /// The sentence added to an <see cref="FailureCategory.UnexpectedResponse"/> error (#154): a
-    /// pointer to <c>auth doctor</c>, which checks the instance's version.
+    /// The sentence added to an <see cref="FailureCategory.UnexpectedResponse"/> error (#154).
+    /// When the server version is known to be outside the tested range (#153) it says so, naming
+    /// both; otherwise it points at <c>auth doctor</c>, which checks the version. Uses the version
+    /// the error path already fetched, so it costs no extra request.
     /// </summary>
+    /// <param name="serverVersion">The connected server's version, or null when unknown.</param>
     /// <returns>The hint, with a leading space.</returns>
-    internal static string DriftHint() =>
-        " Run 'umbraco auth doctor' to check the instance's Umbraco version.";
+    internal static string DriftHint(string? serverVersion) =>
+        VersionSupport.Check(serverVersion) is VersionFit.Unsupported
+            ? " " + VersionSupport.OutOfRangeMessage(serverVersion!)
+            : " Run 'umbraco auth doctor' to check the instance's Umbraco version.";
 
     /// <summary>
     /// The category for an exception the backstop caught: input the caller must fix is

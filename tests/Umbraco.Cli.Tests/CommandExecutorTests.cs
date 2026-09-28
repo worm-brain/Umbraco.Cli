@@ -354,6 +354,15 @@ public class CommandExecutorTests
     }
 
     [Fact]
+    public async Task RunObject_UnexpectedResponseFromAnUnsupportedVersion_NamesTheRange()
+    {
+        // #153: when the version is known to be out of range, say so instead of "go and check".
+        var (_, message) = await RunUnexpectedResponse("99.0.0");
+
+        Assert.Equal($"Unreadable. {VersionSupport.OutOfRangeMessage("99.0.0")}", message);
+    }
+
+    [Fact]
     public async Task RunObject_UnreachableFailure_TagsCategoryButSkipsServerVersion()
     {
         // #152: for an unreachable/timeout failure the server cannot be queried, so the version

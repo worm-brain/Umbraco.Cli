@@ -144,8 +144,10 @@ umbraco auth profile use <profile>             # make a profile the default
 ```
 
 `auth doctor` runs a sequence of checks (host resolution, connectivity/TLS, credentials,
-authentication, resolved identity, instance version), reports each as `pass`/`fail`/`warn`/`skip`
-with a remediation hint, and exits `1` if any check hard-fails (warnings do not fail the run).
+authentication, resolved identity, instance version, supported version), reports each as
+`pass`/`fail`/`warn`/`skip` with a remediation hint, and exits `1` if any check hard-fails
+(warnings do not fail the run). The supported-version check warns, naming both versions, when the
+instance's Umbraco major is outside the range this build was tested against (currently 17.x-18.x).
 Run it first in any new environment. See [getting-started.md](getting-started.md#5-confirm-it-works).
 
 ## `content`
