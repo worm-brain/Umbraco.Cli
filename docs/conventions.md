@@ -68,7 +68,7 @@ disagree, this file wins; the older document is rationale that may be out of dat
    | A type reference | `--document-type`, `--media-type`, `--member-type`, `--relation-type`; `--type` only where any kind of type is accepted |
    | Paging | `--skip` (default 0), `--take` (default 100), `--all` (every page) |
    | Idempotent create | `--id <guid>` |
-   | Request body | `--json-body <file\|->`, with `--schema` (its JSON Schema) and, where a schema cannot say enough, `--example` (a real one from the instance) |
+   | Request body | `--json-body <file\|->`, with `--schema` (its JSON Schema) and, where a schema cannot say enough, `--example` (a real one from the instance, or one built from it: `content create --example --document-type <alias>`) |
    | Output file | `--out` / `-O` |
    | Inline file text vs file | `--content <text>` / `--content-file <file\|->` |
    | Replace instead of merge | `--replace` |
@@ -206,3 +206,6 @@ Each exception is deliberate or tracked; don't copy it.
   (#84), so the catalog tells an agent what it needs instead of reporting them optional. The
   catalog also gains each input's `default` and a `jsonBodySchema` pointer; both additive, so no
   `schemaVersion` bump.
+- **2026-09-28** - 4.1: `content create --example --document-type <alias>` (#174) builds its
+  example from the document type and its data types, since there is no one real item whose values
+  show every editor. Still `--example`, not a per-type `--schema`, which stays the offline schema.

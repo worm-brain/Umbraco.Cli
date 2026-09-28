@@ -368,7 +368,7 @@ public class CommandCatalogTests
     {
         var name = Shipped("content create").Options.Single(o => o.Name == "--name");
 
-        Assert.Equal(["--json-body", "--schema"], name.RequiredUnless);
+        Assert.Equal(["--json-body", "--schema", "--example"], name.RequiredUnless);
     }
 
     [Fact]

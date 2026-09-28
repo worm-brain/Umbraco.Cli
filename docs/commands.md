@@ -133,7 +133,9 @@ umbraco document-type create --example  # a real document type from the instance
 
 `--schema` means the same on every command that takes `--json-body`: the body's JSON Schema,
 printed offline. `--example` (on the document, media, member and data type verbs) prints a real
-item instead - the most useful starting point for a body the schema cannot fully describe.
+item instead - the most useful starting point for a body the schema cannot fully describe. On
+`content create` it takes `--document-type` and prints a create body with an example value for
+every property of that type (see [Property value formats](#property-value-formats-for---json-body)).
 
 In the catalog every option and argument carries its `default` (when it has one) and, when it is
 required only without some other option, `requiredUnless` (the options that make it
@@ -169,6 +171,7 @@ umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by 
 umbraco content get <id>                                   # every field of GET /document/{id} (documentType, values, variants, schedule dates, isTrashed, flags) plus name, parent, urls
 umbraco content create --document-type <alias> --name <name> [--culture <code>] [--parent <id>] [--id <guid>] [--template <alias|id>]   # no --culture on a variant type: the default language
 umbraco content create --json-body <file> [--id <guid>] [--template <alias|id>]   # the body carries type, name, parent and culture
+umbraco content create --example --document-type <alias> [--name <name>] [--culture <code>]   # prints a create body with a value per property; needs a host
 umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default; --replace needs --yes
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
 umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; no --culture publishes every culture the item has
@@ -312,29 +315,46 @@ client-supplied id), so re-running a provisioning script does not create duplica
 ### Property value formats for `--json-body`
 
 `content create --schema` types `values[].value` as "any", because the shape depends on the
-property editor behind each property, not on the CLI. Look up a property's editor with
-`umbraco schema export` (`.documentTypes[].properties[].dataType` -> `.dataTypes[].editorAlias`),
-then use the matching shape below. Verified against Umbraco 17.7.0.
+property editor behind each property, not on the CLI. The quickest way to a correct body is to
+let the CLI read the document type and print one:
 
-| Editor (data type name) | `value` shape |
-|---|---|
-| Textstring, Textarea (`Umbraco.TextBox`) | `"some text"` |
-| Rich text (Tiptap) | `{"markup":"<p>...</p>","blocks":null}` |
-| Image media picker (`Umbraco.MediaPicker3`) | `[{"key":"<new guid>","mediaKey":"<media id>","mediaTypeAlias":"Image","crops":[],"focalPoint":null}]` |
-| Date picker (`Umbraco.DateTime`) | `"2026-05-01 00:00:00"` |
-| Dropdown (flexible, multiple) | `["News","Opinion"]` |
-| Tags | `["umbraco","cli"]` |
-| Numeric | `5` |
-| True/false | `true` |
-| Content picker | `"<document guid>"` |
-| Block List (`Umbraco.BlockList`) | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
-| Block Grid (`Umbraco.BlockGrid`) | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
+```bash
+umbraco content create --example --document-type blogPost -o json | jq .data > body.json
+# edit the values, then:
+umbraco content create --json-body body.json
+```
+
+`--example` reads the document type (and the types it composes) and each property's data type,
+and writes one `values[]` entry per property with the example below for its editor. An editor
+not in the table (a block editor, a package's own) gets `"value": null`. Every entry carries the
+`editorAlias` it was chosen by; `content create` ignores that key, so the file can go straight
+back in. On a type that varies by culture the variant and the varying values get `--culture`, or
+the default language. `--name` names the variant. Replace the `<...>` placeholders before
+creating.
+
+The table is the one `--example` uses (Umbraco 17.7.0):
+
+| Editor | `editorAlias` | `value` shape |
+|---|---|---|
+| Textstring | `Umbraco.TextBox` | `"some text"` |
+| Textarea | `Umbraco.TextArea` | `"some text"` |
+| Rich text (Tiptap) | `Umbraco.RichText` | `{"markup":"<p>some text</p>","blocks":null}` |
+| Image media picker | `Umbraco.MediaPicker3` | `[{"key":"<new guid>","mediaKey":"<media id>","mediaTypeAlias":"Image","crops":[],"focalPoint":null}]` |
+| Date picker | `Umbraco.DateTime` | `"2026-05-01 00:00:00"` |
+| Dropdown | `Umbraco.DropDown.Flexible` | `["News","Opinion"]` |
+| Tags | `Umbraco.Tags` | `["umbraco","cli"]` |
+| Numeric | `Umbraco.Integer` | `5` |
+| True/false | `Umbraco.TrueFalse` | `true` |
+| Content picker | `Umbraco.ContentPicker` | `"<document id>"` |
+| Block List | `Umbraco.BlockList` | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
+| Block Grid | `Umbraco.BlockGrid` | an object: see [Block List and Block Grid](#block-list-and-block-grid) |
 
 `key` on a media picker entry is the **picker entry's own** new GUID, not the media item's -
-`mediaKey` carries the media id. Generate a fresh one per entry.
+`mediaKey` carries the media id. Generate a fresh one per entry. A dropdown's values must be
+among the data type's configured items (`data-type get <id>`).
 
-Where the backend `editorAlias` is not listed above it was not captured during testing - read it
-off the live site with `umbraco schema export` rather than guessing.
+To look an editor up by hand, `umbraco schema export` has it
+(`.documentTypes[].properties[].dataType` -> `.dataTypes[].editorAlias`).
 
 A full value entry carries the property alias and, on a variant document, the culture:
 

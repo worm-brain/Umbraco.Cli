@@ -693,17 +693,29 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     )
     {
         LastDocumentTypeLookup = aliasOrId;
+        // A seeded type wins (the content create --example tests, #174); otherwise the fixed
+        // type the #159 lookup tests expect.
+        var seeded = DocumentTypeList.FirstOrDefault(t =>
+            string.Equals(t.Alias, aliasOrId, StringComparison.OrdinalIgnoreCase)
+            || t.Id.ToString() == aliasOrId
+        );
         return Task.FromResult(
             UmbracoResponse<DocumentTypeResponse>.Success(
-                new DocumentTypeResponse { Name = "Blog Post", Alias = "blogPost" }
+                seeded ?? new DocumentTypeResponse { Name = "Blog Post", Alias = "blogPost" }
             )
         );
     }
 
+    /// <summary>Reads a type seeded in <see cref="DocumentTypeList"/>, or a 404.</summary>
     public Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            DocumentTypeList.FirstOrDefault(t => t.Id == id) is { } type
+                ? UmbracoResponse<DocumentTypeResponse>.Success(type)
+                : UmbracoResponse<DocumentTypeResponse>.Failure(404, "Document type not found.")
+        );
 
     public Task<UmbracoResponse<Guid>> CreateDocumentTypeAsync(
         CreateDocumentTypeRequest request,
@@ -726,10 +738,16 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     ) => Page(DataTypeList, skip, take);
 
+    /// <summary>Reads a data type seeded in <see cref="DataTypeList"/>, or a 404.</summary>
     public Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
-    ) => throw new NotImplementedException();
+    ) =>
+        Task.FromResult(
+            DataTypeList.FirstOrDefault(t => t.Id == id) is { } type
+                ? UmbracoResponse<DataTypeResponse>.Success(type)
+                : UmbracoResponse<DataTypeResponse>.Failure(404, "Data type not found.")
+        );
 
     /// <summary>Every flag-built data-type create, in call order (#285 read-back tests).</summary>
     public List<CreateDataTypeRequest> DataTypeCreates { get; } = [];

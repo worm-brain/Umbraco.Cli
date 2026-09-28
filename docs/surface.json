@@ -387,7 +387,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --json-body ./body.json",
+          "description": "Create a new content item. Supply --json-body for full property control.\n\nExamples:\n  umbraco content create --document-type textPage --name \"About\"\n  umbraco content create --document-type textPage --name \"Child\" --parent <id>\n  umbraco content create --document-type blogPost --name \"Post\" --culture da-DK\n  umbraco content create --json-body ./body.json\n  umbraco content create --example --document-type blogPost -o json | jq .data > body.json",
           "arguments": [],
           "options": [
             {
@@ -405,13 +405,14 @@
             {
               "name": "--name",
               "aliases": [],
-              "description": "Display name for the new content item. Required unless --json-body or --schema is used.",
+              "description": "Display name for the new content item. Required unless --json-body, --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
               "requiredUnless": [
                 "--json-body",
-                "--schema"
+                "--schema",
+                "--example"
               ]
             },
             {
@@ -458,6 +459,15 @@
               "name": "--schema",
               "aliases": [],
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--example",
+              "aliases": [],
+              "description": "Print an example --json-body for --document-type, with one values[] entry per property filled in for its editor, and exit. --name and --culture fill the variant. Requires a host.",
               "type": "flag",
               "required": false,
               "hasDefault": true,

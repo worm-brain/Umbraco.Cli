@@ -40,7 +40,7 @@ umbraco commands | jq '.. | .name? // empty'          # every command name
 
 Each option and argument also says what it defaults to (`default`, when it has one) and, when it
 is required only in some modes, which options make it unnecessary (`requiredUnless`, e.g.
-`content create --name` has `["--json-body", "--schema"]` and reports `required: false`). A
+`content create --name` has `["--json-body", "--schema", "--example"]` and reports `required: false`). A
 command that takes `--json-body` names the command that prints the body's schema
 (`jsonBodySchema: "umbraco content create --schema"`).
 
@@ -63,6 +63,12 @@ schema requires no key, because the body is merged.
 Those nouns also take `--example`, which prints a **real** item from the instance (or a minimal
 valid body on a site with none) - usually the best starting point for a body you will edit. It
 needs a host.
+
+For content, `content create --example --document-type <alias>` prints a create body for that
+type with one `values[]` entry per property (compositions included), each holding an example
+of the value shape its editor takes, plus the `editorAlias` it was chosen by. An editor it does
+not know gets `"value": null` - look that one up rather than guessing. Replace the `<...>`
+placeholders, then pass the file to `content create --json-body`, which ignores `editorAlias`.
 
 ```bash
 umbraco content create --schema          # the shape of a content-create body
