@@ -65,13 +65,17 @@ public interface IWebhookClient
 
     /// <summary>
     /// Resolves the values of a webhook's type filter (#237): each a GUID, or the alias of exactly
-    /// one document, media or member type.
+    /// one document, media or member type. An unknown alias fails carrying the known aliases
+    /// (<see cref="UmbracoResponse{T}.UnknownValues"/>), and with <paramref name="events"/> a
+    /// filter none of those events can match is refused (#368).
     /// </summary>
     /// <param name="references">Type ids or aliases.</param>
+    /// <param name="events">The webhook's event aliases, to check the filter against; null skips that check.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The ids in the order given, or an invalid_argument failure.</returns>
     Task<UmbracoResponse<IReadOnlyList<Guid>>> ResolveWebhookTypesAsync(
         IEnumerable<string> references,
+        IReadOnlyCollection<string>? events = null,
         CancellationToken ct = default
     );
 

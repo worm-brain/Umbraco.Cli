@@ -81,6 +81,26 @@ public partial class HelpTextTests
         );
     }
 
+    /// <summary>
+    /// A paged command's <c>data</c> is the array of items (paging is in <c>meta</c>), so an example
+    /// that reads a field off <c>.data</c> (<c>.data.items[]</c>) fails in jq with "Cannot index
+    /// array". Checks the envelope shape of every paged command's examples.
+    /// </summary>
+    [Fact]
+    public void PagedCommandExamples_IndexDataAsAnArray()
+    {
+        AssertNone(
+            Commands()
+                .Where(c => c.Node.Options.Any(o => o.Name == "--take"))
+                .SelectMany(c =>
+                    (c.Node.Examples ?? [])
+                        .Where(e => DataField().IsMatch(e))
+                        .Select(e => $"{c.Path}: {e}")
+                ),
+            "Paged command example reading a field off the data array"
+        );
+    }
+
     [Fact]
     public void HelpText_CitesNoIssueNumbers()
     {
@@ -117,4 +137,8 @@ public partial class HelpTextTests
 
     [GeneratedRegex(@"\(#\d+\)|#\d{2,}")]
     private static partial Regex IssueNumber();
+
+    /// <summary>A jq path reading a named field off <c>.data</c>, e.g. <c>.data.items</c>.</summary>
+    [GeneratedRegex(@"\.data\.[A-Za-z_]")]
+    private static partial Regex DataField();
 }

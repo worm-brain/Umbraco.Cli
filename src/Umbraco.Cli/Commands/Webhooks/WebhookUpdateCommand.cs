@@ -25,13 +25,15 @@ public static class WebhookUpdateCommand
         var cmd = new Command(
             "update",
             "Update a webhook by id or name. Omitted options keep their values.\n\n"
-                + "--event and --type replace the current lists; --header merges by header name. "
+                + "--event and --type replace the current lists; --header merges by header name, "
+                + "and --header Name= (an empty value) removes that header. "
                 + "With --replace, the headers and types given are the whole set: any not given are removed."
         )
             .WithExamples(
                 "umbraco webhook update \"Deploy hook\" --enabled false",
                 "umbraco webhook update 3f7a8b2e-... --event Umbraco.ContentPublish --type blogPost",
                 "umbraco webhook update 3f7a8b2e-... --header X-Api-Key=abc123 --url https://my.app/hook",
+                "umbraco webhook update \"Deploy hook\" --header X-Old-Token=   # remove one header, keep the rest",
                 "umbraco webhook update \"Deploy hook\" --replace --header X-Api-Key=abc123 --yes   # drop other headers and the type filter"
             )
             .Mutating();
@@ -73,7 +75,7 @@ public static class WebhookUpdateCommand
         cmd.Add(enabledOpt);
         var headerOpt = WebhookOptions.AddHeader(
             cmd,
-            "A custom HTTP header sent with each delivery, as name=value. Repeat for several; each replaces a current header of the same name and the others are kept."
+            "A custom HTTP header sent with each delivery, as name=value. Repeat for several; each replaces a current header of the same name and the others are kept. An empty value (name=) removes that header."
         );
         var typeOpt = WebhookOptions.AddType(
             cmd,
@@ -89,12 +91,20 @@ public static class WebhookUpdateCommand
                             client,
                             async id =>
                             {
+                                var events = parseResult.GetValue(eventsOpt);
+
                                 // Resolve the type aliases before anything is written, so a typo
                                 // changes nothing.
                                 IReadOnlyList<Guid>? types = null;
                                 if (parseResult.GetValue(typeOpt) is { Length: > 0 } given)
                                 {
-                                    var resolved = await client.ResolveWebhookTypesAsync(given, c);
+                                    var resolved = WebhookOptions.WithTypeSuggestions(
+                                        await client.ResolveWebhookTypesAsync(
+                                            given,
+                                            await EventsAfterUpdateAsync(client, id, events, c),
+                                            c
+                                        )
+                                    );
                                     if (!resolved.IsSuccess)
                                         return UmbracoResponse<WebhookResponse>.FailureFrom(
                                             resolved
@@ -102,7 +112,6 @@ public static class WebhookUpdateCommand
                                     types = resolved.Data;
                                 }
 
-                                var events = parseResult.GetValue(eventsOpt);
                                 // An unknown event alias gets the same did-you-mean hint as create (#278).
                                 return WebhooksCreateCommand.WithEventSuggestions(
                                     await client.UpdateWebhookAsync(
@@ -131,5 +140,39 @@ public static class WebhookUpdateCommand
                 )
         );
         return cmd;
+    }
+
+    /// <summary>
+    /// The events the webhook will have once updated, for checking a new <c>--type</c> filter
+    /// against (#368): the given ones, or else the current ones read from the instance.
+    /// </summary>
+    /// <param name="client">The client.</param>
+    /// <param name="id">The webhook id.</param>
+    /// <param name="given">The <c>--event</c> values; empty when the option was not given.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// The event aliases, or null when the current webhook cannot be read: the check is then
+    /// skipped and the update itself reports the failure.
+    /// </returns>
+    internal static async Task<IReadOnlyCollection<string>?> EventsAfterUpdateAsync(
+        IUmbracoManagementClient client,
+        Guid id,
+        string[]? given,
+        CancellationToken ct
+    )
+    {
+        if (given is { Length: > 0 })
+            return given;
+
+        var current = await client.GetWebhookAsync(id, ct);
+        return current.IsSuccess
+            ?
+            [
+                .. (current.Data!.Events ?? [])
+                    .Select(e => e.Alias)
+                    .Where(a => !string.IsNullOrEmpty(a))
+                    .Select(a => a!),
+            ]
+            : null;
     }
 }

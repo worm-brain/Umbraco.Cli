@@ -128,6 +128,83 @@ public class DiagnosticsCommandTests
     }
 
     [Fact]
+    public async Task LogViewerList_All_PinsLaterPagesToTheFirstPagesNewestEntry()
+    {
+        // Newest-first offsets shift while the log grows, so --all repeated rows at page
+        // boundaries; every page after the first must end where the first began.
+        var newest = new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero);
+        var fake = new FakeUmbracoManagementClient();
+        fake.LogMessages.AddRange(
+            Enumerable
+                .Range(0, 150)
+                .Select(i => new LogMessageResponse { Timestamp = newest.AddSeconds(-i) })
+        );
+
+        await Run(BuildRoot(fake), $"{Auth} log-viewer list --all");
+
+        Assert.Equal(newest.AddMilliseconds(1), fake.LastLogQuery!.Value.End);
+    }
+
+    [Fact]
+    public async Task PinnedAfterFirstPage_Ascending_NeverPins()
+    {
+        var sent = new List<DateTimeOffset?>();
+        var call = LogViewerCommand.PinnedAfterFirstPage(
+            Recording(sent, DateTimeOffset.UnixEpoch),
+            endDate: null,
+            descending: false
+        );
+
+        await call(new FakeUmbracoManagementClient(), 0, 100, CancellationToken.None);
+        await call(new FakeUmbracoManagementClient(), 100, 100, CancellationToken.None);
+
+        Assert.Equal([null, null], sent);
+    }
+
+    [Fact]
+    public async Task PinnedAfterFirstPage_GivenEndBeforeNewest_KeepsTheGivenEnd()
+    {
+        var given = DateTimeOffset.UnixEpoch;
+        var sent = new List<DateTimeOffset?>();
+        var call = LogViewerCommand.PinnedAfterFirstPage(
+            Recording(sent, given.AddDays(1)),
+            endDate: given,
+            descending: true
+        );
+
+        await call(new FakeUmbracoManagementClient(), 0, 100, CancellationToken.None);
+        await call(new FakeUmbracoManagementClient(), 100, 100, CancellationToken.None);
+
+        Assert.Equal([given, given], sent);
+    }
+
+    /// <summary>A log query that records the end date it is sent and returns one entry.</summary>
+    /// <param name="sent">Receives each end date sent.</param>
+    /// <param name="timestamp">The returned entry's timestamp.</param>
+    /// <returns>The query.</returns>
+    private static Func<
+        IUmbracoManagementClient,
+        int,
+        int,
+        DateTimeOffset?,
+        CancellationToken,
+        Task<UmbracoResponse<PagedResponse<LogMessageResponse>>>
+    > Recording(List<DateTimeOffset?> sent, DateTimeOffset timestamp) =>
+        (_, _, _, end, _) =>
+        {
+            sent.Add(end);
+            return Task.FromResult(
+                UmbracoResponse<PagedResponse<LogMessageResponse>>.Success(
+                    new PagedResponse<LogMessageResponse>
+                    {
+                        Total = 1,
+                        Items = [new LogMessageResponse { Timestamp = timestamp }],
+                    }
+                )
+            );
+        };
+
+    [Fact]
     public async Task SavedSearchCreate_MapsNameAndQuery()
     {
         var fake = new FakeUmbracoManagementClient();

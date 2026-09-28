@@ -64,10 +64,14 @@ public static class WebhooksCreateCommand
                     parseResult,
                     async (client, c) =>
                     {
-                        // Resolve the type aliases first, so a typo creates nothing.
-                        var types = await client.ResolveWebhookTypesAsync(
-                            parseResult.GetValue(typeOpt) ?? [],
-                            c
+                        // Resolve the type aliases first, so a typo creates nothing. The events
+                        // go along so a filter they can never match is refused too (#368).
+                        var types = WebhookOptions.WithTypeSuggestions(
+                            await client.ResolveWebhookTypesAsync(
+                                parseResult.GetValue(typeOpt) ?? [],
+                                parseResult.GetValue(eventsOpt) ?? [],
+                                c
+                            )
                         );
                         if (!types.IsSuccess)
                             return UmbracoResponse<WebhookResponse>.FailureFrom(types);
@@ -81,9 +85,12 @@ public static class WebhooksCreateCommand
                                     Description = parseResult.GetValue(descOpt),
                                     Url = parseResult.GetValue(urlOpt)!,
                                     Events = parseResult.GetValue(eventsOpt) ?? [],
-                                    Headers = WebhookOptions.Headers(
-                                        parseResult.GetValue(headerOpt)
-                                    ),
+                                    // An empty value means "no such header", as on update
+                                    // (#367); on a new webhook that is nothing to send.
+                                    Headers = WebhookOptions
+                                        .Headers(parseResult.GetValue(headerOpt))
+                                        .Where(h => h.Value.Length > 0)
+                                        .ToDictionary(StringComparer.OrdinalIgnoreCase),
                                     ContentTypeKeys = types.Data!,
                                 },
                                 c
