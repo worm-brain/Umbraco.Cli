@@ -689,9 +689,13 @@ blocked command aborts before running with exit `2` and category `not_allowed`.
 - **Unset vs lockdown:** only a *truly unset* value (variable absent and no config
   `allowedCommands`) means no restriction. Any *present* value that is blank or separators-only
   (`" "`, `","`) is an explicit lockdown - nothing runs but the always-allowed `auth` group.
-- **Tighten-only:** the effective list is the most restrictive of the default store's and the
-  resolved one, so switching `--profile` or pointing `--config` at another file can only ever
-  *tighten* access, never widen it.
+- **Tighten-only:** every list in force applies and a command must pass all of them:
+  `UMBRACO_ALLOWED_COMMANDS`, and the `allowedCommands` of **every** profile in the default
+  config file (and, with `--config`, in that file too). A list set on any profile therefore
+  applies to the whole file, whichever profile is selected. Selecting another profile
+  (`--profile`, `UMBRACO_PROFILE`), changing the default (`auth profile use`), logging in to a
+  new profile, pointing `--config` at another file or setting the environment variable can only
+  ever *tighten* access, never widen it. To loosen a file list, edit the file.
 
 ```bash
 # An agent that may only read content and media, and never write:
@@ -699,7 +703,8 @@ UMBRACO_READONLY=1 UMBRACO_ALLOWED_COMMANDS=content,media umbraco content list
 ```
 
 **Enforcement boundary:** the environment-variable forms are the real boundary - set them in
-the supervising process. The config-file `allowedCommands` form is a convenience default.
+the supervising process. The config-file `allowedCommands` form holds against the session's own
+arguments, but not against anything that can write the config file itself.
 
 ### Preview writes
 
