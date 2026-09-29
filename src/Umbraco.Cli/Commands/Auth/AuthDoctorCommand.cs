@@ -85,7 +85,11 @@ public static class AuthDoctorCommand
     /// </summary>
     /// <param name="host">The resolved host, or null/empty when none is configured.</param>
     /// <param name="tokenOverride">A raw bearer token from <c>--token</c>, or null.</param>
-    /// <param name="config">The resolved credentials (client id/secret).</param>
+    /// <param name="config">
+    /// The resolved credentials (client id/secret). They are only used when <paramref name="host"/>
+    /// is <c>config.Host</c>; a different host (a <c>--host</c> override) fails the credentials check
+    /// instead of receiving them.
+    /// </param>
     /// <param name="httpClientFactory">Factory for the diagnostic HTTP probes.</param>
     /// <param name="authService">The client-credentials token service.</param>
     /// <param name="clientFactory">Factory for the typed client (identity check).</param>
@@ -133,20 +137,35 @@ public static class AuthDoctorCommand
             );
             return checks;
         }
+        // Plain HTTP to a remote host would put the secret and token on the wire in cleartext:
+        // the same rule every other command enforces (HostPolicy), reported rather than thrown.
+        if (HostPolicy.InsecureTransportError(host) is { } insecure)
+        {
+            checks.Add(new DoctorCheck("Host configured", "fail", insecure));
+            return checks;
+        }
         checks.Add(new DoctorCheck("Host configured", "pass", host));
 
-        // 2. Credentials present.
+        // 2. Credentials present. Configured credentials are bound to the configured host: a
+        // --host naming another instance does not get them (the same rule as CommandContextFactory).
         var hasToken = !string.IsNullOrEmpty(tokenOverride);
-        var hasCreds =
+        var credsConfigured =
             !string.IsNullOrEmpty(config.ClientId) && !string.IsNullOrEmpty(config.ClientSecret);
+        var credsForOtherHost = credsConfigured && !HostPolicy.IsSameHost(host, config.Host);
+        var hasCreds = credsConfigured && !credsForOtherHost;
         checks.Add(
-            (hasToken, hasCreds) switch
+            (hasToken, hasCreds, credsForOtherHost) switch
             {
-                (true, _) => new DoctorCheck("Credentials present", "pass", "Using --token."),
-                (false, true) => new DoctorCheck(
+                (true, _, _) => new DoctorCheck("Credentials present", "pass", "Using --token."),
+                (false, true, _) => new DoctorCheck(
                     "Credentials present",
                     "pass",
                     "Client id/secret found."
+                ),
+                (false, false, true) => new DoctorCheck(
+                    "Credentials present",
+                    "fail",
+                    CommandContextFactory.CredentialHostMismatchMessage(host)
                 ),
                 _ => new DoctorCheck(
                     "Credentials present",

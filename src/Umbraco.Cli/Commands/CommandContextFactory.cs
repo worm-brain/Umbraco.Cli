@@ -53,7 +53,10 @@ public sealed class CommandContextFactory
     /// <param name="parseResult">The parsed command line.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The built context.</returns>
-    /// <exception cref="CommandAbortedException">No host, not authenticated, or blocked by the allow-list.</exception>
+    /// <exception cref="CommandAbortedException">
+    /// No host, not authenticated, blocked by the allow-list, a plain-HTTP non-loopback host, or a
+    /// <c>--host</c> the configured credentials are not bound to (see <see cref="UsesCredentialsForOtherHost"/>).
+    /// </exception>
     public async Task<CommandContext> CreateAsync(
         ParseResult parseResult,
         CancellationToken ct = default
@@ -128,6 +131,17 @@ public sealed class CommandContextFactory
             );
             throw new CommandAbortedException();
         }
+
+        // Credentials (a client secret, or the bearer every request carries) never travel over
+        // plain HTTP to a non-loopback host.
+        if (HostPolicy.InsecureTransportError(host) is { } insecure)
+            Abort(output, insecure, commandName);
+
+        // Stored and environment credentials are bound to the host they were configured with.
+        // A --host naming another instance may only be used with a --token given alongside it,
+        // otherwise the configured secret would be sent to whatever host the caller names.
+        if (UsesCredentialsForOtherHost(hostOverride, tokenOverride, config))
+            Abort(output, CredentialHostMismatchMessage(hostOverride!), commandName);
 
         string bearerToken;
         if (!string.IsNullOrEmpty(tokenOverride))
@@ -211,6 +225,48 @@ public sealed class CommandContextFactory
             ReadOnly = IsReadOnly(parseResult),
             Previewed = _mutationState.Previewed,
         };
+    }
+
+    /// <summary>
+    /// Whether this invocation would send the configured client credentials to a host other than
+    /// the one they were configured for: a <c>--host</c> is given, no <c>--token</c> replaces the
+    /// credentials, a client secret is configured, and the override names a different host than
+    /// the resolved profile / <c>UMBRACO_HOST</c> value.
+    /// </summary>
+    /// <param name="hostOverride">The <c>--host</c> value, or null.</param>
+    /// <param name="tokenOverride">The <c>--token</c> value, or null.</param>
+    /// <param name="config">The resolved profile and environment configuration.</param>
+    /// <returns>True when the credentials must not be used.</returns>
+    internal static bool UsesCredentialsForOtherHost(
+        string? hostOverride,
+        string? tokenOverride,
+        CliConfig config
+    ) =>
+        hostOverride is not null
+        && string.IsNullOrEmpty(tokenOverride)
+        && !string.IsNullOrEmpty(config.ClientSecret)
+        && !HostPolicy.IsSameHost(hostOverride, config.Host);
+
+    /// <summary>The error for a <c>--host</c> that the configured credentials are not bound to.</summary>
+    /// <param name="hostOverride">The <c>--host</c> value.</param>
+    /// <returns>The message, naming the ways to target that host.</returns>
+    internal static string CredentialHostMismatchMessage(string hostOverride) =>
+        $"--host '{hostOverride}' is not the host the configured credentials belong to, so they "
+        + "will not be sent there. Pass --token with --host, use a profile logged in to that host "
+        + "('umbraco auth login --host <url> --profile <name>'), or set UMBRACO_HOST with its "
+        + "own UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET.";
+
+    /// <summary>
+    /// Writes a refusal (exit code 2, category <c>refused</c>) and aborts the command.
+    /// </summary>
+    /// <param name="output">The output writer.</param>
+    /// <param name="message">The error message.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <exception cref="CommandAbortedException">Always.</exception>
+    private static void Abort(IOutputWriter output, string message, string commandName)
+    {
+        output.WriteError(ExitCode.Aborted, FailureCategory.Refused, message, commandName);
+        throw new CommandAbortedException();
     }
 
     /// <summary>

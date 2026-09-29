@@ -127,7 +127,7 @@ public sealed class UmbracoAuthService
     /// (<c>auth login</c>, <c>auth doctor</c>). The new token is still cached.
     /// </param>
     /// <returns>The bearer token.</returns>
-    /// <exception cref="UmbracoAuthException">The token request failed, timed out, could not reach the host, or returned an unreadable body.</exception>
+    /// <exception cref="UmbracoAuthException">The host is plain <c>http://</c> and not loopback (see <see cref="HostPolicy.InsecureTransportError"/>), or the token request failed, timed out, could not reach the host, or returned an unreadable body.</exception>
     public async Task<string> GetTokenAsync(
         string host,
         string clientId,
@@ -136,6 +136,11 @@ public sealed class UmbracoAuthService
         bool fresh = false
     )
     {
+        // Never put the client secret on the wire in cleartext. Checked here, not only by the
+        // callers, so every path that exchanges credentials (commands, login, doctor) is covered.
+        if (HostPolicy.InsecureTransportError(host) is { } insecure)
+            throw new UmbracoAuthException(0, insecure);
+
         var key = CacheKey(host, clientId, clientSecret);
         await _lock.WaitAsync(ct);
         try

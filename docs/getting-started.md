@@ -196,6 +196,8 @@ Run `umbraco auth doctor` first - it names the failing stage. Common cases:
 |---|---|---|
 | `No host configured` (exit 2) | No `--host`, no `UMBRACO_HOST`, no saved profile. | Run `auth login`, or set `UMBRACO_HOST`. |
 | `Not authenticated` (exit 2) | Missing/invalid client id or secret. | Re-check the API user's credentials; re-run `auth login`. |
+| `Refusing to send credentials ... over plain HTTP` (exit 2) | The host is `http://` and not `localhost` / `127.0.0.1` / `::1`. | Use the instance's `https://` URL. |
+| `--host '...' is not the host the configured credentials belong to` (exit 2) | `--host` names a different instance than the profile or `UMBRACO_HOST`. | Pass `--token` with `--host`, or log in a profile for that host and use `--profile`. |
 | TLS / connection failure in `auth doctor` | Wrong host, self-signed cert, or instance down. | Verify the URL in a browser; for local dev, use the real https URL. |
 | `401` on a real command | Token could not be obtained. | Confirm client id/secret; run `auth doctor`. |
 | `403` on a real command | The API user lacks that permission. | Widen the API user's permissions in the backoffice (step 3). |
