@@ -33,6 +33,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege (SEC-CICD-003): the build runs third-party package code via restore/
+# build/test and needs only to read the repo. Pinned here so a change to the repo's
+# default token setting can never widen it.
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build & Test (${{ matrix.os }})

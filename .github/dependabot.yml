@@ -1,0 +1,16 @@
+# Dependabot keeps the GitHub Actions that the workflows use up to date. publish.yml and
+# security.yml pin actions to full commit SHAs (with the tag in a trailing comment), so
+# without this the pins would never move. Dependabot updates the SHA and the comment together.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # One PR per week for all action bumps rather than one per action.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
