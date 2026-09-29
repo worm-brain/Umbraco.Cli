@@ -9,6 +9,7 @@ no live Umbraco instance (#139, #77).
   python3 bench.py --cli local --umbraco 17
   python3 bench.py --cli 0.1.0-alpha.6,local --umbraco 17,18
   python3 bench.py --scenario get,list --runs 20 --out-dir .cache/bench/scratch
+  python3 bench.py --cli local --latency 25   also time each scenario through a proxy adding 25 ms per request
   python3 bench.py report      regenerate README.md's Performance section and docs/performance.md; times nothing
 
 CLI builds (--cli, comma-separated):
@@ -39,6 +40,14 @@ Per scenario and build:
   before 0.1.0-alpha.15 don't log the OAuth token exchange, and builds before alpha.14 have no token
   cache and exchange a token on every run, so for those that round trip is in the CLI overhead.
 
+Latency (--latency <ms>): localhost answers a request in about a millisecond, which hides what a command's
+request count costs against a real host. With --latency, each API scenario is also timed through
+tools/latency_proxy.py, a local TCP proxy that delays everything the CLI sends by that many milliseconds, so
+each request round trip gains about that much (#428). Those runs are separate result rows with `latencyMs`
+set (0 on direct rows); --latency-only skips the direct runs. They pass --host (the proxy) and --token (a
+fresh client-credentials token per scenario), because the CLI's stored credentials are tied to the host.
+`version` makes no requests, so it has no latency run.
+
 The CLI runs with every UMBRACO_* variable cleared, the dev site's API user in UMBRACO_HOST /
 UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET, and --config naming a file that doesn't exist, so your own
 profiles, defaults and allow-lists are never read. The token cache is the normal per-user one, so after
@@ -53,6 +62,7 @@ needs neither hyperfine nor a site; `bench.py report --help` says what it quotes
 """
 import argparse
 import collections
+import contextlib
 import json
 import os
 import platform
@@ -124,11 +134,19 @@ def parse_args():
     p.add_argument("--hyperfine", help="Path to hyperfine. Default: $HYPERFINE, then PATH")
     p.add_argument("--machine", help="Machine label for the results file name. Default: OS and CPU model, e.g. windows-amd-ryzen-9-7950x")
     p.add_argument("--out-dir", type=Path, default=RESULTS, help="Where to write the results. Default: docs/performance/results")
+    p.add_argument("--latency", type=int, metavar="MS",
+                   help="Also time each API scenario through a local proxy that adds MS milliseconds to every request. "
+                        "Default: direct runs only")
+    p.add_argument("--latency-only", action="store_true", help="With --latency: skip the direct runs")
     p.add_argument("--note", help='A note stored with the results and shown on docs/performance.md, such as "busy machine: '
                                   'a build ran alongside". Default: none')
     a = p.parse_args()
     if a.runs < 2 or a.warmup < 0 or a.http_runs < 1:
         p.error("--runs must be at least 2 (for a spread), --warmup at least 0 and --http-runs at least 1")
+    if a.latency is not None and a.latency < 1:
+        p.error("--latency must be at least 1 ms (leave it out for direct runs only)")
+    if a.latency_only and a.latency is None:
+        p.error("--latency-only needs --latency <ms>")
     return a
 
 
@@ -394,6 +412,51 @@ def cli_env(site):
     return env
 
 
+# ---------------------------------------------------------------- latency ----
+class LatencyProxy:
+    """tools/latency_proxy.py in front of the dev site, for the --latency runs; stopped when the `with` ends.
+
+    :param site: the dev Site (its port is the proxy's target).
+    :param delay_ms: milliseconds added to every chunk the CLI sends.
+    """
+
+    def __init__(self, site, delay_ms):
+        self.site, self.delay_ms, self.proc, self.host = site, delay_ms, None, None
+
+    def __enter__(self):
+        cmd = [PY, str(ROOT / "tools" / "latency_proxy.py"), "--target-port", str(self.site.port),
+               "--delay", str(self.delay_ms)]
+        self.proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, text=True)
+        ready = self.proc.stdout.readline().split()  # "listening <port>", or nothing when it failed to start
+        if ready[:1] != ["listening"]:
+            self.proc.kill()
+            die(f"The latency proxy didn't start (exit {self.proc.wait()}).")
+        # Same scheme and host name as the site, so its localhost certificate matches; only the port differs.
+        self.host = re.sub(r":\d+$", f":{ready[1]}", self.site.host.rstrip("/"))
+        say(f"Latency proxy: {self.host} -> port {self.site.port}, +{self.delay_ms} ms per request")
+        return self
+
+    def __exit__(self, *_):
+        self.proc.kill()
+        self.proc.wait()
+
+    def via(self):
+        """The options that send one CLI run through the proxy: --host plus a fresh bearer token.
+
+        A token from the site itself, because the CLI's credentials (and its token cache) are tied to the host
+        they are for. The dev site's tokens live 300 s, so each scenario asks for its own.
+
+        :returns: the extra argv.
+        :raises SystemExit: when the site doesn't issue a token.
+        """
+        creds = self.site.credentials()["apiUser"]
+        status, _, body = harness.Http().request(
+            "POST", f"{self.site.host.rstrip('/')}/umbraco/management/api/v1/security/back-office/token",
+            form={"grant_type": "client_credentials", "client_id": creds["clientId"], "client_secret": creds["clientSecret"]})
+        token = json.loads(body).get("access_token") if status == 200 else None
+        return ["--host", self.host, "--token", token or die(f"The dev site didn't issue a token (HTTP {status}).")]
+
+
 def expand(argv, fill):
     """Fill a scenario's {placeholders}.
 
@@ -483,7 +546,7 @@ def hyperfine_run(hyperfine, name, argv, env, a, export):
         {"times": [ms(t) for t in stats.get("times", [])]}
 
 
-def bench(scenario, cli, umbraco, fill, env, hyperfine, a, raw_dir):
+def bench(scenario, cli, umbraco, fill, env, hyperfine, a, raw_dir, proxy=None):
     """Run one scenario for one CLI build on the current site: smoke run, hyperfine, then the HTTP runs.
 
     :param scenario: the Scenario.
@@ -494,20 +557,23 @@ def bench(scenario, cli, umbraco, fill, env, hyperfine, a, raw_dir):
     :param hyperfine: the hyperfine path.
     :param a: the parsed options.
     :param raw_dir: where hyperfine's own exports go.
+    :param proxy: a running LatencyProxy to time the command through, or None for a direct run.
     :returns: one result row (see README.md, "Benchmarks").
     """
+    latency = proxy.delay_ms if proxy else 0
     row = {"scenario": scenario.name, "command": " ".join(["umbraco", *scenario.argv]),
            "cli": {"label": cli.label, "version": cli.version, "commit": cli.commit, "dotnet": cli.dotnet},
-           "umbraco": umbraco, "status": "ok"}
-    argv = [cli.exe, *expand(scenario.argv, fill)]
-    say(f"{scenario.name}: CLI {cli.label}{f' ({cli.version})' if cli.label != cli.version else ''}, Umbraco {umbraco}")
+           "umbraco": umbraco, "latencyMs": latency, "status": "ok"}
+    argv = [cli.exe, *expand(scenario.argv, fill), *(proxy.via() if proxy else [])]
+    say(f"{scenario.name}: CLI {cli.label}{f' ({cli.version})' if cli.label != cli.version else ''}, Umbraco {umbraco}"
+        f"{f', +{latency} ms latency' if latency else ''}")
 
     code, _, _, error = verbose_run(argv, env, scenario.http)  # smoke run: also warms the token cache
     if code:
         warn(f"{scenario.name} failed on CLI {cli.version} (exit {code}), so it is skipped: {error}")
         return {**row, "status": "failed", "error": f"exit {code}: {error}"}
 
-    export = raw_dir / f"umbraco-{umbraco}_cli-{cli.version}_{scenario.name}.json"
+    export = raw_dir / f"umbraco-{umbraco}_cli-{cli.version}_{scenario.name}{f'_latency-{latency}' if latency else ''}.json"
     timing = hyperfine_run(hyperfine, scenario.name, argv, env, a, export)
     if timing is None:
         return {**row, "status": "failed", "error": "hyperfine reported a failure (see its output above)"}
@@ -547,19 +613,23 @@ def summary_markdown(doc):
              f"- **Method:** hyperfine {h['version']} ({h['warmup']} warm-up + {h['runs']} timed runs per command) against "
              f"the tests/hands-on dev site and its fixture content. HTTP time is the mean of {doc['httpRuns']} separate "
              "`--verbose` runs, and CLI overhead is end-to-end minus HTTP (tests/hands-on/README.md, Benchmarks).",
-             *([f"- **Note:** {doc['note']}"] if doc.get("note") else []),
-             "",
-             "| Scenario | CLI | Umbraco | End-to-end ms (mean +/- sd) | HTTP ms | CLI overhead ms | Requests |",
-             "|---|---|---|--:|--:|--:|--:|"]
-    for r in doc["results"]:
-        cli = r["cli"]["version"]
-        if r["status"] != "ok":
-            error = r["error"] if len(r["error"]) <= 100 else r["error"][:97] + "..."
-            lines.append(f"| {r['scenario']} | {cli} | {r['umbraco']} | failed ({error.replace('|', '/')}) | | | |")
-            continue
-        e2e = r["endToEndMs"]
-        lines.append(f"| {r['scenario']} | {cli} | {r['umbraco']} | {fmt(e2e['mean'])} +/- {fmt(e2e['stddev'])} | "
-                     f"{fmt(r['httpMs'])} | {fmt(r['cliOverheadMs'])} | {r['requests']} |")
+             *([f"- **Note:** {doc['note']}"] if doc.get("note") else [])]
+    # Direct rows first, then one table per injected latency, so the two are never read as one series.
+    for latency in sorted({r.get("latencyMs", 0) for r in doc["results"]}):
+        if latency:
+            lines += ["", f"Through the latency proxy, +{latency} ms per request:"]
+        lines += ["",
+                  "| Scenario | CLI | Umbraco | End-to-end ms (mean +/- sd) | HTTP ms | CLI overhead ms | Requests |",
+                  "|---|---|---|--:|--:|--:|--:|"]
+        for r in (r for r in doc["results"] if r.get("latencyMs", 0) == latency):
+            cli = r["cli"]["version"]
+            if r["status"] != "ok":
+                error = r["error"] if len(r["error"]) <= 100 else r["error"][:97] + "..."
+                lines.append(f"| {r['scenario']} | {cli} | {r['umbraco']} | failed ({error.replace('|', '/')}) | | | |")
+                continue
+            e2e = r["endToEndMs"]
+            lines.append(f"| {r['scenario']} | {cli} | {r['umbraco']} | {fmt(e2e['mean'])} +/- {fmt(e2e['stddev'])} | "
+                         f"{fmt(r['httpMs'])} | {fmt(r['cliOverheadMs'])} | {r['requests']} |")
     return "\n".join(lines) + "\n"
 
 
@@ -603,9 +673,14 @@ def main():
         site = prepare_site(umbraco, a.reset)
         fill, env = placeholders(site), cli_env(site)
         heading(f"Timing on Umbraco {umbraco}")
-        for cli in clis:
-            for scenario in scenarios:
-                rows.append(bench(scenario, cli, umbraco, fill, env, hyperfine, a, raw_dir))
+        with contextlib.ExitStack() as stack:
+            proxy = stack.enter_context(LatencyProxy(site, a.latency)) if a.latency else None
+            for cli in clis:
+                for scenario in scenarios:
+                    if not a.latency_only:
+                        rows.append(bench(scenario, cli, umbraco, fill, env, hyperfine, a, raw_dir))
+                    if proxy and scenario.http:  # a command with no requests has nothing to delay
+                        rows.append(bench(scenario, cli, umbraco, fill, env, hyperfine, a, raw_dir, proxy))
 
     # ---- results: JSON for tools (#411), markdown for people ----------------
     doc = {"schemaVersion": SCHEMA_VERSION, "date": started.isoformat().replace("+00:00", "Z"), "machine": machine,

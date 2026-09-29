@@ -9,9 +9,9 @@ documents the schema), then:
 
 - rewrites only the lines between `<!-- perf:start -->` and `<!-- perf:end -->` in the repository's README.md:
   a headline table (startup, one `get`, one large export, each with its request count) for the newest published
-  CLI build on the newest Umbraco version in the newest results file, stamped with the machine, versions and
-  date. A `local` build is quoted only when that file has no published one, because readers install published
-  builds;
+  CLI build on the newest Umbraco version in the newest results file with direct runs, stamped with the machine,
+  versions and date. A `local` build is quoted only when that file has no published one, because readers install
+  published builds. Runs through the latency proxy (`bench.py --latency`) are never quoted there;
 - writes docs/performance.md whole: the method, every run, history per scenario across CLI builds, the Umbraco
   version comparison, how to reproduce every number, and the caveats.
 
@@ -91,6 +91,26 @@ def load_results(folder):
 
 
 # ---------------------------------------------------------------- builds -----
+def latency(row):
+    """The latency a result was timed through (`bench.py --latency`): 0 for a direct run.
+
+    Files written before the field existed hold direct runs only, so a missing field is 0.
+
+    :param row: a results row.
+    :returns: the added milliseconds per request.
+    """
+    return row.get("latencyMs") or 0
+
+
+def direct(doc):
+    """Whether a results document has a successful direct (no added latency) result, which the README can quote.
+
+    :param doc: a results document.
+    :returns: True when it has one.
+    """
+    return any(r["status"] == "ok" and not latency(r) for r in doc["results"])
+
+
 def is_local(cli):
     """Whether a result's CLI build was packed from a checkout (`--cli local`) rather than published.
 
@@ -130,21 +150,23 @@ def major(version):
 def headline(doc):
     """Choose what the README quotes from one results document.
 
-    That is the document's newest Umbraco version with a successful result and, on that version, its newest
-    published CLI build; a local build only when no published build succeeded on it.
+    That is the document's newest Umbraco version with a successful direct result and, on that version, its
+    newest published CLI build; a local build only when no published build succeeded on it. Latency runs are
+    never quoted: the README's numbers are direct runs.
 
     :param doc: the results document.
-    :returns: `(Umbraco version, the build's cli, {scenario: row})`, the rows including failed ones.
-    :raises SystemExit: when the document has no successful result at all.
+    :returns: `(Umbraco version, the build's cli, {scenario: row})`, the direct rows including failed ones.
+    :raises SystemExit: when the document has no successful direct result at all.
     """
-    ok = [r for r in doc["results"] if r["status"] == "ok"]
+    ok = [r for r in doc["results"] if r["status"] == "ok" and not latency(r)]
     if not ok:
-        die(f"The newest results file ({doc['date']}) has no successful result, so the README has nothing to "
-            "quote. Nothing was written.")
+        die(f"The newest results file with direct runs ({doc['date']}) has no successful direct result, so the "
+            "README has nothing to quote. Nothing was written.")
     umbraco = max((r["umbraco"] for r in ok), key=harness.version_key)
     on_it = [r["cli"] for r in ok if r["umbraco"] == umbraco]
     cli = max([c for c in on_it if not is_local(c)] or on_it, key=build_key)
-    rows = {r["scenario"]: r for r in doc["results"] if r["umbraco"] == umbraco and r["cli"]["version"] == cli["version"]}
+    rows = {r["scenario"]: r for r in doc["results"]
+            if r["umbraco"] == umbraco and r["cli"]["version"] == cli["version"] and not latency(r)}
     return umbraco, cli, rows
 
 
@@ -377,6 +399,11 @@ def method_section(scenarios):
                 "that time is the CLI's (CLI overhead) or the server's (HTTP time).",
                 "**Can't catch:** small regressions, reliably: it runs on one machine against a local site, and "
                 "other load on the machine moves the numbers. It doesn't run in CI."),
+        para("On localhost a request takes about a millisecond, which hides what a command's request count costs "
+             "against a real host. `bench.py --latency <ms>` also times each API scenario through a local TCP "
+             "proxy that delays everything the CLI sends by that much, so each request round trip gains about "
+             f"that delay ({link(428)}). Those results are kept apart from the direct ones: they get a table of their "
+             "own under each scenario below, and the README never quotes them."),
         para("The scenarios (the `SCENARIOS` table in `bench.py`):"),
         table(["Scenario", "Command", "What it exercises"], "lll",
               [[f"`{s.name}`", f"`{display_command(' '.join(['umbraco', *s.argv]))}`", s.about] for s in scenarios]),
@@ -403,10 +430,12 @@ def history_section(runs, scenario_key):
     for stem, doc in runs:
         rows, h = doc["results"], doc["hyperfine"]
         builds = sorted({r["cli"]["version"]: r["cli"] for r in rows}.values(), key=build_key)
+        delays = sorted({latency(r) for r in rows} - {0})
+        through = "".join(f"; +{d} ms latency runs" for d in delays)
         run_rows.append([run_link(stem, doc), doc["machine"]["label"], ", ".join(dict.fromkeys(r["umbraco"] for r in rows)),
                          ", ".join(build_name(c) for c in builds),
-                         f"{h['version']}: {h['warmup']} warm-up + {h['runs']} timed runs; {doc['httpRuns']} HTTP runs",
-                         doc.get("note") or ""])
+                         f"{h['version']}: {h['warmup']} warm-up + {h['runs']} timed runs; {doc['httpRuns']} HTTP runs"
+                         f"{through}", doc.get("note") or ""])
         machines[doc["machine"]["label"]] = doc["machine"]  # the newest file's details win
 
     parts = [
@@ -426,10 +455,19 @@ def history_section(runs, scenario_key):
         mine = sorted((x for x in results if x[2]["scenario"] == name),
                       key=lambda x: (build_key(x[2]["cli"]), x[1]["date"], x[0], harness.version_key(x[2]["umbraco"])))
         commands = dict.fromkeys(f"`{display_command(r['command'])}`" for _, _, r in mine)
-        parts += [f"### `{name}`", para(f"Command: {'; '.join(commands)}"),
-                  table(["CLI", "Umbraco", "Run", "Machine", *RESULT_HEADERS], "llllrrrr",
-                        [[build_name(r["cli"]), r["umbraco"], run_link(stem, doc), doc["machine"]["label"], *timing(r)]
-                         for stem, doc, r in mine])]
+        parts += [f"### `{name}`", para(f"Command: {'; '.join(commands)}")]
+        # The direct runs, then the latency runs in a table of their own, so the two are never one series.
+        plain = [x for x in mine if not latency(x[2])]
+        if plain:
+            parts.append(table(["CLI", "Umbraco", "Run", "Machine", *RESULT_HEADERS], "llllrrrr",
+                               [[build_name(r["cli"]), r["umbraco"], run_link(stem, doc), doc["machine"]["label"],
+                                 *timing(r)] for stem, doc, r in plain]))
+        delayed = sorted((x for x in mine if latency(x[2])), key=lambda x: latency(x[2]))  # stable: keeps the order
+        if delayed:
+            parts += [para("Through the latency proxy (`--latency`), with the milliseconds it added to each request:"),
+                      table(["CLI", "Umbraco", "Run", "Machine", "Added latency ms", *RESULT_HEADERS], "llllrrrrr",
+                            [[build_name(r["cli"]), r["umbraco"], run_link(stem, doc), doc["machine"]["label"],
+                              str(latency(r)), *timing(r)] for stem, doc, r in delayed])]
     return "\n\n".join(parts)
 
 
@@ -445,7 +483,7 @@ def umbraco_section(runs, scenario_key):
     """
     newest = {}
     for stem, doc in runs:  # oldest first, so a newer run replaces an older one
-        for r in doc["results"]:
+        for r in (r for r in doc["results"] if not latency(r)):  # direct runs only
             newest[(doc["machine"]["label"], r["scenario"], r["cli"]["version"], r["umbraco"])] = (stem, doc, r)
     groups = {}
     for (machine, scenario, version, _), found in newest.items():
@@ -494,6 +532,9 @@ def rerun_command(doc, scenario_names):
     timed = list(dict.fromkeys(r["scenario"] for r in rows))
     if set(timed) != set(scenario_names):
         cmd += ["--scenario", ",".join(timed)]
+    delays = sorted({latency(r) for r in rows} - {0})
+    if delays:
+        cmd += ["--latency", str(delays[-1])] + ([] if any(not latency(r) for r in rows) else ["--latency-only"])
     return " ".join(cmd + ["--warmup", str(h["warmup"]), "--runs", str(h["runs"]), "--http-runs", str(doc["httpRuns"])])
 
 
@@ -582,6 +623,20 @@ def caveats_section(runs):
     return "\n\n".join(["## Caveats", "\n".join([bullets(noise), *(para(n, "  - ") for n in noted), others])])
 
 
+def quoted(runs):
+    """The run the README quotes: the newest one with a successful direct result (latency-only runs are skipped).
+
+    :param runs: every `(stem, doc)`, oldest first.
+    :returns: that `(stem, doc)`.
+    :raises SystemExit: when no run has a successful direct result.
+    """
+    for stem, doc in reversed(runs):
+        if direct(doc):
+            return stem, doc
+    die("No results file has a successful direct run (without --latency), so the README has nothing to quote. "
+        "Nothing was written.")
+
+
 def render_page(runs, scenarios):
     """docs/performance.md, whole.
 
@@ -593,7 +648,7 @@ def render_page(runs, scenarios):
 
     def scenario_key(name):
         return order.get(name, len(order)), name
-    stem, doc = runs[-1]
+    stem, doc = quoted(runs)
     umbraco, cli, _ = headline(doc)
     return "\n\n".join([
         "# Performance",
@@ -676,7 +731,7 @@ def main(argv, scenarios):
     argparse.ArgumentParser(prog="bench.py report", description=__doc__,
                             formatter_class=argparse.RawDescriptionHelpFormatter).parse_args(argv)
     runs = load_results(RESULTS)
-    stem, doc = runs[-1]
+    stem, doc = quoted(runs)
 
     # ---- render both, and check the README's markers, before writing either --------
     old_readme = read_raw(README)

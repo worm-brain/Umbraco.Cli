@@ -73,6 +73,12 @@ is the end-to-end time minus the HTTP time. The results are committed to
 - **Can't catch:** small regressions, reliably: it runs on one machine against a local site, and other load on
   the machine moves the numbers. It doesn't run in CI.
 
+On localhost a request takes about a millisecond, which hides what a command's request count costs against a
+real host. `bench.py --latency <ms>` also times each API scenario through a local TCP proxy that delays
+everything the CLI sends by that much, so each request round trip gains about that delay
+([#428](https://github.com/worm-brain/Umbraco.Cli/issues/428)). Those results are kept apart from the direct
+ones: they get a table of their own under each scenario below, and the README never quotes them.
+
 The scenarios (the `SCENARIOS` table in `bench.py`):
 
 | Scenario | Command | What it exercises |
