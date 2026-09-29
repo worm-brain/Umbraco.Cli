@@ -174,10 +174,12 @@ public sealed class UmbracoAuthService
 
                 if (!response.IsSuccessStatusCode)
                 {
+                    // Never echo the raw body: a server or proxy that reflects the form would
+                    // put the client secret into the error output (SEC-AUTH-001).
                     var body = await response.Content.ReadAsStringAsync(ct);
                     throw new UmbracoAuthException(
                         (int)response.StatusCode,
-                        $"Token request failed ({(int)response.StatusCode}): {body}"
+                        DescribeTokenFailure((int)response.StatusCode, body, clientSecret)
                     );
                 }
 
@@ -225,6 +227,89 @@ public sealed class UmbracoAuthService
         {
             _lock.Release();
         }
+    }
+
+    /// <summary>The most characters of a server-supplied OAuth error field that are reported.</summary>
+    private const int MaxErrorFieldLength = 200;
+
+    /// <summary>
+    /// The message for a failed token request. Only the standard OAuth <c>error</c> and
+    /// <c>error_description</c> fields of a JSON body are reported (RFC 6749 section 5.2), each
+    /// with the client secret removed, control and format characters stripped, and cut to
+    /// <see cref="MaxErrorFieldLength"/> characters. Nothing else in the body is ever shown, so a
+    /// server that reflects the request cannot make the CLI print the secret it just sent.
+    /// </summary>
+    /// <param name="statusCode">The HTTP status of the token response.</param>
+    /// <param name="body">The raw response body; may be empty, non-JSON or hostile.</param>
+    /// <param name="clientSecret">The secret that was sent, scrubbed from anything reported.</param>
+    /// <returns>A single-line message naming the status and, when present, the OAuth error.</returns>
+    internal static string DescribeTokenFailure(int statusCode, string body, string clientSecret)
+    {
+        string? error = null;
+        string? description = null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                error = OAuthField(doc.RootElement, "error", clientSecret);
+                description = OAuthField(doc.RootElement, "error_description", clientSecret);
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Not JSON (an HTML error page, plain text): nothing in it is safe to quote.
+        }
+
+        var prefix = $"Token request failed ({statusCode})";
+        return (error, description) switch
+        {
+            (not null, not null) => $"{prefix}: {error} - {description}",
+            (not null, null) => $"{prefix}: {error}",
+            (null, not null) => $"{prefix}: {description}",
+            _ => $"{prefix}: the server returned an unexpected error response.",
+        };
+    }
+
+    /// <summary>
+    /// One string field of an OAuth error body, made safe to print: the client secret replaced by
+    /// <c>[redacted]</c>, control characters turned into spaces, format characters (bidi
+    /// overrides, zero-width marks) dropped, and the result trimmed and length-capped.
+    /// </summary>
+    /// <param name="root">The body's root object.</param>
+    /// <param name="name">The field name.</param>
+    /// <param name="clientSecret">The secret that was sent.</param>
+    /// <returns>The cleaned value, or null when the field is missing, not a string, or empty once cleaned.</returns>
+    private static string? OAuthField(
+        System.Text.Json.JsonElement root,
+        string name,
+        string clientSecret
+    )
+    {
+        if (
+            !root.TryGetProperty(name, out var value)
+            || value.ValueKind != System.Text.Json.JsonValueKind.String
+        )
+            return null;
+
+        var text = value.GetString() ?? "";
+        // Scrub before cutting, so a cut can never leave a prefix of the secret behind.
+        if (clientSecret.Length > 0)
+            text = text.Replace(clientSecret, "[redacted]", StringComparison.Ordinal);
+
+        var clean = new StringBuilder(text.Length);
+        foreach (var c in text)
+        {
+            if (char.IsControl(c))
+                clean.Append(' ');
+            else if (char.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.Format)
+                clean.Append(c);
+        }
+
+        var result = clean.ToString().Trim();
+        if (result.Length > MaxErrorFieldLength)
+            result = result[..MaxErrorFieldLength].TrimEnd() + "...";
+        return result.Length == 0 ? null : result;
     }
 
     /// <summary>
