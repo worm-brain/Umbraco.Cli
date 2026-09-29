@@ -253,3 +253,8 @@ Each exception is deliberate or tracked; don't copy it.
   domain bindings). This writes down what the options already did, except `content domain set
   --domain host=`, which sent a binding with an empty ISO code and now removes that host's
   binding.
+- **2026-09-29** - 7: where credentials may be sent. A plain `http://` host is refused unless it
+  is loopback, and stored or `UMBRACO_CLIENT_*` credentials are only sent to the host they were
+  configured with, so a differing `--host` needs `--token`. Both abort with exit `2` and category
+  `refused`. Chosen so no flag or override can put a secret on the wire in cleartext or hand it to
+  another host.

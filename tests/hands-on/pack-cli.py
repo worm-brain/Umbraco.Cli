@@ -2,7 +2,7 @@
 """pack-cli.py - pack the CLI from this repository checkout into nupkg/ with a unique local version,
 and print that version (last line of output). Used by setup-round.py --from-repo.
 
-  python3 pack-cli.py      -> e.g. 0.1.0-local.20260928.140501
+  python3 pack-cli.py      -> e.g. 0.1.0-local.20260928-090501
 """
 import sys
 import time
@@ -19,7 +19,10 @@ def main():
     harness.utf8_stdio()
     if not PROJ.is_file():
         harness.die(f"{PROJ} not found (is the harness still in tests/hands-on of the repo?)")
-    version = f"0.1.0-local.{time.strftime('%Y%m%d.%H%M%S')}"
+    # One alphanumeric identifier (date-time joined by '-'): SemVer forbids leading zeros in a
+    # purely numeric identifier, so a separate HHMMSS before 10:00 (e.g. 090501) made NuGet
+    # restore fail with no message.
+    version = f"0.1.0-local.{time.strftime('%Y%m%d-%H%M%S')}"
     commit = harness.run(["git", "-C", REPO, "rev-parse", "--short", "HEAD"], capture_output=True).stdout.strip() or "unknown"
     dirty = harness.run(["git", "-C", REPO, "status", "--porcelain", "--", "src"], capture_output=True).stdout.strip()
     print(f"Packing {PROJ} as {version} (commit {commit}{', with uncommitted changes in src/' if dirty else ''})", file=sys.stderr)

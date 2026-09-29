@@ -29,11 +29,37 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"      # stable releases, e.g. v1.0.0
       - "v[0-9]+.[0-9]+.[0-9]+-*"    # prereleases, e.g. v1.1.0-rc.1
 
+# Least privilege by default (SEC-CICD-001). The `test` matrix and the security gate run
+# `dotnet restore`/build, i.e. third-party package code, so they must NOT hold
+# `id-token: write` - the Trusted Publishing policy is scoped to this workflow file with no
+# environment, so ANY job here holding it could mint an OIDC token NuGet.org would accept.
+# Only the `release` job widens its permissions, below.
+#
+# Third-party actions are pinned to full commit SHAs (tag in the trailing comment) so a
+# repointed tag cannot change what runs next to the publish credentials.
 permissions:
-  contents: write   # create-github-release step attaches the .nupkg to a Release
-  id-token: write   # required for Trusted Publishing: mint the GitHub OIDC token
+  contents: read
 
 jobs:
+  # Tier-1 security gate (NuGet vulnerabilities, secret scan, package hygiene), run
+  # in-graph as a reusable workflow so `release` can `needs:` it (SEC-CICD-002). A
+  # separate Security run on the same tag would be a parallel, non-blocking signal.
+  # CodeQL is skipped here: code scanning is not enabled on this private repo, so it would
+  # fail every release. It still runs on PRs, main and the weekly schedule.
+  security:
+    name: Security gate
+    uses: ./.github/workflows/security.yml
+    with:
+      skip-codeql: true
+    # These grants are still needed although CodeQL is skipped: GitHub validates a called
+    # workflow's job permissions against the caller when the run starts, before any `if:`,
+    # so without them the whole Release run fails to start. None of them can publish.
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+
+
   # Cross-platform gate: a tag is published only if the tests pass on every OS.
   # Releases are rare, so the full ubuntu/windows/macos matrix runs here - where
   # routine CI (ci.yml) is Linux-only - because a release is where cross-platform
@@ -47,10 +73,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 9.0.x
 
@@ -66,14 +92,19 @@ jobs:
   release:
     name: Pack & Publish to NuGet
     runs-on: ubuntu-latest
-    # Only publish once the cross-platform test matrix above is green.
-    needs: test
+    # Only publish once BOTH the cross-platform test matrix and the Tier-1 security gate
+    # are green. A failed or skipped dependency skips this job, so nothing ships.
+    needs: [test, security]
+    # The only job holding write scopes (SEC-CICD-001).
+    permissions:
+      contents: write # create-github-release step attaches the .nupkg to a Release
+      id-token: write # Trusted Publishing: mint the GitHub OIDC token for NuGet/login
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 9.0.x
 
@@ -102,7 +133,7 @@ jobs:
       # immediately before the push because the key expires after ~1 hour.
       - name: NuGet login (OIDC -> temporary API key)
         id: nuget-login
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         with:
           user: ${{ secrets.NUGET_USER }}
 
@@ -120,7 +151,7 @@ jobs:
           --source https://api.nuget.org/v3/index.json
 
       - name: Upload NuGet package artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nupkg
           path: ./nupkg
@@ -128,7 +159,7 @@ jobs:
       # Create a GitHub Release for the tag, attaching the .nupkg. Marked as a
       # prerelease automatically when the version contains a `-` suffix.
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: ./nupkg/*.nupkg
           generate_release_notes: true

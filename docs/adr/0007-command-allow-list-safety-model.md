@@ -64,6 +64,21 @@ it permits nothing but the `auth` group. This removes the earlier asymmetry wher
 allow-all while `","` meant deny-all, and makes "I set the variable" reliably mean "I intend to
 restrict".
 
+### 5. File lists are file-wide; every source only tightens (amended 2026-09-29)
+
+Decision 3 compared the resolved profile's list with the default store's list *for the same
+profile*, so with no `--config` it was one check against whichever profile was selected. A session
+could log in to a new, unrestricted profile and select it with `--profile`, or make it the default
+with `auth profile use`, and the default profile's list no longer applied. The claim that
+`--profile` can only tighten was false for the file form.
+
+The allow-list is now the intersection of every list in force: `UMBRACO_ALLOWED_COMMANDS`, the
+`allowedCommands` of every profile in the default store, and, under `--config`, of every profile in
+that file. A list on any profile applies to the whole file, whichever profile is selected or
+default. The env value is checked alongside the file lists rather than replacing the selected
+profile's list, so it can no longer widen a file list either. Profile selection, `auth profile use`,
+`auth login` and `--config` need no extra gating, because none of them can remove a list.
+
 ## Consequences
 
 - The file-based allow-list is now a genuine sandbox against a session's own arguments, not merely a
@@ -72,6 +87,10 @@ restrict".
 - A deployment that legitimately relied on `--config`/`--profile` to *widen* an allow-list (unusual)
   will now find those paths can only tighten; the intended list must be set on the default store or
   via the env var.
+- (Decision 5) A config with a list on only some profiles now restricts every profile in the file,
+  and `UMBRACO_ALLOWED_COMMANDS` no longer overrides a file list: a command must pass both. A
+  per-profile list that should only bound one profile is not supported; keep that profile in its
+  own config file (selected with `--config`) or set the env var per invocation.
 - A deployment that set `UMBRACO_ALLOWED_COMMANDS` to an empty/whitespace string expecting "allow
   all" will now be locked down to `auth` only. This is the safer failure direction and is documented
   in the README "Agent guardrails" section.

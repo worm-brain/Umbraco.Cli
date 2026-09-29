@@ -53,7 +53,10 @@ public sealed class CommandContextFactory
     /// <param name="parseResult">The parsed command line.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The built context.</returns>
-    /// <exception cref="CommandAbortedException">No host, not authenticated, or blocked by the allow-list.</exception>
+    /// <exception cref="CommandAbortedException">
+    /// No host, not authenticated, blocked by the allow-list, a plain-HTTP non-loopback host, or a
+    /// <c>--host</c> the configured credentials are not bound to (see <see cref="UsesCredentialsForOtherHost"/>).
+    /// </exception>
     public async Task<CommandContext> CreateAsync(
         ParseResult parseResult,
         CancellationToken ct = default
@@ -109,7 +112,7 @@ public sealed class CommandContextFactory
 
         // Command allow-list (#69): when configured, only the listed noun groups / commands may
         // run. Checked before auth so a disallowed command fails fast.
-        EnforceAllowList(commandName, store, config, profileName, output);
+        EnforceAllowList(commandName, store, output);
 
         var host = hostOverride ?? config.Host;
         if (string.IsNullOrEmpty(host))
@@ -128,6 +131,17 @@ public sealed class CommandContextFactory
             );
             throw new CommandAbortedException();
         }
+
+        // Credentials (a client secret, or the bearer every request carries) never travel over
+        // plain HTTP to a non-loopback host.
+        if (HostPolicy.InsecureTransportError(host) is { } insecure)
+            Abort(output, insecure, commandName);
+
+        // Stored and environment credentials are bound to the host they were configured with.
+        // A --host naming another instance may only be used with a --token given alongside it,
+        // otherwise the configured secret would be sent to whatever host the caller names.
+        if (UsesCredentialsForOtherHost(hostOverride, tokenOverride, config))
+            Abort(output, CredentialHostMismatchMessage(hostOverride!), commandName);
 
         string bearerToken;
         if (!string.IsNullOrEmpty(tokenOverride))
@@ -214,6 +228,48 @@ public sealed class CommandContextFactory
     }
 
     /// <summary>
+    /// Whether this invocation would send the configured client credentials to a host other than
+    /// the one they were configured for: a <c>--host</c> is given, no <c>--token</c> replaces the
+    /// credentials, a client secret is configured, and the override names a different host than
+    /// the resolved profile / <c>UMBRACO_HOST</c> value.
+    /// </summary>
+    /// <param name="hostOverride">The <c>--host</c> value, or null.</param>
+    /// <param name="tokenOverride">The <c>--token</c> value, or null.</param>
+    /// <param name="config">The resolved profile and environment configuration.</param>
+    /// <returns>True when the credentials must not be used.</returns>
+    internal static bool UsesCredentialsForOtherHost(
+        string? hostOverride,
+        string? tokenOverride,
+        CliConfig config
+    ) =>
+        hostOverride is not null
+        && string.IsNullOrEmpty(tokenOverride)
+        && !string.IsNullOrEmpty(config.ClientSecret)
+        && !HostPolicy.IsSameHost(hostOverride, config.Host);
+
+    /// <summary>The error for a <c>--host</c> that the configured credentials are not bound to.</summary>
+    /// <param name="hostOverride">The <c>--host</c> value.</param>
+    /// <returns>The message, naming the ways to target that host.</returns>
+    internal static string CredentialHostMismatchMessage(string hostOverride) =>
+        $"--host '{hostOverride}' is not the host the configured credentials belong to, so they "
+        + "will not be sent there. Pass --token with --host, use a profile logged in to that host "
+        + "('umbraco auth login --host <url> --profile <name>'), or set UMBRACO_HOST with its "
+        + "own UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET.";
+
+    /// <summary>
+    /// Writes a refusal (exit code 2, category <c>refused</c>) and aborts the command.
+    /// </summary>
+    /// <param name="output">The output writer.</param>
+    /// <param name="message">The error message.</param>
+    /// <param name="commandName">The dotted command name.</param>
+    /// <exception cref="CommandAbortedException">Always.</exception>
+    private static void Abort(IOutputWriter output, string message, string commandName)
+    {
+        output.WriteError(ExitCode.Aborted, FailureCategory.Refused, message, commandName);
+        throw new CommandAbortedException();
+    }
+
+    /// <summary>
     /// Honours <c>--config</c>: when a path is supplied, reads from a store rooted there;
     /// otherwise falls back to the injected store (default path / env vars).
     /// </summary>
@@ -233,56 +289,32 @@ public sealed class CommandContextFactory
     /// Enforces the command allow-list (#69) for <paramref name="commandName"/>, aborting with exit
     /// code 2 when the command is not permitted.
     /// <para>
-    /// The allow-list is a supervisor-set guardrail, so neither <c>--config</c> nor <c>--profile</c>
-    /// may be used to LOOSEN it (#83 M2). The decision is the most-restrictive of two allow-lists:
-    /// the one from the <em>resolved</em> store/profile the command runs against, and a
-    /// <em>baseline</em> from the trusted default store (which also carries any
-    /// <c>UMBRACO_ALLOWED_COMMANDS</c> value). The baseline honours the requested profile only when
-    /// the default store actually defines it; a profile that exists solely in a <c>--config</c> file
-    /// fails closed to the default store's default profile rather than resolving to an empty,
-    /// unrestricted config. A command must satisfy both lists, so <c>--config</c> / <c>--profile</c>
-    /// can only ever tighten, never bypass.
+    /// The allow-list is a supervisor-set guardrail, so nothing a session chooses for itself may
+    /// LOOSEN it (#83 M2, SEC-PRIV-002). Every list in force is checked and a command must satisfy
+    /// all of them: <c>UMBRACO_ALLOWED_COMMANDS</c>, every profile's list in the trusted default
+    /// store and, under <c>--config</c>, every profile's list in that file too. File lists are
+    /// file-wide rather than tied to the selected profile, so <c>--profile</c>,
+    /// <c>UMBRACO_PROFILE</c>, <c>auth profile use</c>, a newly logged-in profile, <c>--config</c>
+    /// and the environment variable can each only ever tighten, never bypass.
     /// </para>
     /// </summary>
     /// <param name="commandName">The dotted command name being run, e.g. <c>content.delete</c>.</param>
     /// <param name="store">The store resolved for this invocation (honours <c>--config</c>).</param>
-    /// <param name="config">The already-loaded config for the resolved store and requested profile.</param>
-    /// <param name="profileName">The requested profile (from <c>--profile</c>), or null for the default.</param>
     /// <param name="output">The output writer used to report a refusal.</param>
     /// <exception cref="CommandAbortedException">Thrown when the command is not in the allow-list.</exception>
-    private void EnforceAllowList(
-        string commandName,
-        ConfigStore store,
-        CliConfig config,
-        string? profileName,
-        IOutputWriter output
-    )
+    private void EnforceAllowList(string commandName, ConfigStore store, IOutputWriter output)
     {
-        var resolvedAllowList = config.AllowedCommands;
-
-        string? baselineAllowList;
-        if (ReferenceEquals(store, _configStore))
+        // Gather every list in force. The env value is read directly (not through Load, where it
+        // replaces the profile's list) so it adds to the file lists instead of overriding them.
+        var lists = new List<string?>
         {
-            // No --config: the resolved store IS the trusted default store, so this is one check.
-            baselineAllowList = resolvedAllowList;
-        }
-        else
-        {
-            // --config is in play. Take the baseline from the default store, trusting the requested
-            // profile only when the default store actually defines it; otherwise fall back to the
-            // default store's default profile so a --config-only profile cannot dodge the guardrail
-            // by resolving to an empty (unrestricted) config (#83 M2, profile axis).
-            var baselineProfile =
-                profileName is not null && !_configStore.HasProfile(profileName)
-                    ? null
-                    : profileName;
-            baselineAllowList = _configStore.Load(baselineProfile).AllowedCommands;
-        }
+            Environment.GetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS"),
+        };
+        lists.AddRange(_configStore.AllowLists());
+        if (!ReferenceEquals(store, _configStore))
+            lists.AddRange(store.AllowLists());
 
-        if (
-            !IsCommandAllowed(commandName, baselineAllowList)
-            || !IsCommandAllowed(commandName, resolvedAllowList)
-        )
+        if (lists.Any(list => !IsCommandAllowed(commandName, list)))
         {
             output.WriteError(
                 ExitCode.Aborted,

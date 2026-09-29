@@ -206,6 +206,118 @@ public class UmbracoAuthServiceTests
         );
     }
 
+    // ── a failed token request never echoes the body (SEC-AUTH-001) ─────────
+
+    private const string Secret = "S3cr3tValue_DoNotLeak_123";
+
+    /// <summary>The auth failure message for a token request answered with this status and body.</summary>
+    /// <param name="body">The response body.</param>
+    /// <param name="status">The response status; 400 when omitted.</param>
+    /// <returns>The thrown exception.</returns>
+    private static Task<UmbracoAuthException> FailureFor(
+        string body,
+        System.Net.HttpStatusCode status = System.Net.HttpStatusCode.BadRequest
+    )
+    {
+        var service = new UmbracoAuthService(
+            new SingleClientFactory(new HttpClient(new StubHandler(body, status)))
+        );
+        return Assert.ThrowsAsync<UmbracoAuthException>(() =>
+            service.GetTokenAsync("https://x", "cid", Secret, CancellationToken.None)
+        );
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_FailureBodyContainsClientSecret_DoesNotLeakItIntoMessage()
+    {
+        // A server or proxy that reflects the form body in a non-standard field.
+        var ex = await FailureFor(
+            $$"""{"error":"invalid_client","echo":"grant_type=client_credentials&client_id=cid&client_secret={{Secret}}"}"""
+        );
+
+        Assert.DoesNotContain(Secret, ex.Message);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_ErrorDescriptionContainsClientSecret_RedactsIt()
+    {
+        var ex = await FailureFor(
+            $$"""{"error":"invalid_client","error_description":"unknown client_secret '{{Secret}}'"}"""
+        );
+
+        Assert.Equal(
+            "Token request failed (400): invalid_client - unknown client_secret '[redacted]'",
+            ex.Message
+        );
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_OAuthErrorBody_ReportsErrorAndDescription()
+    {
+        var ex = await FailureFor(
+            """{"error":"invalid_client","error_description":"The client is not known."}"""
+        );
+
+        Assert.Equal(
+            "Token request failed (400): invalid_client - The client is not known.",
+            ex.Message
+        );
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_OAuthErrorWithoutDescription_ReportsError()
+    {
+        var ex = await FailureFor("""{"error":"invalid_grant"}""");
+
+        Assert.Equal("Token request failed (400): invalid_grant", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_NonJsonErrorBody_ReportsOnlyTheStatus()
+    {
+        var ex = await FailureFor(
+            $"<html>client_secret={Secret}</html>",
+            System.Net.HttpStatusCode.BadGateway
+        );
+
+        Assert.Equal(
+            "Token request failed (502): the server returned an unexpected error response.",
+            ex.Message
+        );
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_FailedRequest_KeepsTheStatusCode()
+    {
+        var ex = await FailureFor(
+            """{"error":"invalid_client"}""",
+            System.Net.HttpStatusCode.Unauthorized
+        );
+
+        Assert.Equal(401, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_ErrorDescriptionWithControlCharacters_StripsThem()
+    {
+        // A terminal escape (ESC [2J clears the screen), a newline and a bidi override.
+        var ex = await FailureFor(
+            """{"error":"invalid_client","error_description":"bad\u001b[2J\nclient‮"}"""
+        );
+
+        Assert.Equal("Token request failed (400): invalid_client - bad [2J client", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_OverlongErrorDescription_IsCapped()
+    {
+        var ex = await FailureFor(
+            $$"""{"error":"invalid_client","error_description":"{{new string('a', 5000)}}"}"""
+        );
+
+        Assert.EndsWith($"{new string('a', 200)}...", ex.Message);
+    }
+
     // ── the persistent cache (#248) ──────────────────────────────────────────
     // Each CLI run is a new process, modelled here as a new service over a shared cache.
 

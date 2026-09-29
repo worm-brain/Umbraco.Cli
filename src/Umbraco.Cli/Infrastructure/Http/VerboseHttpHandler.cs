@@ -11,8 +11,46 @@ namespace Umbraco.Cli.Infrastructure.Http;
 /// </summary>
 public sealed class VerboseState
 {
+    /// <summary>
+    /// Values shorter than this are not scrubbed by value: replacing a one- or two-character
+    /// string everywhere would wreck the log, and no real credential is that short.
+    /// </summary>
+    private const int MinSecretLength = 4;
+
+    // The credential values this process has sent (client secret, bearer token, API key headers).
+    private readonly HashSet<string> _secrets = new(StringComparer.Ordinal);
+    private readonly Lock _lock = new();
+
     /// <summary>Whether <c>--verbose</c> was given. Off by default.</summary>
     public bool Enabled { get; set; }
+
+    /// <summary>
+    /// Records a credential value the CLI holds, so <see cref="Scrub"/> hides it wherever it later
+    /// appears in the log, whatever it is called there - a server that reflects the client secret
+    /// under an innocent JSON name or in a plain-text error page (SEC-AUTH-001).
+    /// </summary>
+    /// <param name="value">The value; null, empty and very short values are ignored.</param>
+    public void AddSecret(string? value)
+    {
+        if (value is null || value.Length < MinSecretLength)
+            return;
+        lock (_lock)
+            _secrets.Add(value);
+    }
+
+    /// <summary>Replaces every recorded secret value in <paramref name="text"/> with the placeholder.</summary>
+    /// <param name="text">Text about to be logged.</param>
+    /// <returns>The text with no recorded secret left in it.</returns>
+    public string Scrub(string text)
+    {
+        lock (_lock)
+        {
+            // Longest first, so a secret that contains another is replaced whole.
+            foreach (var secret in _secrets.OrderByDescending(s => s.Length))
+                text = text.Replace(secret, SecretRedactor.Placeholder, StringComparison.Ordinal);
+        }
+        return text;
+    }
 }
 
 /// <summary>
@@ -22,7 +60,9 @@ public sealed class VerboseState
 /// <c>--verbose</c> is set.
 /// <para>
 /// Secrets never reach the log: URLs, request headers and bodies go through
-/// <see cref="SecretRedactor"/>, the same policy <c>--dry-run</c> uses (#349, #352). Binary and
+/// <see cref="SecretRedactor"/>, the same policy <c>--dry-run</c> uses (#349, #352), and the
+/// credential values the CLI has sent are scrubbed by value from every line, so a server that
+/// echoes them back under another name or in plain text cannot print them. Binary and
 /// multipart bodies are summarised by type and size, not printed, and a response body is cut at
 /// <see cref="MaxResponseBodyChars"/> (#166).
 /// </para>
@@ -32,7 +72,7 @@ public sealed class VerboseHttpHandler : DelegatingHandler
     /// <summary>How much of a response body is printed before it is marked truncated.</summary>
     public const int MaxResponseBodyChars = 4096;
 
-    private readonly VerboseState? _state;
+    private readonly VerboseState _state;
 
     /// <summary>Creates a handler that always logs (used directly by tests).</summary>
     public VerboseHttpHandler()
@@ -40,9 +80,14 @@ public sealed class VerboseHttpHandler : DelegatingHandler
 
     /// <summary>Creates a handler that logs only while <paramref name="state"/> is enabled.</summary>
     /// <param name="state">The per-run verbose switch, or null to always log.</param>
-    public VerboseHttpHandler(VerboseState? state) => _state = state;
+    public VerboseHttpHandler(VerboseState? state) =>
+        _state = state ?? new VerboseState { Enabled = true };
 
-    /// <summary>Logs the request, sends it, then logs the response; a pass-through when verbose is off.</summary>
+    /// <summary>
+    /// Logs the request, sends it, then logs the response; a pass-through when verbose is off.
+    /// Credential values the request carries are recorded first (<see cref="RecordSecretsAsync"/>),
+    /// and every logged line is scrubbed of them by value as well as redacted by name.
+    /// </summary>
     /// <param name="request">The outgoing request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The response, with its content buffered so the caller can still read it.</returns>
@@ -51,35 +96,80 @@ public sealed class VerboseHttpHandler : DelegatingHandler
         CancellationToken cancellationToken
     )
     {
-        if (_state is { Enabled: false })
+        if (!_state.Enabled)
             return await base.SendAsync(request, cancellationToken);
 
-        Console.Error.WriteLine(
-            $"> {request.Method} {SecretRedactor.RedactUrl(request.RequestUri?.ToString() ?? "")}"
-        );
+        await RecordSecretsAsync(request, cancellationToken);
+
+        Log($"> {request.Method} {SecretRedactor.RedactUrl(request.RequestUri?.ToString() ?? "")}");
         foreach (var (name, values) in request.Headers)
-            Console.Error.WriteLine($"> {name}: {SecretRedactor.RedactHeader(name, values)}");
+            Log($"> {name}: {SecretRedactor.RedactHeader(name, values)}");
         if (request.Content is not null)
-            Console.Error.WriteLine(
-                $"> {await DescribeBodyAsync(request.Content, limit: null, cancellationToken)}"
-            );
+            Log($"> {await DescribeBodyAsync(request.Content, limit: null, cancellationToken)}");
 
         var sw = Stopwatch.StartNew();
         var response = await base.SendAsync(request, cancellationToken);
         sw.Stop();
 
-        Console.Error.WriteLine(
-            $"< {(int)response.StatusCode} {response.ReasonPhrase} ({sw.ElapsedMilliseconds} ms)"
-        );
+        Log($"< {(int)response.StatusCode} {response.ReasonPhrase} ({sw.ElapsedMilliseconds} ms)");
         // An empty body (204, most writes) prints nothing rather than a blank line.
         if (response.Content is { Headers.ContentLength: not 0 } content)
         {
-            var body = await DescribeBodyAsync(content, MaxResponseBodyChars, cancellationToken);
+            // Scrub before cutting, so the cut cannot leave half a secret in the log.
+            var body = _state.Scrub(await DescribeBodyAsync(content, null, cancellationToken));
+            if (body.Length > MaxResponseBodyChars)
+                body = $"{body[..MaxResponseBodyChars]}... [truncated, {body.Length} chars in all]";
             if (body.Length > 0)
-                Console.Error.WriteLine($"< {body}");
+                Log($"< {body}");
         }
         return response;
     }
+
+    /// <summary>Writes one line to stderr with every recorded secret value scrubbed out.</summary>
+    /// <param name="line">The line.</param>
+    private void Log(string line) => Console.Error.WriteLine(_state.Scrub(line));
+
+    /// <summary>
+    /// Records the credential values a request carries in <see cref="VerboseState"/>: the
+    /// Authorization header's credential (the bearer token), every value of a secret-named header,
+    /// and every secret-named field of a form body (the token exchange's <c>client_secret</c>).
+    /// From then on those values are hidden wherever they appear, including in a server's echo.
+    /// </summary>
+    /// <param name="request">The outgoing request.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when the values are recorded.</returns>
+    private async Task RecordSecretsAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        _state.AddSecret(request.Headers.Authorization?.Parameter);
+        foreach (var (name, values) in request.Headers)
+        {
+            if (SecretRedactor.IsSecretName(name))
+                foreach (var value in values)
+                    _state.AddSecret(value);
+        }
+
+        if (
+            request.Content?.Headers.ContentType?.MediaType is { } mediaType
+            && mediaType.Equals(
+                "application/x-www-form-urlencoded",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            await request.Content.LoadIntoBufferAsync(ct);
+            foreach (var pair in (await request.Content.ReadAsStringAsync(ct)).Split('&'))
+            {
+                var parts = pair.Split('=', 2);
+                if (parts.Length == 2 && SecretRedactor.IsSecretName(Decode(parts[0])))
+                    _state.AddSecret(Decode(parts[1]));
+            }
+        }
+    }
+
+    /// <summary>Decodes one form-urlencoded name or value (<c>+</c> is a space).</summary>
+    /// <param name="text">The encoded text.</param>
+    /// <returns>The decoded text.</returns>
+    private static string Decode(string text) => Uri.UnescapeDataString(text.Replace('+', ' '));
 
     /// <summary>
     /// Renders a body for the log: redacted text for a text-like media type, or a one-line summary

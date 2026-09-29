@@ -54,7 +54,8 @@ public class CommandExecutorTests
         Umbraco.Cli.Infrastructure.Http.MutationInterceptState? mutationState = null,
         string command = "content.get",
         bool mutating = false,
-        bool reportsResult = false
+        bool reportsResult = false,
+        string? configJson = null
     )
     {
         var stub = new StubHttpClientFactory();
@@ -63,8 +64,11 @@ public class CommandExecutorTests
             $"umbraco-exec-test-{Guid.NewGuid()}.json"
         );
         // Write a config carrying only the allow-list (#69) when a test supplies one; auth is
-        // provided via --host/--token overrides, so no credentials are needed in the file.
-        if (allowedCommands is not null)
+        // provided via --host/--token overrides, so no credentials are needed in the file. A test
+        // that needs several profiles supplies the whole default config file instead.
+        if (configJson is not null)
+            File.WriteAllText(configPath, configJson);
+        else if (allowedCommands is not null)
             File.WriteAllText(configPath, $$"""{"allowedCommands":"{{allowedCommands}}"}""");
         var configStore = new ConfigStore(configPath);
         var authService = new UmbracoAuthService(stub);
@@ -1033,6 +1037,139 @@ public class CommandExecutorTests
 
         Assert.Equal(2, exit);
         Assert.False(called); // a --config-only profile could not loosen the default allow-list
+    }
+
+    /// <summary>
+    /// Runs <c>webhook.list</c> against a default config file holding <paramref name="configJson"/>
+    /// and reports the exit code and whether the client was reached.
+    /// </summary>
+    /// <param name="configJson">The default store's config file.</param>
+    /// <param name="extraArgs">Extra global options, e.g. <c>--profile escape</c>.</param>
+    /// <returns>The exit code, and whether the client call ran.</returns>
+    private static async Task<(int Exit, bool Called)> RunWebhookListAsync(
+        string configJson,
+        string extraArgs = ""
+    )
+    {
+        var called = false;
+        var (executor, parse) = Build(
+            new FakeUmbracoManagementClient(),
+            args: $"--host https://example.com --token tok --output json {extraArgs}",
+            command: "webhook.list",
+            configJson: configJson
+        );
+
+        var (_, _, exit) = await Capture(() =>
+            executor.RunObjectAsync(
+                parse,
+                (c, ct) =>
+                {
+                    called = true;
+                    return c.GetWebhooksAsync(0, 20, ct);
+                },
+                CancellationToken.None
+            )
+        );
+        return (exit, called);
+    }
+
+    // A config whose default profile is locked to content, plus an unrestricted profile such as
+    // `auth login --profile escape` writes (SEC-PRIV-002).
+    private const string LockedDefaultWithUnrestrictedProfile = """
+        {"defaultProfile":"default","profiles":{
+          "default":{"allowedCommands":"content"},
+          "escape":{"host":"https://other.example"}}}
+        """;
+
+    [Fact]
+    public async Task AllowList_ProfileFlagSelectsUnrestrictedProfile_StillRefusesCommand()
+    {
+        // SEC-PRIV-002: a file list applies to every profile, so --profile cannot pick one without it.
+        var (exit, called) = await RunWebhookListAsync(
+            LockedDefaultWithUnrestrictedProfile,
+            "--profile escape"
+        );
+
+        Assert.Equal((2, false), (exit, called));
+    }
+
+    [Fact]
+    public async Task AllowList_DefaultMovedToUnrestrictedProfile_StillRefusesCommand()
+    {
+        // SEC-PRIV-002: `auth profile use escape` moves the default; the lockdown must survive it.
+        var configJson = LockedDefaultWithUnrestrictedProfile.Replace(
+            "\"defaultProfile\":\"default\"",
+            "\"defaultProfile\":\"escape\""
+        );
+
+        var (exit, called) = await RunWebhookListAsync(configJson);
+
+        Assert.Equal((2, false), (exit, called));
+    }
+
+    [Fact]
+    public async Task AllowList_SelectedProfileAddsNarrowerList_RefusesCommandOtherProfileAllows()
+    {
+        // A profile can add a restriction on top of the file's: both lists must allow the command.
+        const string configJson = """
+            {"defaultProfile":"default","profiles":{
+              "default":{"allowedCommands":"content,webhook"},
+              "narrow":{"allowedCommands":"content"}}}
+            """;
+
+        var (exit, called) = await RunWebhookListAsync(configJson, "--profile narrow");
+
+        Assert.Equal((2, false), (exit, called));
+    }
+
+    [Fact]
+    public async Task AllowList_EveryProfileAllowsCommand_ReachesClient()
+    {
+        // The happy path: a command every list allows still runs under any profile. Only the
+        // client call is asserted; the fake has no webhook response, so the exit code is not.
+        const string configJson = """
+            {"defaultProfile":"default","profiles":{
+              "default":{"allowedCommands":"content,webhook"},
+              "other":{"allowedCommands":"webhook"}}}
+            """;
+
+        var (_, called) = await RunWebhookListAsync(configJson, "--profile other");
+
+        Assert.True(called);
+    }
+
+    [Fact]
+    public async Task AllowList_EnvListNamingCommand_DoesNotWidenFileList()
+    {
+        // The env list adds to the file list rather than replacing it, so it cannot widen it.
+        Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", "webhook");
+        try
+        {
+            var (exit, called) = await RunWebhookListAsync("""{"allowedCommands":"content"}""");
+
+            Assert.Equal((2, false), (exit, called));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", null);
+        }
+    }
+
+    [Fact]
+    public async Task AllowList_EnvListExcludingCommand_RefusesCommandFileAllows()
+    {
+        // The env list still holds on its own when the file allows the command.
+        Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", "content");
+        try
+        {
+            var (exit, called) = await RunWebhookListAsync("""{"allowedCommands":"webhook"}""");
+
+            Assert.Equal((2, false), (exit, called));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", null);
+        }
     }
 
     [Fact]

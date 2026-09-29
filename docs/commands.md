@@ -55,7 +55,7 @@ Available on every command:
 
 | Option | Description |
 |---|---|
-| `--host <url>` | Umbraco instance base URL (overrides config). |
+| `--host <url>` | Umbraco instance base URL (overrides config). Stored or `UMBRACO_CLIENT_*` credentials are only sent to their own host, so a `--host` naming another instance needs `--token` (see [Where credentials are sent](#where-credentials-are-sent)). |
 | `--token <bearer>` | Raw bearer token (overrides stored credentials). |
 | `--output json\|human\|csv` | Output format. Default: `json` when piped, `human` in a terminal. `csv` is RFC-4180 and only ever explicit. |
 | `--quiet`, `-q` | Suppress the result of writes (the confirmation and its `data`), so a successful write prints nothing; reads, `health run` results, errors, `--dry-run` previews, a bulk run with failures, and exit codes still emitted. |
@@ -181,6 +181,24 @@ authentication, resolved identity, instance version, supported version), reports
 (warnings do not fail the run). The supported-version check warns, naming both versions, when the
 instance's Umbraco major is outside the range this build was tested against (currently 17.x-18.x).
 Run it first in any new environment. See [getting-started.md](getting-started.md#5-confirm-it-works).
+
+### Where credentials are sent
+
+Every command that talks to Umbraco, `auth login` and `auth doctor` apply two rules before any
+credential (a client secret or a bearer token) leaves the machine:
+
+- **HTTPS only, except loopback.** A host with `http://` is refused unless it is `localhost`,
+  `127.0.0.1` or `::1`; use the instance's `https://` URL. There is no opt-out. Commands abort
+  with exit `2` and category `refused`; `auth login` reports an authentication failure, and
+  `auth doctor` fails its host check.
+- **Credentials stay with their host.** A profile's client id and secret belong to the profile's
+  host, and `UMBRACO_CLIENT_ID` / `UMBRACO_CLIENT_SECRET` belong to the host they resolve with
+  (`UMBRACO_HOST`, or the profile's host). A `--host` that names a different instance does not get
+  them: the command aborts with exit `2` and category `refused` (`auth doctor` fails its
+  credentials check) instead. To target another instance, pass `--token` with `--host`, use a
+  profile logged in to that host (`--profile`), or set `UMBRACO_HOST` with its own client
+  credentials. A `--host` that matches the configured host (ignoring case and a trailing slash) is
+  fine.
 
 ## `content`
 
@@ -566,7 +584,8 @@ umbraco media apply ./media-snapshot --prune --yes         # also trash what the
   pre-order, and `files/<id>/<name>` holds the files. `--out` is required, and the snapshot cannot
   be piped (`-` is refused). Export into a new or empty directory, or over an earlier media export,
   which it replaces only once the new export is complete (a failed export leaves it as it was).
-  A snapshot whose file paths leave `files/` is refused.
+  A snapshot whose file paths leave `files/`, or pass through a symbolic link or junction, is
+  refused, and apply uploads a file only when it matches the SHA-256 the index records.
 - **What is compared** - the item body without what differs on every instance (the file's `src`
   folder, the server-computed size, dimensions and extension, dates, `isTrashed`, `flags`, and the
   `mediaType` icon, which is schema: the type is compared by `id`), and the

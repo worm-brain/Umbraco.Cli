@@ -197,12 +197,20 @@ public static class MediaApplier
             : await client.UpdateMediaRawAsync(change.Id, body, ct);
     }
 
-    /// <summary>Uploads a snapshot file to the temporary-file endpoint.</summary>
+    /// <summary>
+    /// Uploads a snapshot file to the temporary-file endpoint. The link check load already ran is
+    /// repeated here, because the directory can change between load and upload; and when the
+    /// snapshot records the file's SHA-256 the bytes must match it, so nothing but the file the
+    /// export wrote is sent.
+    /// </summary>
     /// <param name="client">The management client.</param>
     /// <param name="snapshot">The snapshot the file belongs to.</param>
     /// <param name="file">The file entry.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The temporary file id, or a failure when the file is missing from the snapshot.</returns>
+    /// <returns>
+    /// The temporary file id, or a failure when the file is missing from the snapshot, is reached
+    /// through a symbolic link or junction, or does not match its recorded hash.
+    /// </returns>
     private static async Task<UmbracoResponse<Guid>> StageAsync(
         IUmbracoManagementClient client,
         MediaSnapshot snapshot,
@@ -211,12 +219,30 @@ public static class MediaApplier
     )
     {
         var path = snapshot.PathOf(file);
+        if (MediaSnapshot.FindLink(snapshot.Directory, path) is { } link)
+            return UmbracoResponse<Guid>.Failure(400, MediaSnapshot.LinkRefusal(file, link));
         if (!File.Exists(path))
             return UmbracoResponse<Guid>.Failure(
                 400,
                 $"The snapshot is missing the file '{file.Path}'. Re-export it."
             );
         await using var stream = File.OpenRead(path);
+
+        // Hash through the same handle that is uploaded, then rewind, so the bytes checked are
+        // the bytes sent. A snapshot without a hash (hand-made) is uploaded as it is.
+        if (file.Sha256.Length > 0)
+        {
+            var actual = Convert.ToHexStringLower(
+                await System.Security.Cryptography.SHA256.HashDataAsync(stream, ct)
+            );
+            if (!string.Equals(actual, file.Sha256, StringComparison.OrdinalIgnoreCase))
+                return UmbracoResponse<Guid>.Failure(
+                    400,
+                    $"The snapshot file '{file.Path}' does not match the SHA-256 its index "
+                        + "records, so it was not uploaded. Re-export it."
+                );
+            stream.Position = 0;
+        }
         return await client.StageTemporaryFileAsync(
             stream,
             file.Name,

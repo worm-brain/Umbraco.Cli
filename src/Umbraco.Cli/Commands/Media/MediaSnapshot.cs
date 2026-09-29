@@ -135,7 +135,10 @@ public sealed class MediaSnapshot
     /// <param name="json">The index JSON.</param>
     /// <param name="directory">The snapshot directory, for resolving files.</param>
     /// <returns>The parsed snapshot.</returns>
-    /// <exception cref="JsonException">The text is not a media snapshot, or is an unsupported version.</exception>
+    /// <exception cref="JsonException">
+    /// The text is not a media snapshot, is an unsupported version, or names a file outside the
+    /// snapshot's files directory or reached through a symbolic link or junction.
+    /// </exception>
     public static MediaSnapshot FromJson(string json, string directory)
     {
         if (
@@ -163,7 +166,8 @@ public sealed class MediaSnapshot
 
         // A snapshot can come from someone else, and apply uploads the files it names: a path
         // that leaves files/ ("../../.ssh/id_rsa") would send an arbitrary local file to the
-        // instance. Only paths inside the snapshot's own files directory are accepted.
+        // instance. Only paths inside the snapshot's own files directory are accepted, and none
+        // may pass through a link (the string check alone says nothing about where a link leads).
         var filesRoot =
             System.IO.Path.GetFullPath(System.IO.Path.Combine(directory, FilesDirectoryName))
             + System.IO.Path.DirectorySeparatorChar;
@@ -180,6 +184,8 @@ public sealed class MediaSnapshot
                     $"The snapshot names the file '{file.Path}', which is outside its "
                         + $"{FilesDirectoryName} directory."
                 );
+            if (FindLink(directory, resolved) is { } link)
+                throw new JsonException(LinkRefusal(file, link));
         }
         return new MediaSnapshot
         {
@@ -190,6 +196,55 @@ public sealed class MediaSnapshot
     }
 
     /// <summary>
+    /// Finds the first entry on the way from <paramref name="directory"/> down to
+    /// <paramref name="path"/> that is a symbolic link or a junction (any reparse point .NET can
+    /// resolve to a target). Only the segments below <paramref name="directory"/> are checked:
+    /// the snapshot directory itself may sit under a link (macOS's <c>/tmp</c>, say), but nothing
+    /// inside it may redirect a file read elsewhere. With no link on the way, the path resolves
+    /// to itself, so the lexical containment check also holds for the file actually opened.
+    /// Entries that do not exist are skipped; a missing file is reported by apply.
+    /// </summary>
+    /// <param name="directory">The snapshot directory (absolute).</param>
+    /// <param name="path">An absolute path inside <paramref name="directory"/>.</param>
+    /// <returns>
+    /// The offending entry relative to <paramref name="directory"/>, with forward slashes, or
+    /// null when no segment is a link.
+    /// </returns>
+    public static string? FindLink(string directory, string path)
+    {
+        var relative = System.IO.Path.GetRelativePath(directory, path);
+        var current = directory;
+        var walked = new List<string>();
+        foreach (
+            var segment in relative.Split(
+                System.IO.Path.DirectorySeparatorChar,
+                StringSplitOptions.RemoveEmptyEntries
+            )
+        )
+        {
+            current = System.IO.Path.Combine(current, segment);
+            walked.Add(segment);
+            // DirectoryInfo for a directory (or a link to one), FileInfo otherwise; LinkTarget is
+            // non-null for a symlink or junction even when its target is missing.
+            FileSystemInfo info = System.IO.Directory.Exists(current)
+                ? new DirectoryInfo(current)
+                : new FileInfo(current);
+            if (info.LinkTarget is not null)
+                return string.Join('/', walked);
+        }
+        return null;
+    }
+
+    /// <summary>The error text for a snapshot file reached through a link.</summary>
+    /// <param name="file">The file entry.</param>
+    /// <param name="link">The entry that is a link, as <see cref="FindLink"/> returned it.</param>
+    /// <returns>The message.</returns>
+    public static string LinkRefusal(MediaFile file, string link) =>
+        $"The snapshot names the file '{file.Path}', but '{link}' is a symbolic link or "
+        + "junction. Links inside a media snapshot are refused; re-export it or replace the "
+        + "link with the file itself.";
+
+    /// <summary>
     /// Loads a snapshot from its directory, or from the path of its index file. Stdin is refused:
     /// the files cannot come with it.
     /// </summary>
@@ -198,7 +253,9 @@ public sealed class MediaSnapshot
     /// <returns>The snapshot.</returns>
     /// <exception cref="InvalidInputException">The path is <c>-</c>.</exception>
     /// <exception cref="FileNotFoundException">There is no index at the path.</exception>
-    /// <exception cref="JsonException">The index is not a media snapshot.</exception>
+    /// <exception cref="JsonException">
+    /// The index is not a media snapshot, or names a file outside it or behind a link.
+    /// </exception>
     public static async Task<MediaSnapshot> LoadAsync(string path, CancellationToken ct)
     {
         if (path == "-")

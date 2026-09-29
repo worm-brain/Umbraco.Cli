@@ -11,3 +11,10 @@
 # Example:
 #   # Test fixture, not a real key - approved by @worm-brain 2026-09-18
 #   0adc1e2f...:tests/Umbraco.Cli.Tests/Fixtures/sample.json:generic-api-key:12
+
+# Test fixture, not a key: the webhook-log body in WebhookWireTests.cs (commit c6be928,
+# PR #332). The matched values are the entity `key` / `webhookKey` GUIDs, which use the
+# placeholder pattern `<8 hex>-1234-5678-abcd-ef0123456789` found throughout the tests.
+# gitleaks generic-api-key fires on the JSON field names. Accepted 2026-09-29.
+c6be928b399d1fb88f98dadbbed0e050e5e8cf24:tests/Umbraco.Cli.Tests/Wire/WebhookWireTests.cs:generic-api-key:269
+c6be928b399d1fb88f98dadbbed0e050e5e8cf24:tests/Umbraco.Cli.Tests/Wire/WebhookWireTests.cs:generic-api-key:270
