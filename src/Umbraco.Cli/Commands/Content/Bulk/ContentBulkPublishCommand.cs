@@ -40,7 +40,11 @@ public static class ContentBulkPublishCommand
                     parseResult,
                     () => BulkIds.Read(parseResult.GetValue(fileOpt)),
                     (client, id, c) => client.PublishContentAsync(id, effective, ct: c),
-                    ct
+                    ct,
+                    // No culture named: every document's cultures in one batch read (#414).
+                    effective is null
+                        ? (client, ids, c) => client.PrefetchPublishCulturesAsync(ids, c)
+                        : null
                 );
             }
         );

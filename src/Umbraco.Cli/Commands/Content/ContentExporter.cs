@@ -5,8 +5,8 @@ namespace Umbraco.Cli.Commands.Content;
 /// <summary>
 /// Assembles a <see cref="ContentSnapshot"/> from a live instance (issue #100 / ADR 0006). It
 /// enumerates the content subtree in pre-order (capturing each document's parent, which the raw
-/// body does not carry), then fetches each document's full verbatim body. Enumeration + N per-id
-/// reads is O(documents), acceptable for a CI/agent tool.
+/// body does not carry), then fetches each document's full verbatim body, a few at a time.
+/// Enumeration + N per-id reads is O(documents), acceptable for a CI/agent tool.
 ///
 /// Export <b>fails fast</b>: if the tree walk or any per-document read fails, the whole export
 /// returns that failure rather than a partial snapshot - a partial content dump would silently
@@ -14,6 +14,13 @@ namespace Umbraco.Cli.Commands.Content;
 /// </summary>
 public static class ContentExporter
 {
+    /// <summary>
+    /// Document reads in flight at once (#422): enough to hide most of a remote round trip, few
+    /// enough not to queue much work on the server. 8 is what the data-type list hydration used
+    /// before the batch reads (#418) replaced it.
+    /// </summary>
+    private const int BodyReadConcurrency = 8;
+
     /// <summary>
     /// Exports the content subtree beneath <paramref name="root"/> (or the whole content tree when
     /// null) of the instance behind <paramref name="client"/> into a snapshot.
@@ -32,27 +39,33 @@ public static class ContentExporter
         if (!tree.IsSuccess)
             return UmbracoResponse<ContentSnapshot>.FailureFrom(tree);
 
-        // Fetch each document's full body, preserving the pre-order tree order so parents always
-        // precede their children in the snapshot (which is what apply relies on for create order).
-        var documents = new List<ContentNode>(tree.Data!.Count);
-        foreach (var node in tree.Data!)
-        {
-            var raw = await client.GetDocumentRawAsync(node.Id, ct);
-            if (!raw.IsSuccess)
-                return UmbracoResponse<ContentSnapshot>.FailureFrom(raw);
-
-            documents.Add(
-                new ContentNode
-                {
-                    Id = node.Id,
-                    Parent = node.Parent,
-                    Body = raw.Data!,
-                }
-            );
-        }
-
+        // The bodies are read a few at a time (#422); the results keep the pre-order tree order,
+        // so parents still precede their children in the snapshot (which apply relies on for
+        // create order), and a failed read fails the export with the failure earliest in that
+        // order, as the one-at-a-time loop did.
+        var documents = await ConcurrentReads.ReadAllAsync(
+            tree.Data!,
+            BodyReadConcurrency,
+            async (node, c) =>
+            {
+                var raw = await client.GetDocumentRawAsync(node.Id, c);
+                return raw.IsSuccess
+                    ? UmbracoResponse<ContentNode>.Success(
+                        new ContentNode
+                        {
+                            Id = node.Id,
+                            Parent = node.Parent,
+                            Body = raw.Data!,
+                        }
+                    )
+                    : UmbracoResponse<ContentNode>.FailureFrom(raw);
+            },
+            ct
+        );
+        if (!documents.IsSuccess)
+            return UmbracoResponse<ContentSnapshot>.FailureFrom(documents);
         return UmbracoResponse<ContentSnapshot>.Success(
-            new ContentSnapshot { Root = root, Documents = documents }
+            new ContentSnapshot { Root = root, Documents = [.. documents.Data!] }
         );
     }
 }

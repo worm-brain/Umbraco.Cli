@@ -17,6 +17,11 @@ namespace Umbraco.Cli.Commands.Schema;
 public static class SchemaStaticFiles
 {
     /// <summary>
+    /// File content reads in flight at once (#422): 8, as for the content export's document reads.
+    /// </summary>
+    private const int FileReadConcurrency = 8;
+
+    /// <summary>
     /// A path in Umbraco's form: one leading <c>/</c>, no trailing one (<c>blocklist/x/</c> becomes
     /// <c>/blocklist/x</c>), so a hand-edited snapshot matches the live tree.
     /// </summary>
@@ -153,7 +158,7 @@ public static class SchemaStaticFiles
 
     /// <summary>
     /// Reads every file and folder of one kind into snapshot entries, walking the tree from the
-    /// root and reading each file's content. Fails fast like the rest of the export: a partial
+    /// root and reading each file's content, a few at a time. Fails fast like the rest of the export: a partial
     /// list would diff as deletions. Entries are ordered by path so output is stable.
     /// </summary>
     /// <param name="client">The management client.</param>
@@ -177,20 +182,32 @@ public static class SchemaStaticFiles
                 if (!listed.IsSuccess)
                     return UmbracoResponse<List<JsonNode>>.FailureFrom(listed);
                 var items = listed.Data!.Items.ToList();
-                foreach (var item in items)
+                foreach (var folder in items.Where(i => i.IsFolder))
                 {
-                    var path = NormalisePath(item.Path);
-                    if (item.IsFolder)
-                    {
-                        entries.Add(Folder(path));
-                        folders.Enqueue(item.Path);
-                        continue;
-                    }
-                    var file = await client.GetStaticFileAsync(kind, item.Path, ct);
-                    if (!file.IsSuccess)
-                        return UmbracoResponse<List<JsonNode>>.FailureFrom(file);
-                    entries.Add(File(path, file.Data!.Content ?? ""));
+                    entries.Add(Folder(NormalisePath(folder.Path)));
+                    folders.Enqueue(folder.Path);
                 }
+
+                // The page's files are read a few at a time (#422). The walk itself stays one
+                // request at a time, and the page's reads finish before the next page is listed,
+                // so a failure is still the first one in walk order.
+                var files = await ConcurrentReads.ReadAllAsync(
+                    [.. items.Where(i => !i.IsFolder)],
+                    FileReadConcurrency,
+                    async (item, c) =>
+                    {
+                        var file = await client.GetStaticFileAsync(kind, item.Path, c);
+                        return file.IsSuccess
+                            ? UmbracoResponse<JsonNode>.Success(
+                                File(NormalisePath(item.Path), file.Data!.Content ?? "")
+                            )
+                            : UmbracoResponse<JsonNode>.FailureFrom(file);
+                    },
+                    ct
+                );
+                if (!files.IsSuccess)
+                    return UmbracoResponse<List<JsonNode>>.FailureFrom(files);
+                entries.AddRange(files.Data!);
                 if (items.Count == 0 || skip + items.Count >= listed.Data.Total)
                     break;
             }

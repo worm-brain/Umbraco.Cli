@@ -132,6 +132,25 @@ public interface IContentClient
     );
 
     /// <summary>
+    /// Reads the cultures of many documents ahead of publishing or unpublishing them with no
+    /// culture named (#414): one <c>GET item/document</c> per 40 ids instead of one document read
+    /// per publish. The next <see cref="PublishContentAsync"/> or <see cref="UnpublishContentAsync"/>
+    /// of each document read this way uses its cultures once, then forgets them, so a later call
+    /// reads the document again. A document the read does not return is left to that call, which
+    /// reads it by id and fails as it always has.
+    /// </summary>
+    /// <param name="ids">The documents about to be published or unpublished.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// An empty success, or the failure of a read. A failure is safe to ignore: the documents it
+    /// did not cover are each read when they are published.
+    /// </returns>
+    Task<UmbracoResponse<Empty>> PrefetchPublishCulturesAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
     /// Lists the version history of a document (issue #58). With no culture, a document that
     /// varies by culture is listed across every culture it has, each row tagged (#209).
     /// </summary>
