@@ -30,8 +30,8 @@ internal static class FakeUmbraco
 
     /// <summary>
     /// An instance holding <paramref name="documents"/>: the document tree, each document's by-id
-    /// body, each document type's by-id body, the token endpoint, and an empty 200 for anything
-    /// else (the writes).
+    /// body and <c>item/document</c> entry (invariant), each document type's by-id body, the token
+    /// endpoint, and an empty 200 for anything else (the writes).
     /// </summary>
     /// <param name="documents">The content tree.</param>
     /// <returns>The handler.</returns>
@@ -39,6 +39,7 @@ internal static class FakeUmbraco
         new RoutingHandler()
             .ServeToken()
             .ServeTree("document", documents)
+            .ServeDocumentItems(id => DocumentItemEntry(id))
             .ServeType("document-type", ContentType)
             .ServeById("document", Document)
             .ElseEmpty();
@@ -112,6 +113,60 @@ internal static class FakeUmbraco
                 return new JsonObject { ["total"] = items.Count, ["items"] = items }.ToJsonString();
             }
         );
+
+    /// <summary>
+    /// Answers <c>GET item/document?id=..&amp;id=..</c> with a bare array holding
+    /// <paramref name="item"/>'s JSON for each id, as Umbraco does; an id it returns null for is
+    /// left out, as Umbraco leaves out an id it has no document for.
+    /// </summary>
+    /// <param name="handler">The handler to add the route to.</param>
+    /// <param name="item">Builds the item for an id, or null to leave the id out.</param>
+    /// <returns>The handler, for chaining.</returns>
+    public static RoutingHandler ServeDocumentItems(
+        this RoutingHandler handler,
+        Func<Guid, JsonObject?> item
+    ) =>
+        handler.When(
+            r =>
+                r.Method == HttpMethod.Get
+                && r.RequestUri!.AbsolutePath.Equals(
+                    $"{Api}/item/document",
+                    StringComparison.OrdinalIgnoreCase
+                ),
+            HttpStatusCode.OK,
+            r =>
+            {
+                var ids = HttpUtility.ParseQueryString(r.RequestUri!.Query).GetValues("id") ?? [];
+                return new JsonArray([
+                    .. ids.Select(id => item(Guid.Parse(id))).OfType<JsonNode>(),
+                ]).ToJsonString();
+            }
+        );
+
+    /// <summary>
+    /// A document's <c>item/document</c> entry: its id and one variant per culture, a single
+    /// null-culture variant when <paramref name="cultures"/> is empty (an invariant document).
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="cultures">The cultures the document varies by.</param>
+    /// <returns>The item.</returns>
+    public static JsonObject DocumentItemEntry(Guid id, params string[] cultures) =>
+        new()
+        {
+            ["id"] = id,
+            ["documentType"] = new JsonObject { ["id"] = SharedDocumentType },
+            ["variants"] = new JsonArray([
+                .. (cultures.Length == 0 ? [null] : (string?[])cultures).Select(c =>
+                    (JsonNode)
+                        new JsonObject
+                        {
+                            ["name"] = $"Doc {id:N}",
+                            ["culture"] = c,
+                            ["state"] = "Published",
+                        }
+                ),
+            ]),
+        };
 
     /// <summary>
     /// <see cref="ServeById"/> and <see cref="ServeBatch"/> together: a type kind as Umbraco 17.3+

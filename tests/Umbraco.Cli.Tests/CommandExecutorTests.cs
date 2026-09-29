@@ -1379,6 +1379,67 @@ public class CommandExecutorTests
         Assert.Equal("not-a-guid", data[2].GetProperty("id").GetString());
     }
 
+    [Fact]
+    public async Task RunBulk_WithPrepare_PreparesOnceWithTheValidIdsBeforeTheWrites()
+    {
+        // Arrange (#414): the shared read sees every id that parses, and only those.
+        Guid id1 = Guid.NewGuid(),
+            id2 = Guid.NewGuid();
+        var client = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+        var (executor, parse) = Build(client);
+        var callsWhenPrepared = -1;
+
+        // Act
+        var (_, _, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                () => [id1.ToString(), "not-a-guid", id2.ToString()],
+                (c, id, ct) => c.PublishContentAsync(id, null, ct: ct),
+                CancellationToken.None,
+                (c, ids, ct) =>
+                {
+                    callsWhenPrepared = client.CalledIds.Count;
+                    return c.PrefetchPublishCulturesAsync(ids, ct);
+                }
+            )
+        );
+
+        // Assert
+        Assert.Equal(1, exit); // the malformed id is still reported
+        Assert.Equal([id1, id2], Assert.Single(client.CulturePrefetches));
+        Assert.Equal(0, callsWhenPrepared);
+    }
+
+    [Fact]
+    public async Task RunBulk_PrepareFails_StillRunsEveryWrite()
+    {
+        // Arrange (#414): the shared read is only an optimisation, so its failure is not fatal.
+        var id = Guid.NewGuid();
+        var client = new FakeUmbracoManagementClient
+        {
+            PublishContentHandler = _ => UmbracoResponse<Empty>.Success(Empty.Value),
+        };
+        var (executor, parse) = Build(client);
+
+        // Act
+        var (_, _, exit) = await Capture(() =>
+            executor.RunBulkAsync(
+                parse,
+                () => [id.ToString()],
+                (c, i, ct) => c.PublishContentAsync(i, null, ct: ct),
+                CancellationToken.None,
+                (_, _, _) => Task.FromResult(UmbracoResponse<Empty>.Failure(500, "Boom"))
+            )
+        );
+
+        // Assert
+        Assert.Equal(0, exit);
+        Assert.Equal([id], client.CalledIds);
+    }
+
     /// <summary>Runs a bulk publish over <paramref name="ids"/>, failing the ids in <paramref name="failing"/>.</summary>
     private static async Task<JsonElement> BulkEnvelope(
         IReadOnlyList<string> ids,

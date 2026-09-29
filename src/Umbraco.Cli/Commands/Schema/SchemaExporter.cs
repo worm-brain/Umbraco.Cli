@@ -17,6 +17,12 @@ namespace Umbraco.Cli.Commands.Schema;
 public static class SchemaExporter
 {
     /// <summary>
+    /// Dictionary item reads in flight at once (#422): 8, as for the content export's document
+    /// reads.
+    /// </summary>
+    private const int DictionaryReadConcurrency = 8;
+
+    /// <summary>
     /// Exports the full schema (document types, media types, member types, data types,
     /// templates, languages, dictionary items, member groups and user groups) of the instance
     /// behind <paramref name="client"/> into a snapshot, with its partial views, stylesheets and
@@ -92,15 +98,25 @@ public static class SchemaExporter
                 entries.ErrorMessage!
             );
 
-        var bodies = new List<JsonNode>(entries.Data!.Count);
-        foreach (var entry in entries.Data!)
-        {
-            var raw = await client.GetSchemaRawAsync(EntityKind.DictionaryItem, entry.Id, ct);
-            if (!raw.IsSuccess)
-                return UmbracoResponse<List<JsonNode>>.FailureFrom(raw);
-            bodies.Add(SchemaBodies.DictionaryItem(raw.Data!, entry.ParentId));
-        }
-        return UmbracoResponse<List<JsonNode>>.Success(bodies);
+        // Umbraco has no batch read for dictionary items, so they are read by id, a few at a time
+        // (#422), in the order the entries are listed.
+        var bodies = await ConcurrentReads.ReadAllAsync(
+            entries.Data!,
+            DictionaryReadConcurrency,
+            async (entry, c) =>
+            {
+                var raw = await client.GetSchemaRawAsync(EntityKind.DictionaryItem, entry.Id, c);
+                return raw.IsSuccess
+                    ? UmbracoResponse<JsonNode>.Success(
+                        SchemaBodies.DictionaryItem(raw.Data!, entry.ParentId)
+                    )
+                    : raw;
+            },
+            ct
+        );
+        return bodies.IsSuccess
+            ? UmbracoResponse<List<JsonNode>>.Success([.. bodies.Data!])
+            : UmbracoResponse<List<JsonNode>>.FailureFrom(bodies);
     }
 
     /// <summary>

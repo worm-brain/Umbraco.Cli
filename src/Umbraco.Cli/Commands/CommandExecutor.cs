@@ -320,6 +320,11 @@ public sealed class CommandExecutor
     /// </param>
     /// <param name="callPerId">The client call to run for each parsed id.</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <param name="prepare">
+    /// Runs once before the first write with every id that parses, for a read the writes can share
+    /// (bulk publish reads every document's cultures in one batch, #414). Its result is ignored, so
+    /// it must be an optimisation each write can do without. Null for none.
+    /// </param>
     /// <returns>The process exit code.</returns>
     public async Task<int> RunBulkAsync(
         ParseResult parseResult,
@@ -330,7 +335,8 @@ public sealed class CommandExecutor
             CancellationToken,
             Task<UmbracoResponse<Empty>>
         > callPerId,
-        CancellationToken ct
+        CancellationToken ct,
+        Func<IUmbracoManagementClient, IReadOnlyList<Guid>, CancellationToken, Task>? prepare = null
     )
     {
         CommandContext ctx;
@@ -405,6 +411,25 @@ public sealed class CommandExecutor
                     ctx.Previewed[before].Body
                 )
                 : null;
+
+        // Batch reads the writes need (#414), once for every id that parses. Its outcome is not
+        // checked: it only saves reads, and each write still reads what the batch did not cover.
+        if (prepare is not null)
+        {
+            var valid = rawIds
+                .Select(raw => Guid.TryParse(raw, out var id) ? id : (Guid?)null)
+                .OfType<Guid>()
+                .ToList();
+            try
+            {
+                if (valid.Count > 0)
+                    await prepare(ctx.Client, valid, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return (int)ExitCode.Cancelled;
+            }
+        }
 
         var results = new List<BulkItemResult>(rawIds.Count);
         foreach (var raw in rawIds)

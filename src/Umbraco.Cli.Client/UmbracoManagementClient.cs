@@ -525,8 +525,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <summary>
     /// The cultures <see cref="PublishContentAsync"/> and <see cref="UnpublishContentAsync"/> send:
     /// the named cultures as given (no read), else the document's own (none for an invariant
-    /// document). The commands resolve through <see cref="PublishCulturesAsync"/> first and pass
-    /// the result here, so what they report is what is sent.
+    /// document): those <see cref="PrefetchPublishCulturesAsync"/> read, used once, or else read
+    /// from the document now. The commands resolve through <see cref="PublishCulturesAsync"/> first
+    /// and pass the result here, so what they report is what is sent.
     /// </summary>
     /// <param name="id">The content item id.</param>
     /// <param name="cultures">The cultures asked for; null/empty reads the document.</param>
@@ -538,9 +539,9 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
         IEnumerable<string>? cultures,
         CancellationToken ct
     ) =>
-        cultures?.ToList() is { Count: > 0 } requested
-            ? requested
-            : await DocumentCulturesAsync(id, ct);
+        cultures?.ToList() is { Count: > 0 } requested ? requested
+        : _prefetchedCultures.Remove(id, out var prefetched) ? prefetched
+        : await DocumentCulturesAsync(id, ct);
 
     /// <summary>
     /// Publishes a content item via <c>PUT document/{id}/publish</c> (generated client, #79).
