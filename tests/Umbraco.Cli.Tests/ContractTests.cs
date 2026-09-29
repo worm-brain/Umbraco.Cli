@@ -44,6 +44,21 @@ public class ContractTests
         Assert.True(declared);
     }
 
+    /// <summary>
+    /// The OAuth token endpoint is declared by the security scheme's <c>tokenUrl</c>, not under
+    /// <c>paths</c>, and a command run on client credentials sends to it.
+    /// </summary>
+    [Fact]
+    public void Declares_TokenUrlOfTheSecurityScheme_IsTrue()
+    {
+        var declared = ManagementSpec.Declares(
+            HttpMethod.Post,
+            $"{Api}/security/back-office/token"
+        );
+
+        Assert.True(declared);
+    }
+
     /// <summary>A literal that is not a GUID does not pass for <c>{id}</c>, so a typo is caught.</summary>
     [Fact]
     public void Declares_MisspeltLiteralInAnIdPosition_IsFalse()

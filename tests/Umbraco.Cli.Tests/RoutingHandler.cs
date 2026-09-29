@@ -23,7 +23,7 @@ internal sealed class RoutingHandler : HttpMessageHandler
     private readonly List<(
         Func<HttpRequestMessage, bool> Match,
         HttpStatusCode Status,
-        string Json
+        Func<HttpRequestMessage, string> Respond
     )> _routes = [];
 
     /// <summary>Every request the client made, in order.</summary>
@@ -46,9 +46,24 @@ internal sealed class RoutingHandler : HttpMessageHandler
         Func<HttpRequestMessage, bool> match,
         HttpStatusCode status,
         string json
+    ) => When(match, status, _ => json);
+
+    /// <summary>
+    /// Registers a route whose body is built from the request, for a fixture that answers by
+    /// query (a tree page for a given parent, <c>skip</c> and <c>take</c>) rather than with one
+    /// fixed body. The first registered route whose predicate matches a request wins.
+    /// </summary>
+    /// <param name="match">Predicate selecting the requests this route answers.</param>
+    /// <param name="status">The HTTP status to return.</param>
+    /// <param name="respond">Builds the JSON body for a matched request.</param>
+    /// <returns>This handler, for chaining.</returns>
+    public RoutingHandler When(
+        Func<HttpRequestMessage, bool> match,
+        HttpStatusCode status,
+        Func<HttpRequestMessage, string> respond
     )
     {
-        _routes.Add((match, status, json));
+        _routes.Add((match, status, respond));
         return this;
     }
 
@@ -120,19 +135,22 @@ internal sealed class RoutingHandler : HttpMessageHandler
         CancellationToken cancellationToken
     )
     {
-        Recordings.Add(
-            new Recorded(
-                request.Method,
-                request.RequestUri!,
-                request.Content?.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult()
-            )
+        var recorded = new Recorded(
+            request.Method,
+            request.RequestUri!,
+            request.Content?.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult()
         );
+        // Some reads fan out concurrently (type aliases, data-type hydration), and a List is not
+        // safe to add to from several threads: an unlocked add can drop a request, which would
+        // make a request count flaky.
+        lock (Recordings)
+            Recordings.Add(recorded);
 
         ManagementSpec.AssertDeclared(request);
 
         var route = _routes.FirstOrDefault(r => r.Match(request));
         var status = route.Match is null ? HttpStatusCode.OK : route.Status;
-        var json = route.Json ?? "";
+        var json = route.Respond?.Invoke(request) ?? "";
         return Task.FromResult(
             new HttpResponseMessage(status)
             {
