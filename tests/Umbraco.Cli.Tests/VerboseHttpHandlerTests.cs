@@ -140,6 +140,84 @@ public class VerboseHttpHandlerTests
         Assert.DoesNotContain("s3cr3t-value", log);
     }
 
+    /// <summary>A token exchange request carrying <paramref name="secret"/> as its client secret.</summary>
+    /// <param name="secret">The client secret.</param>
+    /// <returns>The request.</returns>
+    private static HttpRequestMessage TokenExchange(string secret) =>
+        new(HttpMethod.Post, "https://x/token")
+        {
+            Content = new FormUrlEncodedContent(
+                new Dictionary<string, string>
+                {
+                    ["grant_type"] = "client_credentials",
+                    ["client_id"] = "cid",
+                    ["client_secret"] = secret,
+                }
+            ),
+        };
+
+    [Fact]
+    public async Task SendAsync_ClientSecretEchoedUnderNonSecretJsonName_IsScrubbed()
+    {
+        // SEC-AUTH-001: name-based redaction cannot see a secret under "echo".
+        var (log, _) = await Send(
+            TokenExchange("S3cr3t/Value+1"),
+            () =>
+                new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent(
+                        """{"error":"invalid_client","echo":"client_secret=S3cr3t/Value+1"}""",
+                        Encoding.UTF8,
+                        "application/json"
+                    ),
+                }
+        );
+
+        Assert.DoesNotContain("S3cr3t/Value+1", log);
+    }
+
+    [Fact]
+    public async Task SendAsync_ClientSecretEchoedInPlainTextBody_IsScrubbed()
+    {
+        var (log, _) = await Send(
+            TokenExchange("S3cr3tValue_DoNotLeak"),
+            () =>
+                new HttpResponseMessage(HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent(
+                        "Bad request: client_secret S3cr3tValue_DoNotLeak is unknown",
+                        Encoding.UTF8,
+                        "text/plain"
+                    ),
+                }
+        );
+
+        Assert.Contains("client_secret [redacted] is unknown", log);
+    }
+
+    [Fact]
+    public async Task SendAsync_BearerTokenEchoedInResponse_IsScrubbed()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "https://x/a");
+        request.Headers.Authorization = new("Bearer", "bearer-token-value");
+
+        var (log, _) = await Send(
+            request,
+            () => Json("""{"message":"you sent bearer-token-value"}""")
+        );
+
+        Assert.DoesNotContain("bearer-token-value", log);
+    }
+
+    [Fact]
+    public async Task SendAsync_ShortCredentialValue_IsNotScrubbedEverywhere()
+    {
+        // A value too short to be a real credential would mangle every line it appears in.
+        var (log, _) = await Send(TokenExchange("ab"), () => Json("""{"name":"about"}"""));
+
+        Assert.Contains("\"about\"", log);
+    }
+
     [Fact]
     public async Task SendAsync_TokenResponse_IsRedacted()
     {
