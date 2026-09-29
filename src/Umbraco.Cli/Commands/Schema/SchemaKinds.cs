@@ -172,7 +172,7 @@ public static class SchemaKinds
             (s, v) => s.DocumentTypes = v,
             d => d.DocumentTypes,
             (d, k) => d with { DocumentTypes = k },
-            (c, ct) => c.GetDocumentTypeIdsAsync(ct),
+            ById(EntityKind.DocumentType, (c, ct) => c.GetDocumentTypeIdsAsync(ct)),
             (c, id, ct) => c.DeleteDocumentTypeAsync(id, ct)
         ) with
         {
@@ -198,7 +198,7 @@ public static class SchemaKinds
             (s, v) => s.MediaTypes = v,
             d => d.MediaTypes,
             (d, k) => d with { MediaTypes = k },
-            (c, ct) => c.GetMediaTypeIdsAsync(ct),
+            ById(EntityKind.MediaType, (c, ct) => c.GetMediaTypeIdsAsync(ct)),
             (c, id, ct) => c.DeleteMediaTypeAsync(id, ct)
         ) with
         {
@@ -221,7 +221,7 @@ public static class SchemaKinds
             (s, v) => s.MemberTypes = v,
             d => d.MemberTypes,
             (d, k) => d with { MemberTypes = k },
-            (c, ct) => c.GetMemberTypeIdsAsync(ct),
+            ById(EntityKind.MemberType, (c, ct) => c.GetMemberTypeIdsAsync(ct)),
             (c, id, ct) => c.DeleteMemberTypeAsync(id, ct)
         ) with
         {
@@ -238,7 +238,7 @@ public static class SchemaKinds
             (s, v) => s.DataTypes = v,
             d => d.DataTypes,
             (d, k) => d with { DataTypes = k },
-            (c, ct) => c.GetDataTypeIdsAsync(ct),
+            ById(EntityKind.DataType, (c, ct) => c.GetDataTypeIdsAsync(ct)),
             (c, id, ct) => c.DeleteDataTypeAsync(id, ct)
         ) with
         {
@@ -253,7 +253,7 @@ public static class SchemaKinds
             (s, v) => s.Templates = v,
             d => d.Templates,
             (d, k) => d with { Templates = k },
-            (c, ct) => c.GetTemplateIdsAsync(ct),
+            ById(EntityKind.Template, (c, ct) => c.GetTemplateIdsAsync(ct)),
             (c, id, ct) => c.DeleteTemplateAsync(id, ct)
         ) with
         {
@@ -326,7 +326,8 @@ public static class SchemaKinds
             (s, v) => s.MemberGroups = v,
             d => d.MemberGroups,
             (d, k) => d with { MemberGroups = k },
-            (c, ct) => c.GetMemberGroupIdsAsync(ct),
+            // #413: the paged list carries each group's whole body.
+            (c, ct) => Listed(c.GetMemberGroupsRawAsync(ct)),
             (c, id, ct) => c.DeleteMemberGroupAsync(id, ct)
         ) with
         {
@@ -341,25 +342,22 @@ public static class SchemaKinds
             (s, v) => s.UserGroups = v,
             d => d.UserGroups,
             (d, k) => d with { UserGroups = k },
-            (c, ct) => c.GetUserGroupIdsAsync(ct),
-            (c, id, ct) => c.DeleteUserGroupAsync(id, ct)
-        ) with
-        {
-            // A property-value permission names the document type it applies to.
-            References = [new("permissions", "documentType", EntityKind.DocumentType)],
-            // Start nodes and per-document permissions name content on one instance only.
-            Export = async (c, ct) =>
+            // #413: the paged list carries each group's whole body. Start nodes and per-document
+            // permissions name content on one instance only, so they are made portable.
+            async (c, ct) =>
             {
-                var groups = await SchemaExporter.CollectAsync(
-                    () => c.GetUserGroupIdsAsync(ct),
-                    id => c.GetSchemaRawAsync(EntityKind.UserGroup, id, ct)
-                );
+                var groups = await Listed(c.GetUserGroupsRawAsync(ct));
                 return groups.IsSuccess
                     ? UmbracoResponse<List<JsonNode>>.Success([
                         .. groups.Data!.Select(SchemaBodies.PortableUserGroup),
                     ])
                     : groups;
             },
+            (c, id, ct) => c.DeleteUserGroupAsync(id, ct)
+        ) with
+        {
+            // A property-value permission names the document type it applies to.
+            References = [new("permissions", "documentType", EntityKind.DocumentType)],
             Undeletable = live =>
                 Flag(live, "isDeletable", false)
                     ? "Umbraco does not allow this user group to be deleted."
@@ -424,9 +422,9 @@ public static class SchemaKinds
             .Concat(All.Where(k => k.File is not null).OrderBy(k => k.ApplyStage));
 
     /// <summary>
-    /// The spec of an id-keyed kind that is read per id and written through the generic raw
-    /// create and full-replace update: the types, data types, templates and groups. Keyed by
-    /// <c>alias</c>; a kind keyed otherwise overrides <see cref="SchemaKindSpec.KeyField"/>.
+    /// The spec of an id-keyed kind that is written through the generic raw create and
+    /// full-replace update: the types, data types, templates and groups. Keyed by <c>alias</c>; a
+    /// kind keyed otherwise overrides <see cref="SchemaKindSpec.KeyField"/>.
     /// </summary>
     /// <param name="tag">The kind tag.</param>
     /// <param name="member">The snapshot member.</param>
@@ -436,7 +434,7 @@ public static class SchemaKinds
     /// <param name="setSection">Sets the snapshot section.</param>
     /// <param name="diff">Reads the kind's diff.</param>
     /// <param name="withDiff">Replaces the kind's diff.</param>
-    /// <param name="listIds">Enumerates every live id of the kind.</param>
+    /// <param name="export">Reads every live entity of the kind (<see cref="ById"/> or <see cref="Listed"/>).</param>
     /// <param name="delete">The client's delete call for the kind.</param>
     /// <returns>The spec.</returns>
     private static SchemaKindSpec TypeKind(
@@ -451,8 +449,8 @@ public static class SchemaKinds
         Func<
             IUmbracoManagementClient,
             CancellationToken,
-            Task<UmbracoResponse<IReadOnlyList<Guid>>>
-        > listIds,
+            Task<UmbracoResponse<List<JsonNode>>>
+        > export,
         Func<IUmbracoManagementClient, Guid, CancellationToken, Task<UmbracoResponse<Empty>>> delete
     ) =>
         new()
@@ -466,16 +464,50 @@ public static class SchemaKinds
             SetSection = setSection,
             Diff = diff,
             WithDiff = withDiff,
-            Export = (c, ct) =>
-                SchemaExporter.CollectAsync(
-                    () => listIds(c, ct),
-                    id => c.GetSchemaRawAsync(entity, id, ct)
-                ),
+            Export = export,
             Create = SchemaWrites.Create(entity),
             Update = SchemaWrites.Update(entity),
             Delete = SchemaWrites.DeleteById(delete),
             Target = ItemTarget(entity),
         };
+
+    /// <summary>
+    /// Exports a kind whose list or tree gives only ids: every id, then the bodies, in batches
+    /// where the kind has a batch read (#418).
+    /// </summary>
+    /// <param name="entity">The client entity kind.</param>
+    /// <param name="listIds">Enumerates every live id of the kind.</param>
+    /// <returns>The export.</returns>
+    private static Func<
+        IUmbracoManagementClient,
+        CancellationToken,
+        Task<UmbracoResponse<List<JsonNode>>>
+    > ById(
+        EntityKind entity,
+        Func<
+            IUmbracoManagementClient,
+            CancellationToken,
+            Task<UmbracoResponse<IReadOnlyList<Guid>>>
+        > listIds
+    ) =>
+        (c, ct) =>
+            SchemaExporter.CollectAsync(
+                () => listIds(c, ct),
+                ids => c.GetSchemaRawManyAsync(entity, ids, ct)
+            );
+
+    /// <summary>Exports a kind whose paged list already carries each whole body (#413).</summary>
+    /// <param name="bodies">The list read.</param>
+    /// <returns>The bodies as snapshot entries, or the read's failure.</returns>
+    private static async Task<UmbracoResponse<List<JsonNode>>> Listed(
+        Task<UmbracoResponse<IReadOnlyList<JsonNode>>> bodies
+    )
+    {
+        var read = await bodies;
+        return read.IsSuccess
+            ? UmbracoResponse<List<JsonNode>>.Success([.. read.Data!])
+            : UmbracoResponse<List<JsonNode>>.FailureFrom(read);
+    }
 
     /// <summary>
     /// The spec of a static-file kind (#292): keyed by path, with no id, read by walking the tree,

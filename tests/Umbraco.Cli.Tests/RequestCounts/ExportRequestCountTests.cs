@@ -5,9 +5,10 @@ namespace Umbraco.Cli.Tests;
 
 /// <summary>
 /// How many requests <c>content export</c>, <c>schema export</c> and <c>schema diff</c> make
-/// (#408). An export enumerates each kind and then reads every entity's full body by id, because
-/// neither the trees nor the paged lists carry the whole body, so the count grows with the size of
-/// the instance by design: one read per entity, plus the pages that enumerate them.
+/// (#408). An export enumerates each kind and then reads every entity's full body, because the
+/// trees do not carry it, so the count grows with the size of the instance by design: the pages
+/// that enumerate each kind, then one read per entity, or one batch per 40 for the four type kinds
+/// (#418). The user- and member-group lists carry the whole body, so they need no more (#413).
 /// </summary>
 [Collection("ConsoleCapture")]
 public sealed class ExportRequestCountTests : IDisposable
@@ -46,7 +47,7 @@ public sealed class ExportRequestCountTests : IDisposable
     }
 
     [Fact]
-    public async Task SchemaExport_TwoOfEachKind_ReadsEachKindsListAndEachEntity()
+    public async Task SchemaExport_TwoOfEachKind_ReadsEachKindsListThenTheBodies()
     {
         // Arrange
         var cli = new HttpCli(SchemaSite());
@@ -55,10 +56,12 @@ public sealed class ExportRequestCountTests : IDisposable
         var run = await cli.RunAsync("schema export");
 
         // Assert: twelve kinds - five type trees, three file trees, languages, dictionary, member
-        // and user groups - each listed in one page; languages come whole with their list.
+        // and user groups - each listed in one page; languages and groups come whole with their
+        // list.
         run.HasRequestCount(
-            12 + 11 * PerKind,
-            $"1 list page per kind (12) + 1 read per entity of the 11 kinds read by id ({PerKind} each)"
+            12 + 4 + 5 * PerKind,
+            $"1 list page per kind (12) + 1 batch per type kind (4) + 1 read per template, "
+                + $"dictionary item and file ({PerKind} of each of 5 kinds)"
         );
     }
 
@@ -73,13 +76,14 @@ public sealed class ExportRequestCountTests : IDisposable
 
         // Assert
         run.HasRequestCount(
-            9 + 8 * PerKind,
-            $"1 list page per non-file kind (9) + 1 read per entity of the 8 read by id ({PerKind} each)"
+            9 + 4 + 2 * PerKind,
+            $"1 list page per non-file kind (9) + 1 batch per type kind (4) + 1 read per template "
+                + $"and dictionary item ({PerKind} each)"
         );
     }
 
     [Fact]
-    public async Task SchemaExport_UserAndMemberGroups_ReadsEachGroupAgainAfterItsList()
+    public async Task SchemaExport_UserAndMemberGroups_BuildsEachGroupFromItsList()
     {
         // Arrange
         var cli = new HttpCli(SchemaSite());
@@ -87,14 +91,13 @@ public sealed class ExportRequestCountTests : IDisposable
         // Act
         var run = await cli.RunAsync("schema export");
 
-        // Assert: pinned as it is, not as it should be (#413). The paged user-group and
-        // member-group lists already return each group's full body, the same model the by-id read
-        // returns, so the per-group reads are redundant: the two lists alone would do.
+        // Assert: the paged lists return each group's full body, the same model the by-id read
+        // returns, so no group is read again (#413).
         run.HasRequestCount(
             IsGroupRequest,
             "user-group and member-group",
-            2 + 2 * PerKind,
-            $"1 list page per group kind + 1 by-id read per group ({PerKind} of each)"
+            2,
+            $"1 list page per group kind, and no by-id read ({PerKind} groups of each)"
         );
     }
 
@@ -111,7 +114,7 @@ public sealed class ExportRequestCountTests : IDisposable
 
         // Assert
         run.HasRequestCount(
-            12 + 11 * PerKind,
+            12 + 4 + 5 * PerKind,
             "the same reads as schema export: every kind the snapshot manages"
         );
     }
@@ -129,8 +132,8 @@ public sealed class ExportRequestCountTests : IDisposable
 
         // Assert
         run.HasRequestCount(
-            1 + PerKind,
-            $"1 document-type tree page + 1 read per document type ({PerKind})"
+            1 + 1,
+            $"1 document-type tree page + 1 batch for the {PerKind} document types"
         );
     }
 
@@ -174,7 +177,7 @@ public sealed class ExportRequestCountTests : IDisposable
         {
             var tree = new FakeTree();
             tree.AddMany(PerKind, null, i => FakeUmbraco.NamedItem($"{kind} {i}"));
-            handler.ServeTree(kind, tree).ServeById(kind, FakeUmbraco.ContentType);
+            handler.ServeTree(kind, tree).ServeType(kind, FakeUmbraco.ContentType);
         }
 
         foreach (var (kind, extension) in FileKinds)

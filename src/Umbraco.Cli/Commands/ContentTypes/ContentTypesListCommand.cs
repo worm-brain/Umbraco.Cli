@@ -29,7 +29,7 @@ public static class ContentTypesListCommand
                     parseResult,
                     (client, skip, take, c) => client.GetDocumentTypesAsync(skip, take, c),
                     // The alias column was left out while the list could not fill it (#75); the
-                    // client now reads it per type, so the table shows it again.
+                    // client now reads it for each type on the page (#221, #416), so the table shows it again.
                     ["ID", "Name", "Alias", "IsElement"],
                     i => new[] { i.Id.ToString(), i.Name, i.Alias, i.IsElement.ToString() },
                     parseResult.GetValue(skipOpt),

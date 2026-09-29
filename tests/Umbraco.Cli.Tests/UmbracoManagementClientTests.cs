@@ -1449,6 +1449,12 @@ public class UmbracoManagementClientTests
                 HttpStatusCode.OK,
                 $$"""{"total":1,"items":[{"id":"{{memberTypeId}}","name":"Member","isFolder":false}]}"""
             )
+            // #418: the alias comes from the batch read.
+            .When(
+                r => r.RequestUri!.AbsoluteUri.Contains("member-type/batch"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{memberTypeId}}","alias":"member","name":"Member"}]}"""
+            )
             .When(
                 r =>
                     r.Method == HttpMethod.Get
@@ -1495,6 +1501,12 @@ public class UmbracoManagementClientTests
                 r => r.RequestUri!.AbsoluteUri.Contains("tree/member-type/root"),
                 HttpStatusCode.OK,
                 $$"""{"total":1,"items":[{"id":"{{memberTypeId}}","name":"Member","isFolder":false}]}"""
+            )
+            // #418: the alias comes from the batch read.
+            .When(
+                r => r.RequestUri!.AbsoluteUri.Contains("member-type/batch"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{memberTypeId}}","alias":"member","name":"Member"}]}"""
             )
             .When(
                 r => r.RequestUri!.AbsoluteUri.Contains($"member-type/{memberTypeId}"),

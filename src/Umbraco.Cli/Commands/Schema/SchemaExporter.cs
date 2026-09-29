@@ -105,30 +105,26 @@ public static class SchemaExporter
 
     /// <summary>
     /// Enumerates every entity id of one kind (the client walks the tree, skipping folders and
-    /// recursing nested entities) and reads each one's raw body.
+    /// recursing nested entities) and reads their raw bodies.
     /// </summary>
     /// <param name="listIds">Enumerates every entity id of the kind.</param>
-    /// <param name="getRaw">Reads one entity's verbatim body by id.</param>
-    /// <returns>Every entity's raw body, or the first failure.</returns>
+    /// <param name="getRaw">
+    /// Reads the bodies of the given ids, in their order, or fails on the first that cannot be
+    /// read (<see cref="ISchemaClient.GetSchemaRawManyAsync"/>).
+    /// </param>
+    /// <returns>Every entity's raw body in enumeration order, or the first failure.</returns>
     internal static async Task<UmbracoResponse<List<JsonNode>>> CollectAsync(
         Func<Task<UmbracoResponse<IReadOnlyList<Guid>>>> listIds,
-        Func<Guid, Task<UmbracoResponse<JsonNode>>> getRaw
+        Func<IReadOnlyList<Guid>, Task<UmbracoResponse<IReadOnlyList<JsonNode>>>> getRaw
     )
     {
         var ids = await listIds();
         if (!ids.IsSuccess)
             return UmbracoResponse<List<JsonNode>>.FailureFrom(ids);
 
-        // Fetch the full body for each id, preserving enumeration order for stable output.
-        var bodies = new List<JsonNode>(ids.Data!.Count);
-        foreach (var id in ids.Data!)
-        {
-            var raw = await getRaw(id);
-            if (!raw.IsSuccess)
-                return UmbracoResponse<List<JsonNode>>.FailureFrom(raw);
-            bodies.Add(raw.Data!);
-        }
-
-        return UmbracoResponse<List<JsonNode>>.Success(bodies);
+        var bodies = await getRaw(ids.Data!);
+        return bodies.IsSuccess
+            ? UmbracoResponse<List<JsonNode>>.Success([.. bodies.Data!])
+            : UmbracoResponse<List<JsonNode>>.FailureFrom(bodies);
     }
 }

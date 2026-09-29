@@ -64,6 +64,12 @@ internal static class Wire
     /// <summary>
     /// A handler that answers each request with the body of the first route whose path fragment
     /// the request URI contains, falling back to 200 and an empty body.
+    /// <para>
+    /// A <c>GET {kind}/batch?id=..&amp;id=..</c> that no route names is answered from the by-id
+    /// routes (fragments of the form <c>{kind}/{guid}</c>): <c>{"total", "items"}</c> with the
+    /// body of each id that has one, as Umbraco's batch items equal its by-id bodies (#418). So a
+    /// fixture states each type once, and holds whichever way the client reads it.
+    /// </para>
     /// </summary>
     /// <param name="routes">Path fragment to response body, in precedence order.</param>
     /// <returns>The handler.</returns>
@@ -80,7 +86,37 @@ internal static class Wire
                 HttpStatusCode.OK,
                 json
             );
-        return handler.When(_ => true, HttpStatusCode.OK, "");
+        return handler
+            .When(
+                r => r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/batch"),
+                HttpStatusCode.OK,
+                r => BatchFromByIdRoutes(r, routes)
+            )
+            .When(_ => true, HttpStatusCode.OK, "");
+    }
+
+    /// <summary>A batch response built from by-id routes; see <see cref="Routed"/>.</summary>
+    /// <param name="request">The batch request.</param>
+    /// <param name="routes">The fixture's routes.</param>
+    /// <returns>The <c>{"total", "items"}</c> body.</returns>
+    private static string BatchFromByIdRoutes(
+        HttpRequestMessage request,
+        (string Fragment, string Json)[] routes
+    )
+    {
+        var segments = request.RequestUri!.AbsolutePath.Split('/');
+        var kind = segments[^2];
+        var ids = HttpUtility.ParseQueryString(request.RequestUri.Query).GetValues("id") ?? [];
+        var items = new JsonArray();
+        foreach (var id in ids)
+        {
+            var route = routes.FirstOrDefault(r =>
+                r.Fragment.Equals($"{kind}/{id}", StringComparison.OrdinalIgnoreCase)
+            );
+            if (route.Json is not null)
+                items.Add(JsonNode.Parse(route.Json));
+        }
+        return new JsonObject { ["total"] = items.Count, ["items"] = items }.ToJsonString();
     }
 
     /// <summary>Whether a recorded request's path ends with <paramref name="suffix"/>.</summary>
