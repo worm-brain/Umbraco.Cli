@@ -79,7 +79,11 @@ internal static class ManagementSpec
         return actual.Length > 0;
     }
 
-    /// <summary>Loads the spec and flattens its <c>paths</c> into operations.</summary>
+    /// <summary>
+    /// Loads the spec and flattens its <c>paths</c> into operations, plus a POST to each OAuth
+    /// <c>tokenUrl</c> its security schemes name: the token endpoint is declared there rather than
+    /// under <c>paths</c>, and a test that runs a command on client credentials sends to it.
+    /// </summary>
     /// <returns>Every (method, template segments) pair the spec declares.</returns>
     private static IReadOnlyList<(string, string[])> Load()
     {
@@ -88,6 +92,11 @@ internal static class ManagementSpec
         foreach (var path in doc.RootElement.GetProperty("paths").EnumerateObject())
         foreach (var verb in path.Value.EnumerateObject())
             ops.Add((verb.Name.ToUpperInvariant(), path.Name.Trim('/').Split('/')));
+        var schemes = doc.RootElement.GetProperty("components").GetProperty("securitySchemes");
+        foreach (var scheme in schemes.EnumerateObject())
+        foreach (var flow in scheme.Value.GetProperty("flows").EnumerateObject())
+            if (flow.Value.TryGetProperty("tokenUrl", out var tokenUrl))
+                ops.Add(("POST", tokenUrl.GetString()!.Trim('/').Split('/')));
         return ops;
     }
 

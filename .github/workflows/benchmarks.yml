@@ -1,0 +1,118 @@
+name: Benchmarks
+
+# BenchmarkDotNet suite (tests/Umbraco.Cli.Benchmarks) with an allocation gate (#409).
+#
+# The PR and main are built and run on the SAME runner, one after the other, and compared:
+# numbers stored from another machine would not be comparable. The job fails when a
+# benchmark's allocated bytes per operation rise more than 10% over main. Mean times are
+# reported in the job summary but never fail the build - shared runners are too noisy for a
+# timing threshold, while allocations are deterministic.
+#
+# Not run on every PR, to save CI minutes: only on PRs labelled `performance` (adding the
+# label starts a run), weekly on main, and on demand. History is the uploaded JSON reports,
+# kept as workflow artifacts; nothing is pushed to the repo (no gh-pages branch).
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+  # Weekly on main records a fresh set of numbers even with no PR to compare.
+  schedule:
+    - cron: "41 4 * * 1" # Mondays 04:41 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: benchmarks-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the job builds and runs PR code and only reads the repo.
+permissions:
+  contents: read
+
+jobs:
+  benchmarks:
+    name: Benchmarks (allocation gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # On a PR: only when it carries the `performance` label, and on a `labeled` event only
+    # when that label is the one just added (adding any other label must not rerun the suite).
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'performance') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'performance'))
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      # A run on main itself (the weekly schedule, or a manual run on main) has nothing to
+      # compare against, so it only records its numbers.
+      COMPARE: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
+      # "PR" on a pull request, otherwise the branch the run is on.
+      CANDIDATE_LABEL: ${{ github.event_name == 'pull_request' && 'PR' || github.ref_name }}
+
+    steps:
+      - name: Check out the change
+        uses: actions/checkout@v7
+        with:
+          path: candidate
+
+      - name: Check out main
+        if: env.COMPARE == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          path: baseline
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 9.0.x
+
+      # Both runs use `--job short` (BenchmarkDotNet's ShortRun: 1 launch, 3 warm-up and 3
+      # measured iterations), which keeps two full runs well inside the timeout. Its timings
+      # are rougher than the default job's, which is acceptable because they are only
+      # reported; allocated bytes per operation are measured the same way under any job.
+      # Results land in $RUNNER_TEMP/bench/{baseline,candidate}/results/*-report-brief.json.
+      #
+      # Until #409 merges, main has no benchmark project: skip the baseline and let the compare
+      # step report that there was nothing to compare. A failing baseline run does not fail
+      # the job either - the change under test may be the fix - but its missing benchmarks
+      # then show as "new (not gated)" in the summary.
+      - name: Run benchmarks (main)
+        if: env.COMPARE == 'true'
+        working-directory: baseline
+        continue-on-error: true
+        run: |
+          if [ ! -f tests/Umbraco.Cli.Benchmarks/Umbraco.Cli.Benchmarks.csproj ]; then
+            echo "::notice::main has no benchmark project yet; the allocation gate is skipped for this run."
+            exit 0
+          fi
+          dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- \
+            --filter '*' --job short --artifacts "$RUNNER_TEMP/bench/baseline"
+
+      - name: Run benchmarks (${{ env.CANDIDATE_LABEL }})
+        working-directory: candidate
+        run: |
+          dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- \
+            --filter '*' --job short --artifacts "$RUNNER_TEMP/bench/candidate"
+
+      - name: Compare allocations and write the job summary
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: >-
+          ./candidate/scripts/ci/benchmark-compare.ps1
+          -Baseline "$env:RUNNER_TEMP/bench/baseline"
+          -Candidate "$env:RUNNER_TEMP/bench/candidate"
+          -Threshold 10
+          -BaselineLabel main
+          -CandidateLabel "$env:CANDIDATE_LABEL"
+
+      # The results history: BenchmarkDotNet's JSON (and Markdown/CSV/HTML) reports plus its
+      # logs, under baseline/ and candidate/, kept for 90 days.
+      - name: Upload benchmark results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-results
+          path: ${{ runner.temp }}/bench
+          if-no-files-found: warn
+          retention-days: 90
