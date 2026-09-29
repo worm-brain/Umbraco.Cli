@@ -22,7 +22,9 @@ Tracking issues: [#155](https://github.com/worm-brain/Umbraco.Cli/issues/155) (T
 ## Tier 1 - the automated gate
 
 Defined in [`.github/workflows/security.yml`](../.github/workflows/security.yml). Four
-independent jobs; any one failing fails the gate.
+independent jobs; any one failing fails the gate. On a release tag it runs inside
+[`publish.yml`](../.github/workflows/publish.yml) as a reusable workflow, and the NuGet
+publish job `needs:` it, so a red gate stops the release.
 
 | Job | Tool | Fails when | Suppress an accepted finding via |
 | --- | --- | --- | --- |
@@ -55,8 +57,9 @@ CodeQL runs in CI only; to reproduce locally, use the CodeQL CLI with the same c
   artifact, not hand-written code. It is covered instead at the supply-chain level (below).
 - CodeQL uses `build-mode: none` (buildless C# extraction) to avoid build flakiness. Switch to
   `build-mode: manual` if deeper dataflow extraction is ever needed.
-- **Hardening backlog** (not blockers): pin actions and the gitleaks binary by immutable
-  digest; add package signing / SBOM publication; raise the dependency threshold to Moderate
+- **Hardening backlog** (not blockers): pin the gitleaks binary and the `ci.yml` actions by
+  immutable digest (`publish.yml` and `security.yml` already pin actions by commit SHA);
+  add package signing / SBOM publication; raise the dependency threshold to Moderate
   once the baseline is clean.
 
 ---
