@@ -21,6 +21,12 @@ public sealed partial class UmbracoManagementClient
     private const int TypeBatchSize = 40;
 
     /// <summary>
+    /// By-id reads in flight at once when a kind is read without a batch endpoint (#422): 8, the
+    /// limit the data-type hydration used before #418.
+    /// </summary>
+    private const int ByIdReadConcurrency = 8;
+
+    /// <summary>
     /// Set once a batch request answers 404: Umbraco 17.0 to 17.2 have no batch endpoints, so
     /// from then on this client reads each type by id, as it did before #418, and the probe
     /// costs one request per run.
@@ -80,7 +86,8 @@ public sealed partial class UmbracoManagementClient
 
     /// <summary>
     /// Reads items by id, <see cref="TypeBatchSize"/> per batch request, falling back to one read
-    /// per id when the kind has no batch endpoint or the server has none (a 404).
+    /// per id (<see cref="ByIdReadConcurrency"/> at a time) when the kind has no batch endpoint or
+    /// the server has none (a 404).
     /// </summary>
     /// <typeparam name="T">The item model.</typeparam>
     /// <param name="ids">The ids to read.</param>
@@ -120,18 +127,29 @@ public sealed partial class UmbracoManagementClient
                 }
             }
 
-            foreach (var id in chunk)
-            {
-                try
+            // By id, a few at a time (#422): templates always come this way, and every kind does
+            // on a server without batch endpoints. An ApiException leaves the item missing, as
+            // the batch would; anything else (a transport failure, a cancel) propagates.
+            var items = await ConcurrentReads.MapAsync(
+                chunk,
+                ByIdReadConcurrency,
+                async (id, c) =>
                 {
-                    if (await readOne(id, ct) is { } item)
-                        found[id] = item;
-                }
-                catch (ApiException)
-                {
-                    // Missing, as the batch would leave it out.
-                }
-            }
+                    try
+                    {
+                        return await readOne(id, c);
+                    }
+                    catch (ApiException)
+                    {
+                        return null;
+                    }
+                },
+                stopWhen: null,
+                ct
+            );
+            for (var i = 0; i < chunk.Length; i++)
+                if (items[i] is { } item)
+                    found[chunk[i]] = item;
         }
         return found;
     }

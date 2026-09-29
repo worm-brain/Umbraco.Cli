@@ -15,6 +15,17 @@ namespace Umbraco.Cli.Commands.Media;
 public static class MediaExporter
 {
     /// <summary>
+    /// Item body reads in flight at once (#422): 8, as for the content export's document reads.
+    /// </summary>
+    private const int BodyReadConcurrency = 8;
+
+    /// <summary>
+    /// File downloads in flight at once (#422). Fewer than the body reads: a file can be large, so
+    /// the downloads share the bandwidth rather than a round trip, and each one holds a file open.
+    /// </summary>
+    private const int DownloadConcurrency = 4;
+
+    /// <summary>
     /// Exports the media subtree beneath <paramref name="root"/> (the whole tree when null) into
     /// <paramref name="directory"/>: <c>media.json</c> and each file under <c>files/{id}/</c>.
     /// <para>
@@ -87,84 +98,22 @@ public static class MediaExporter
         if (!live.IsSuccess)
             return UmbracoResponse<MediaSnapshot>.FailureFrom(live);
 
-        var items = new List<MediaNode>(live.Data!.Count);
-        foreach (var node in live.Data!)
-        {
-            if (MediaBody.SrcOf(node.Body) is not { } src)
-            {
-                items.Add(
-                    new MediaNode
-                    {
-                        Id = node.Id,
-                        Parent = node.Parent,
-                        Body = node.Body,
-                    }
-                );
-                continue;
-            }
-
-            // The name is kept as the item has it (diff compares it with the live one, and apply
-            // uploads under it); only the copy on disk needs a name every OS accepts.
-            var name = MediaBody.FileNameOf(src);
-            var onDisk = SafeFileName(name);
-            var relative = $"{MediaSnapshot.FilesDirectoryName}/{node.Id}/{onDisk}";
-            var path = Path.Combine(
-                full,
-                MediaSnapshot.FilesDirectoryName,
-                node.Id.ToString(),
-                onDisk
-            );
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-
-            UmbracoResponse<Empty> download;
-            await using (var output = File.Create(path))
-                download = await client.DownloadMediaFileAsync(src, output, ct);
-            if (download.StatusCode is 404 or 403)
-            {
-                // The site will not serve this file: it is gone (a 404, common on long-lived
-                // sites) or protected by the site (a 403 - the Management API token is not a site
-                // login, and the API has no file download). The item is exported without it and
-                // flagged, rather than making the whole library unexportable; export lists these.
-                File.Delete(path);
-                items.Add(
-                    new MediaNode
-                    {
-                        Id = node.Id,
-                        Parent = node.Parent,
-                        Body = node.Body,
-                        FileUnavailable = new UnavailableFile(node.Id, src, download.StatusCode),
-                    }
-                );
-                continue;
-            }
-            if (!download.IsSuccess)
-                return UmbracoResponse<MediaSnapshot>.Failure(
-                    download.StatusCode,
-                    $"Could not download the file of media item {node.Id} ({src}): "
-                        + download.ErrorMessage
-                );
-
-            items.Add(
-                new MediaNode
-                {
-                    Id = node.Id,
-                    Parent = node.Parent,
-                    Body = node.Body,
-                    File = new MediaFile
-                    {
-                        Path = relative,
-                        Name = name,
-                        Bytes = new FileInfo(path).Length,
-                        Sha256 = await HashFileAsync(path, ct),
-                    },
-                }
-            );
-        }
+        // Each item's file goes to its own files/{id}/ directory, so the downloads share no state
+        // and run a few at a time (#422). The items keep the tree's pre-order, and a failed
+        // download fails the export with the failure earliest in that order.
+        var items = await ConcurrentReads.ReadAllAsync(
+            live.Data!,
+            DownloadConcurrency,
+            (node, c) => WithFileAsync(client, node, full, c),
+            ct
+        );
+        if (!items.IsSuccess)
+            return UmbracoResponse<MediaSnapshot>.FailureFrom(items);
 
         var snapshot = new MediaSnapshot
         {
             Root = root,
-            Items = items,
+            Items = [.. items.Data!],
             Directory = full,
         };
         await File.WriteAllTextAsync(
@@ -173,6 +122,85 @@ public static class MediaExporter
             ct
         );
         return UmbracoResponse<MediaSnapshot>.Success(snapshot);
+    }
+
+    /// <summary>
+    /// Downloads an item's file into <c>files/{id}/</c> under <paramref name="full"/> and returns
+    /// the item with the file recorded. An item without a file is returned as it is. A file the
+    /// site will not serve (404 or 403) is recorded as unavailable rather than failing the export.
+    /// </summary>
+    /// <param name="client">The management client.</param>
+    /// <param name="node">The item, with its body read.</param>
+    /// <param name="full">The snapshot directory being written.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The item for the snapshot, or the failure of any other download error.</returns>
+    private static async Task<UmbracoResponse<MediaNode>> WithFileAsync(
+        IUmbracoManagementClient client,
+        MediaNode node,
+        string full,
+        CancellationToken ct
+    )
+    {
+        if (MediaBody.SrcOf(node.Body) is not { } src)
+            return UmbracoResponse<MediaNode>.Success(
+                new MediaNode
+                {
+                    Id = node.Id,
+                    Parent = node.Parent,
+                    Body = node.Body,
+                }
+            );
+
+        // The name is kept as the item has it (diff compares it with the live one, and apply
+        // uploads under it); only the copy on disk needs a name every OS accepts.
+        var name = MediaBody.FileNameOf(src);
+        var onDisk = SafeFileName(name);
+        var relative = $"{MediaSnapshot.FilesDirectoryName}/{node.Id}/{onDisk}";
+        var path = Path.Combine(full, MediaSnapshot.FilesDirectoryName, node.Id.ToString(), onDisk);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+        UmbracoResponse<Empty> download;
+        await using (var output = File.Create(path))
+            download = await client.DownloadMediaFileAsync(src, output, ct);
+        if (download.StatusCode is 404 or 403)
+        {
+            // The site will not serve this file: it is gone (a 404, common on long-lived
+            // sites) or protected by the site (a 403 - the Management API token is not a site
+            // login, and the API has no file download). The item is exported without it and
+            // flagged, rather than making the whole library unexportable; export lists these.
+            File.Delete(path);
+            return UmbracoResponse<MediaNode>.Success(
+                new MediaNode
+                {
+                    Id = node.Id,
+                    Parent = node.Parent,
+                    Body = node.Body,
+                    FileUnavailable = new UnavailableFile(node.Id, src, download.StatusCode),
+                }
+            );
+        }
+        if (!download.IsSuccess)
+            return UmbracoResponse<MediaNode>.Failure(
+                download.StatusCode,
+                $"Could not download the file of media item {node.Id} ({src}): "
+                    + download.ErrorMessage
+            );
+
+        return UmbracoResponse<MediaNode>.Success(
+            new MediaNode
+            {
+                Id = node.Id,
+                Parent = node.Parent,
+                Body = node.Body,
+                File = new MediaFile
+                {
+                    Path = relative,
+                    Name = name,
+                    Bytes = new FileInfo(path).Length,
+                    Sha256 = await HashFileAsync(path, ct),
+                },
+            }
+        );
     }
 
     /// <summary>
@@ -258,22 +286,28 @@ public static class MediaExporter
         if (!tree.IsSuccess)
             return UmbracoResponse<List<MediaNode>>.FailureFrom(tree);
 
-        var nodes = new List<MediaNode>(tree.Data!.Count);
-        foreach (var node in tree.Data!)
-        {
-            var raw = await client.GetMediaRawAsync(node.Id, ct);
-            if (!raw.IsSuccess)
-                return UmbracoResponse<List<MediaNode>>.FailureFrom(raw);
-            nodes.Add(
-                new MediaNode
-                {
-                    Id = node.Id,
-                    Parent = node.Parent,
-                    Body = raw.Data!,
-                }
-            );
-        }
-        return UmbracoResponse<List<MediaNode>>.Success(nodes);
+        var nodes = await ConcurrentReads.ReadAllAsync(
+            tree.Data!,
+            BodyReadConcurrency,
+            async (node, c) =>
+            {
+                var raw = await client.GetMediaRawAsync(node.Id, c);
+                return raw.IsSuccess
+                    ? UmbracoResponse<MediaNode>.Success(
+                        new MediaNode
+                        {
+                            Id = node.Id,
+                            Parent = node.Parent,
+                            Body = raw.Data!,
+                        }
+                    )
+                    : UmbracoResponse<MediaNode>.FailureFrom(raw);
+            },
+            ct
+        );
+        return nodes.IsSuccess
+            ? UmbracoResponse<List<MediaNode>>.Success([.. nodes.Data!])
+            : UmbracoResponse<List<MediaNode>>.FailureFrom(nodes);
     }
 
     /// <summary>

@@ -73,6 +73,41 @@ public sealed partial class UmbracoManagementClient
         NamedCultures((await DocumentVariantsAsync(id, ct)).Select(v => v.Culture));
 
     /// <summary>
+    /// Named cultures of documents read by <see cref="PrefetchPublishCulturesAsync"/>, by id
+    /// (empty for an invariant document). Each entry is taken out by the first publish or
+    /// unpublish that uses it, so it is never older than the bulk run that read it.
+    /// </summary>
+    private readonly Dictionary<Guid, List<string>> _prefetchedCultures = [];
+
+    /// <inheritdoc />
+    public Task<UmbracoResponse<Empty>> PrefetchPublishCulturesAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken ct = default
+    ) =>
+        GuardedApiAsync(
+            ct,
+            async () =>
+            {
+                // item/document takes many ids and carries each variant's culture; it is in every
+                // Umbraco 17.x (unlike the type batch reads, #418), so it needs no fallback. The
+                // chunk size keeps the query string under IIS's limit, as for the type batches.
+                foreach (var chunk in ids.Distinct().Chunk(TypeBatchSize))
+                {
+                    var items = await _api.Umbraco.Management.Api.V1.Item.Document.GetAsync(
+                        q => q.QueryParameters.Id = [.. chunk.Select(id => (Guid?)id)],
+                        ct
+                    );
+                    foreach (var item in items ?? [])
+                        if (item.Id is { } id)
+                            _prefetchedCultures[id] = NamedCultures(
+                                (item.Variants ?? []).Select(v => v.Culture)
+                            );
+                }
+                return Empty.Value;
+            }
+        );
+
+    /// <summary>
     /// Reads a document's variants, for the culture resolvers that need each culture's state as
     /// well as its code (<see cref="DocumentCulturesAsync"/>, <see cref="PublishCulturesAsync"/>).
     /// </summary>

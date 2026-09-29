@@ -271,6 +271,19 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         return Task.FromResult(UnpublishContentHandler(id));
     }
 
+    /// <summary>The ids of each <see cref="PrefetchPublishCulturesAsync"/> call, in order.</summary>
+    public List<IReadOnlyList<Guid>> CulturePrefetches { get; } = [];
+
+    /// <summary>Records the ids and answers with a bare success; nothing is cached.</summary>
+    public Task<UmbracoResponse<Empty>> PrefetchPublishCulturesAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken ct = default
+    )
+    {
+        CulturePrefetches.Add([.. ids]);
+        return Task.FromResult(UmbracoResponse<Empty>.Success(Empty.Value));
+    }
+
     public Task<UmbracoResponse<Empty>> TrashContentAsync(
         Guid id,
         CancellationToken ct = default
@@ -566,7 +579,10 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     public Dictionary<string, int> MediaFileErrors { get; } = [];
 
     /// <summary>How many downloads were made.</summary>
-    public int MediaDownloads { get; private set; }
+    public int MediaDownloads => _mediaDownloads;
+
+    // Counted with Interlocked: the media export downloads concurrently (#422).
+    private int _mediaDownloads;
 
     public Task<UmbracoResponse<IReadOnlyList<ContentTreeNode>>> GetMediaSnapshotTreeAsync(
         Guid? root = null,
@@ -614,7 +630,7 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         CancellationToken ct = default
     )
     {
-        MediaDownloads++;
+        Interlocked.Increment(ref _mediaDownloads);
         if (MediaFileErrors.TryGetValue(src, out var status))
             return UmbracoResponse<Empty>.Failure(status, $"Failed: {src}");
         if (!MediaFiles.TryGetValue(src, out var bytes))
@@ -1847,10 +1863,21 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
             UmbracoResponse<IReadOnlyList<ContentTreeNode>>.Success(DocumentTree.ToList())
         );
 
-    public Task<UmbracoResponse<JsonNode>> GetDocumentRawAsync(
+    /// <summary>
+    /// Awaited before <see cref="GetDocumentRawAsync"/> answers for an id, so a test can make the
+    /// reads finish in an order other than the one they were started in. Null answers at once.
+    /// </summary>
+    public Func<Guid, Task>? BeforeDocumentRawRead { get; set; }
+
+    public async Task<UmbracoResponse<JsonNode>> GetDocumentRawAsync(
         Guid id,
         CancellationToken ct = default
-    ) => Raw(DocumentRaw, id);
+    )
+    {
+        if (BeforeDocumentRawRead is { } wait)
+            await wait(id);
+        return await Raw(DocumentRaw, id);
+    }
 
     public Task<UmbracoResponse<Empty>> CreateDocumentRawAsync(
         JsonNode body,

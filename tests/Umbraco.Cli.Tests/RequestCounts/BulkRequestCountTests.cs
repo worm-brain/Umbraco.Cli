@@ -16,7 +16,7 @@ public sealed class BulkRequestCountTests : IDisposable
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
     [Fact]
-    public async Task ContentBulkPublish_NoCulture_ReadsAndPublishesEachDocument()
+    public async Task ContentBulkPublish_NoCulture_ReadsTheCulturesInOneBatch()
     {
         // Arrange
         var (cli, ids) = SiteWithDocuments();
@@ -24,9 +24,8 @@ public sealed class BulkRequestCountTests : IDisposable
         // Act
         var run = await cli.RunAsync($"content bulk publish --file {ids}");
 
-        // Assert: pinned as it is, not as it should be (#414). Each document is read on its
-        // own to find its cultures, where one item/document read for all the ids would do.
-        run.HasRequestCount(2 * Ids, $"1 document read + 1 publish per id ({Ids} ids)");
+        // Assert (#414)
+        run.HasRequestCount(1 + Ids, $"1 item/document read + 1 publish per id ({Ids} ids)");
     }
 
     [Fact]
@@ -43,7 +42,7 @@ public sealed class BulkRequestCountTests : IDisposable
     }
 
     [Fact]
-    public async Task ContentBulkUnpublish_NoCulture_ReadsAndUnpublishesEachDocument()
+    public async Task ContentBulkUnpublish_NoCulture_ReadsTheCulturesInOneBatch()
     {
         // Arrange
         var (cli, ids) = SiteWithDocuments();
@@ -51,8 +50,21 @@ public sealed class BulkRequestCountTests : IDisposable
         // Act
         var run = await cli.RunAsync($"content bulk unpublish --file {ids} --yes");
 
-        // Assert: pinned as it is, not as it should be (#414), as for publish.
-        run.HasRequestCount(2 * Ids, $"1 document read + 1 unpublish per id ({Ids} ids)");
+        // Assert (#414)
+        run.HasRequestCount(1 + Ids, $"1 item/document read + 1 unpublish per id ({Ids} ids)");
+    }
+
+    [Fact]
+    public async Task ContentBulkPublish_FiftyIdsNoCulture_ReadsTheCulturesInBatchesOfForty()
+    {
+        // Arrange
+        var (cli, ids) = SiteWithDocuments(50);
+
+        // Act
+        var run = await cli.RunAsync($"content bulk publish --file {ids}");
+
+        // Assert (#414): 40 ids per read keeps the query string under IIS's 2 KB limit.
+        run.HasRequestCount(2 + 50, "ceil(50 / 40) = 2 item/document reads + 1 publish per id");
     }
 
     [Fact]
@@ -69,15 +81,16 @@ public sealed class BulkRequestCountTests : IDisposable
     }
 
     /// <summary>
-    /// An instance holding <see cref="Ids"/> documents, and a file listing their ids one per line,
+    /// An instance holding <paramref name="count"/> documents, and a file listing their ids one per line,
     /// as <c>--file</c> takes them.
     /// </summary>
+    /// <param name="count">How many documents.</param>
     /// <returns>The CLI, and the path of the id file.</returns>
-    private (HttpCli Cli, string IdFile) SiteWithDocuments()
+    private (HttpCli Cli, string IdFile) SiteWithDocuments(int count = Ids)
     {
         var documents = new FakeTree();
         var ids = documents.AddMany(
-            Ids,
+            count,
             null,
             i => FakeUmbraco.DocumentItem($"Page {i}", Guid.NewGuid())
         );
