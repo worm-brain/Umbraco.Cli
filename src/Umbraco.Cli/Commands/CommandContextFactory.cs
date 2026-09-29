@@ -71,12 +71,16 @@ public sealed class CommandContextFactory
         // --output, --fields (#63) and --quiet, built the same way as for the auth commands.
         var output = _globalOptions.CreateWriter(parseResult);
 
+        // Each config file is read and parsed once per command (#425): every question below is
+        // asked of these snapshots. The default store's allow-lists apply under --config too.
         var store = ResolveConfigStore(parseResult);
+        var file = store.Read();
+        var defaultConfig = ReferenceEquals(store, _configStore) ? file : _configStore.Read();
 
         // Warn when the config file exists but can't be parsed (#83 M1): reads fail open (no
         // profile and, crucially, no file-based allow-list), so surface it on stderr rather than
         // silently dropping a guardrail. Non-fatal — the command still runs on env/flag values.
-        if (store.FileExistsButUnreadable())
+        if (file.FileExistsButUnreadable)
             Console.Error.WriteLine(
                 "warning: the Umbraco config file exists but could not be read; it is being "
                     + "ignored (using --host/--token/UMBRACO_* values instead). Any credentials "
@@ -92,8 +96,8 @@ public sealed class CommandContextFactory
             ?? Environment.GetEnvironmentVariable("UMBRACO_PROFILE");
         if (
             !string.IsNullOrWhiteSpace(requestedProfile)
-            && store.HasAnyProfiles
-            && !store.HasProfile(requestedProfile)
+            && file.HasAnyProfiles
+            && !file.HasProfile(requestedProfile)
         )
         {
             output.WriteError(
@@ -108,11 +112,11 @@ public sealed class CommandContextFactory
         // Resolve the selected profile (#64): --profile flag, else UMBRACO_PROFILE / the
         // configured default.
         var profileName = parseResult.GetValue(_globalOptions.Profile);
-        var config = store.Load(profileName);
+        var config = file.Load(profileName);
 
         // Command allow-list (#69): when configured, only the listed noun groups / commands may
         // run. Checked before auth so a disallowed command fails fast.
-        EnforceAllowList(commandName, store, output);
+        EnforceAllowList(commandName, defaultConfig, file, output);
 
         var host = hostOverride ?? config.Host;
         if (string.IsNullOrEmpty(host))
@@ -120,7 +124,7 @@ public sealed class CommandContextFactory
             // The default profile was logged out of while others remain (#304): say so, rather
             // than suggesting a fresh login when the fix is to pick one of the saved profiles.
             var noDefault =
-                string.IsNullOrWhiteSpace(requestedProfile) && store.DefaultProfileMissing;
+                string.IsNullOrWhiteSpace(requestedProfile) && file.DefaultProfileMissing;
             output.WriteError(
                 ExitCode.Aborted,
                 FailureCategory.NotAuthenticated,
@@ -299,10 +303,19 @@ public sealed class CommandContextFactory
     /// </para>
     /// </summary>
     /// <param name="commandName">The dotted command name being run, e.g. <c>content.delete</c>.</param>
-    /// <param name="store">The store resolved for this invocation (honours <c>--config</c>).</param>
+    /// <param name="defaultConfig">The trusted default store's file, as read for this invocation.</param>
+    /// <param name="config">
+    /// The file of the store resolved for this invocation (honours <c>--config</c>); the same
+    /// snapshot as <paramref name="defaultConfig"/> without <c>--config</c>.
+    /// </param>
     /// <param name="output">The output writer used to report a refusal.</param>
     /// <exception cref="CommandAbortedException">Thrown when the command is not in the allow-list.</exception>
-    private void EnforceAllowList(string commandName, ConfigStore store, IOutputWriter output)
+    private static void EnforceAllowList(
+        string commandName,
+        ConfigStore.Snapshot defaultConfig,
+        ConfigStore.Snapshot config,
+        IOutputWriter output
+    )
     {
         // Gather every list in force. The env value is read directly (not through Load, where it
         // replaces the profile's list) so it adds to the file lists instead of overriding them.
@@ -310,9 +323,9 @@ public sealed class CommandContextFactory
         {
             Environment.GetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS"),
         };
-        lists.AddRange(_configStore.AllowLists());
-        if (!ReferenceEquals(store, _configStore))
-            lists.AddRange(store.AllowLists());
+        lists.AddRange(defaultConfig.AllowLists());
+        if (!ReferenceEquals(config, defaultConfig))
+            lists.AddRange(config.AllowLists());
 
         if (lists.Any(list => !IsCommandAllowed(commandName, list)))
         {

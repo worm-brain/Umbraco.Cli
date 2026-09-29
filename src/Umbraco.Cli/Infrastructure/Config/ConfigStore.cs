@@ -11,8 +11,6 @@ namespace Umbraco.Cli.Infrastructure.Config;
 /// </summary>
 public sealed class ConfigStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
     public static string DefaultConfigPath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -35,59 +33,21 @@ public sealed class ConfigStore
         string.IsNullOrEmpty(path) ? fallback : new ConfigStore(path);
 
     /// <summary>
-    /// Resolves the effective credentials for a command: the selected profile's values with the
-    /// <c>UMBRACO_*</c> environment variables overriding each field. The profile is chosen by
-    /// <paramref name="profileName"/>, then <c>UMBRACO_PROFILE</c>, then the file's default,
-    /// then <c>default</c>.
+    /// Resolves the effective credentials for a command; see <see cref="Snapshot.Load"/>. Reads
+    /// the file afresh: a caller with more questions for the same command uses <see cref="Read"/>.
     /// </summary>
     /// <param name="profileName">An explicitly requested profile (from <c>--profile</c>), or null.</param>
     /// <returns>The resolved credentials.</returns>
-    public CliConfig Load(string? profileName = null)
-    {
-        var fromEnv = LoadFromEnvironment();
-        var file = ReadFile();
+    public CliConfig Load(string? profileName = null) => Read().Load(profileName);
 
-        var effectiveName = file is null
-            ? Requested(profileName) ?? "default"
-            : ResolveName(file, profileName);
-
-        var profile =
-            file is not null && file.Profiles.TryGetValue(effectiveName, out var p)
-                ? p
-                : new CliConfig();
-
-        // Never let an undecryptable secret (a config copied from another machine/user, or a
-        // truncated blob) crash the whole CLI — treat it as a missing secret.
-        string? fileSecret;
-        try
-        {
-            fileSecret = SecretProtector.Unprotect(profile.ClientSecret);
-        }
-        catch
-        {
-            fileSecret = null;
-        }
-
-        // One-time upgrade of a legacy plaintext secret (issue #45), best-effort.
-        if (
-            SecretProtector.CanEncrypt
-            && !string.IsNullOrEmpty(profile.ClientSecret)
-            && !SecretProtector.IsProtected(profile.ClientSecret)
-        )
-        {
-            TryMigrateToEncrypted();
-        }
-
-        // Env vars override the selected profile's individual fields (so pure-env / CI still
-        // works and env can override one field of a profile).
-        return new CliConfig
-        {
-            Host = fromEnv.Host ?? profile.Host,
-            ClientId = fromEnv.ClientId ?? profile.ClientId,
-            ClientSecret = fromEnv.ClientSecret ?? fileSecret,
-            AllowedCommands = fromEnv.AllowedCommands ?? profile.AllowedCommands,
-        };
-    }
+    /// <summary>
+    /// Reads and parses the config file once, for a caller that asks several questions of it
+    /// (#425): <see cref="Commands.CommandContextFactory"/> checks readability, the requested
+    /// profile, the credentials and the allow-lists on every command, and used to parse the file
+    /// for each. The snapshot does not see later changes to the file.
+    /// </summary>
+    /// <returns>The file as it is now; a snapshot with no profiles when there is no file.</returns>
+    public Snapshot Read() => new(this, File.Exists(_configPath), ReadFile());
 
     /// <summary>
     /// Saves credentials to a named profile, creating the config/profile as needed. The secret
@@ -284,10 +244,7 @@ public sealed class ConfigStore
     /// Whether the default profile was removed while other profiles remain (#304), so no profile
     /// is the default until <c>auth profile use</c> picks one.
     /// </summary>
-    public bool DefaultProfileMissing =>
-        ReadFile() is { } file
-        && file.Profiles.Count > 0
-        && !file.Profiles.ContainsKey(file.EffectiveDefault);
+    public bool DefaultProfileMissing => Read().DefaultProfileMissing;
 
     /// <summary>The profile a call names in <paramref name="file"/>; see <see cref="ResolveProfileName"/>.</summary>
     /// <param name="file">The parsed config file.</param>
@@ -307,7 +264,7 @@ public sealed class ConfigStore
 
     /// <summary>Whether the config file exists on disk but cannot be parsed (fail-closed signal, #83 M1).</summary>
     /// <returns>True when a file is present but unreadable.</returns>
-    public bool FileExistsButUnreadable() => File.Exists(_configPath) && ReadFile() is null;
+    public bool FileExistsButUnreadable() => Read().FileExistsButUnreadable;
 
     /// <summary>Deletes the entire config file.</summary>
     public void Delete()
@@ -336,12 +293,14 @@ public sealed class ConfigStore
             if (doc.RootElement.TryGetProperty("profiles", out _))
             {
                 file =
-                    JsonSerializer.Deserialize<ConfigFile>(json, JsonOptions) ?? new ConfigFile();
+                    JsonSerializer.Deserialize(json, ConfigJsonContext.Default.ConfigFile)
+                    ?? new ConfigFile();
             }
             else
             {
                 var flat =
-                    JsonSerializer.Deserialize<CliConfig>(json, JsonOptions) ?? new CliConfig();
+                    JsonSerializer.Deserialize(json, ConfigJsonContext.Default.CliConfig)
+                    ?? new CliConfig();
                 file = new ConfigFile
                 {
                     DefaultProfile = "default",
@@ -372,7 +331,10 @@ public sealed class ConfigStore
         // one step. A crash or a concurrent invocation can no longer truncate the file and lose
         // every profile's credentials mid-write.
         var tempPath = _configPath + ".tmp";
-        File.WriteAllText(tempPath, JsonSerializer.Serialize(file, JsonOptions));
+        File.WriteAllText(
+            tempPath,
+            JsonSerializer.Serialize(file, ConfigJsonContext.Default.ConfigFile)
+        );
         RestrictPermissions(tempPath);
         if (File.Exists(_configPath))
             File.Replace(tempPath, _configPath, destinationBackupFileName: null);
@@ -447,17 +409,120 @@ public sealed class ConfigStore
     /// merged in; callers check it separately.
     /// </summary>
     /// <returns>The stored lists; empty when the file is absent, unreadable or has none.</returns>
-    public IReadOnlyList<string> AllowLists() =>
-        ReadFile()?.Profiles.Values.Select(p => p.AllowedCommands).OfType<string>().ToList() ?? [];
+    public IReadOnlyList<string> AllowLists() => Read().AllowLists();
 
     /// <summary>Whether a config file exists and defines the given profile.</summary>
     /// <param name="name">The profile name.</param>
     /// <returns>True if the profile exists.</returns>
-    public bool HasProfile(string name) => ReadFile()?.Profiles.ContainsKey(name) ?? false;
+    public bool HasProfile(string name) => Read().HasProfile(name);
 
     /// <summary>Whether a readable config file defines any profiles.</summary>
-    public bool HasAnyProfiles => ReadFile()?.Profiles.Count > 0;
+    public bool HasAnyProfiles => Read().HasAnyProfiles;
 
     /// <summary>Returns null for a null/whitespace string, else the string itself.</summary>
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    /// <summary>
+    /// The config file as <see cref="Read"/> found it, parsed once. An absent file and an
+    /// unreadable one both have no profiles; only <see cref="FileExistsButUnreadable"/> tells
+    /// them apart.
+    /// </summary>
+    public sealed class Snapshot
+    {
+        private readonly ConfigStore _store;
+        private readonly bool _exists;
+        private readonly ConfigFile? _file;
+
+        /// <summary>Wraps one read of <paramref name="store"/>'s file.</summary>
+        /// <param name="store">The store read, for the legacy-secret migration in <see cref="Load"/>.</param>
+        /// <param name="exists">Whether the file existed.</param>
+        /// <param name="file">The parsed file; null when it is absent or unreadable.</param>
+        internal Snapshot(ConfigStore store, bool exists, ConfigFile? file)
+        {
+            _store = store;
+            _exists = exists;
+            _file = file;
+        }
+
+        /// <summary>Whether the config file exists on disk but cannot be parsed (fail-closed signal, #83 M1).</summary>
+        public bool FileExistsButUnreadable => _exists && _file is null;
+
+        /// <summary>Whether a readable config file defines any profiles.</summary>
+        public bool HasAnyProfiles => _file?.Profiles.Count > 0;
+
+        /// <summary>Whether a readable config file defines the given profile.</summary>
+        /// <param name="name">The profile name, compared case-insensitively.</param>
+        /// <returns>True if the profile exists.</returns>
+        public bool HasProfile(string name) => _file?.Profiles.ContainsKey(name) ?? false;
+
+        /// <summary>
+        /// Whether the default profile was removed while other profiles remain (#304), so no
+        /// profile is the default until <c>auth profile use</c> picks one.
+        /// </summary>
+        public bool DefaultProfileMissing =>
+            _file is { } file
+            && file.Profiles.Count > 0
+            && !file.Profiles.ContainsKey(file.EffectiveDefault);
+
+        /// <summary>The command allow-lists (#69) in the file; see <see cref="ConfigStore.AllowLists"/>.</summary>
+        /// <returns>The stored lists; empty when the file is absent, unreadable or has none.</returns>
+        public IReadOnlyList<string> AllowLists() =>
+            _file?.Profiles.Values.Select(p => p.AllowedCommands).OfType<string>().ToList() ?? [];
+
+        /// <summary>
+        /// Resolves the effective credentials for a command: the selected profile's values with the
+        /// <c>UMBRACO_*</c> environment variables overriding each field. The profile is chosen by
+        /// <paramref name="profileName"/>, then <c>UMBRACO_PROFILE</c>, then the file's default,
+        /// then <c>default</c>. A profile whose secret is still plaintext makes the store rewrite
+        /// the file with it encrypted (#45), which reads the file again.
+        /// </summary>
+        /// <param name="profileName">An explicitly requested profile (from <c>--profile</c>), or null.</param>
+        /// <returns>The resolved credentials.</returns>
+        public CliConfig Load(string? profileName = null)
+        {
+            var fromEnv = LoadFromEnvironment();
+            var file = _file;
+
+            var effectiveName = file is null
+                ? Requested(profileName) ?? "default"
+                : ResolveName(file, profileName);
+
+            var profile =
+                file is not null && file.Profiles.TryGetValue(effectiveName, out var p)
+                    ? p
+                    : new CliConfig();
+
+            // Never let an undecryptable secret (a config copied from another machine/user, or a
+            // truncated blob) crash the whole CLI — treat it as a missing secret.
+            string? fileSecret;
+            try
+            {
+                fileSecret = SecretProtector.Unprotect(profile.ClientSecret);
+            }
+            catch
+            {
+                fileSecret = null;
+            }
+
+            // One-time upgrade of a legacy plaintext secret (issue #45), best-effort.
+            if (
+                SecretProtector.CanEncrypt
+                && !string.IsNullOrEmpty(profile.ClientSecret)
+                && !SecretProtector.IsProtected(profile.ClientSecret)
+            )
+            {
+                _store.TryMigrateToEncrypted();
+            }
+
+            // Env vars override the selected profile's individual fields (so pure-env / CI still
+            // works and env can override one field of a profile).
+            return new CliConfig
+            {
+                Host = fromEnv.Host ?? profile.Host,
+                ClientId = fromEnv.ClientId ?? profile.ClientId,
+                ClientSecret = fromEnv.ClientSecret ?? fileSecret,
+                AllowedCommands = fromEnv.AllowedCommands ?? profile.AllowedCommands,
+            };
+        }
+    }
 }

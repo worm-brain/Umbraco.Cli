@@ -151,4 +151,76 @@ public class CommandContextFactoryTests
 
         Assert.False(state.CanRenew);
     }
+
+    /// <summary>
+    /// Runs <see cref="CommandContextFactory.CreateAsync"/> with a config file holding exactly
+    /// <paramref name="configJson"/>, and returns whether it built a context and what it wrote to
+    /// stderr.
+    /// </summary>
+    private static async Task<(bool Built, string Stderr)> CreateWithConfigFile(
+        string configJson,
+        string args
+    )
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"cfg-{Guid.NewGuid()}.json");
+        File.WriteAllText(configPath, configJson);
+        var http = new Factory(new TokenEndpoint());
+        var global = new GlobalOptions();
+        var factory = new CommandContextFactory(
+            new ConfigStore(configPath),
+            new UmbracoAuthService(http),
+            http,
+            global,
+            new ClientFactory(),
+            new MutationInterceptState(),
+            new TokenRefreshState()
+        );
+        var root = new RootCommand();
+        global.AddTo(root);
+        var original = Console.Error;
+        var stderr = new StringWriter();
+        Console.SetError(stderr);
+
+        try
+        {
+            await factory.CreateAsync(root.Parse(args));
+            return (true, stderr.ToString());
+        }
+        catch (CommandAbortedException)
+        {
+            return (false, stderr.ToString());
+        }
+        finally
+        {
+            Console.SetError(original);
+            File.Delete(configPath);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_UnreadableConfigFile_WarnsAndRunsOnTheFlags()
+    {
+        // #83 M1: the unreadable file is reported, not silently ignored, and the command still
+        // runs on --host / --token.
+        var (built, stderr) = await CreateWithConfigFile(
+            "{ this is not valid json ",
+            "--host https://site.test --token tok --output json"
+        );
+
+        Assert.Equal(
+            (true, true),
+            (built, stderr.Contains("config file exists but could not be read"))
+        );
+    }
+
+    [Fact]
+    public async Task CreateAsync_ProfileTheFileDoesNotDefine_AbortsNamingIt()
+    {
+        var (built, stderr) = await CreateWithConfigFile(
+            """{"profiles":{"a":{"host":"https://a.test","clientId":"id","clientSecret":"s"}}}""",
+            "--profile missing --output json"
+        );
+
+        Assert.Equal((false, true), (built, stderr.Contains("No profile named 'missing'")));
+    }
 }

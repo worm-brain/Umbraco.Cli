@@ -24,8 +24,6 @@ namespace Umbraco.Cli.Infrastructure.Config;
 /// </summary>
 public sealed class FileTokenCache : ITokenCache
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-
     private readonly string _path;
     private readonly TimeProvider _time;
 
@@ -92,8 +90,9 @@ public sealed class FileTokenCache : ITokenCache
         {
             if (!File.Exists(_path))
                 return [];
-            return JsonSerializer.Deserialize<Dictionary<string, CachedToken>>(
-                    File.ReadAllText(_path)
+            return JsonSerializer.Deserialize(
+                    File.ReadAllText(_path),
+                    ConfigJsonContext.Default.DictionaryStringCachedToken
                 ) ?? [];
         }
         catch (Exception ex)
@@ -116,7 +115,11 @@ public sealed class FileTokenCache : ITokenCache
         {
             CreateDirectory(Path.GetDirectoryName(_path)!);
             using (var stream = new FileStream(temp, CreateOptions()))
-                JsonSerializer.Serialize(stream, live, JsonOptions);
+                JsonSerializer.Serialize(
+                    stream,
+                    live,
+                    ConfigJsonContext.Default.DictionaryStringCachedToken
+                );
             File.Move(temp, _path, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
