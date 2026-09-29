@@ -15,6 +15,7 @@
     "runs": 10
   },
   "httpRuns": 5,
+  "note": "Recorded on a busy machine (other workloads, including a BenchmarkDotNet run, ran alongside), so expect a wider spread than on a quiet machine.",
   "results": [
     {
       "scenario": "version",

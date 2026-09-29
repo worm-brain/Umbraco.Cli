@@ -9,6 +9,7 @@ no live Umbraco instance (#139, #77).
   python3 bench.py --cli local --umbraco 17
   python3 bench.py --cli 0.1.0-alpha.6,local --umbraco 17,18
   python3 bench.py --scenario get,list --runs 20 --out-dir .cache/bench/scratch
+  python3 bench.py report      regenerate README.md's Performance section and docs/performance.md; times nothing
 
 CLI builds (--cli, comma-separated):
   local          pack this checkout (pack-cli.py) and install that build
@@ -45,6 +46,10 @@ the smoke run each command reuses a cached token, as repeated commands do in rea
 
 The results file is docs/performance/results/<YYYY-MM-DD>_<HHMMSS>_<machine>.json (and .md). README.md
 (section "Benchmarks") documents its fields. To change what is timed, edit SCENARIOS below.
+
+`bench.py report` (tools/perf_report.py) reads every results file there and rewrites docs/performance.md and
+the block between the `<!-- perf:start -->` and `<!-- perf:end -->` lines in the repository's README.md. It
+needs neither hyperfine nor a site; `bench.py report --help` says what it quotes.
 """
 import argparse
 import collections
@@ -62,6 +67,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
 import harness  # noqa: E402
+import perf_report  # noqa: E402
 from harness import ROOT, SITES, WINDOWS, die, heading, say, warn  # noqa: E402
 
 PY = sys.executable
@@ -118,6 +124,8 @@ def parse_args():
     p.add_argument("--hyperfine", help="Path to hyperfine. Default: $HYPERFINE, then PATH")
     p.add_argument("--machine", help="Machine label for the results file name. Default: OS and CPU model, e.g. windows-amd-ryzen-9-7950x")
     p.add_argument("--out-dir", type=Path, default=RESULTS, help="Where to write the results. Default: docs/performance/results")
+    p.add_argument("--note", help='A note stored with the results and shown on docs/performance.md, such as "busy machine: '
+                                  'a build ran alongside". Default: none')
     a = p.parse_args()
     if a.runs < 2 or a.warmup < 0 or a.http_runs < 1:
         p.error("--runs must be at least 2 (for a spread), --warmup at least 0 and --http-runs at least 1")
@@ -539,6 +547,7 @@ def summary_markdown(doc):
              f"- **Method:** hyperfine {h['version']} ({h['warmup']} warm-up + {h['runs']} timed runs per command) against "
              f"the tests/hands-on dev site and its fixture content. HTTP time is the mean of {doc['httpRuns']} separate "
              "`--verbose` runs, and CLI overhead is end-to-end minus HTTP (tests/hands-on/README.md, Benchmarks).",
+             *([f"- **Note:** {doc['note']}"] if doc.get("note") else []),
              "",
              "| Scenario | CLI | Umbraco | End-to-end ms (mean +/- sd) | HTTP ms | CLI overhead ms | Requests |",
              "|---|---|---|--:|--:|--:|--:|"]
@@ -557,6 +566,9 @@ def summary_markdown(doc):
 # ---------------------------------------------------------------- main -------
 def main():
     harness.utf8_stdio()
+    if sys.argv[1:2] == ["report"]:  # the one subcommand: render the committed results; it times nothing
+        perf_report.main(sys.argv[2:], SCENARIOS)
+        return
     a = parse_args()
 
     # ---- check everything before running anything --------------------------
@@ -598,7 +610,7 @@ def main():
     # ---- results: JSON for tools (#411), markdown for people ----------------
     doc = {"schemaVersion": SCHEMA_VERSION, "date": started.isoformat().replace("+00:00", "Z"), "machine": machine,
            "hyperfine": {"version": hyperfine_version, "warmup": a.warmup, "runs": a.runs}, "httpRuns": a.http_runs,
-           "results": rows}
+           "note": a.note, "results": rows}
     out_dir = a.out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     # One line per `times` array rather than one per number, so the file stays short and diffs stay readable.
