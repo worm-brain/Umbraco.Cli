@@ -22,8 +22,10 @@ public sealed class CliConfig
 
     /// <summary>
     /// Optional comma-separated allow-list restricting which commands may run (#69): a noun
-    /// group ("content") or a specific command ("content.list"). Null/empty means no
-    /// restriction. Overridden by the UMBRACO_ALLOWED_COMMANDS environment variable.
+    /// group ("content") or a specific command ("content.list"). Null means no restriction from
+    /// this profile; a present but blank value is an explicit lockdown. The list applies to every
+    /// profile in the same file, and alongside UMBRACO_ALLOWED_COMMANDS, so it can only tighten
+    /// (SEC-PRIV-002; see <see cref="ConfigStore.AllowLists"/>).
     /// </summary>
     [JsonPropertyName("allowedCommands")]
     public string? AllowedCommands { get; set; }

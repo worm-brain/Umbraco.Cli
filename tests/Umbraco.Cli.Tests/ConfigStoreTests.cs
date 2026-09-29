@@ -387,6 +387,45 @@ public class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void AllowLists_SeveralProfiles_ReturnsEveryStoredListWhateverTheDefault()
+    {
+        // SEC-PRIV-002: file lists are file-wide, so a non-default profile's list is still returned.
+        File.WriteAllText(
+            _tempPath,
+            """
+            {"defaultProfile":"escape","profiles":{
+              "default":{"allowedCommands":"content"},
+              "escape":{"host":"https://h"},
+              "locked":{"allowedCommands":","}}}
+            """
+        );
+
+        var lists = Store.AllowLists();
+
+        Assert.Equal([",", "content"], lists.OrderBy(l => l, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void AllowLists_NoConfigFile_ReturnsEmpty()
+    {
+        var lists = Store.AllowLists();
+
+        Assert.Empty(lists);
+    }
+
+    [Fact]
+    public void AllowLists_EnvListSet_IsNotMergedIn()
+    {
+        // Callers check UMBRACO_ALLOWED_COMMANDS separately, so it must not replace a file list here.
+        File.WriteAllText(_tempPath, """{"allowedCommands":"content"}""");
+        Environment.SetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS", "webhook");
+
+        var lists = Store.AllowLists();
+
+        Assert.Equal(["content"], lists);
+    }
+
+    [Fact]
     public void Load_FileAllowList_HonouredWhenAuthFullyFromEnv()
     {
         // A file-only allow-list must survive even when auth comes entirely from env (the

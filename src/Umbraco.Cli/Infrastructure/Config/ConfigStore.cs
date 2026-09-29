@@ -437,6 +437,19 @@ public sealed class ConfigStore
             AllowedCommands = Environment.GetEnvironmentVariable("UMBRACO_ALLOWED_COMMANDS"),
         };
 
+    /// <summary>
+    /// Every command allow-list (#69) stored in the config file, one per profile that carries
+    /// one, regardless of which profile is the default or requested. File-based restrictions are
+    /// file-wide (SEC-PRIV-002): a command must satisfy all of them, so choosing another profile
+    /// (<c>--profile</c>, <c>UMBRACO_PROFILE</c>) or moving the default (<c>auth profile use</c>)
+    /// can never drop one, and adding a list to any profile can only tighten. A present but blank
+    /// list is returned as is: it is an explicit lockdown. <c>UMBRACO_ALLOWED_COMMANDS</c> is not
+    /// merged in; callers check it separately.
+    /// </summary>
+    /// <returns>The stored lists; empty when the file is absent, unreadable or has none.</returns>
+    public IReadOnlyList<string> AllowLists() =>
+        ReadFile()?.Profiles.Values.Select(p => p.AllowedCommands).OfType<string>().ToList() ?? [];
+
     /// <summary>Whether a config file exists and defines the given profile.</summary>
     /// <param name="name">The profile name.</param>
     /// <returns>True if the profile exists.</returns>
