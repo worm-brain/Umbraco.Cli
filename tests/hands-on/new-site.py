@@ -59,17 +59,6 @@ def parse_args():
 
 
 # ---- versions ---------------------------------------------------------------
-def resolve_umbraco_version(want):
-    """Resolve `latest`, a major (`17`) or an exact version against Umbraco.Templates on nuget.org."""
-    versions = harness.nuget_versions("umbraco.templates")
-    stable = [v for v in versions if re.fullmatch(r"\d+\.\d+\.\d+", v)]
-    if want == "latest":
-        return max(stable, key=harness.version_key, default=None)
-    if "." in want:
-        return want if want.lower() in versions else None
-    return max((v for v in stable if v.split(".")[0] == want), key=harness.version_key, default=None)
-
-
 def resolve_cli_version(want, source):
     """Resolve the CLI version: from a local folder of .nupkg files, or from nuget.org."""
     if source:
@@ -211,7 +200,7 @@ def main():
         die(f"--cli-source {a.cli_source} is not a folder.")
 
     say("Resolving versions")
-    umb_ver = resolve_umbraco_version(a.umbraco) or die(f"Couldn't find Umbraco.Templates version matching '{a.umbraco}' on NuGet.")
+    umb_ver = harness.resolve_umbraco_version(a.umbraco) or die(f"Couldn't find Umbraco.Templates version matching '{a.umbraco}' on NuGet.")
     cli_ver = resolve_cli_version(a.cli, cli_source) or \
         die(f"Couldn't find Umbraco.Community.Cli version matching '{a.cli}'{f' in {cli_source}' if cli_source else ''}.")
     print(f"    Umbraco: {umb_ver}")

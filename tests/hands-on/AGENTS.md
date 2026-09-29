@@ -208,6 +208,7 @@ curl -sk -H "Authorization: Bearer $TOK" $H/umbraco/management/api/v1/document/<
 | `new-site.py`, `remove-site.py` | Create / remove one throwaway site (`--help` for options; `remove-site.py --list`) |
 | `dev-site.py` | The persistent `sites/dev` for the live integration suite (`up`, `down`, `test`, `env`, `reset`). Not part of a round: leave it alone |
 | `pack-cli.py` | Pack this checkout's CLI into `nupkg/` with a unique `0.1.0-local.<timestamp>` version |
+| `bench.py` | hyperfine timings per CLI build x Umbraco version on `sites/dev` (can reset it); results in `docs/performance/results/`. Not part of a round |
 | `TEST-PLAN.md` | What to test: Part A (scripted) and T1–T10, pass criteria, Known issues per test |
 | `LEDGER.md`, `ledger-history.json` | Findings per round (format at the top); ids of rounds 1–4 → issue numbers |
 | `tools/build_site.py` | Part A: rebuild the fixture site with the CLI (ok/FAIL per step, timings) |
