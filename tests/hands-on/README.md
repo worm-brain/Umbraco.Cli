@@ -88,6 +88,8 @@ hyperfine` or `cargo install hyperfine` (Linux). If it isn't on `PATH`, pass `--
 python3 bench.py --cli local --umbraco 17                          # this checkout on the latest Umbraco 17
 python3 bench.py --cli 0.1.0-alpha.6,local --umbraco 17,18         # a published build against this checkout, on 17 and 18
 python3 bench.py --scenario get,list --runs 20 --out-dir .cache/bench/scratch   # a quick look, not for committing
+python3 bench.py --cli local --note "a build ran alongside"        # record what was unusual about the run
+python3 bench.py report                                            # regenerate the published numbers (below)
 python3 bench.py --help                                            # every option
 ```
 
@@ -166,6 +168,7 @@ The JSON is what other tools read (the generated README section, #411). One file
 | `machine` | `label` (as in the file name), `cpu`, `logicalCores`, `memoryGiB`, `os`, `arch` |
 | `hyperfine` | `version`, and the `warmup` and `runs` per command |
 | `httpRuns` | `--verbose` runs per result for the HTTP time |
+| `note` | `--note`: what was unusual about the run, such as other load on the machine; `null` when not given (and missing from files written before it existed) |
 | `results[]` | One row per Umbraco version x CLI build x scenario, in run order |
 
 Each row in `results`:
@@ -183,6 +186,29 @@ Each row in `results`:
 | `requests` | Requests per run, as logged by `--verbose` |
 
 A row's full stamp is its own `cli` and `umbraco` plus the file's `machine` and `date`.
+
+### Publishing the numbers (`bench.py report`)
+
+The README's Performance section and [`docs/performance.md`](../../docs/performance.md) are generated from the
+committed results files, so no number on them is typed by hand. After committing a run's results, regenerate both:
+
+```bash
+python3 bench.py report
+```
+
+It needs neither hyperfine nor a site. It reads every `docs/performance/results/*.json` and:
+
+- rewrites only the block between the `<!-- perf:start -->` and `<!-- perf:end -->` lines in the repository's
+  `README.md`: a headline table (`version`, `get` and `content-export`, with their request counts) from the newest
+  results file, for its newest published CLI build on its newest Umbraco version (a `local` build only when the file
+  has no published one), stamped with the machine, versions and date;
+- writes `docs/performance.md` whole: the three measuring layers, every run, history per scenario across CLI builds,
+  the Umbraco version comparison (once a machine has run one build on more than one Umbraco major), how to
+  reproduce each run, and the caveats, including each run's `note`.
+
+The prose on both lives in [`tools/perf_report.py`](tools/perf_report.py): edit it there, not in the generated
+files. Running `report` again without new results changes nothing. It stops before writing anything when there
+are no results files, a file has another `schemaVersion`, or `README.md` lacks exactly one pair of markers.
 
 ## Single sites
 
