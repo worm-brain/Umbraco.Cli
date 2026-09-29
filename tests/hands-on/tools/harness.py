@@ -382,6 +382,24 @@ def nuget_versions(package):
         return json.loads(r.read())["versions"]
 
 
+def resolve_umbraco_version(want):
+    """Resolve an Umbraco version request against Umbraco.Templates on nuget.org.
+
+    Shared by new-site.py (which version to install) and bench.py (whether the dev site is already on it).
+
+    :param want: `latest`, a major (`17`: its latest stable release) or an exact version (`17.7.0`, `18.1.0-rc`).
+    :returns: the exact version, or None when nothing on nuget.org matches.
+    :raises urllib.error.URLError: when nuget.org can't be reached.
+    """
+    versions = nuget_versions("umbraco.templates")
+    stable = [v for v in versions if re.fullmatch(r"\d+\.\d+\.\d+", v)]
+    if want == "latest":
+        return max(stable, key=version_key, default=None)
+    if "." in want:
+        return want if want.lower() in versions else None
+    return max((v for v in stable if v.split(".")[0] == want), key=version_key, default=None)
+
+
 def nuget_global_packages():
     """The NuGet global-packages folder (`~/.nuget/packages` unless NUGET_PACKAGES or config moves it).
 
