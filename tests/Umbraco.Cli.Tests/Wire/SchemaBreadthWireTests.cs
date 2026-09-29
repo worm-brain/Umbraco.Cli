@@ -24,7 +24,7 @@ public class SchemaBreadthWireTests
         }.ToJsonString();
 
     [Fact]
-    public async Task GetMemberGroupIdsAsync_ReadsEveryPage()
+    public async Task GetMemberGroupsRawAsync_ReadsEveryPage()
     {
         // Arrange: a full first page and a short second one.
         var handler = new RoutingHandler()
@@ -32,7 +32,7 @@ public class SchemaBreadthWireTests
             .When(r => r.RequestUri!.Query.Contains("skip=100"), HttpStatusCode.OK, Page(1, 101));
 
         // Act
-        var result = await Wire.Client(handler).GetMemberGroupIdsAsync(CancellationToken.None);
+        var result = await Wire.Client(handler).GetMemberGroupsRawAsync(CancellationToken.None);
 
         // Assert
         Assert.True(result.IsSuccess, result.ErrorMessage);
@@ -40,7 +40,7 @@ public class SchemaBreadthWireTests
     }
 
     [Fact]
-    public async Task GetMemberGroupIdsAsync_FailedPage_IsAFailureNotAShortList()
+    public async Task GetMemberGroupsRawAsync_FailedPage_IsAFailureNotAShortList()
     {
         var handler = new RoutingHandler().When(
             _ => true,
@@ -48,7 +48,7 @@ public class SchemaBreadthWireTests
             """{"title":"boom"}"""
         );
 
-        var result = await Wire.Client(handler).GetMemberGroupIdsAsync(CancellationToken.None);
+        var result = await Wire.Client(handler).GetMemberGroupsRawAsync(CancellationToken.None);
 
         Assert.False(result.IsSuccess);
     }

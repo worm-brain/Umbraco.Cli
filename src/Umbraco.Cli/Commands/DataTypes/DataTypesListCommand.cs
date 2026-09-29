@@ -9,7 +9,7 @@ public static class DataTypesListCommand
     {
         var cmd = new Command(
             "list",
-            "List all data types (property editors) configured in the Umbraco instance.\n\nEach item on the page is read individually so it can carry its editorAlias, which is what decides a property's value format - so this costs one request per item returned. Use --take to bound it."
+            "List all data types (property editors) configured in the Umbraco instance.\n\nEach item on the page is read in full so it can carry its editorAlias, which is what decides a property's value format - so this costs one request per 40 items returned. Use --take to bound it."
         ).WithExamples(
             "umbraco data-type list --take 50",
             "umbraco data-type list --parent <folder-id>"

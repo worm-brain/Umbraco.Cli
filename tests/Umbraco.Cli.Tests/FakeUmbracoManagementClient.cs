@@ -1641,10 +1641,10 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
     /// <summary>When set, <see cref="GetDictionaryEntriesAsync"/> returns this failure instead.</summary>
     public UmbracoResponse<IReadOnlyList<DictionaryEntry>>? DictionaryEntriesFailure { get; set; }
 
-    /// <summary>The ids <see cref="GetMemberGroupIdsAsync"/> enumerates (#227).</summary>
+    /// <summary>The groups <see cref="GetMemberGroupsRawAsync"/> lists, by id into <see cref="MemberGroupRaw"/> (#227).</summary>
     public List<Guid> MemberGroupIds { get; } = [];
 
-    /// <summary>The ids <see cref="GetUserGroupIdsAsync"/> enumerates (#227).</summary>
+    /// <summary>The groups <see cref="GetUserGroupsRawAsync"/> lists, by id into <see cref="UserGroupRaw"/> (#227).</summary>
     public List<Guid> UserGroupIds { get; } = [];
 
     /// <summary>Canned raw dictionary item bodies, keyed by id (#227).</summary>
@@ -1690,13 +1690,44 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
                 )
         );
 
-    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMemberGroupIdsAsync(
+    /// <summary>The body of each id in <see cref="MemberGroupIds"/>, in order.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The bodies, or a 404 for an id with no body.</returns>
+    public Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetMemberGroupsRawAsync(
         CancellationToken ct = default
-    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(MemberGroupIds.ToList()));
+    ) => GetSchemaRawManyAsync(EntityKind.MemberGroup, MemberGroupIds, ct);
 
-    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetUserGroupIdsAsync(
+    /// <summary>The body of each id in <see cref="UserGroupIds"/>, in order.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The bodies, or a 404 for an id with no body.</returns>
+    public Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetUserGroupsRawAsync(
         CancellationToken ct = default
-    ) => Task.FromResult(UmbracoResponse<IReadOnlyList<Guid>>.Success(UserGroupIds.ToList()));
+    ) => GetSchemaRawManyAsync(EntityKind.UserGroup, UserGroupIds, ct);
+
+    /// <summary>
+    /// The canned body of each id, in order, like the production client; the first id with no
+    /// body is a 404, so an export's fail-fast path can be tested.
+    /// </summary>
+    /// <param name="kind">The kind.</param>
+    /// <param name="ids">The ids.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The bodies, or a 404.</returns>
+    public Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetSchemaRawManyAsync(
+        EntityKind kind,
+        IReadOnlyList<Guid> ids,
+        CancellationToken ct = default
+    )
+    {
+        var store = SchemaStore(kind).Store;
+        var missing = ids.Where(id => !store.ContainsKey(id))
+            .Select(id => (Guid?)id)
+            .FirstOrDefault();
+        return Task.FromResult(
+            missing is { } id
+                ? UmbracoResponse<IReadOnlyList<JsonNode>>.Failure(404, $"Not found: {id}")
+                : UmbracoResponse<IReadOnlyList<JsonNode>>.Success([.. ids.Select(i => store[i])])
+        );
+    }
 
     /// <summary>Returns the canned body for the kind and id, or a 404.</summary>
     /// <param name="kind">The kind.</param>

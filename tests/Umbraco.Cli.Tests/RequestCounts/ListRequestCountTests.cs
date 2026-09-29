@@ -57,7 +57,7 @@ public class ListRequestCountTests
         media.AddMany(10, null, i => FakeUmbraco.MediaItem($"Image {i}", types[i % 2]));
         var handler = new RoutingHandler()
             .ServeTree("media", media)
-            .ServeById("media-type", FakeUmbraco.ContentType)
+            .ServeType("media-type", FakeUmbraco.ContentType)
             .ElseEmpty();
         var cli = new HttpCli(handler);
 
@@ -69,7 +69,7 @@ public class ListRequestCountTests
     }
 
     [Fact]
-    public async Task DataTypeList_FiveTypesOneFolder_WalksTheTreeAndReadsEachTypeOnThePage()
+    public async Task DataTypeList_FiveTypesOneFolder_WalksTheTreeAndReadsThePageInOneBatch()
     {
         // Arrange: three types at the root and two in a folder.
         var dataTypes = new FakeTree();
@@ -82,9 +82,9 @@ public class ListRequestCountTests
         // Act
         var run = await cli.RunAsync("data-type list");
 
-        // Assert: the by-id read per item is deliberate (#176, and the command's help says so):
-        // editorAlias and the configuration are only on the by-id body.
-        run.HasRequestCount(2 + 5, "2 tree pages (root + folder) + 1 read per data type listed");
+        // Assert: editorAlias and the configuration are only on the full body (#176), which the
+        // batch read returns for up to 40 data types at a time (#418).
+        run.HasRequestCount(2 + 1, "2 tree pages (root + folder) + 1 batch for the 5 data types");
     }
 
     [Fact]
@@ -99,14 +99,18 @@ public class ListRequestCountTests
         var run = await cli.RunAsync("data-type list --take 2");
 
         // Assert
-        run.HasRequestCount(1 + 2, "1 tree page + 1 read per data type on the page (--take 2)");
+        run.HasRequestCount(1 + 1, "1 tree page + 1 batch for the 2 data types on the page");
     }
 
     [Theory]
-    [InlineData(1)]
-    [InlineData(100)]
-    [InlineData(250)]
-    public async Task DataTypeListAll_ItemsAtTheRoot_WalksTheWholeTreeForEveryPage(int items)
+    [InlineData(1, 1, 1)]
+    [InlineData(100, 2, 3)] // the walk stops at the first short page, so 100 costs an empty page
+    [InlineData(250, 3, 3 + 3 + 2)] // list pages of 100, 100 and 50, each in batches of 40
+    public async Task DataTypeListAll_ItemsAtTheRoot_WalksTheTreeOnceAndReadsEachPageInBatches(
+        int items,
+        int treePages,
+        int batches
+    )
     {
         // Arrange
         var dataTypes = new FakeTree();
@@ -116,38 +120,101 @@ public class ListRequestCountTests
         // Act
         var run = await cli.RunAsync("data-type list --all");
 
-        // Assert: pinned as it is, not as it should be (#415). Each page of --all walks the whole
-        // data-type tree again, so the walk is repeated ceil(n / 100) times and the tree requests
-        // grow with the square of the size. The walk stops at the first short page, so an exact
-        // multiple of 100 costs one extra, empty, tree page.
+        // Assert: one walk of the tree per run (#415), however many list pages --all reads, and
+        // one batch per 40 data types on each page (#418).
         run.HasRequestCount(
-            PagesOf(items) * (items / PageSize + 1) + items,
-            $"ceil({items} / 100) list pages x ({items} / 100 + 1) tree pages each + {items} reads"
+            treePages + batches,
+            $"{treePages} tree pages, walked once + {batches} batches of up to 40 per list page of 100"
         );
     }
 
     [Fact]
-    public async Task DocumentTypeList_TakeFiveOfTwelve_ReadsEveryTypesAlias()
+    public async Task DocumentTypeList_TakeFiveOfTwelve_ReadsOnlyThePagesAliases()
     {
         // Arrange
         var documentTypes = new FakeTree();
         documentTypes.AddMany(12, null, i => FakeUmbraco.NamedItem($"Type {i}"));
         var handler = new RoutingHandler()
             .ServeTree("document-type", documentTypes)
-            .ServeById("document-type", FakeUmbraco.ContentType)
+            .ServeType("document-type", FakeUmbraco.ContentType)
             .ElseEmpty();
         var cli = new HttpCli(handler);
 
         // Act
         var run = await cli.RunAsync("document-type list --take 5");
 
-        // Assert: pinned as it is, not as it should be (#416). The page is cut client-side after
-        // every type's alias has been read, so --take bounds the output but not the reads; media
-        // and member types share the code.
+        // Assert: the page is cut from the tree before any alias is read (#416), and its aliases
+        // come in one batch (#418).
+        run.HasRequestCount(1 + 1, "1 tree page + 1 batch for the 5 types listed");
+    }
+
+    [Theory]
+    [InlineData("document-type")]
+    [InlineData("media-type")]
+    [InlineData("member-type")]
+    public async Task TypeListAll_FiftyTypes_ReadsTheAliasesInBatchesOfForty(string kind)
+    {
+        // Arrange
+        var types = new FakeTree();
+        types.AddMany(50, null, i => FakeUmbraco.NamedItem($"Type {i}"));
+        var handler = new RoutingHandler()
+            .ServeTree(kind, types)
+            .ServeType(kind, FakeUmbraco.ContentType)
+            .ElseEmpty();
+        var cli = new HttpCli(handler);
+
+        // Act
+        var run = await cli.RunAsync($"{kind} list --all");
+
+        // Assert
+        run.HasRequestCount(1 + 2, "1 tree page + 2 batches (40 + 10) for the 50 aliases");
+    }
+
+    [Fact]
+    public async Task DocumentTypeGetByAlias_AliasInTheSecondBatch_StopsReadingOnceFound()
+    {
+        // Arrange: 90 types (one tree page); the alias asked for is the 50th's, in the second
+        // batch of 40.
+        var types = new FakeTree();
+        var ids = types.AddMany(90, null, i => FakeUmbraco.NamedItem($"Type {i}"));
+        var handler = new RoutingHandler()
+            .ServeTree("document-type", types)
+            .ServeType("document-type", FakeUmbraco.ContentType)
+            .ElseEmpty();
+        var cli = new HttpCli(handler);
+
+        // Act
+        var run = await cli.RunAsync($"document-type get type{ids[49]:N}");
+
+        // Assert
         run.HasRequestCount(
-            1 + 12,
-            "1 tree page + 1 alias read per type in the tree, not per type listed"
+            1 + 2 + 1,
+            "1 tree page + 2 batches of aliases (the third is never read) + 1 read of the type"
         );
+    }
+
+    [Fact]
+    public async Task DataTypeList_ServerWithoutBatchEndpoints_ReadsEachTypeById()
+    {
+        // Arrange: Umbraco 17.0 to 17.2 have no batch endpoints; the path answers 404.
+        var dataTypes = new FakeTree();
+        dataTypes.AddMany(5, null, i => FakeUmbraco.NamedItem($"Type {i}"));
+        var handler = new RoutingHandler()
+            .ServeTree("data-type", dataTypes)
+            .When(
+                r => r.RequestUri!.AbsolutePath.EndsWith("/batch"),
+                System.Net.HttpStatusCode.NotFound,
+                ""
+            )
+            .ServeById("data-type", FakeUmbraco.ContentType)
+            .ElseEmpty();
+        var cli = new HttpCli(handler);
+
+        // Act
+        var run = await cli.RunAsync("data-type list");
+
+        // Assert
+        run.HasRequestCount(1 + 1 + 5, "1 tree page + 1 batch that 404s + 1 read per data type");
     }
 
     [Fact]
@@ -171,6 +238,6 @@ public class ListRequestCountTests
     private static RoutingHandler DataTypeSite(FakeTree dataTypes) =>
         new RoutingHandler()
             .ServeTree("data-type", dataTypes)
-            .ServeById("data-type", FakeUmbraco.ContentType)
+            .ServeType("data-type", FakeUmbraco.ContentType)
             .ElseEmpty();
 }

@@ -7,9 +7,6 @@ namespace Umbraco.Cli.Client;
 /// </summary>
 public sealed partial class UmbracoManagementClient
 {
-    /// <summary>How many document types one <c>document-type/batch</c> request asks for.</summary>
-    private const int DocumentTypeBatch = 40;
-
     /// <inheritdoc />
     public Task<UmbracoResponse<int>> CountMembersInGroupAsync(
         Guid memberGroupId,
@@ -76,7 +73,7 @@ public sealed partial class UmbracoManagementClient
             async () =>
             {
                 var usage = new Dictionary<Guid, List<TemplateUser>>();
-                foreach (var chunk in ids.Data!.Chunk(DocumentTypeBatch))
+                foreach (var chunk in ids.Data!.Chunk(TypeBatchSize))
                 {
                     var batch = await _api.Umbraco.Management.Api.V1.DocumentType.Batch.GetAsync(
                         c => c.QueryParameters.Id = [.. chunk.Select(i => (Guid?)i)],

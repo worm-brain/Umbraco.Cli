@@ -659,7 +659,7 @@ rather than failing. The same applies to `data-type`, `media-type`, `member-type
 ## `data-type`
 
 ```bash
-umbraco data-type list [--parent <folder>]                # includes editorAlias (one read per item) and the folder as parent
+umbraco data-type list [--parent <folder>]                # includes editorAlias (one read per 40 items) and the folder as parent
 umbraco data-type get <name|id>                           # by NAME (a data type has no alias); the full body, configuration included
 umbraco data-type create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
 umbraco data-type create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns the saved data type, as get prints it

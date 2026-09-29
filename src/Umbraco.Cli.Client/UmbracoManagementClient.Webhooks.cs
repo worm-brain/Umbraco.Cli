@@ -334,12 +334,9 @@ public sealed partial class UmbracoManagementClient
                 new UnknownValues(
                     [reference],
                     [
-                        .. _documentTypeAliases.Keys,
-                        .. (_mediaTypes ?? [])
-                            .Select(t => t.Alias)
-                            .Where(a => !string.IsNullOrEmpty(a))
-                            .Select(a => a!),
-                        .. _memberTypeAliases.Keys,
+                        .. _documentTypeAliasById.Values,
+                        .. _mediaTypeAliasById.Values,
+                        .. _memberTypeAliasById.Values,
                     ]
                 )
             ),

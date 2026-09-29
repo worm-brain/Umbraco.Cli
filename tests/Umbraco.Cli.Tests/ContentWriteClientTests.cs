@@ -28,6 +28,12 @@ public class ContentWriteClientTests
                 HttpStatusCode.OK,
                 $$"""{"total":1,"items":[{"id":"{{docTypeId}}","name":"Text Page","isFolder":false}]}"""
             )
+            // #418: the alias comes from the batch read.
+            .When(
+                r => r.RequestUri!.AbsoluteUri.Contains("document-type/batch"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{docTypeId}}","alias":"textPage","name":"Text Page"}]}"""
+            )
             .When(
                 r => r.Method == HttpMethod.Get && Has(r, $"document-type/{docTypeId}"),
                 HttpStatusCode.OK,
@@ -82,6 +88,12 @@ public class ContentWriteClientTests
                 HttpStatusCode.OK,
                 $$"""{"total":1,"items":[{"id":"{{docTypeId}}","name":"Text Page","isFolder":false}]}"""
             )
+            // #418: the alias comes from the batch read.
+            .When(
+                r => r.RequestUri!.AbsoluteUri.Contains("document-type/batch"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{docTypeId}}","alias":"textPage","name":"Text Page"}]}"""
+            )
             .When(
                 r => r.Method == HttpMethod.Get && Has(r, $"document-type/{docTypeId}"),
                 HttpStatusCode.OK,
@@ -132,6 +144,12 @@ public class ContentWriteClientTests
                 HttpStatusCode.OK,
                 // Name and alias share no substring, so only a by-id alias read can match.
                 $$"""{"total":1,"items":[{"id":"{{docTypeId}}","name":"Vendor Hub Contact","isFolder":false}]}"""
+            )
+            // #418: the alias comes from the batch read.
+            .When(
+                r => r.RequestUri!.AbsoluteUri.Contains("document-type/batch"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{docTypeId}}","alias":"vendorHubContact","name":"Vendor Hub Contact"}]}"""
             )
             .When(
                 r => r.Method == HttpMethod.Get && Has(r, $"document-type/{docTypeId}"),
@@ -197,6 +215,12 @@ public class ContentWriteClientTests
                     && Has(r, folderId.ToString()),
                 HttpStatusCode.OK,
                 $$"""{"total":1,"items":[{"id":"{{docTypeId}}","name":"Text Page","isFolder":false}]}"""
+            )
+            // #418: the alias comes from the batch read.
+            .When(
+                r => r.RequestUri!.AbsoluteUri.Contains("document-type/batch"),
+                HttpStatusCode.OK,
+                $$"""{"total":1,"items":[{"id":"{{docTypeId}}","alias":"textPage","name":"Text Page"}]}"""
             )
             .When(
                 r => r.Method == HttpMethod.Get && Has(r, $"document-type/{docTypeId}"),

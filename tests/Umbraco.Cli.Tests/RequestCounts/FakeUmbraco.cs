@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json.Nodes;
+using System.Web;
 
 namespace Umbraco.Cli.Tests;
 
@@ -38,7 +39,7 @@ internal static class FakeUmbraco
         new RoutingHandler()
             .ServeToken()
             .ServeTree("document", documents)
-            .ServeById("document-type", ContentType)
+            .ServeType("document-type", ContentType)
             .ServeById("document", Document)
             .ElseEmpty();
 
@@ -81,6 +82,50 @@ internal static class FakeUmbraco
             HttpStatusCode.OK,
             r => body(ByIdTarget(r, resource)!.Value).ToJsonString()
         );
+
+    /// <summary>
+    /// Answers <c>GET {resource}/batch?id=..&amp;id=..</c> with a <c>{total, items}</c> page of
+    /// <paramref name="body"/>'s JSON for each id, as Umbraco 17.3+ does for document, media and
+    /// member types and data types (#418): the same bodies as the by-id reads.
+    /// </summary>
+    /// <param name="handler">The handler to add the route to.</param>
+    /// <param name="resource">The resource segment, e.g. <c>document-type</c>.</param>
+    /// <param name="body">Builds the body for an id.</param>
+    /// <returns>The handler, for chaining.</returns>
+    public static RoutingHandler ServeBatch(
+        this RoutingHandler handler,
+        string resource,
+        Func<Guid, JsonObject> body
+    ) =>
+        handler.When(
+            r =>
+                r.Method == HttpMethod.Get
+                && r.RequestUri!.AbsolutePath.Equals(
+                    $"{Api}/{resource}/batch",
+                    StringComparison.OrdinalIgnoreCase
+                ),
+            HttpStatusCode.OK,
+            r =>
+            {
+                var ids = HttpUtility.ParseQueryString(r.RequestUri!.Query).GetValues("id") ?? [];
+                var items = new JsonArray([.. ids.Select(id => (JsonNode)body(Guid.Parse(id)))]);
+                return new JsonObject { ["total"] = items.Count, ["items"] = items }.ToJsonString();
+            }
+        );
+
+    /// <summary>
+    /// <see cref="ServeById"/> and <see cref="ServeBatch"/> together: a type kind as Umbraco 17.3+
+    /// serves it, whichever way the client reads it.
+    /// </summary>
+    /// <param name="handler">The handler to add the routes to.</param>
+    /// <param name="resource">The resource segment, e.g. <c>document-type</c>.</param>
+    /// <param name="body">Builds the body for an id.</param>
+    /// <returns>The handler, for chaining.</returns>
+    public static RoutingHandler ServeType(
+        this RoutingHandler handler,
+        string resource,
+        Func<Guid, JsonObject> body
+    ) => handler.ServeById(resource, body).ServeBatch(resource, body);
 
     /// <summary>
     /// Answers a <c>GET</c> to a path ending in <paramref name="suffix"/> with a <c>{total, items}</c>

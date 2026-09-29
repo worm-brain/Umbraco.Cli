@@ -79,30 +79,21 @@ public sealed partial class UmbracoManagementClient
         );
 
     /// <inheritdoc />
-    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMemberGroupIdsAsync(
+    public Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetMemberGroupsRawAsync(
         CancellationToken ct = default
-    ) => IdsAsync($"{ApiRoot}/member-group", ct);
+    ) =>
+        GuardedApiAsync<IReadOnlyList<JsonNode>>(
+            ct,
+            async () => await ReadAllRawItemsAsync($"{ApiRoot}/member-group", ct)
+        );
 
     /// <inheritdoc />
-    public Task<UmbracoResponse<IReadOnlyList<Guid>>> GetUserGroupIdsAsync(
+    public Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetUserGroupsRawAsync(
         CancellationToken ct = default
-    ) => IdsAsync($"{ApiRoot}/user-group", ct);
-
-    /// <summary>The <c>id</c> of every item in a paged collection.</summary>
-    /// <param name="path">The collection path.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The ids, or a mapped failure.</returns>
-    private Task<UmbracoResponse<IReadOnlyList<Guid>>> IdsAsync(
-        string path,
-        CancellationToken ct
     ) =>
-        GuardedApiAsync<IReadOnlyList<Guid>>(
+        GuardedApiAsync<IReadOnlyList<JsonNode>>(
             ct,
-            async () =>
-                (await ReadAllRawItemsAsync(path, ct))
-                    .Select(item => GuidAt(item, "id"))
-                    .OfType<Guid>()
-                    .ToList()
+            async () => await ReadAllRawItemsAsync($"{ApiRoot}/user-group", ct)
         );
 
     /// <summary>

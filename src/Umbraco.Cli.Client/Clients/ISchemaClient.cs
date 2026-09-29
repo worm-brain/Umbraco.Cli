@@ -102,6 +102,25 @@ public interface ISchemaClient
     );
 
     /// <summary>
+    /// Reads many schema items' verbatim bodies, in the order of <paramref name="ids"/>: what
+    /// <see cref="GetSchemaRawAsync"/> returns for each, in fewer requests where the kind has a
+    /// batch read (document, media and member types and data types, #418) - 40 ids per request.
+    /// Other kinds, and Umbraco before 17.3 (no batch endpoints), are read one id at a time.
+    /// </summary>
+    /// <param name="kind">The schema kind.</param>
+    /// <param name="ids">The item ids.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// Every body; or the first failure, including a 404 for an id the server does not have, so
+    /// a caller never mistakes a partial read for the whole set.
+    /// </returns>
+    Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetSchemaRawManyAsync(
+        EntityKind kind,
+        IReadOnlyList<Guid> ids,
+        CancellationToken ct = default
+    );
+
+    /// <summary>
     /// Creates a schema item by POSTing a verbatim Management API body (<c>POST /{kind}</c>). The
     /// endpoint returns no body; the caller settles the id in the body first.
     /// </summary>
@@ -160,17 +179,25 @@ public interface ISchemaClient
         CancellationToken ct = default
     );
 
-    /// <summary>Enumerates every member group id (<c>GET /member-group</c>, every page; #227).</summary>
+    /// <summary>
+    /// Reads every member group's verbatim body (<c>GET /member-group</c>, every page; #227). The
+    /// list items are the same model the by-id read returns, so there is no per-group read (#413).
+    /// </summary>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Every member group id, or a mapped failure.</returns>
-    Task<UmbracoResponse<IReadOnlyList<Guid>>> GetMemberGroupIdsAsync(
+    /// <returns>Every member group body, in list order, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetMemberGroupsRawAsync(
         CancellationToken ct = default
     );
 
-    /// <summary>Enumerates every user group id (<c>GET /user-group</c>, every page; #227).</summary>
+    /// <summary>
+    /// Reads every user group's verbatim body (<c>GET /user-group</c>, every page; #227), from the
+    /// list alone, as <see cref="GetMemberGroupsRawAsync"/> does (#413).
+    /// </summary>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Every user group id, or a mapped failure.</returns>
-    Task<UmbracoResponse<IReadOnlyList<Guid>>> GetUserGroupIdsAsync(CancellationToken ct = default);
+    /// <returns>Every user group body, in list order, or a mapped failure.</returns>
+    Task<UmbracoResponse<IReadOnlyList<JsonNode>>> GetUserGroupsRawAsync(
+        CancellationToken ct = default
+    );
 }
 
 /// <summary>A dictionary item's place in the dictionary tree (#227).</summary>
