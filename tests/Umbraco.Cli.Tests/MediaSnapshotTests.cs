@@ -18,11 +18,13 @@ public sealed class MediaSnapshotTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), $"media-{Guid.NewGuid()}");
 
-    /// <summary>Removes the test's snapshot directory.</summary>
+    /// <summary>Removes the test's snapshot directory and any "outside" directory it made.</summary>
     public void Dispose()
     {
-        if (Directory.Exists(_dir))
-            Directory.Delete(_dir, recursive: true);
+        // Recursive delete removes a link itself, never what it points at.
+        foreach (var dir in new[] { _dir, _dir + "-outside" })
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
@@ -372,6 +374,127 @@ public sealed class MediaSnapshotTests : IDisposable
         Assert.Throws<JsonException>(() => MediaSnapshot.FromJson(json, _dir));
     }
 
+    /// <summary>A file outside the snapshot directory, standing in for a local secret.</summary>
+    private string OutsideSecret()
+    {
+        var outside = Path.Combine(_dir + "-outside", "id_rsa");
+        Directory.CreateDirectory(Path.GetDirectoryName(outside)!);
+        File.WriteAllText(outside, "SECRET");
+        return outside;
+    }
+
+    /// <summary>Writes a one-item index naming <c>files/{id}/photo.jpg</c>.</summary>
+    private void WriteIndex(Guid id, string sha256 = "") =>
+        File.WriteAllText(
+            Path.Combine(_dir, MediaSnapshot.IndexFileName),
+            $$"""
+            {"mediaVersion":"1","items":[{"id":"{{id}}","body":{},
+              "file":{"path":"files/{{id}}/photo.jpg","name":"photo.jpg","bytes":6,"sha256":"{{sha256}}"} } ] }
+            """
+        );
+
+    /// <summary>
+    /// Creates a file symlink, or returns false where the OS will not (Windows without
+    /// developer mode); the calling test then has nothing to check and passes vacuously.
+    /// </summary>
+    private static bool TryLinkFile(string link, string target)
+    {
+        try
+        {
+            File.CreateSymbolicLink(link, target);
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Creates a directory symlink, falling back to a junction on Windows (which needs no
+    /// privilege), or returns false when neither can be made.
+    /// </summary>
+    private static bool TryLinkDirectory(string link, string target)
+    {
+        try
+        {
+            Directory.CreateSymbolicLink(link, target);
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            if (!OperatingSystem.IsWindows())
+                return false;
+            using var mklink = System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(
+                    "cmd.exe",
+                    ["/c", "mklink", "/J", link, target]
+                )
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                }
+            )!;
+            mklink.WaitForExit();
+            return mklink.ExitCode == 0;
+        }
+    }
+
+    [Fact]
+    public async Task Load_FileIsSymlinkOutsideSnapshot_IsRefused()
+    {
+        // Arrange: files/{id}/photo.jpg is a link to a file outside the snapshot.
+        var id = Guid.NewGuid();
+        var outside = OutsideSecret();
+        var link = Path.Combine(_dir, "files", id.ToString(), "photo.jpg");
+        Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+        WriteIndex(id);
+        if (!TryLinkFile(link, outside))
+            return;
+
+        // Act
+        var load = () => MediaSnapshot.LoadAsync(_dir, CancellationToken.None);
+
+        // Assert
+        await Assert.ThrowsAsync<JsonException>(load);
+    }
+
+    [Fact]
+    public async Task Load_ItemDirectoryIsLinkOutsideSnapshot_IsRefused()
+    {
+        // Arrange: files/{id} is a directory link (a junction on Windows) to a folder outside.
+        var id = Guid.NewGuid();
+        var outside = Path.GetDirectoryName(OutsideSecret())!;
+        File.Copy(Path.Combine(outside, "id_rsa"), Path.Combine(outside, "photo.jpg"));
+        Directory.CreateDirectory(Path.Combine(_dir, "files"));
+        WriteIndex(id);
+        if (!TryLinkDirectory(Path.Combine(_dir, "files", id.ToString()), outside))
+            return;
+
+        // Act
+        var load = () => MediaSnapshot.LoadAsync(_dir, CancellationToken.None);
+
+        // Assert
+        await Assert.ThrowsAsync<JsonException>(load);
+    }
+
+    [Fact]
+    public async Task Load_PlainFileInsideSnapshot_Loads()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        var path = Path.Combine(_dir, "files", id.ToString(), "photo.jpg");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, "PHOTO!");
+        WriteIndex(id);
+
+        // Act
+        var loaded = await MediaSnapshot.LoadAsync(_dir, CancellationToken.None);
+
+        // Assert
+        Assert.Single(loaded.Items);
+    }
+
     // ── diff ───────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -670,6 +793,122 @@ public sealed class MediaSnapshotTests : IDisposable
 
         var trash = Assert.Single(result.Data!.Actions, a => a.Operation == MediaOperation.Trash);
         Assert.Equal((shelf, "skipped"), (trash.Id, trash.Status));
+    }
+
+    [Fact]
+    public async Task ApplyAsync_FileHashMismatch_DoesNotUpload()
+    {
+        // Arrange: the file on disk is not the one the index records a hash for.
+        var id = Guid.NewGuid();
+        var snapshot = SnapshotWithImage(id, Photo);
+        File.WriteAllText(snapshot.PathOf(snapshot.Items[0].File!), "something else");
+        var fake = new FakeUmbracoManagementClient();
+
+        // Act
+        await MediaApplier.ApplyAsync(
+            fake,
+            snapshot,
+            MediaDiffEngine.Compare(snapshot, []),
+            false,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Empty(fake.StagedFiles);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_FileHashMismatch_Fails()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        var snapshot = SnapshotWithImage(id, Photo);
+        File.WriteAllText(snapshot.PathOf(snapshot.Items[0].File!), "something else");
+
+        // Act
+        var result = await MediaApplier.ApplyAsync(
+            new FakeUmbracoManagementClient(),
+            snapshot,
+            MediaDiffEngine.Compare(snapshot, []),
+            false,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Contains("does not match the SHA-256", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_NoRecordedHash_StagesTheFile()
+    {
+        // Arrange: a hand-made snapshot with no sha256 is still uploaded as it is.
+        var id = Guid.NewGuid();
+        var withHash = SnapshotWithImage(id, Photo);
+        var item = withHash.Items[0];
+        var snapshot = new MediaSnapshot
+        {
+            Directory = _dir,
+            Items =
+            [
+                new MediaNode
+                {
+                    Id = id,
+                    Body = item.Body,
+                    File = new MediaFile
+                    {
+                        Path = item.File!.Path,
+                        Name = item.File.Name,
+                        Bytes = item.File.Bytes,
+                    },
+                },
+            ],
+        };
+        var fake = new FakeUmbracoManagementClient();
+
+        // Act
+        await MediaApplier.ApplyAsync(
+            fake,
+            snapshot,
+            MediaDiffEngine.Compare(snapshot, []),
+            false,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal(Photo, Assert.Single(fake.StagedFiles).Content);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_ItemDirectoryLinkedAfterLoad_DoesNotUpload()
+    {
+        // Arrange: the snapshot loaded clean, then files/{id} became a link to a folder outside
+        // it holding a photo.jpg with the very bytes the index records (so only the link check
+        // can stop the upload).
+        var id = Guid.NewGuid();
+        var snapshot = SnapshotWithImage(id, Photo);
+        var itemDir = Path.GetDirectoryName(snapshot.PathOf(snapshot.Items[0].File!))!;
+        Directory.Delete(itemDir, recursive: true);
+        var outside = Path.GetDirectoryName(OutsideSecret())!;
+        File.WriteAllBytes(Path.Combine(outside, "photo.jpg"), Photo);
+        if (!TryLinkDirectory(itemDir, outside))
+            return;
+        var fake = new FakeUmbracoManagementClient();
+
+        // Act
+        await MediaApplier.ApplyAsync(
+            fake,
+            snapshot,
+            MediaDiffEngine.Compare(snapshot, []),
+            false,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Empty(fake.StagedFiles);
     }
 
     [Fact]

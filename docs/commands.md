@@ -566,7 +566,8 @@ umbraco media apply ./media-snapshot --prune --yes         # also trash what the
   pre-order, and `files/<id>/<name>` holds the files. `--out` is required, and the snapshot cannot
   be piped (`-` is refused). Export into a new or empty directory, or over an earlier media export,
   which it replaces only once the new export is complete (a failed export leaves it as it was).
-  A snapshot whose file paths leave `files/` is refused.
+  A snapshot whose file paths leave `files/`, or pass through a symbolic link or junction, is
+  refused, and apply uploads a file only when it matches the SHA-256 the index records.
 - **What is compared** - the item body without what differs on every instance (the file's `src`
   folder, the server-computed size, dimensions and extension, dates, `isTrashed`, `flags`, and the
   `mediaType` icon, which is schema: the type is compared by `id`), and the
