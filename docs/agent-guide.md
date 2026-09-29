@@ -701,6 +701,13 @@ UMBRACO_READONLY=1 UMBRACO_ALLOWED_COMMANDS=content,media umbraco content list
 **Enforcement boundary:** the environment-variable forms are the real boundary - set them in
 the supervising process. The config-file `allowedCommands` form is a convenience default.
 
+### Where credentials are sent
+
+The CLI sends stored or `UMBRACO_CLIENT_*` credentials only to the host they were configured with,
+and never over plain `http://` except to loopback. An agent that passes `--host` for another
+instance gets exit `2` (category `refused`) unless it also supplies its own `--token`. See
+[commands.md](commands.md#where-credentials-are-sent).
+
 ### Preview writes
 
 `--dry-run` on any write prints the requests it would send (method, URL, body; secrets redacted)
