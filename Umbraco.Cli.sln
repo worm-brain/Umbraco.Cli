@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco.Cli.Tests", "tests\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco.Cli.IntegrationTests", "tests\Umbraco.Cli.IntegrationTests\Umbraco.Cli.IntegrationTests.csproj", "{EA4C5370-40BB-477D-87EE-CF29D536B733}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Umbraco.Cli.Benchmarks", "tests\Umbraco.Cli.Benchmarks\Umbraco.Cli.Benchmarks.csproj", "{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,6 +75,18 @@ Global
 		{EA4C5370-40BB-477D-87EE-CF29D536B733}.Release|x64.Build.0 = Release|Any CPU
 		{EA4C5370-40BB-477D-87EE-CF29D536B733}.Release|x86.ActiveCfg = Release|Any CPU
 		{EA4C5370-40BB-477D-87EE-CF29D536B733}.Release|x86.Build.0 = Release|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Debug|x64.Build.0 = Debug|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Debug|x86.Build.0 = Debug|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Release|x64.ActiveCfg = Release|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Release|x64.Build.0 = Release|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Release|x86.ActiveCfg = Release|Any CPU
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -82,5 +96,6 @@ Global
 		{1BCAF173-9207-4D7E-A0F0-E6F502D5A87E} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{6456DCDA-E1A8-4E6D-9E91-CF7A44A4F58B} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{EA4C5370-40BB-477D-87EE-CF29D536B733} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{D593D1A6-7987-4E1F-ADB7-3DA154AE2090} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

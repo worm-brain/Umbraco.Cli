@@ -48,6 +48,7 @@ dotnet test --filter "Name=RunObject_ApiFailure_WritesErrorAndReturnsOne"  # one
 dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj -o ./nupkg        # build the tool package
 dotnet tool install --global --add-source ./nupkg Umbraco.Community.Cli --prerelease  # install locally to test
 dotnet format                                  # or CSharpier - formatting standard for this repo is CSharpier
+dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- --filter "*"   # benchmarks, see its README
 ```
 
 There is no linter beyond the compiler + analyzers; formatting is CSharpier.
@@ -73,9 +74,10 @@ writes your personal `umbraco` profiles. On Windows type `python` for `python3`.
 
 ### Keep the CI SDK and target framework in sync
 
-`*.csproj` target `net9.0` and both CI workflows (`ci.yml`, `publish.yml`) pin
-`setup-dotnet` to `9.0.x`. If you bump the target framework, bump the `dotnet-version` in
-both workflows to match - an older SDK cannot build a newer target and CI will fail. (This
+`*.csproj` target `net9.0` and the CI workflows (`ci.yml`, `publish.yml`, `security.yml`,
+`benchmarks.yml`) pin `setup-dotnet` to `9.0.x`. If you bump the target framework, bump the
+`dotnet-version` in every workflow to match - an older SDK cannot build a newer target and CI
+will fail. (This
 was the subject of the now-fixed
 [issue #35](https://github.com/worm-brain/Umbraco.Cli/issues/35).)
 
