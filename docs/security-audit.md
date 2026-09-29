@@ -24,7 +24,9 @@ Tracking issues: [#155](https://github.com/worm-brain/Umbraco.Cli/issues/155) (T
 Defined in [`.github/workflows/security.yml`](../.github/workflows/security.yml). Four
 independent jobs; any one failing fails the gate. On a release tag it runs inside
 [`publish.yml`](../.github/workflows/publish.yml) as a reusable workflow, and the NuGet
-publish job `needs:` it, so a red gate stops the release.
+publish job `needs:` it, so a red gate stops the release. The release gate skips CodeQL
+(code scanning is not enabled on the private repo); CodeQL still runs on PRs, `main` and
+the weekly schedule.
 
 | Job | Tool | Fails when | Suppress an accepted finding via |
 | --- | --- | --- | --- |

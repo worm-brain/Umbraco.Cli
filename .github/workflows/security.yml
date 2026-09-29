@@ -27,6 +27,19 @@ on:
   # here would only produce a second, non-blocking run of the same checks, so there is
   # deliberately none: a standalone Security run on a tag never gated anything.
   workflow_call:
+    inputs:
+      # publish.yml passes true to keep CodeQL out of the release gate (code scanning is
+      # not enabled on this private repo, so it would block every release). CodeQL still
+      # runs on PRs, pushes to main and the weekly schedule.
+      #
+      # Deliberately a negative "skip" flag rather than "include-codeql: default true":
+      # on the non-call triggers the inputs context is empty, and in Actions expressions
+      # null == false, so a positive flag cannot tell "not called" from "called with false".
+      # `!inputs.skip-codeql` is true for both null (not called) and false.
+      skip-codeql:
+        description: Skip the CodeQL job (used by the release gate in publish.yml).
+        type: boolean
+        default: false
   # Weekly run catches newly-disclosed CVEs and CodeQL query updates even with no commit.
   schedule:
     - cron: "17 4 * * 1" # Mondays 04:17 UTC
@@ -41,7 +54,8 @@ concurrency:
 
 # Least privilege by default; the CodeQL job widens its own permissions below. When this
 # file is called from publish.yml, the caller's job permissions cap these, so the caller
-# must grant at least what the CodeQL job asks for.
+# must grant at least what the CodeQL job asks for - even when the job is skipped, because
+# GitHub checks nested-job permissions when the run starts, before any `if:` is evaluated.
 #
 # Third-party actions are pinned to full commit SHAs (tag in the trailing comment) because
 # this workflow now sits on the release path; a repointed tag must not change what runs.
@@ -52,6 +66,8 @@ jobs:
   codeql:
     name: CodeQL (C#)
     runs-on: ubuntu-latest
+    # Skipped only when publish.yml calls this file with skip-codeql: true (see inputs).
+    if: ${{ !inputs.skip-codeql }}
     permissions:
       security-events: write # upload SARIF results to code scanning
       actions: read
