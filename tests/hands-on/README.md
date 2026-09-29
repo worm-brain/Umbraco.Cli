@@ -89,6 +89,7 @@ python3 bench.py --cli local --umbraco 17                          # this checko
 python3 bench.py --cli 0.1.0-alpha.6,local --umbraco 17,18         # a published build against this checkout, on 17 and 18
 python3 bench.py --scenario get,list --runs 20 --out-dir .cache/bench/scratch   # a quick look, not for committing
 python3 bench.py --cli local --note "a build ran alongside"        # record what was unusual about the run
+python3 bench.py --cli local --latency 25                          # also time each scenario with +25 ms per request
 python3 bench.py report                                            # regenerate the published numbers (below)
 python3 bench.py --help                                            # every option
 ```
@@ -152,6 +153,25 @@ hyperfine's standard deviation is the spread to compare against: a rerun on a qu
 Other load on the machine (builds, test runs, other benchmarks) widens it, so close what you can before a run that
 you mean to commit.
 
+### Latency (`--latency`)
+
+On localhost each request takes about a millisecond, so a command that makes 100 requests one after another looks
+nearly as fast as one that makes 5. Against a real host every request pays a round trip. `--latency <ms>` shows that
+cost (#428): after each API scenario's direct run, bench.py times it again through
+[`tools/latency_proxy.py`](tools/latency_proxy.py), a local TCP proxy in front of the dev site that delays everything
+the CLI sends by that many milliseconds. Each request round trip gains about that delay, and opening a connection
+about twice it (the TCP and TLS handshakes). `--latency-only` skips the direct runs.
+
+- The latency runs are separate result rows with `latencyMs` set; direct rows have `latencyMs: 0`. The summary, and
+  `bench.py report`, show them in tables of their own, and the README never quotes them.
+- The proxy listens on both `127.0.0.1` and `::1`: on Windows, a client that tries `::1` first and finds nothing
+  there waits about 2 s per connection.
+- The CLI's stored credentials and its token cache are tied to the host they are for, so runs through the proxy pass
+  `--host <proxy>` and `--token <bearer>`, with a fresh client-credentials token from the dev site per scenario (its
+  tokens live 300 s). So a latency run makes no token request.
+- `version` makes no requests, so it has no latency run.
+- It only adds delay: bandwidth, packet loss, jitter and TLS termination at the proxy are not simulated.
+
 ### Results files
 
 Every run writes `docs/performance/results/<YYYY-MM-DD>_<HHMMSS>_<machine>.json` and a markdown summary with the same
@@ -179,6 +199,7 @@ Each row in `results`:
 | `command` | The command, with placeholders (`{home}`, `{config}`) instead of ids and paths |
 | `cli` | `label` (as given to `--cli`, such as `local`), `version` (the package version), `commit` (for `local` builds: the checkout's commit, `-dirty` when `src/` had changes; otherwise `null`), `dotnet` (the .NET runtime it ran on) |
 | `umbraco` | The exact Umbraco version |
+| `latencyMs` | The milliseconds `--latency` added to each request, `0` for a direct run (missing from files written before it existed: read that as `0`) |
 | `status` | `ok`, or `failed` with an `error` and no timings |
 | `endToEndMs` | hyperfine's `mean`, `stddev`, `median`, `min` and `max`, and every timed run in `times`, in ms |
 | `httpMs` | Mean HTTP time per run in ms: `0` for a command that makes no requests, `null` if the build logged requests without timings |
@@ -200,11 +221,13 @@ It needs neither hyperfine nor a site. It reads every `docs/performance/results/
 
 - rewrites only the block between the `<!-- perf:start -->` and `<!-- perf:end -->` lines in the repository's
   `README.md`: a headline table (`version`, `get` and `content-export`, with their request counts) from the newest
-  results file, for its newest published CLI build on its newest Umbraco version (a `local` build only when the file
-  has no published one), stamped with the machine, versions and date;
-- writes `docs/performance.md` whole: the three measuring layers, every run, history per scenario across CLI builds,
-  the Umbraco version comparison (once a machine has run one build on more than one Umbraco major), how to
-  reproduce each run, and the caveats, including each run's `note`.
+  results file with direct runs, for its newest published CLI build on its newest Umbraco version (a `local` build
+  only when the file has no published one), stamped with the machine, versions and date. Latency runs are never
+  quoted there;
+- writes `docs/performance.md` whole: the three measuring layers, every run, history per scenario across CLI builds
+  (with the latency runs in a table of their own under each scenario), the Umbraco version comparison of direct runs
+  (once a machine has run one build on more than one Umbraco major), how to reproduce each run, and the caveats,
+  including each run's `note`.
 
 The prose on both lives in [`tools/perf_report.py`](tools/perf_report.py): edit it there, not in the generated
 files. Running `report` again without new results changes nothing. It stops before writing anything when there
