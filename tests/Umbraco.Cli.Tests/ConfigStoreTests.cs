@@ -640,6 +640,106 @@ public class ConfigStoreTests : IDisposable
         Assert.Equal("https://old", Store.Load().Host);
     }
 
+    // ── On-disk format under source-generated JSON (#425) ────────────────────
+
+    [Fact]
+    public void Save_WritesTheDocumentedFileFormat()
+    {
+        // No secret, so the DPAPI blob (random per call) doesn't enter the comparison.
+        Store.Save(
+            new CliConfig
+            {
+                Host = "https://h",
+                ClientId = "id",
+                AllowedCommands = "content",
+            }
+        );
+
+        Assert.Equal(
+            """
+            {
+              "defaultProfile": "default",
+              "profiles": {
+                "default": {
+                  "host": "https://h",
+                  "clientId": "id",
+                  "clientSecret": null,
+                  "allowedCommands": "content"
+                }
+              }
+            }
+            """.ReplaceLineEndings("\n"),
+            // This literal's line endings are the checkout's, the file's the platform's.
+            File.ReadAllText(_tempPath).ReplaceLineEndings("\n")
+        );
+    }
+
+    [Fact]
+    public void Save_FileBytes_MatchWhatTheReflectionSerializerWrote()
+    {
+        // Earlier versions wrote the file with reflection-based System.Text.Json and these
+        // options; the source-generated context must produce the same bytes, line endings included.
+        Store.Save(new CliConfig { Host = "https://h", ClientId = "id" }, "Staging");
+        var reflectionWritten = System.Text.Json.JsonSerializer.Serialize(
+            new ConfigFile
+            {
+                DefaultProfile = "Staging",
+                Profiles =
+                {
+                    ["Staging"] = new CliConfig { Host = "https://h", ClientId = "id" },
+                },
+            },
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true }
+        );
+
+        Assert.Equal(reflectionWritten, File.ReadAllText(_tempPath));
+    }
+
+    // ── One read per command (#425) ──────────────────────────────────────────
+
+    [Fact]
+    public void Read_FileChangedAfterwards_SnapshotAnswersFromTheFirstRead()
+    {
+        Store.Save(Creds("https://first"), "A");
+        var snapshot = Store.Read();
+
+        File.WriteAllText(_tempPath, "{ this is not valid json ");
+
+        Assert.Equal(
+            ("https://first", true, false),
+            (snapshot.Load().Host, snapshot.HasProfile("a"), snapshot.FileExistsButUnreadable)
+        );
+    }
+
+    [Fact]
+    public void Read_CorruptFile_IsUnreadableWithNoProfilesOrAllowLists()
+    {
+        File.WriteAllText(_tempPath, "{ this is not valid json ");
+
+        var snapshot = Store.Read();
+
+        Assert.Equal(
+            (true, false, 0),
+            (snapshot.FileExistsButUnreadable, snapshot.HasAnyProfiles, snapshot.AllowLists().Count)
+        );
+    }
+
+    [Fact]
+    public void Read_NoFile_IsNotUnreadable()
+    {
+        Assert.False(Store.Read().FileExistsButUnreadable);
+    }
+
+    [Fact]
+    public void Read_DefaultProfileLoggedOut_ReportsTheDefaultMissing()
+    {
+        Store.Save(Creds("https://a"), "A");
+        Store.Save(Creds("https://b"), "B");
+        Store.DeleteProfile("A");
+
+        Assert.True(Store.Read().DefaultProfileMissing);
+    }
+
     // ── Environment variable precedence ──────────────────────────────────────
 
     [Fact]

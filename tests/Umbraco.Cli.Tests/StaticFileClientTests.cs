@@ -395,6 +395,55 @@ public class StaticFileClientTests
     }
 
     [Theory]
+    [InlineData(StaticFileKind.Script, null, "/tree/script/root?skip=40&take=20")]
+    [InlineData(StaticFileKind.Stylesheet, null, "/tree/stylesheet/root?skip=40&take=20")]
+    [InlineData(StaticFileKind.PartialView, null, "/tree/partial-view/root?skip=40&take=20")]
+    [InlineData(
+        StaticFileKind.Script,
+        "lib",
+        "/tree/script/children?parentPath=lib&skip=40&take=20"
+    )]
+    [InlineData(
+        StaticFileKind.Stylesheet,
+        "lib",
+        "/tree/stylesheet/children?parentPath=lib&skip=40&take=20"
+    )]
+    [InlineData(
+        StaticFileKind.PartialView,
+        "lib",
+        "/tree/partial-view/children?parentPath=lib&skip=40&take=20"
+    )]
+    public async Task GetStaticFilesAsync_EachKindAndLevel_SendsThePageItAskedFor(
+        StaticFileKind kind,
+        string? parent,
+        string expectedPathAndQuery
+    )
+    {
+        // #426: the paging used to be set through `dynamic`; each typed query must still carry it.
+        var (client, handler) = ClientReturning("""{"total":0,"items":[]}""");
+
+        await client.GetStaticFilesAsync(kind, parent, 40, 20, CancellationToken.None);
+
+        Assert.EndsWith(expectedPathAndQuery, handler.LastUri!.PathAndQuery);
+    }
+
+    [Fact]
+    public async Task GetStaticFilesAsync_ApiError_ReturnsTheFailure()
+    {
+        var (client, _) = ClientReturning("""{"title":"Boom"}""", HttpStatusCode.BadRequest);
+
+        var result = await client.GetStaticFilesAsync(
+            StaticFileKind.Script,
+            null,
+            0,
+            20,
+            CancellationToken.None
+        );
+
+        Assert.Equal((false, 400), (result.IsSuccess, result.StatusCode));
+    }
+
+    [Theory]
     [InlineData(StaticFileKind.Script, "/script/lib%2Fsite.js/rename")]
     [InlineData(StaticFileKind.Stylesheet, "/stylesheet/lib%2Fsite.js/rename")]
     [InlineData(StaticFileKind.PartialView, "/partial-view/lib%2Fsite.js/rename")]

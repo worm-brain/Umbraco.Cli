@@ -91,6 +91,49 @@ public sealed class FileTokenCacheTests : IDisposable
     }
 
     [Fact]
+    public void Write_FileBytes_MatchWhatTheReflectionSerializerWrote()
+    {
+        // #425: the cache moved to source-generated JSON; a file written by either must be the
+        // same bytes, so older and newer CLI builds keep sharing one cache.
+        var token = new CachedToken("abc", Now.AddMinutes(4));
+        Cache().Write("key", token);
+        var reflectionWritten = System.Text.Json.JsonSerializer.Serialize(
+            new Dictionary<string, CachedToken> { ["key"] = token },
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true }
+        );
+
+        Assert.Equal(reflectionWritten, File.ReadAllText(CachePath));
+    }
+
+    [Fact]
+    public void Read_FileAnEarlierVersionWrote_ReturnsTheToken()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(
+            CachePath,
+            """
+            {
+              "key": {
+                "AccessToken": "abc",
+                "RefreshAt": "2026-09-25T12:04:00+00:00"
+              }
+            }
+            """
+        );
+
+        Assert.Equal(new CachedToken("abc", Now.AddMinutes(4)), Cache().Read("key"));
+    }
+
+    [Fact]
+    public void Read_FileWithTheWrongShape_ReturnsNull()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(CachePath, """{ "key": "not a token" }""");
+
+        Assert.Null(Cache().Read("key"));
+    }
+
+    [Fact]
     public void Write_LeavesNoTempFileBehind()
     {
         Cache().Write("key", new CachedToken("abc", Now.AddMinutes(4)));

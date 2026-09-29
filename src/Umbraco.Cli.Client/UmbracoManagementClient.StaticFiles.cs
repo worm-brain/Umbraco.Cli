@@ -123,11 +123,20 @@ public sealed partial class UmbracoManagementClient
                     MapTree(
                         parent is null
                             ? await api.Tree.Script.Root.GetAsync(
-                                c => Paged(c.QueryParameters, skip, take),
+                                c =>
+                                {
+                                    c.QueryParameters.Skip = skip;
+                                    c.QueryParameters.Take = take;
+                                },
                                 ct
                             )
                             : await api.Tree.Script.Children.GetAsync(
-                                c => PagedChildren(c.QueryParameters, parent, skip, take),
+                                c =>
+                                {
+                                    c.QueryParameters.ParentPath = parent;
+                                    c.QueryParameters.Skip = skip;
+                                    c.QueryParameters.Take = take;
+                                },
                                 ct
                             )
                     ),
@@ -175,11 +184,20 @@ public sealed partial class UmbracoManagementClient
                     MapTree(
                         parent is null
                             ? await api.Tree.Stylesheet.Root.GetAsync(
-                                c => Paged(c.QueryParameters, skip, take),
+                                c =>
+                                {
+                                    c.QueryParameters.Skip = skip;
+                                    c.QueryParameters.Take = take;
+                                },
                                 ct
                             )
                             : await api.Tree.Stylesheet.Children.GetAsync(
-                                c => PagedChildren(c.QueryParameters, parent, skip, take),
+                                c =>
+                                {
+                                    c.QueryParameters.ParentPath = parent;
+                                    c.QueryParameters.Skip = skip;
+                                    c.QueryParameters.Take = take;
+                                },
                                 ct
                             )
                     ),
@@ -227,11 +245,20 @@ public sealed partial class UmbracoManagementClient
                     MapTree(
                         parent is null
                             ? await api.Tree.PartialView.Root.GetAsync(
-                                c => Paged(c.QueryParameters, skip, take),
+                                c =>
+                                {
+                                    c.QueryParameters.Skip = skip;
+                                    c.QueryParameters.Take = take;
+                                },
                                 ct
                             )
                             : await api.Tree.PartialView.Children.GetAsync(
-                                c => PagedChildren(c.QueryParameters, parent, skip, take),
+                                c =>
+                                {
+                                    c.QueryParameters.ParentPath = parent;
+                                    c.QueryParameters.Skip = skip;
+                                    c.QueryParameters.Take = take;
+                                },
                                 ct
                             )
                     ),
@@ -275,26 +302,6 @@ public sealed partial class UmbracoManagementClient
                 }
             ),
         };
-    }
-
-    /// <summary>Sets skip/take on a tree-root query (the query types differ per builder but share these names).</summary>
-    private static void Paged(dynamic queryParameters, int skip, int take)
-    {
-        queryParameters.Skip = skip;
-        queryParameters.Take = take;
-    }
-
-    /// <summary>Sets parentPath/skip/take on a tree-children query.</summary>
-    private static void PagedChildren(
-        dynamic queryParameters,
-        string parentPath,
-        int skip,
-        int take
-    )
-    {
-        queryParameters.ParentPath = parentPath;
-        queryParameters.Skip = skip;
-        queryParameters.Take = take;
     }
 
     /// <summary>The parent-folder reference for a create, or null at the tree root.</summary>
