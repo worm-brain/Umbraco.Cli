@@ -77,9 +77,7 @@ writes your personal `umbraco` profiles. On Windows type `python` for `python3`.
 `*.csproj` target `net9.0` and the CI workflows (`ci.yml`, `publish.yml`, `security.yml`,
 `benchmarks.yml`) pin `setup-dotnet` to `9.0.x`. If you bump the target framework, bump the
 `dotnet-version` in every workflow to match - an older SDK cannot build a newer target and CI
-will fail. (This
-was the subject of the now-fixed
-[issue #35](https://github.com/worm-brain/Umbraco.Cli/issues/35).)
+will fail.
 
 ## Architecture
 
@@ -88,9 +86,8 @@ Three projects (`Umbraco.Cli.sln`):
 - **`src/Umbraco.Cli`** - the executable: command tree, DI wiring, config, output writers.
 - **`src/Umbraco.Cli.Client`** - the typed HTTP client for the Management API. Isolated so
   the generated client can be regenerated when the Umbraco API changes without touching
-  command logic. The client is now a Kiota-generated `UmbracoApiClient` (under
-  `Generated/`) wrapped by a thin hand-written `UmbracoManagementClient` adapter; see
-  [ADR 0003](docs/adr/0003-migrate-write-path-to-generated-client.md).
+  command logic. The client is a Kiota-generated `UmbracoApiClient` (under `Generated/`)
+  wrapped by a thin hand-written `UmbracoManagementClient` adapter.
 - **`tests/Umbraco.Cli.Tests`** - xUnit tests.
 
 ### The command execution pipeline (the core pattern)
@@ -115,11 +112,11 @@ differs. The flow:
    - `RunObjectAsync` - serialize the returned object (`WriteSuccess`).
    - `RunPagedAsync` / `RunCompleteListAsync` - a list of entities. Structured output is
      serialized from the items themselves so it matches the matching `get`; the `headers` + `row`
-     projection is for the human table only. Never derive JSON keys from a column caption - that
-     is what produced `"published": "True"` against `get`'s `"isPublished": true` (#164).
+     projection is for the human table only. Never derive JSON keys from a column caption, or
+     you get `"published": "True"` where `get` says `"isPublished": true`.
    - `RunListAsync` - the general form, for a list that is not the client's own list type.
    - `RunReportAsync` - a computed report that is complete by construction (`content diff`,
-     `schema diff`, #229): the row records are serialized as they are, so it still gets real
+     `schema diff`): the row records are serialized as they are, so it still gets real
      types rather than caption-keyed strings, and `meta` says `hasMore: false`. The apply
      commands write the same way through `CommandExecutor.WriteReport`.
    - `RunMessageAsync` - fixed success message (for delete/publish-style calls).
@@ -155,7 +152,7 @@ Cross-cutting behavior (auth, error mapping, exit codes, rendering) lives in
 - **`UmbracoAuthService`** fetches and caches the client-credentials token (thread-safe,
   refreshes at a tenth of the token's lifetime, at most 60 s, before expiry), keyed by host,
   client id and a secret fingerprint. The CLI gives it a `FileTokenCache` so tokens outlive the
-  process (#248; off with `UMBRACO_NO_TOKEN_CACHE=1`), and `TokenRefreshHandler` retries a
+  process (off with `UMBRACO_NO_TOKEN_CACHE=1`), and `TokenRefreshHandler` retries a
   request once with a new token on a 401.
 - The generated client is produced by Kiota from `spec/management.json` and checked in, so
   building needs no live Umbraco instance. Regenerate with `./scripts/regen-client.ps1` (and
@@ -224,16 +221,15 @@ Rules:
   inconsistent, don't silently follow it or silently ignore it: name it, say what is outdated,
   and propose the alternative.
 - **If doing it properly means changing other commands too**, propose the cross-cutting change and
-  list every affected command. No one-off exceptions. Alpha: breaking is fine, inconsistent is not.
+  list every affected command. No one-off exceptions.
 - **Bug fixes stay local.** File any cross-cutting surface problem you notice as a GitHub issue
   labelled `api-consistency` and mention it in your summary, rather than widening the fix.
 - **You may propose a convention change; only the maintainer accepts one.** An accepted change
-  goes in the `conventions.md` changelog with its date and a one-line reason.
+  is made to the rule in `conventions.md` itself; the issue and commit carry the reason.
 - **When asking the maintainer a design question**, first summarise the relevant current surface
   and conventions, and how each option compares to existing commands.
 
 ## Domain glossary and decisions
 
-- Ubiquitous language: [`docs/glossary.md`](docs/glossary.md) (and the shorter
-  [`CONTEXT.md`](CONTEXT.md)).
+- Ubiquitous language: [`CONTEXT.md`](CONTEXT.md).
 - Architecture decisions: [`docs/adr/`](docs/adr/).

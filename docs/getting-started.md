@@ -1,9 +1,8 @@
 # Getting started
 
-Install the CLI, point it at an Umbraco instance, authenticate, and confirm it works. If you
-are an AI agent driving the tool rather than a person setting it up, read
-[agent-guide.md](agent-guide.md) instead - it covers non-interactive auth and the output
-contract.
+This takes you from nothing to your first command: install the CLI, create an API user, log
+in and check it all works. Setting it up for a script, CI or an AI agent? The
+[automation guide](agent-guide.md) covers non-interactive login and the JSON output.
 
 ## 1. Requirements
 
@@ -13,8 +12,8 @@ contract.
 
 ## 2. Install
 
-The package is `Umbraco.Community.Cli` on NuGet.org; the command it installs is `umbraco`.
-While the tool is in alpha, pass `--prerelease`.
+The package is `Umbraco.Community.Cli` on NuGet.org, and the command it installs is
+`umbraco`. Keep `--prerelease` until 1.0 is out.
 
 ```bash
 # Global tool (available everywhere as `umbraco`)
@@ -28,7 +27,7 @@ dotnet new tool-manifest        # once per repo
 dotnet tool install Umbraco.Community.Cli --prerelease
 ```
 
-Confirm it is on your PATH:
+Check it's on your PATH:
 
 ```bash
 umbraco --version
@@ -36,22 +35,22 @@ umbraco --version
 
 ## 3. Create an API User (get a client id and secret)
 
-Umbraco.Cli authenticates as an
-[API User](https://docs.umbraco.com/umbraco-cms/manage-and-publish-content/users-and-members/users/api-users)
-using the OAuth2 Client Credentials flow.
+The CLI logs in as an
+[API User](https://docs.umbraco.com/umbraco-cms/manage-and-publish-content/users-and-members/users/api-users),
+using OAuth2 client credentials.
 
 1. Sign in to the Umbraco backoffice as an administrator.
 2. Go to **Users** and open the **API Users** area.
-3. Create a new API user (or open an existing one) and assign the permissions your CLI usage
-   needs. The CLI can only do what this user is allowed to do - if a command later returns
-   `403`, widen this user's permissions.
+3. Create an API user (or open an existing one) and give it the permissions you need. The
+   CLI can only do what this user is allowed to do, so if a command returns `403` later, this is
+   the place to widen them.
 4. Save, then copy the generated **Client ID** and **Client Secret**.
-5. Store the secret somewhere safe immediately (password manager or CI secret store) - Umbraco
-   shows the secret only once.
+5. Put the secret somewhere safe straight away (a password manager or your CI's secret store).
+   Umbraco only shows it once.
 
 ## 4. Authenticate
 
-Pick the method that matches how you will run the CLI.
+Pick whichever fits how you'll run the CLI.
 
 ### Interactive (a person at a terminal)
 
@@ -71,8 +70,8 @@ at rest on Windows**; on macOS/Linux the file is restricted to your user (mode 6
 
 ### Non-interactive (CI/CD, scripts, agents)
 
-Provide credentials by environment variable - nothing is written to disk, and these override
-the config file per field:
+Pass the credentials as environment variables. Nothing is written to disk, and each one
+overrides the matching field in the config file:
 
 ```bash
 export UMBRACO_HOST=https://mysite.com
@@ -90,15 +89,15 @@ umbraco content list --token <bearer-token> --host https://mysite.com
 
 ## 5. Confirm it works
 
-Run the built-in diagnostic before anything else. It checks host resolution, connectivity and
-TLS, credentials, authentication, the resolved identity, and the instance version - each as a
-pass/fail with a remediation hint - and exits non-zero if any hard check fails:
+Run the built-in check first. It tests the host, the connection and TLS, your credentials,
+login, who you are and the Umbraco version, with a hint for anything that fails. It exits
+non-zero if a check fails:
 
 ```bash
 umbraco auth doctor
 ```
 
-Then confirm who you are authenticated as:
+Then see who you're logged in as:
 
 ```bash
 umbraco auth whoami
@@ -106,7 +105,7 @@ umbraco auth whoami
 
 ## 6. Multiple environments (profiles)
 
-Log in to several instances and switch between them without re-authenticating:
+Log in to several sites and switch between them without logging in again:
 
 ```bash
 umbraco auth login --profile prod  --host https://prod.example.com  --client-id <id> --client-secret <secret>
@@ -119,10 +118,9 @@ UMBRACO_PROFILE=stage umbraco content list  # or via env
 umbraco auth logout --profile stage        # remove one profile
 ```
 
-Profiles live in the same (owner-only, secret-encrypted) config file. The `UMBRACO_HOST` /
-`UMBRACO_CLIENT_ID` / `UMBRACO_CLIENT_SECRET` env vars override the selected profile's fields,
-so CI can still run on pure environment credentials. A pre-profiles (flat) config is migrated
-to a `default` profile automatically.
+Profiles live in the same config file. The `UMBRACO_HOST`, `UMBRACO_CLIENT_ID` and
+`UMBRACO_CLIENT_SECRET` environment variables override the selected profile's fields, so CI can
+run on environment variables alone.
 
 ## 7. Where configuration lives
 
@@ -138,18 +136,17 @@ can keep a saved default and override one value for a single run.
 
 ### The token cache
 
-Access tokens (valid for about five minutes) are cached between runs, so a script running many
-commands exchanges its credentials once rather than per command. The cache is a separate,
-owner-only file in the per-user local data folder:
+Access tokens last about five minutes and are cached between runs, so a script that runs lots
+of commands only logs in once. The cache is its own file, readable only by you:
 
 - **Windows:** `%LOCALAPPDATA%\Umbraco\token-cache.json`
 - **macOS:** `~/Library/Application Support/Umbraco/token-cache.json`
 - **Linux:** `~/.local/share/Umbraco/token-cache.json`
 
-It is keyed by host, client id and a fingerprint of the secret (never the secret itself), so a
-changed secret always re-authenticates. A token the server rejects is dropped and renewed
-automatically. Set `UMBRACO_NO_TOKEN_CACHE=1` to turn the cache off (for example on a shared
-build agent). `auth login` and `auth doctor` always exchange the credentials afresh.
+Tokens are keyed by host, client id and a fingerprint of the secret (never the secret
+itself), so changing the secret always logs in again. If the server rejects a cached token, the
+CLI gets a new one. Set `UMBRACO_NO_TOKEN_CACHE=1` to turn the cache off, for example on a
+shared build agent. `auth login` and `auth doctor` always log in afresh.
 
 ## 8. First commands
 
@@ -163,14 +160,13 @@ umbraco commands                                       # the entire command tree
 
 ### Querying JSON output
 
-Several examples pipe JSON into [`jq`](https://jqlang.github.io/jq/) - a small, popular
-command-line JSON processor. `jq '.data[].name'` reads as "for each item in the `data` array,
-print its `name`". **`jq` is a separate tool, not part of this CLI or of your operating system**;
-if it is not installed, you have two alternatives that need nothing extra:
+Some examples pipe JSON into [`jq`](https://jqlang.github.io/jq/), a small command-line JSON
+tool. `jq '.data[].name'` means "print the `name` of every item in `data`". `jq` is a separate
+install, so if you don't have it, either of these works with nothing extra:
 
-- **Use `--fields`** to project fields without any external tool - it covers most cases:
+- **Use `--fields`** to pick the fields you want. It covers most cases:
   `umbraco content list --fields id,name`.
-- **On Windows, use PowerShell's built-in `ConvertFrom-Json`:**
+- **In PowerShell, use `ConvertFrom-Json`:**
 
   ```powershell
   # every name
@@ -179,18 +175,17 @@ if it is not installed, you have two alternatives that need nothing extra:
   (umbraco content list --fields id --output json | ConvertFrom-Json).data.id
   ```
 
-  PowerShell auto-enumerates arrays, so `.data.name` yields every item's name with no explicit loop.
+  PowerShell unrolls arrays for you, so `.data.name` gives every item's name without a loop.
 
-Every success envelope is `{ "status", "data", "meta" }`, so the payload always lives under
-`.data` (this is why the examples say `.data[]`, not `.[]`) - including a `--dry-run` preview,
-which uses `{ "status": "dry-run", "data": { ... }, "meta": { ... } }`. The `jq` pipes elsewhere in the docs
-are written for bash/macOS/Linux; the `ConvertFrom-Json` form above is the PowerShell equivalent.
+JSON output is always `{ "status", "data", "meta" }`, so the result lives under `.data`. That's
+why the examples say `.data[]` rather than `.[]`. The `jq` examples in these docs are written
+for bash; the `ConvertFrom-Json` form above is the PowerShell equivalent.
 
 The full command reference is in [commands.md](commands.md).
 
 ## 9. Troubleshooting
 
-Run `umbraco auth doctor` first - it names the failing stage. Common cases:
+Start with `umbraco auth doctor`. It tells you which step is failing. Common cases:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -204,5 +199,5 @@ Run `umbraco auth doctor` first - it names the failing stage. Common cases:
 | A destructive command "hangs" or aborts with exit 2 in a script | It is waiting for confirmation, or refused it because there is no TTY. | Pass `--yes`. See [agent-guide.md](agent-guide.md#7-running-non-interactively-the-rules-that-bite). |
 | A write fails with a read-only error | `--readonly` or `UMBRACO_READONLY=1` is set. | Unset it, or use a read command. |
 
-For anything not covered here, `umbraco <command> --help` and `umbraco commands` describe the
-surface, and issues are welcome (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
+Stuck on something else? `umbraco <command> --help` explains any command, and you're welcome
+to [open an issue](https://github.com/worm-brain/Umbraco.Cli/issues).
