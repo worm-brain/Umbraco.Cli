@@ -61,4 +61,6 @@ public interface IUmbracoManagementClient
         IImagingClient,
         IPropertyTypeClient,
         // One <id|alias> lookup for every kind (#250 Phase 3).
-        IReferenceResolver;
+        IReferenceResolver,
+        // The guarded raw request behind `umbraco api` (#438, ADR 0010).
+        IPassthroughClient;

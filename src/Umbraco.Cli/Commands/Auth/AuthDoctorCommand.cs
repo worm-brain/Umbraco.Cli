@@ -48,10 +48,10 @@ public static class AuthDoctorCommand
             async (parseResult, ct) =>
             {
                 var writer = global.CreateWriter(parseResult);
-                var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
+                var store = ConfigStore.Resolve(global.ConfigPath(parseResult), configStore);
                 var config = store.Load(parseResult.GetValue(global.Profile));
                 var host = parseResult.GetValue(global.Host) ?? config.Host;
-                var tokenOverride = parseResult.GetValue(global.Token);
+                var tokenOverride = global.TokenOf(parseResult);
 
                 var checks = await RunChecksAsync(
                     host,

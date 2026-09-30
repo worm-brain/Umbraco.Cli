@@ -68,6 +68,7 @@ public class CommandParseTests
         // are absent on purpose.
         string[] expected =
         [
+            "api.delete",
             "content.bulk.delete",
             "content.bulk.unpublish",
             "content.delete",
@@ -261,6 +262,7 @@ public class CommandParseTests
     [InlineData("searcher")]
     [InlineData("imaging")]
     [InlineData("property-type")]
+    [InlineData("api")]
     public void RootCommand_ContainsExpectedSubcommand(string subcommand)
     {
         var root = BuildRoot();
@@ -345,6 +347,7 @@ public class CommandParseTests
     [InlineData("searcher", new[] { "list", "query" })]
     [InlineData("imaging", new[] { "resize-urls" })]
     [InlineData("property-type", new[] { "is-used" })]
+    [InlineData("api", new[] { "get", "post", "put", "patch", "delete" })]
     [InlineData(
         "data-type",
         new[]
@@ -709,6 +712,10 @@ public class CommandParseTests
     [InlineData("auth whoami")]
     [InlineData("auth doctor")]
     [InlineData("auth doctor --output json")]
+    // The raw passthrough (ADR 0010): a path under /umbraco/, a body on the writes.
+    [InlineData("api get /umbraco/management/api/v1/server/status")]
+    [InlineData("api post /umbraco/management/api/v1/language --json-body body.json")]
+    [InlineData("api delete /umbraco/management/api/v1/language/da-DK --yes")]
     public void ValidArgs_ProduceNoParseErrors(string args)
     {
         Assert.False(HasErrors(args), $"Unexpected parse errors for: {args}");
@@ -807,6 +814,9 @@ public class CommandParseTests
     [InlineData(
         "media restore 3f7a8b2e-1234-5678-abcd-ef0123456789 --to-root --parent 1a2b3c4d-1234-5678-abcd-ef0123456789"
     )]
+    [InlineData("api get")] // the path is required
+    [InlineData("api get /somewhere/else")] // only /umbraco/ routes
+    [InlineData("api get /umbraco/management/api/v1/server/status --json-body b.json")] // a GET has no body
     public void InvalidArgs_ProduceParseErrors(string args)
     {
         Assert.True(HasErrors(args), $"Expected parse errors for: {args}");

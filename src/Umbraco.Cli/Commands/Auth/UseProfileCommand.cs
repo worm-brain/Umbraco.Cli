@@ -32,7 +32,7 @@ public static class UseProfileCommand
             (parseResult, ct) =>
             {
                 var writer = global.CreateWriter(parseResult);
-                var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
+                var store = ConfigStore.Resolve(global.ConfigPath(parseResult), configStore);
                 var name = parseResult.GetValue(nameArg)!;
 
                 if (store.SetDefaultProfile(name))

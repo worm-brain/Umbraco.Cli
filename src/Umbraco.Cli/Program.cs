@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Umbraco.Cli.Commands;
+using Umbraco.Cli.Commands.Extensions;
 using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Http;
 using Umbraco.Cli.Infrastructure.Output;
@@ -17,6 +18,15 @@ ConsoleColorSetup.ApplyFromEnvironment();
 var sp = CliServices.CreateProvider();
 var globalOptions = sp.GetRequiredService<GlobalOptions>();
 var root = CliServices.BuildRoot(sp);
+
+// ── Extension commands (ADR 0010) ─────────────────────────────────────────────
+// An unknown top-level noun runs umbraco-<noun> from PATH, when there is one. Built-in nouns always
+// win, and a line no executable matches falls through to be parsed and reported exactly as before.
+if (
+    ExtensionInvocation.From(args, root, globalOptions) is { } extension
+    && ExtensionLocator.FromEnvironment().Find(extension.Noun) is { } executable
+)
+    return await sp.GetRequiredService<ExtensionLauncher>().RunAsync(extension, executable);
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 // Parse with response-file expansion disabled (#115) so option values beginning with '@'

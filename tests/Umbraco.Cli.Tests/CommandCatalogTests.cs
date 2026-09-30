@@ -504,6 +504,68 @@ public class CommandCatalogTests
     }
 
     [Fact]
+    public void Describe_JsonBodyWithoutSchemaOption_HasNoSchemaPointer()
+    {
+        // The api verbs take any body the path does, so there is no --schema to point at.
+        var post = Shipped("api post");
+
+        Assert.True(post.AcceptsJsonBody);
+        Assert.Null(post.JsonBodySchema);
+    }
+
+    [Theory]
+    [InlineData("api get", false, false)]
+    [InlineData("api post", true, false)]
+    [InlineData("api put", true, false)]
+    [InlineData("api patch", true, false)]
+    [InlineData("api delete", true, true)]
+    public void Describe_ApiVerbs_DeclareTheirMethodsSafety(
+        string path,
+        bool mutating,
+        bool destructive
+    )
+    {
+        var verb = Shipped(path);
+
+        Assert.Equal((mutating, destructive), (verb.Mutating, verb.Destructive));
+    }
+
+    [Fact]
+    public void WithExternals_ExtensionOnPath_IsAppendedMarkedExternal()
+    {
+        var root = CommandCatalog.Describe(TestCliRoot.Build());
+
+        var withFoo = CommandCatalog.WithExternals(root, [("foo", "/tools/umbraco-foo")]);
+
+        var foo = withFoo.Commands[^1];
+        Assert.Equal("foo", foo.Name);
+        Assert.True(foo.External);
+        Assert.Contains("/tools/umbraco-foo", foo.Description);
+    }
+
+    [Fact]
+    public void WithExternals_ExtensionNamedLikeABuiltIn_IsLeftOut()
+    {
+        // The built-in always runs, so listing the executable would advertise a command that
+        // cannot be reached.
+        var root = CommandCatalog.Describe(TestCliRoot.Build());
+
+        var withContent = CommandCatalog.WithExternals(
+            root,
+            [("content", "/tools/umbraco-content")]
+        );
+
+        Assert.Equal(root.Commands.Count, withContent.Commands.Count);
+    }
+
+    [Fact]
+    public void Describe_BuiltInCommand_IsNotMarkedExternal()
+    {
+        // Null, so the key is absent from the JSON of every built-in (and from docs/surface.json).
+        Assert.Null(Shipped("content list").External);
+    }
+
+    [Fact]
     public void RequiredUnless_NoAlternatives_Throws()
     {
         Assert.Throws<ArgumentException>(() => new Option<string>("--name").RequiredUnless());

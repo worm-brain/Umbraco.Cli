@@ -16,7 +16,7 @@
     {
       "name": "--token",
       "aliases": [],
-      "description": "Raw bearer token (overrides credential store).",
+      "description": "Raw bearer token (overrides credential store). Also settable with UMBRACO_TOKEN.",
       "type": "string",
       "required": false,
       "hasDefault": false
@@ -26,7 +26,7 @@
       "aliases": [
         "-o"
       ],
-      "description": "Output format: json | human | csv (default: json when piped, human in terminal).",
+      "description": "Output format: json | human | csv (default: json when piped, human in terminal). Also settable with UMBRACO_OUTPUT.",
       "type": "string",
       "required": false,
       "hasDefault": false
@@ -56,7 +56,7 @@
     {
       "name": "--dry-run",
       "aliases": [],
-      "description": "Preview the HTTP requests a write command would send (method, URL, body; secrets redacted) without executing them. No effect on read commands.",
+      "description": "Preview the HTTP requests a write command would send (method, URL, body; secrets redacted) without executing them. No effect on read commands. Can also be set with UMBRACO_DRY_RUN=1.",
       "type": "flag",
       "required": false,
       "hasDefault": true,
@@ -93,7 +93,7 @@
     {
       "name": "--config",
       "aliases": [],
-      "description": "Path to config file (default: C:\\Users\\jack\\AppData\\Roaming\\Umbraco\\config.json).",
+      "description": "Path to config file (default: C:\\Users\\jack\\AppData\\Roaming\\Umbraco\\config.json). Also settable with UMBRACO_CONFIG.",
       "type": "string",
       "required": false,
       "hasDefault": false
@@ -8740,6 +8740,168 @@
       "acceptsJsonBody": false,
       "examples": [
         "umbraco property-type is-used --document-type blogPost --alias bodyText"
+      ]
+    },
+    {
+      "name": "api",
+      "description": "Send a request to the site's own API, with every guardrail applied.\n\nThe path is from the site's root and starts /umbraco/: the Management API, the Delivery API or a package's own routes, and nothing on any other host. The request carries the configured login, and --readonly, --dry-run, the allow-list and token refresh apply as on every command. The response body is the envelope's data, or {} when there is none.\n\nExamples:\n  umbraco api get /umbraco/management/api/v1/server/status\n  umbraco api post /umbraco/management/api/v1/language --json-body language.json --dry-run",
+      "arguments": [],
+      "options": [],
+      "commands": [
+        {
+          "name": "get",
+          "description": "Get a path under /umbraco/ and print the response body.\n\nExamples:\n  umbraco api get /umbraco/management/api/v1/server/status\n  umbraco api get \"/umbraco/management/api/v1/tree/document/root?skip=0&take=10\"\n  umbraco api get /umbraco/management/api/v1/document/<id> | jq .data.values",
+          "arguments": [
+            {
+              "name": "path",
+              "description": "The path from the site's root, starting /umbraco/, with any query string (quote it in a shell when it has one).",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [],
+          "commands": [],
+          "mutating": false,
+          "destructive": false,
+          "acceptsJsonBody": false,
+          "examples": [
+            "umbraco api get /umbraco/management/api/v1/server/status",
+            "umbraco api get \"/umbraco/management/api/v1/tree/document/root?skip=0&take=10\"",
+            "umbraco api get /umbraco/management/api/v1/document/<id> | jq .data.values"
+          ]
+        },
+        {
+          "name": "post",
+          "description": "Post to a path under /umbraco/, with an optional JSON body.\n\nA write: --readonly refuses it and --dry-run previews it.\n\nExamples:\n  umbraco api post /umbraco/management/api/v1/language --json-body language.json\n  umbraco api post /umbraco/management/api/v1/language --json-body language.json --dry-run\n  cat language.json | umbraco api post /umbraco/management/api/v1/language --json-body -",
+          "arguments": [
+            {
+              "name": "path",
+              "description": "The path from the site's root, starting /umbraco/, with any query string (quote it in a shell when it has one).",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) sent as the request body, as it is.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": true,
+          "examples": [
+            "umbraco api post /umbraco/management/api/v1/language --json-body language.json",
+            "umbraco api post /umbraco/management/api/v1/language --json-body language.json --dry-run",
+            "cat language.json | umbraco api post /umbraco/management/api/v1/language --json-body -"
+          ]
+        },
+        {
+          "name": "put",
+          "description": "Put to a path under /umbraco/, with an optional JSON body.\n\nA write: --readonly refuses it and --dry-run previews it.\n\nExamples:\n  umbraco api put /umbraco/management/api/v1/language/da-DK --json-body language.json\n  umbraco api put /umbraco/management/api/v1/document/<id>/move-to-recycle-bin",
+          "arguments": [
+            {
+              "name": "path",
+              "description": "The path from the site's root, starting /umbraco/, with any query string (quote it in a shell when it has one).",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) sent as the request body, as it is.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": true,
+          "examples": [
+            "umbraco api put /umbraco/management/api/v1/language/da-DK --json-body language.json",
+            "umbraco api put /umbraco/management/api/v1/document/<id>/move-to-recycle-bin"
+          ]
+        },
+        {
+          "name": "patch",
+          "description": "Patch a path under /umbraco/, with an optional JSON body.\n\nA write: --readonly refuses it and --dry-run previews it.\n\nExamples:\n  umbraco api patch /umbraco/my-package/api/v1/item/<id> --json-body changes.json",
+          "arguments": [
+            {
+              "name": "path",
+              "description": "The path from the site's root, starting /umbraco/, with any query string (quote it in a shell when it has one).",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) sent as the request body, as it is.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": false,
+          "acceptsJsonBody": true,
+          "examples": [
+            "umbraco api patch /umbraco/my-package/api/v1/item/<id> --json-body changes.json"
+          ]
+        },
+        {
+          "name": "delete",
+          "description": "Delete the resource at a path under /umbraco/.\n\nA write: --readonly refuses it and --dry-run previews it.\n\nExamples:\n  umbraco api delete /umbraco/management/api/v1/language/da-DK --yes\n  umbraco api delete /umbraco/management/api/v1/language/da-DK --dry-run",
+          "arguments": [
+            {
+              "name": "path",
+              "description": "The path from the site's root, starting /umbraco/, with any query string (quote it in a shell when it has one).",
+              "type": "string",
+              "required": true,
+              "hasDefault": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--json-body",
+              "aliases": [],
+              "description": "Path to a JSON file (or - for stdin) sent as the request body, as it is.",
+              "type": "string",
+              "required": false,
+              "hasDefault": false
+            }
+          ],
+          "commands": [],
+          "mutating": true,
+          "destructive": true,
+          "acceptsJsonBody": true,
+          "examples": [
+            "umbraco api delete /umbraco/management/api/v1/language/da-DK --yes",
+            "umbraco api delete /umbraco/management/api/v1/language/da-DK --dry-run"
+          ]
+        }
+      ],
+      "mutating": false,
+      "destructive": false,
+      "acceptsJsonBody": false,
+      "examples": [
+        "umbraco api get /umbraco/management/api/v1/server/status",
+        "umbraco api post /umbraco/management/api/v1/language --json-body language.json --dry-run"
       ]
     },
     {
