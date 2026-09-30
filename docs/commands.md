@@ -101,7 +101,8 @@ umbraco data-type list --all
   `--culture en-US da-DK` and `--culture en-US --culture da-DK` are the same. This holds for
   every option that takes several values (`--culture`, `--order`, `--group`, `--user`,
   `--section`, `--fallback-permission`, `--exclude-type`, `--exclude-root`, `--level`, `--event`)
-  - but not for the `key=value` options (`--value`, `--domain`), whose values may contain a comma.
+  - but not for the `key=value` options (`--value`, `--value-file`, `--domain`), whose values may
+  contain a comma.
 - **Several targets known up front are positional:** `user-group delete a b c`,
   `imaging resize-urls <id> <id>`.
 - **An item can be named instead of given by id** wherever the syntax below says `<id|alias>`,
@@ -109,8 +110,9 @@ umbraco data-type list --all
   match their alias only). A reference that matches nothing, or a name that matches several items,
   is an `invalid_argument` error; the latter lists each match's id.
 - **Two inputs for one value are refused,** never silently resolved: `--content` with
-  `--content-file`, or a field flag beside `--json-body` on `content create` /
-  `document-blueprint create`.
+  `--content-file`, a field flag beside `--json-body` on `content create` /
+  `document-blueprint create`, or one ISO code in both `--value` and `--value-file` on
+  `dictionary create` / `update`. Stdin is read once, so only one input can be `-`.
 - **Every write returns `data`:** `create`/`update`/`copy`/`upload` return the resulting item, other
   writes `{ "id": ... }` (or `{ "ids": [...] }`) of what they acted on.
 - **`update` merges:** omitted options keep their values; `--replace` (where offered) sends the item
@@ -826,8 +828,8 @@ umbraco user-data delete <id>                              # needs --yes non-int
 umbraco dictionary list [--parent <key|id>]                # one level: the root, or the direct children of --parent
 umbraco dictionary tree [--parent <key|id>] [--recursive] [--depth <n>]   # walk the hierarchy, like content tree
 umbraco dictionary get <id|key>
-umbraco dictionary create --key <key> [--value en-US=Hello --value da-DK=Hej] [--parent <key|id>]   # --parent creates under an item
-umbraco dictionary update <id|key> [--key <key>] [--value en-US=Home ...]   # merges by ISO code
+umbraco dictionary create --key <key> [--value en-US=Hello --value da-DK=Hej] [--value-file en-US=<file|-> ...] [--parent <key|id>]   # --parent creates under an item
+umbraco dictionary update <id|key> [--key <key>] [--value en-US=Home ...] [--value-file en-US=<file|-> ...]   # merges by ISO code
 umbraco dictionary move <id|key> [--parent <key|id>]       # reparent; omit --parent to move to the root; --target works too
 umbraco dictionary delete <id|key> [--force]               # refused while it has child items unless --force; --yes non-interactively
 ```
@@ -837,11 +839,25 @@ isn't one of the site's languages, so `create` checks them first and **fails wit
 configured codes**. Short codes are refused rather than guessed, since a site can have both
 `en-US` and `en-GB`. The item is read back afterwards, so what you see is what was stored.
 
+**Multi-line values go in a file:** `--value-file en-US=intro.md` reads the translation from the
+file as UTF-8 and stores it exactly as the file holds it, final newline included, so Markdown or
+HTML needs no shell quoting. `en-US=-` reads it from stdin, and only one `--value-file` can do
+that. Mix it with `--value` for other languages
+(`dictionary update Blog.Intro --value-file en-US=intro.md --value da-DK=Hej`), but give each ISO
+code once: the same code in both options is refused.
+
 `get`, `create`, `update` and `list` carry the item's `parent: {id}` (left out at the root), so
 you can see where an item lives without walking the tree.
 
 `update` merges translations **by ISO code**, so naming one language leaves the others alone,
 and it keeps the item's id. It applies the same ISO-code check as `create`.
+
+**`meta.valueFormat` says what format the site stores translations in:** `text`, or `html` /
+`markdown` when a package on the site declares it (see
+[Declaring CLI support in your package](extensions.md)). `get` and `list` report it, and it costs
+one extra request. It is information, not a rule: `create` and `update` store any value as given.
+It is absent when the CLI could not read the site's package manifests, and when two packages
+declare different formats it is `text` with a `warning:` on stderr.
 
 ## `webhook`
 
@@ -1004,6 +1020,10 @@ umbraco models-builder build                               # regenerate source f
 ```bash
 umbraco manifest list [--scope All|Public|Private]         # default: All
 ```
+
+Each manifest carries `cliCapabilities` when its package declares what it changes about the CLI's
+commands (the human table's CLI column shows the same). See
+[Declaring CLI support in your package](extensions.md).
 
 ## `redirect`
 
@@ -1168,9 +1188,15 @@ How it works:
 - **Fidelity** - the snapshot stores each entity's verbatim Management-API body, so nothing is
   lost (document-type properties/compositions, data-type configuration, template Razor). The
   snapshot is
-  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[], partialViews[]?, stylesheets[]?, scripts[]? }`,
+  `{ schemaVersion, dictionaryValueFormat?, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[], partialViews[]?, stylesheets[]?, scripts[]? }`,
   at **snapshot version 4**. A version-3 snapshot has no static-file sections, so it is still
   read, with files not managed. Anything older is refused - re-export it.
+- **`dictionaryValueFormat` records how the source site stores dictionary values** (`text`,
+  `html` or `markdown`, as its packages declare it; see
+  [Declaring CLI support in your package](extensions.md)). When it differs from the target's and
+  `diff` or `apply` would write dictionary items, they print a `warning:` on stderr. They never
+  refuse: values are promoted as they are, without conversion. A snapshot without the field
+  (older, or exported from a site whose manifests could not be read) gives no warning.
 - **Two kinds are shaped, not verbatim** - a dictionary item gets its `parent` (the item read has
   none) and its translations sorted by ISO code. A user group leaves out its document and media
   start nodes and its per-document permissions, since they name content on one instance; apply

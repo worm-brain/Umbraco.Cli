@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Commands.Dictionary;
 
 namespace Umbraco.Cli.Commands.Schema;
 
@@ -76,6 +77,11 @@ public static class SchemaExporter
                 return UmbracoResponse<SchemaSnapshot>.FailureFrom(entries);
             kind.SetSection(snapshot, entries.Data!);
         }
+
+        // The dictionary's values only mean something next to the format they are in (#442), so
+        // a snapshot that carries them says which. One manifest read, and only then.
+        if (kinds.Any(k => k.Tag == SchemaKinds.DictionaryItem))
+            snapshot.DictionaryValueFormat = await DictionaryValueFormat.ReadAsync(client, ct);
         return UmbracoResponse<SchemaSnapshot>.Success(snapshot);
     }
 

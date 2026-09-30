@@ -218,7 +218,7 @@ public class ListRequestCountTests
     }
 
     [Fact]
-    public async Task DictionaryList_OnePage_ReadsOnlyThePage()
+    public async Task DictionaryList_OnePage_ReadsThePageAndTheManifest()
     {
         // Arrange
         var dictionary = new FakeTree();
@@ -229,7 +229,7 @@ public class ListRequestCountTests
         var run = await cli.RunAsync("dictionary list");
 
         // Assert
-        run.HasRequestCount(1, "1 tree page");
+        run.HasRequestCount(1 + 1, "1 tree page + 1 manifest read for meta.valueFormat (#440)");
     }
 
     /// <summary>An instance serving <paramref name="dataTypes"/> as a tree, with a by-id body for each.</summary>

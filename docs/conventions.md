@@ -71,24 +71,30 @@ disagree, this file wins; the older document is rationale that may be out of dat
    | Request body | `--json-body <file\|->`, with `--schema` (its JSON Schema) and, where a schema cannot say enough, `--example` (a real one from the instance, or one built from it: `content create --example --document-type <alias>`) |
    | Output file | `--out` / `-O` |
    | Inline file text vs file | `--content <text>` / `--content-file <file\|->` |
+   | Inline pair value vs file | `--value key=value` / `--value-file key=<file\|->` |
    | Replace instead of merge | `--replace` |
    | Override a refusal | `--force` |
    | Confirm a destructive run | `--yes` / `-y` (global) |
 
 2. **One name, one meaning.** A name never means different things on different commands.
 3. **Multi-value options are singular and repeatable** (`--culture en-US --culture da-DK`), and also
-   accept commas, except `key=value` options, which are repeat-only. Pairs are `--value key=value`.
+   accept commas, except `key=value` options, which are repeat-only. Pairs are `--value key=value`,
+   and `--value-file key=<file|->` where the value is read from a file (UTF-8, stored exactly as
+   the file holds it). A key takes one value, so naming it in both `--value` and `--value-file`,
+   or in two `--value-file` pairs, is refused.
    An **empty value** (`key=`) means "nothing for this key". Where the value is data that may be
    empty (a property value `--value alias=`, a translation `--value en-US=`) it is set empty,
    which clears it. Where an entry cannot exist without its value (`--header name=`,
    `--document-permission <id>=`, `--domain host=`) it removes that entry; on a create there is
-   nothing to remove, so it is ignored. An empty *key* (`=value`) is always refused. Each
-   option's help says what `key=` does.
+   nothing to remove, so it is ignored. On `--value-file` the value is a path, so `key=` names no
+   file and is refused; `--value key=` sets the value empty. An empty *key* (`=value`) is always
+   refused. Each option's help says what `key=` does.
 4. **Booleans:** a flag names the non-default behaviour (`--desc`, `--asc`, `--no-state`). On
    `update`, an omitted flag leaves the value unchanged; `--flag false` clears it.
-5. **Inputs:** `-` means stdin on every file-valued input. Two inputs that conflict
-   (`--content` with `--content-file`, a `--json-body` id that contradicts `--id`) are an
-   `invalid_argument` error, never a silent precedence.
+5. **Inputs:** `-` means stdin on every file-valued input. Stdin can be read once, so at most one
+   input per command is `-`. Two inputs that conflict (`--content` with `--content-file`, a
+   `--json-body` id that contradicts `--id`, the same key in `--value` and `--value-file`, a second
+   `-`) are an `invalid_argument` error, never a silent precedence.
 6. **Short aliases** belong to global options (`-H -o -q -v -y -p`), plus `-O` for `--out`. An
    alias never means two things.
 7. **Conditionally required inputs** (required unless `--json-body`, `--schema`, ...) are optional
@@ -131,6 +137,10 @@ disagree, this file wins; the older document is rationale that may be out of dat
 3. `meta.command` is the dotted command path (`document-type.list`), derived from the command
    tree, never typed by hand. The allow-list matches the same name.
 4. A breaking change to the envelope or a payload shape bumps `meta.schemaVersion`.
+5. **A command may add its own `meta` fields** for facts about the site rather than the item, such
+   as `dictionary get`'s `valueFormat`. It declares them with `WithMeta` (`CommandMeta`), never in
+   its action, so they are read only after the call succeeds and never under `--dry-run`. An own
+   field is absent when its value is unknown, like every other absent field.
 
 ## 7. Errors and exit codes
 

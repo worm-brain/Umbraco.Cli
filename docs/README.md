@@ -6,6 +6,7 @@
 | Use the CLI from scripts, CI or an AI agent | [Automation guide](agent-guide.md) |
 | Look up a command and its options | [Command reference](commands.md) |
 | Compare speed across versions | [Performance](performance.md) |
+| Tell the CLI what my Umbraco package changes | [Declaring CLI support in your package](extensions.md) |
 | Work on the code | [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) |
 
 The CLI can also describe itself, with no site or login needed:

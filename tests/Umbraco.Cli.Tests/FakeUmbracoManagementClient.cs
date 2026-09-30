@@ -1342,16 +1342,28 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>Recorded dictionary updates, in call order, with the translations as sent.</summary>
+    public List<(Guid Id, UpdateDictionaryItemRequest Request)> DictionaryItemsUpdated { get; } =
+    [];
+
+    /// <summary>Records the update and answers with the item's id and new name.</summary>
+    /// <param name="id">The item being updated.</param>
+    /// <param name="request">The update, recorded in <see cref="DictionaryItemsUpdated"/>.</param>
+    /// <param name="ct">Unused.</param>
+    /// <returns>A success carrying the id and name.</returns>
     public Task<UmbracoResponse<DictionaryItemResponse>> UpdateDictionaryItemAsync(
         Guid id,
         UpdateDictionaryItemRequest request,
         CancellationToken ct = default
-    ) =>
-        Task.FromResult(
+    )
+    {
+        DictionaryItemsUpdated.Add((id, request));
+        return Task.FromResult(
             UmbracoResponse<DictionaryItemResponse>.Success(
                 new DictionaryItemResponse { Id = id, Name = request.Name ?? "" }
             )
         );
+    }
 
     public Task<UmbracoResponse<Empty>> MoveDictionaryItemAsync(
         Guid id,
@@ -2837,6 +2849,26 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         LastManifestScope = scope;
         return Task.FromResult(
             UmbracoResponse<IReadOnlyList<ManifestResponse>>.Success(Manifests.ToList())
+        );
+    }
+
+    // Site capabilities (#440).
+    /// <summary>When set, the site's manifests "cannot be read", for this reason.</summary>
+    public string? ManifestsUnavailable { get; set; }
+
+    /// <summary>How many times the site's capabilities were read.</summary>
+    public int SiteCapabilityReads { get; private set; }
+
+    /// <summary>Resolves <see cref="Manifests"/> the way the real client does, uncached.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The capabilities.</returns>
+    public Task<SiteCapabilities> GetSiteCapabilitiesAsync(CancellationToken ct = default)
+    {
+        SiteCapabilityReads++;
+        return Task.FromResult(
+            ManifestsUnavailable is { } reason
+                ? SiteCapabilities.None(reason)
+                : SiteCapabilities.From(Manifests)
         );
     }
 

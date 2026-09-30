@@ -222,3 +222,12 @@ on the command itself (`CommandSafety`), and both the `--yes` gate and the catal
 declaration. `apply` declares itself destructive only with `--prune` (`destructiveWhen: "--prune"`
 in the catalog), which is the behaviour the Decision section intended. `--readonly` never keyed
 off either set; it blocks writes at the HTTP layer.
+
+## Later note (2026-09-30, #442)
+
+A snapshot now carries an optional `dictionaryValueFormat` header: how the exporting site stores
+dictionary translations (`text`, `html` or `markdown`), as its packages declare it through the
+manifest ([ADR 0009](0009-package-declared-cli-capabilities.md)). `diff` and `apply` compare it
+with the target's and warn on stderr when they differ and dictionary items would be written. They
+never refuse or convert. The header is optional and older CLIs ignore it, so the layout version
+stays "4"; a snapshot without it gives no warning.

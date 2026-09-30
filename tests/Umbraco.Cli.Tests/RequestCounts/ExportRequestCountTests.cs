@@ -59,9 +59,10 @@ public sealed class ExportRequestCountTests : IDisposable
         // and user groups - each listed in one page; languages and groups come whole with their
         // list.
         run.HasRequestCount(
-            12 + 4 + 5 * PerKind,
+            12 + 4 + 5 * PerKind + 1,
             $"1 list page per kind (12) + 1 batch per type kind (4) + 1 read per template, "
-                + $"dictionary item and file ({PerKind} of each of 5 kinds)"
+                + $"dictionary item and file ({PerKind} of each of 5 kinds) + 1 manifest read "
+                + "for the dictionary value format (#442)"
         );
     }
 
@@ -76,9 +77,9 @@ public sealed class ExportRequestCountTests : IDisposable
 
         // Assert
         run.HasRequestCount(
-            9 + 4 + 2 * PerKind,
+            9 + 4 + 2 * PerKind + 1,
             $"1 list page per non-file kind (9) + 1 batch per type kind (4) + 1 read per template "
-                + $"and dictionary item ({PerKind} each)"
+                + $"and dictionary item ({PerKind} each) + 1 manifest read (#442)"
         );
     }
 
@@ -114,8 +115,8 @@ public sealed class ExportRequestCountTests : IDisposable
 
         // Assert
         run.HasRequestCount(
-            12 + 4 + 5 * PerKind,
-            "the same reads as schema export: every kind the snapshot manages"
+            12 + 4 + 5 * PerKind + 1,
+            "the same reads as schema export: every kind the snapshot manages, and the manifest"
         );
     }
 

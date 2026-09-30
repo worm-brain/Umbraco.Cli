@@ -46,6 +46,16 @@ public readonly record struct ListPaging(int? Total, int? Skip, int? Take)
 
 public interface IOutputWriter
 {
+    /// <summary>
+    /// Adds a command-specific field to the <c>meta</c> of every success envelope this writer emits
+    /// from now on, such as <c>dictionary get</c>'s <c>valueFormat</c> (#440). Declared per command
+    /// through <see cref="CommandMeta"/>. Writers without a <c>meta</c> (human, CSV) ignore it,
+    /// which is what this default does.
+    /// </summary>
+    /// <param name="key">The field name, camelCase.</param>
+    /// <param name="value">The value; null leaves the field out, like every other absent meta field.</param>
+    void AddMeta(string key, object? value) { }
+
     void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null);
 
     /// <summary>

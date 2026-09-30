@@ -160,6 +160,9 @@ public sealed class CommandExecutor
                 return (int)ExitCode.Failed;
             }
 
+            // The command's own meta fields (#440), read only now that the call has succeeded, so
+            // a failure or a dry run never pays for them. Most commands declare none.
+            await CommandMeta.AddToAsync(parseResult, ctx.Client, ctx.Output, ct);
             render(ctx, result.Data);
             return (int)ExitCode.Success;
         }

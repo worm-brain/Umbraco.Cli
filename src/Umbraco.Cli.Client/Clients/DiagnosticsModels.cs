@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Umbraco.Cli.Client;
@@ -284,7 +285,7 @@ public record ModelsBuilderStatus
 
 /// <summary>
 /// A package manifest. The opaque <c>extensions</c> payload is not projected (it is arbitrary JSON);
-/// this surfaces the identifying metadata only.
+/// this surfaces the identifying metadata, plus what the package declares about the CLI.
 /// </summary>
 public record ManifestResponse
 {
@@ -299,4 +300,11 @@ public record ManifestResponse
     /// <summary>The manifest version.</summary>
     [JsonPropertyName("version")]
     public string Version { get; init; } = "";
+
+    /// <summary>
+    /// The merged <c>meta</c> of the manifest's <c>umbracoCli</c> extensions (ADR 0009, #440), or
+    /// null when the package declares nothing about the CLI.
+    /// </summary>
+    [JsonPropertyName("cliCapabilities")]
+    public JsonObject? CliCapabilities { get; init; }
 }
