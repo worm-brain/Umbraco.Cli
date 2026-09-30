@@ -127,7 +127,7 @@ public sealed class UmbracoAuthService
     /// (<c>auth login</c>, <c>auth doctor</c>). The new token is still cached.
     /// </param>
     /// <returns>The bearer token.</returns>
-    /// <exception cref="UmbracoAuthException">The host is plain <c>http://</c> and not loopback (see <see cref="HostPolicy.InsecureTransportError"/>), or the token request failed, timed out, could not reach the host, or returned an unreadable body.</exception>
+    /// <exception cref="UmbracoAuthException">The host is plain <c>http://</c> and not loopback (see <see cref="HostPolicy.InsecureTransportError"/>), or the token request failed, timed out, could not reach the host, or returned an unreadable body; <see cref="UmbracoAuthException.Category"/> says which kind.</exception>
     public async Task<string> GetTokenAsync(
         string host,
         string clientId,
@@ -196,19 +196,27 @@ public sealed class UmbracoAuthService
                 _cache?.Write(key, cached);
                 return cached.AccessToken;
             }
+            // No response at all is classified as the request guard classifies any other request
+            // (UmbracoManagementClient.GuardedApiAsync): unreachable or timeout, not a refusal of
+            // the credentials (#445). The transport exception is kept as the inner exception so
+            // the 401 retry can rethrow it as the request's own failure.
             catch (HttpRequestException ex)
             {
                 throw new UmbracoAuthException(
                     0,
-                    $"Could not reach the Umbraco instance at {host} to authenticate: {ex.Message}"
+                    $"Could not reach the Umbraco instance at {host} to authenticate: {ex.Message}",
+                    FailureCategory.Unreachable,
+                    ex
                 );
             }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
             {
                 // A timeout surfaces as a cancellation whose token is NOT the caller's.
                 throw new UmbracoAuthException(
                     0,
-                    "The authentication request to the Umbraco instance timed out."
+                    $"The authentication request to the Umbraco instance at {host} timed out.",
+                    FailureCategory.Timeout,
+                    ex
                 );
             }
             catch (Exception ex)
@@ -355,7 +363,32 @@ public sealed class UmbracoAuthService
     }
 }
 
-public sealed class UmbracoAuthException(int statusCode, string message) : Exception(message)
+/// <summary>
+/// A client-credentials token could not be obtained. <see cref="Category"/> tells a caller whether
+/// to fix the credentials or to wait for the site (#445).
+/// </summary>
+/// <param name="statusCode">The token endpoint's HTTP status; 0 when there is none.</param>
+/// <param name="message">A single-line message that never contains the client secret.</param>
+/// <param name="category">Why the exchange failed; a refusal of the credentials when omitted.</param>
+/// <param name="innerException">
+/// The transport failure (<see cref="HttpRequestException"/>, or the timeout's
+/// <see cref="OperationCanceledException"/>) behind an unreachable or timed-out exchange; null otherwise.
+/// </param>
+public sealed class UmbracoAuthException(
+    int statusCode,
+    string message,
+    FailureCategory category = FailureCategory.NotAuthenticated,
+    Exception? innerException = null
+) : Exception(message, innerException)
 {
+    /// <summary>The token endpoint's HTTP status, or 0 when there was no status to report (never sent, never answered, or an unreadable success).</summary>
     public int StatusCode { get; } = statusCode;
+
+    /// <summary>
+    /// <see cref="FailureCategory.Unreachable"/> or <see cref="FailureCategory.Timeout"/> when the
+    /// token request got no response, the categories any other request without one gets;
+    /// otherwise <see cref="FailureCategory.NotAuthenticated"/>: the token endpoint answered with an
+    /// error or an unreadable body, or a plain-HTTP host was refused before anything was sent.
+    /// </summary>
+    public FailureCategory Category { get; } = category;
 }

@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Infrastructure.Http;
@@ -44,6 +45,8 @@ public sealed class TokenRefreshState
     /// <param name="rejected">The token the rejected request carried.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The token to retry with, or null when there is none (do not retry).</returns>
+    /// <exception cref="HttpRequestException">The token exchange could not reach the host.</exception>
+    /// <exception cref="OperationCanceledException">The token exchange timed out, or <paramref name="ct"/> was cancelled.</exception>
     public async Task<string?> RenewAsync(string? rejected, CancellationToken ct)
     {
         if (_refresh is not { } refresh)
@@ -59,6 +62,18 @@ public sealed class TokenRefreshState
             _renewed = true;
             Token = await refresh(ct);
             return Token;
+        }
+        catch (UmbracoAuthException ex)
+            when (ex.Category is FailureCategory.Unreachable or FailureCategory.Timeout
+                && ex.InnerException is { } transport
+            )
+        {
+            // The renewal got no response (#445): the request ends as that transport failure,
+            // which the request guard reports as unreachable or timeout like any other. Letting
+            // the stale 401 stand would read as a rejected request and send the caller off to
+            // re-authenticate against a site that is down.
+            ExceptionDispatchInfo.Throw(transport);
+            throw; // Not reached: Throw always throws.
         }
         catch (UmbracoAuthException)
         {

@@ -89,6 +89,18 @@ public class EmptyPairValueTests
         Assert.Equal((1, false), (exit, fake.LastMemberUpdate.HasValue));
     }
 
+    [Fact]
+    public async Task MemberUpdate_AliasSetAndClearedInOneCall_IsRefusedBeforeTheClient()
+    {
+        // key= is a value for the key like any other, so it cannot be given beside a second one
+        // for the same alias (#444): "set it" and "clear it" conflict.
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await Run(fake, $"member update {Id} --value company=Acme --value company=");
+
+        Assert.Equal((1, false), (exit, fake.LastMemberUpdate.HasValue));
+    }
+
     // -- domain bindings: key= removes the binding -----------------------------------
 
     [Fact]
@@ -102,6 +114,19 @@ public class EmptyPairValueTests
         );
 
         Assert.Equal("example.com", Assert.Single(fake.LastDomains!.Domains).DomainName);
+    }
+
+    [Fact]
+    public async Task DomainSet_HostBoundAndRemovedInOneCall_IsRefusedBeforeTheClient()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await Run(
+            fake,
+            $"content domain set {Id} --domain example.com=en-US --domain Example.com="
+        );
+
+        Assert.Equal((1, false), (exit, fake.LastDomains is not null));
     }
 
     [Fact]

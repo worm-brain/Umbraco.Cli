@@ -3,8 +3,8 @@ using Umbraco.Cli.Infrastructure;
 namespace Umbraco.Cli.Tests;
 
 /// <summary>
-/// Tests for reading a <c>--json-body</c> value from a file or stdin (#63). Sets
-/// <see cref="Console.In"/>, which is process-global, so it shares the console-capture
+/// Tests for reading a <c>--json-body</c> value from a file or stdin (#63). The stdin tests redirect
+/// <see cref="StandardInput"/>, which is process-global, so the class shares the console-capture
 /// collection.
 /// </summary>
 [Collection("ConsoleCapture")]
@@ -26,8 +26,29 @@ public class JsonBodyInputTests
         }
     }
 
-    // The `-` (stdin) branch reads the raw standard-input stream as UTF-8 (not Console.In, which
-    // Console.SetIn cannot redirect at the stream level), so it is covered end-to-end by the
-    // integration harness (StdinBody_ContentCreate_ReadsPipedBody) with real piped bytes,
-    // including a non-ASCII character to guard the UTF-8 decoding.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)] // PowerShell and .NET's Encoding.UTF8 write a BOM
+    public async Task ReadAsync_StdinUtf8NonAscii_ReadsTheSameAsTheFile(bool byteOrderMark)
+    {
+        // Arrange: the same bytes saved to a file and piped to stdin (#443).
+        var bytes = RedirectedStdin.Utf8("""{"name":"Søg æøå"}""", byteOrderMark);
+        var path = Path.Combine(Path.GetTempPath(), $"umbraco-body-{Guid.NewGuid()}.json");
+        await File.WriteAllBytesAsync(path, bytes);
+        try
+        {
+            var fromFile = await JsonBodyInput.ReadAsync(path, CancellationToken.None);
+            using var stdin = new RedirectedStdin(bytes);
+
+            // Act
+            var fromStdin = await JsonBodyInput.ReadAsync("-", CancellationToken.None);
+
+            // Assert
+            Assert.Equal(fromFile, fromStdin);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

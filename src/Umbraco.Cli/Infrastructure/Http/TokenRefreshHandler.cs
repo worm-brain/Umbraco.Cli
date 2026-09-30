@@ -14,6 +14,11 @@ namespace Umbraco.Cli.Infrastructure.Http;
 /// body is buffered first so it can be sent twice. <see cref="TokenRefreshState"/> decides whether
 /// there is a token to retry with.
 /// </para>
+/// <para>
+/// A renewal that gets no response fails the request with that transport failure rather than
+/// returning the 401 (#445), so the command reports <c>unreachable</c> or <c>timeout</c>, as for
+/// any other request that never reached the server.
+/// </para>
 /// </summary>
 public sealed class TokenRefreshHandler(TokenRefreshState state) : DelegatingHandler
 {
@@ -37,7 +42,18 @@ public sealed class TokenRefreshHandler(TokenRefreshState state) : DelegatingHan
         if (response.StatusCode != HttpStatusCode.Unauthorized)
             return response;
 
-        if (await state.RenewAsync(sentWith, ct) is not { } fresh || fresh == sentWith)
+        string? fresh;
+        try
+        {
+            fresh = await state.RenewAsync(sentWith, ct);
+        }
+        catch
+        {
+            // The renewal's failure replaces the 401 as the request's outcome; release the 401.
+            response.Dispose();
+            throw;
+        }
+        if (fresh is null || fresh == sentWith)
             return response;
 
         response.Dispose();

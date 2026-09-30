@@ -10,12 +10,11 @@ namespace Umbraco.Cli.Commands.Dictionary;
 /// from a file, or from stdin for <c>-</c>. A multi-line value (Markdown, HTML) then needs no shell
 /// quoting, which differs between bash, PowerShell and cmd.
 /// <para>
-/// Each ISO code has one source (docs/conventions.md 4.3 and 4.5): one named by a
-/// <c>--value-file</c> cannot be named again, by <c>--value</c> or by another <c>--value-file</c>.
-/// Stdin can be read once, so at most one path is <c>-</c>. These rules, and a path that is empty,
-/// are checked at parse time; the files are read
-/// later, inside the executor, so a missing one is an <c>invalid_argument</c> error envelope rather
-/// than a crash.
+/// Each ISO code has one source (docs/conventions.md 4.3 and 4.5): the two options share one key
+/// space, so a code is named once across both, not once in each. Stdin can be read once, so at
+/// most one path is <c>-</c>. These rules, and a path that is empty, are checked at parse time;
+/// the files are read later, inside the executor, so a missing one is an <c>invalid_argument</c>
+/// error envelope rather than a crash.
 /// </para>
 /// </summary>
 public static class DictionaryTranslationInput
@@ -31,16 +30,23 @@ public static class DictionaryTranslationInput
         };
 
     /// <summary>
-    /// Adds the parse-time checks for <paramref name="files"/>: each token is <c>isoCode=path</c>
-    /// with a path, no ISO code is given twice across the two options, and at most one path is
-    /// <c>-</c>.
+    /// Adds the parse-time checks of both translation options: each <c>--value</c> token is
+    /// <c>isoCode=translation</c> and each <c>--value-file</c> token <c>isoCode=path</c> with a
+    /// path, no ISO code is given twice across the two options, and at most one path is <c>-</c>.
     /// </summary>
     /// <param name="cmd">The <c>dictionary create</c> or <c>update</c> command.</param>
-    /// <param name="values">The command's <c>--value</c> option, for ISO codes it shares with <paramref name="files"/>.</param>
+    /// <param name="values">The command's <c>--value</c> option.</param>
     /// <param name="files">The command's <c>--value-file</c> option.</param>
     public static void Validate(Command cmd, Option<string[]> values, Option<string[]> files)
     {
-        KeyValuePairs.Validate(
+        // Shape only: a repeated ISO code is refused by Problems, across both options at once, so
+        // one code named twice is one message whichever options named it.
+        KeyValuePairs.ValidateShape(
+            cmd,
+            values,
+            "--value must be isoCode=translation, e.g. en-US=Home"
+        );
+        KeyValuePairs.ValidateShape(
             cmd,
             files,
             "--value-file must be isoCode=path, e.g. en-US=intro.md"
@@ -61,20 +67,17 @@ public static class DictionaryTranslationInput
     /// </returns>
     internal static IEnumerable<string> Problems(string[]? values, string[]? files)
     {
-        var filePairs = WellFormed(files).ToList();
+        var filePairs = KeyValuePairs.WellFormed(files).ToList();
 
         foreach (var (iso, _) in filePairs.Where(p => p.Value.Length == 0))
             yield return $"--value-file {iso}= names no file. Give a path, or use --value {iso}= for an empty translation.";
 
-        // ISO codes are compared the way Umbraco merges translations: ignoring case.
-        var named = filePairs.Select(p => p.Key).Concat(WellFormed(values).Select(p => p.Key));
-        var repeated = filePairs
-            .Select(p => p.Key)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(iso =>
-                named.Count(n => string.Equals(n, iso, StringComparison.OrdinalIgnoreCase)) > 1
-            )
-            .ToList();
+        // ISO codes are compared the way Umbraco merges translations: ignoring case. The file
+        // codes go first, so a code in both options is reported as the --value-file spelled it.
+        var repeated = KeyValuePairs.Repeated(
+            filePairs.Concat(KeyValuePairs.WellFormed(values)).Select(p => p.Key),
+            StringComparer.OrdinalIgnoreCase
+        );
         if (repeated.Count > 0)
             yield return $"Each ISO code takes one translation, from --value or --value-file. Given more than once: {string.Join(", ", repeated)}.";
 
@@ -124,17 +127,4 @@ public static class DictionaryTranslationInput
 
         return translations;
     }
-
-    /// <summary>
-    /// The pairs among <paramref name="raw"/> that have an ISO code and an <c>=</c>. The others are
-    /// reported by the <see cref="KeyValuePairs.Validate"/> shape check; checking them here too would
-    /// report one typo twice.
-    /// </summary>
-    /// <param name="raw">The raw option tokens, or null.</param>
-    /// <returns>The well-formed pairs, in the order given.</returns>
-    private static IEnumerable<(string Key, string Value)> WellFormed(string[]? raw) =>
-        (raw ?? [])
-            .Select(v => v.Split('=', 2))
-            .Where(p => p is [{ Length: > 0 }, _])
-            .Select(p => (p[0], p[1]));
 }

@@ -55,7 +55,9 @@ public sealed class CommandContextFactory
     /// <returns>The built context.</returns>
     /// <exception cref="CommandAbortedException">
     /// No host, not authenticated, blocked by the allow-list, a plain-HTTP non-loopback host, or a
-    /// <c>--host</c> the configured credentials are not bound to (see <see cref="UsesCredentialsForOtherHost"/>).
+    /// <c>--host</c> the configured credentials are not bound to (see <see cref="UsesCredentialsForOtherHost"/>),
+    /// all with <see cref="ExitCode.Aborted"/>; or a token exchange that got no response, with
+    /// <see cref="ExitCode.Failed"/> (see <see cref="WriteAuthFailure"/>).
     /// </exception>
     public async Task<CommandContext> CreateAsync(
         ParseResult parseResult,
@@ -177,13 +179,7 @@ public sealed class CommandContextFactory
             }
             catch (UmbracoAuthException ex)
             {
-                output.WriteError(
-                    ExitCode.Aborted,
-                    FailureCategory.NotAuthenticated,
-                    $"Authentication failed: {ex.Message}",
-                    commandName
-                );
-                throw new CommandAbortedException();
+                throw new CommandAbortedException(WriteAuthFailure(output, ex, commandName));
             }
 
             // A cached token can be rejected before it expires (#248): drop it and exchange the
@@ -259,6 +255,44 @@ public sealed class CommandContextFactory
         + "will not be sent there. Pass --token with --host, use a profile logged in to that host "
         + "('umbraco auth login --host <url> --profile <name>'), or set UMBRACO_HOST with its "
         + "own UMBRACO_CLIENT_ID / UMBRACO_CLIENT_SECRET.";
+
+    /// <summary>
+    /// Writes the error for a failed client-credentials token exchange and returns the exit code
+    /// it was written with. Shared by every command's context and by <c>auth login</c>, so one fact
+    /// is reported one way whichever command hit it (#445).
+    /// <list type="bullet">
+    /// <item>
+    /// No response (<c>unreachable</c>, <c>timeout</c>): exit 1, as for any other request that
+    /// never reached the server. The message names the host and says nothing about the
+    /// credentials, which were never checked.
+    /// </item>
+    /// <item>Anything else is an authentication failure: exit 2, <c>not_authenticated</c>.</item>
+    /// </list>
+    /// </summary>
+    /// <param name="output">The output writer.</param>
+    /// <param name="ex">The token exchange's failure.</param>
+    /// <param name="commandName">The dotted command name, for <c>meta.command</c>.</param>
+    /// <returns>The exit code to return.</returns>
+    internal static ExitCode WriteAuthFailure(
+        IOutputWriter output,
+        UmbracoAuthException ex,
+        string? commandName
+    )
+    {
+        if (ex.Category is FailureCategory.Unreachable or FailureCategory.Timeout)
+        {
+            output.WriteError(ExitCode.Failed, ex.Category, ex.Message, commandName);
+            return ExitCode.Failed;
+        }
+
+        output.WriteError(
+            ExitCode.Aborted,
+            FailureCategory.NotAuthenticated,
+            $"Authentication failed: {ex.Message}",
+            commandName
+        );
+        return ExitCode.Aborted;
+    }
 
     /// <summary>
     /// Writes a refusal (exit code 2, category <c>refused</c>) and aborts the command.

@@ -267,11 +267,11 @@ public static class UserGroupsCommand
 
     /// <summary>
     /// Turns <c>--document-permission</c> values (<c>&lt;id&gt;=&lt;verb&gt;,&lt;verb&gt;</c>, already
-    /// validated) into permissions. Verbs are trimmed and de-duplicated, since Umbraco takes them as
-    /// a set; a document named twice keeps the last value, as a later option overrides an earlier.
+    /// validated, so each names a different document) into permissions. Verbs are trimmed and
+    /// de-duplicated, since Umbraco takes them as a set.
     /// </summary>
     /// <param name="raw">The option values, or null when not given.</param>
-    /// <returns>One permission per document, in the order first named; an empty verb list is kept.</returns>
+    /// <returns>One permission per value, in the order given; an empty verb list is kept.</returns>
     internal static IReadOnlyList<DocumentPermission> ParseDocumentPermissions(string[]? raw) =>
         [
             .. KeyValuePairs
@@ -289,10 +289,26 @@ public static class UserGroupsCommand
                             )
                             .Distinct(StringComparer.Ordinal),
                     ],
-                })
-                .GroupBy(p => p.Document)
-                .Select(g => g.Last()),
+                }),
         ];
+
+    /// <summary>
+    /// How <c>--document-permission</c> compares its keys: as document ids, the way
+    /// <see cref="ParseDocumentPermissions"/> reads them, so one id spelled in two cases or with
+    /// and without its dashes is one document. A key that is not an id (refused by its own check)
+    /// is compared as written.
+    /// </summary>
+    internal static readonly IEqualityComparer<string> SameDocument =
+        EqualityComparer<string>.Create(
+            (a, b) => DocumentKey(a) == DocumentKey(b),
+            k => DocumentKey(k).GetHashCode(StringComparison.Ordinal)
+        );
+
+    /// <summary>A <c>--document-permission</c> key in one spelling per document.</summary>
+    /// <param name="key">The key as given.</param>
+    /// <returns>The id in its standard form, or the key unchanged when it is not an id.</returns>
+    private static string DocumentKey(string? key) =>
+        Guid.TryParse(key, out var id) ? id.ToString() : key ?? "";
 
     /// <summary>
     /// Builds <c>user-group delete &lt;id&gt;...</c>: one or more groups, by id, alias or name
@@ -522,7 +538,8 @@ public static class UserGroupsCommand
             KeyValuePairs.Validate(
                 cmd,
                 _documentPermissions,
-                "--document-permission must be <id>=<verb>,<verb>, e.g. 3f7a8b2e-1234-5678-abcd-ef0123456789=Umb.Document.Read"
+                "--document-permission must be <id>=<verb>,<verb>, e.g. 3f7a8b2e-1234-5678-abcd-ef0123456789=Umb.Document.Read",
+                SameDocument
             );
             // The document must be an id: content has no alias to resolve, and a typo'd node would
             // otherwise reach Umbraco as a permission on nothing.

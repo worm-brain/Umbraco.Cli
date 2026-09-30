@@ -159,11 +159,22 @@ public class WebhookCommandTests
     }
 
     [Fact]
-    public async Task WebhookUpdate_RepeatedHeaderName_SendsTheLastValue()
+    public async Task WebhookUpdate_RepeatedHeaderName_IsRefusedBeforeTheClient()
+    {
+        // #444: this used to send the last value. Header names ignore case, so x-key is X-Key.
+        var fake = WithHook();
+
+        var exit = await Run(fake, "webhook update Deploy --header X-Key=a --header x-key=b");
+
+        Assert.Equal((1, 0), (exit, fake.WebhooksUpdated.Count));
+    }
+
+    [Fact]
+    public async Task WebhookUpdate_HeaderValueWithAnEquals_IsSentWhole()
     {
         var fake = WithHook();
 
-        await Run(fake, "webhook update Deploy --header X-Key=a --header x-key=b=c");
+        await Run(fake, "webhook update Deploy --header X-Key=b=c");
 
         var headers = Assert.Single(fake.WebhooksUpdated).Request.Headers!;
         Assert.Equal("b=c", Assert.Single(headers).Value);
@@ -343,11 +354,12 @@ public class WebhookCommandTests
     }
 
     [Fact]
-    public void Headers_RepeatedNameInOtherCase_KeepsOneHeader()
+    public void Headers_Pair_IsFoundByItsNameInAnyCase()
     {
-        var headers = WebhookOptions.Headers(["X-Key=a", "x-key=b"]);
+        // A repeated name is refused at parse time (#444); the map still keys names as HTTP does.
+        var headers = WebhookOptions.Headers(["X-Key=a"]);
 
-        Assert.Equal("b", Assert.Single(headers).Value);
+        Assert.Equal("a", headers["x-key"]);
     }
 
     [Fact]

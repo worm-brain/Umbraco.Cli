@@ -80,21 +80,26 @@ disagree, this file wins; the older document is rationale that may be out of dat
 3. **Multi-value options are singular and repeatable** (`--culture en-US --culture da-DK`), and also
    accept commas, except `key=value` options, which are repeat-only. Pairs are `--value key=value`,
    and `--value-file key=<file|->` where the value is read from a file (UTF-8, stored exactly as
-   the file holds it). A key takes one value, so naming it in both `--value` and `--value-file`,
-   or in two `--value-file` pairs, is refused.
+   the file holds it). A key takes one value, so **a key may be given once per option**: naming it
+   twice (`--value en-US=a --value en-US=b`) is an `invalid_argument` parse error that names the
+   key, and so is naming it in both `--value` and `--value-file`, which share one set of keys. Keys
+   match the way the option's target matches them: ISO codes, hostnames and header names ignoring
+   case, property aliases exactly (as Umbraco matches them to property types), document ids as ids.
    An **empty value** (`key=`) means "nothing for this key". Where the value is data that may be
    empty (a property value `--value alias=`, a translation `--value en-US=`) it is set empty,
    which clears it. Where an entry cannot exist without its value (`--header name=`,
    `--document-permission <id>=`, `--domain host=`) it removes that entry; on a create there is
    nothing to remove, so it is ignored. On `--value-file` the value is a path, so `key=` names no
-   file and is refused; `--value key=` sets the value empty. An empty *key* (`=value`) is always
-   refused. Each option's help says what `key=` does.
+   file and is refused; `--value key=` sets the value empty. An empty value is still the key's one
+   value, so `key=` beside another value for the same key is refused too. An empty *key*
+   (`=value`) is always refused. Each option's help says what `key=` does.
 4. **Booleans:** a flag names the non-default behaviour (`--desc`, `--asc`, `--no-state`). On
    `update`, an omitted flag leaves the value unchanged; `--flag false` clears it.
 5. **Inputs:** `-` means stdin on every file-valued input. Stdin can be read once, so at most one
    input per command is `-`. Two inputs that conflict (`--content` with `--content-file`, a
-   `--json-body` id that contradicts `--id`, the same key in `--value` and `--value-file`, a second
-   `-`) are an `invalid_argument` error, never a silent precedence.
+   `--json-body` id that contradicts `--id`, the same key twice in a `key=value` option or in both
+   `--value` and `--value-file`, a second `-`) are an `invalid_argument` error, never a silent
+   precedence.
 6. **Short aliases** belong to global options (`-H -o -q -v -y -p`), plus `-O` for `--out`. An
    alias never means two things.
 7. **Conditionally required inputs** (required unless `--json-body`, `--schema`, ...) are optional

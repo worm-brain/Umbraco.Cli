@@ -61,7 +61,12 @@ public static class MediaUpdateCommand
         cmd.Add(valueOpt);
         cmd.Add(replaceOpt);
         body.AddTo(cmd);
-        KeyValuePairs.Validate(cmd, valueOpt, "--value must be alias=value, e.g. title=Brochure");
+        KeyValuePairs.Validate(
+            cmd,
+            valueOpt,
+            "--value must be alias=value, e.g. title=Brochure",
+            KeyValuePairs.PropertyAliases
+        );
 
         cmd.Validators.Add(result =>
         {

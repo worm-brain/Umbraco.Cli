@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands;
 
@@ -28,6 +29,8 @@ public static class FileContentInput
     /// Resolves the content to send: the <c>--content-file</c> body (read here, inside the executor's
     /// try, so a missing file surfaces as a clean error; <c>-</c> reads stdin), or <c>--content</c>,
     /// or null. Callers that require content treat null as an error; callers with a default coalesce it.
+    /// A file and stdin are both decoded as UTF-8 with a leading BOM dropped (stdin through
+    /// <see cref="StandardInput"/>), so a piped template reads the same as the file named by path.
     /// </summary>
     /// <param name="parseResult">The parsed command line.</param>
     /// <param name="content">The inline-content option.</param>
@@ -35,6 +38,7 @@ public static class FileContentInput
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The resolved content, or null when neither option was supplied.</returns>
     /// <exception cref="InvalidInputException">Both options were given.</exception>
+    /// <exception cref="IOException">The file or stdin could not be read, e.g. the file does not exist.</exception>
     public static async Task<string?> ReadAsync(
         ParseResult parseResult,
         Option<string?> content,
@@ -53,7 +57,7 @@ public static class FileContentInput
             return inline;
         // FileInfo keeps the path as typed, so '-' is recognisable before it is resolved.
         return file.ToString() == "-"
-            ? await Console.In.ReadToEndAsync(ct)
+            ? await StandardInput.ReadToEndAsync(ct)
             : await File.ReadAllTextAsync(file.FullName, ct);
     }
 }

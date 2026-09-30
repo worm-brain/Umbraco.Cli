@@ -61,7 +61,12 @@ public static class MediaUploadCommand
         cmd.Add(mediaTypeOpt);
         cmd.Add(idOpt);
         cmd.Add(valueOpt);
-        KeyValuePairs.Validate(cmd, valueOpt, "--value must be alias=value, e.g. title=Brochure");
+        KeyValuePairs.Validate(
+            cmd,
+            valueOpt,
+            "--value must be alias=value, e.g. title=Brochure",
+            KeyValuePairs.PropertyAliases
+        );
         // The file itself is umbracoFile; a second value for it would replace the upload.
         cmd.Validators.Add(result =>
         {

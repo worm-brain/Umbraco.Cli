@@ -186,8 +186,9 @@ calling Umbraco).
 
 For an API call, `category` is one of:
 
-- `unreachable` - no response (DNS or connection).
-- `timeout`.
+- `unreachable` - no response (DNS or connection). This includes the client-credentials token
+  request made before the call, so a site that is down is `unreachable` however you authenticate.
+- `timeout` - no response in time, the token request included.
 - `request_rejected` - a 4xx, usually bad input or the request itself.
 - `server_error` - a 5xx or an undeclared status, so a server-side fault.
 - `unexpected_response` - the server answered, but with a body the CLI couldn't read (not JSON,
@@ -205,7 +206,7 @@ The rest never reach the API, so they carry no `httpStatus` and no `serverVersio
 |---|---|---|
 | `invalid_argument` | 1 | Your input: a command line that doesn't parse, a malformed or contradictory `--json-body`, two inputs for one value, an alias or name that matches nothing (or several items - the message lists their ids), a value the instance doesn't recognise (a webhook `--event` alias, a dictionary ISO code), a file that isn't there. |
 | `internal` | 1 | An unexpected error inside the CLI - a bug to report. |
-| `not_authenticated` | 2 | No host, no credentials, an unknown `--profile`, or authentication failed. |
+| `not_authenticated` | 2 | No host, no credentials, an unknown `--profile`, or the token endpoint refused the client credentials. A token request that gets no answer is `unreachable` or `timeout` instead (above). |
 | `not_allowed` | 2 | The command isn't in the allow-list. |
 | `readonly` | 2 | A write blocked by `--readonly` / `UMBRACO_READONLY`. |
 | `confirmation_required` | 2 | A destructive command run non-interactively without `--yes`. |
