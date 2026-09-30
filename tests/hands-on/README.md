@@ -218,7 +218,7 @@ python3 bench.py report
 
 It needs neither hyperfine nor a site. It reads every `docs/performance/results/*.json` and writes the page whole:
 one table per Umbraco version and machine, a row per published CLI version and a column per scenario, each cell the
-newest direct run's end-to-end mean. `local` builds and latency runs stay in the results files but aren't on the
+newest direct run's end-to-end median. `local` builds and latency runs stay in the results files but aren't on the
 page, which compares releases. The page's prose lives in [`tools/perf_report.py`](tools/perf_report.py); the method
 and caveats are hand-written in [`docs/performance-testing.md`](../../docs/performance-testing.md). Running `report`
 again without new results changes nothing. It stops before writing anything when there are no results files, or a

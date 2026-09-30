@@ -6,8 +6,9 @@ Run it through bench.py, from anywhere:
 
 It reads every docs/performance/results/*.json that bench.py wrote (tests/hands-on/README.md, "Benchmarks",
 documents the schema) and writes docs/performance.md whole: an at-a-glance comparison of the published CLI
-versions, one table per Umbraco version and machine, with one column per scenario. Each cell is the newest
-direct run of that version and scenario. Builds packed from a checkout (`--cli local`) and runs through the
+versions, one table per Umbraco version and machine, with one column per scenario. Each cell is the median
+end-to-end time of the newest direct run of that version and scenario: the median, because on a working machine
+one slow run in ten moves the mean more than the difference between versions. Builds packed from a checkout (`--cli local`) and runs through the
 latency proxy (`--latency`) stay in the results files but are not on the page: it compares releases.
 
 How the numbers are measured, and how to read them, is hand-written in docs/performance-testing.md. Every number
@@ -143,11 +144,11 @@ def cell(row):
     """One version's time for one scenario.
 
     :param row: the results row, or None when that version wasn't timed on that scenario.
-    :returns: the end-to-end mean in whole milliseconds; "-" for a failed run; "" when not timed.
+    :returns: the end-to-end median in whole milliseconds; "-" for a failed run; "" when not timed.
     """
     if row is None:
         return ""
-    return "-" if row["status"] != "ok" else f"{row['endToEndMs']['mean']:.0f}"
+    return "-" if row["status"] != "ok" else f"{row['endToEndMs']['median']:.0f}"
 
 
 def para(text):
@@ -205,7 +206,7 @@ def group_section(umbraco, machine, group, order, name_machine):
     dates = sorted({doc["date"][:10] for doc in docs.values()})
     counts = sorted({doc["hyperfine"]["runs"] for doc in docs.values()})
     stamp = (f"Measured {' to '.join(dict.fromkeys([dates[0], dates[-1]]))} on {m['cpu']} ({m['logicalCores']} "
-             f"logical cores), {m['os']}. Each time is the mean of {' to '.join(map(str, dict.fromkeys([counts[0], counts[-1]])))} "
+             f"logical cores), {m['os']}. Each time is the median of {' to '.join(map(str, dict.fromkeys([counts[0], counts[-1]])))} "
              "runs.")
     notes = [f"Note ({doc['date'][:10]}): {doc['note']}" for _, doc in sorted(docs.items()) if doc.get("note")]
     parts = [f"## Umbraco {umbraco}" + (f", {machine}" if name_machine else ""),
@@ -233,8 +234,8 @@ def render_page(runs, scenarios):
     parts = [
         "# Performance",
         GENERATED,
-        para("How long common commands take in each released version of the CLI. Times are end to end, in "
-             "milliseconds, against a local Umbraco site with a small set of test content, so they include "
+        para("How long common commands take in each released version of the CLI. Times are the median end-to-end "
+             "time, in milliseconds, against a local Umbraco site with a small set of test content, so they include "
              "Umbraco's own time. Lower is better. Compare rows within one table: each table is one Umbraco "
              "version on one machine."),
     ]

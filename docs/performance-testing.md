@@ -99,8 +99,9 @@ The page shows released versions only, each with its newest direct run. Builds o
 
 ## Reading the numbers
 
-- **Noise.** Each number comes from one run on one machine. hyperfine's standard deviation (in the results file)
-  is the spread to compare against: a difference smaller than the two spreads added together is noise. Other load
+- **Noise.** Each number comes from one run on one machine. The page shows the median of each command's timed runs,
+  so one slow run doesn't skew it. hyperfine's standard deviation (in the results file) is the spread to compare
+  against: a difference smaller than the two spreads added together is noise. Other load
   on the machine widens the spread, so record runs you mean to commit on a quiet machine, and add a `--note` when
   that wasn't possible.
 - **End-to-end includes Umbraco.** A real site, a remote host or another Umbraco version moves it. Compare CLI

@@ -1,0 +1,361 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-30T09:48:39Z",
+  "machine": {
+    "label": "windows-amd-ryzen-9-7950x",
+    "cpu": "AMD Ryzen 9 7950X 16-Core Processor",
+    "logicalCores": 32,
+    "memoryGiB": 63.2,
+    "os": "Windows 11 (10.0.26200)",
+    "arch": "AMD64"
+  },
+  "hyperfine": {
+    "version": "1.20.0",
+    "warmup": 3,
+    "runs": 10
+  },
+  "httpRuns": 5,
+  "note": null,
+  "results": [
+    {
+      "scenario": "version",
+      "command": "umbraco --version",
+      "cli": {
+        "label": "0.1.0-alpha.6",
+        "version": "0.1.0-alpha.6",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 93.87,
+        "stddev": 1.49,
+        "median": 93.48,
+        "min": 92.35,
+        "max": 97.59,
+        "times": [97.59, 92.94, 93.37, 92.35, 93.87, 93.59, 93.25, 92.89, 93.91, 94.99]
+      },
+      "httpMs": 0.0,
+      "cliOverheadMs": 93.87,
+      "requests": 0
+    },
+    {
+      "scenario": "get",
+      "command": "umbraco content get {home} --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-alpha.6",
+        "version": "0.1.0-alpha.6",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 299.11,
+        "stddev": 4.04,
+        "median": 297.82,
+        "min": 295.77,
+        "max": 307.96,
+        "times": [295.77, 298.22, 296.32, 297.43, 295.99, 295.87, 304.02, 299.15, 307.96, 300.36]
+      },
+      "httpMs": 12.5,
+      "cliOverheadMs": 286.61,
+      "requests": 1
+    },
+    {
+      "scenario": "list",
+      "command": "umbraco data-type list --all --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-alpha.6",
+        "version": "0.1.0-alpha.6",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "failed",
+      "error": "exit 1: Unrecognized command or argument 'data-type'. Unrecognized command or argument 'list'. Unrecognized command or argument '--all'."
+    },
+    {
+      "scenario": "content-export",
+      "command": "umbraco content export --out {work}/content-export.json --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-alpha.6",
+        "version": "0.1.0-alpha.6",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 414.7,
+        "stddev": 73.15,
+        "median": 391.34,
+        "min": 387.14,
+        "max": 622.7,
+        "times": [397.43, 395.06, 622.7, 393.72, 388.26, 387.14, 391.85, 390.73, 389.31, 390.84]
+      },
+      "httpMs": 69.9,
+      "cliOverheadMs": 344.8,
+      "requests": 34
+    },
+    {
+      "scenario": "schema-diff",
+      "command": "umbraco schema diff {fixtures}/schema.json --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-alpha.6",
+        "version": "0.1.0-alpha.6",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "failed",
+      "error": "exit 1: Unsupported snapshot schemaVersion '3' (this CLI writes and reads '1'). Re-export with a matching CLI version."
+    },
+    {
+      "scenario": "version",
+      "command": "umbraco --version",
+      "cli": {
+        "label": "0.1.0-alpha.15",
+        "version": "0.1.0-alpha.15",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 110.11,
+        "stddev": 3.45,
+        "median": 109.49,
+        "min": 107.1,
+        "max": 119.61,
+        "times": [119.61, 109.54, 109.78, 109.96, 107.1, 108.92, 109.82, 108.41, 109.45, 108.55]
+      },
+      "httpMs": 0.0,
+      "cliOverheadMs": 110.11,
+      "requests": 0
+    },
+    {
+      "scenario": "get",
+      "command": "umbraco content get {home} --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-alpha.15",
+        "version": "0.1.0-alpha.15",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 313.9,
+        "stddev": 5.41,
+        "median": 313.27,
+        "min": 307.59,
+        "max": 327.28,
+        "times": [312.73, 315.72, 310.43, 313.81, 311.17, 307.59, 309.88, 314.57, 315.87, 327.28]
+      },
+      "httpMs": 86.6,
+      "cliOverheadMs": 227.3,
+      "requests": 4
+    },
+    {
+      "scenario": "list",
+      "command": "umbraco data-type list --all --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-alpha.15",
+        "version": "0.1.0-alpha.15",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 316.6,
+        "stddev": 11.79,
+        "median": 311.71,
+        "min": 308.3,
+        "max": 342.11,
+        "times": [311.67, 342.11, 313.45, 311.18, 308.65, 308.41, 311.74, 334.3, 316.19, 308.3]
+      },
+      "httpMs": 77.24,
+      "cliOverheadMs": 239.36,
+      "requests": 40
+    },
+    {
+      "scenario": "content-export",
+      "command": "umbraco content export --out {work}/content-export.json --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-alpha.15",
+        "version": "0.1.0-alpha.15",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 432.29,
+        "stddev": 55.93,
+        "median": 413.9,
+        "min": 394.89,
+        "max": 580.49,
+        "times": [423.65, 443.98, 404.14, 399.57, 440.62, 442.35, 580.49, 395.14, 394.89, 398.11]
+      },
+      "httpMs": 122.6,
+      "cliOverheadMs": 309.69,
+      "requests": 34
+    },
+    {
+      "scenario": "schema-diff",
+      "command": "umbraco schema diff {fixtures}/schema.json --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-alpha.15",
+        "version": "0.1.0-alpha.15",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 468.26,
+        "stddev": 49.43,
+        "median": 456.02,
+        "min": 431.91,
+        "max": 603.63,
+        "times": [463.03, 464.77, 446.52, 431.91, 603.63, 477.55, 454.79, 444.8, 438.35, 457.24]
+      },
+      "httpMs": 122.72,
+      "cliOverheadMs": 345.54,
+      "requests": 95
+    },
+    {
+      "scenario": "version",
+      "command": "umbraco --version",
+      "cli": {
+        "label": "0.1.0-rc.2",
+        "version": "0.1.0-rc.2",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 109.21,
+        "stddev": 0.96,
+        "median": 109.5,
+        "min": 107.4,
+        "max": 110.6,
+        "times": [110.6, 109.6, 107.4, 109.65, 109.62, 109.99, 108.61, 107.98, 109.4, 109.27]
+      },
+      "httpMs": 0.0,
+      "cliOverheadMs": 109.21,
+      "requests": 0
+    },
+    {
+      "scenario": "get",
+      "command": "umbraco content get {home} --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-rc.2",
+        "version": "0.1.0-rc.2",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 299.44,
+        "stddev": 48.76,
+        "median": 280.54,
+        "min": 274.62,
+        "max": 435.98,
+        "times": [297.0, 278.69, 280.04, 276.75, 274.62, 281.04, 278.67, 298.74, 435.98, 292.91]
+      },
+      "httpMs": 64.2,
+      "cliOverheadMs": 235.24,
+      "requests": 4
+    },
+    {
+      "scenario": "list",
+      "command": "umbraco data-type list --all --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-rc.2",
+        "version": "0.1.0-rc.2",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 288.98,
+        "stddev": 37.79,
+        "median": 272.14,
+        "min": 268.09,
+        "max": 390.59,
+        "times": [271.21, 277.87, 286.92, 270.43, 309.35, 390.59, 271.7, 272.58, 271.03, 268.09]
+      },
+      "httpMs": 59.0,
+      "cliOverheadMs": 229.98,
+      "requests": 2
+    },
+    {
+      "scenario": "content-export",
+      "command": "umbraco content export --out {work}/content-export.json --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-rc.2",
+        "version": "0.1.0-rc.2",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 313.85,
+        "stddev": 46.32,
+        "median": 298.33,
+        "min": 291.64,
+        "max": 444.0,
+        "times": [301.17, 444.0, 318.84, 291.64, 295.01, 299.24, 297.87, 295.69, 296.21, 298.79]
+      },
+      "httpMs": 93.09,
+      "cliOverheadMs": 220.76,
+      "requests": 34
+    },
+    {
+      "scenario": "schema-diff",
+      "command": "umbraco schema diff {fixtures}/schema.json --output json --config {config}",
+      "cli": {
+        "label": "0.1.0-rc.2",
+        "version": "0.1.0-rc.2",
+        "commit": null,
+        "dotnet": "9.0.20"
+      },
+      "umbraco": "17.7.0",
+      "latencyMs": 0,
+      "status": "ok",
+      "endToEndMs": {
+        "mean": 364.91,
+        "stddev": 43.78,
+        "median": 347.84,
+        "min": 340.84,
+        "max": 480.68,
+        "times": [349.04, 480.68, 396.53, 340.84, 343.12, 345.03, 354.52, 348.74, 343.66, 346.95]
+      },
+      "httpMs": 82.21,
+      "cliOverheadMs": 282.7,
+      "requests": 35
+    }
+  ]
+}
