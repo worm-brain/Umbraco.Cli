@@ -182,9 +182,13 @@ a malicious extension.
 - An extension calls whichever `umbraco` is on PATH. A development build launching an extension
   may therefore have its calls answered by the installed CLI.
 
-## Follow-on
+## Discovery hint (`commandTool`)
 
-- **Discovery hint (`commandTool`).** A site could name a package's tool in its `umbracoCli`
-  manifest declaration (ADR 0009), so the CLI can say "this site has Foo; installing
-  `Umbraco.Foo.Cli` adds its commands" when that tool is not on PATH. It needs the capabilities
-  reader from #440 and is left for after that lands.
+A package names its tool in its `umbracoCli` manifest declaration (ADR 0009):
+`"commandTool": { "noun": "foo", "package": "Umbraco.Foo.Cli" }`. `auth doctor`, the command run
+first in any new environment, reads the site's declarations and reports one check per tool: `pass`
+when `umbraco-foo` is on PATH, `warn` with `dotnet tool install -g Umbraco.Foo.Cli` when it is not.
+
+The hint lives in `auth doctor` rather than in the unknown-noun error on purpose. That error is a
+parse error: it is reported before any host or credentials are resolved, so it cannot read the
+site, and making it do so would put a network round trip on every mistyped command.

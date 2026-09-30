@@ -186,6 +186,9 @@ authentication, resolved identity, instance version, supported version), reports
 `pass`/`fail`/`warn`/`skip` with a remediation hint, and exits `1` if any check hard-fails
 (warnings do not fail the run). The supported-version check warns, naming both versions, when the
 instance's Umbraco major is outside the range this build was tested against (currently 17.x-18.x).
+Last, for each extension command the site's packages declare (`commandTool`, see
+[Declaring CLI support in your package](extensions.md)), it passes when `umbraco-<noun>` is on
+PATH and warns with the `dotnet tool install` line when it isn't.
 Run it first in any new environment. See [getting-started.md](getting-started.md#5-confirm-it-works).
 
 ### Where credentials are sent

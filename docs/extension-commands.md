@@ -30,6 +30,23 @@ This page is for package authors. The design and its reasons are in
 `umbraco commands` lists your command with `"external": true` and the path it runs, without
 running it. Your own `--help` is what describes it: `umbraco foo --help` runs `umbraco-foo --help`.
 
+## Tell sites about your tool
+
+If your tool goes with an Umbraco package, declare it in the package's manifest, next to anything
+else the package declares (see [Declaring CLI support in your package](extensions.md)):
+
+```json
+{
+  "type": "umbracoCli",
+  "alias": "Umbraco.Foo.Cli",
+  "name": "Foo",
+  "meta": { "commandTool": { "noun": "foo", "package": "Umbraco.Foo.Cli" } }
+}
+```
+
+`umbraco auth doctor` against a site with your package then says whether `umbraco-foo` is
+installed, and prints `dotnet tool install -g Umbraco.Foo.Cli` when it isn't.
+
 ## What you receive
 
 Your executable gets the rest of the command line, in order, with one exception: the options
@@ -188,3 +205,4 @@ stop and exit `2` too, so the caller sees why.
 - [ ] JSON output is the standard envelope; errors go to stderr with a category.
 - [ ] Exit codes follow the table above.
 - [ ] Your README names the allow-list entries your command needs.
+- [ ] If the tool goes with an Umbraco package, the package declares it as `commandTool`.
