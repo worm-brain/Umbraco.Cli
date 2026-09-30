@@ -36,43 +36,63 @@ Add one entry of type `umbracoCli` to the `extensions` array of your `umbraco-pa
 ### When the value depends on configuration
 
 A static `umbraco-package.json` can't read `appsettings.json`. If what you declare depends on your
-package's settings, build the manifest in C# with an `IPackageManifestReader` and register it in a
-composer:
+package's settings, emit a second manifest from C# with an `IPackageManifestReader`:
 
 ```csharp
-public class CliManifestReader(IOptionsMonitor<MyPackageOptions> options) : IPackageManifestReader
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Umbraco.Cms.Core.Composing;
+using Umbraco.Cms.Core.DependencyInjection;
+using Umbraco.Cms.Core.Manifest;
+using Umbraco.Cms.Infrastructure.Manifest;
+
+internal sealed class CliManifestReader(IOptionsMonitor<MyPackageOptions> options)
+    : IPackageManifestReader
 {
     public Task<IEnumerable<PackageManifest>> ReadPackageManifestsAsync()
     {
-        var format = options.CurrentValue.Mode == MyMode.Markdown ? "markdown" : "html";
-        IEnumerable<PackageManifest> manifests =
-        [
-            new PackageManifest
-            {
-                Id = "My.Package.Cli",
-                Name = "My Package (CLI)",
-                Extensions =
-                [
-                    new
+        var manifest = new PackageManifest
+        {
+            // Your package's id, so the declaration is credited to it.
+            Id = "My.Package",
+            // Empty on purpose: Packages > Installed lists every manifest that has a name.
+            Name = "",
+            Extensions =
+            [
+                // A dictionary, so the keys are written exactly as given.
+                new Dictionary<string, object>
+                {
+                    ["type"] = "umbracoCli",
+                    ["alias"] = "My.Package.Cli",
+                    ["name"] = "My Package",
+                    ["meta"] = new Dictionary<string, string>
                     {
-                        type = "umbracoCli",
-                        alias = "My.Package.Cli",
-                        name = "My Package",
-                        meta = new { dictionaryValueFormat = format },
+                        ["dictionaryValueFormat"] =
+                            options.CurrentValue.Mode == MyMode.Markdown ? "markdown" : "html",
                     },
-                ],
-            },
-        ];
-        return Task.FromResult(manifests);
+                },
+            ],
+        };
+        return Task.FromResult<IEnumerable<PackageManifest>>([manifest]);
     }
 }
 
-public class CliManifestComposer : IComposer
+public sealed class CliManifestComposer : IComposer
 {
+    // Insert at the front rather than AddSingleton: Umbraco's PackagingService takes a single
+    // IPackageManifestReader, which resolves to the last one registered. Appending yours would
+    // make it see only your manifest and lose every other package on the site.
     public void Compose(IUmbracoBuilder builder) =>
-        builder.Services.AddSingleton<IPackageManifestReader, CliManifestReader>();
+        builder.Services.Insert(
+            0,
+            ServiceDescriptor.Singleton<IPackageManifestReader, CliManifestReader>()
+        );
 }
 ```
+
+Umbraco lists this manifest next to your static one; it does not merge them. It also caches the
+manifest list, for 30 days in the `Production` runtime mode and 10 seconds otherwise, so in
+production a settings change reaches the CLI after a restart.
 
 ## Vocabulary
 

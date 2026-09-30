@@ -52,8 +52,9 @@ each entry carries the package's id and version. The reader asks once per invoca
 a command needs a capability, so every other command keeps its request count.
 
 A value that depends on site configuration, such as RichDictionary's `EditorMode`, is emitted from a
-C# `IPackageManifestReader` (Umbraco.Core 17 has the interface, and `PackageManifest.Extensions` is a
-raw object array). A value that never changes can sit in the package's static `umbraco-package.json`.
+C# `IPackageManifestReader` (in `Umbraco.Cms.Infrastructure.Manifest`; `PackageManifest.Extensions`
+is a raw object array). A value that never changes can sit in the package's static
+`umbraco-package.json`.
 
 ### 3. Unknown keys and values are ignored
 
@@ -93,14 +94,27 @@ Run against the dev site (`tests/hands-on/dev-site.py`), which now carries a fix
 - **The API user can read it.** The CLI's client-credentials user gets `200` from `/manifest/manifest`
   and `/manifest/manifest/private`, which both include the fixture. `/manifest/manifest/public` lists
   only manifests with `allowPublicAccess`, so the CLI reads the full list.
-- **Manifests are not cached.** A new manifest, and a changed value in an existing one, showed up on
-  the next request without a restart (in the Development runtime mode the harness uses).
+- **Manifests are cached, briefly outside production.** `PackageManifestService` caches the
+  combined list under one key, for 10 seconds in every runtime mode but `Production` and for 30 days
+  in `Production` (a fixed expiry, not sliding). On the dev site a new manifest, and a changed value
+  in an existing one, showed up within seconds without a restart. In production a changed
+  declaration reaches the CLI after a restart, which is when an `appsettings.json` change applies
+  anyway.
 - **The backoffice ignores the type.** The extension registry
   (`umbraco/backoffice/libs/extension-api`) checks only that an extension has a `type` and an `alias`
   and that the alias is unique, then stores it; only code that subscribes to a type ever reads it.
   Nothing subscribes to `umbracoCli`, so the entry is inert. The alias must still be unique across
   the site, so packages use `<PackageId>.Cli`.
-- **A C# `IPackageManifestReader` alongside a static `umbraco-package.json`:** see below.
+- **A C# `IPackageManifestReader` works alongside a static `umbraco-package.json`.** Checked with
+  Umbraco.RichDictionary's reader (worm-brain/Umbraco.RichDictionary#12) on 17.7.0. Umbraco does not
+  merge manifests by id: the endpoint lists the C# manifest and the static one as separate entries,
+  and the CLI reads the declaration from whichever carries it. Two things matter when registering
+  such a reader:
+  - Register it with `Services.Insert(0, ...)`, not `AddSingleton`. `PackagingService` (package
+    telemetry and migration status) takes a single `IPackageManifestReader`, which resolves to the
+    last registration. Appending a package's reader would hide every other package from it.
+  - Give the C# manifest the package's own id and an empty name. Packages > Installed lists every
+    manifest that has a name, so a named second manifest would show as a second installed package.
 
 ## Alternatives rejected
 

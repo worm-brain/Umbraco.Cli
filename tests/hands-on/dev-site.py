@@ -110,8 +110,9 @@ def ensure_cli_fixture(site):
     """Write the fixture package's manifest into the site's web root, unless it is already there.
 
     :param site: the dev Site.
-    :returns: True when the file was written or changed; a running site must restart to see it,
-        because Umbraco reads package manifests once and caches them.
+    :returns: True when the file was written or changed. Umbraco caches the manifest list (10 s
+        outside the Production runtime mode, much longer in it), so a running site is restarted to
+        be sure it serves the new one straight away.
     """
     path = site.project / "wwwroot" / "App_Plugins" / CLI_FIXTURE_ID / "umbraco-package.json"
     text = json.dumps(CLI_FIXTURE, indent=2) + "\n"
