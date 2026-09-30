@@ -2,11 +2,10 @@
 
 You are the **test agent** for a hands-on round of the `umbraco` CLI (Umbraco.Community.Cli). This folder creates
 **throwaway Umbraco sites on this machine**, builds a real multilingual site on them with the CLI alone, promotes it to a
-second site, and works through every command group. You record what you find in [`LEDGER.md`](LEDGER.md).
+second site, and works through every command group. You record what you find in `LEDGER.md`, a local working file.
 
-> This is not [`docs/testing/alpha-test-guide.md`](../../docs/testing/alpha-test-guide.md). That runbook is safe by default and
-> runs against an **existing** instance. This harness creates and destroys its own sites, so destructive tests are fine here,
-> within the rules below. If you are editing the CLI's code rather than testing it, read the repo root [`AGENTS.md`](../../AGENTS.md).
+> This harness creates and destroys its own sites, so destructive tests are fine here, within the rules below. If you are
+> editing the CLI's code rather than testing it, read the repo root [`AGENTS.md`](../../AGENTS.md).
 
 Work from this folder: `cd tests/hands-on`. Every path below is relative to it.
 
@@ -79,9 +78,10 @@ id/secret) and `logs/site.log`. `python3 remove-site.py --list` shows every site
 
 ## Step 2 · Open the round in `LEDGER.md`
 
-Append a `# Round N` section using the format at the top of `LEDGER.md`: the heading, the `<!-- round: … -->` line (values from
-`round.env`, and a unique `label`), then empty re-test, test-log and findings tables. N is the previous round's number plus one.
-Finding ids continue from the highest `L-NNN` in the file (at least L-103).
+`LEDGER.md` is git-ignored. If it doesn't exist, copy `LEDGER.template.md` to `LEDGER.md`. Append a `# Round N` section using
+the format at the top: the heading, the `<!-- round: … -->` line (values from `round.env`, and a unique `label`), then empty
+re-test, test-log and findings tables. N is the previous round's number plus one. Finding ids continue from one past the
+highest id in `LEDGER.md` or `ledger-history.json`, whichever is higher.
 
 ## Step 3 · Re-test the previous round
 
@@ -210,7 +210,7 @@ curl -sk -H "Authorization: Bearer $TOK" $H/umbraco/management/api/v1/document/<
 | `pack-cli.py` | Pack this checkout's CLI into `nupkg/` with a unique `0.1.0-local.<timestamp>` version |
 | `bench.py` | hyperfine timings per CLI build x Umbraco version on `sites/dev` (can reset it); results in `docs/performance/results/`. `bench.py report` regenerates the README's Performance section and `docs/performance.md` from them. Not part of a round |
 | `TEST-PLAN.md` | What to test: Part A (scripted) and T1–T10, pass criteria, Known issues per test |
-| `LEDGER.md`, `ledger-history.json` | Findings per round (format at the top); ids of rounds 1–4 → issue numbers |
+| `LEDGER.template.md`, `ledger-history.json` | The ledger's format (copy to the git-ignored `LEDGER.md` for a round); every filed id → its issue number |
 | `tools/build_site.py` | Part A: rebuild the fixture site with the CLI (ok/FAIL per step, timings) |
 | `tools/compare_sites.py` | Page-by-page diff of two sites |
 | `tools/submit_forms.py`, `tools/install_controller.py` | Contact + sign-up form checks (8); install the form controller (site code) |

@@ -3,10 +3,8 @@
 End-to-end testing of the `umbraco` CLI against **real, throwaway Umbraco sites** on your machine. One command creates
 two sites (a source and a staging target), builds a small multilingual site on the source with the CLI alone, and checks
 the front end and forms. A test plan (T1–T10) then covers every command group, including promotion between the sites.
-It's written to be run by an AI agent, with a human reviewing the results.
-
-It complements [`docs/testing/alpha-test-guide.md`](../../docs/testing/alpha-test-guide.md), which runs safely against an
-existing instance. This harness creates and deletes its own sites, so it can test destructive commands too.
+It's written to be run by an AI agent, with a human reviewing the results. Because it creates and deletes its own sites,
+it can test destructive commands too.
 
 ## Requirements
 
@@ -47,12 +45,13 @@ The harness keeps its CLI profiles in `tests/hands-on/.cli/config.json`. Your ow
 Open an agent (Claude Code or similar) at the repository root and give it something like:
 
 > Read `tests/hands-on/AGENTS.md` and run a hands-on test round of this checkout's CLI
-> (or: of `~/Downloads/Umbraco.Community.Cli.0.1.0-alpha.14.nupkg`). Log findings in `tests/hands-on/LEDGER.md`
+> (or: of `~/Downloads/Umbraco.Community.Cli.<version>.nupkg`). Log findings in `tests/hands-on/LEDGER.md`
 > as you go, report back with a summary, and don't file issues or remove the sites until I say so.
 
 [`AGENTS.md`](AGENTS.md) holds the operating contract, safety rules, steps, gotchas and troubleshooting.
-[`TEST-PLAN.md`](TEST-PLAN.md) says what to test and what counts as a pass. [`LEDGER.md`](LEDGER.md) holds the findings, and
-`tools/file_issues.py` files them as GitHub issues when you ask.
+[`TEST-PLAN.md`](TEST-PLAN.md) says what to test and what counts as a pass. `LEDGER.md` holds a round's findings: a local,
+git-ignored file started from [`LEDGER.template.md`](LEDGER.template.md). `tools/file_issues.py` files them as GitHub issues
+when you ask, and records every filed id in `ledger-history.json`.
 
 ## The dev site (live integration tests)
 

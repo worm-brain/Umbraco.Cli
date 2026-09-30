@@ -1,113 +1,89 @@
 # Umbraco.Cli
 
-A cross-platform .NET CLI for [Umbraco CMS](https://umbraco.com/)'s Management API, distributed
-as a NuGet global tool. Built for terminals, shell scripts, and CI/CD - promote schema and
-content between environments, run bulk jobs, and get structured JSON or CSV out of every command.
+A command-line tool for [Umbraco CMS](https://umbraco.com/). It talks to Umbraco's Management
+API, so you can manage your site's content, media, document types and more from a terminal, a
+script or a CI pipeline.
 
 [![NuGet](https://img.shields.io/nuget/v/Umbraco.Community.Cli.svg)](https://www.nuget.org/packages/Umbraco.Community.Cli)
 [![CI](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml/badge.svg)](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> Status: alpha, published on NuGet.org. Works against Umbraco 17+ (including v18).
+> Release candidate. Works with Umbraco 17 and later.
 
-## Umbraco.Cli or the official Umbraco MCP?
+## What it does
 
-Umbraco ships a first-party [MCP server](https://docs.umbraco.com/umbraco-in-ai/mcp) (Node,
-version-locked to the CMS) that exposes the Management API as tools for **AI chat agents** -
-Claude, Cursor, Copilot and the like. If you want an assistant to manage Umbraco
-conversationally, use that.
+- **Moves changes between sites.** Export your schema, media or content to a snapshot, see what
+  differs on another site, then apply it. Items keep their GUIDs, so the same thing stays the
+  same thing everywhere.
+- **Runs bulk jobs.** Publish, unpublish or delete a batch of items from a file or a pipe, with a
+  result for each one.
+- **Fits into scripts.** Every command can print JSON or CSV and returns a meaningful exit code.
+  At a terminal you get readable tables instead.
+- **Helps you stay safe.** `--readonly`, a command allow-list, confirmation prompts and
+  `--dry-run` previews keep automation from surprising you.
+- **Covers most of the backoffice.** Content, media, document, media and member types, data
+  types, templates, languages, dictionary, members, users, user groups, webhooks, redirects,
+  relations and more. [docs/commands.md](docs/commands.md) lists every command.
 
-Umbraco.Cli is a **command-line tool** for a different job - terminals, shell scripts, and
-CI/CD. Reach for it to
-
-- **promote schema, media and content between environments** (`export -> diff -> apply` with
-  drift detection, keeping GUIDs),
-- **run bulk operations** over many items from a file or a pipe,
-- **script the Management API** with deterministic JSON/CSV, exit codes, and Unix piping,
-- **stay in .NET** with no Node runtime (`dotnet tool install`).
-
-An AI agent that prefers calling a subprocess can drive it too (see the
-[agent guide](docs/agent-guide.md)) - it just isn't the tool's reason to exist.
-
----
-
-## What this is
-
-- **Environment sync** - export the schema (document, media and member types, data types,
-  templates, languages, dictionary, member and user groups), media with its files, and content
-  subtrees to portable snapshots, diff them against a live instance, and apply the difference
-  with the same GUIDs. Drift detection and environment promotion for CI; complements uSync.
-- **Bulk operations** - publish, unpublish, or delete many items from a file or stdin, each
-  reported independently with its own status.
-- **Structured, scriptable output** - one versioned `{status, data, meta}` JSON envelope
-  (a `--dry-run` preview uses `{status, request, meta}` instead), RFC-4180 CSV, `--fields`
-  projection, and documented exit codes - plus Spectre.Console tables when you are at a
-  terminal.
-- **Guardrails** - `--readonly`, a command allow-list, `--yes` confirmations, and `--dry-run`
-  request previews for safe automation.
-- **Broad Management API coverage** - content, media, document/media/member/data types,
-  languages, templates, members, users, dictionary, webhooks, static files, tags, cultures,
-  user groups, redirects, relations, Examine, and diagnostics (server, health, log viewer,
-  models builder, manifest). Every command is in [docs/commands.md](docs/commands.md). Writes
-  cover domains, media folders, member groups and passwords, dictionary updates, and authoring
-  document types and data types in full via `--json-body`. Reads return the full item.
-- **.NET-native and cross-platform** - Windows, macOS, Linux via .NET 9; no Node runtime.
-
----
-
-## Requirements
-
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) or later.
-- An Umbraco 17+ instance with the Management API enabled.
+It runs on Windows, macOS and Linux.
 
 ## Install
 
-The package is [`Umbraco.Community.Cli`](https://www.nuget.org/packages/Umbraco.Community.Cli)
-on NuGet.org; the command it installs is `umbraco`. While the tool is in alpha, pass
-`--prerelease`:
+You'll need the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) or later and an
+Umbraco 17+ site.
 
 ```bash
 dotnet tool install -g Umbraco.Community.Cli --prerelease
 ```
 
-Tab completion for bash, zsh and PowerShell comes with it: `umbraco completion <bash|zsh|pwsh>`
-prints the script to load from your shell's startup file (see
-[Shell completion](docs/commands.md#shell-completion-completion)).
+That gives you the `umbraco` command. Keep `--prerelease` until 1.0 is out.
+
+Tab completion for bash, zsh and PowerShell is built in: run `umbraco completion <bash|zsh|pwsh>`
+and load the output from your shell's startup file
+([details](docs/commands.md#shell-completion-completion)).
 
 ## Quick start
 
 ```bash
-# 1. Point the CLI at your instance and authenticate
+# Log in with an API user's client id and secret
 umbraco auth login --host https://mysite.com --client-id <id> --client-secret <secret>
 
-# 2. Confirm the setup (checks host, TLS, credentials, auth, identity, version)
+# Check everything is connected
 umbraco auth doctor
 
-# 3. List content
+# List your content
 umbraco content list
 
-# 4. Structured JSON for scripting and CI
+# Or get JSON for a script
 umbraco content list --output json | jq '.data[].name'
 ```
 
-Full setup (including how to create the API user and its client id/secret) is in
-[docs/getting-started.md](docs/getting-started.md).
+Not sure where the client id and secret come from?
+[Getting started](docs/getting-started.md) walks you through creating an API user.
 
----
+## Moving schema between sites
+
+```bash
+umbraco schema export --out schema.json --profile dev    # snapshot dev's schema
+umbraco schema diff schema.json --profile live           # see what differs on live
+umbraco schema apply schema.json --profile live          # bring live in line
+```
+
+Content and media work the same way with `content export|diff|apply` and
+`media export|diff|apply`.
 
 ## Documentation
 
-| I want to... | Go to |
+| I want to... | Read |
 |---|---|
-| Install, authenticate, run first commands | [docs/getting-started.md](docs/getting-started.md) |
-| Automate the CLI in scripts, CI, or an agent | [docs/agent-guide.md](docs/agent-guide.md) |
-| Look up any command and its options | [docs/commands.md](docs/commands.md) |
-| See the full docs map | [docs/README.md](docs/README.md) |
-| Contribute to this repository | [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) |
+| Install, log in and run my first commands | [Getting started](docs/getting-started.md) |
+| Use the CLI from scripts, CI or an AI agent | [Automation guide](docs/agent-guide.md) |
+| Look up a command and its options | [Command reference](docs/commands.md) |
+| See how fast it is | [Performance](docs/performance.md) |
 
-The two most machine-friendly sources of truth ship inside the tool itself:
-`umbraco commands` (the whole command tree as JSON) and `umbraco <command> --schema` (a
-request body's JSON Schema). Neither needs a host or authentication.
+The CLI can also describe itself: `umbraco commands` prints every command as JSON, and
+`umbraco <command> --schema` prints the JSON Schema for a request body. Neither needs a site or
+a login.
 
 ---
 
@@ -137,31 +113,20 @@ Method, history across CLI versions, caveats and how to reproduce every number:
 
 ---
 
-## Architecture
-
-```
-src/Umbraco.Cli/         - executable: commands, DI wiring, config, output writers
-src/Umbraco.Cli.Client/  - Kiota-generated HTTP client + thin UmbracoManagementClient adapter
-tests/Umbraco.Cli.Tests/ - unit and integration tests
-```
-
-The client project is isolated so the generated client can be regenerated when the Umbraco API
-changes without touching command logic. The full architecture, the command-execution pipeline,
-and the build/test/regenerate workflow are documented in [AGENTS.md](AGENTS.md).
+## Building from source
 
 ```bash
-dotnet build     # build
-dotnet test      # run the tests
+dotnet build
+dotnet test
 ```
 
----
+How the code is laid out, and how to work on it, is in [AGENTS.md](AGENTS.md).
 
 ## Contributing
 
-Ideas, bug reports, and feature requests are welcome from everyone - humans and AI agents alike
-- as [GitHub issues](https://github.com/worm-brain/Umbraco.Cli/issues). Pull requests are
-issue-first and invitation-only; please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening
-one. All work is tracked as GitHub issues - there is no separate backlog or TODO file.
+Ideas, bug reports and feature requests are very welcome as
+[GitHub issues](https://github.com/worm-brain/Umbraco.Cli/issues). Pull requests are by
+invitation, so please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening one.
 
 ## License
 

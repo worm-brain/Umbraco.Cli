@@ -1,13 +1,12 @@
 # Command reference
 
-Every command in the `umbraco` CLI. For the JSON envelope, exit codes, guardrails, and
-non-interactive rules that apply across all of them, see [agent-guide.md](agent-guide.md). For
-install and auth, see [getting-started.md](getting-started.md). The design rules every command
-follows are in [conventions.md](conventions.md).
+Every command in the `umbraco` CLI, grouped by what it works on. To install and sign in, see
+[getting-started.md](getting-started.md). For the JSON output, exit codes and guardrails that
+every command shares, see [agent-guide.md](agent-guide.md).
 
-> The authoritative, always-in-sync surface is `umbraco commands` (the whole tree as JSON,
-> including a `destructive` flag per command). This page is the human/agent-readable narrative
-> of the same thing. If the two ever disagree, `umbraco commands` is correct - please
+> `umbraco commands` prints the whole command tree as JSON, straight from the code (including a
+> `destructive` flag per command), so it's always up to date. If it and this page ever disagree,
+> trust `umbraco commands` - and please
 > [open an issue](https://github.com/worm-brain/Umbraco.Cli/issues).
 
 ## Contents
@@ -150,11 +149,10 @@ umbraco completion pwsh                 # prints a PowerShell completion script
 ```
 
 Tab-completes nouns, verbs, options and fixed option values. The script asks the installed CLI
-for suggestions each time (through System.CommandLine's `[suggest]` directive), so it follows
-the tree across upgrades and needs nothing else installed. Local; no host or auth. The script
-runs the command as you typed it (`./umbraco`, a path to a build), not whichever `umbraco` is
-first on `PATH`; to complete a wrapper script too, register the same function for its name (the
-script's header shows how).
+for suggestions each time, so it keeps up when you upgrade and needs nothing else installed. It
+runs offline - no host or auth. It runs the command as you typed it (`./umbraco`, a path to a
+build), not whichever `umbraco` is first on `PATH`; to complete a wrapper script too, register
+the same function for its name (the script's header shows how).
 
 | Shell | Install |
 |---|---|
@@ -248,8 +246,7 @@ use the same keys, but carry only what the tree and search endpoints return: no 
 
 ### Rollback and restore leave the live site alone
 
-Both follow Umbraco's model, which surprises people used to "undo"
-([#233](https://github.com/worm-brain/Umbraco.Cli/issues/233)):
+Both follow Umbraco's model, which isn't quite "undo":
 
 - **Rollback only changes the draft.** The item shows as `PublishedPendingChanges` and the live
   site keeps serving the published version until you publish. Pass `--publish` to publish the
@@ -275,8 +272,7 @@ umbraco content restore <id> --publish
 
 Publishing a document in several cultures does not make those cultures reachable. Umbraco needs
 a **domain binding** per culture, and without one it logs "the root node was published with
-multiple cultures, but no domains are configured" and serves nothing but the default
-([#180](https://github.com/worm-brain/Umbraco.Cli/issues/180)):
+multiple cultures, but no domains are configured" and serves nothing but the default:
 
 ```bash
 umbraco content domain set <root-id> --default-culture en-US \
@@ -285,7 +281,7 @@ umbraco content domain set <root-id> --default-culture en-US \
 
 The API replaces the whole set, so `--domain` **merges** into what is already bound, matched on
 hostname. Pass `--replace` to set exactly what you name and drop the rest. Each binding must be
-`host=isoCode`; a value with no `=` is refused at parse time rather than silently dropped.
+`host=isoCode`; a value with no `=` is refused.
 
 ### How `content update` writes
 
@@ -308,28 +304,20 @@ To change only the template, pass `--template` on its own - no body is needed, a
 is left as it is: `umbraco content update <id> --template blogPost`. (`--replace` still needs a
 body, since an empty one would clear every value.)
 
-**Merging ships in 0.1.0-alpha.11.** On **0.1.0-alpha.10 and earlier** `update` is the other
-way round: it replaces values wholesale *and* silently clears the item's template, which 404s the
-page once republished
-([#178](https://github.com/worm-brain/Umbraco.Cli/issues/178),
-[#179](https://github.com/worm-brain/Umbraco.Cli/issues/179)). On those versions, read the whole
-document from the Management API, send the complete body back, and re-set the template with a
-direct `PUT /umbraco/management/api/v1/document/{id}` afterwards.
-
 ### Known sharp edges on `content` (Umbraco 17.x)
 
-Limits of the Management API itself, not bugs the CLI can fix.
+These come from the Management API itself.
 
 | What | Effect | Do this instead |
 |---|---|---|
-| `content list` rows have no **`updateDate`** ([#284](https://github.com/worm-brain/Umbraco.Cli/issues/284)) | The tree endpoint behind `list` does not return it; `content get` does | `umbraco content get <id>` for the items whose date matters |
+| `content list` rows have no **`updateDate`** | The tree endpoint behind `list` does not return it; `content get` does | `umbraco content get <id>` for the items whose date matters |
 
 A trap worth knowing when fixing templates in bulk: a change that touches **only** the template
 does not mark culture variants as having pending changes, so `publish-descendants` skips them as
 already published. Publish the affected cultures explicitly.
 
 Bulk commands read ids from `--file` or stdin, and take the CLI's own output as it is, so you
-can pipe a list straight in - no `jq` or `ConvertFrom-Json` needed (#288):
+can pipe a list straight in - no `jq` or `ConvertFrom-Json` needed:
 
 ```bash
 umbraco content list --fields id | umbraco content bulk publish            # the JSON envelope
@@ -347,8 +335,8 @@ Each id is reported independently in the `data` results array (`{id, status, err
 code is `1` if any item failed. A bulk `delete` is gated by a single confirmation (`--yes`
 non-interactively) - it never prompts per item.
 
-All create commands accept `--id <guid>` for **idempotent creates** (Umbraco 14+ honours a
-client-supplied id), so re-running a provisioning script does not create duplicates.
+All create commands accept `--id <guid>` for **idempotent creates** (Umbraco keeps the id you
+supply), so re-running a provisioning script doesn't create duplicates.
 
 ### Property value formats for `--json-body`
 
@@ -424,9 +412,8 @@ and copy the `culture`/`segment` pairing it reports.
 ### Block List and Block Grid
 
 A block editor needs three things: an **element type** for each kind of block, a **data type**
-that lists the allowed blocks, and a **property value** that holds the blocks themselves
-([#219](https://github.com/worm-brain/Umbraco.Cli/issues/219)). The Block List shapes below were
-verified by creating them on Umbraco 17.7.0 and reading them back.
+that lists the allowed blocks, and a **property value** that holds the blocks themselves. The
+Block List shapes below are checked against Umbraco 17.7.0.
 
 **1. Element type.** A normal `document-type create --json-body` with `"isElement": true`. Its
 properties are the block's fields.
@@ -501,8 +488,8 @@ and any nested areas:
 `contentData`, `settingsData` and `expose` are the same as for Block List, with every block
 listed, nested ones included.
 
-The Block Grid shapes were read off an existing Umbraco 17.3.5 site, not written from scratch.
-After the first write, read the item back with `content get` and compare. Sites migrated from
+The Block Grid shapes come from an Umbraco 17.3.5 site. After your first write, read the item
+back with `content get` and compare. Sites migrated from
 older versions can return `contentUdi` / `settingsUdi` on layout items. Those fields are legacy;
 write `contentKey` / `settingsKey`.
 
@@ -561,15 +548,13 @@ umbraco media apply <dir> [--verify-files] [--prune] [--dry-run]   # --prune tra
 ```
 
 A media folder is an ordinary media item of the **Folder** media type, so it moves, trashes and
-deletes with the usual `media` verbs, and its id is what `media upload --parent` takes
-([#171](https://github.com/worm-brain/Umbraco.Cli/issues/171)).
+deletes with the usual `media` verbs, and its id is what `media upload --parent` takes.
 
 ### `media` export / diff / apply
 
 Moves media between environments with the same GUIDs, so content that references media by id
-keeps pointing at it ([#226](https://github.com/worm-brain/Umbraco.Cli/issues/226),
-[ADR 0008](adr/0008-media-export-diff-apply.md)). Run it after `schema apply` (media types must
-exist) and before `content apply`.
+keeps pointing at it. Run it after `schema apply` (media types must exist) and before
+`content apply`.
 
 ```bash
 umbraco media export --out ./media-snapshot                # every item and file
@@ -634,8 +619,8 @@ umbraco document-type delete <id|alias> [--force]                # deletes every
 ### Authoring a document type with properties
 
 The flag-built `create` makes an empty type. Properties, groups, compositions, allowed templates
-and culture variance are too structured for flags, so they go in a full body
-([#161](https://github.com/worm-brain/Umbraco.Cli/issues/161)). Read one, edit it, write it back:
+and culture variance are too structured for flags, so they go in a full body. Read one, edit it,
+write it back:
 
 ```bash
 umbraco document-type get blogPost -o json | jq .data > t.json
@@ -643,9 +628,8 @@ umbraco document-type get blogPost -o json | jq .data > t.json
 umbraco document-type update blogPost --json-body t.json
 ```
 
-`--schema` prints the body's **JSON Schema**, offline, generated from the Management API spec
-the client is built from - so it cannot drift from what the API accepts. For an update it
-requires no key (the body is merged). `--example` prints **a real type off the instance** instead,
+`--schema` prints the body's **JSON Schema**, offline, straight from the Management API spec.
+For an update it requires no key (the body is merged). `--example` prints **a real type off the instance** instead,
 which needs a host and is usually the better starting point for a body you will edit.
 
 `get` prints the Management API body verbatim, so its output is a valid `--json-body` as it
@@ -682,10 +666,8 @@ umbraco data-type folder delete <id>                      # needs --yes non-inte
 ### Configuring the editor (`values`)
 
 A data type's **`values`** array is its editor configuration - a dropdown's items, a numeric
-range, a media picker's start node. The flag-built verbs deliberately never exposed it (it is
-editor-specific, so there is no fixed set of flags for it), which meant configuring one needed a
-`schema export | jq | schema apply` round-trip through the whole instance
-([#169](https://github.com/worm-brain/Umbraco.Cli/issues/169)). Pass the body instead:
+range, a media picker's start node. It's different for every editor, so there are no flags for
+it - pass it in a body instead:
 
 ```bash
 umbraco data-type create --json-body categories.json
@@ -745,8 +727,7 @@ alias + culture + segment, so setting one does not clear the rest. Two exception
   leaves the member's password untouched (no current password is needed - this is an admin
   reset). `--unlock` clears a lockout from failed logins.
 
-`--value` takes `alias=value`; a value with no `=` is refused at parse time rather than silently
-dropped.
+`--value` takes `alias=value`; a value with no `=` is refused.
 
 ## `member-type`
 
@@ -851,22 +832,16 @@ umbraco dictionary move <id|key> [--parent <key|id>]       # reparent; omit --pa
 umbraco dictionary delete <id|key> [--force]               # refused while it has child items unless --force; --yes non-interactively
 ```
 
-**Use full ISO codes in `--value`** (`en-US`, not `en`). Umbraco matches them against the
-site's configured languages and silently discards any it does not recognise, so `create` now
-checks them first and **fails with the list of configured codes** rather than reporting a saved
-item that is actually empty ([#181](https://github.com/worm-brain/Umbraco.Cli/issues/181)). The
-response is also read back from the instance, so what you see is what was stored.
+**Use full ISO codes in `--value`** (`en-US`, not `en`). Umbraco silently drops any code that
+isn't one of the site's languages, so `create` checks them first and **fails with the list of
+configured codes**. Short codes are refused rather than guessed, since a site can have both
+`en-US` and `en-GB`. The item is read back afterwards, so what you see is what was stored.
 
 `get`, `create`, `update` and `list` carry the item's `parent: {id}` (left out at the root), so
 you can see where an item lives without walking the tree.
 
-Short codes are rejected rather than resolved: on a site with both `en-US` and `en-GB`, guessing
-which one `en` meant would be a coin flip.
-
 `update` merges translations **by ISO code**, so naming one language leaves the others alone,
-and it keeps the item's id - correcting a translation no longer means delete-and-recreate
-([#182](https://github.com/worm-brain/Umbraco.Cli/issues/182)). It applies the same ISO-code
-check as `create`.
+and it keeps the item's id. It applies the same ISO-code check as `create`.
 
 ## `webhook`
 
@@ -917,7 +892,7 @@ is `{eventName, eventType, alias}`, with the display name in `eventName` and wha
 not display names. Umbraco saves a webhook with an unknown event but never fires it, so
 `create` checks every alias against `GET /webhook/events` first. An unknown alias is refused
 with the nearest real one suggested, and the create is also refused when the event list can't
-be read ([#234](https://github.com/worm-brain/Umbraco.Cli/issues/234)).
+be read.
 
 ## `script` / `stylesheet` / `partial-view` (static files)
 
@@ -927,8 +902,7 @@ The three static-file resources share the same path-addressed verbs. Files are i
 Umbraco has no rename for folders. Give `--content` or `--content-file` (`-` for stdin), not
 both. Paths are Umbraco's form, with a leading `/` (`/blocklist/site.css`),
 in every output: `create` reads the new file back, so its `path` matches `list` and `get`.
-`--parent` takes the folder with or without the slashes (`blocklist`, `/blocklist/`). The three
-nouns are spelled out below so each is complete on its own.
+`--parent` takes the folder with or without the slashes (`blocklist`, `/blocklist/`).
 
 ```bash
 # script
@@ -1081,10 +1055,11 @@ listing the aliases it does have, rather than answering `false`.
 
 ## `schema` (export / diff / apply)
 
-Dump the site's **schema** - document types, media types, member types, data types,
+Export the site's **schema** - document types, media types, member types, data types,
 templates, languages, dictionary items, member and user groups, and the partial views,
-stylesheets and scripts the templates render - to a portable JSON snapshot, diff it against a live instance, and apply the difference. Complements uSync for CI
-pipelines. (Issue #68; [ADR 0005](adr/0005-schema-export-diff-apply.md).)
+stylesheets and scripts the templates render - to a portable JSON snapshot, diff it against a
+live instance, and apply the difference. Handy for moving schema between environments and for
+catching drift in CI.
 
 ```bash
 umbraco schema export --out schema.json                    # export every schema entity, static files included
@@ -1099,8 +1074,8 @@ umbraco schema apply schema.json --prune --force --yes     # ...even types in us
 
 How it works:
 
-- **Hand-written snapshots** ([#198](https://github.com/worm-brain/Umbraco.Cli/issues/198)) - a
-  snapshot does not have to come from `export`, or carry every kind:
+- **Hand-written snapshots** - a snapshot doesn't have to come from `export`, or carry every
+  kind:
   - **A section that is absent is not managed**, for every kind, not just the files: diff and
     apply skip it and `--prune` deletes none of it. So a file with only `documentTypes` changes
     document types and nothing else. A section that is present is the whole list for that kind:
@@ -1151,26 +1126,23 @@ How it works:
   ```
 
   A **top-level field an entry leaves out is not managed** (such as `cleanup` above): diff does
-  not compare it and apply keeps the live value
-  ([#351](https://github.com/worm-brain/Umbraco.Cli/issues/351)). A field that is present, even
+  not compare it and apply keeps the live value. A field that is present, even
   as `null`, is managed. Fields the server computes (a data type's `isDeletable` and
   `canIgnoreStartNodes`) are never compared. But a list is the **whole** list: apply writes the
   snapshot's `properties` and `containers`, so list every property the type keeps (a property
   you leave out is removed, with its values). List order does not matter: properties are matched
   by alias, containers by id, and `allowedDocumentTypes` / `compositions` entries by the type they
-  name (ids ignore letter case), and order is carried by `sortOrder` and `parent`
-  ([#350](https://github.com/worm-brain/Umbraco.Cli/issues/350)). A container whose id is not on
+  name (ids ignore letter case), and order is carried by `sortOrder` and `parent`. A container
+  whose id is not on
   the target (a snapshot exported from another instance) is matched to the one target container
   with the same type, name and parent, and diff and apply use the target's id; when several
-  match, the type is skipped with a note naming them
-  ([#397](https://github.com/worm-brain/Umbraco.Cli/issues/397)). Run `schema diff` first; its
-  `changes` column shows exactly which fields differ.
-- **Static files** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)) - the
-  snapshot's `partialViews`, `stylesheets` and `scripts` sections hold each file as
-  `{ "path": "/blocklist/default.cshtml", "content": "..." }` and each folder as
+  match, the type is skipped with a note naming them. Run `schema diff` first; its `changes`
+  column shows exactly which fields differ.
+- **Static files** - the snapshot's `partialViews`, `stylesheets` and `scripts` sections hold
+  each file as `{ "path": "/blocklist/default.cshtml", "content": "..." }` and each folder as
   `{ "path": "/blocklist", "isFolder": true }`, matched by path. **A section that is absent
   means those files are not managed**: diff and apply skip them and `--prune` deletes none. That
-  is every version-3 snapshot and every `export --no-files`. A section that is present but empty
+  is what `export --no-files` writes. A section that is present but empty
   does manage them, so `--prune` deletes the live ones. Apply writes the snapshot content byte
   for byte. It creates folders shallowest first, then files, all before the templates that
   render them; a folder a file sits in is created even when the snapshot does not list it.
@@ -1196,15 +1168,9 @@ How it works:
 - **Fidelity** - the snapshot stores each entity's verbatim Management-API body, so nothing is
   lost (document-type properties/compositions, data-type configuration, template Razor). The
   snapshot is
-  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[], partialViews[]?, stylesheets[]?, scripts[]? }`.
-  Media types and member types joined in snapshot version 2
-  ([#186](https://github.com/worm-brain/Umbraco.Cli/issues/186)); languages, the dictionary and
-  member and user groups in snapshot version 3
-  ([#227](https://github.com/worm-brain/Umbraco.Cli/issues/227)); the static files in
-  **snapshot version 4** ([#292](https://github.com/worm-brain/Umbraco.Cli/issues/292)). A
-  version-3 file is still read, as not managing files. An older file is refused rather than read
-  as "this instance should have none of the newer kinds", which `apply --prune` would act on.
-  Re-export.
+  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[], partialViews[]?, stylesheets[]?, scripts[]? }`,
+  at **snapshot version 4**. A version-3 snapshot has no static-file sections, so it is still
+  read, with files not managed. Anything older is refused - re-export it.
 - **Two kinds are shaped, not verbatim** - a dictionary item gets its `parent` (the item read has
   none) and its translations sorted by ISO code. A user group leaves out its document and media
   start nodes and its per-document permissions, since they name content on one instance; apply
@@ -1228,9 +1194,8 @@ How it works:
 
 ## `content` (export / diff / apply)
 
-The content pipeline mirrors the schema one for documents (issue #100,
-[ADR 0006](adr/0006-content-export-diff-apply.md)), so the same `export` -> `diff` -> `apply`
-workflow moves content between environments and detects drift.
+The same `export` -> `diff` -> `apply` workflow as `schema`, for documents: move content between
+environments and spot drift.
 
 ```bash
 umbraco content export --out content.json                  # whole content tree
@@ -1250,7 +1215,7 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
 - **Content, not instance history** - diff and apply compare a normalised body: the per-variant
   `createDate`, `updateDate`, `publishDate`, scheduled dates, `flags` and `state`, and the
   top-level `isTrashed` and `flags`, are ignored, `documentType` is compared by `id` only (its
-  `icon` and `collection` are schema, #346), and `values`/`variants` are compared in a fixed
+  `icon` and `collection` are schema), and `values`/`variants` are compared in a fixed
   order. The same content on two instances is `Unchanged`, and a second `apply` does nothing.
 - **Label values are not compared** - Umbraco ignores values sent for `Umbraco.Label` properties
   (values set by site code), so a promotion can never change them. The diff leaves them out, and
@@ -1263,8 +1228,8 @@ umbraco content apply content.json --prune --exclude-type contactSubmission --ex
   A difference in publish state alone is a `Changed` row that apply publishes or unpublishes
   without an update. `--no-state` turns this off.
 - **Identity** - documents are matched by **GUID only** (they have no stable natural key). Apply
-  recreates a document with its snapshot GUID (Umbraco 14+ honours a client-supplied id), so the
-  same content has the same identity in every environment.
+  creates a document with its snapshot GUID, so the same content has the same identity in every
+  environment.
 - **Scope-safe prune** - the snapshot records its export `root`, and diff/apply compare against
   the same live scope, so a subtree snapshot's `--prune` can never delete documents outside the
   subtree.

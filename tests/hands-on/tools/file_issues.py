@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""File unfiled LEDGER.md findings as GitHub issues, then write the issue numbers back into the ledger.
+"""File unfiled LEDGER.md findings as GitHub issues, then write the issue numbers back into the ledger
+and into ledger-history.json.
 
 Usage (from tests/hands-on):
     python3 tools/file_issues.py --dry-run            # show what would be filed (always do this first)
@@ -15,6 +16,8 @@ Everything the script needs is in LEDGER.md (see the format at the top of that f
 - each finding has a `### L-NNN · <Type> <Sev> · <title>` entry, whose text becomes the issue body.
 A row with anything in its Issue column (an issue number, "covered by #N", "not a bug") is skipped.
 `L-NNN` references in bodies become issue links, including earlier rounds via ledger-history.json.
+LEDGER.md is a local, git-ignored working file (start it from LEDGER.template.md); ledger-history.json is
+the committed record of every filed id, so ids and links carry on across machines and rounds.
 """
 import argparse
 import json
@@ -85,6 +88,8 @@ def main():
     opt = args()
     for stream in (sys.stdout, sys.stderr):  # ledger titles carry emoji; Windows pipes default to the ANSI code page
         stream.reconfigure(encoding="utf-8", errors="replace")
+    if not LEDGER.exists():
+        raise SystemExit("No LEDGER.md: copy LEDGER.template.md to LEDGER.md and record the round in it first.")
     text = LEDGER.read_text(encoding="utf-8")
     links = {k: f"#{v}" for k, v in json.loads(HISTORY.read_text(encoding="utf-8")).items()} if HISTORY.exists() else {}
     for _, c in rows(text):
@@ -144,9 +149,24 @@ def main():
         lid = row_cells(m.group(0))[0]
         return re.sub(r"\|\s*$", f"#{numbers[lid]} |", m.group(0).rstrip()[:-1].rstrip() + " |") if lid in numbers else m.group(0)
     LEDGER.write_text(ROW_LINE.sub(fill, text), encoding="utf-8")
+    record_history(numbers)
 
     if opt["epic"]:
         make_epic(opt, todo)
+
+
+def record_history(numbers):
+    """Merge newly filed ids into ledger-history.json, the committed id -> issue map.
+
+    LEDGER.md is not committed, so this file is what keeps later rounds' `L-NNN` links working and
+    tells the next round where its ids start. Keys stay sorted by id so the diff is one line per finding.
+
+    :param numbers: the ids filed in this run, mapped to their issue numbers.
+    """
+    history = json.loads(HISTORY.read_text(encoding="utf-8")) if HISTORY.exists() else {}
+    history.update(numbers)
+    ordered = dict(sorted(history.items(), key=lambda kv: int(kv[0][2:])))
+    HISTORY.write_text(json.dumps(ordered, indent=2) + "\n", encoding="utf-8")
 
 
 def make_epic(opt, todo):

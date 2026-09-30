@@ -21,14 +21,14 @@
     <Authors>worm-brain</Authors>
     <Company>worm-brain</Company>
     <Copyright>Copyright © 2026 worm-brain</Copyright>
-    <Description>Cross-platform CLI for Umbraco CMS. Manage content, media, document types, languages, members, users, dictionary items and webhooks from the terminal or any AI agent that can invoke a subprocess. Produces structured JSON output by default when stdout is piped.</Description>
+    <Description>A command-line tool for Umbraco CMS 17+. Manage content, media, document types and more from a terminal, a script or a CI pipeline, and move schema, media and content between sites. Every command can print JSON or CSV.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/worm-brain/Umbraco.Cli</PackageProjectUrl>
     <RepositoryUrl>https://github.com/worm-brain/Umbraco.Cli</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>umbraco;cms;cli;dotnet-tool;ai;management-api;content-management</PackageTags>
-    <PackageReleaseNotes>Alpha preview. Full coverage of the Umbraco 17+ Management API; not yet production-tested. APIs and behaviour may change before 1.0.0.</PackageReleaseNotes>
+    <PackageReleaseNotes>Release candidate. Commands and output may still change before 1.0.0.</PackageReleaseNotes>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>

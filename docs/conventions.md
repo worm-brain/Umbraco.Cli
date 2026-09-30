@@ -8,10 +8,10 @@ disagree, this file wins; the older document is rationale that may be out of dat
   generated from the code) > ADRs, plans and issue bodies.
 - **Tiebreaker** for anything not covered: [clig.dev](https://clig.dev), then what `gh` does, then
   `az`.
-- **Alpha rule:** breaking changes are fine; inconsistency is not. Doing it properly may mean
-  changing several commands at once - list them all and change them together, not one-offs.
-- **Changing a rule:** an agent may propose a change; only the maintainer accepts one. Record an
-  accepted change in the [changelog](#changelog) at the bottom with its date and a one-line reason.
+- **Consistency first:** doing it properly may mean changing several commands at once - list
+  them all and change them together, not one-offs.
+- **Changing a rule:** an agent may propose a change; only the maintainer accepts one. Edit the
+  rule in place; the issue and commit carry the reason.
 
 ## 1. Grammar and names
 
@@ -151,6 +151,10 @@ disagree, this file wins; the older document is rationale that may be out of dat
 - **Pass Umbraco's answer through.** When Umbraco returns an error body (ProblemDetails),
   `details` is that body as sent, and `message` is built from it (`title`, `operationStatus`, the
   first line of `detail`, `invalidProperties`, `errors`), never from a stack trace.
+- **Credentials only go where they belong.** A plain `http://` host is refused unless it is
+  loopback, and stored or `UMBRACO_CLIENT_*` credentials are only sent to the host they were
+  configured with, so a different `--host` needs `--token`. Both abort with exit `2` and category
+  `refused`.
 
 ## 8. Help text
 
@@ -189,72 +193,3 @@ Each exception is deliberate or tracked; don't copy it.
 - `completion <shell>` and `commands` are local tool commands, not resource nouns: they have no
   verb, and `completion`'s positional is `shell`, not `id`. `completion` prints a bare shell
   script, never the envelope, because a shell sources it.
-
-## Changelog
-
-- **2026-09-25** - First version, from the
-  [surface audit](surface-audit-2026-09-25.md) and decisions D1-D8 recorded there.
-- **2026-09-25** - 6.2 made precise while applying it (#268): which writes return the item
-  (create/update/copy/upload) and which return `{ "id" }`, what a write with no target returns,
-  and that `--quiet` drops write results.
-- **2026-09-27** - 2 and 4.5: `media export/diff/apply` (#226) takes a snapshot **directory**, so
-  its `--out` is required and names a directory, and its `<snapshot>` does not accept `-`. The
-  files are binary and cannot travel in the envelope or on stdin.
-- **2026-09-27** - 5.2 applied to the remaining cascading deletes (#269). Template, member-group,
-  user-group and dictionary deletes are refused while something uses them or they have
-  children; language delete always needs `--force`. `schema apply --prune` runs the same checks.
-  The section 9 exception is removed. Folder deletes are not guarded, because Umbraco already refuses a
-  non-empty folder.
-- **2026-09-27** - 8.5: examples must parse, from a closed placeholder vocabulary; checked by
-  `HelpTextTests`, which also checks the command paths and options in `docs/commands.md`
-  (#250 Phase 7).
-- **2026-09-28** - 7: errors carry `details`, Umbraco's ProblemDetails body as sent, and the
-  message is built from it (#286). Chosen over a curated field set so new Umbraco fields are
-  never dropped.
-- **2026-09-28** - 2 (`export`/`diff`/`apply`): the schema snapshot, format "4", carries partial
-  views, stylesheets and scripts (#292). A section that is **absent** means that kind is not
-  managed: diff and apply skip it and `--prune` never deletes one. So format "3" files and
-  `schema export --no-files` leave the target's files alone, and a section that is present but
-  **empty** does manage them. Chosen so sites that deploy views from git keep doing so.
-- **2026-09-28** - 2 (`export`/`diff`/`apply`): the #292 rule now covers **every** schema snapshot
-  section (#198). A section that is absent (or null) is not managed: diff and apply skip that
-  kind and `--prune` deletes none of it; a present section is the whole list for its kind. Before,
-  an absent type section read as empty, so `--prune` on a hand-written partial file deleted every
-  kind it left out. The format stays `"4"`: every exported file has every type section, so no
-  exported file changes meaning. A hand-written snapshot may also name references instead of ids
-  and leave ids out of new entries.
-- **2026-09-28** - 1.2 and 1.4: the pre-#268 names are removed (#272). `content-types`,
-  `media-types`, `data-types`, `languages`, `templates`, `members`, `member-types`, `users`,
-  `webhooks`, `member-groups`, `tags`, `cultures`, `user-groups` and `content domains` are now
-  unknown commands (a parse error), and an allow-list entry naming one
-  (`UMBRACO_ALLOWED_COMMANDS=content-types`, `content.domains.set`) no longer matches anything;
-  use the singular names. Removed before alpha.13 is published, so no public release carries them.
-- **2026-09-28** - 4.1 and 5.3: every paged command takes `--all` (#196), added once in
-  `PagingOptions` and run by the executor, so it cannot differ between commands. A real loop with
-  a loud 10,000-item cap, not a large `--take`, which would be the same silent cap further out.
-- **2026-09-28** - 4.7: conditionally required inputs are declared with `.RequiredUnless(...)`
-  (#84), so the catalog tells an agent what it needs instead of reporting them optional. The
-  catalog also gains each input's `default` and a `jsonBodySchema` pointer; both additive, so no
-  `schemaVersion` bump.
-- **2026-09-28** - 4.1: `content create --example --document-type <alias>` (#174) builds its
-  example from the document type and its data types, since there is no one real item whose values
-  show every editor. Still `--example`, not a per-type `--schema`, which stays the offline schema.
-- **2026-09-28** - 9: `completion <bash|zsh|pwsh>` (#92) is recorded as an exception alongside
-  `commands`. Shell completion is a property of the tool, not of an Umbraco resource, and `gh`
-  and `az` name it the same way.
-- **2026-09-28** - 8.3 and 8.5: help examples are held as data (#276). A command declares them with
-  `.WithExamples(...)`, which renders the same `Examples:` block as before, and the placeholder
-  vocabulary lives once, in `ExamplePlaceholders`. `HelpTextTests` reads the lists instead of
-  searching descriptions for the heading, and `umbraco commands` gains an additive `examples`
-  field.
-- **2026-09-28** - 4.3: what an empty value (`key=`) means for `key=value` options (#394). It
-  clears a value that may be empty (property values, dictionary translations) and removes an
-  entry that cannot exist without one (webhook headers, user-group document permissions, content
-  domain bindings). This writes down what the options already did, except `content domain set
-  --domain host=`, which sent a binding with an empty ISO code and now removes that host's
-  binding.
-- **2026-09-29** - 7: where credentials may be sent. A plain `http://` host is refused unless it
-  is loopback, and stored or `UMBRACO_CLIENT_*` credentials are only sent to the host they were
-  configured with, so a differing `--host` needs `--token`. Both abort with exit `2` and category
-  `refused`. Chosen so no flag or override can put a secret on the wire in cleartext or hand it to
-  another host.
