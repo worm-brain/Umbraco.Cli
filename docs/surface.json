@@ -4678,7 +4678,7 @@
         },
         {
           "name": "create",
-          "description": "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil",
+          "description": "Create a new dictionary item with translations.\n\nExamples:\n  umbraco dictionary create --key \"Common.Search\"\n  umbraco dictionary create --key \"Blog.MinRead\" --parent Blog\n  umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil\n  umbraco dictionary create --key \"Blog.Intro\" --value-file en-US=intro.md --value da-DK=Hej",
           "arguments": [],
           "options": [
             {
@@ -4692,7 +4692,15 @@
             {
               "name": "--value",
               "aliases": [],
-              "description": "Translation pairs in isoCode=value format, using the full culture code. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem. An empty value (en-US=) creates an empty translation.",
+              "description": "Translation pairs in isoCode=value format, using the full ISO code. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem. The value is stored as given, in whatever format the site uses; 'dictionary get' reports that format as meta.valueFormat. An empty value (en-US=) creates an empty translation.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--value-file",
+              "aliases": [],
+              "description": "Translation pairs in isoCode=path format: the file is read as UTF-8 and stored exactly as it is, or - reads stdin (one - per command). Repeat for multiple languages: --value-file en-US=intro.md --value-file da-DK=intro.da.md. An ISO code given here cannot be given again, here or with --value. An empty path (en-US=) is refused.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -4721,12 +4729,13 @@
           "examples": [
             "umbraco dictionary create --key \"Common.Search\"",
             "umbraco dictionary create --key \"Blog.MinRead\" --parent Blog",
-            "umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil"
+            "umbraco dictionary create --key \"Nav.Home\" --value en-US=Home --value da-DK=Hjem --value fr-FR=Accueil",
+            "umbraco dictionary create --key \"Blog.Intro\" --value-file en-US=intro.md --value da-DK=Hej"
           ]
         },
         {
           "name": "update",
-          "description": "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped.\n\nExamples:\n  umbraco dictionary update Blog.MinRead --value da-DK=Hjem\n  umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --value en-US=Home",
+          "description": "Update a dictionary item's translations.\n\nTranslations are merged by ISO code, so naming one language leaves the others alone. Use full ISO codes (en-US, not en) - Umbraco discards codes it does not recognise, so unknown ones are refused here rather than silently dropped.\n\nExamples:\n  umbraco dictionary update Blog.MinRead --value da-DK=Hjem\n  umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --value en-US=Home\n  umbraco dictionary update Blog.Intro --value-file en-US=intro.md --value da-DK=Hej\n  cat intro.md | umbraco dictionary update Blog.Intro --value-file en-US=-",
           "arguments": [
             {
               "name": "id",
@@ -4748,7 +4757,15 @@
             {
               "name": "--value",
               "aliases": [],
-              "description": "Translation pairs in isoCode=value format. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem. An empty value (da-DK=) clears that translation.",
+              "description": "Translation pairs in isoCode=value format. Repeat for multiple languages: --value en-US=Home --value da-DK=Hjem. The value is stored as given, in whatever format the site uses; 'dictionary get' reports that format as meta.valueFormat. An empty value (da-DK=) clears that translation.",
+              "type": "string[]",
+              "required": false,
+              "hasDefault": false
+            },
+            {
+              "name": "--value-file",
+              "aliases": [],
+              "description": "Translation pairs in isoCode=path format: the file is read as UTF-8 and stored exactly as it is, or - reads stdin (one - per command). Repeat for multiple languages: --value-file en-US=intro.md --value-file da-DK=intro.da.md. An ISO code given here cannot be given again, here or with --value. An empty path (en-US=) is refused.",
               "type": "string[]",
               "required": false,
               "hasDefault": false
@@ -4760,7 +4777,9 @@
           "acceptsJsonBody": false,
           "examples": [
             "umbraco dictionary update Blog.MinRead --value da-DK=Hjem",
-            "umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --value en-US=Home"
+            "umbraco dictionary update Nav.Home --key \"Nav.HomePage\" --value en-US=Home",
+            "umbraco dictionary update Blog.Intro --value-file en-US=intro.md --value da-DK=Hej",
+            "cat intro.md | umbraco dictionary update Blog.Intro --value-file en-US=-"
           ]
         },
         {

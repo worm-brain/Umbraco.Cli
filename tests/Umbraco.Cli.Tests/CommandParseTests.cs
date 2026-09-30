@@ -847,6 +847,11 @@ public class CommandParseTests
         "example.com"
     )]
     [InlineData("dictionary create --key Nav.Home --value =Home", "=Home")]
+    [InlineData(
+        "dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value-file intro.md",
+        "intro.md"
+    )]
+    [InlineData("dictionary create --key Nav.Home --value-file =intro.md", "=intro.md")]
     public void PairOption_WithoutAnEquals_IsRejectedAndNamesTheToken(string args, string token)
     {
         var error = Assert.Single(Parse(args).Errors, e => e.Message.Contains("Not understood"));
@@ -868,9 +873,30 @@ public class CommandParseTests
     )]
     // host= removes that binding (docs/conventions.md 4.3).
     [InlineData("content domain set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com/da=")]
+    [InlineData("dictionary create --key Nav.Home --value-file en-US=intro.md")]
+    // --value-file mixes with --value for other ISO codes, and one of them may read stdin.
+    [InlineData(
+        "dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value-file en-US=- --value da-DK=Hej"
+    )]
+    [InlineData(
+        "dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value-file en-US=intro.md --value-file da-DK=intro.da.md"
+    )]
     public void PairOption_WellFormed_Parses(string args)
     {
         Assert.False(HasErrors(args), $"Unexpected parse errors for: {args}");
+    }
+
+    // --value-file refusals are parse errors, so nothing is read or sent (docs/conventions.md 4.5).
+    [Theory]
+    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value-file en-US=")] // no file named
+    [InlineData(
+        "dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value-file en-US=intro.md --value en-US=Hi"
+    )] // two sources for one ISO code
+    [InlineData("dictionary create --key Nav.Home --value-file en-US=- --value-file da-DK=-")] // stdin twice
+    [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789")] // nothing to update
+    public void DictionaryTranslationInput_Refused_IsAParseError(string args)
+    {
+        Assert.True(HasErrors(args), $"Expected a parse error for: {args}");
     }
 
     // ── Response-file tokens disabled (#115) ─────────────────────────────────────

@@ -57,6 +57,34 @@ public sealed class JsonOutputWriter : IOutputWriter
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
+    /// <summary>The command's own meta fields (#440), in the order they were added.</summary>
+    private readonly List<KeyValuePair<string, object>> _extraMeta = [];
+
+    /// <inheritdoc />
+    public void AddMeta(string key, object? value)
+    {
+        _extraMeta.RemoveAll(kv => kv.Key == key);
+        // Null means "absent", as for every standard meta field (WhenWritingNull).
+        if (value is not null)
+            _extraMeta.Add(new(key, value));
+    }
+
+    /// <summary>
+    /// Appends the command's own meta fields (<see cref="AddMeta"/>) to an envelope's standard
+    /// meta. With none, the standard object is returned as it is, so ordinary output is untouched.
+    /// </summary>
+    /// <param name="standard">The envelope's standard meta object.</param>
+    /// <returns>The meta to serialize.</returns>
+    private object Meta(object standard)
+    {
+        if (_extraMeta.Count == 0)
+            return standard;
+        var meta = JsonSerializer.SerializeToNode(standard, Options)!.AsObject();
+        foreach (var (key, value) in _extraMeta)
+            meta[key] = JsonSerializer.SerializeToNode(value, Options);
+        return meta;
+    }
+
     public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null)
     {
         // Without --fields, serialize the value directly (no extra DOM copy). With --fields,
@@ -69,13 +97,15 @@ public sealed class JsonOutputWriter : IOutputWriter
         {
             status = "success",
             data = payload,
-            meta = new
-            {
-                command = commandName,
-                durationMs,
-                timestamp = DateTimeOffset.UtcNow,
-                schemaVersion = SchemaVersion,
-            },
+            meta = Meta(
+                new
+                {
+                    command = commandName,
+                    durationMs,
+                    timestamp = DateTimeOffset.UtcNow,
+                    schemaVersion = SchemaVersion,
+                }
+            ),
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
@@ -133,18 +163,20 @@ public sealed class JsonOutputWriter : IOutputWriter
         {
             status = "success",
             data = payload,
-            meta = new
-            {
-                command = commandName,
-                durationMs,
-                timestamp = DateTimeOffset.UtcNow,
-                schemaVersion = SchemaVersion,
-                // #173: absent rather than guessed when the source cannot say how many there are.
-                total = paging.Total,
-                skip = paging.Skip,
-                take = paging.Take,
-                hasMore = paging.HasMoreAfter(items.Count),
-            },
+            meta = Meta(
+                new
+                {
+                    command = commandName,
+                    durationMs,
+                    timestamp = DateTimeOffset.UtcNow,
+                    schemaVersion = SchemaVersion,
+                    // #173: absent rather than guessed when the source cannot say how many there are.
+                    total = paging.Total,
+                    skip = paging.Skip,
+                    take = paging.Take,
+                    hasMore = paging.HasMoreAfter(items.Count),
+                }
+            ),
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
@@ -188,19 +220,21 @@ public sealed class JsonOutputWriter : IOutputWriter
         {
             status = summary.Status,
             data = payload,
-            meta = new
-            {
-                command = commandName,
-                durationMs,
-                timestamp = DateTimeOffset.UtcNow,
-                schemaVersion = SchemaVersion,
-                summary = new
+            meta = Meta(
+                new
                 {
-                    succeeded = summary.Succeeded,
-                    failed = summary.Failed,
-                    dryRun = summary.DryRun,
-                },
-            },
+                    command = commandName,
+                    durationMs,
+                    timestamp = DateTimeOffset.UtcNow,
+                    schemaVersion = SchemaVersion,
+                    summary = new
+                    {
+                        succeeded = summary.Succeeded,
+                        failed = summary.Failed,
+                        dryRun = summary.DryRun,
+                    },
+                }
+            ),
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
@@ -236,13 +270,15 @@ public sealed class JsonOutputWriter : IOutputWriter
                 then = (then ?? []).Select(r => BulkRequest.From(r.Method, r.Url, r.Body)),
             },
             // The same meta as every other envelope (docs/conventions.md, section 6).
-            meta = new
-            {
-                command = commandName,
-                durationMs,
-                timestamp = DateTimeOffset.UtcNow,
-                schemaVersion = SchemaVersion,
-            },
+            meta = Meta(
+                new
+                {
+                    command = commandName,
+                    durationMs,
+                    timestamp = DateTimeOffset.UtcNow,
+                    schemaVersion = SchemaVersion,
+                }
+            ),
         };
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }

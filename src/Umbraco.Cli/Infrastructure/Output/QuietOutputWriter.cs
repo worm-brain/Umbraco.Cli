@@ -23,6 +23,13 @@ namespace Umbraco.Cli.Infrastructure.Output;
 public sealed class QuietOutputWriter(IOutputWriter inner, bool isWrite = false) : IOutputWriter
 {
     /// <inheritdoc />
+    /// <remarks>
+    /// Forwarded, not left on the interface's no-op default: the fields belong to whatever the inner
+    /// writer still emits (#440).
+    /// </remarks>
+    public void AddMeta(string key, object? value) => inner.AddMeta(key, value);
+
+    /// <inheritdoc />
     public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null)
     {
         // A write's result (the created/updated item, or its { id }) is dropped; a read's is its data.

@@ -15,13 +15,13 @@ public static class DictionaryGetCommand
     /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
-        var cmd = new Command(
-            "get",
-            "Get a dictionary item and its translations by key or id."
-        ).WithExamples(
-            "umbraco dictionary get Common.Search",
-            "umbraco dictionary get 1a2b3c4d-....."
-        );
+        var cmd = new Command("get", "Get a dictionary item and its translations by key or id.")
+            .WithExamples(
+                "umbraco dictionary get Common.Search",
+                "umbraco dictionary get 1a2b3c4d-....."
+            )
+            // meta.valueFormat: the format the site stores translations in (#440).
+            .WithValueFormat();
         // The key is resolved here, before the by-id read (#262), by the same resolver every
         // other <id|key> argument uses.
         var keyArg = Reference.Argument(EntityKind.DictionaryItem);

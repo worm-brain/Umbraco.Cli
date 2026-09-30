@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/worm-brain/Umbraco.Cli/blob/main/docs/umbraco-cli-extension.schema.json",
+  "title": "umbracoCli manifest extension",
+  "description": "A package manifest extension that declares what the package changes about the umbraco CLI's commands. See docs/extensions.md.",
+  "type": "object",
+  "required": ["type", "alias", "meta"],
+  "properties": {
+    "type": { "const": "umbracoCli" },
+    "alias": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique across the site. Use the package id plus \".Cli\"."
+    },
+    "name": { "type": "string", "description": "Shown by `umbraco manifest list`." },
+    "meta": {
+      "type": "object",
+      "description": "The capabilities this package declares. The CLI ignores keys it does not know.",
+      "properties": {
+        "dictionaryValueFormat": {
+          "enum": ["text", "html", "markdown"],
+          "description": "The format this site stores dictionary translations in."
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

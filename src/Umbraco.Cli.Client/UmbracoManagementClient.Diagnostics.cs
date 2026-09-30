@@ -521,6 +521,10 @@ public sealed partial class UmbracoManagementClient
                             Id = m.Id ?? "",
                             Name = m.Name ?? "",
                             Version = m.Version ?? "",
+                            // Only the umbracoCli entries are read; the rest stays opaque (#440).
+                            CliCapabilities = SiteCapabilities.DeclaredIn(
+                                UntypedNodeFactory.ToJsonNode(m.Extensions)
+                            ),
                         })
                         .ToList();
             }

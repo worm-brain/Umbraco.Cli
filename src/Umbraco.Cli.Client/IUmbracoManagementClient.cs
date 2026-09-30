@@ -52,6 +52,8 @@ public interface IUmbracoManagementClient
         ILogViewerClient,
         IModelsBuilderClient,
         IManifestClient,
+        // What the site's packages declare about the CLI's commands (#440, ADR 0009).
+        ISiteCapabilitiesClient,
         // Redirects and relations (#118).
         IRedirectClient,
         IRelationTypeClient,
