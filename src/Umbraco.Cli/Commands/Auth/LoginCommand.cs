@@ -100,13 +100,13 @@ public static class LoginCommand
                 }
                 catch (UmbracoAuthException ex)
                 {
-                    writer.WriteError(
-                        ExitCode.Aborted,
-                        FailureCategory.NotAuthenticated,
-                        $"Authentication failed: {ex.Message}",
-                        CommandPath.Of(parseResult)
-                    );
-                    return (int)ExitCode.Aborted;
+                    // Nothing is saved: a host that could not be reached proved nothing either.
+                    return (int)
+                        CommandContextFactory.WriteAuthFailure(
+                            writer,
+                            ex,
+                            CommandPath.Of(parseResult)
+                        );
                 }
 
                 var store = ConfigStore.Resolve(global.ConfigPath(parseResult), configStore);

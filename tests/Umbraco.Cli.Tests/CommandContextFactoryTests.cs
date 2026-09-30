@@ -1,8 +1,10 @@
 using System.CommandLine;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Umbraco.Cli.Client;
 using Umbraco.Cli.Commands;
+using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Http;
 
@@ -10,7 +12,9 @@ namespace Umbraco.Cli.Tests;
 
 /// <summary>
 /// How <see cref="CommandContextFactory"/> arms the 401 refresh (#248): a token from client
-/// credentials can be renewed, one given with <c>--token</c> cannot.
+/// credentials can be renewed, one given with <c>--token</c> cannot. And how a failed token
+/// exchange is reported (#445): no response is <c>unreachable</c> or <c>timeout</c> with exit 1,
+/// a refusal of the credentials is <c>not_authenticated</c> with exit 2.
 /// </summary>
 [Collection("ConsoleCapture")]
 public class CommandContextFactoryTests
@@ -222,5 +226,127 @@ public class CommandContextFactoryTests
         );
 
         Assert.Equal((false, true), (built, stderr.Contains("No profile named 'missing'")));
+    }
+
+    // ── a failed token exchange (#445) ───────────────────────────────────────
+
+    /// <summary>A token endpoint whose every answer (or transport failure) comes from <c>answer</c>.</summary>
+    private sealed class TokenEndpointThat(Func<HttpResponseMessage> answer) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken ct
+        ) => Task.FromResult(answer());
+    }
+
+    private sealed class NonInteractive : IConfirmationPrompt
+    {
+        public bool IsInteractive => false;
+
+        public bool Confirm(string message) => false;
+    }
+
+    /// <summary>
+    /// Runs a command whose context exchanges stored client credentials with a token endpoint that
+    /// behaves as <paramref name="answer"/>, through <see cref="CommandExecutor"/> so the process
+    /// exit code is observed as well as the error envelope.
+    /// </summary>
+    /// <param name="answer">The token endpoint's response, or a throw for a transport failure.</param>
+    /// <returns>The exit code and the JSON error written to stderr.</returns>
+    private static async Task<(int Exit, JsonElement Error)> RunWithTokenEndpoint(
+        Func<HttpResponseMessage> answer
+    )
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"cfg-{Guid.NewGuid()}.json");
+        new ConfigStore(configPath).Save(
+            new CliConfig
+            {
+                Host = "https://site.test",
+                ClientId = "umbraco-back-office-ci",
+                ClientSecret = "secret",
+            }
+        );
+        var http = new Factory(new TokenEndpointThat(answer));
+        var global = new GlobalOptions();
+        var executor = new CommandExecutor(
+            new CommandContextFactory(
+                new ConfigStore(configPath),
+                new UmbracoAuthService(http),
+                http,
+                global,
+                new ClientFactory(),
+                new MutationInterceptState(),
+                new TokenRefreshState()
+            ),
+            new NonInteractive()
+        );
+        var root = new RootCommand();
+        global.AddTo(root);
+        var original = Console.Error;
+        var stderr = new StringWriter();
+        Console.SetError(stderr);
+
+        try
+        {
+            var exit = await executor.RunObjectAsync(
+                root.Parse("--output json"),
+                (c, ct) => c.GetCurrentUserAsync(ct),
+                CancellationToken.None
+            );
+            return (exit, JsonDocument.Parse(stderr.ToString()).RootElement.Clone());
+        }
+        finally
+        {
+            Console.SetError(original);
+            File.Delete(configPath);
+        }
+    }
+
+    /// <summary>The exit code, the envelope's <c>exitCode</c> and its <c>category</c>.</summary>
+    private static (int, int, string?) Outcome((int Exit, JsonElement Error) run) =>
+        (
+            run.Exit,
+            run.Error.GetProperty("exitCode").GetInt32(),
+            run.Error.GetProperty("category").GetString()
+        );
+
+    [Fact]
+    public async Task CreateAsync_TokenEndpointRefusesConnection_ReportsUnreachableWithExitOne()
+    {
+        var run = await RunWithTokenEndpoint(() =>
+            throw new HttpRequestException("No connection could be made (site.test:443)")
+        );
+
+        Assert.Equal((1, 1, "unreachable"), Outcome(run));
+    }
+
+    [Fact]
+    public async Task CreateAsync_TokenEndpointRefusesConnection_MessageNamesTheHost()
+    {
+        var run = await RunWithTokenEndpoint(() => throw new HttpRequestException("refused"));
+
+        Assert.Contains("https://site.test", run.Error.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task CreateAsync_TokenEndpointTimesOut_ReportsTimeoutWithExitOne()
+    {
+        // HttpClient reports its own timeout as a cancellation the caller did not ask for.
+        var run = await RunWithTokenEndpoint(() => throw new TaskCanceledException("timed out"));
+
+        Assert.Equal((1, 1, "timeout"), Outcome(run));
+    }
+
+    [Fact]
+    public async Task CreateAsync_TokenEndpointAnswers401_ReportsNotAuthenticatedWithExitTwo()
+    {
+        var run = await RunWithTokenEndpoint(() =>
+            new HttpResponseMessage(HttpStatusCode.Unauthorized)
+            {
+                Content = new StringContent("""{"error":"invalid_client"}"""),
+            }
+        );
+
+        Assert.Equal((2, 2, "not_authenticated"), Outcome(run));
     }
 }

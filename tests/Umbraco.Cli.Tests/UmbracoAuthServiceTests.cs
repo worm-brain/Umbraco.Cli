@@ -145,7 +145,7 @@ public class UmbracoAuthServiceTests
     public async Task GetTokenAsync_HostUnreachable_ThrowsUmbracoAuthExceptionNotRaw()
     {
         // #81: connection-refused must surface as a clean UmbracoAuthException (which the
-        // context factory renders as a clean error + exit 2), not a raw HttpRequestException.
+        // context factory renders as a clean error), not a raw HttpRequestException.
         var service = ServiceThatThrows(new HttpRequestException("connection refused"));
 
         var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
@@ -169,6 +169,56 @@ public class UmbracoAuthServiceTests
             service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None)
         );
         Assert.Contains("timed out", ex.Message);
+    }
+
+    // #445: a token request that got no response is classified like any other request that got
+    // none, so an unreachable site is not reported as refused credentials.
+
+    [Fact]
+    public async Task GetTokenAsync_HostUnreachable_IsCategorisedUnreachable()
+    {
+        var service = ServiceThatThrows(new HttpRequestException("connection refused"));
+
+        var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
+            service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None)
+        );
+
+        Assert.Equal(FailureCategory.Unreachable, ex.Category);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_Timeout_IsCategorisedTimeout()
+    {
+        var service = ServiceThatThrows(new TaskCanceledException("timeout"));
+
+        var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
+            service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None)
+        );
+
+        Assert.Equal(FailureCategory.Timeout, ex.Category);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_Timeout_MessageNamesTheHost()
+    {
+        var service = ServiceThatThrows(new TaskCanceledException("timeout"));
+
+        var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
+            service.GetTokenAsync("https://site.test", "client", "secret", CancellationToken.None)
+        );
+
+        Assert.Contains("https://site.test", ex.Message);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_EndpointAnswers401_IsCategorisedNotAuthenticated()
+    {
+        var ex = await FailureFor(
+            """{"error":"invalid_client"}""",
+            System.Net.HttpStatusCode.Unauthorized
+        );
+
+        Assert.Equal(FailureCategory.NotAuthenticated, ex.Category);
     }
 
     [Fact]

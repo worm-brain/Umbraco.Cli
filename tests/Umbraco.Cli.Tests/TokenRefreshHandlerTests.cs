@@ -172,4 +172,56 @@ public class TokenRefreshHandlerTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    // ── a renewal that gets no response (#445) ───────────────────────────────
+
+    /// <summary>A token endpoint that never answers: every request fails with <c>failure</c>.</summary>
+    private sealed class Unanswered(Exception failure) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken ct
+        ) => throw failure;
+    }
+
+    private sealed class SingleClientFactory(HttpClient client) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => client;
+    }
+
+    /// <summary>
+    /// Reads <c>user/current</c> through the real client with a stale token whose renewal - a real
+    /// token exchange - fails with <paramref name="failure"/>, and returns how the read failed.
+    /// </summary>
+    /// <param name="failure">What the token endpoint's transport throws.</param>
+    /// <returns>The read's failure category.</returns>
+    private static async Task<FailureCategory> ReadWithRenewalFailing(Exception failure)
+    {
+        var auth = new UmbracoAuthService(
+            new SingleClientFactory(new HttpClient(new Unanswered(failure)))
+        );
+        var state = new TokenRefreshState();
+        state.Reset("stale", c => auth.GetTokenAsync("https://x", "id", "secret", c));
+        var client = new UmbracoManagementClient(Client(new Server(validToken: "fresh"), state));
+
+        var result = await client.GetCurrentUserAsync();
+
+        return result.Category;
+    }
+
+    [Fact]
+    public async Task Send_RenewalCannotReachTheHost_FailsTheRequestAsUnreachable()
+    {
+        var category = await ReadWithRenewalFailing(new HttpRequestException("connection refused"));
+
+        Assert.Equal(FailureCategory.Unreachable, category);
+    }
+
+    [Fact]
+    public async Task Send_RenewalTimesOut_FailsTheRequestAsTimeout()
+    {
+        var category = await ReadWithRenewalFailing(new TaskCanceledException("timed out"));
+
+        Assert.Equal(FailureCategory.Timeout, category);
+    }
 }

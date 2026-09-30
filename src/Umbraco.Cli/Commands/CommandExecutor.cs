@@ -70,9 +70,10 @@ public sealed class CommandExecutor
         {
             ctx = await _factory.CreateAsync(parseResult, ct);
         }
-        catch (CommandAbortedException)
+        catch (CommandAbortedException ex)
         {
-            return (int)ExitCode.Aborted;
+            // Usually 2, but 1 when the token exchange never reached the server (#445).
+            return (int)ex.ExitCode;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -347,9 +348,9 @@ public sealed class CommandExecutor
         {
             ctx = await _factory.CreateAsync(parseResult, ct);
         }
-        catch (CommandAbortedException)
+        catch (CommandAbortedException ex)
         {
-            return (int)ExitCode.Aborted;
+            return (int)ex.ExitCode;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
