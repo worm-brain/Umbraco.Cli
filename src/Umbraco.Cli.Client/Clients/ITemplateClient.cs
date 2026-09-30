@@ -43,7 +43,9 @@ public interface ITemplateClient
     /// <summary>
     /// Which document types use each template, by allowing it or defaulting to it (#269). Umbraco
     /// has no referenced-by endpoint for templates, so this reads every document type once, in
-    /// batches; a template no document type uses has no entry.
+    /// batches, or one at a time on Umbraco 17.0-17.2, which has no batch endpoint (#432); a
+    /// template no document type uses has no entry. Any read failing fails the whole call, so a
+    /// guard never mistakes an unread type for one that does not use the template.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The document types keyed by template id, or a mapped failure.</returns>
