@@ -47,8 +47,12 @@ public class LoginCommandTests
     /// <paramref name="answer"/>, with a config file of its own.
     /// </summary>
     /// <param name="answer">The token endpoint's response, or a throw for a transport failure.</param>
+    /// <param name="host">The host to log in to.</param>
     /// <returns>The run's outcome.</returns>
-    private static async Task<LoginRun> Login(Func<HttpResponseMessage> answer)
+    private static async Task<LoginRun> Login(
+        Func<HttpResponseMessage> answer,
+        string host = "https://site.test"
+    )
     {
         var configPath = Path.Combine(Path.GetTempPath(), $"cfg-{Guid.NewGuid()}.json");
         var global = new GlobalOptions();
@@ -71,7 +75,7 @@ public class LoginCommandTests
         try
         {
             var exit = await root.Parse(
-                    "auth login --host https://site.test --client-id id --client-secret secret --output json"
+                    $"auth login --host {host} --client-id id --client-secret secret --output json"
                 )
                 .InvokeAsync();
             return new LoginRun(exit, stderr.ToString(), File.Exists(configPath));
@@ -120,5 +124,31 @@ public class LoginCommandTests
         );
 
         Assert.Equal((2, "not_authenticated", false), (run.Exit, run.Category, run.Saved));
+    }
+
+    [Fact]
+    public async Task Login_TokenEndpointAnswers500_ReportsServerErrorWithExitOneAndSavesNothing()
+    {
+        // #449: the server failed; the credentials were never judged.
+        var run = await Login(() =>
+            new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            {
+                Content = new StringContent("oops"),
+            }
+        );
+
+        Assert.Equal((1, "server_error", false), (run.Exit, run.Category, run.Saved));
+    }
+
+    [Fact]
+    public async Task Login_PlainHttpRemoteHost_ReportsRefusedWithExitTwoAndSavesNothing()
+    {
+        // #450: the same refusal every other command gives, and nothing reaches the endpoint.
+        var run = await Login(
+            () => throw new InvalidOperationException("must not be sent"),
+            host: "http://example.com"
+        );
+
+        Assert.Equal((2, "refused", false), (run.Exit, run.Category, run.Saved));
     }
 }

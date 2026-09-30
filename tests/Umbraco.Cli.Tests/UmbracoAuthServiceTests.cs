@@ -221,6 +221,71 @@ public class UmbracoAuthServiceTests
         Assert.Equal(FailureCategory.NotAuthenticated, ex.Category);
     }
 
+    // #449: an answer from the token endpoint that is not a verdict on the credentials is
+    // classified like the same answer to any other request.
+
+    [Fact]
+    public async Task GetTokenAsync_EndpointAnswers500_IsCategorisedServerError()
+    {
+        var ex = await FailureFor("{}", System.Net.HttpStatusCode.InternalServerError);
+
+        Assert.Equal(FailureCategory.ServerError, ex.Category);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_EndpointAnswers403_IsCategorisedNotAuthenticated()
+    {
+        var ex = await FailureFor("{}", System.Net.HttpStatusCode.Forbidden);
+
+        Assert.Equal(FailureCategory.NotAuthenticated, ex.Category);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_UnreadableBody_IsCategorisedUnexpectedResponse()
+    {
+        var service = new UmbracoAuthService(
+            new SingleClientFactory(
+                new HttpClient(
+                    new StubHandler("<html>not json</html>", System.Net.HttpStatusCode.OK)
+                )
+            )
+        );
+
+        var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
+            service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None)
+        );
+
+        Assert.Equal(FailureCategory.UnexpectedResponse, ex.Category);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_SuccessWithoutAnAccessToken_IsCategorisedUnexpectedResponse()
+    {
+        // Before #449 this returned an empty bearer, and the next request failed with a 401.
+        var ex = await FailureFor("""{"expires_in":299}""", System.Net.HttpStatusCode.OK);
+
+        Assert.Equal(FailureCategory.UnexpectedResponse, ex.Category);
+    }
+
+    [Fact]
+    public async Task GetTokenAsync_PlainHttpRemoteHost_IsCategorisedRefused()
+    {
+        // #450: refused before anything is sent, as every command reports this rule.
+        var service = new UmbracoAuthService(
+            new SingleClientFactory(
+                new HttpClient(
+                    new ThrowingHandler(new InvalidOperationException("must not be sent"))
+                )
+            )
+        );
+
+        var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
+            service.GetTokenAsync("http://example.com", "client", "secret", CancellationToken.None)
+        );
+
+        Assert.Equal(FailureCategory.Refused, ex.Category);
+    }
+
     [Fact]
     public async Task GetTokenAsync_UnreadableBody_ThrowsUmbracoAuthException()
     {

@@ -201,9 +201,9 @@ Every command that talks to Umbraco, `auth login` and `auth doctor` apply two ru
 credential (a client secret or a bearer token) leaves the machine:
 
 - **HTTPS only, except loopback.** A host with `http://` is refused unless it is `localhost`,
-  `127.0.0.1` or `::1`; use the instance's `https://` URL. There is no opt-out. Commands abort
-  with exit `2` and category `refused`; `auth login` reports an authentication failure, and
-  `auth doctor` fails its host check.
+  `127.0.0.1` or `::1`; use the instance's `https://` URL. There is no opt-out. Commands,
+  `auth login` included, abort with exit `2` and category `refused`; `auth doctor` fails its host
+  check.
 - **Credentials stay with their host.** A profile's client id and secret belong to the profile's
   host, and `UMBRACO_CLIENT_ID` / `UMBRACO_CLIENT_SECRET` belong to the host they resolve with
   (`UMBRACO_HOST`, or the profile's host). A `--host` that names a different instance does not get

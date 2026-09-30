@@ -190,9 +190,11 @@ For an API call, `category` is one of:
   request made before the call, so a site that is down is `unreachable` however you authenticate.
 - `timeout` - no response in time, the token request included.
 - `request_rejected` - a 4xx, usually bad input or the request itself.
-- `server_error` - a 5xx or an undeclared status, so a server-side fault.
+- `server_error` - a 5xx or an undeclared status, so a server-side fault. A 5xx from the token
+  endpoint counts too.
 - `unexpected_response` - the server answered, but with a body the CLI couldn't read (not JSON,
-  or a `content get`/`media get` with no named variant). That's likely a version mismatch. It has
+  a token response without an access token, or a `content get`/`media get` with no named
+  variant). That's likely a version mismatch. It has
   no `httpStatus`, and its message names the tested version range when `serverVersion` is outside
   it, or points you at `auth doctor`. Treat it as "don't trust this instance's output until the
   version is checked", not as bad input.
@@ -206,11 +208,11 @@ The rest never reach the API, so they carry no `httpStatus` and no `serverVersio
 |---|---|---|
 | `invalid_argument` | 1 | Your input: a command line that doesn't parse, a malformed or contradictory `--json-body`, two inputs for one value, an alias or name that matches nothing (or several items - the message lists their ids), a value the instance doesn't recognise (a webhook `--event` alias, a dictionary ISO code), a file that isn't there. |
 | `internal` | 1 | An unexpected error inside the CLI - a bug to report. |
-| `not_authenticated` | 2 | No host, no credentials, an unknown `--profile`, or the token endpoint refused the client credentials. A token request that gets no answer is `unreachable` or `timeout` instead (above). |
+| `not_authenticated` | 2 | No host, no credentials, an unknown `--profile`, or the token endpoint refused the client credentials (a 4xx). A token request that gets no answer is `unreachable` or `timeout`, and one answered with a 5xx or an unusable body is `server_error` or `unexpected_response` (above). |
 | `not_allowed` | 2 | The command isn't in the allow-list. |
 | `readonly` | 2 | A write blocked by `--readonly` / `UMBRACO_READONLY`. |
 | `confirmation_required` | 2 | A destructive command run non-interactively without `--yes`. |
-| `refused` | 2 | A pre-flight check refused: a delete that would take or orphan something else (an in-use type, data type or template, a group with members or users, a dictionary item with children, any language) without `--force`. |
+| `refused` | 2 | A pre-flight check refused: a delete that would take or orphan something else (an in-use type, data type or template, a group with members or users, a dictionary item with children, any language) without `--force`; or a host that credentials must not go to (plain `http://` to a non-loopback host, or a `--host` the stored credentials don't belong to), on every command including `auth login`. |
 | `cancelled` | 2 | You declined the confirmation prompt. |
 
 A write run with `--dry-run` uses its own status and doesn't touch the server:
