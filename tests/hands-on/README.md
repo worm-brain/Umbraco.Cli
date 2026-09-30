@@ -76,7 +76,7 @@ used. Rounds don't touch it: `setup-round.py --replace` only removes `source` an
 for each CLI build and Umbraco version you name, and writes the results to
 [`docs/performance/results/`](../../docs/performance/results/). It answers two questions: did a CLI build get slower,
 and how does one Umbraco version compare with another? Like `dev-site.py test`, it runs locally only, because CI has
-no live Umbraco (#139, #77).
+no live Umbraco.
 
 It needs `hyperfine` on top of the requirements above. Without it, `bench.py` prints how to install it and runs
 nothing: `winget install --id sharkdp.hyperfine -e` (Windows), `brew install hyperfine` (macOS), `apt install
@@ -108,7 +108,7 @@ python3 bench.py --help                                            # every optio
 
 ### Scenarios
 
-The defaults are the scenarios #410 names. They live in the `SCENARIOS` table at the top of `bench.py`, so changing
+The defaults live in the `SCENARIOS` table at the top of `bench.py`, so changing
 what is timed is a one-line edit; `--scenario` picks a subset for one run.
 
 | Scenario | Command | What it exercises |
@@ -156,13 +156,13 @@ you mean to commit.
 
 On localhost each request takes about a millisecond, so a command that makes 100 requests one after another looks
 nearly as fast as one that makes 5. Against a real host every request pays a round trip. `--latency <ms>` shows that
-cost (#428): after each API scenario's direct run, bench.py times it again through
+cost: after each API scenario's direct run, bench.py times it again through
 [`tools/latency_proxy.py`](tools/latency_proxy.py), a local TCP proxy in front of the dev site that delays everything
 the CLI sends by that many milliseconds. Each request round trip gains about that delay, and opening a connection
 about twice it (the TCP and TLS handshakes). `--latency-only` skips the direct runs.
 
-- The latency runs are separate result rows with `latencyMs` set; direct rows have `latencyMs: 0`. The summary, and
-  `bench.py report`, show them in tables of their own, and the README never quotes them.
+- The latency runs are separate result rows with `latencyMs` set; direct rows have `latencyMs: 0`. The summary shows
+  them in a table of their own, and `bench.py report` leaves them off the performance page.
 - The proxy listens on both `127.0.0.1` and `::1`: on Windows, a client that tries `::1` first and finds nothing
   there waits about 2 s per connection.
 - The CLI's stored credentials and its token cache are tied to the host they are for, so runs through the proxy pass
@@ -175,10 +175,11 @@ about twice it (the TCP and TLS handshakes). `--latency-only` skips the direct r
 
 Every run writes `docs/performance/results/<YYYY-MM-DD>_<HHMMSS>_<machine>.json` and a markdown summary with the same
 name and `.md`, which is also printed. The time is the run's start in UTC. `<machine>` is `--machine`, or a label
-made from the OS and CPU model (such as `windows-amd-ryzen-9-7950x`). The results are committed, so the history lives
-in the repo (#410). hyperfine's own exports stay in `.cache/bench/runs/`, which git ignores.
+made from the OS and CPU model (such as `windows-amd-ryzen-9-7950x`). The JSON is committed, so the history lives in
+the repo and `bench.py report` can rebuild the performance page from any checkout; the `.md` summary is git-ignored.
+hyperfine's own exports stay in `.cache/bench/runs/`, which git ignores.
 
-The JSON is what other tools read (the generated README section, #411). One file is one run on one machine:
+The JSON is what other tools read (`bench.py report`). One file is one run on one machine:
 
 | Field | Meaning |
 |---|---|
@@ -209,28 +210,20 @@ A row's full stamp is its own `cli` and `umbraco` plus the file's `machine` and 
 
 ### Publishing the numbers (`bench.py report`)
 
-The README's Performance section and [`docs/performance.md`](../../docs/performance.md) are generated from the
-committed results files, so no number on them is typed by hand. After committing a run's results, regenerate both:
+[`docs/performance.md`](../../docs/performance.md) is generated from the committed results files, so no number on
+it is typed by hand. After committing a run's results, regenerate it:
 
 ```bash
 python3 bench.py report
 ```
 
-It needs neither hyperfine nor a site. It reads every `docs/performance/results/*.json` and:
-
-- rewrites only the block between the `<!-- perf:start -->` and `<!-- perf:end -->` lines in the repository's
-  `README.md`: a headline table (`version`, `get` and `content-export`, with their request counts) from the newest
-  results file with direct runs, for its newest published CLI build on its newest Umbraco version (a `local` build
-  only when the file has no published one), stamped with the machine, versions and date. Latency runs are never
-  quoted there;
-- writes `docs/performance.md` whole: the three measuring layers, every run, history per scenario across CLI builds
-  (with the latency runs in a table of their own under each scenario), the Umbraco version comparison of direct runs
-  (once a machine has run one build on more than one Umbraco major), how to reproduce each run, and the caveats,
-  including each run's `note`.
-
-The prose on both lives in [`tools/perf_report.py`](tools/perf_report.py): edit it there, not in the generated
-files. Running `report` again without new results changes nothing. It stops before writing anything when there
-are no results files, a file has another `schemaVersion`, or `README.md` lacks exactly one pair of markers.
+It needs neither hyperfine nor a site. It reads every `docs/performance/results/*.json` and writes the page whole:
+one table per Umbraco version and machine, a row per published CLI version and a column per scenario, each cell the
+newest direct run's end-to-end median. `local` builds and latency runs stay in the results files but aren't on the
+page, which compares releases. The page's prose lives in [`tools/perf_report.py`](tools/perf_report.py); the method
+and caveats are hand-written in [`docs/performance-testing.md`](../../docs/performance-testing.md). Running `report`
+again without new results changes nothing. It stops before writing anything when there are no results files, or a
+file has another `schemaVersion`.
 
 ## Single sites
 
