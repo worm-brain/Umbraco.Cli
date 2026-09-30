@@ -50,11 +50,6 @@ public static class DictionaryCreateCommand
         cmd.Add(valueFilesOpt);
         cmd.Add(idOpt);
         cmd.Add(parentOpt);
-        KeyValuePairs.Validate(
-            cmd,
-            valuesOpt,
-            "--value must be isoCode=translation, e.g. en-US=Home"
-        );
         DictionaryTranslationInput.Validate(cmd, valuesOpt, valueFilesOpt);
         cmd.SetAction(
             (parseResult, ct) =>

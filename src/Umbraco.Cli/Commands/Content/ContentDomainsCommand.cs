@@ -103,10 +103,13 @@ public static class ContentDomainsCommand
                     "Supply --domain and/or --default-culture; there is nothing to set."
                 );
         });
+        // Hostnames ignoring case: Umbraco lower-cases a domain name and refuses two that are then
+        // equal, and Merge matches the current bindings the same way.
         KeyValuePairs.Validate(
             cmd,
             domainOpt,
-            "--domain must be host=isoCode, e.g. example.com/da=da-DK"
+            "--domain must be host=isoCode, e.g. example.com/da=da-DK",
+            StringComparer.OrdinalIgnoreCase
         );
 
         cmd.SetAction(

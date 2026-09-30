@@ -279,6 +279,28 @@ public class DictionaryValueFileTests : IDisposable
     }
 
     [Fact]
+    public void Problems_SameIsoCodeTwiceInValue_NamesTheIsoCodeOnce()
+    {
+        // #444: --value on its own used to keep the last (update) or send both (create). The two
+        // options share one key space, so the refusal is the same one, whichever named the code.
+        var problem = Assert.Single(
+            DictionaryTranslationInput.Problems(["en-US=Home", "EN-us=Hi"], null)
+        );
+
+        Assert.EndsWith("Given more than once: en-US.", problem);
+    }
+
+    [Fact]
+    public void Problems_SameIsoCodeTwiceInValueAndInValueFile_IsOneProblem()
+    {
+        var problem = Assert.Single(
+            DictionaryTranslationInput.Problems(["en-US=Home", "en-US=Hi"], ["en-US=intro.md"])
+        );
+
+        Assert.EndsWith("Given more than once: en-US.", problem);
+    }
+
+    [Fact]
     public void Problems_TwoStdinPaths_NamesBothIsoCodes()
     {
         var problem = Assert.Single(
@@ -299,7 +321,7 @@ public class DictionaryValueFileTests : IDisposable
     [Fact]
     public void Problems_MalformedToken_IsLeftToTheShapeCheck()
     {
-        // "en-US" has no "=": KeyValuePairs.Validate reports it, so it is not reported twice.
+        // "en-US" has no "=": the KeyValuePairs shape check reports it, so it is not reported twice.
         var problems = DictionaryTranslationInput.Problems(null, ["en-US"]);
 
         Assert.Empty(problems);

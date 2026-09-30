@@ -204,14 +204,15 @@ public class UserGroupMergeTests
     }
 
     [Fact]
-    public void ParseDocumentPermissions_DocumentNamedTwice_KeepsTheLastValue()
+    public void ParseDocumentPermissions_TwoDocuments_KeepsOnePermissionEachInOrder()
     {
+        // A document named twice is refused at parse time (#444), so each value is its own entry.
         var parsed = UserGroupsCommand.ParseDocumentPermissions([
             $"{Blog}=Umb.Document.Read",
-            $"{Blog}=Umb.Document.Delete",
+            $"{News}=Umb.Document.Delete",
         ]);
 
-        Assert.Equal(["Umb.Document.Delete"], Assert.Single(parsed).Verbs);
+        Assert.Equal([Blog, News], parsed.Select(p => p.Document));
     }
 
     [Fact]

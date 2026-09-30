@@ -105,8 +105,11 @@ umbraco data-type list --all
   `--culture en-US da-DK` and `--culture en-US --culture da-DK` are the same. This holds for
   every option that takes several values (`--culture`, `--order`, `--group`, `--user`,
   `--section`, `--fallback-permission`, `--exclude-type`, `--exclude-root`, `--level`, `--event`)
-  - but not for the `key=value` options (`--value`, `--value-file`, `--domain`), whose values may
-  contain a comma.
+  - but not for the `key=value` options (`--value`, `--value-file`, `--domain`, `--header`,
+  `--document-permission`), whose values may contain a comma.
+- **A `key=value` option takes each key once.** A key given twice, even as an empty `key=`, is an
+  `invalid_argument` error that names it. Keys match the way the target matches them: ISO codes,
+  hostnames and header names ignoring case, property aliases exactly, document ids as ids.
 - **Several targets known up front are positional:** `user-group delete a b c`,
   `imaging resize-urls <id> <id>`.
 - **An item can be named instead of given by id** wherever the syntax below says `<id|alias>`,
@@ -115,8 +118,9 @@ umbraco data-type list --all
   is an `invalid_argument` error; the latter lists each match's id.
 - **Two inputs for one value are refused,** never silently resolved: `--content` with
   `--content-file`, a field flag beside `--json-body` on `content create` /
-  `document-blueprint create`, or one ISO code in both `--value` and `--value-file` on
-  `dictionary create` / `update`. Stdin is read once, so only one input can be `-`.
+  `document-blueprint create`, one key twice in a `key=value` option, or one ISO code in both
+  `--value` and `--value-file` on `dictionary create` / `update`. Stdin is read once, so only one
+  input can be `-`.
 - **Every write returns `data`:** `create`/`update`/`copy`/`upload` return the resulting item, other
   writes `{ "id": ... }` (or `{ "ids": [...] }`) of what they acted on.
 - **`update` merges:** omitted options keep their values; `--replace` (where offered) sends the item
@@ -292,7 +296,7 @@ umbraco content domain set <root-id> --default-culture en-US \
 
 The API replaces the whole set, so `--domain` **merges** into what is already bound, matched on
 hostname. Pass `--replace` to set exactly what you name and drop the rest. Each binding must be
-`host=isoCode`; a value with no `=` is refused.
+`host=isoCode`; a value with no `=` is refused, and so is a host given twice (ignoring case).
 
 ### How `content update` writes
 
@@ -738,7 +742,7 @@ alias + culture + segment, so setting one does not clear the rest. Two exception
   leaves the member's password untouched (no current password is needed - this is an admin
   reset). `--unlock` clears a lockout from failed logins.
 
-`--value` takes `alias=value`; a value with no `=` is refused.
+`--value` takes `alias=value`; a value with no `=` is refused, and so is an alias given twice.
 
 ## `member-type`
 
@@ -815,9 +819,9 @@ verbs separated by commas (`--document-permission 3f7a8b2e-...=Umb.Document.Read
 It is repeatable, and on that document it takes the place of the group's fallback permissions. On
 `update` it merges by document: the documents you name get the verbs you give, the group's other
 document permissions are kept, and `<id>=` with no verbs removes that document's entry so the
-fallback permissions apply to it again. Granular permissions of other kinds (per property value)
-are not set from the CLI, and an update always keeps them. There is no media equivalent in the
-Management API.
+fallback permissions apply to it again. A document is named once per command; the same id twice,
+in any spelling, is refused. Granular permissions of other kinds (per property value) are not set
+from the CLI, and an update always keeps them. There is no media equivalent in the Management API.
 
 ## `user-data`
 
@@ -853,7 +857,7 @@ file as UTF-8 and stores it exactly as the file holds it, final newline included
 HTML needs no shell quoting. `en-US=-` reads it from stdin, and only one `--value-file` can do
 that. Mix it with `--value` for other languages
 (`dictionary update Blog.Intro --value-file en-US=intro.md --value da-DK=Hej`), but give each ISO
-code once: the same code in both options is refused.
+code once: the same code twice, in one option or across both, is refused (ignoring case).
 
 `get`, `create`, `update` and `list` carry the item's `parent: {id}` (left out at the root), so
 you can see where an item lives without walking the tree.
@@ -895,11 +899,12 @@ removed (the webhook then fires for every type). It is destructive, so it needs 
 non-interactively. Events and the other fields keep their usual rules - omitted events are kept,
 because a webhook with no events never fires.
 
-`--header name=value` is repeat-only (a value may contain a comma) and is sent with every
-delivery - typically an API key the receiver checks. `--type` restricts the webhook to items
-of the given types: document types for content events, media types for media events, member
-types for member events. It takes ids or aliases; an alias is looked up across all three kinds
-and must name exactly one type; an unknown alias is refused with the nearest real one suggested.
+`--header name=value` is repeat-only (a value may contain a comma), takes each name once (ignoring
+case, as HTTP does), and is sent with every delivery - typically an API key the receiver checks.
+`--type` restricts the webhook to items of the given types: document types for content events,
+media types for media events, member types for member events. It takes ids or aliases; an alias
+is looked up across all three kinds and must name exactly one type; an unknown alias is refused
+with the nearest real one suggested.
 A filter the webhook's events can never match (only document types on media events, say) is
 refused, as Umbraco would never fire the webhook; a type given by id skips that check. With no
 `--type` the webhook fires for every type (the JSON field is `contentTypeKeys`, as Umbraco

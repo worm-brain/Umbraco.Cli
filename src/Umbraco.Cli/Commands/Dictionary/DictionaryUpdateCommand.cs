@@ -60,11 +60,6 @@ public static class DictionaryUpdateCommand
                     "Supply --key, --value or --value-file; there is nothing to update."
                 );
         });
-        KeyValuePairs.Validate(
-            cmd,
-            valuesOpt,
-            "--value must be isoCode=translation, e.g. en-US=Home"
-        );
         DictionaryTranslationInput.Validate(cmd, valuesOpt, valueFilesOpt);
 
         cmd.SetAction(

@@ -886,6 +886,117 @@ public class CommandParseTests
         Assert.False(HasErrors(args), $"Unexpected parse errors for: {args}");
     }
 
+    // ── key=value options take each key once (#444) ──────────────────────────────
+    // Two values for one key used to be settled silently - the last kept, or both sent for Umbraco
+    // to pick - which docs/conventions.md 4.5 rules out. Keys match the way each option's target
+    // matches them: ISO codes, hostnames and header names ignoring case, property aliases exactly,
+    // document ids as ids.
+
+    [Theory]
+    [InlineData(
+        "dictionary create --key Nav.Home --value en-US=Home --value en-US=Hi",
+        "--value",
+        "en-US"
+    )]
+    [InlineData(
+        "dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value en-US=Home --value EN-us=Hi",
+        "--value",
+        "en-US"
+    )]
+    [InlineData(
+        "dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value-file en-US=a.md --value-file en-us=b.md",
+        "--value-file",
+        "en-US"
+    )]
+    [InlineData(
+        "member update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company=Acme --value company=Initech",
+        "--value",
+        "company"
+    )]
+    [InlineData(
+        "media upload ./b.pdf --value title=Brochure --value title=Leaflet",
+        "--value",
+        "title"
+    )]
+    // An empty value is still a value for the key: "set it" and "clear it" in one call conflict.
+    [InlineData(
+        "media update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value title=Brochure --value title=",
+        "--value",
+        "title"
+    )]
+    [InlineData(
+        "content domain set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com=en-US --domain EXAMPLE.com=da-DK",
+        "--domain",
+        "example.com"
+    )]
+    [InlineData(
+        "webhook create --url https://example.com/hook --event Umbraco.ContentPublish --header X-Key=a --header x-key=b",
+        "--header",
+        "X-Key"
+    )]
+    [InlineData("webhook update Deploy --header X-Key=a --header X-Key=", "--header", "X-Key")]
+    [InlineData(
+        "user-group create --alias blogEditors --name Blog --document-permission 3f7a8b2e-1234-5678-abcd-ef0123456789=Umb.Document.Read --document-permission 3F7A8B2E-1234-5678-ABCD-EF0123456789=Umb.Document.Delete",
+        "--document-permission",
+        "3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    [InlineData(
+        "user-group update editors --document-permission 3f7a8b2e-1234-5678-abcd-ef0123456789=Umb.Document.Read --document-permission 3f7a8b2e12345678abcdef0123456789=",
+        "--document-permission",
+        "3f7a8b2e-1234-5678-abcd-ef0123456789"
+    )]
+    public void PairOption_RepeatedKey_IsRefusedNamingTheOptionAndKey(
+        string args,
+        string option,
+        string key
+    )
+    {
+        var error = Assert.Single(
+            Parse(args).Errors,
+            e => e.Message.Contains("Given more than once")
+        );
+
+        Assert.True(
+            error.Message.Contains(option) && error.Message.EndsWith($"once: {key}."),
+            $"Expected {option} and {key} named in: {error.Message}"
+        );
+    }
+
+    [Theory]
+    [InlineData("dictionary create --key Nav.Home --value en-US=Home --value da-DK=Hjem")]
+    [InlineData(
+        "dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value en-US=Home --value da-DK=Hjem"
+    )]
+    [InlineData(
+        "member update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value company=Acme --value city=Leeds"
+    )]
+    [InlineData("media upload ./b.pdf --value title=Brochure --value pages=12")]
+    [InlineData(
+        "media update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value title=Brochure --value summary="
+    )]
+    // Aliases match exactly, as Umbraco matches a value to its property type: Title is not title
+    // (and Umbraco refuses it as an unknown alias, rather than picking one).
+    [InlineData(
+        "media update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value title=Brochure --value Title=Leaflet"
+    )]
+    [InlineData(
+        "content domain set 3f7a8b2e-1234-5678-abcd-ef0123456789 --domain example.com=en-US --domain example.com/da=da-DK"
+    )]
+    [InlineData(
+        "webhook create --url https://example.com/hook --event Umbraco.ContentPublish --header X-Key=a --header X-Env=live"
+    )]
+    [InlineData("webhook update Deploy --header X-Key=a --header X-Env=")]
+    [InlineData(
+        "user-group create --alias blogEditors --name Blog --document-permission 3f7a8b2e-1234-5678-abcd-ef0123456789=Umb.Document.Read --document-permission 1a2b3c4d-1234-5678-abcd-ef0123456789=Umb.Document.Read"
+    )]
+    [InlineData(
+        "user-group update editors --document-permission 3f7a8b2e-1234-5678-abcd-ef0123456789=Umb.Document.Read --document-permission 1a2b3c4d-1234-5678-abcd-ef0123456789="
+    )]
+    public void PairOption_DistinctKeys_Parses(string args)
+    {
+        Assert.False(HasErrors(args), $"Unexpected parse errors for: {args}");
+    }
+
     // --value-file refusals are parse errors, so nothing is read or sent (docs/conventions.md 4.5).
     [Theory]
     [InlineData("dictionary update 3f7a8b2e-1234-5678-abcd-ef0123456789 --value-file en-US=")] // no file named

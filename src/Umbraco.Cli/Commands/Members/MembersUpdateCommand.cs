@@ -60,7 +60,12 @@ public static class MembersUpdateCommand
         cmd.Add(valueOpt);
         cmd.Add(passwordOpt);
         cmd.Add(unlockOpt);
-        KeyValuePairs.Validate(cmd, valueOpt, "--value must be alias=value, e.g. company=Acme");
+        KeyValuePairs.Validate(
+            cmd,
+            valueOpt,
+            "--value must be alias=value, e.g. company=Acme",
+            KeyValuePairs.PropertyAliases
+        );
         cmd.SetAction(
             (parseResult, ct) =>
                 executor.RunObjectAsync(
