@@ -193,3 +193,11 @@ Each exception is deliberate or tracked; don't copy it.
 - `completion <shell>` and `commands` are local tool commands, not resource nouns: they have no
   verb, and `completion`'s positional is `shell`, not `id`. `completion` prints a bare shell
   script, never the envelope, because a shell sources it.
+- `api get|post|put|patch|delete <path>` is the raw passthrough
+  ([ADR 0010](adr/0010-external-extension-commands.md)): its verbs are the HTTP methods, its
+  positional is a request `path`, not a selector `id`, and its writes take `--json-body` without
+  `--schema`, because the body's shape is whatever the path takes.
+- A top-level noun the tree does not have runs the `umbraco-<noun>` executable from PATH, an
+  extension command (ADR 0010). Its surface is its author's; the CLI keeps only the global context
+  options (`--host`, `--token`, `--config`, `--profile`, `--output`, `--readonly`, `--dry-run`),
+  wherever they appear.

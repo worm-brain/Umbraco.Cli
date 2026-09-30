@@ -64,3 +64,9 @@ test then guards that the endpoint exists in the (possibly regenerated) spec.
 > constants and helpers (`DataTypePath`, `SchemaSegment(kind)`) that a regex cannot resolve. An
 > endpoint no client test exercises is not checked; the Kiota request builders remain guarded
 > by the compiler.
+
+> **Amended (#438, ADR 0010):** the `umbraco api` passthrough sends a path the caller chose, which
+> may be a package's route under the Management API prefix that the spec cannot declare. The
+> contract is about the requests the client builds, so the passthrough marks its requests with a
+> request option and the test handlers skip only those. Every other request is still checked, and
+> a test pins that an unmarked undeclared request fails.

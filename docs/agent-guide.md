@@ -515,11 +515,39 @@ apply keeps the target's own. Domains stay per environment (`content domain set`
 The snapshot format is `"4"`. The CLI also reads format `"3"` files, which just have no file
 sections (so they don't manage files). An older file is refused - re-export it.
 
+### Endpoints no command covers: `umbraco api`
+
+For an endpoint the CLI has no command for, or a package's own API, send the request through
+`umbraco api` rather than calling the site yourself:
+
+```bash
+umbraco api get /umbraco/management/api/v1/server/status -o json
+umbraco api get "/umbraco/management/api/v1/tree/document/root?skip=0&take=10" -o json
+umbraco api post /umbraco/management/api/v1/language --json-body language.json --dry-run
+umbraco api delete /umbraco/management/api/v1/language/da-DK --yes
+```
+
+It is a command like any other: it uses the configured login and renews the token, and
+`--readonly`, `--dry-run` and the allow-list apply to it (`api` allows every verb, `api.get` only
+reads). The response body is `.data`, and a failure is the usual error envelope with Umbraco's
+body as `details`. The path must start `/umbraco/` and stays on the configured host. One verb per
+HTTP method: `get` is a read, `post`/`put`/`patch` are writes, and `delete` is destructive and
+needs `--yes` non-interactively. See [commands.md](commands.md#api-raw-requests).
+
+### Extension commands
+
+A package can ship its own noun as an `umbraco-<noun>` executable: when `umbraco` does not know a
+noun, it runs that executable from PATH. `umbraco commands` lists the ones installed, marked
+`"external": true`. Global options that set the context (`--host`, `--profile`, `--config`,
+`--output`, `--readonly`, `--dry-run`, `--token`) apply to every call the extension makes through
+the CLI, wherever you put them on the line. Under an allow-list, an extension needs its noun
+listed, plus the `api` verbs it calls. See [commands.md](commands.md#extension-commands).
+
 ### Getting a token for direct calls
 
-A direct Management API call uses the **same API user** the CLI is configured with, so there's
-no extra setup. Exchange the client credentials for a bearer token at the same endpoint the CLI
-uses:
+Prefer `umbraco api` (above). A direct Management API call uses the **same API user** the CLI is
+configured with, so there's no extra setup. Exchange the client credentials for a bearer token at
+the same endpoint the CLI uses:
 
 ```bash
 TOKEN=$(curl -s -X POST "$UMBRACO_HOST/umbraco/management/api/v1/security/back-office/token" \
@@ -538,8 +566,10 @@ Invoke-RestMethod -Uri "$env:UMBRACO_HOST/umbraco/management/api/v1/document/$ID
 ```
 
 Tokens are short-lived, so fetch one per script run rather than storing it. A direct call skips
-every guardrail in section 9 - `--readonly` and the allow-list constrain the CLI, not `curl`. If
-you're supervising an agent, that's a good reason to prefer a CLI command where one exists.
+every guardrail in section 9 - `--readonly`, `--dry-run` and the allow-list constrain the CLI,
+not a request sent around it. `umbraco api` sends the same request with all of them applied, so
+if you're supervising an agent, have it use a CLI command or `umbraco api`, and keep the client
+secret out of its reach.
 
 ## 9. Guardrails (for whoever supervises the agent)
 
@@ -564,11 +594,14 @@ command stops before running with exit `2` and category `not_allowed`.
   (`" "`, `","`) is a lockdown - nothing runs but the always-allowed `auth` group.
 - **Tighten-only:** every list in force applies, and a command must pass all of them:
   `UMBRACO_ALLOWED_COMMANDS`, and the `allowedCommands` of **every** profile in the default config
-  file (and, with `--config`, in that file too). So a list set on any profile applies to the whole
-  file, whichever profile is selected. Selecting another profile (`--profile`, `UMBRACO_PROFILE`),
-  changing the default (`auth profile use`), logging in to a new profile, pointing `--config` at
-  another file or setting the environment variable can only ever *tighten* access, never widen
-  it. To loosen a file's list, edit the file.
+  file (and, with `--config` or `UMBRACO_CONFIG`, in that file too). So a list set on any profile
+  applies to the whole file, whichever profile is selected. Selecting another profile
+  (`--profile`, `UMBRACO_PROFILE`), changing the default (`auth profile use`), logging in to a new
+  profile, pointing `--config` at another file or setting the environment variable can only ever
+  *tighten* access, never widen it. To loosen a file's list, edit the file.
+- **Extension commands:** an extension's noun is a group like any other (`content,foo`). The
+  calls it makes back through the CLI are checked as themselves, so an extension that reads the
+  site also needs `api.get` (or `api`) listed.
 
 ```bash
 # An agent that may only read content and media, and never write:
@@ -588,9 +621,9 @@ instance gets exit `2` (category `refused`) unless it also supplies its own `--t
 
 ### Preview writes
 
-`--dry-run` on any write prints the requests it would send (method, URL, body; secrets redacted)
-and exits `0` without changing anything (`"status": "dry-run"`). Use it to show a plan before
-committing to it.
+`--dry-run` (or `UMBRACO_DRY_RUN=1`) on any write prints the requests it would send (method, URL,
+body; secrets redacted) and exits `0` without changing anything (`"status": "dry-run"`). Use it to
+show a plan before committing to it.
 
 ---
 
