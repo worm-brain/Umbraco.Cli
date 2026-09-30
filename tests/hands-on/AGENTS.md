@@ -208,7 +208,7 @@ curl -sk -H "Authorization: Bearer $TOK" $H/umbraco/management/api/v1/document/<
 | `new-site.py`, `remove-site.py` | Create / remove one throwaway site (`--help` for options; `remove-site.py --list`) |
 | `dev-site.py` | The persistent `sites/dev` for the live integration suite (`up`, `down`, `test`, `env`, `reset`). Not part of a round: leave it alone |
 | `pack-cli.py` | Pack this checkout's CLI into `nupkg/` with a unique `0.1.0-local.<timestamp>` version |
-| `bench.py` | hyperfine timings per CLI build x Umbraco version on `sites/dev` (can reset it); results in `docs/performance/results/`. `bench.py report` regenerates the README's Performance section and `docs/performance.md` from them. Not part of a round |
+| `bench.py` | hyperfine timings per CLI build x Umbraco version on `sites/dev` (can reset it); results in `docs/performance/results/`. `bench.py report` regenerates `docs/performance.md` from them. Not part of a round |
 | `TEST-PLAN.md` | What to test: Part A (scripted) and T1–T10, pass criteria, Known issues per test |
 | `LEDGER.template.md`, `ledger-history.json` | The ledger's format (copy to the git-ignored `LEDGER.md` for a round); every filed id → its issue number |
 | `tools/build_site.py` | Part A: rebuild the fixture site with the CLI (ok/FAIL per step, timings) |
@@ -218,7 +218,7 @@ curl -sk -H "Authorization: Bearer $TOK" $H/umbraco/management/api/v1/document/<
 | `tools/webhook_listener.py` | T3: local webhook receiver |
 | `tools/file_issues.py` | File unfiled ledger rows as GitHub issues (+ optional tracking issue) |
 | `tools/harness.py` | Shared cross-platform plumbing: sites, the pinned CLI, start/stop, ports, HTTP |
-| `tools/perf_report.py` | `bench.py report`: renders the README's Performance block and `docs/performance.md` (and holds their prose) |
+| `tools/perf_report.py` | `bench.py report`: renders `docs/performance.md` (and holds its prose) |
 | `fixtures/` | `schema.json` + `content.json` (exports of the finished test site), images, PDFs |
 | `assets/` | Header/footer/block partials, site.css/js, and the contact form controller (C#, site code) |
 | `sites/`, `.cli/`, `nupkg/`, `round.env` | Created by a round; git-ignored |

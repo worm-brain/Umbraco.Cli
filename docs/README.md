@@ -5,7 +5,7 @@
 | Install, log in and run my first commands | [Getting started](getting-started.md) |
 | Use the CLI from scripts, CI or an AI agent | [Automation guide](agent-guide.md) |
 | Look up a command and its options | [Command reference](commands.md) |
-| See how fast it is, and how that's measured | [Performance](performance.md) |
+| Compare speed across versions | [Performance](performance.md) |
 | Work on the code | [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) |
 
 The CLI can also describe itself, with no site or login needed:

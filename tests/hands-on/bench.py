@@ -10,7 +10,7 @@ no live Umbraco instance (#139, #77).
   python3 bench.py --cli 0.1.0-alpha.6,local --umbraco 17,18
   python3 bench.py --scenario get,list --runs 20 --out-dir .cache/bench/scratch
   python3 bench.py --cli local --latency 25   also time each scenario through a proxy adding 25 ms per request
-  python3 bench.py report      regenerate README.md's Performance section and docs/performance.md; times nothing
+  python3 bench.py report      regenerate docs/performance.md from the results files; times nothing
 
 CLI builds (--cli, comma-separated):
   local          pack this checkout (pack-cli.py) and install that build
@@ -56,9 +56,8 @@ the smoke run each command reuses a cached token, as repeated commands do in rea
 The results file is docs/performance/results/<YYYY-MM-DD>_<HHMMSS>_<machine>.json (and .md). README.md
 (section "Benchmarks") documents its fields. To change what is timed, edit SCENARIOS below.
 
-`bench.py report` (tools/perf_report.py) reads every results file there and rewrites docs/performance.md and
-the block between the `<!-- perf:start -->` and `<!-- perf:end -->` lines in the repository's README.md. It
-needs neither hyperfine nor a site; `bench.py report --help` says what it quotes.
+`bench.py report` (tools/perf_report.py) reads every results file there and rewrites docs/performance.md. It
+needs neither hyperfine nor a site; `bench.py report --help` says what the page shows.
 """
 import argparse
 import collections
