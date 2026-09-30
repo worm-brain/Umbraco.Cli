@@ -440,3 +440,10 @@ src/Umbraco.Cli.Client/Generated/.kiota.log
 
 # Claude Code local session scratch (ship ledgers, settings, agents)
 .claude/
+
+# ── Performance runs ───────────────────────────────────────────────────────
+# bench.py's per-run markdown summary is printed and kept locally; the JSON beside it is the
+# committed source of docs/performance.md. ./bench/ holds local BenchmarkDotNet compare runs
+# (docs/performance-testing.md).
+docs/performance/results/*.md
+/bench/

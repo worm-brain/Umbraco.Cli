@@ -175,8 +175,9 @@ about twice it (the TCP and TLS handshakes). `--latency-only` skips the direct r
 
 Every run writes `docs/performance/results/<YYYY-MM-DD>_<HHMMSS>_<machine>.json` and a markdown summary with the same
 name and `.md`, which is also printed. The time is the run's start in UTC. `<machine>` is `--machine`, or a label
-made from the OS and CPU model (such as `windows-amd-ryzen-9-7950x`). The results are committed, so the history lives
-in the repo. hyperfine's own exports stay in `.cache/bench/runs/`, which git ignores.
+made from the OS and CPU model (such as `windows-amd-ryzen-9-7950x`). The JSON is committed, so the history lives in
+the repo and `bench.py report` can rebuild the performance page from any checkout; the `.md` summary is git-ignored.
+hyperfine's own exports stay in `.cache/bench/runs/`, which git ignores.
 
 The JSON is what other tools read (`bench.py report`). One file is one run on one machine:
 
