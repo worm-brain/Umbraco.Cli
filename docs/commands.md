@@ -101,7 +101,8 @@ umbraco data-type list --all
   `--culture en-US da-DK` and `--culture en-US --culture da-DK` are the same. This holds for
   every option that takes several values (`--culture`, `--order`, `--group`, `--user`,
   `--section`, `--fallback-permission`, `--exclude-type`, `--exclude-root`, `--level`, `--event`)
-  - but not for the `key=value` options (`--value`, `--domain`), whose values may contain a comma.
+  - but not for the `key=value` options (`--value`, `--value-file`, `--domain`), whose values may
+  contain a comma.
 - **Several targets known up front are positional:** `user-group delete a b c`,
   `imaging resize-urls <id> <id>`.
 - **An item can be named instead of given by id** wherever the syntax below says `<id|alias>`,
@@ -109,8 +110,9 @@ umbraco data-type list --all
   match their alias only). A reference that matches nothing, or a name that matches several items,
   is an `invalid_argument` error; the latter lists each match's id.
 - **Two inputs for one value are refused,** never silently resolved: `--content` with
-  `--content-file`, or a field flag beside `--json-body` on `content create` /
-  `document-blueprint create`.
+  `--content-file`, a field flag beside `--json-body` on `content create` /
+  `document-blueprint create`, or one ISO code in both `--value` and `--value-file` on
+  `dictionary create` / `update`. Stdin is read once, so only one input can be `-`.
 - **Every write returns `data`:** `create`/`update`/`copy`/`upload` return the resulting item, other
   writes `{ "id": ... }` (or `{ "ids": [...] }`) of what they acted on.
 - **`update` merges:** omitted options keep their values; `--replace` (where offered) sends the item
@@ -826,8 +828,8 @@ umbraco user-data delete <id>                              # needs --yes non-int
 umbraco dictionary list [--parent <key|id>]                # one level: the root, or the direct children of --parent
 umbraco dictionary tree [--parent <key|id>] [--recursive] [--depth <n>]   # walk the hierarchy, like content tree
 umbraco dictionary get <id|key>
-umbraco dictionary create --key <key> [--value en-US=Hello --value da-DK=Hej] [--parent <key|id>]   # --parent creates under an item
-umbraco dictionary update <id|key> [--key <key>] [--value en-US=Home ...]   # merges by ISO code
+umbraco dictionary create --key <key> [--value en-US=Hello --value da-DK=Hej] [--value-file en-US=<file|-> ...] [--parent <key|id>]   # --parent creates under an item
+umbraco dictionary update <id|key> [--key <key>] [--value en-US=Home ...] [--value-file en-US=<file|-> ...]   # merges by ISO code
 umbraco dictionary move <id|key> [--parent <key|id>]       # reparent; omit --parent to move to the root; --target works too
 umbraco dictionary delete <id|key> [--force]               # refused while it has child items unless --force; --yes non-interactively
 ```
@@ -836,6 +838,14 @@ umbraco dictionary delete <id|key> [--force]               # refused while it ha
 isn't one of the site's languages, so `create` checks them first and **fails with the list of
 configured codes**. Short codes are refused rather than guessed, since a site can have both
 `en-US` and `en-GB`. The item is read back afterwards, so what you see is what was stored.
+
+**Multi-line values go in a file:** `--value-file en-US=intro.md` reads the translation from the
+file as UTF-8 and stores it exactly as the file holds it, final newline included, so Markdown or
+HTML needs no shell quoting. `en-US=-` reads it from stdin, and only one `--value-file` can do
+that. Mix it with `--value` for other languages
+(`dictionary update Blog.Intro --value-file en-US=intro.md --value da-DK=Hej`), but give each ISO
+code once: the same code in both options is refused. Either way the value is stored as given, in
+whatever format the site uses, and `dictionary get` reports that format as `meta.valueFormat`.
 
 `get`, `create`, `update` and `list` carry the item's `parent: {id}` (left out at the root), so
 you can see where an item lives without walking the tree.
