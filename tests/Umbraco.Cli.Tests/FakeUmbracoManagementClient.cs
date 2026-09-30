@@ -1342,16 +1342,28 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    /// <summary>Recorded dictionary updates, in call order, with the translations as sent.</summary>
+    public List<(Guid Id, UpdateDictionaryItemRequest Request)> DictionaryItemsUpdated { get; } =
+    [];
+
+    /// <summary>Records the update and answers with the item's id and new name.</summary>
+    /// <param name="id">The item being updated.</param>
+    /// <param name="request">The update, recorded in <see cref="DictionaryItemsUpdated"/>.</param>
+    /// <param name="ct">Unused.</param>
+    /// <returns>A success carrying the id and name.</returns>
     public Task<UmbracoResponse<DictionaryItemResponse>> UpdateDictionaryItemAsync(
         Guid id,
         UpdateDictionaryItemRequest request,
         CancellationToken ct = default
-    ) =>
-        Task.FromResult(
+    )
+    {
+        DictionaryItemsUpdated.Add((id, request));
+        return Task.FromResult(
             UmbracoResponse<DictionaryItemResponse>.Success(
                 new DictionaryItemResponse { Id = id, Name = request.Name ?? "" }
             )
         );
+    }
 
     public Task<UmbracoResponse<Empty>> MoveDictionaryItemAsync(
         Guid id,
