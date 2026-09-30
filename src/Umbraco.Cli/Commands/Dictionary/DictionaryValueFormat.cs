@@ -18,16 +18,17 @@ public static class DictionaryValueFormat
     /// <param name="command">A dictionary command.</param>
     /// <returns>The same command.</returns>
     public static Command WithValueFormat(this Command command) =>
-        command.WithMeta(MetaKey, ReadAsync);
+        command.WithMeta(MetaKey, async (client, ct) => await ReadAsync(client, ct));
 
     /// <summary>
     /// Reads the site's dictionary value format, printing any problem with the declarations (two
-    /// packages disagreeing) as a warning on stderr, as the CLI's other warnings are.
+    /// packages disagreeing) as a warning on stderr, as the CLI's other warnings are. Shared with
+    /// <c>schema export</c>, which records the format in the snapshot (#442).
     /// </summary>
     /// <param name="client">The authenticated client.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The format, or null when the site's manifests could not be read.</returns>
-    private static async Task<object?> ReadAsync(
+    public static async Task<string?> ReadAsync(
         IUmbracoManagementClient client,
         CancellationToken ct
     )

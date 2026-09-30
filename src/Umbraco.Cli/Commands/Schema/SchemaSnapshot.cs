@@ -48,6 +48,20 @@ public sealed class SchemaSnapshot
     /// <summary>The layout versions this CLI reads: the current one, and "3", which predates the file sections.</summary>
     public static readonly IReadOnlyList<string> ReadableVersions = ["3", CurrentVersion];
 
+    /// <summary>
+    /// The format the exporting site stores dictionary translations in (#442): <c>text</c>,
+    /// <c>html</c> or <c>markdown</c>, as its packages declare it (ADR 0009). <c>schema diff</c> and
+    /// <c>schema apply</c> warn when it differs from the target's.
+    /// <para>
+    /// Null (and left out of the file) when unknown: a snapshot without dictionary items, one
+    /// written before the field existed, or a site whose manifests could not be read. It is an
+    /// optional header, so it does not change the layout version: older snapshots load as they
+    /// are, and an older CLI ignores it.
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("dictionaryValueFormat")]
+    public string? DictionaryValueFormat { get; set; }
+
     // Every section below is nullable, and null means ABSENT: the snapshot does not manage that
     // kind, so diff and apply skip it and --prune deletes none of it (#292 for the files, #198 for
     // the rest). A snapshot built in code starts with every type section present and empty, as an

@@ -41,8 +41,35 @@ public static class SchemaPipeline
         if (!normalised.IsSuccess)
             return UmbracoResponse<SchemaDiff>.FailureFrom(normalised);
 
-        return UmbracoResponse<SchemaDiff>.Success(
-            SchemaDiffEngine.Compare(desired, current.Data!)
-        );
+        var diff = SchemaDiffEngine.Compare(desired, current.Data!);
+        // Stderr, as the CLI's other warnings, so stdout stays the diff or apply report (#442).
+        if (FormatMismatch(desired, current.Data!, diff) is { } warning)
+            Console.Error.WriteLine($"warning: {warning}");
+        return UmbracoResponse<SchemaDiff>.Success(diff);
+    }
+
+    /// <summary>
+    /// The warning for promoting dictionary values between sites that store them in different
+    /// formats (#442), or null when there is nothing to warn about: either format is unknown, they
+    /// match, or no dictionary item would be written. A warning, never a refusal - the CLI stores
+    /// any value (ADR 0009).
+    /// </summary>
+    /// <param name="desired">The snapshot being promoted.</param>
+    /// <param name="live">The target's live export.</param>
+    /// <param name="diff">The diff between them.</param>
+    /// <returns>The warning text, or null.</returns>
+    public static string? FormatMismatch(
+        SchemaSnapshot desired,
+        SchemaSnapshot live,
+        SchemaDiff diff
+    )
+    {
+        var (from, to) = (desired.DictionaryValueFormat, live.DictionaryValueFormat);
+        // Deletes write no values, so only creates and updates count.
+        var written = diff.DictionaryItems.Added.Count + diff.DictionaryItems.Changed.Count;
+        if (from is null || to is null || from == to || written == 0)
+            return null;
+        return $"the snapshot's dictionary values are '{from}' but this site stores '{to}'; "
+            + $"{written} dictionary item(s) would be written as they are, without conversion.";
     }
 }

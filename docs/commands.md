@@ -1188,9 +1188,15 @@ How it works:
 - **Fidelity** - the snapshot stores each entity's verbatim Management-API body, so nothing is
   lost (document-type properties/compositions, data-type configuration, template Razor). The
   snapshot is
-  `{ schemaVersion, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[], partialViews[]?, stylesheets[]?, scripts[]? }`,
+  `{ schemaVersion, dictionaryValueFormat?, documentTypes[], mediaTypes[], memberTypes[], dataTypes[], templates[], languages[], dictionaryItems[], memberGroups[], userGroups[], partialViews[]?, stylesheets[]?, scripts[]? }`,
   at **snapshot version 4**. A version-3 snapshot has no static-file sections, so it is still
   read, with files not managed. Anything older is refused - re-export it.
+- **`dictionaryValueFormat` records how the source site stores dictionary values** (`text`,
+  `html` or `markdown`, as its packages declare it; see
+  [Declaring CLI support in your package](extensions.md)). When it differs from the target's and
+  `diff` or `apply` would write dictionary items, they print a `warning:` on stderr. They never
+  refuse: values are promoted as they are, without conversion. A snapshot without the field
+  (older, or exported from a site whose manifests could not be read) gives no warning.
 - **Two kinds are shaped, not verbatim** - a dictionary item gets its `parent` (the item read has
   none) and its translations sorted by ISO code. A user group leaves out its document and media
   start nodes and its per-document permissions, since they name content on one instance; apply
