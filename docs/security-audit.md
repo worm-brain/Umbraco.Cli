@@ -154,11 +154,20 @@ review starts from real coordinates. The copy-paste prompt spec is in the append
    **plaintext** and protected solely by file mode 600. Assess the co-tenant / backup / synced-
    home-dir exposure and whether that is clearly documented to operators.
 4. **Filesystem & process execution** (`SEC-FS`) - content/schema export writes, content/bulk
-   input reads, media upload, static-file commands. **Current state:** output paths come only
-   from the operator's `--out`, never from server data, and there is no process execution
-   anywhere - so no traversal/zip-slip/command-injection sink exists *today*. This lens is a
-   **regression guard**: flag the moment a future command derives a write path or a shell
-   command from server-controlled data.
+   input reads, media upload, static-file commands, extension commands. **Current state:** output
+   paths come only from the operator's `--out`, never from server data, so no
+   traversal/zip-slip sink exists *today*. There is exactly **one** deliberate process-execution
+   sink, `ExtensionProcess.RunAsync` (`src/Umbraco.Cli/Commands/Extensions/`), which runs an
+   extension command, `umbraco-<noun>` from PATH, under the constraints of
+   [ADR 0010](adr/0010-external-extension-commands.md): an exact lower-case kebab-case noun, only
+   absolute PATH entries, never a shell (on Windows an `.exe` only, never `.cmd`/`.bat`), the
+   arguments as a list rather than a joined string, stdio inherited and the exit code passed
+   through. The executable is named by the user's command line, never by server data. This lens
+   is a **regression guard**: flag any other process start, any shell, any argument joined into a
+   string, any loosening of the naming or PATH rules, and the moment a future command derives a
+   write path or a command from server-controlled data. The companion `umbraco api` passthrough
+   must stay confined to the configured host's `/umbraco/` routes (`PassthroughPath`), and a token
+   the CLI obtained must never reach an extension's environment (only a user-given `--token` may).
 5. **Untrusted server responses** (`SEC-FS`, output half) - the CLI trusts the server's JSON
    and prints it. Look for terminal-escape injection in human/rendered output, unbounded
    response handling (memory), and any future feature that writes server-named files.

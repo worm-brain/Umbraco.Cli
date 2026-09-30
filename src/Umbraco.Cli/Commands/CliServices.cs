@@ -83,6 +83,10 @@ public static class CliServices
             sp.GetRequiredService<CommandContextFactory>(),
             sp.GetRequiredService<IConfirmationPrompt>()
         ));
+        // Extension commands (ADR 0010), resolved only when a line names one.
+        services.AddSingleton(sp => new Extensions.ExtensionLauncher(
+            sp.GetRequiredService<CommandContextFactory>()
+        ));
 
         return services.BuildServiceProvider();
     }

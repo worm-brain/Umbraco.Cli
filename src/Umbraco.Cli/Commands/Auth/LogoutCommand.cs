@@ -34,7 +34,7 @@ public static class LogoutCommand
             (parseResult, ct) =>
             {
                 var writer = global.CreateWriter(parseResult);
-                var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
+                var store = ConfigStore.Resolve(global.ConfigPath(parseResult), configStore);
 
                 // Log out of the resolved profile; other profiles are kept. A profile carrying a
                 // command allow-list keeps that guardrail (only its credentials are cleared) so

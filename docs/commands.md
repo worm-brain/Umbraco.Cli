@@ -43,6 +43,8 @@ every command shares, see [agent-guide.md](agent-guide.md).
 - [`indexer` / `searcher`](#indexer--searcher)
 - [`imaging`](#imaging-read-only)
 - [`property-type`](#property-type-read-only)
+- [`api` (raw requests)](#api-raw-requests)
+- [Extension commands](#extension-commands)
 - [`schema` (export / diff / apply)](#schema-export--diff--apply)
 - [`content` (export / diff / apply)](#content-export--diff--apply)
 
@@ -55,16 +57,18 @@ Available on every command:
 | Option | Description |
 |---|---|
 | `--host <url>` | Umbraco instance base URL (overrides config). Stored or `UMBRACO_CLIENT_*` credentials are only sent to their own host, so a `--host` naming another instance needs `--token` (see [Where credentials are sent](#where-credentials-are-sent)). |
-| `--token <bearer>` | Raw bearer token (overrides stored credentials). |
-| `--output json\|human\|csv` | Output format. Default: `json` when piped, `human` in a terminal. `csv` is RFC-4180 and only ever explicit. |
+| `--token <bearer>` | Raw bearer token (overrides stored credentials). Also `UMBRACO_TOKEN`. |
+| `--output json\|human\|csv` | Output format. Default: `json` when piped, `human` in a terminal. `csv` is RFC-4180 and only ever explicit. Also `UMBRACO_OUTPUT`. |
 | `--quiet`, `-q` | Suppress the result of writes (the confirmation and its `data`), so a successful write prints nothing; reads, `health run` results, errors, `--dry-run` previews, a bulk run with failures, and exit codes still emitted. |
 | `--verbose` | Log each HTTP request and response to stderr: method, URL, headers, status, the request body and the first 4 KB of the response body (marked truncated beyond that). Also logs the token exchange and the `auth login` / `auth doctor` requests. Secrets are redacted: string values of any header, JSON property, form field or query parameter named like a password, secret, token, API key, authorization, cookie, credential, private key, passphrase, connection string or session id (separators ignored, so `X-Api-Key` matches); every webhook header value; the value of an `{alias, value}` pair with such an alias; and `user:pass@` in URLs. Numbers, booleans and dates are kept. Binary and multipart bodies are summarised by type and size. |
-| `--dry-run` | On a write command, print the request that would be sent (method, URL, body) and exit `0` without executing. A write that takes several requests (`user create --password`, `user update` with several changes) lists the later ones in order under `data.then`. Secrets are redacted as for `--verbose`. No effect on reads. |
+| `--dry-run` | On a write command, print the request that would be sent (method, URL, body) and exit `0` without executing. A write that takes several requests (`user create --password`, `user update` with several changes) lists the later ones in order under `data.then`. Secrets are redacted as for `--verbose`. No effect on reads. Also `UMBRACO_DRY_RUN=1`. |
 | `--yes`, `-y` | Skip the confirmation prompt on destructive commands. **Required** to run one non-interactively. |
 | `--readonly` | Block all writes for this session; reads still work. Also `UMBRACO_READONLY=1`. |
 | `--fields <a,b>` | Trim JSON output (or CSV columns) to these top-level fields, in order. |
 | `--profile <name>`, `-p` | Named credential profile (see [`auth`](#auth)); also `UMBRACO_PROFILE`. |
-| `--config <path>` | Path to the config file. |
+| `--config <path>` | Path to the config file. Also `UMBRACO_CONFIG`. |
+
+An option given on the command line wins over its environment variable.
 
 Colour in human output is disabled when `NO_COLOR` is set (any value) or when stdout is not a
 TTY.
@@ -127,8 +131,8 @@ umbraco content create --schema         # JSON Schema of a command's --json-body
 umbraco document-type create --example  # a real document type from the instance, to start from (needs a host)
 ```
 
-`--schema` means the same on every command that takes `--json-body`: the body's JSON Schema,
-printed offline. `--example` (on the document, media, member and data type verbs) prints a real
+`--schema` means the same on every command that takes `--json-body` (except the `api` verbs, whose
+body is whatever the path takes): the body's JSON Schema, printed offline. `--example` (on the document, media, member and data type verbs) prints a real
 item instead - the most useful starting point for a body the schema cannot fully describe. On
 `content create` it takes `--document-type` and prints a create body with an example value for
 every property of that type (see [Property value formats](#property-value-formats-for---json-body)).
@@ -136,7 +140,9 @@ every property of that type (see [Property value formats](#property-value-format
 In the catalog every option and argument carries its `default` (when it has one) and, when it is
 required only without some other option, `requiredUnless` (the options that make it
 unnecessary). A `--json-body` command carries `jsonBodySchema`, the command line that prints its
-body's schema. Every command with help examples lists them in `examples`.
+body's schema. Every command with help examples lists them in `examples`. Extension commands
+found on PATH are listed after the built-in ones, marked `"external": true` (see
+[Extension commands](#extension-commands)).
 
 See [agent-guide.md](agent-guide.md#1-discover-the-surface-umbraco-commands) for details.
 
@@ -180,6 +186,9 @@ authentication, resolved identity, instance version, supported version), reports
 `pass`/`fail`/`warn`/`skip` with a remediation hint, and exits `1` if any check hard-fails
 (warnings do not fail the run). The supported-version check warns, naming both versions, when the
 instance's Umbraco major is outside the range this build was tested against (currently 17.x-18.x).
+Last, for each extension command the site's packages declare (`commandTool`, see
+[Declaring CLI support in your package](extensions.md)), it passes when `umbraco-<noun>` is on
+PATH and warns with the `dotnet tool install` line when it isn't.
 Run it first in any new environment. See [getting-started.md](getting-started.md#5-confirm-it-works).
 
 ### Where credentials are sent
@@ -1072,6 +1081,65 @@ umbraco property-type is-used --document-type <id|alias> --alias <alias>
 
 An `--alias` that neither the type nor its compositions has fails with `invalid_argument`,
 listing the aliases it does have, rather than answering `false`.
+
+## `api` (raw requests)
+
+Send one request to the site and get the response in the standard envelope, with every guardrail
+a built-in command has. Use it for an endpoint no command covers yet, or a package's own API.
+
+```bash
+umbraco api get <path>                                  # a read; the response body is .data
+umbraco api post <path> [--json-body <file|->]          # a write: --readonly refuses it, --dry-run previews it
+umbraco api put <path> [--json-body <file|->]
+umbraco api patch <path> [--json-body <file|->]
+umbraco api delete <path> [--json-body <file|->] --yes  # destructive: --yes is required non-interactively
+```
+
+```bash
+umbraco api get /umbraco/management/api/v1/server/status
+umbraco api get "/umbraco/management/api/v1/tree/document/root?skip=0&take=10"
+umbraco api post /umbraco/management/api/v1/language --json-body language.json --dry-run
+```
+
+- **The path** is from the site's root and starts `/umbraco/`, with any query string: the
+  Management API, the Delivery API or a package's own routes. A full URL, a path outside
+  `/umbraco/`, or one with a `.` or `..` segment is an `invalid_argument` error, so nothing is sent
+  anywhere but the configured host.
+- **It runs like any other command:** the configured login (or `--token`), `--readonly`,
+  `--dry-run`, the allow-list (`api`, or a single verb such as `api.get`) and token renewal all
+  apply, and a failure carries Umbraco's error body as `details`.
+- **The response body** is `data`: `{}` when there is none (a create answers with no body, so put
+  the new id in the body you send), and a string when it is not JSON.
+- **`--json-body`** is sent as it is. There is no `--schema`: the body's shape is whatever the
+  path takes.
+
+## Extension commands
+
+A package can add its own noun. When a command line starts with a noun the CLI does not have, it
+runs `umbraco-<noun>` from PATH with the rest of the line, and exits with its exit code:
+
+```text
+umbraco foo export --all        runs  umbraco-foo export --all
+```
+
+- **Built-in nouns always win,** and a noun with no `umbraco-<noun>` on PATH is the usual
+  parse error.
+- **Found by exact name only:** on Windows `umbraco-foo.exe` (never a `.cmd` or `.bat`), elsewhere
+  an executable file `umbraco-foo`, in an absolute PATH directory. The CLI never starts a shell.
+- **The context options are the CLI's.** `--host`, `--token`, `--config`, `--profile`,
+  `--output`, `--readonly` and `--dry-run` are taken out of the line wherever they appear (before
+  a `--`) and given to the extension as `UMBRACO_*` variables, so every call it makes back through
+  the CLI runs with them: `umbraco foo purge --dry-run` previews its writes. Everything else,
+  including `--yes`, `--quiet`, `--verbose`, `--fields` and `--help`, is passed to the extension.
+- **A token reaches an extension only if you pass `--token`.** A token the CLI got from your
+  client credentials is never handed on.
+- **Allow-list:** the noun is its own group (`UMBRACO_ALLOWED_COMMANDS=content,foo`). The
+  extension's own calls are checked as the commands they are, so one that reads the site also
+  needs `api.get`.
+- `umbraco commands` lists the extensions on PATH, marked `"external": true`, without running
+  them.
+
+To write one, see [extension-commands.md](extension-commands.md).
 
 ## `schema` (export / diff / apply)
 

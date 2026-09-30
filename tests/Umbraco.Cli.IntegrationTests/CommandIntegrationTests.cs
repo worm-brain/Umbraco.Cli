@@ -619,6 +619,33 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     }
 
     [SkippableFact]
+    public void ApiGet_ServerStatus_ReturnsTheResponseBodyAsData()
+    {
+        RequireLive();
+
+        var result = CliRunner.Run("api", "get", "/umbraco/management/api/v1/server/status");
+
+        Assert.True(result.Ok, result.Stderr);
+        Assert.Equal("Run", result.Data().GetProperty("serverStatus").GetString());
+    }
+
+    [SkippableFact]
+    public void ApiPost_UnderReadOnly_IsRefusedBeforeItIsSent()
+    {
+        RequireLive();
+
+        // The passthrough keeps the guardrails (ADR 0010): a raw write is refused under --readonly.
+        var result = CliRunner.Run(
+            "api",
+            "post",
+            "/umbraco/management/api/v1/language",
+            "--readonly"
+        );
+
+        Assert.Equal(2, result.ExitCode);
+    }
+
+    [SkippableFact]
     public void AllowList_RestrictsCommandSurface()
     {
         RequireLive();

@@ -31,7 +31,7 @@ public static class ProfilesCommand
             (parseResult, ct) =>
             {
                 var writer = global.CreateWriter(parseResult);
-                var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
+                var store = ConfigStore.Resolve(global.ConfigPath(parseResult), configStore);
                 var (names, defaultProfile) = store.ListProfiles();
 
                 var rows = names

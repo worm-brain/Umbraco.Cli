@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Commands.Extensions;
 using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Config;
 using Umbraco.Cli.Infrastructure.Output;
@@ -48,10 +49,10 @@ public static class AuthDoctorCommand
             async (parseResult, ct) =>
             {
                 var writer = global.CreateWriter(parseResult);
-                var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
+                var store = ConfigStore.Resolve(global.ConfigPath(parseResult), configStore);
                 var config = store.Load(parseResult.GetValue(global.Profile));
                 var host = parseResult.GetValue(global.Host) ?? config.Host;
-                var tokenOverride = parseResult.GetValue(global.Token);
+                var tokenOverride = global.TokenOf(parseResult);
 
                 var checks = await RunChecksAsync(
                     host,
@@ -92,8 +93,12 @@ public static class AuthDoctorCommand
     /// </param>
     /// <param name="httpClientFactory">Factory for the diagnostic HTTP probes.</param>
     /// <param name="authService">The client-credentials token service.</param>
-    /// <param name="clientFactory">Factory for the typed client (identity check).</param>
+    /// <param name="clientFactory">Factory for the typed client (identity and package checks).</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <param name="extensions">
+    /// Where extension commands are looked up (#438); null for this process's PATH. Tests pass a
+    /// made-up one.
+    /// </param>
     /// <returns>The ordered check results.</returns>
     public static async Task<IReadOnlyList<DoctorCheck>> RunChecksAsync(
         string? host,
@@ -102,7 +107,8 @@ public static class AuthDoctorCommand
         IHttpClientFactory httpClientFactory,
         UmbracoAuthService authService,
         IUmbracoManagementClientFactory clientFactory,
-        CancellationToken ct
+        CancellationToken ct,
+        ExtensionLocator? extensions = null
     )
     {
         var checks = new List<DoctorCheck>();
@@ -371,7 +377,109 @@ public static class AuthDoctorCommand
         // mismatch is the first thing to suspect when a later command misbehaves.
         checks.Add(SupportedVersionCheck(version));
 
+        // 8. Extension commands (#438) - the tools the site's packages say add their own commands,
+        // and whether each is on PATH. A missing one is a warning with the install line, never a
+        // failure: the CLI works without it.
+        checks.AddRange(
+            await ExtensionCommandChecksAsync(
+                host,
+                bearer,
+                httpClientFactory,
+                clientFactory,
+                extensions ?? ExtensionLocator.FromEnvironment(),
+                ct
+            )
+        );
+
         return checks;
+    }
+
+    /// <summary>
+    /// Reads the <c>commandTool</c> declarations of the site's packages (ADR 0009, ADR 0010) and
+    /// checks each against PATH. Best-effort: a site whose manifests cannot be read is a warning.
+    /// </summary>
+    /// <param name="host">The validated host.</param>
+    /// <param name="bearer">The access token, or null when there is none.</param>
+    /// <param name="httpClientFactory">Factory for the HTTP client.</param>
+    /// <param name="clientFactory">Factory for the typed client.</param>
+    /// <param name="extensions">Where extension commands are looked up.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>One check per declared tool, or a single skip or warning.</returns>
+    private static async Task<IReadOnlyList<DoctorCheck>> ExtensionCommandChecksAsync(
+        string host,
+        string? bearer,
+        IHttpClientFactory httpClientFactory,
+        IUmbracoManagementClientFactory clientFactory,
+        ExtensionLocator extensions,
+        CancellationToken ct
+    )
+    {
+        const string check = "Extension commands";
+        if (string.IsNullOrEmpty(bearer))
+            return [new DoctorCheck(check, "skip", "No token available.")];
+
+        SiteCapabilities capabilities;
+        try
+        {
+            using var http = httpClientFactory.CreateClient();
+            http.Timeout = TimeSpan.FromSeconds(10);
+            http.BaseAddress = new Uri(host.TrimEnd('/') + "/");
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                bearer
+            );
+            capabilities = await clientFactory.Create(http).GetSiteCapabilitiesAsync(ct);
+        }
+        catch (Exception ex)
+            when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            return
+            [
+                new DoctorCheck(check, "warn", $"Could not read the site's packages: {ex.Message}"),
+            ];
+        }
+
+        return capabilities.Unavailable is { } reason
+            ? [new DoctorCheck(check, "warn", $"Could not read the site's packages: {reason}")]
+            : ExtensionCommandChecks(capabilities.CommandTools, extensions);
+    }
+
+    /// <summary>
+    /// One check per declared tool: pass when <c>umbraco-&lt;noun&gt;</c> is on PATH, warn with the
+    /// <c>dotnet tool install</c> line when it is not, and a single skip when the site declares none.
+    /// A declaration whose noun cannot name a command is ignored.
+    /// </summary>
+    /// <param name="tools">The site's declared tools.</param>
+    /// <param name="extensions">Where extension commands are looked up.</param>
+    /// <returns>The checks.</returns>
+    internal static IReadOnlyList<DoctorCheck> ExtensionCommandChecks(
+        IReadOnlyList<DeclaredCommandTool> tools,
+        ExtensionLocator extensions
+    )
+    {
+        var declared = tools.Where(t => ExtensionLocator.IsNoun(t.Noun)).ToList();
+        if (declared.Count == 0)
+            return
+            [
+                new DoctorCheck("Extension commands", "skip", "The site's packages declare none."),
+            ];
+        return
+        [
+            .. declared.Select(t =>
+                extensions.Find(t.Noun) is { } path
+                    ? new DoctorCheck(
+                        $"Extension command '{t.Noun}'",
+                        "pass",
+                        $"{t.Package}: installed ({path})."
+                    )
+                    : new DoctorCheck(
+                        $"Extension command '{t.Noun}'",
+                        "warn",
+                        $"{t.Package} adds 'umbraco {t.Noun}'. Install it with: "
+                            + $"dotnet tool install -g {t.ToolPackage}"
+                    )
+            ),
+        ];
     }
 
     /// <summary>

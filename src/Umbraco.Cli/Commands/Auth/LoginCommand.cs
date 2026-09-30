@@ -50,7 +50,7 @@ public static class LoginCommand
             async (parseResult, ct) =>
             {
                 // The format decides whether to prompt for missing values (never under JSON).
-                var outputFormat = OutputFormatParser.Parse(parseResult.GetValue(global.Output));
+                var outputFormat = global.FormatOf(parseResult);
                 var writer = global.CreateWriter(parseResult);
 
                 var host =
@@ -109,7 +109,7 @@ public static class LoginCommand
                     return (int)ExitCode.Aborted;
                 }
 
-                var store = ConfigStore.Resolve(parseResult.GetValue(global.Config), configStore);
+                var store = ConfigStore.Resolve(global.ConfigPath(parseResult), configStore);
                 // Resolved once, so the save and the response name the same profile (#303).
                 var profile = store.ResolveProfileName(parseResult.GetValue(global.Profile));
                 // Save preserves the profile's existing allow-list (#69), so no manual merge is

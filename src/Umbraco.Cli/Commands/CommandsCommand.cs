@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Text;
+using Umbraco.Cli.Commands.Extensions;
 using Umbraco.Cli.Infrastructure;
 using Umbraco.Cli.Infrastructure.Output;
 
@@ -11,7 +12,8 @@ namespace Umbraco.Cli.Commands;
 /// one-line help — in a single call instead of scraping <c>--help</c>. It is a local
 /// introspection command: it makes no API call and needs no host or authentication.
 /// JSON (the default, and what agents want) returns the structured tree; <c>--output human</c>
-/// prints an indented outline.
+/// prints an indented outline. Extension commands found on PATH are listed after the built-in
+/// ones, marked <c>external</c>, without being run (ADR 0010).
 /// </summary>
 public static class CommandsCommand
 {
@@ -40,8 +42,12 @@ public static class CommandsCommand
         cmd.SetAction(
             (parseResult, _) =>
             {
-                var catalog = CommandCatalog.Describe(root);
-                var format = OutputFormatParser.Parse(parseResult.GetValue(globalOptions.Output));
+                // Extension commands on PATH are listed, never run (ADR 0010).
+                var catalog = CommandCatalog.WithExternals(
+                    CommandCatalog.Describe(root),
+                    ExtensionLocator.FromEnvironment().List().Select(e => (e.Noun, e.Executable))
+                );
+                var format = globalOptions.FormatOf(parseResult);
                 if (format == OutputFormat.Human)
                     Console.WriteLine(RenderHuman(catalog));
                 else

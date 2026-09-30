@@ -31,14 +31,19 @@ namespace Umbraco.Cli.Infrastructure;
 /// </param>
 /// <param name="DestructiveWhen">The option that makes the command destructive, when it only is with it.</param>
 /// <param name="JsonBodySchema">
-/// For a command that takes <c>--json-body</c>, the command line that prints the body's JSON Schema
-/// offline (e.g. <c>umbraco content create --schema</c>) (#84). A pointer rather than the schema
+/// For a command that takes <c>--json-body</c> and has <c>--schema</c>, the command line that prints
+/// the body's JSON Schema offline (e.g. <c>umbraco content create --schema</c>) (#84). A pointer rather than the schema
 /// itself, which would make the catalog many times larger for a caller that needs one body.
 /// </param>
 /// <param name="Examples">
 /// The command's help examples as a list, one command line each (#276): the same lines the
 /// <c>Examples:</c> block in <see cref="Description"/> shows, so an agent need not cut them back out
 /// of the text. Null when the command declares none.
+/// </param>
+/// <param name="External">
+/// True for an extension command: an <c>umbraco-&lt;noun&gt;</c> executable found on PATH, which the
+/// catalog names without running it, so it has no arguments, options or examples here (ADR 0010).
+/// Null (and absent from the JSON) for every built-in command.
 /// </param>
 public sealed record CommandCatalogNode(
     string Name,
@@ -51,7 +56,8 @@ public sealed record CommandCatalogNode(
     bool AcceptsJsonBody = false,
     string? DestructiveWhen = null,
     string? JsonBodySchema = null,
-    IReadOnlyList<string>? Examples = null
+    IReadOnlyList<string>? Examples = null,
+    bool? External = null
 );
 
 /// <summary>A positional argument in the catalog.</summary>
@@ -111,6 +117,35 @@ public static class CommandCatalog
     public static CommandCatalogNode Describe(Command command) =>
         Describe(command, command is RootCommand ? "umbraco" : command.Name);
 
+    /// <summary>
+    /// Adds the extension commands found on PATH to a described tree, as top-level nodes marked
+    /// <c>external</c> (ADR 0010). One whose noun a built-in command already has is left out: the
+    /// built-in always runs. Only <c>umbraco commands</c> adds them, at run time; the committed
+    /// surface (<c>docs/surface.json</c>) is the built-in tree alone, the same on every machine.
+    /// </summary>
+    /// <param name="root">The described root, from <see cref="Describe(Command)"/>.</param>
+    /// <param name="extensions">The extensions found, e.g. by <c>ExtensionLocator.List</c>.</param>
+    /// <returns>The root with the extensions appended after the built-in commands.</returns>
+    public static CommandCatalogNode WithExternals(
+        CommandCatalogNode root,
+        IEnumerable<(string Noun, string Executable)> extensions
+    )
+    {
+        var builtIn = root.Commands.Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
+        var external = extensions
+            .Where(e => !builtIn.Contains(e.Noun))
+            .Select(e => new CommandCatalogNode(
+                e.Noun,
+                $"Run {e.Executable}, an extension command. Run 'umbraco {e.Noun} --help' for "
+                    + "its usage.",
+                [],
+                [],
+                [],
+                External: true
+            ));
+        return root with { Commands = [.. root.Commands, .. external] };
+    }
+
     /// <summary>Describes a command and everything beneath it, knowing its full command line.</summary>
     /// <param name="command">The command to describe.</param>
     /// <param name="path">The command line that invokes it (e.g. <c>umbraco content create</c>).</param>
@@ -144,9 +179,11 @@ public static class CommandCatalog
             destructive,
             acceptsJsonBody,
             destructiveWhen,
-            // Every --json-body comes with --schema (JsonBodyOption adds both), so the pointer is
-            // always a command that runs.
-            acceptsJsonBody ? path + " --schema" : null,
+            // Only where --schema exists, so the pointer is always a command that runs. JsonBodyOption
+            // adds both; the api verbs take a body with no schema (docs/conventions.md 9).
+            acceptsJsonBody && command.Options.Any(o => o.Name == "--schema")
+                ? path + " --schema"
+                : null,
             // Null rather than empty when there are none, so the field is simply absent from the
             // JSON of a command without examples (the serializer drops nulls).
             CommandExamples.Of(command)

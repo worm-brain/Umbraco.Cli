@@ -20,6 +20,23 @@
         "dictionaryValueFormat": {
           "enum": ["text", "html", "markdown"],
           "description": "The format this site stores dictionary translations in."
+        },
+        "commandTool": {
+          "type": "object",
+          "description": "The .NET tool that adds this package's own commands. See docs/extension-commands.md.",
+          "required": ["noun", "package"],
+          "properties": {
+            "noun": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+              "description": "The command noun: the tool installs umbraco-<noun>."
+            },
+            "package": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The tool's NuGet package id, for dotnet tool install."
+            }
+          }
         }
       },
       "additionalProperties": true

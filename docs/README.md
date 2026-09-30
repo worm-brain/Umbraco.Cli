@@ -5,6 +5,8 @@
 | Install, log in and run my first commands | [Getting started](getting-started.md) |
 | Use the CLI from scripts, CI or an AI agent | [Automation guide](agent-guide.md) |
 | Look up a command and its options | [Command reference](commands.md) |
+| Call an endpoint no command covers, with the guardrails | [`umbraco api`](commands.md#api-raw-requests) |
+| Add my package's own commands to `umbraco` | [Writing an extension command](extension-commands.md) |
 | Compare speed across versions | [Performance](performance.md) |
 | Tell the CLI what my Umbraco package changes | [Declaring CLI support in your package](extensions.md) |
 | Work on the code | [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) |

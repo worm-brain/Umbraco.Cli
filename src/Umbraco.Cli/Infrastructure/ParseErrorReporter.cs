@@ -43,7 +43,7 @@ public static class ParseErrorReporter
         OutputFormat? requested = null;
         try
         {
-            requested = OutputFormatParser.Parse(parsed.GetValue(globalOptions.Output));
+            requested = globalOptions.FormatOf(parsed);
         }
         catch (InvalidOperationException)
         {

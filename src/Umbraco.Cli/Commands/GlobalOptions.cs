@@ -48,7 +48,8 @@ public sealed class GlobalOptions
     public Option<string?> Token { get; } =
         new("--token")
         {
-            Description = "Raw bearer token (overrides credential store).",
+            Description =
+                "Raw bearer token (overrides credential store). Also settable with UMBRACO_TOKEN.",
             Recursive = true,
         };
 
@@ -56,7 +57,8 @@ public sealed class GlobalOptions
         new("--output", new[] { "-o" })
         {
             Description =
-                "Output format: json | human | csv (default: json when piped, human in terminal).",
+                "Output format: json | human | csv (default: json when piped, human in terminal). "
+                + "Also settable with UMBRACO_OUTPUT.",
             Recursive = true,
         };
 
@@ -82,7 +84,8 @@ public sealed class GlobalOptions
         {
             Description =
                 "Preview the HTTP requests a write command would send (method, URL, body; secrets "
-                + "redacted) without executing them. No effect on read commands.",
+                + "redacted) without executing them. No effect on read commands. Can also be set "
+                + "with UMBRACO_DRY_RUN=1.",
             Recursive = true,
         };
 
@@ -116,7 +119,9 @@ public sealed class GlobalOptions
     public Option<string?> Config { get; } =
         new("--config")
         {
-            Description = $"Path to config file (default: {ConfigStore.DefaultConfigPath}).",
+            Description =
+                $"Path to config file (default: {ConfigStore.DefaultConfigPath}). "
+                + "Also settable with UMBRACO_CONFIG.",
             Recursive = true,
         };
 
@@ -128,6 +133,72 @@ public sealed class GlobalOptions
                 + "Also settable with UMBRACO_PROFILE. Defaults to the configured default profile.",
             Recursive = true,
         };
+
+    // ── Environment defaults (ADR 0010) ───────────────────────────────────────
+    //
+    // An extension command's calls back into the CLI run in the context of the command line that
+    // launched it. The launcher passes the context options it was given as these variables, and
+    // every command reads them as the option's default: an explicit option on the command line
+    // still wins. --profile, --readonly and --host already had variables (UMBRACO_PROFILE,
+    // UMBRACO_READONLY, UMBRACO_HOST), read where they always were.
+
+    /// <summary>The variable read as the default of <c>--config</c>.</summary>
+    public const string ConfigVariable = "UMBRACO_CONFIG";
+
+    /// <summary>The variable read as the default of <c>--token</c>.</summary>
+    public const string TokenVariable = "UMBRACO_TOKEN";
+
+    /// <summary>The variable read as the default of <c>--output</c>.</summary>
+    public const string OutputVariable = "UMBRACO_OUTPUT";
+
+    /// <summary>The variable that turns <c>--dry-run</c> on, like <c>UMBRACO_READONLY</c> does <c>--readonly</c>.</summary>
+    public const string DryRunVariable = "UMBRACO_DRY_RUN";
+
+    /// <summary>The variable that turns <c>--readonly</c> on.</summary>
+    public const string ReadOnlyVariable = "UMBRACO_READONLY";
+
+    /// <summary>The config file path: <c>--config</c>, else <c>UMBRACO_CONFIG</c>.</summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <returns>The path, or null for the default config file.</returns>
+    public string? ConfigPath(ParseResult parseResult) =>
+        parseResult.GetValue(Config) ?? FromEnvironment(ConfigVariable);
+
+    /// <summary>The caller's own bearer token: <c>--token</c>, else <c>UMBRACO_TOKEN</c>.</summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <returns>The token, or null to use the configured client credentials.</returns>
+    public string? TokenOf(ParseResult parseResult) =>
+        parseResult.GetValue(Token) ?? FromEnvironment(TokenVariable);
+
+    /// <summary>
+    /// The output format asked for: <c>--output</c>, else <c>UMBRACO_OUTPUT</c>. An unrecognised
+    /// variable value is ignored, as if unset; an unrecognised option value never gets here (the
+    /// validator refuses it at parse time).
+    /// </summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <returns>The format, or null to decide by whether stdout is a terminal.</returns>
+    public OutputFormat? FormatOf(ParseResult parseResult) =>
+        OutputFormatParser.Parse(parseResult.GetValue(Output))
+        ?? OutputFormatParser.Parse(FromEnvironment(OutputVariable));
+
+    /// <summary>Whether writes are previewed rather than sent: <c>--dry-run</c> or a truthy <c>UMBRACO_DRY_RUN</c>.</summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <returns>True under a dry run.</returns>
+    public bool IsDryRun(ParseResult parseResult) =>
+        parseResult.GetValue(DryRun) || EnvironmentFlags.IsOn(DryRunVariable);
+
+    /// <summary>Whether writes are refused: <c>--readonly</c> or a truthy <c>UMBRACO_READONLY</c>.</summary>
+    /// <param name="parseResult">The parsed command line.</param>
+    /// <returns>True in read-only mode.</returns>
+    public bool IsReadOnly(ParseResult parseResult) =>
+        parseResult.GetValue(ReadOnly) || EnvironmentFlags.IsOn(ReadOnlyVariable);
+
+    /// <summary>A variable's value, or null when it is unset or blank.</summary>
+    /// <param name="name">The variable name.</param>
+    /// <returns>The value, or null.</returns>
+    private static string? FromEnvironment(string name) =>
+        Environment.GetEnvironmentVariable(name) is { } value && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : null;
 
     /// <summary>
     /// Builds the output writer a command asked for: <c>--output</c>, <c>--fields</c> and
@@ -141,11 +212,11 @@ public sealed class GlobalOptions
     /// <returns>The writer.</returns>
     public IOutputWriter CreateWriter(ParseResult parseResult) =>
         OutputWriterFactory.Create(
-            OutputFormatParser.Parse(parseResult.GetValue(Output)),
+            FormatOf(parseResult),
             ParseFields(parseResult.GetValue(Fields)),
             parseResult.GetValue(Quiet),
             isWrite: CommandSafety.QuietDropsResult(parseResult.CommandResult.Command)
-                && !parseResult.GetValue(DryRun)
+                && !IsDryRun(parseResult)
         );
 
     /// <summary>
@@ -166,19 +237,24 @@ public sealed class GlobalOptions
         return fields.Length > 0 ? fields : null;
     }
 
+    /// <summary>Every global option, in the order help lists them.</summary>
+    public IReadOnlyList<Option> All =>
+        [Host, Token, Output, Quiet, Verbose, DryRun, Yes, ReadOnly, Fields, Config, Profile];
+
+    /// <summary>
+    /// The options that say where and how requests run, which an extension command's line hands
+    /// to its calls back into the CLI (ADR 0010) rather than to the extension. The rest of
+    /// <see cref="All"/> (<c>--yes</c>, <c>--quiet</c>, <c>--verbose</c>, <c>--fields</c>) are
+    /// passed to the extension as arguments, for it to act on or forward.
+    /// </summary>
+    public IReadOnlyList<Option> Context =>
+        [Host, Token, Output, DryRun, ReadOnly, Config, Profile];
+
     /// <summary>Adds every global option to the supplied (root) command.</summary>
+    /// <param name="command">The root command.</param>
     public void AddTo(Command command)
     {
-        command.Add(Host);
-        command.Add(Token);
-        command.Add(Output);
-        command.Add(Quiet);
-        command.Add(Verbose);
-        command.Add(DryRun);
-        command.Add(Yes);
-        command.Add(ReadOnly);
-        command.Add(Fields);
-        command.Add(Config);
-        command.Add(Profile);
+        foreach (var option in All)
+            command.Add(option);
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Umbraco.Cli.Client;
 
 namespace Umbraco.Cli.Tests;
 
@@ -46,7 +47,9 @@ internal static class ManagementSpec
     /// Fails when <paramref name="request"/> is a Management API call the spec does not declare.
     /// Test HTTP handlers call this on every request they answer, which makes every client test a
     /// contract test. Requests outside the Management API (another host's token endpoint, an
-    /// arbitrary test URL) are not checked.
+    /// arbitrary test URL) are not checked, and neither is a request the <c>umbraco api</c>
+    /// passthrough sent: its path is the caller's, which may be a package's own route the spec
+    /// cannot know (ADR 0001, amended for ADR 0010). The passthrough marks those requests itself.
     /// </summary>
     /// <param name="request">The request a client sent.</param>
     /// <exception cref="WireAssertionException">
@@ -58,6 +61,7 @@ internal static class ManagementSpec
         var path = request.RequestUri!.AbsolutePath;
         if (
             path.StartsWith(ApiPrefix, StringComparison.OrdinalIgnoreCase)
+            && !PassthroughRequestOption.IsOn(request)
             && !Declares(request.Method, path)
         )
             throw new WireAssertionException(

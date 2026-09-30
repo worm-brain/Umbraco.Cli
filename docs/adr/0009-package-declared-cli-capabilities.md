@@ -43,6 +43,7 @@ has one key:
 | Key | Values | Meaning |
 |---|---|---|
 | `dictionaryValueFormat` | `text`, `html`, `markdown` | The format this site stores dictionary translations in. `text` when nothing declares it. |
+| `commandTool` | `{ "noun": "foo", "package": "Umbraco.Foo.Cli" }` | The .NET tool that adds the package's own commands ([ADR 0010](0010-external-extension-commands.md)). Added with #438. |
 
 ### 2. The CLI reads declarations from the manifest endpoint
 
