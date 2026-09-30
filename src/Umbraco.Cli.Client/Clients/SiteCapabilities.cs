@@ -51,6 +51,16 @@ public sealed record SiteCapabilities
     /// </summary>
     public string? DictionaryValueFormat { get; init; } = DefaultDictionaryValueFormat;
 
+    /// <summary>The vocabulary key naming the .NET tool that adds a package's own commands (#438, ADR 0010).</summary>
+    public const string CommandToolKey = "commandTool";
+
+    /// <summary>
+    /// The tools the site's packages say add their commands (<c>commandTool</c>), in manifest
+    /// order. Several packages may each declare one; an entry without a string <c>noun</c> and
+    /// <c>package</c> is ignored.
+    /// </summary>
+    public IReadOnlyList<DeclaredCommandTool> CommandTools { get; init; } = [];
+
     /// <summary>Problems with the declarations, such as two packages disagreeing on a key.</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
 
@@ -67,6 +77,43 @@ public sealed record SiteCapabilities
     /// <param name="manifests">The site's manifests, as <see cref="IManifestClient"/> lists them.</param>
     /// <returns>The resolved capabilities.</returns>
     public static SiteCapabilities From(IEnumerable<ManifestResponse> manifests)
+    {
+        var list = manifests.ToList();
+        return ResolveDictionaryValueFormat(list) with { CommandTools = CommandToolsIn(list) };
+    }
+
+    /// <summary>
+    /// The <c>commandTool</c> declarations (#438): <c>{ "noun": "foo", "package": "Umbraco.Foo.Cli" }</c>
+    /// per package. Whether the noun is a valid command name is for the caller to judge.
+    /// </summary>
+    /// <param name="manifests">The site's manifests.</param>
+    /// <returns>The declared tools, in manifest order.</returns>
+    private static IReadOnlyList<DeclaredCommandTool> CommandToolsIn(
+        IEnumerable<ManifestResponse> manifests
+    ) =>
+        [
+            .. manifests
+                .Where(m => m.CliCapabilities?[CommandToolKey] is JsonObject)
+                .Select(m =>
+                    (Package: PackageName(m), Tool: (JsonObject)m.CliCapabilities![CommandToolKey]!)
+                )
+                .Select(d =>
+                    (
+                        d.Package,
+                        Noun: KnownValue(d.Tool["noun"], null),
+                        ToolPackage: KnownValue(d.Tool["package"], null)
+                    )
+                )
+                .Where(d => d.Noun is not null && d.ToolPackage is not null)
+                .Select(d => new DeclaredCommandTool(d.Package, d.Noun!, d.ToolPackage!)),
+        ];
+
+    /// <summary>Resolves <c>dictionaryValueFormat</c> across the site's packages.</summary>
+    /// <param name="manifests">The site's manifests.</param>
+    /// <returns>Capabilities carrying the format and any warning.</returns>
+    private static SiteCapabilities ResolveDictionaryValueFormat(
+        IEnumerable<ManifestResponse> manifests
+    )
     {
         // Every package that declares a value we recognise, in manifest order.
         var declared = manifests
@@ -138,14 +185,28 @@ public sealed record SiteCapabilities
     private static string PackageName(ManifestResponse manifest) =>
         string.IsNullOrWhiteSpace(manifest.Id) ? manifest.Name : manifest.Id;
 
-    /// <summary>A declared value if it is a string in <paramref name="allowed"/>, otherwise null.</summary>
+    /// <summary>
+    /// A declared value if it is a non-blank string in <paramref name="allowed"/> (any non-blank
+    /// string when <paramref name="allowed"/> is null), otherwise null.
+    /// </summary>
     /// <param name="value">The declared value.</param>
-    /// <param name="allowed">The values the key may take.</param>
-    /// <returns>The value, or null when it is missing, not a string, or not allowed.</returns>
-    private static string? KnownValue(JsonNode? value, IReadOnlyList<string> allowed) =>
+    /// <param name="allowed">The values the key may take, or null for any string.</param>
+    /// <returns>The value, or null when it is missing, blank, not a string, or not allowed.</returns>
+    private static string? KnownValue(JsonNode? value, IReadOnlyList<string>? allowed) =>
         value is JsonValue v
         && v.TryGetValue<string>(out var s)
-        && allowed.Contains(s, StringComparer.Ordinal)
+        && !string.IsNullOrWhiteSpace(s)
+        && (allowed is null || allowed.Contains(s, StringComparer.Ordinal))
             ? s
             : null;
 }
+
+/// <summary>
+/// A package's declaration that a .NET tool adds its commands (<c>commandTool</c>, #438): installing
+/// <paramref name="ToolPackage"/> puts <c>umbraco-<paramref name="Noun"/></c> on PATH, so
+/// <c>umbraco <paramref name="Noun"/> ...</c> works (ADR 0010).
+/// </summary>
+/// <param name="Package">The declaring package's manifest id (or name).</param>
+/// <param name="Noun">The command noun the tool provides.</param>
+/// <param name="ToolPackage">The tool's NuGet package id, for <c>dotnet tool install</c>.</param>
+public sealed record DeclaredCommandTool(string Package, string Noun, string ToolPackage);

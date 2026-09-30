@@ -99,6 +99,7 @@ production a settings change reaches the CLI after a restart.
 | Key | Values | What the CLI does with it |
 |---|---|---|
 | `dictionaryValueFormat` | `text`, `html`, `markdown` | `dictionary get` and `dictionary list` report it as `meta.valueFormat`. `schema diff` and `schema apply` warn when the source and target sites store dictionary values in different formats. |
+| `commandTool` | `{ "noun": "foo", "package": "Umbraco.Foo.Cli" }` | Names the .NET tool that adds your package's own commands ([Writing an extension command](extension-commands.md)). `umbraco auth doctor` says whether it is installed, and how to install it when it isn't. |
 
 When nothing declares a key, the CLI uses its default (`text` for `dictionaryValueFormat`).
 

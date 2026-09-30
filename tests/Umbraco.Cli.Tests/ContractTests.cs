@@ -94,6 +94,25 @@ public class ContractTests
         await Assert.ThrowsAsync<WireAssertionException>(send);
     }
 
+    /// <summary>
+    /// A passthrough request (<c>umbraco api</c>, ADR 0010) carries the caller's path, which may be
+    /// a package's route under the Management API prefix that the spec cannot declare. It is
+    /// exempt because the passthrough marks it, not because of its path: the unmarked request in
+    /// <see cref="RoutingHandler_UndeclaredManagementApiRequest_Throws"/> still fails.
+    /// </summary>
+    [Fact]
+    public async Task RoutingHandler_PassthroughToAPathTheSpecDoesNotDeclare_IsAnswered()
+    {
+        // Arrange
+        var client = Wire.Client(Wire.Returning("""{"items":[]}"""));
+
+        // Act
+        var result = await client.SendRawAsync(HttpMethod.Get, $"{Api}/my-package/items");
+
+        // Assert
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+    }
+
     /// <summary>Requests outside the Management API are not the spec's to judge.</summary>
     [Fact]
     public async Task RoutingHandler_RequestOutsideTheManagementApi_IsAnswered()

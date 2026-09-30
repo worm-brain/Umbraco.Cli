@@ -66,7 +66,7 @@ public sealed class CommandContextFactory
         // allow-list always name the command that actually ran.
         var commandName = CommandPath.Of(parseResult) ?? "umbraco";
         var hostOverride = parseResult.GetValue(_globalOptions.Host);
-        var tokenOverride = parseResult.GetValue(_globalOptions.Token);
+        var tokenOverride = _globalOptions.TokenOf(parseResult);
 
         // --output, --fields (#63) and --quiet, built the same way as for the auth commands.
         var output = _globalOptions.CreateWriter(parseResult);
@@ -205,7 +205,7 @@ public sealed class CommandContextFactory
         // stale policy. --dry-run wins over --readonly: a preview sends nothing, so it is
         // harmless and still useful in a read-only session.
         _mutationState.Policy =
-            parseResult.GetValue(_globalOptions.DryRun) ? MutationInterceptPolicy.Preview
+            _globalOptions.IsDryRun(parseResult) ? MutationInterceptPolicy.Preview
             : IsReadOnly(parseResult) ? MutationInterceptPolicy.Block
             : MutationInterceptPolicy.Execute;
         _mutationState.Previewed.Clear();
@@ -225,7 +225,7 @@ public sealed class CommandContextFactory
             Client = _clientFactory.Create(http),
             CommandName = commandName,
             AssumeYes = parseResult.GetValue(_globalOptions.Yes),
-            DryRun = parseResult.GetValue(_globalOptions.DryRun),
+            DryRun = _globalOptions.IsDryRun(parseResult),
             ReadOnly = IsReadOnly(parseResult),
             Previewed = _mutationState.Previewed,
         };
@@ -278,16 +278,59 @@ public sealed class CommandContextFactory
     /// otherwise falls back to the injected store (default path / env vars).
     /// </summary>
     private ConfigStore ResolveConfigStore(ParseResult parseResult) =>
-        ConfigStore.Resolve(parseResult.GetValue(_globalOptions.Config), _configStore);
+        ConfigStore.Resolve(_globalOptions.ConfigPath(parseResult), _configStore);
 
-    /// <summary>
-    /// Whether read-only mode is active for this invocation: the <c>--readonly</c> flag or a
-    /// truthy <c>UMBRACO_READONLY</c> environment variable.
-    /// </summary>
+    /// <summary>Whether read-only mode is active for this invocation; see <see cref="GlobalOptions.IsReadOnly"/>.</summary>
     /// <param name="parseResult">The parsed command line.</param>
     /// <returns>True when writes should be blocked.</returns>
-    private bool IsReadOnly(ParseResult parseResult) =>
-        parseResult.GetValue(_globalOptions.ReadOnly) || EnvironmentFlags.IsOn("UMBRACO_READONLY");
+    private bool IsReadOnly(ParseResult parseResult) => _globalOptions.IsReadOnly(parseResult);
+
+    /// <summary>
+    /// The checks an extension command gets before it is launched (ADR 0010), which has no
+    /// <see cref="CommandContext"/> of its own because it may need no host at all.
+    /// <list type="bullet">
+    /// <item>The allow-list, with the extension's noun as its group, exactly as a built-in noun.</item>
+    /// <item>
+    /// The credential-host rule for a <c>--host</c> given without <c>--token</c>. The launcher
+    /// passes that host to the extension as <c>UMBRACO_HOST</c>, which the extension's own calls
+    /// cannot tell from a configured host, so the rule a <c>--host</c> flag gets is applied here
+    /// instead, before it becomes one.
+    /// </item>
+    /// </list>
+    /// Everything else (no host, not authenticated, plain HTTP) is checked by the extension's own
+    /// calls back into the CLI, which build a context as usual.
+    /// </summary>
+    /// <param name="noun">The extension's noun, e.g. <c>foo</c> for <c>umbraco-foo</c>.</param>
+    /// <param name="configPath">The <c>--config</c> the extension was given, or null.</param>
+    /// <param name="profile">The <c>--profile</c> the extension was given, or null.</param>
+    /// <param name="hostOverride">The <c>--host</c> the extension was given, or null.</param>
+    /// <param name="tokenOverride">The <c>--token</c> the extension was given, or null.</param>
+    /// <param name="output">The writer a refusal is reported through.</param>
+    /// <returns>Null to launch it; otherwise the exit code, after the error has been written.</returns>
+    public int? RefuseExtension(
+        string noun,
+        string? configPath,
+        string? profile,
+        string? hostOverride,
+        string? tokenOverride,
+        IOutputWriter output
+    )
+    {
+        var store = ConfigStore.Resolve(configPath, _configStore);
+        var file = store.Read();
+        var defaultConfig = ReferenceEquals(store, _configStore) ? file : _configStore.Read();
+        try
+        {
+            EnforceAllowList(noun, defaultConfig, file, output);
+            if (UsesCredentialsForOtherHost(hostOverride, tokenOverride, file.Load(profile)))
+                Abort(output, CredentialHostMismatchMessage(hostOverride!), noun);
+            return null;
+        }
+        catch (CommandAbortedException)
+        {
+            return (int)ExitCode.Aborted;
+        }
+    }
 
     /// <summary>
     /// Enforces the command allow-list (#69) for <paramref name="commandName"/>, aborting with exit

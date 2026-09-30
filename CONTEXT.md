@@ -73,6 +73,12 @@ rather than guessed.
 - **Contract test** - a fast unit test asserting that every endpoint the CLI depends on exists
   (path + verb) in the committed OpenAPI document. Catches **endpoint drift** (an endpoint moved,
   renamed or removed upstream) without a live site.
+- **Guarded passthrough** - `umbraco api <method> <path>`: one request, with a caller-chosen
+  method and path under `/umbraco/`, sent through the same pipeline and guardrails as every
+  command. Not to be confused with the raw-JSON passthrough above.
+- **Extension command** - a noun a package adds by shipping an `umbraco-<noun>` executable, which
+  the CLI runs from PATH when the noun is not one of its own. **Context options** are the global
+  options it hands to the extension's calls through `UMBRACO_*` variables.
 - **Property-editor value** - the stored value of one property on a content, media or member
   item, keyed by the property alias. Arbitrary JSON; carried as an `UntypedNode` on the
   generated client.

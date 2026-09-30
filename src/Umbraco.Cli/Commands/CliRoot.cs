@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Help;
 using Umbraco.Cli.Client;
+using Umbraco.Cli.Commands.Api;
 using Umbraco.Cli.Commands.Auth;
 using Umbraco.Cli.Commands.Content;
 using Umbraco.Cli.Commands.ContentTypes;
@@ -143,6 +144,9 @@ public static class CliRoot
         root.Add(SearcherCommand.Build(executor));
         root.Add(ImagingCommand.Build(executor));
         root.Add(PropertyTypeCommand.Build(executor));
+
+        // Raw requests to the site's own routes, with every guardrail (#438, ADR 0010).
+        root.Add(ApiCommand.Build(executor));
 
         // Shell tab completion (#92): a local command, like the catalog below.
         root.Add(CompletionCommand.Build());

@@ -3264,4 +3264,30 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
                 )
         );
     }
+
+    // ── passthrough (#438) ────────────────────────────────────────────────────
+
+    /// <summary>Every <see cref="SendRawAsync"/> call, in order.</summary>
+    public List<(HttpMethod Method, string Path, JsonNode? Body)> RawRequests { get; } = [];
+
+    /// <summary>What <see cref="SendRawAsync"/> answers; <c>{}</c> unless a test sets it.</summary>
+    public UmbracoResponse<JsonNode> RawResponse { get; set; } =
+        UmbracoResponse<JsonNode>.Success(new JsonObject());
+
+    /// <summary>Records the request and answers with <see cref="RawResponse"/>.</summary>
+    /// <param name="method">The HTTP method.</param>
+    /// <param name="path">The request path.</param>
+    /// <param name="body">The request body, or null.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns><see cref="RawResponse"/>.</returns>
+    public Task<UmbracoResponse<JsonNode>> SendRawAsync(
+        HttpMethod method,
+        string path,
+        JsonNode? body = null,
+        CancellationToken ct = default
+    )
+    {
+        RawRequests.Add((method, path, body));
+        return Task.FromResult(RawResponse);
+    }
 }
