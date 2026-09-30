@@ -843,6 +843,13 @@ you can see where an item lives without walking the tree.
 `update` merges translations **by ISO code**, so naming one language leaves the others alone,
 and it keeps the item's id. It applies the same ISO-code check as `create`.
 
+**`meta.valueFormat` says what format the site stores translations in:** `text`, or `html` /
+`markdown` when a package on the site declares it (see
+[Declaring CLI support in your package](extensions.md)). `get` and `list` report it, and it costs
+one extra request. It is information, not a rule: `create` and `update` store any value as given.
+It is absent when the CLI could not read the site's package manifests, and when two packages
+declare different formats it is `text` with a `warning:` on stderr.
+
 ## `webhook`
 
 ```bash
@@ -1004,6 +1011,10 @@ umbraco models-builder build                               # regenerate source f
 ```bash
 umbraco manifest list [--scope All|Public|Private]         # default: All
 ```
+
+Each manifest carries `cliCapabilities` when its package declares what it changes about the CLI's
+commands (the human table's CLI column shows the same). See
+[Declaring CLI support in your package](extensions.md).
 
 ## `redirect`
 

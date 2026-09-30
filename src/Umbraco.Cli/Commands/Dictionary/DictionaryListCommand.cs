@@ -19,10 +19,13 @@ public static class DictionaryListCommand
         var cmd = new Command(
             "list",
             "List dictionary items: the root level, or the direct children of --parent."
-        ).WithExamples(
-            "umbraco dictionary list",
-            "umbraco dictionary list --parent Blog --output json"
-        );
+        )
+            .WithExamples(
+                "umbraco dictionary list",
+                "umbraco dictionary list --parent Blog --output json"
+            )
+            // meta.valueFormat: the format the site stores translations in (#440).
+            .WithValueFormat();
         var parentOpt = Reference.Option(
             "--parent",
             EntityKind.DictionaryItem,

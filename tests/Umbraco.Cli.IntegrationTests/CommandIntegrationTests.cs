@@ -301,6 +301,26 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.True(CliRunner.Run("dictionary", "list", "--take", "5").Ok);
     }
 
+    /// <summary>
+    /// The dev site carries a fixture package (tests/hands-on/dev-site.py) whose manifest declares
+    /// <c>dictionaryValueFormat: markdown</c> (#440, ADR 0009), so the CLI reads it from the live
+    /// manifest endpoint and reports it.
+    /// </summary>
+    [SkippableFact]
+    public void DictionaryList_FixturePackageDeclaresMarkdown_ReportsValueFormat()
+    {
+        RequireLive();
+
+        var list = CliRunner.Run("dictionary", "list", "--take", "1");
+
+        Assert.True(list.Ok, list.Stderr);
+        using var doc = JsonDocument.Parse(list.Stdout);
+        Assert.Equal(
+            "markdown",
+            doc.RootElement.GetProperty("meta").GetProperty("valueFormat").GetString()
+        );
+    }
+
     [SkippableFact]
     public void WebhooksList_ReturnsItems()
     {

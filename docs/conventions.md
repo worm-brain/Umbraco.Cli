@@ -131,6 +131,10 @@ disagree, this file wins; the older document is rationale that may be out of dat
 3. `meta.command` is the dotted command path (`document-type.list`), derived from the command
    tree, never typed by hand. The allow-list matches the same name.
 4. A breaking change to the envelope or a payload shape bumps `meta.schemaVersion`.
+5. **A command may add its own `meta` fields** for facts about the site rather than the item, such
+   as `dictionary get`'s `valueFormat`. It declares them with `WithMeta` (`CommandMeta`), never in
+   its action, so they are read only after the call succeeds and never under `--dry-run`. An own
+   field is absent when its value is unknown, like every other absent field.
 
 ## 7. Errors and exit codes
 

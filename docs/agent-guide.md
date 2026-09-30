@@ -390,6 +390,9 @@ CLI alone:
 `member get` returns the member's `groups` and `values` too. `content get` and `media get` carry
 `parent` (read from the tree, because the by-id body has none; left out at the root), and so do
 `dictionary get` and `document-blueprint get`. `data-type list` rows carry their folder.
+`dictionary get` and `dictionary list` also say what format the site stores translations in, as
+`meta.valueFormat` (`text`, `html` or `markdown`, declared by the site's packages): write values
+in that format. The CLI stores whatever you give it, so it's on you to match.
 `content list` rows leave out `updateDate`, `values`, `urls` and the full `variants`, because the
 tree endpoint behind them doesn't return those. Read one item with `content get` when you need
 them.

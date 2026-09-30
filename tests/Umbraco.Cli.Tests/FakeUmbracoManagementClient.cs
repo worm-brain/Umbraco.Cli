@@ -2840,6 +2840,26 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
         );
     }
 
+    // Site capabilities (#440).
+    /// <summary>When set, the site's manifests "cannot be read", for this reason.</summary>
+    public string? ManifestsUnavailable { get; set; }
+
+    /// <summary>How many times the site's capabilities were read.</summary>
+    public int SiteCapabilityReads { get; private set; }
+
+    /// <summary>Resolves <see cref="Manifests"/> the way the real client does, uncached.</summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The capabilities.</returns>
+    public Task<SiteCapabilities> GetSiteCapabilitiesAsync(CancellationToken ct = default)
+    {
+        SiteCapabilityReads++;
+        return Task.FromResult(
+            ManifestsUnavailable is { } reason
+                ? SiteCapabilities.None(reason)
+                : SiteCapabilities.From(Manifests)
+        );
+    }
+
     // ── Redirects + relations (#118) ────────────────────────────────────────────
 
     /// <summary>Redirects the list method returns (seeded by a test).</summary>
