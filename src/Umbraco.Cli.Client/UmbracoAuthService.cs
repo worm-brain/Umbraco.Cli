@@ -138,8 +138,10 @@ public sealed class UmbracoAuthService
     {
         // Never put the client secret on the wire in cleartext. Checked here, not only by the
         // callers, so every path that exchanges credentials (commands, login, doctor) is covered.
+        // A refusal, as every other command reports this rule (#450): nothing was sent, so the
+        // credentials were never judged.
         if (HostPolicy.InsecureTransportError(host) is { } insecure)
-            throw new UmbracoAuthException(0, insecure);
+            throw new UmbracoAuthException(0, insecure, FailureCategory.Refused);
 
         var key = CacheKey(host, clientId, clientSecret);
         await _lock.WaitAsync(ct);
@@ -177,15 +179,27 @@ public sealed class UmbracoAuthService
                     // Never echo the raw body: a server or proxy that reflects the form would
                     // put the client secret into the error output (SEC-AUTH-001).
                     var body = await response.Content.ReadAsStringAsync(ct);
+                    var status = (int)response.StatusCode;
+                    // A 5xx is the server failing, not a verdict on the credentials (#449): the
+                    // category any other request gets for it. Every 4xx stays a refusal.
                     throw new UmbracoAuthException(
-                        (int)response.StatusCode,
-                        DescribeTokenFailure((int)response.StatusCode, body, clientSecret)
+                        status,
+                        DescribeTokenFailure(status, body, clientSecret),
+                        status >= 500
+                            ? FailureCategory.ServerError
+                            : FailureCategory.NotAuthenticated
                     );
                 }
 
-                var token =
-                    await response.Content.ReadFromJsonAsync<TokenResponse>(ct)
-                    ?? throw new UmbracoAuthException(0, "Empty token response");
+                // A success that carries no token is an answer the CLI can't use (#449). Before,
+                // a body without access_token yielded an empty bearer and a confusing 401 later.
+                var token = await response.Content.ReadFromJsonAsync<TokenResponse>(ct);
+                if (token is null || string.IsNullOrWhiteSpace(token.AccessToken))
+                    throw new UmbracoAuthException(
+                        (int)response.StatusCode,
+                        "The Umbraco instance returned a token response without an access token.",
+                        FailureCategory.UnexpectedResponse
+                    );
 
                 var lifetime = TimeSpan.FromSeconds(token.ExpiresIn);
                 var cached = new CachedToken(
@@ -227,7 +241,8 @@ public sealed class UmbracoAuthService
                 // cannot deserialize — both must surface as a clean auth error, not a raw crash.
                 throw new UmbracoAuthException(
                     0,
-                    $"The Umbraco instance returned an unreadable token response: {ex.Message}"
+                    $"The Umbraco instance returned an unreadable token response: {ex.Message}",
+                    FailureCategory.UnexpectedResponse
                 );
             }
         }
@@ -385,10 +400,14 @@ public sealed class UmbracoAuthException(
     public int StatusCode { get; } = statusCode;
 
     /// <summary>
-    /// <see cref="FailureCategory.Unreachable"/> or <see cref="FailureCategory.Timeout"/> when the
-    /// token request got no response, the categories any other request without one gets;
-    /// otherwise <see cref="FailureCategory.NotAuthenticated"/>: the token endpoint answered with an
-    /// error or an unreadable body, or a plain-HTTP host was refused before anything was sent.
+    /// Why the exchange failed, in the categories any other request uses:
+    /// <list type="bullet">
+    /// <item><see cref="FailureCategory.Unreachable"/> / <see cref="FailureCategory.Timeout"/>: no response (#445).</item>
+    /// <item><see cref="FailureCategory.ServerError"/>: the token endpoint answered 5xx (#449).</item>
+    /// <item><see cref="FailureCategory.UnexpectedResponse"/>: a success the CLI could not read, or one without a token (#449).</item>
+    /// <item><see cref="FailureCategory.Refused"/>: a plain-HTTP host, refused before anything was sent (#450).</item>
+    /// <item><see cref="FailureCategory.NotAuthenticated"/>: the token endpoint refused the credentials (4xx).</item>
+    /// </list>
     /// </summary>
     public FailureCategory Category { get; } = category;
 }

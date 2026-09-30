@@ -349,4 +349,46 @@ public class CommandContextFactoryTests
 
         Assert.Equal((2, 2, "not_authenticated"), Outcome(run));
     }
+
+    // ── a token endpoint that answered, but not about the credentials (#449) ──
+
+    /// <summary>A 500 from the token endpoint.</summary>
+    private static HttpResponseMessage ServerError() =>
+        new(HttpStatusCode.InternalServerError) { Content = new StringContent("oops") };
+
+    [Fact]
+    public async Task CreateAsync_TokenEndpointAnswers500_ReportsServerErrorWithExitOne()
+    {
+        var run = await RunWithTokenEndpoint(ServerError);
+
+        Assert.Equal((1, 1, "server_error"), Outcome(run));
+    }
+
+    [Fact]
+    public async Task CreateAsync_TokenEndpointAnswers500_MessageDoesNotBlameTheCredentials()
+    {
+        var run = await RunWithTokenEndpoint(ServerError);
+
+        Assert.DoesNotContain(
+            "Authentication failed",
+            run.Error.GetProperty("message").GetString()
+        );
+    }
+
+    [Fact]
+    public async Task CreateAsync_TokenEndpointAnswersWithoutAToken_ReportsUnexpectedResponseWithExitOne()
+    {
+        var run = await RunWithTokenEndpoint(() =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """{"token_type":"Bearer"}""",
+                    Encoding.UTF8,
+                    "application/json"
+                ),
+            }
+        );
+
+        Assert.Equal((1, 1, "unexpected_response"), Outcome(run));
+    }
 }

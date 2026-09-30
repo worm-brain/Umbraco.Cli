@@ -262,11 +262,18 @@ public sealed class CommandContextFactory
     /// is reported one way whichever command hit it (#445).
     /// <list type="bullet">
     /// <item>
-    /// No response (<c>unreachable</c>, <c>timeout</c>): exit 1, as for any other request that
-    /// never reached the server. The message names the host and says nothing about the
-    /// credentials, which were never checked.
+    /// The credentials were refused (<c>not_authenticated</c>): exit 2, as a command that is not
+    /// authenticated.
     /// </item>
-    /// <item>Anything else is an authentication failure: exit 2, <c>not_authenticated</c>.</item>
+    /// <item>
+    /// A plain-HTTP host (<c>refused</c>, #450): exit 2, as every command reports that rule.
+    /// </item>
+    /// <item>
+    /// Anything else is the site's side, as for any other request (#445, #449): no response
+    /// (<c>unreachable</c>, <c>timeout</c>), a 5xx (<c>server_error</c>) or an answer the CLI can't
+    /// use (<c>unexpected_response</c>). Exit 1, and the message says nothing about the
+    /// credentials, which were never judged.
+    /// </item>
     /// </list>
     /// </summary>
     /// <param name="output">The output writer.</param>
@@ -279,19 +286,17 @@ public sealed class CommandContextFactory
         string? commandName
     )
     {
-        if (ex.Category is FailureCategory.Unreachable or FailureCategory.Timeout)
+        var (exitCode, message) = ex.Category switch
         {
-            output.WriteError(ExitCode.Failed, ex.Category, ex.Message, commandName);
-            return ExitCode.Failed;
-        }
-
-        output.WriteError(
-            ExitCode.Aborted,
-            FailureCategory.NotAuthenticated,
-            $"Authentication failed: {ex.Message}",
-            commandName
-        );
-        return ExitCode.Aborted;
+            FailureCategory.NotAuthenticated => (
+                ExitCode.Aborted,
+                $"Authentication failed: {ex.Message}"
+            ),
+            FailureCategory.Refused => (ExitCode.Aborted, ex.Message),
+            _ => (ExitCode.Failed, ex.Message),
+        };
+        output.WriteError(exitCode, ex.Category, message, commandName);
+        return exitCode;
     }
 
     /// <summary>
