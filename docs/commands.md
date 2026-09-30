@@ -844,8 +844,7 @@ file as UTF-8 and stores it exactly as the file holds it, final newline included
 HTML needs no shell quoting. `en-US=-` reads it from stdin, and only one `--value-file` can do
 that. Mix it with `--value` for other languages
 (`dictionary update Blog.Intro --value-file en-US=intro.md --value da-DK=Hej`), but give each ISO
-code once: the same code in both options is refused. Either way the value is stored as given, in
-whatever format the site uses, and `dictionary get` reports that format as `meta.valueFormat`.
+code once: the same code in both options is refused.
 
 `get`, `create`, `update` and `list` carry the item's `parent: {id}` (left out at the root), so
 you can see where an item lives without walking the tree.
