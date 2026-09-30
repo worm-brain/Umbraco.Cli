@@ -22,6 +22,7 @@ By default the site's CLI (used to build the fixture site) is packed from this c
 exact or "latest"; default 17), e.g. to match the version spec/management.json was fetched from.
 """
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -36,6 +37,24 @@ TEST_CONFIG = SITE_DIR / "test-config.json"
 REPO = ROOT.parent.parent
 SUITE = REPO / "tests" / "Umbraco.Cli.IntegrationTests" / "Umbraco.Cli.IntegrationTests.csproj"
 PY = sys.executable
+
+# A stand-in package that declares CLI support the way a real package would (docs/extensions.md), so
+# the live suite can check that the CLI reads `umbracoCli` declarations from the site's manifest. It
+# has no code: Umbraco serves any App_Plugins/*/umbraco-package.json in the web root as a package.
+CLI_FIXTURE_ID = "Umbraco.Cli.Fixture"
+CLI_FIXTURE = {
+    "id": CLI_FIXTURE_ID,
+    "name": "Umbraco CLI fixture",
+    "version": "1.0.0",
+    "extensions": [
+        {
+            "type": "umbracoCli",
+            "alias": "Umbraco.Cli.Fixture.Cli",
+            "name": "Umbraco CLI fixture",
+            "meta": {"dictionaryValueFormat": "markdown"},
+        }
+    ],
+}
 
 
 def script(*args, env=None, capture=False):
@@ -87,11 +106,31 @@ def create(umbraco, nuget):
     write_test_config(harness.Site(NAME))
 
 
+def ensure_cli_fixture(site):
+    """Write the fixture package's manifest into the site's web root, unless it is already there.
+
+    :param site: the dev Site.
+    :returns: True when the file was written or changed; a running site must restart to see it,
+        because Umbraco reads package manifests once and caches them.
+    """
+    path = site.project / "wwwroot" / "App_Plugins" / CLI_FIXTURE_ID / "umbraco-package.json"
+    text = json.dumps(CLI_FIXTURE, indent=2) + "\n"
+    if path.exists() and path.read_text(encoding="utf-8") == text:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return True
+
+
 def up(a):
     """Create the dev site if it doesn't exist, otherwise start it. Prints how to use it."""
     if not (SITE_DIR / "site.env").exists():
         create(a.umbraco, a.nuget)
     site = harness.Site(NAME)
+    # Sites created before the fixture existed get it here; restart so Umbraco reads the new manifest.
+    if ensure_cli_fixture(site) and site.is_running():
+        say("Restarting to load the CLI fixture package")
+        site.stop()
     if not site.is_running():
         say(f"Starting {site.name}")
         site.start()
