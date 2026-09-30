@@ -3,7 +3,12 @@ using Umbraco.Cli.Commands.Content.Bulk;
 
 namespace Umbraco.Cli.Tests;
 
-/// <summary>Tests for the bulk-operation id reader (#85).</summary>
+/// <summary>
+/// Tests for the bulk-operation id reader (#85). The stdin test redirects
+/// <see cref="Umbraco.Cli.Infrastructure.StandardInput"/>, which is process-global, so the class
+/// shares the console-capture collection.
+/// </summary>
+[Collection("ConsoleCapture")]
 public class BulkIdsTests
 {
     [Fact]
@@ -54,23 +59,43 @@ public class BulkIdsTests
     }
 
     [Fact]
-    public void Parse_StdinWithAByteOrderMark_ReadsTheFirstIdIntact()
+    public void Read_StdinWithAByteOrderMark_ReadsTheFirstIdIntact()
     {
-        // A producer that writes UTF-8 with a BOM (PowerShell, .NET's Encoding.UTF8) must not turn
-        // the first id into garbage that fails as "not a valid GUID".
-        var bytes = System
-            .Text.Encoding.UTF8.GetPreamble()
-            .Concat(System.Text.Encoding.UTF8.GetBytes("3f7a8b2e-1234-5678-abcd-ef0123456789\n"))
-            .ToArray();
-        using var reader = new StreamReader(
-            new MemoryStream(bytes),
-            new System.Text.UTF8Encoding(false),
-            detectEncodingFromByteOrderMarks: true
+        // Arrange: a producer that writes UTF-8 with a BOM (PowerShell, .NET's Encoding.UTF8) must
+        // not turn the first id into garbage that fails as "not a valid GUID".
+        using var stdin = new RedirectedStdin(
+            RedirectedStdin.Utf8("3f7a8b2e-1234-5678-abcd-ef0123456789\n", byteOrderMark: true)
         );
 
-        var ids = Umbraco.Cli.Commands.Content.Bulk.BulkIds.Parse(reader);
+        // Act
+        var ids = BulkIds.Read(null);
 
+        // Assert
         Assert.Equal(["3f7a8b2e-1234-5678-abcd-ef0123456789"], ids);
+    }
+
+    [Fact]
+    public void Read_FileWithAByteOrderMark_ReadsTheFirstIdIntact()
+    {
+        // Arrange: a --file saved by an editor that writes a BOM reads the same as piped ids.
+        var path = Path.Combine(Path.GetTempPath(), $"bulk-ids-{Guid.NewGuid()}.txt");
+        File.WriteAllText(
+            path,
+            "3f7a8b2e-1234-5678-abcd-ef0123456789\n",
+            new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true)
+        );
+        try
+        {
+            // Act
+            var ids = BulkIds.Read(new FileInfo(path));
+
+            // Assert
+            Assert.Equal(["3f7a8b2e-1234-5678-abcd-ef0123456789"], ids);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     // ── #288: bulk reads the CLI's own output ────────────────────────────────

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Umbraco.Cli.Infrastructure;
 
 namespace Umbraco.Cli.Commands.Content.Bulk;
 
@@ -37,15 +38,13 @@ public static class BulkIds
     /// <exception cref="IOException">The file or stdin could not be read.</exception>
     public static IReadOnlyList<string> Read(FileInfo? file)
     {
-        // Both sources are read as UTF-8 with any byte-order mark stripped, the same way
-        // --json-body - reads stdin (JsonBodyInput). Console.In decodes with the console code page
-        // instead, so a producer that writes a BOM (PowerShell, .NET's Encoding.UTF8) turned the
-        // first id into garbage that failed as "not a valid GUID".
-        using var reader = new StreamReader(
-            ReadsStdin(file) ? Console.OpenStandardInput() : File.OpenRead(file!.FullName),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            detectEncodingFromByteOrderMarks: true
-        );
+        // Both sources are read as UTF-8 with any byte-order mark stripped: stdin through the
+        // reader every '-' input shares, a file the way File.ReadAllText reads one. Console.In
+        // decodes with the console code page instead, so a producer that writes a BOM (PowerShell,
+        // .NET's Encoding.UTF8) turned the first id into garbage that failed as "not a valid GUID".
+        using var reader = ReadsStdin(file)
+            ? StandardInput.OpenText()
+            : File.OpenText(file!.FullName);
         return Parse(reader);
     }
 
