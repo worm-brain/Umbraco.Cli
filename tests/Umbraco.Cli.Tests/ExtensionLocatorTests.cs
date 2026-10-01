@@ -12,9 +12,17 @@ public sealed class ExtensionLocatorTests : IDisposable
     private readonly List<string> _dirs = [];
 
     /// <summary>A new temporary directory holding an empty file per name.</summary>
-    private string DirWith(params string[] files)
+    /// <param name="files">File names to create, empty, in the directory.</param>
+    /// <returns>The directory's full path.</returns>
+    private string DirWith(params string[] files) => DirIn(Path.GetTempPath(), files);
+
+    /// <summary>A new directory under <paramref name="root"/> holding an empty file per name.</summary>
+    /// <param name="root">The parent directory to create it in.</param>
+    /// <param name="files">File names to create, empty, in the directory.</param>
+    /// <returns>The directory's full path.</returns>
+    private string DirIn(string root, params string[] files)
     {
-        var dir = Path.Combine(Path.GetTempPath(), $"umbraco-ext-{Guid.NewGuid():N}");
+        var dir = Path.Combine(root, $"umbraco-ext-{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
         foreach (var file in files)
             File.WriteAllText(Path.Combine(dir, file), "");
@@ -93,7 +101,12 @@ public sealed class ExtensionLocatorTests : IDisposable
     {
         // A relative entry (".", or one like this) would run whatever the current directory
         // leads to. This one really does lead to an extension, so only the rule can skip it.
-        var relative = Path.GetRelativePath(Environment.CurrentDirectory, DirWith("umbraco-foo"));
+        // It is created under the current directory rather than temp: on Windows the two can sit
+        // on different drives, where no relative path between them exists.
+        var relative = Path.GetRelativePath(
+            Environment.CurrentDirectory,
+            DirIn(Environment.CurrentDirectory, "umbraco-foo")
+        );
         Assert.False(Path.IsPathFullyQualified(relative), "precondition: a relative entry");
 
         var found = Unix(PathOf(relative)).Find("foo");
