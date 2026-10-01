@@ -33,6 +33,8 @@ def main():
     harness.utf8_stdio()
     check(sys.version_info >= (3, 9), f"Python {platform.python_version()}", "Python 3.9 or later is required")
     check(bool(shutil.which("git")), "git", "git is not installed")
+    # Only reached when uv already worked (tools/harness.py re-runs this script through it); shown for completeness.
+    check(bool(shutil.which("uv")), "uv", "uv is not installed: https://docs.astral.sh/uv/")
 
     if shutil.which("dotnet"):
         sdks = harness.run(["dotnet", "--list-sdks"], capture_output=True).stdout

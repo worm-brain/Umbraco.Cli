@@ -52,7 +52,7 @@ NuGet restores) and T5, which waits for Umbraco's scheduler.
 python3 preflight.py
 ```
 
-It checks: Python 3.9+, git, .NET SDK 10+, the .NET 9 runtime (the CLI targets net9.0), the ASP.NET Core 10 runtime, a
+It checks: Python 3.9+, uv, git, .NET SDK 10+, the .NET 9 runtime (the CLI targets net9.0), the ASP.NET Core 10 runtime, a
 trusted HTTPS dev certificate, access to nuget.org, and free ports 44800+. Every line must be `pass` (`note` is informational:
 it flags a missing `bash`, `jq`, `curl` or `gh`, which the snippets and re-tests need). Typical fixes: `dotnet dev-certs https --trust`; install the .NET 9 runtime alongside SDK 10.
 
@@ -73,7 +73,7 @@ version and commit, Umbraco version, site hosts).
 at the end. A `FAIL` line in Part A is a candidate finding. Reproduce it by hand (the TEST-PLAN Part A table says how) before logging it.
 
 Each site folder has `umb` (the CLI pinned to that site: `sites/source/umb content list`; `umb.cmd` too on Windows),
-`start.py`, `stop.py`, `site.env`, `credentials.json` (admin `admin@example.com` / `Password1234!`, and the API user's client
+`start.py`, `stop.py`, `site.env`, `cli.env`, `credentials.json` (admin `admin@example.com` / `Password1234!`, and the API user's client
 id/secret) and `logs/site.log`. `python3 remove-site.py --list` shows every site and whether it's running.
 
 ## Step 2 · Open the round in `LEDGER.md`
@@ -217,7 +217,7 @@ curl -sk -H "Authorization: Bearer $TOK" $H/umbraco/management/api/v1/document/<
 | `tools/safety_matrix.py` | T10: 23 guardrail and exit-code cases |
 | `tools/webhook_listener.py` | T3: local webhook receiver |
 | `tools/file_issues.py` | File unfiled ledger rows as GitHub issues (+ optional tracking issue) |
-| `tools/harness.py` | Shared cross-platform plumbing: sites, the pinned CLI, start/stop, ports, HTTP |
+| `tools/harness.py` | The CLI layer (pinned CLI, credentials) over umbraco-spawn-harness, which does sites, start/stop, ports, HTTP |
 | `tools/perf_report.py` | `bench.py report`: renders `docs/performance.md` (and holds its prose) |
 | `fixtures/` | `schema.json` + `content.json` (exports of the finished test site), images, PDFs |
 | `assets/` | Header/footer/block partials, site.css/js, and the contact form controller (C#, site code) |

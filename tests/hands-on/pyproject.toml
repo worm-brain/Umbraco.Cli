@@ -1,0 +1,11 @@
+# The hands-on harness's Python environment. Not a package: it only pins umbraco-spawn-harness, the base
+# that scaffolds, installs and runs the sites (tools/harness.py layers the CLI on top). Scripts run with plain
+# `python3` re-run themselves through `uv run --project tests/hands-on`, which installs this on first use.
+[project]
+name = "umbraco-cli-hands-on"
+version = "0"
+requires-python = ">=3.9"
+dependencies = ["umbraco-spawn-harness @ git+https://github.com/worm-brain/umbraco-spawn-harness@v0.1.0"]
+
+[tool.uv]
+package = false

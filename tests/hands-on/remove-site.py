@@ -25,6 +25,7 @@ def remove(name):
     ok = site.umb("auth", "logout", "--profile", name, "--output", "json").returncode == 0
     print(f"Removed CLI profile '{name}'" if ok else f"CLI profile '{name}' not removed (may not exist)")
     harness.remove_tree(site.dir)
+    harness.release_port(site.port)  # free it in the shared umbraco-spawn-harness port registry
     print(f"Deleted sites/{name}")
 
 
