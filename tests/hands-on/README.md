@@ -8,8 +8,11 @@ it can test destructive commands too.
 
 ## Requirements
 
-- macOS, Linux or Windows. The scripts are Python (standard library only), so they run the same on all three.
+- macOS, Linux or Windows. The scripts are Python, so they run the same on all three.
 - Python 3.9+. On Windows, type `python` (or `py`) wherever these docs say `python3`.
+- [`uv`](https://docs.astral.sh/uv/). The scripts build on [umbraco-spawn-harness](https://github.com/worm-brain/umbraco-spawn-harness)
+  (scaffold, unattended install, SQLite, admin user, start/stop), pinned in `pyproject.toml`. Run them with plain
+  `python3` as below: they re-run themselves through `uv run`, which installs the pinned version on first use.
 - .NET SDK 10+ (Umbraco 17) **and** the .NET 9 runtime (the CLI targets net9.0)
 - A trusted HTTPS dev certificate: `dotnet dev-certs https --trust`. On Linux, `--trust` isn't supported everywhere: see
   [Microsoft's Linux instructions](https://learn.microsoft.com/aspnet/core/security/enforcing-ssl#trust-https-certificate-on-linux).
@@ -239,3 +242,9 @@ python3 sites/<name>/stop.py; python3 sites/<name>/start.py       # logs in site
 
 Each site has an admin (`admin@example.com` / `Password1234!`) and an API user whose client credentials are in
 `sites/<name>/credentials.json`. These sites are local and disposable, so plaintext is fine.
+
+The base files (`site.env`, `admin.json`, the `UmbracoSite/` project, `site.pid`, `logs/`) come from umbraco-spawn-harness;
+this harness adds `cli.env` (the pinned CLI build), `credentials.json`, `umb`/`umb.cmd` and `start.py`/`stop.py`. Template
+installs and the port registry are shared with any other project using umbraco-spawn-harness, in its per-user cache.
+
+To try a change to umbraco-spawn-harness here before tagging it: `uv run --project . --with-editable ../../../umbraco-spawn-harness python new-site.py ...`.

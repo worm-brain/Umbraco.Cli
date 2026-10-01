@@ -8,3 +8,4 @@ webhook-requests.jsonl
 __pycache__/
 # The round ledger is a local working file, started from LEDGER.template.md; filed ids live in ledger-history.json.
 LEDGER.md
+.venv/

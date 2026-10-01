@@ -1,0 +1,19 @@
+version = 1
+revision = 3
+requires-python = ">=3.9"
+
+[[package]]
+name = "umbraco-cli-hands-on"
+version = "0"
+source = { virtual = "." }
+dependencies = [
+    { name = "umbraco-spawn-harness" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "umbraco-spawn-harness", git = "https://github.com/worm-brain/umbraco-spawn-harness?rev=v0.1.0" }]
+
+[[package]]
+name = "umbraco-spawn-harness"
+version = "0.1.0"
+source = { git = "https://github.com/worm-brain/umbraco-spawn-harness?rev=v0.1.0#2ae19cb536f1cb2e91bb00a600b10b583be0e74e" }
