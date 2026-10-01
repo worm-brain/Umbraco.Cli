@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
 using Umbraco.Cli.Infrastructure;
+using Umbraco.Cli.Infrastructure.Config;
 
 namespace Umbraco.Cli.Tests;
 
@@ -46,6 +47,30 @@ public class SurfaceSnapshotTests
     }
 
     [Fact]
+    public void MachineNeutral_DefaultConfigPath_IsReplacedWithThePlaceholder()
+    {
+        // Arrange
+        var json = JsonSerializer.Serialize(
+            new { description = $"Path (default: {ConfigStore.DefaultConfigPath})." },
+            Options
+        );
+
+        // Act
+        var neutral = MachineNeutral(json);
+
+        // Assert
+        Assert.Contains($"(default: {DefaultConfigPathPlaceholder}).", neutral);
+    }
+
+    [Fact]
+    public void MachineNeutral_TextWithoutThePath_IsUnchanged()
+    {
+        var json = """{"description":"no path here"}""";
+
+        Assert.Equal(json, MachineNeutral(json));
+    }
+
+    [Fact]
     public void FirstDifference_ReportsTheFirstMismatchedLine()
     {
         var message = FirstDifference("a\nb\nc", "a\nx\nc");
@@ -53,10 +78,35 @@ public class SurfaceSnapshotTests
         Assert.Equal("first difference at line 2: expected 'b', got 'x'", message);
     }
 
-    /// <summary>Serialises the shipped tree's catalog with LF line endings and a trailing newline.</summary>
+    /// <summary>
+    /// Stands in for the machine-specific default config path (it embeds the OS user profile)
+    /// so the snapshot renders identically on every OS and machine.
+    /// </summary>
+    private const string DefaultConfigPathPlaceholder = "<user config dir>/Umbraco/config.json";
+
+    /// <summary>
+    /// Serialises the shipped tree's catalog with LF line endings and a trailing newline, with
+    /// the resolved default config path replaced by <see cref="DefaultConfigPathPlaceholder"/>.
+    /// </summary>
+    /// <returns>The machine-neutral snapshot text.</returns>
     private static string Render() =>
-        Normalise(JsonSerializer.Serialize(CommandCatalog.Describe(TestCliRoot.Build()), Options))
-        + "\n";
+        MachineNeutral(
+            Normalise(
+                JsonSerializer.Serialize(CommandCatalog.Describe(TestCliRoot.Build()), Options)
+            )
+        ) + "\n";
+
+    /// <summary>
+    /// Replaces this machine's default config path, in its JSON-escaped form (backslashes are
+    /// doubled on Windows), with <see cref="DefaultConfigPathPlaceholder"/>.
+    /// </summary>
+    /// <param name="json">Serialised catalog JSON.</param>
+    /// <returns>The JSON with the machine-specific path removed.</returns>
+    private static string MachineNeutral(string json) =>
+        json.Replace(
+            JsonSerializer.Serialize(ConfigStore.DefaultConfigPath, Options).Trim('"'),
+            DefaultConfigPathPlaceholder
+        );
 
     /// <summary>Normalises CRLF so a Windows checkout compares equal to the committed LF file.</summary>
     private static string Normalise(string text) => text.Replace("\r\n", "\n");
