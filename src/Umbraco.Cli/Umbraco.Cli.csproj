@@ -24,6 +24,8 @@
     <Description>A command-line tool for Umbraco CMS 17+. Manage content, media, document types and more from a terminal, a script or a CI pipeline, and move schema, media and content between sites. Every command can print JSON or CSV.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- nuget.org needs a PNG or JPEG icon (no SVG); 128x128 is its recommended size. -->
+    <PackageIcon>umbraco-cli-128.png</PackageIcon>
     <PackageProjectUrl>https://github.com/worm-brain/Umbraco.Cli</PackageProjectUrl>
     <RepositoryUrl>https://github.com/worm-brain/Umbraco.Cli</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -35,6 +37,7 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\assets\umbraco-cli-128.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
