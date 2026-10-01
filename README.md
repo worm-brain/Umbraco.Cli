@@ -1,3 +1,5 @@
+<img src="assets/umbraco-cli.svg" alt="Umbraco CLI logo" width="96" height="96">
+
 # Umbraco.Cli
 
 A command-line tool for [Umbraco CMS](https://umbraco.com/). It talks to Umbraco's Management
