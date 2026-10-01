@@ -93,7 +93,7 @@
     {
       "name": "--config",
       "aliases": [],
-      "description": "Path to config file (default: C:\\Users\\jack\\AppData\\Roaming\\Umbraco\\config.json). Also settable with UMBRACO_CONFIG.",
+      "description": "Path to config file (default: <user config dir>/Umbraco/config.json). Also settable with UMBRACO_CONFIG.",
       "type": "string",
       "required": false,
       "hasDefault": false
