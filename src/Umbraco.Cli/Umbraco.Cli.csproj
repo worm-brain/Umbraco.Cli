@@ -36,7 +36,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <!-- nuget.org renders no raw HTML and no relative links or images, and a published readme
+         can't be fixed without a release, so the package carries its own short readme with
+         absolute links rather than the GitHub README. -->
+    <None Include="README.nuget.md" Pack="true" PackagePath="\README.md" />
     <None Include="..\..\assets\umbraco-cli-128.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
