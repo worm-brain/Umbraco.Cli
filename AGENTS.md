@@ -29,6 +29,25 @@ NuGet global tool (`Umbraco.Community.Cli`; the command is `umbraco`). It is des
 driven both by humans (Spectre.Console tables) and by AI agents/scripts (structured JSON).
 JSON is the default output whenever stdout is not a TTY.
 
+## Working rules
+
+- Verify Management API routes, models and package APIs against `spec/management.json` and the
+  installed packages before use; never invent endpoints, aliases or members.
+- Record decisions in [`docs/adr/`](docs/adr/): a change to a contract, a dependency, the supported
+  Umbraco range or something an earlier ADR decided gets a new ADR.
+- Organise by feature: one folder per noun under `Commands/`, holding its verbs (see Conventions
+  below). Shared behaviour lives in `CommandExecutor` and `Infrastructure/`, not in commands.
+- Tooling: xUnit v3 for tests, CSharpier for formatting, analyzers with warnings as errors.
+- One tool covers several Umbraco majors: the tested range is in `VersionSupport`, and the CLI keeps
+  its own SemVer line.
+- Run the tests before every commit and read the build summary.
+- C# members carry XML doc comments, and new or changed code comes with tests
+  (`MethodName_Scenario_ExpectedBehaviour` names).
+- Conventional Commits, ASCII only.
+- Every user-visible change adds a line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md),
+  and a command change also updates [`docs/commands.md`](docs/commands.md).
+- Branches: `main` plus one short-lived branch per pull request.
+
 ## Issue tracking
 
 The repo is hosted at **https://github.com/worm-brain/Umbraco.Cli**. **All issues, to-dos,
@@ -45,8 +64,8 @@ dotnet build                                   # build the solution
 dotnet test                                    # run all tests
 dotnet test --project tests/Umbraco.Community.Cli.Tests --filter-class "*CommandExecutorTests"   # one test class
 dotnet test --project tests/Umbraco.Community.Cli.Tests --filter-method "*RunObject_ApiFailure_WritesErrorAndReturnsOne"  # one test
-dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -o ./nupkg        # build the tool package
-dotnet tool install --global --add-source ./nupkg Umbraco.Community.Cli --prerelease  # install locally to test
+dotnet pack Umbraco.Community.Cli.slnx -o artifacts        # build the tool package
+dotnet tool install --global --add-source ./artifacts Umbraco.Community.Cli --prerelease  # install locally to test
 dotnet tool restore && dotnet csharpier format .   # format (CSharpier, pinned in .config/dotnet-tools.json)
 dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*"   # benchmarks, see its README
 ```
@@ -55,6 +74,11 @@ The tests are xUnit v3 on Microsoft.Testing.Platform (`global.json` selects the 
 `dotnet test` takes xUnit's `--filter-class`, `--filter-method` and `--filter-query` instead of
 VSTest's `--filter`. Name the project with `--project` when filtering: a test project in which the
 filter matches nothing fails the run.
+
+To release, move the `## [Unreleased]` entries under `## [x.y.z] - <date>` in the commit you tag,
+then push the tag `vx.y.z`. `release.yml` runs the security gate, the tests on Linux, Windows and
+macOS, packs, publishes to nuget.org and creates the GitHub Release from that CHANGELOG section. A
+suffix (`v0.2.0-rc.1`) makes a pre-release.
 
 There is no linter beyond the compiler + analyzers. Warnings are errors and the `latest-recommended`
 analyzer set is on (`Directory.Build.props`); a rule is relaxed only in `.editorconfig`, scoped to the
@@ -90,14 +114,19 @@ never carries a version. To move to a new .NET, change `global.json` and `Target
 
 ## Architecture
 
-Three projects (`Umbraco.Community.Cli.slnx`):
+Five projects (`Umbraco.Community.Cli.slnx`):
 
 - **`src/Umbraco.Community.Cli`** - the executable: command tree, DI wiring, config, output writers.
 - **`src/Umbraco.Community.Cli.Client`** - the typed HTTP client for the Management API. Isolated so
   the generated client can be regenerated when the Umbraco API changes without touching
   command logic. The client is a Kiota-generated `UmbracoApiClient` (under `Generated/`)
   wrapped by a thin hand-written `UmbracoManagementClient` adapter.
-- **`tests/Umbraco.Community.Cli.Tests`** - xUnit v3 tests.
+- **`tests/Umbraco.Community.Cli.Tests`** - the unit tests: commands against a fake client, the
+  client against canned HTTP, request counts against a fake Umbraco.
+- **`tests/Umbraco.Community.Cli.IntegrationTests`** - the built CLI run as a subprocess against a
+  live Umbraco site; every test skips when there is none (see "Live integration tests" above).
+- **`tests/Umbraco.Community.Cli.Benchmarks`** - BenchmarkDotNet measurements, not tests: `dotnet
+  test` skips the project; see its README.
 
 ### The command execution pipeline (the core pattern)
 

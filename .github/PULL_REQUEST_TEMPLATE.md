@@ -20,11 +20,12 @@ Closes #<!-- issue number -->
 
 - [ ] This PR closes a single issue that is labelled `accepted` or `help wanted`.
 - [ ] The diff is scoped to that issue - no unrelated reformatting, renames, or dependency bumps.
-- [ ] `dotnet build` and `dotnet test` pass locally.
+- [ ] `dotnet build -warnaserror` and `dotnet test` pass locally.
 - [ ] Formatted with CSharpier.
-- [ ] Public/internal/protected members I touched have XML doc comments.
+- [ ] C# members I touched have XML doc comments.
 - [ ] New or changed behaviour has tests (happy path + obvious failure path).
 - [ ] If I added or changed a command, I updated `docs/commands.md`.
+- [ ] A user-visible change has a line under `## [Unreleased]` in `CHANGELOG.md`.
 
 ## AI assistance
 

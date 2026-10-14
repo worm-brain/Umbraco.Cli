@@ -1,12 +1,8 @@
-# CLAUDE.md
+@AGENTS.md
 
-This repository keeps a single, tool-neutral instructions file: **[AGENTS.md](AGENTS.md)**.
+## Claude Code
 
-If you are Claude Code (or any agent) working in this repository, **read
-[AGENTS.md](AGENTS.md) now** - it holds what used to live here: what the project is, the
-architecture and command-execution pipeline, the build/test commands, and the repo
-conventions. The contribution rules (issue-first, invitation-only PRs) are in
-[CONTRIBUTING.md](CONTRIBUTING.md).
-
-If you are using the `umbraco` CLI to drive an Umbraco instance rather than editing this repo,
-read [docs/agent-guide.md](docs/agent-guide.md).
+- Plan an issue in plan mode and wait for approval before building it.
+- A gitignored `CLAUDE.local.md` at the checkout root, when it exists, imports the maintainer's
+  private briefs and says where planning issues live. At the start of a session, read the handoff it
+  points to: it holds the current state and the gotchas from the last session.

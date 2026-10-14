@@ -34,7 +34,8 @@ acting on its own. What we care about is that the issue is **specific and ground
 - **One issue per topic.** Do not batch unrelated ideas into one issue.
 
 Good issues are the single most useful contribution you can make. They are how work gets
-prioritised, and they are a prerequisite for every PR.
+prioritised, and they are a prerequisite for every PR. A security problem is the exception: report
+it privately, as [SECURITY.md](SECURITY.md) describes.
 
 ---
 
@@ -79,9 +80,10 @@ doing, open an issue for it.
   existing xUnit patterns.
 - If you added or changed a command, update [`docs/commands.md`](docs/commands.md) in the same
   PR. The machine catalog (`umbraco commands`) updates itself; the prose reference does not.
-- CI SDK and target framework stay in sync (see [AGENTS.md](AGENTS.md)).
+- A user-visible change adds a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
 
-See [AGENTS.md](AGENTS.md) for the architecture and the command-execution pattern to mirror.
+See [AGENTS.md](AGENTS.md) for the working rules, the architecture and the command-execution
+pattern to mirror.
 
 ---
 
