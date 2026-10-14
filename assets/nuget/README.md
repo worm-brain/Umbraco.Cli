@@ -35,7 +35,10 @@ umbraco content list
 
 ## Documentation
 
-- [Getting started](https://github.com/worm-brain/Umbraco.Cli/blob/main/docs/getting-started.md)
-- [Automation guide](https://github.com/worm-brain/Umbraco.Cli/blob/main/docs/agent-guide.md)
-- [Command reference](https://github.com/worm-brain/Umbraco.Cli/blob/main/docs/commands.md)
-- [Source and issues](https://github.com/worm-brain/Umbraco.Cli)
+- [Documentation](https://github.com/worm-brain/Umbraco.Cli/blob/main/docs/index.md): getting
+  started, the automation guide for scripts, CI and AI agents, and the command reference
+- [Configuration](https://github.com/worm-brain/Umbraco.Cli/blob/main/docs/reference/configuration.md):
+  profiles, the config file and environment variables
+- [Changelog](https://github.com/worm-brain/Umbraco.Cli/blob/main/CHANGELOG.md)
+- [Source](https://github.com/worm-brain/Umbraco.Cli#readme) and
+  [issues](https://github.com/worm-brain/Umbraco.Cli/issues)
