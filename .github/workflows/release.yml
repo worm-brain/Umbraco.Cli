@@ -1,166 +1,169 @@
+# Releases a version when its tag is pushed: `git tag v0.2.0 && git push origin v0.2.0`. The tag sets the
+# package version, so the tag and the published version cannot drift apart. Tags with a suffix
+# (v0.2.0-rc.1) are pre-releases. The package is `Umbraco.Community.Cli` (the `Umbraco.` prefix is
+# reserved on nuget.org); the command it installs is `umbraco`.
+#
+# The jobs run in order, and each one runs only when the ones before it passed:
+#   1. security        the Security workflow (security.yml) as a gate.
+#   2. test            the tests on Linux, Windows and macOS. Routine CI is Linux-only, to save minutes;
+#                      a release is where cross-platform confidence matters.
+#      pack            (alongside test) reads the version's CHANGELOG.md section, then packs the tool at
+#                      the tag's version.
+#   3. publish         pushes the package to nuget.org.
+#   4. github-release  creates the GitHub Release for the tag, with that version's CHANGELOG.md section
+#                      as its notes and the .nupkg attached.
+#
+# Publishing uses NuGet trusted publishing, so no API key is stored: the publish job exchanges its GitHub
+# OIDC token for a short-lived key. One-off setup per repository: a trusted publishing policy on nuget.org
+# for this repository and release.yml, the `nuget` environment with deployments limited to `v*` tags, and
+# the repository variable NUGET_USER (the nuget.org account name).
 name: Release
-
-# Publishes the `Umbraco.Community.Cli` global tool package to NuGet.org.
-# (The `Umbraco.*` prefix is reserved by Umbraco A/S; community packages use
-# the shared `Umbraco.Community.*` namespace. The CLI command is `umbraco`.)
-#
-# Triggered by pushing a version tag of the form `vMAJOR.MINOR.PATCH`
-# (e.g. `v1.0.0`). The tag drives the package version, so the git tag and
-# the published NuGet version can never drift apart:
-#
-#     git tag v1.0.0 && git push origin v1.0.0
-#
-# Authentication uses NuGet.org Trusted Publishing (OIDC) -- no long-lived
-# API key secret is stored in this repo. At push time the workflow requests a
-# short-lived GitHub OIDC token, exchanges it with NuGet.org via the
-# `NuGet/login` action, and receives a temporary API key valid for ~1 hour.
-#
-# One-time setup on nuget.org (Account -> Trusted Publishing -> add policy):
-#   - Repository Owner: worm-brain
-#   - Repository:       Umbraco.Cli
-#   - Workflow File:    publish.yml   (file name only, no path)
-#   - Environment:      (leave empty -- this workflow uses no GH environment)
-# and add a repo secret `NUGET_USER` = your nuget.org username (profile name,
-# NOT your email). See https://learn.microsoft.com/nuget/nuget-org/trusted-publishing
 
 on:
   push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"      # stable releases, e.g. v1.0.0
-      - "v[0-9]+.[0-9]+.[0-9]+-*"    # prereleases, e.g. v1.1.0-rc.1
+    tags: ["v*"]
 
-# Least privilege by default (SEC-CICD-001). The `test` matrix and the security gate run
-# `dotnet restore`/build, i.e. third-party package code, so they must NOT hold
-# `id-token: write` - the Trusted Publishing policy is scoped to this workflow file with no
-# environment, so ANY job here holding it could mint an OIDC token NuGet.org would accept.
-# Only the `release` job widens its permissions, below.
+# Least privilege: read-only by default, and a job that needs more widens its own: the security gate
+# (CodeQL uploads its results), publish (mints an OIDC token) and github-release (writes the release).
+# Jobs that restore or build run third-party package code, so none of them can publish or write contents.
 #
-# Third-party actions are pinned to full commit SHAs (tag in the trailing comment) so a
-# repointed tag cannot change what runs next to the publish credentials.
+# Actions are pinned to full commit SHAs (tag in the trailing comment) so a moved tag cannot change what
+# runs next to the publishing credentials. Dependabot keeps the pins current.
 permissions:
   contents: read
 
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
 jobs:
-  # Tier-1 security gate (NuGet vulnerabilities, secret scan, package hygiene), run
-  # in-graph as a reusable workflow so `release` can `needs:` it (SEC-CICD-002). A
-  # separate Security run on the same tag would be a parallel, non-blocking signal.
-  # CodeQL is skipped here: code scanning is not enabled on this private repo, so it would
-  # fail every release. It still runs on PRs, main and the weekly schedule.
   security:
     name: Security gate
     uses: ./.github/workflows/security.yml
-    with:
-      skip-codeql: true
-    # These grants are still needed although CodeQL is skipped: GitHub validates a called
-    # workflow's job permissions against the caller when the run starts, before any `if:`,
-    # so without them the whole Release run fails to start. None of them can publish.
+    # What the called workflow's CodeQL job asks for. GitHub checks a called workflow's permissions when
+    # the run starts, before any `if:`, so they are needed even where CodeQL is skipped. None can publish.
     permissions:
       contents: read
       actions: read
       security-events: write
 
-
-  # Cross-platform gate: a tag is published only if the tests pass on every OS.
-  # Releases are rare, so the full ubuntu/windows/macos matrix runs here - where
-  # routine CI (ci.yml) is Linux-only - because a release is where cross-platform
-  # confidence matters most.
   test:
     name: Test (${{ matrix.os }})
+    needs: security
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
 
-      - name: Restore
-        run: dotnet restore
+      - run: dotnet test --solution Umbraco.Community.Cli.slnx -c Release
 
-      - name: Build
-        run: dotnet build --no-restore -c Release
-
-      - name: Test
-        run: dotnet test --no-build -c Release
-
-  release:
-    name: Pack & Publish to NuGet
+  pack:
+    needs: security
     runs-on: ubuntu-latest
-    # Only publish once BOTH the cross-platform test matrix and the Tier-1 security gate
-    # are green. A failed or skipped dependency skips this job, so nothing ships.
-    needs: [test, security]
-    # The only job holding write scopes (SEC-CICD-001).
-    permissions:
-      contents: write # create-github-release step attaches the .nupkg to a Release
-      id-token: write # Trusted Publishing: mint the GitHub OIDC token for NuGet/login
-
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
 
-      # Derive the package version from the tag: strip the leading `v`.
-      # `v1.2.3` -> `1.2.3`, `v1.2.3-rc.1` -> `1.2.3-rc.1`.
-      - name: Resolve version from tag
+      # The tag sets the version: v0.2.0 -> 0.2.0, v0.2.0-rc.1 -> 0.2.0-rc.1.
+      - name: Resolve the version from the tag
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Restore
-        run: dotnet restore
+      # The release notes are the CHANGELOG.md section whose heading names this version in brackets
+      # (`## [0.2.0] - 2026-11-02`). Read here, before anything is published, so a missing section stops
+      # the release early.
+      - name: Read the release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Prints the lines after the first `## ` heading that contains `[<version>]`, up to the next
+          # `## ` heading, and exits 1 when no heading names the version.
+          if ! awk -v needle="[$VERSION]" '
+            /^## / { if (found) exit; found = (index($0, needle) > 0); next }
+            found { print }
+            END { exit !found }
+          ' CHANGELOG.md > release-notes.md; then
+            echo "::error::CHANGELOG.md has no '## ' heading containing [$VERSION]. Move the Unreleased entries under a heading for this version in the commit you tag."
+            exit 1
+          fi
+          cat release-notes.md
 
-      - name: Build
-        run: dotnet build --no-restore -c Release -p:Version=${{ steps.version.outputs.version }}
+      # Produces the .nupkg with its .snupkg symbol package.
+      - run: dotnet pack Umbraco.Community.Cli.slnx -c Release -o artifacts -p:Version=${{ steps.version.outputs.version }}
 
-      # No inline test step here: the `test` job above already gated this publish
-      # on a green run across ubuntu/windows/macos, so we never ship a broken tool.
-      - name: Pack
-        run: >
-          dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj
-          --no-build -c Release
-          -p:Version=${{ steps.version.outputs.version }}
-          -o ./nupkg
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages
+          path: artifacts/
 
-      # Exchange the GitHub OIDC token for a short-lived NuGet API key. Done
-      # immediately before the push because the key expires after ~1 hour.
-      - name: NuGet login (OIDC -> temporary API key)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-notes
+          path: release-notes.md
+
+  publish:
+    needs: [test, pack]
+    runs-on: ubuntu-latest
+    # The environment accepts deployments from `v*` tags only.
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write # request the OIDC token for trusted publishing
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: packages
+          path: artifacts/
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         id: nuget-login
-        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         with:
-          user: ${{ secrets.NUGET_USER }}
+          user: ${{ vars.NUGET_USER }}
 
-      # NOTE: deliberately NO `--skip-duplicate` here. That flag treats a 409
-      # "already exists" as success, which previously masked a real rejection
-      # (the reserved `Umbraco.*` prefix returned a conflict and the run still
-      # went green while nothing published). We want the push to FAIL LOUDLY on
-      # any conflict/rejection. Each release uses a unique tag-derived version,
-      # so a legitimate duplicate should never occur; if it does, that is a
-      # signal worth failing on rather than hiding.
-      - name: Push to NuGet.org
-        run: >
-          dotnet nuget push "./nupkg/*.nupkg"
-          --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-          --source https://api.nuget.org/v3/index.json
+      # Pushing a .nupkg also pushes the matching .snupkg from the same folder. No --skip-duplicate: a
+      # rejected push must fail the job rather than pass silently. (It once hid the reserved `Umbraco.`
+      # prefix's 409 behind a green run while nothing was published.)
+      - run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
 
-      - name: Upload NuGet package artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+  github-release:
+    needs: [pack, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          name: nupkg
-          path: ./nupkg
+          name: release-notes
 
-      # Create a GitHub Release for the tag, attaching the .nupkg. Marked as a
-      # prerelease automatically when the version contains a `-` suffix.
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          files: ./nupkg/*.nupkg
-          generate_release_notes: true
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          name: packages
+          path: artifacts/
+
+      # A version with a `-` suffix (0.2.0-rc.1) is marked as a pre-release. The .nupkg is attached, as
+      # on every release so far.
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.pack.outputs.version }}
+        run: |
+          prerelease=""
+          if [[ "$VERSION" == *-* ]]; then prerelease="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "$GITHUB_REF_NAME" --notes-file release-notes.md $prerelease
