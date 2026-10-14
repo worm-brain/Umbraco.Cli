@@ -7,7 +7,7 @@
 ## Context
 
 Some Umbraco packages change what the CLI's existing commands should expect. The first is
-Umbraco.RichDictionary: it keeps dictionary values in the core `translations[].translation`
+Umbraco.Community.RichDictionary: it keeps dictionary values in the core `translations[].translation`
 string, but as HTML or Markdown, chosen once for the whole site by its `EditorMode` setting. Nothing
 in the Management API says so, so a user or an agent writing a value with `dictionary update` has to
 guess what the site expects.
@@ -30,7 +30,7 @@ the type `umbracoCli`:
 ```json
 {
   "type": "umbracoCli",
-  "alias": "Umbraco.RichDictionary.Cli",
+  "alias": "Umbraco.Community.RichDictionary.Cli",
   "name": "Rich Dictionary",
   "meta": { "dictionaryValueFormat": "markdown" }
 }
@@ -107,7 +107,7 @@ Run against the dev site (`tests/hands-on/dev-site.py`), which now carries a fix
   Nothing subscribes to `umbracoCli`, so the entry is inert. The alias must still be unique across
   the site, so packages use `<PackageId>.Cli`.
 - **A C# `IPackageManifestReader` works alongside a static `umbraco-package.json`.** Checked with
-  Umbraco.RichDictionary's reader (worm-brain/Umbraco.RichDictionary#12) on 17.7.0. Umbraco does not
+  Umbraco.Community.RichDictionary's reader (worm-brain/Umbraco.RichDictionary#12) on 17.7.0. Umbraco does not
   merge manifests by id: the endpoint lists the C# manifest and the static one as separate entries,
   and the CLI reads the declaration from whichever carries it. Two things matter when registering
   such a reader:
