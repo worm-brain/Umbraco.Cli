@@ -43,13 +43,18 @@ reuse them for consistency.
 ```bash
 dotnet build                                   # build the solution
 dotnet test                                    # run all tests
-dotnet test --filter "FullyQualifiedName~CommandExecutorTests"   # one test class
-dotnet test --filter "Name=RunObject_ApiFailure_WritesErrorAndReturnsOne"  # one test
+dotnet test --project tests/Umbraco.Community.Cli.Tests --filter-class "*CommandExecutorTests"   # one test class
+dotnet test --project tests/Umbraco.Community.Cli.Tests --filter-method "*RunObject_ApiFailure_WritesErrorAndReturnsOne"  # one test
 dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -o ./nupkg        # build the tool package
 dotnet tool install --global --add-source ./nupkg Umbraco.Community.Cli --prerelease  # install locally to test
 dotnet tool restore && dotnet csharpier format .   # format (CSharpier, pinned in .config/dotnet-tools.json)
 dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*"   # benchmarks, see its README
 ```
+
+The tests are xUnit v3 on Microsoft.Testing.Platform (`global.json` selects the runner), so
+`dotnet test` takes xUnit's `--filter-class`, `--filter-method` and `--filter-query` instead of
+VSTest's `--filter`. Name the project with `--project` when filtering: a test project in which the
+filter matches nothing fails the run.
 
 There is no linter beyond the compiler + analyzers. Warnings are errors and the `latest-recommended`
 analyzer set is on (`Directory.Build.props`); a rule is relaxed only in `.editorconfig`, scoped to the
@@ -64,7 +69,7 @@ skips every test when there is none. Don't rely on a hand-built instance (such a
 
 ```bash
 python3 tests/hands-on/dev-site.py test                      # create/start sites/dev, run the suite
-python3 tests/hands-on/dev-site.py test --filter "FullyQualifiedName~EffectIntegrationTests"
+python3 tests/hands-on/dev-site.py test --filter-class "*EffectIntegrationTests"
 python3 tests/hands-on/dev-site.py down                      # stop it (keeps its content)
 python3 tests/hands-on/dev-site.py env                       # host + credentials, e.g. for scripts/fetch-spec.ps1
 ```
@@ -92,7 +97,7 @@ Three projects (`Umbraco.Community.Cli.slnx`):
   the generated client can be regenerated when the Umbraco API changes without touching
   command logic. The client is a Kiota-generated `UmbracoApiClient` (under `Generated/`)
   wrapped by a thin hand-written `UmbracoManagementClient` adapter.
-- **`tests/Umbraco.Community.Cli.Tests`** - xUnit tests.
+- **`tests/Umbraco.Community.Cli.Tests`** - xUnit v3 tests.
 
 ### The command execution pipeline (the core pattern)
 
@@ -212,7 +217,7 @@ Sources of truth, in order:
 1. [`docs/conventions.md`](docs/conventions.md) - the design rules.
 2. [`docs/surface.json`](docs/surface.json) - the current surface, generated from the command
    tree. `SurfaceSnapshotTests` fails when it is stale; regenerate it with
-   `UPDATE_SURFACE=1 dotnet test tests/Umbraco.Community.Cli.Tests --filter SurfaceSnapshotTests` and commit
+   `UPDATE_SURFACE=1 dotnet test --project tests/Umbraco.Community.Cli.Tests --filter-class "*SurfaceSnapshotTests"` and commit
    it with the change, so every surface change is one reviewable diff.
 3. ADRs, plans and issue bodies - history and rationale, not requirements. An issue's plan is a
    snapshot of intent from when it was written.

@@ -41,7 +41,7 @@ public sealed class SchemaFileTests : IDisposable
         // Arrange: the same bytes saved to a file and piped to stdin.
         var bytes = RedirectedStdin.Utf8(Snapshot, byteOrderMark);
         var path = Path.Combine(_dir, "schema.json");
-        await File.WriteAllBytesAsync(path, bytes);
+        await File.WriteAllBytesAsync(path, bytes, TestContext.Current.CancellationToken);
         var fromFile = await SchemaFile.LoadAsync(path, CancellationToken.None);
         using var stdin = new RedirectedStdin(bytes);
 

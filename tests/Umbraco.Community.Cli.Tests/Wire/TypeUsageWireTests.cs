@@ -39,7 +39,8 @@ public class TypeUsageWireTests
     [Fact]
     public async Task GetDocumentTypeUsageAsync_CountsTheTreeAndTheRecycleBin()
     {
-        var result = await Wire.Client(Documents()).GetDocumentTypeUsageAsync(Page);
+        var result = await Wire.Client(Documents())
+            .GetDocumentTypeUsageAsync(Page, TestContext.Current.CancellationToken);
 
         Assert.Equal(3, result.Data!.Items);
     }
@@ -47,7 +48,8 @@ public class TypeUsageWireTests
     [Fact]
     public async Task GetDocumentTypeUsageAsync_NamesTheTypesThatComposeIt()
     {
-        var result = await Wire.Client(Documents()).GetDocumentTypeUsageAsync(Page);
+        var result = await Wire.Client(Documents())
+            .GetDocumentTypeUsageAsync(Page, TestContext.Current.CancellationToken);
 
         Assert.Equal(["Blog Post"], result.Data!.ComposedBy);
     }
@@ -59,8 +61,8 @@ public class TypeUsageWireTests
         var handler = Documents();
         var client = Wire.Client(handler);
 
-        await client.GetDocumentTypeUsageAsync(Page);
-        await client.GetDocumentTypeUsageAsync(Other);
+        await client.GetDocumentTypeUsageAsync(Page, TestContext.Current.CancellationToken);
+        await client.GetDocumentTypeUsageAsync(Other, TestContext.Current.CancellationToken);
 
         Assert.Single(handler.Requests, u => u.AbsoluteUri.Contains("tree/document/root"));
     }
@@ -75,7 +77,8 @@ public class TypeUsageWireTests
             ("document-type/", """{"isElement":true}""")
         );
 
-        var result = await Wire.Client(handler).GetDocumentTypeUsageAsync(Page);
+        var result = await Wire.Client(handler)
+            .GetDocumentTypeUsageAsync(Page, TestContext.Current.CancellationToken);
 
         Assert.True(result.Data!.IsElement);
     }
@@ -92,7 +95,8 @@ public class TypeUsageWireTests
             )
             .When(_ => true, HttpStatusCode.OK, "[]");
 
-        var result = await Wire.Client(handler).GetDocumentTypeUsageAsync(Page);
+        var result = await Wire.Client(handler)
+            .GetDocumentTypeUsageAsync(Page, TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
     }
@@ -112,7 +116,8 @@ public class TypeUsageWireTests
             ("composition-references", "[]")
         );
 
-        var result = await Wire.Client(handler).GetMediaTypeUsageAsync(Page);
+        var result = await Wire.Client(handler)
+            .GetMediaTypeUsageAsync(Page, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, result.Data!.Items);
     }

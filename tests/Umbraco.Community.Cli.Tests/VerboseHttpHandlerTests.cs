@@ -104,7 +104,10 @@ public class VerboseHttpHandlerTests
             () => Json("""{"id":"abc"}""")
         );
 
-        Assert.Equal("""{"id":"abc"}""", await response.Content.ReadAsStringAsync());
+        Assert.Equal(
+            """{"id":"abc"}""",
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)
+        );
     }
 
     [Fact]

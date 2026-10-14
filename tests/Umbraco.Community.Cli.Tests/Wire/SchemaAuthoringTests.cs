@@ -174,7 +174,8 @@ public class SchemaAuthoringTests
                     resolved,
                     new UpdateDataTypeRequest { Name = "Short Text" },
                     CancellationToken.None
-                )
+                ),
+            ct: TestContext.Current.CancellationToken
         );
 
         Assert.True(result.IsSuccess, result.ErrorMessage);
@@ -198,7 +199,8 @@ public class SchemaAuthoringTests
                     resolved,
                     new UpdateDataTypeRequest { Name = "Short Text" },
                     CancellationToken.None
-                )
+                ),
+            ct: TestContext.Current.CancellationToken
         );
 
         Assert.False(result.IsSuccess);

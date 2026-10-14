@@ -20,7 +20,8 @@ public abstract class LiveTestBase(LiveInstanceFixture live)
     /// regression into a green result - see the note on <see cref="EffectIntegrationTests"/>.
     /// </para>
     /// </summary>
-    protected void RequireLive() => Skip.IfNot(_live.IsReachable, LiveInstanceFixture.SkipReason);
+    protected void RequireLive() =>
+        Assert.SkipUnless(_live.IsReachable, LiveInstanceFixture.SkipReason);
 
     /// <summary>A prefix + random suffix, so fixtures never collide on a shared instance.</summary>
     /// <param name="prefix">A short identifying prefix.</param>
@@ -127,7 +128,10 @@ public sealed class ScratchCultureType : IDisposable
             "-"
         );
         // An instance that will not take this document type is an environment limit.
-        Skip.IfNot(created.Ok, $"Could not create the scratch document type: {created.Stderr}");
+        Assert.SkipUnless(
+            created.Ok,
+            $"Could not create the scratch document type: {created.Stderr}"
+        );
 
         // From here the type exists, so anything that throws must still clean it up.
         var scope = new ScratchCultureType(id, alias);

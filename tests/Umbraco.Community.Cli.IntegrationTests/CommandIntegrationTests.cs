@@ -9,7 +9,7 @@ namespace Umbraco.Community.Cli.IntegrationTests;
 [Collection("Live")]
 public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTestBase(live)
 {
-    [SkippableFact]
+    [Fact]
     public void Whoami_ReturnsAuthenticatedIdentity()
     {
         RequireLive();
@@ -19,7 +19,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.False(string.IsNullOrWhiteSpace(result.Data().GetProperty("userName").GetString()));
     }
 
-    [SkippableFact]
+    [Fact]
     public void ContentList_ReturnsItems()
     {
         RequireLive();
@@ -29,12 +29,12 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Equal(JsonValueKind.Array, result.Data().ValueKind);
     }
 
-    [SkippableFact]
+    [Fact]
     public void ContentGet_ReturnsRealName()
     {
         RequireLive();
         var list = CliRunner.Run("content", "list", "--take", "1");
-        Skip.If(list.Data().GetArrayLength() == 0, "No content in the instance to get.");
+        Assert.SkipWhen(list.Data().GetArrayLength() == 0, "No content in the instance to get.");
 
         var id = list.Data()[0].GetProperty("id").GetString()!;
         var get = CliRunner.Run("content", "get", id);
@@ -44,21 +44,21 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.False(string.IsNullOrWhiteSpace(get.Data().GetProperty("name").GetString()));
     }
 
-    [SkippableFact]
+    [Fact]
     public void MediaList_ReturnsItems()
     {
         RequireLive();
         Assert.True(CliRunner.Run("media", "list", "--take", "5").Ok);
     }
 
-    [SkippableFact]
+    [Fact]
     public void ContentTypesList_ReturnsItems()
     {
         RequireLive();
         Assert.True(CliRunner.Run("document-type", "list", "--take", "5").Ok);
     }
 
-    [SkippableFact]
+    [Fact]
     public void DataTypes_ListThenGet_RoundTrips()
     {
         RequireLive();
@@ -70,7 +70,10 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.True(list.Ok, list.Stderr);
         var items = list.Data();
         Assert.Equal(JsonValueKind.Array, items.ValueKind);
-        Skip.If(items.GetArrayLength() == 0, "No data types on the instance to round-trip.");
+        Assert.SkipWhen(
+            items.GetArrayLength() == 0,
+            "No data types on the instance to round-trip."
+        );
 
         foreach (var item in items.EnumerateArray())
         {
@@ -83,14 +86,14 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void TemplatesList_ReturnsItems()
     {
         RequireLive();
         Assert.True(CliRunner.Run("template", "list", "--take", "5").Ok);
     }
 
-    [SkippableFact]
+    [Fact]
     public void MembersList_DefaultPaging_DoesNotError()
     {
         RequireLive();
@@ -99,7 +102,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.True(result.Ok, result.Stderr);
     }
 
-    [SkippableFact]
+    [Fact]
     public void LanguagesList_ReturnsItems()
     {
         RequireLive();
@@ -108,7 +111,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Equal(JsonValueKind.Array, result.Data().ValueKind);
     }
 
-    [SkippableFact]
+    [Fact]
     public void Language_CreateDelete_RoundTrips()
     {
         RequireLive();
@@ -120,7 +123,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.True(existing.Ok, existing.Stderr);
         string[] candidates = ["fr-CA", "es-MX", "de-AT", "pt-BR", "en-AU", "nl-BE"];
         var iso = candidates.FirstOrDefault(c => !existing.Stdout.Contains($"\"{c}\""));
-        Skip.If(iso is null, "No spare test culture available on this instance.");
+        Assert.SkipWhen(iso is null, "No spare test culture available on this instance.");
 
         // Create (now on the generated client). The create echoes the accepted request, so
         // isoCode/name come back populated rather than blank (guards #74 for this resource).
@@ -151,7 +154,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void Content_CreateGetDelete_RoundTrips()
     {
         RequireLive();
@@ -172,7 +175,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Equal("clitest 134 root", get.Data().GetProperty("name").GetString());
     }
 
-    [SkippableFact]
+    [Fact]
     public void Member_CreateAndGet_RoundTrips()
     {
         RequireLive();
@@ -233,7 +236,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void MemberType_UpdateName_ChangesTheNameAndKeepsTheProperty()
     {
         RequireLive();
@@ -293,7 +296,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void DictionaryList_ReturnsItems()
     {
         RequireLive();
@@ -305,7 +308,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     /// <c>dictionaryValueFormat: markdown</c> (#440, ADR 0009), so the CLI reads it from the live
     /// manifest endpoint and reports it.
     /// </summary>
-    [SkippableFact]
+    [Fact]
     public void DictionaryList_FixturePackageDeclaresMarkdown_ReportsValueFormat()
     {
         RequireLive();
@@ -320,14 +323,14 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         );
     }
 
-    [SkippableFact]
+    [Fact]
     public void WebhooksList_ReturnsItems()
     {
         RequireLive();
         Assert.True(CliRunner.Run("webhook", "list", "--take", "5").Ok);
     }
 
-    [SkippableFact]
+    [Fact]
     public void DryRun_Create_PreviewsRequestAndDoesNotMutate()
     {
         RequireLive();
@@ -357,7 +360,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.DoesNotContain(marker, list.Stdout);
     }
 
-    [SkippableFact]
+    [Fact]
     public void DryRun_UserCreateWithPassword_PreviewsBothStepsWithThePasswordRedacted()
     {
         RequireLive();
@@ -414,7 +417,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.True(props.TryGetProperty("variants", out _));
     }
 
-    [SkippableFact]
+    [Fact]
     public void Fields_ProjectsListOutput()
     {
         RequireLive();
@@ -424,7 +427,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.True(result.Ok, result.Stderr);
 
         var data = result.Data();
-        Skip.If(data.GetArrayLength() == 0, "No content to project.");
+        Assert.SkipWhen(data.GetArrayLength() == 0, "No content to project.");
         foreach (var item in data.EnumerateArray())
             Assert.Single(item.EnumerateObject());
     }
@@ -439,7 +442,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     private static (string Id, string Alias) FindDocumentType()
     {
         var list = CliRunner.Run("document-type", "list", "--take", "50");
-        Skip.IfNot(list.Ok, $"Could not list content types: {list.Stderr}");
+        Assert.SkipUnless(list.Ok, $"Could not list content types: {list.Stderr}");
 
         foreach (var item in list.Data().EnumerateArray())
         {
@@ -455,11 +458,11 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             }
         }
 
-        Skip.If(true, "No document type with an alias found on the live instance.");
-        return ("", ""); // unreachable - the Skip above always throws.
+        Assert.Skip("No document type with an alias found on the live instance.");
+        return default;
     }
 
-    [SkippableFact]
+    [Fact]
     public void DocumentTypeList_ExistingType_ShowsTheAliasThatGetShows()
     {
         RequireLive();
@@ -474,7 +477,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Equal(alias, listed.GetProperty("alias").GetString());
     }
 
-    [SkippableFact]
+    [Fact]
     public void StdinBody_ContentCreate_ReadsPipedBody()
     {
         RequireLive();
@@ -519,7 +522,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Equal(docTypeId, resolvedId);
     }
 
-    [SkippableFact]
+    [Fact]
     public void AuthDoctor_AllChecksPassAgainstLiveInstance()
     {
         RequireLive();
@@ -534,7 +537,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.DoesNotContain(checks, c => c.GetProperty("status").GetString() == "fail");
     }
 
-    [SkippableFact]
+    [Fact]
     public void AuthProfiles_ListsProfilesWithDefault()
     {
         RequireLive();
@@ -548,7 +551,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Contains(rows, r => r.GetProperty("default").GetBoolean());
     }
 
-    [SkippableFact]
+    [Fact]
     public void Profile_SelectsCredentials()
     {
         RequireLive();
@@ -592,7 +595,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Contains("--output", rootOptions);
     }
 
-    [SkippableFact]
+    [Fact]
     public void ReadOnly_BlocksWriteButAllowsRead()
     {
         RequireLive();
@@ -617,7 +620,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.DoesNotContain(marker, hooks.Stdout);
     }
 
-    [SkippableFact]
+    [Fact]
     public void ApiGet_ServerStatus_ReturnsTheResponseBodyAsData()
     {
         RequireLive();
@@ -628,7 +631,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Equal("Run", result.Data().GetProperty("serverStatus").GetString());
     }
 
-    [SkippableFact]
+    [Fact]
     public void ApiPost_UnderReadOnly_IsRefusedBeforeItIsSent()
     {
         RequireLive();
@@ -644,7 +647,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         Assert.Equal(2, result.ExitCode);
     }
 
-    [SkippableFact]
+    [Fact]
     public void AllowList_RestrictsCommandSurface()
     {
         RequireLive();
@@ -666,7 +669,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void DestructiveDelete_WithoutYes_RefusedNonInteractively()
     {
         RequireLive();
@@ -698,7 +701,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void Webhook_CreateListDelete_RoundTrips()
     {
         RequireLive();
@@ -740,7 +743,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
     /// a header without dropping the one it had, <c>--header Name=</c> removes one header and keeps
     /// the rest, and its delivery log can be read.
     /// </summary>
-    [SkippableFact]
+    [Fact]
     public void Webhook_UpdateByName_DisablesAndMergesHeaders()
     {
         RequireLive();

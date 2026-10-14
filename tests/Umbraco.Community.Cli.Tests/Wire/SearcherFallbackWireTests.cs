@@ -39,7 +39,11 @@ public class SearcherFallbackWireTests
     public async Task QuerySearcherAsync_TheIndexsSearcherName_IsAnsweredByTheIndex()
     {
         var result = await Wire.Client(Umbraco17())
-            .QuerySearcherAsync("ExternalSearcher", "Docker");
+            .QuerySearcherAsync(
+                "ExternalSearcher",
+                "Docker",
+                ct: TestContext.Current.CancellationToken
+            );
 
         Assert.Equal("1066", Assert.Single(result.Data!.Items).Id);
     }
@@ -47,7 +51,12 @@ public class SearcherFallbackWireTests
     [Fact]
     public async Task QuerySearcherAsync_AnUnknownName_StillFailsWith404()
     {
-        var result = await Wire.Client(Umbraco17()).QuerySearcherAsync("NoSuchSearcher", "Docker");
+        var result = await Wire.Client(Umbraco17())
+            .QuerySearcherAsync(
+                "NoSuchSearcher",
+                "Docker",
+                ct: TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(404, result.StatusCode);
     }

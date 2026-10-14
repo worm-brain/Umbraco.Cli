@@ -140,7 +140,12 @@ public class HostPolicyTests
         var service = new UmbracoAuthService(new Factory(endpoint));
 
         var ex = await Record.ExceptionAsync(() =>
-            service.GetTokenAsync("http://example.com", "id", "secret")
+            service.GetTokenAsync(
+                "http://example.com",
+                "id",
+                "secret",
+                ct: TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Equal((true, 0), (ex is UmbracoAuthException, endpoint.Requests.Count));

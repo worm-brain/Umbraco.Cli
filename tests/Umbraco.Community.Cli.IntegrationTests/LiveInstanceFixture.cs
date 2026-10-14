@@ -2,7 +2,7 @@ namespace Umbraco.Community.Cli.IntegrationTests;
 
 /// <summary>
 /// Shared fixture that probes once for a reachable, authenticated Umbraco instance by
-/// running <c>auth whoami</c>. Tests use <see cref="IsReachable"/> with <c>Skip.IfNot</c>
+/// running <c>auth whoami</c>. Tests use <see cref="IsReachable"/> with <c>Assert.SkipUnless</c>
 /// so the suite runs against a developer/CI instance when present and is skipped (not
 /// failed) otherwise - keeping solution-wide <c>dotnet test</c> green without an instance.
 /// </summary>

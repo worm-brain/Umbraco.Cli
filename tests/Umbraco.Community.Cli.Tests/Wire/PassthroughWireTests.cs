@@ -18,7 +18,11 @@ public class PassthroughWireTests
     {
         var client = Wire.Client(Wire.Returning("""{"serverStatus":"Run","extra":[1,2]}"""));
 
-        var result = await client.SendRawAsync(HttpMethod.Get, Status);
+        var result = await client.SendRawAsync(
+            HttpMethod.Get,
+            Status,
+            ct: TestContext.Current.CancellationToken
+        );
 
         Assert.Equal("""{"serverStatus":"Run","extra":[1,2]}""", result.Data?.ToJsonString());
     }
@@ -29,7 +33,11 @@ public class PassthroughWireTests
         var handler = Wire.Returning("""{"total":0,"items":[]}""");
 
         await Wire.Client(handler)
-            .SendRawAsync(HttpMethod.Get, "/umbraco/management/api/v1/tree/document/root?take=5");
+            .SendRawAsync(
+                HttpMethod.Get,
+                "/umbraco/management/api/v1/tree/document/root?take=5",
+                ct: TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(
             "https://example.com/umbraco/management/api/v1/tree/document/root?take=5",
@@ -45,7 +53,11 @@ public class PassthroughWireTests
             new HttpClient(handler) { BaseAddress = new Uri("https://example.com/site/") }
         );
 
-        await client.SendRawAsync(HttpMethod.Get, Status);
+        await client.SendRawAsync(
+            HttpMethod.Get,
+            Status,
+            ct: TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(
             "https://example.com/site/umbraco/management/api/v1/server/status",
@@ -62,7 +74,8 @@ public class PassthroughWireTests
             .SendRawAsync(
                 HttpMethod.Post,
                 "/umbraco/management/api/v1/language",
-                JsonNode.Parse("""{"isoCode":"da-DK","name":"Danish","isDefault":false}""")
+                JsonNode.Parse("""{"isoCode":"da-DK","name":"Danish","isDefault":false}"""),
+                TestContext.Current.CancellationToken
             );
 
         Assert.Equal(
@@ -75,7 +88,11 @@ public class PassthroughWireTests
     public async Task SendRawAsync_ResponseWithNoBody_IsAnEmptyObject()
     {
         var result = await Wire.Client(Wire.Blank())
-            .SendRawAsync(HttpMethod.Delete, "/umbraco/management/api/v1/language/da-DK");
+            .SendRawAsync(
+                HttpMethod.Delete,
+                "/umbraco/management/api/v1/language/da-DK",
+                ct: TestContext.Current.CancellationToken
+            );
 
         Assert.Equal("{}", result.Data?.ToJsonString());
     }
@@ -84,7 +101,11 @@ public class PassthroughWireTests
     public async Task SendRawAsync_BodyThatIsNotJson_IsKeptAsAString()
     {
         var result = await Wire.Client(Wire.Returning("plain words"))
-            .SendRawAsync(HttpMethod.Get, "/umbraco/my-package/api/v1/ping");
+            .SendRawAsync(
+                HttpMethod.Get,
+                "/umbraco/my-package/api/v1/ping",
+                ct: TestContext.Current.CancellationToken
+            );
 
         Assert.Equal("\"plain words\"", result.Data?.ToJsonString());
     }
@@ -102,7 +123,8 @@ public class PassthroughWireTests
 
         var result = await client.SendRawAsync(
             HttpMethod.Get,
-            "/umbraco/management/api/v1/language/xx-XX"
+            "/umbraco/management/api/v1/language/xx-XX",
+            ct: TestContext.Current.CancellationToken
         );
 
         Assert.Equal(
@@ -119,7 +141,8 @@ public class PassthroughWireTests
     {
         var handler = Wire.Blank();
 
-        var result = await Wire.Client(handler).SendRawAsync(HttpMethod.Get, path);
+        var result = await Wire.Client(handler)
+            .SendRawAsync(HttpMethod.Get, path, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             (FailureCategory.InvalidArgument, 0),
@@ -130,7 +153,8 @@ public class PassthroughWireTests
     [Fact]
     public async Task SendRawAsync_MethodItDoesNotSend_IsRefused()
     {
-        var result = await Wire.Client(Wire.Blank()).SendRawAsync(HttpMethod.Head, Status);
+        var result = await Wire.Client(Wire.Blank())
+            .SendRawAsync(HttpMethod.Head, Status, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);
     }

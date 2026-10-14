@@ -35,7 +35,11 @@ public class ReferenceResolverWireTests
         var handler = Wire.Blank();
 
         var result = await Wire.Client(handler)
-            .ResolveIdAsync(EntityKind.Template, BlogPost.ToString());
+            .ResolveIdAsync(
+                EntityKind.Template,
+                BlogPost.ToString(),
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal((BlogPost, 0), (result.Data, handler.Recordings.Count));
     }
@@ -44,7 +48,8 @@ public class ReferenceResolverWireTests
     public async Task ResolveIdAsync_TemplateAliasThatDiffersFromItsName_Resolves()
     {
         // #206: the item search matches names, so "blogPost" (named "Blog Post") was never found.
-        var result = await Wire.Client(Templates()).ResolveIdAsync(EntityKind.Template, "blogPost");
+        var result = await Wire.Client(Templates())
+            .ResolveIdAsync(EntityKind.Template, "blogPost", TestContext.Current.CancellationToken);
 
         Assert.Equal(BlogPost, result.Data);
     }
@@ -53,7 +58,11 @@ public class ReferenceResolverWireTests
     public async Task ResolveIdAsync_TemplateByName_Resolves()
     {
         var result = await Wire.Client(Templates())
-            .ResolveIdAsync(EntityKind.Template, "blog post");
+            .ResolveIdAsync(
+                EntityKind.Template,
+                "blog post",
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(BlogPost, result.Data);
     }
@@ -63,7 +72,8 @@ public class ReferenceResolverWireTests
     {
         // #206: the list read the tree root only (so Blog Post, under Master, was missing) and
         // never filled the alias.
-        var result = await Wire.Client(Templates()).GetTemplatesAsync(0, 20);
+        var result = await Wire.Client(Templates())
+            .GetTemplatesAsync(0, 20, TestContext.Current.CancellationToken);
 
         Assert.Equal(["master", "blogPost"], result.Data!.Items.Select(t => t.Alias));
     }
@@ -71,7 +81,8 @@ public class ReferenceResolverWireTests
     [Fact]
     public async Task ResolveIdAsync_UnknownTemplate_IsInvalidArgumentNamingTheListCommand()
     {
-        var result = await Wire.Client(Templates()).ResolveIdAsync(EntityKind.Template, "nope");
+        var result = await Wire.Client(Templates())
+            .ResolveIdAsync(EntityKind.Template, "nope", TestContext.Current.CancellationToken);
 
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains("umbraco template list", result.ErrorMessage);
@@ -97,7 +108,7 @@ public class ReferenceResolverWireTests
     public async Task ResolveIdAsync_MediaTypeByAliasOrName_Resolves(string reference)
     {
         var result = await Wire.Client(MediaTypes())
-            .ResolveIdAsync(EntityKind.MediaType, reference);
+            .ResolveIdAsync(EntityKind.MediaType, reference, TestContext.Current.CancellationToken);
 
         Assert.Equal(Brochure, result.Data);
     }
@@ -133,7 +144,11 @@ public class ReferenceResolverWireTests
     public async Task ResolveIdAsync_DocumentTypeByAliasOrName_Resolves(string reference)
     {
         var result = await Wire.Client(DocumentTypes())
-            .ResolveIdAsync(EntityKind.DocumentType, reference);
+            .ResolveIdAsync(
+                EntityKind.DocumentType,
+                reference,
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(TextPage, result.Data);
     }
@@ -142,7 +157,11 @@ public class ReferenceResolverWireTests
     public async Task ResolveIdAsync_DocumentTypeAliasThatIsAlsoAName_PrefersTheAlias()
     {
         var result = await Wire.Client(DocumentTypes())
-            .ResolveIdAsync(EntityKind.DocumentType, "landing");
+            .ResolveIdAsync(
+                EntityKind.DocumentType,
+                "landing",
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(Landing, result.Data);
     }
@@ -151,7 +170,7 @@ public class ReferenceResolverWireTests
     public async Task ResolveIdAsync_UnknownDocumentType_IsInvalidArgumentNamingTheListCommand()
     {
         var result = await Wire.Client(DocumentTypes())
-            .ResolveIdAsync(EntityKind.DocumentType, "nope");
+            .ResolveIdAsync(EntityKind.DocumentType, "nope", TestContext.Current.CancellationToken);
 
         Assert.Equal(
             (FailureCategory.InvalidArgument, true),
@@ -163,7 +182,8 @@ public class ReferenceResolverWireTests
     public async Task GetMediaTypesAsync_FillsTheAlias()
     {
         // #221: media-type list showed "alias": "" for every type.
-        var result = await Wire.Client(MediaTypes()).GetMediaTypesAsync(0, 20);
+        var result = await Wire.Client(MediaTypes())
+            .GetMediaTypesAsync(0, 20, TestContext.Current.CancellationToken);
 
         Assert.Equal("brochure", Assert.Single(result.Data!.Items).Alias);
     }
@@ -186,7 +206,8 @@ public class ReferenceResolverWireTests
             ($"member-type/{author}", $$"""{"id":"{{author}}","alias":"author","name":"Author"}""")
         );
 
-        var result = await Wire.Client(handler).GetMemberTypesAsync(0, 20);
+        var result = await Wire.Client(handler)
+            .GetMemberTypesAsync(0, 20, TestContext.Current.CancellationToken);
 
         var type = Assert.Single(result.Data!.Items);
         Assert.Equal((author, "author"), (type.Id, type.Alias));
@@ -222,7 +243,11 @@ public class ReferenceResolverWireTests
     public async Task ResolveIdAsync_MemberTypeByAliasOrName_Resolves(string reference)
     {
         var result = await Wire.Client(MemberTypes())
-            .ResolveIdAsync(EntityKind.MemberType, reference);
+            .ResolveIdAsync(
+                EntityKind.MemberType,
+                reference,
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(Author, result.Data);
     }
@@ -231,7 +256,7 @@ public class ReferenceResolverWireTests
     public async Task ResolveIdAsync_MemberTypeNameTwoTypesShare_IsRefusedListingBoth()
     {
         var result = await Wire.Client(MemberTypes())
-            .ResolveIdAsync(EntityKind.MemberType, "staff");
+            .ResolveIdAsync(EntityKind.MemberType, "staff", TestContext.Current.CancellationToken);
 
         Assert.Equal(
             (FailureCategory.InvalidArgument, true, true),
@@ -265,7 +290,8 @@ public class ReferenceResolverWireTests
             )
         );
 
-        var result = await Wire.Client(handler).GetDocumentTypesAsync(0, 20);
+        var result = await Wire.Client(handler)
+            .GetDocumentTypesAsync(0, 20, TestContext.Current.CancellationToken);
 
         var type = Assert.Single(result.Data!.Items);
         Assert.Equal((textPage, "textPage"), (type.Id, type.Alias));
@@ -284,7 +310,8 @@ public class ReferenceResolverWireTests
             ($"document-type/{textPage}", "{}")
         );
 
-        var result = await Wire.Client(handler).GetDocumentTypesAsync(0, 20);
+        var result = await Wire.Client(handler)
+            .GetDocumentTypesAsync(0, 20, TestContext.Current.CancellationToken);
 
         Assert.Equal("", Assert.Single(result.Data!.Items).Alias);
     }
@@ -301,7 +328,8 @@ public class ReferenceResolverWireTests
             )
         );
 
-        var result = await Wire.Client(handler).ResolveIdAsync(EntityKind.DataType, "Tags");
+        var result = await Wire.Client(handler)
+            .ResolveIdAsync(EntityKind.DataType, "Tags", TestContext.Current.CancellationToken);
 
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);
         Assert.Contains(a.ToString(), result.ErrorMessage);
@@ -318,8 +346,16 @@ public class ReferenceResolverWireTests
         );
         var client = Wire.Client(handler);
 
-        await client.ResolveIdAsync(EntityKind.DataType, "Tags");
-        var second = await client.ResolveIdAsync(EntityKind.DataType, "Tags");
+        await client.ResolveIdAsync(
+            EntityKind.DataType,
+            "Tags",
+            TestContext.Current.CancellationToken
+        );
+        var second = await client.ResolveIdAsync(
+            EntityKind.DataType,
+            "Tags",
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal((tags, 1), (second.Data, handler.Recordings.Count));
     }
@@ -336,7 +372,11 @@ public class ReferenceResolverWireTests
         );
 
         var result = await Wire.Client(handler)
-            .ResolveIdAsync(EntityKind.MemberGroup, "subscribers");
+            .ResolveIdAsync(
+                EntityKind.MemberGroup,
+                "subscribers",
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(subscribers, result.Data);
     }
@@ -350,7 +390,11 @@ public class ReferenceResolverWireTests
         );
 
         var result = await Wire.Client(handler)
-            .ResolveIdAsync(EntityKind.DictionaryItem, "Blog.MinRead");
+            .ResolveIdAsync(
+                EntityKind.DictionaryItem,
+                "Blog.MinRead",
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(minRead, result.Data);
     }
@@ -369,7 +413,12 @@ public class ReferenceResolverWireTests
             )
         );
 
-        var result = await Wire.Client(handler).ResolveIdAsync(EntityKind.RelationType, reference);
+        var result = await Wire.Client(handler)
+            .ResolveIdAsync(
+                EntityKind.RelationType,
+                reference,
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(onCopy, result.Data);
     }
@@ -379,7 +428,8 @@ public class ReferenceResolverWireTests
     {
         var handler = Wire.Routed(("relation-type", """{"total":0,"items":[]}"""));
 
-        var result = await Wire.Client(handler).ResolveIdAsync(EntityKind.RelationType, "nope");
+        var result = await Wire.Client(handler)
+            .ResolveIdAsync(EntityKind.RelationType, "nope", TestContext.Current.CancellationToken);
 
         Assert.Contains("umbraco relation-type list", result.ErrorMessage);
     }
@@ -397,7 +447,12 @@ public class ReferenceResolverWireTests
             )
         );
 
-        var result = await Wire.Client(handler).ResolveIdAsync(EntityKind.UserGroup, "blogEditors");
+        var result = await Wire.Client(handler)
+            .ResolveIdAsync(
+                EntityKind.UserGroup,
+                "blogEditors",
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(editors, result.Data);
     }

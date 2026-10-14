@@ -44,7 +44,8 @@ public class MutationInterceptorHandlerTests
 
         await client.PostAsync(
             "umbraco/management/api/v1/webhook",
-            new StringContent("""{"a":1}""", System.Text.Encoding.UTF8, "application/json")
+            new StringContent("""{"a":1}""", System.Text.Encoding.UTF8, "application/json"),
+            TestContext.Current.CancellationToken
         );
 
         var recorded = Assert.Single(state.Previewed);
@@ -59,7 +60,11 @@ public class MutationInterceptorHandlerTests
     {
         var (client, inner) = Build(MutationInterceptPolicy.Preview);
 
-        await client.PostAsync("umbraco/management/api/v1/webhook", new StringContent("{}"));
+        await client.PostAsync(
+            "umbraco/management/api/v1/webhook",
+            new StringContent("{}"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.False(inner.WasCalled); // the request was never forwarded to the wire
     }
@@ -72,7 +77,8 @@ public class MutationInterceptorHandlerTests
 
         var response = await client.PostAsync(
             "umbraco/management/api/v1/webhook",
-            new StringContent("{}")
+            new StringContent("{}"),
+            TestContext.Current.CancellationToken
         );
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
@@ -85,10 +91,15 @@ public class MutationInterceptorHandlerTests
         var state = new MutationInterceptState { Policy = MutationInterceptPolicy.Preview };
         var (client, _) = Build(state);
 
-        await client.PostAsync("umbraco/management/api/v1/user", new StringContent("{}"));
+        await client.PostAsync(
+            "umbraco/management/api/v1/user",
+            new StringContent("{}"),
+            TestContext.Current.CancellationToken
+        );
         await client.PostAsync(
             "umbraco/management/api/v1/user/1/change-password",
-            new StringContent("{}")
+            new StringContent("{}"),
+            TestContext.Current.CancellationToken
         );
 
         Assert.Equal(
@@ -113,7 +124,8 @@ public class MutationInterceptorHandlerTests
                 """{"newPassword":"NewSecret98765!"}""",
                 System.Text.Encoding.UTF8,
                 "application/json"
-            )
+            ),
+            TestContext.Current.CancellationToken
         );
 
         Assert.DoesNotContain("NewSecret98765!", state.Previewed[0].Body);
@@ -125,7 +137,11 @@ public class MutationInterceptorHandlerTests
         var state = new MutationInterceptState { Policy = MutationInterceptPolicy.Preview };
         var (client, _) = Build(state);
 
-        await client.PostAsync("umbraco/management/api/v1/x?token=abc123", new StringContent("{}"));
+        await client.PostAsync(
+            "umbraco/management/api/v1/x?token=abc123",
+            new StringContent("{}"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.DoesNotContain("abc123", state.Previewed[0].Url);
     }
@@ -137,7 +153,10 @@ public class MutationInterceptorHandlerTests
         // the preview reflects the real final mutation.
         var (client, inner) = Build(MutationInterceptPolicy.Preview);
 
-        var response = await client.GetAsync("umbraco/management/api/v1/language");
+        var response = await client.GetAsync(
+            "umbraco/management/api/v1/language",
+            TestContext.Current.CancellationToken
+        );
 
         Assert.True(inner.WasCalled);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -154,7 +173,8 @@ public class MutationInterceptorHandlerTests
 
         var response = await client.PostAsync(
             "umbraco/management/api/v1/temporary-file",
-            new StringContent("multipart-body")
+            new StringContent("multipart-body"),
+            TestContext.Current.CancellationToken
         );
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -171,11 +191,13 @@ public class MutationInterceptorHandlerTests
 
         await client.PostAsync(
             "umbraco/management/api/v1/temporary-file",
-            new StringContent("multipart-body")
+            new StringContent("multipart-body"),
+            TestContext.Current.CancellationToken
         );
         await client.PostAsync(
             "umbraco/management/api/v1/media",
-            new StringContent("""{"id":"x"}""")
+            new StringContent("""{"id":"x"}"""),
+            TestContext.Current.CancellationToken
         );
 
         Assert.EndsWith("/umbraco/management/api/v1/media", Assert.Single(state.Previewed).Url);
@@ -188,7 +210,11 @@ public class MutationInterceptorHandlerTests
         var (client, inner) = Build(MutationInterceptPolicy.Block);
 
         var ex = await Assert.ThrowsAsync<ReadOnlyModeException>(() =>
-            client.PostAsync("umbraco/management/api/v1/webhook", new StringContent("{}"))
+            client.PostAsync(
+                "umbraco/management/api/v1/webhook",
+                new StringContent("{}"),
+                TestContext.Current.CancellationToken
+            )
         );
 
         Assert.Equal("POST", ex.Method);
@@ -202,7 +228,10 @@ public class MutationInterceptorHandlerTests
         // Read-only still allows reads.
         var (client, inner) = Build(MutationInterceptPolicy.Block);
 
-        await client.GetAsync("umbraco/management/api/v1/language");
+        await client.GetAsync(
+            "umbraco/management/api/v1/language",
+            TestContext.Current.CancellationToken
+        );
 
         Assert.True(inner.WasCalled);
     }
@@ -213,7 +242,11 @@ public class MutationInterceptorHandlerTests
         // Default policy: writes are sent as normal (no dry-run).
         var (client, inner) = Build(MutationInterceptPolicy.Execute);
 
-        await client.PostAsync("umbraco/management/api/v1/webhook", new StringContent("{}"));
+        await client.PostAsync(
+            "umbraco/management/api/v1/webhook",
+            new StringContent("{}"),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.True(inner.WasCalled);
     }

@@ -28,7 +28,11 @@ public class TypeBatchWireTests
 
         // Act
         var result = await Wire.Client(handler)
-            .GetSchemaRawManyAsync(EntityKind.DocumentType, [First, Second]);
+            .GetSchemaRawManyAsync(
+                EntityKind.DocumentType,
+                [First, Second],
+                TestContext.Current.CancellationToken
+            );
 
         // Assert
         Assert.Equal(
@@ -55,7 +59,11 @@ public class TypeBatchWireTests
 
         // Act
         var result = await Wire.Client(handler)
-            .GetSchemaRawManyAsync(EntityKind.DataType, [First, Second]);
+            .GetSchemaRawManyAsync(
+                EntityKind.DataType,
+                [First, Second],
+                TestContext.Current.CancellationToken
+            );
 
         // Assert
         Assert.Equal((false, 404), (result.IsSuccess, result.StatusCode));
@@ -72,7 +80,11 @@ public class TypeBatchWireTests
 
         // Act
         var result = await Wire.Client(handler)
-            .GetSchemaRawManyAsync(EntityKind.Template, [First, Second]);
+            .GetSchemaRawManyAsync(
+                EntityKind.Template,
+                [First, Second],
+                TestContext.Current.CancellationToken
+            );
 
         // Assert
         Assert.Equal(
@@ -110,8 +122,16 @@ public class TypeBatchWireTests
         var client = Wire.Client(handler);
 
         // Act: two reads, so the second shows the 404 is remembered.
-        var first = await client.GetSchemaRawManyAsync(EntityKind.MediaType, [First]);
-        var second = await client.GetSchemaRawManyAsync(EntityKind.MemberType, [Second]);
+        var first = await client.GetSchemaRawManyAsync(
+            EntityKind.MediaType,
+            [First],
+            TestContext.Current.CancellationToken
+        );
+        var second = await client.GetSchemaRawManyAsync(
+            EntityKind.MemberType,
+            [Second],
+            TestContext.Current.CancellationToken
+        );
 
         // Assert
         Assert.Equal(
@@ -139,7 +159,11 @@ public class TypeBatchWireTests
 
         // Act
         var result = await Wire.Client(handler)
-            .GetSchemaRawManyAsync(EntityKind.DocumentType, [First]);
+            .GetSchemaRawManyAsync(
+                EntityKind.DocumentType,
+                [First],
+                TestContext.Current.CancellationToken
+            );
 
         // Assert
         Assert.Equal((false, 500), (result.IsSuccess, result.StatusCode));

@@ -243,7 +243,7 @@ public class SchemaApplyCommandTests
             var exit = await root.Parse(
                     $"--host https://x --token t --output json --dry-run schema apply {path} --prune"
                 )
-                .InvokeAsync();
+                .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.Equal(0, exit);
             Assert.Contains("needs --force", sw.ToString());
