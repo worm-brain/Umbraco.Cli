@@ -14,28 +14,15 @@
          this with the full version (incl. prerelease suffix) taken from the git tag,
          e.g. `-p:Version=0.1.0-alpha.1`, so tag and package version never drift. -->
     <VersionPrefix>0.1.0</VersionPrefix>
-    <Authors>worm-brain</Authors>
-    <Company>worm-brain</Company>
-    <Copyright>Copyright © 2026 worm-brain</Copyright>
+    <Title>Umbraco CLI</Title>
     <Description>A command-line tool for Umbraco CMS 17+. Manage content, media, document types and more from a terminal, a script or a CI pipeline, and move schema, media and content between sites. Every command can print JSON or CSV.</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <!-- nuget.org needs a PNG or JPEG icon (no SVG); 128x128 is its recommended size. -->
-    <PackageIcon>umbraco-cli-128.png</PackageIcon>
-    <PackageProjectUrl>https://github.com/worm-brain/Umbraco.Cli</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/worm-brain/Umbraco.Cli</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <PackageTags>umbraco;cms;cli;dotnet-tool;ai;management-api;content-management</PackageTags>
     <PackageReleaseNotes>Release candidate. Commands and output may still change before 1.0.0.</PackageReleaseNotes>
+    <!-- The tool package ships the publish output. Nobody compiles against a tool, so the XML docs
+         (several MB for the generated client) stay out of it. -->
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
   </PropertyGroup>
-
-  <ItemGroup>
-    <!-- nuget.org renders no raw HTML and no relative links or images, and a published readme
-         can't be fixed without a release, so the package carries its own short readme with
-         absolute links rather than the GitHub README. -->
-    <None Include="README.nuget.md" Pack="true" PackagePath="\README.md" />
-    <None Include="..\..\assets\umbraco-cli-128.png" Pack="true" PackagePath="\" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Umbraco.Community.Cli.Client\Umbraco.Community.Cli.Client.csproj" />

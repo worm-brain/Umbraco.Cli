@@ -1,4 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Ships inside the tool package, not as a package of its own. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- Expose internal helpers (e.g. FormatProblemDetailsErrors) to the unit test project. -->
     <InternalsVisibleTo Include="Umbraco.Community.Cli.Tests" />

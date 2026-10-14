@@ -1,4 +1,4 @@
-# Umbraco.Cli
+# Umbraco.Community.Cli
 
 A command-line tool for [Umbraco CMS](https://umbraco.com/). It talks to Umbraco's Management
 API, so you can manage your site's content, media, document types and more from a terminal, a

@@ -1,4 +1,4 @@
-<img src="assets/umbraco-cli.svg" alt="Umbraco CLI logo" width="96" height="96">
+<img src="assets/icon/umbraco-cli.svg" alt="Umbraco CLI logo" width="96" height="96">
 
 # Umbraco.Cli
 
