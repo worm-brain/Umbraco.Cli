@@ -33,7 +33,8 @@ public class CommandExecutorTests
     }
 
     /// <summary>Test double for the destructive-op confirmation (#70): canned interactivity + answer.</summary>
-    private sealed class FakeConfirmationPrompt : Umbraco.Community.Cli.Infrastructure.IConfirmationPrompt
+    private sealed class FakeConfirmationPrompt
+        : Umbraco.Community.Cli.Infrastructure.IConfirmationPrompt
     {
         public bool IsInteractive { get; init; }
         public bool Answer { get; init; }
@@ -1246,7 +1247,10 @@ public class CommandExecutorTests
             )
         );
 
-        Assert.Equal(Umbraco.Community.Cli.Infrastructure.Http.MutationInterceptPolicy.Block, state.Policy);
+        Assert.Equal(
+            Umbraco.Community.Cli.Infrastructure.Http.MutationInterceptPolicy.Block,
+            state.Policy
+        );
     }
 
     [Fact]
@@ -1274,7 +1278,10 @@ public class CommandExecutorTests
             )
         );
 
-        Assert.Equal(Umbraco.Community.Cli.Infrastructure.Http.MutationInterceptPolicy.Preview, state.Policy);
+        Assert.Equal(
+            Umbraco.Community.Cli.Infrastructure.Http.MutationInterceptPolicy.Preview,
+            state.Policy
+        );
     }
 
     [Fact]

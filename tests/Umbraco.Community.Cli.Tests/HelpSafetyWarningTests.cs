@@ -63,7 +63,9 @@ public class HelpSafetyWarningTests
     {
         // #210: "--value en=Home" always fails since #181 validates against the site's
         // isoCodes (en-US). Covers the noun's examples, create's examples and the option text.
-        var dictionary = Umbraco.Community.Cli.Commands.Dictionary.DictionaryCommand.Build(BuildExecutor());
+        var dictionary = Umbraco.Community.Cli.Commands.Dictionary.DictionaryCommand.Build(
+            BuildExecutor()
+        );
         var create = Assert.Single(dictionary.Subcommands, c => c.Name == "create");
         var help = string.Join(
             "\n",

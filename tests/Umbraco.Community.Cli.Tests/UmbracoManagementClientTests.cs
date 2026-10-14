@@ -1570,7 +1570,10 @@ public class UmbracoManagementClientTests
     {
         // With no "errors" entry, there is nothing to append and the base detail/title
         // message stands alone.
-        var pd = new Umbraco.Community.Cli.Client.Generated.Models.ProblemDetails { Title = "Nope" };
+        var pd = new Umbraco.Community.Cli.Client.Generated.Models.ProblemDetails
+        {
+            Title = "Nope",
+        };
 
         Assert.Null(UmbracoManagementClient.FormatProblemDetailsErrors(pd));
     }

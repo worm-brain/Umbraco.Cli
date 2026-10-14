@@ -147,7 +147,8 @@ public class CommandParseTests
     /// <param name="args">The raw command-line string.</param>
     /// <returns>The parse result.</returns>
     private static ParseResult Parse(string args) =>
-        BuildRoot().Parse(args, Umbraco.Community.Cli.Infrastructure.CliParserConfiguration.Create());
+        BuildRoot()
+            .Parse(args, Umbraco.Community.Cli.Infrastructure.CliParserConfiguration.Create());
 
     private static bool HasErrors(string args) => Parse(args).Errors.Count > 0;
 
