@@ -82,6 +82,7 @@ Content and media work the same way with `content export|diff|apply` and
 | Use the CLI from scripts, CI or an AI agent | [Automation guide](docs/agent-guide.md) |
 | Look up a command and its options | [Command reference](docs/commands.md) |
 | Compare speed across versions | [Performance](docs/performance.md) |
+| Everything else, from extension commands to the changelog | [Documentation index](docs/index.md) |
 
 The CLI can also describe itself: `umbraco commands` prints every command as JSON, and
 `umbraco <command> --schema` prints the JSON Schema for a request body. Neither needs a site or
@@ -102,7 +103,9 @@ How the code is laid out, and how to work on it, is in [AGENTS.md](AGENTS.md).
 
 Ideas, bug reports and feature requests are very welcome as
 [GitHub issues](https://github.com/worm-brain/Umbraco.Cli/issues). Pull requests are by
-invitation, so please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening one.
+invitation, so please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening one. Report a
+security problem privately, as [SECURITY.md](SECURITY.md) describes. Changes are listed in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

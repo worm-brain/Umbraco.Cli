@@ -6,8 +6,9 @@
 .DESCRIPTION
     Downloads a pinned gitleaks binary, verifies it against the release's own SHA-256
     checksums file, then runs `gitleaks detect` over git history with secret values redacted.
-    Accepted findings are suppressed via the committed .gitleaksignore file (fingerprints),
-    so an accepted finding does not re-fail later runs.
+    gitleaks reads .gitleaks.toml (default rules plus whole-path allowlists) and .gitleaksignore
+    (accepted findings by fingerprint) from the repository root, so an accepted finding does not
+    re-fail later runs.
 
     Cross-platform: selects the correct release asset for Linux (CI), Windows and macOS, so
     it runs identically in the Security workflow and on a dev box. Requires a full clone
@@ -15,8 +16,7 @@
 
     Hardening note: verifying against the release's own checksums file guards download
     integrity, not a compromised upstream release. For stronger supply-chain assurance, pin
-    the expected digest here or pin the action/binary by immutable hash - see
-    docs/security-audit.md (CI/CD lens).
+    the expected digest here.
 
 .PARAMETER Version
     The gitleaks release version to pin.

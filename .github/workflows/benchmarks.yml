@@ -99,7 +99,7 @@ jobs:
         if: ${{ !cancelled() }}
         shell: pwsh
         run: >-
-          ./candidate/scripts/ci/benchmark-compare.ps1
+          ./candidate/.github/scripts/benchmark-compare.ps1
           -Baseline "$env:RUNNER_TEMP/bench/baseline"
           -Candidate "$env:RUNNER_TEMP/bench/candidate"
           -Threshold 10

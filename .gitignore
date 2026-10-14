@@ -438,8 +438,11 @@ FodyWeavers.xsd
 !src/Umbraco.Community.Cli.Client/Generated/**
 src/Umbraco.Community.Cli.Client/Generated/.kiota.log
 
-# Claude Code local session scratch (ship ledgers, settings, agents)
-.claude/
+# Claude Code: local state, worktrees and agents stay out of the repo; only shared settings are committed
+.claude/*
+!.claude/settings.json
+# The maintainer's private, per-checkout agent notes (CLAUDE.md imports AGENTS.md for everyone else)
+CLAUDE.local.md
 
 # ── Performance runs ───────────────────────────────────────────────────────
 # bench.py's per-run markdown summary is printed and kept locally; the JSON beside it is the

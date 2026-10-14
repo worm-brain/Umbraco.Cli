@@ -4,7 +4,7 @@ using BenchmarkDotNet.Running;
 
 // Every run writes the brief JSON report (<artifacts>/results/*-report-brief.json) next to
 // BenchmarkDotNet's default Markdown/CSV/HTML ones: it is what the CI allocation gate compares
-// (scripts/ci/benchmark-compare.ps1). Everything else - job, filter, artifacts folder - comes
+// (.github/scripts/benchmark-compare.ps1). Everything else - job, filter, artifacts folder - comes
 // from the command line.
 var summaries = BenchmarkSwitcher
     .FromAssembly(typeof(Program).Assembly)

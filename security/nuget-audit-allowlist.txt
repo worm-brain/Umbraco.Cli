@@ -1,6 +1,6 @@
 # NuGet vulnerability allow-list - accepted advisories the dependency gate should ignore.
 #
-# The Security workflow's dependency scan (scripts/ci/nuget-audit.ps1) fails when a restored
+# The Security workflow's dependency scan (.github/scripts/nuget-audit.ps1) fails when a restored
 # package has a known vulnerability at or above the threshold (default: High). When an
 # advisory cannot be remediated yet (no fixed version, or a transitive pin we do not
 # control) and the risk is accepted, list it here so it does not re-fail later runs.

@@ -9,6 +9,7 @@ body:
         Ideas and reports are welcome from anyone, including AI agents - see CONTRIBUTING.md.
         (Note: filing a bug does not mean you should open a PR. PRs are issue-first and
         invitation-only; wait for this issue to be labelled `accepted` first.)
+        A security problem is the exception: report it privately, as SECURITY.md describes.
   - type: input
     id: version
     attributes:
@@ -17,6 +18,14 @@ body:
       placeholder: e.g. 0.5.0-alpha
     validations:
       required: true
+  - type: input
+    id: umbraco-version
+    attributes:
+      label: Umbraco version
+      description: The version of the site the command ran against, if it reached one.
+      placeholder: e.g. 17.7.0
+    validations:
+      required: false
   - type: textarea
     id: command
     attributes:

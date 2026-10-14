@@ -5,6 +5,9 @@ contact_links:
   - name: Contribution policy (read before opening a PR)
     url: https://github.com/worm-brain/Umbraco.Cli/blob/main/CONTRIBUTING.md
     about: Ideas and issues are welcome from everyone. Pull requests are issue-first and invitation-only.
+  - name: Documentation
+    url: https://github.com/worm-brain/Umbraco.Cli/blob/main/docs/index.md
+    about: Getting started, the command reference, the automation guide and the rest of the docs.
   - name: Using the CLI with an AI agent
     url: https://github.com/worm-brain/Umbraco.Cli/blob/main/docs/agent-guide.md
     about: The operating manual for agents that drive the umbraco CLI.
