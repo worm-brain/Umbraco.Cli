@@ -81,6 +81,7 @@ Content and media work the same way with `content export|diff|apply` and
 | Install, log in and run my first commands | [Getting started](docs/getting-started.md) |
 | Use the CLI from scripts, CI or an AI agent | [Automation guide](docs/agent-guide.md) |
 | Look up a command and its options | [Command reference](docs/commands.md) |
+| Look up the config file, profiles and environment variables | [Configuration](docs/reference/configuration.md) |
 | Compare speed across versions | [Performance](docs/performance.md) |
 | Everything else, from extension commands to the changelog | [Documentation index](docs/index.md) |
 
