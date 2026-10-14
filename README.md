@@ -6,7 +6,7 @@ A command-line tool for [Umbraco CMS](https://umbraco.com/). It talks to Umbraco
 API, so you can manage your site's content, media, document types and more from a terminal, a
 script or a CI pipeline.
 
-[![NuGet](https://img.shields.io/nuget/v/Umbraco.Community.Cli.svg)](https://www.nuget.org/packages/Umbraco.Community.Cli)
+[![NuGet](https://img.shields.io/nuget/vpre/Umbraco.Community.Cli?label=NuGet)](https://www.nuget.org/packages/Umbraco.Community.Cli)
 [![CI](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml/badge.svg)](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
