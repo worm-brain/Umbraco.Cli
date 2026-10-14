@@ -6,7 +6,7 @@ A command-line tool for [Umbraco CMS](https://umbraco.com/). It talks to Umbraco
 API, so you can manage your site's content, media, document types and more from a terminal, a
 script or a CI pipeline.
 
-[![NuGet](https://img.shields.io/nuget/v/Umbraco.Community.Cli.svg)](https://www.nuget.org/packages/Umbraco.Community.Cli)
+[![NuGet](https://img.shields.io/nuget/vpre/Umbraco.Community.Cli?label=NuGet)](https://www.nuget.org/packages/Umbraco.Community.Cli)
 [![CI](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml/badge.svg)](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -81,6 +81,7 @@ Content and media work the same way with `content export|diff|apply` and
 | Install, log in and run my first commands | [Getting started](docs/getting-started.md) |
 | Use the CLI from scripts, CI or an AI agent | [Automation guide](docs/agent-guide.md) |
 | Look up a command and its options | [Command reference](docs/commands.md) |
+| Look up the config file, profiles and environment variables | [Configuration](docs/reference/configuration.md) |
 | Compare speed across versions | [Performance](docs/performance.md) |
 | Everything else, from extension commands to the changelog | [Documentation index](docs/index.md) |
 
