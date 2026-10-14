@@ -201,7 +201,7 @@ public class TokenRefreshHandlerTests
             new SingleClientFactory(new HttpClient(new Unanswered(failure)))
         );
         var state = new TokenRefreshState();
-        state.Reset("stale", c => auth.GetTokenAsync("https://x", "id", "secret", c));
+        state.Reset("stale", c => auth.GetTokenAsync("https://x", "id", "secret", ct: c));
         var client = new UmbracoManagementClient(Client(new Server(validToken: "fresh"), state));
 
         var result = await client.GetCurrentUserAsync();
@@ -223,5 +223,20 @@ public class TokenRefreshHandlerTests
         var category = await ReadWithRenewalFailing(new TaskCanceledException("timed out"));
 
         Assert.Equal(FailureCategory.Timeout, category);
+    }
+
+    [Fact]
+    public async Task RenewAsync_AfterDispose_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        var state = Refreshing(to: "fresh");
+
+        // Act
+        state.Dispose();
+
+        // Assert
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            state.RenewAsync("stale", CancellationToken.None)
+        );
     }
 }

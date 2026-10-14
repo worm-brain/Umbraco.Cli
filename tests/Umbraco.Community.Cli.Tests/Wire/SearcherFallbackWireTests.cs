@@ -11,17 +11,25 @@ public class SearcherFallbackWireTests
     private static RoutingHandler Umbraco17() =>
         new RoutingHandler()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/searcher/ExternalSearcher/query"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/searcher/ExternalSearcher/query",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.NotFound,
                 """{"title":"Searcher not found","detail":"did not match any of our registered searchers"}"""
             )
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/searcher/ExternalIndex/query"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/searcher/ExternalIndex/query",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 """{"total":1,"items":[{"id":"1066","score":1.5,"fields":[]}]}"""
             )
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/indexer"),
+                r => r.RequestUri!.AbsolutePath.EndsWith("/indexer", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 """{"total":1,"items":[{"name":"ExternalIndex","searcherName":"ExternalSearcher","healthStatus":{"status":"Healthy"},"canRebuild":true,"documentCount":10,"fieldCount":5,"providerProperties":{}}]}"""
             )

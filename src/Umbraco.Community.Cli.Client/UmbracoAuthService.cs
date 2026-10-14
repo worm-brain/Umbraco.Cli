@@ -14,7 +14,7 @@ namespace Umbraco.Community.Cli.Client;
 /// one - it has to authenticate, and fail, like it would without a cache.
 /// </para>
 /// </summary>
-public sealed class UmbracoAuthService
+public sealed class UmbracoAuthService : IDisposable
 {
     /// <summary>The largest refresh margin, for tokens with a long lifetime.</summary>
     private static readonly TimeSpan MaxRefreshMargin = TimeSpan.FromSeconds(60);
@@ -42,6 +42,9 @@ public sealed class UmbracoAuthService
         _time = timeProvider ?? TimeProvider.System;
         _cache = cache;
     }
+
+    /// <summary>Releases the lock that serialises token requests.</summary>
+    public void Dispose() => _lock.Dispose();
 
     /// <summary>
     /// The cache key for a set of credentials: the host (without a trailing slash, lower-cased),
@@ -121,19 +124,19 @@ public sealed class UmbracoAuthService
     /// <param name="host">The Umbraco base URL.</param>
     /// <param name="clientId">The API user's client id.</param>
     /// <param name="clientSecret">The API user's client secret.</param>
-    /// <param name="ct">Cancellation token.</param>
     /// <param name="fresh">
     /// Skip both caches and exchange the credentials, for callers whose point is to test them
     /// (<c>auth login</c>, <c>auth doctor</c>). The new token is still cached.
     /// </param>
+    /// <param name="ct">Cancellation token.</param>
     /// <returns>The bearer token.</returns>
     /// <exception cref="UmbracoAuthException">The host is plain <c>http://</c> and not loopback (see <see cref="HostPolicy.InsecureTransportError"/>), or the token request failed, timed out, could not reach the host, or returned an unreadable body; <see cref="UmbracoAuthException.Category"/> says which kind.</exception>
     public async Task<string> GetTokenAsync(
         string host,
         string clientId,
         string clientSecret,
-        CancellationToken ct = default,
-        bool fresh = false
+        bool fresh = false,
+        CancellationToken ct = default
     )
     {
         // Never put the client secret on the wire in cleartext. Checked here, not only by the

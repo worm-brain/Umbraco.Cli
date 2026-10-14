@@ -209,7 +209,7 @@ public class JsonOutputWriterTests
             )
         );
         var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
-        Assert.Equal(new[] { "name", "id" }, data.EnumerateObject().Select(p => p.Name).ToArray());
+        Assert.Equal(["name", "id"], data.EnumerateObject().Select(p => p.Name).ToArray());
     }
 
     [Fact]
@@ -255,7 +255,7 @@ public class JsonOutputWriterTests
         var data = JsonDocument.Parse(stdout).RootElement.GetProperty("data");
         Assert.True(data.TryGetProperty("id", out _));
         Assert.False(data.TryGetProperty("nope", out _));
-        Assert.Equal(1, data.EnumerateObject().Count());
+        Assert.Single(data.EnumerateObject());
     }
 
     [Fact]

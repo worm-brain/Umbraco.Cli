@@ -26,7 +26,7 @@ public class ContentCopyClientTests
             Requests.Add(request.RequestUri!);
             if (
                 request.Method == HttpMethod.Post
-                && request.RequestUri!.AbsolutePath.EndsWith("/copy")
+                && request.RequestUri!.AbsolutePath.EndsWith("/copy", StringComparison.Ordinal)
             )
             {
                 var created = new HttpResponseMessage(HttpStatusCode.Created)

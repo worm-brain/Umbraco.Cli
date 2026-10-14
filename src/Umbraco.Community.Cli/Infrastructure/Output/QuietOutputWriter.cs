@@ -103,8 +103,8 @@ public sealed class QuietOutputWriter(IOutputWriter inner, bool isWrite = false)
         string? body,
         string? commandName,
         long? durationMs = null,
-        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? then = null
-    ) => inner.WriteDryRun(method, url, body, commandName, durationMs, then);
+        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? followUps = null
+    ) => inner.WriteDryRun(method, url, body, commandName, durationMs, followUps);
 
     /// <inheritdoc />
     public void WriteBulk(

@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Tags;
@@ -48,8 +49,15 @@ public static class TagsCommand
                             take,
                             c
                         ),
-                    new[] { "Text", "Group", "Nodes", "Id" },
-                    t => new[] { t.Text, t.Group, t.NodeCount.ToString(), t.Id.ToString() },
+                    ["Text", "Group", "Nodes", "Id"],
+                    t =>
+                        new[]
+                        {
+                            t.Text,
+                            t.Group,
+                            t.NodeCount.ToString(CultureInfo.CurrentCulture),
+                            t.Id.ToString(),
+                        },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
                     ct

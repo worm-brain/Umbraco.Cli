@@ -235,13 +235,13 @@ public sealed class HumanOutputWriter : IOutputWriter
         string? body,
         string? commandName,
         long? durationMs = null,
-        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? then = null
+        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? followUps = null
     )
     {
         List<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest> requests =
         [
             new(method, url, body),
-            .. then ?? [],
+            .. followUps ?? [],
         ];
         Out.MarkupLine(
             requests.Count > 1

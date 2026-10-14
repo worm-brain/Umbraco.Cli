@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using Umbraco.Community.Cli.Client;
@@ -279,7 +280,10 @@ public class ContentWriteClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);
-        Assert.DoesNotContain(handler.Requests, u => u.AbsolutePath.EndsWith("/document"));
+        Assert.DoesNotContain(
+            handler.Requests,
+            u => u.AbsolutePath.EndsWith("/document", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>
@@ -318,8 +322,11 @@ public class ContentWriteClientTests
             $$"""{"id":"{{id}}","variants":[{"culture":null,"name":"Home"}]}"""
         );
         var client = Wire.Client(handler);
-        var publishAt = DateTimeOffset.Parse("2026-01-01T09:00:00Z");
-        var unpublishAt = DateTimeOffset.Parse("2026-02-01T18:30:00Z");
+        var publishAt = DateTimeOffset.Parse("2026-01-01T09:00:00Z", CultureInfo.InvariantCulture);
+        var unpublishAt = DateTimeOffset.Parse(
+            "2026-02-01T18:30:00Z",
+            CultureInfo.InvariantCulture
+        );
 
         var result = await client.PublishContentAsync(
             id,
@@ -469,7 +476,10 @@ public class ContentWriteClientTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Renamed", result.Data!.Name);
-        Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith($"/document/{id}"));
+        Assert.Contains(
+            handler.Requests,
+            u => u.AbsolutePath.EndsWith($"/document/{id}", StringComparison.Ordinal)
+        );
     }
 
     private static bool Has(Recorded r, string fragment) =>

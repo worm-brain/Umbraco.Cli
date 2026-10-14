@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -39,7 +40,7 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <see cref="MultipartBody"/> (used for the temporary-file upload) needs an adapter to
     /// resolve its per-part serializers, and the builder's own adapter is not publicly exposed.
     /// </summary>
-    private readonly IRequestAdapter _adapter;
+    private readonly ProblemDetailsRequestAdapter _adapter;
 
     /// <summary>
     /// Creates the client over an already-configured <see cref="HttpClient"/> (base
@@ -3169,6 +3170,11 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
     /// <param name="ct">The caller's cancellation token; a genuine cancellation is rethrown.</param>
     /// <param name="action">The generated-client call, already mapped to <typeparamref name="T"/>.</param>
     /// <returns>A success response with the payload, or a failure with the status + message.</returns>
+    [SuppressMessage(
+        "Design",
+        "CA1068:CancellationToken parameters must come last",
+        Justification = "The call is a multi-line lambda at every call site; it reads best last."
+    )]
     private static async Task<UmbracoResponse<T>> GuardedApiAsync<T>(
         CancellationToken ct,
         Func<Task<T>> action
@@ -3463,8 +3469,8 @@ public sealed partial class UmbracoManagementClient : IUmbracoManagementClient
             {
                 UntypedString s => s.GetValue() ?? "",
                 UntypedBoolean b => b.GetValue().ToString(),
-                UntypedInteger i => i.GetValue().ToString(),
-                UntypedLong l => l.GetValue().ToString(),
+                UntypedInteger i => i.GetValue().ToString(CultureInfo.InvariantCulture),
+                UntypedLong l => l.GetValue().ToString(CultureInfo.InvariantCulture),
                 UntypedDouble d => d.GetValue().ToString(CultureInfo.InvariantCulture),
                 UntypedDecimal m => m.GetValue().ToString(CultureInfo.InvariantCulture),
                 _ => "",

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using Umbraco.Community.Cli.Client;
@@ -308,7 +309,7 @@ public class UmbracoManagementClientTests
         var folderId = Guid.NewGuid();
         var nestedTypeId = Guid.NewGuid();
         var client = TreeRouteClient(uri =>
-            uri.AbsolutePath.EndsWith("/tree/document-type/root")
+            uri.AbsolutePath.EndsWith("/tree/document-type/root", StringComparison.Ordinal)
                 ? $$"""{"total":2,"items":[{"id":"{{rootTypeId}}","name":"Text Page","isFolder":false,"hasChildren":false},{"id":"{{folderId}}","name":"Pages","isFolder":true,"hasChildren":true}]}"""
             : uri.Query.Contains(folderId.ToString())
                 ? $$"""{"total":1,"items":[{"id":"{{nestedTypeId}}","name":"Landing","isFolder":false,"hasChildren":false}]}"""
@@ -332,7 +333,7 @@ public class UmbracoManagementClientTests
         var folderId = Guid.NewGuid();
         var nestedTypeId = Guid.NewGuid();
         var client = TreeRouteClient(uri =>
-            uri.AbsolutePath.EndsWith("/tree/media-type/root")
+            uri.AbsolutePath.EndsWith("/tree/media-type/root", StringComparison.Ordinal)
                 ? $$"""{"total":2,"items":[{"id":"{{rootTypeId}}","name":"Image","isFolder":false,"hasChildren":false},{"id":"{{folderId}}","name":"Assets","isFolder":true,"hasChildren":true}]}"""
             : uri.Query.Contains(folderId.ToString())
                 ? $$"""{"total":1,"items":[{"id":"{{nestedTypeId}}","name":"Video","isFolder":false,"hasChildren":false}]}"""
@@ -765,7 +766,10 @@ public class UmbracoManagementClientTests
 
         Assert.True(result.IsSuccess);
         // The by-id read is followed by the parent lookup (#290), so it is not the last request.
-        Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith($"/dictionary/{id}"));
+        Assert.Contains(
+            handler.Requests,
+            u => u.AbsolutePath.EndsWith($"/dictionary/{id}", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -1016,7 +1020,10 @@ public class UmbracoManagementClientTests
 
         Assert.True(result.IsSuccess);
         // The delete was attempted and then verified with a read.
-        Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith($"/member/{id}"));
+        Assert.Contains(
+            handler.Requests,
+            u => u.AbsolutePath.EndsWith($"/member/{id}", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -1264,7 +1271,10 @@ public class UmbracoManagementClientTests
 
         Assert.True(result.IsSuccess);
         // The by-id read is followed by the parent lookup (#290), so it is not the last request.
-        Assert.Contains(handler.Requests, u => u.AbsolutePath.EndsWith($"/dictionary/{id}"));
+        Assert.Contains(
+            handler.Requests,
+            u => u.AbsolutePath.EndsWith($"/dictionary/{id}", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -1463,7 +1473,9 @@ public class UmbracoManagementClientTests
                 $$"""{"id":"{{memberTypeId}}","alias":"member","name":"Member"}"""
             )
             .When(
-                r => r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/member"),
+                r =>
+                    r.Method == HttpMethod.Post
+                    && r.RequestUri!.AbsolutePath.EndsWith("/member", StringComparison.Ordinal),
                 HttpStatusCode.Created,
                 ""
             );
@@ -1516,7 +1528,10 @@ public class UmbracoManagementClientTests
             .When(
                 r =>
                     r.Method == HttpMethod.Get
-                    && r.RequestUri!.AbsolutePath.EndsWith($"/member/{id}"),
+                    && r.RequestUri!.AbsolutePath.EndsWith(
+                        $"/member/{id}",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 $$"""{"id":"{{id}}","email":"m@example.com","memberType":{"id":"{{memberTypeId}}"},"variants":[{"name":"M","createDate":"2026-09-28T19:41:13+00:00"}]}"""
             )
@@ -1534,7 +1549,10 @@ public class UmbracoManagementClientTests
                 CancellationToken.None
             );
 
-        Assert.Equal(DateTimeOffset.Parse("2026-09-28T19:41:13+00:00"), result.Data!.CreateDate);
+        Assert.Equal(
+            DateTimeOffset.Parse("2026-09-28T19:41:13+00:00", CultureInfo.InvariantCulture),
+            result.Data!.CreateDate
+        );
     }
 
     [Fact]
@@ -1562,7 +1580,10 @@ public class UmbracoManagementClientTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(FailureCategory.InvalidArgument, result.Category);
-        Assert.DoesNotContain(handler.Requests, u => u.AbsolutePath.EndsWith("/member"));
+        Assert.DoesNotContain(
+            handler.Requests,
+            u => u.AbsolutePath.EndsWith("/member", StringComparison.Ordinal)
+        );
     }
 
     [Fact]

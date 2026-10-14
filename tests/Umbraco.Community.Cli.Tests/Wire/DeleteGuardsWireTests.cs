@@ -115,7 +115,7 @@ public class DeleteGuardsWireTests
                 $$"""{ "id": "{{ids.Other}}", "name": "Other", "allowedTemplates": [ { "id": "{{Guid.NewGuid()}}" } ] }""",
         };
         var handler = new RoutingHandler().When(
-            r => r.RequestUri!.AbsolutePath.EndsWith("/batch"),
+            r => r.RequestUri!.AbsolutePath.EndsWith("/batch", StringComparison.Ordinal),
             HttpStatusCode.NotFound,
             ""
         );
@@ -123,13 +123,21 @@ public class DeleteGuardsWireTests
         {
             var (status, answer) = read?.Invoke(id, ids) ?? (HttpStatusCode.OK, body);
             handler.When(
-                r => r.RequestUri!.AbsolutePath.EndsWith($"/document-type/{id}"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        $"/document-type/{id}",
+                        StringComparison.Ordinal
+                    ),
                 status,
                 answer
             );
         }
         handler.When(
-            r => r.RequestUri!.AbsolutePath.EndsWith("/tree/document-type/root"),
+            r =>
+                r.RequestUri!.AbsolutePath.EndsWith(
+                    "/tree/document-type/root",
+                    StringComparison.Ordinal
+                ),
             HttpStatusCode.OK,
             $$"""
             { "total": 3, "items": [

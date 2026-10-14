@@ -9,7 +9,7 @@ namespace Umbraco.Community.Cli.Client;
 /// has to work out the right cultures itself. Each resolver here answers "which culture(s)?" from
 /// one source: a <b>document</b> (publish, unpublish, versions, where the item exists), a
 /// <b>document type</b> (creates, where it does not), or an item's <b>current variants</b> (an
-/// update that has already read the item). <see cref="WithCulture"/> is the one fill step.
+/// update that has already read the item). <see cref="FillCultureAsync"/> is the one fill step.
 /// </summary>
 public sealed partial class UmbracoManagementClient
 {

@@ -73,7 +73,7 @@ doing, open an issue for it.
 ### 5. It must build green and follow the repo conventions
 
 - `dotnet build` and `dotnet test` pass.
-- Formatted with CSharpier (`dotnet format` / CSharpier).
+- Formatted with CSharpier (`dotnet csharpier format .`).
 - New/changed public, internal, and protected members carry XML doc comments.
 - New/changed behaviour has tests (happy path plus the obvious failure path), following the
   existing xUnit patterns.
@@ -114,7 +114,7 @@ code only after we have agreed the code is worth writing.**
 ```bash
 dotnet build            # build
 dotnet test             # run the tests
-dotnet format           # CSharpier formatting
+dotnet csharpier format .   # CSharpier formatting (after `dotnet tool restore`)
 ```
 
 Full build/test/pack/regenerate-client details are in [AGENTS.md](AGENTS.md). Setup and usage

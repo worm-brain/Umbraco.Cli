@@ -20,7 +20,7 @@ public abstract class LiveTestBase(LiveInstanceFixture live)
     /// regression into a green result - see the note on <see cref="EffectIntegrationTests"/>.
     /// </para>
     /// </summary>
-    protected void RequireLive() => Skip.IfNot(_live.IsReachable, _live.SkipReason);
+    protected void RequireLive() => Skip.IfNot(_live.IsReachable, LiveInstanceFixture.SkipReason);
 
     /// <summary>A prefix + random suffix, so fixtures never collide on a shared instance.</summary>
     /// <param name="prefix">A short identifying prefix.</param>

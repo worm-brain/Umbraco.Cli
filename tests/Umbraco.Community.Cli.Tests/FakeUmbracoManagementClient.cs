@@ -1988,7 +1988,8 @@ internal sealed class FakeUmbracoManagementClient : IUmbracoManagementClient
                 IsFolder = e.Value is null,
                 HasChildren =
                     e.Value is null
-                    && StaticFileTree[kind].Keys.Any(k => k.StartsWith(e.Key + "/")),
+                    && StaticFileTree[kind]
+                        .Keys.Any(k => k.StartsWith(e.Key + "/", StringComparison.Ordinal)),
             })
             .ToList();
         return Task.FromResult(

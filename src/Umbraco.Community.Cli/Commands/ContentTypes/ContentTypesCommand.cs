@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.ContentTypes;
 
+/// <summary>Wires the <c>document-type</c> noun: the types documents are created from.</summary>
 public static class ContentTypesCommand
 {
+    /// <summary>Builds the <c>document-type</c> noun with its verbs.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

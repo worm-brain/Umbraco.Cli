@@ -109,7 +109,7 @@ public static class SchemaApplyCommand
                         CommandExecutor.WriteReport(
                             ctx,
                             result?.Actions ?? [],
-                            new[] { "Operation", "Kind", "Identity", "Id", "Status" },
+                            ["Operation", "Kind", "Identity", "Id", "Status"],
                             a => [a.Operation, a.Kind, a.Identity, a.Id?.ToString() ?? "", a.Status]
                         ),
                     ct

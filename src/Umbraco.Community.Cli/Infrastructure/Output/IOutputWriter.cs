@@ -4,10 +4,16 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Infrastructure.Output;
 
+/// <summary>The formats <c>--output</c> accepts.</summary>
 public enum OutputFormat
 {
+    /// <summary>Tables and sentences for a person at a terminal.</summary>
     Human,
+
+    /// <summary>The <c>{status, data, meta}</c> envelope; the default when stdout is redirected.</summary>
     Json,
+
+    /// <summary>RFC 4180 CSV, only when asked for.</summary>
     Csv,
 }
 
@@ -44,6 +50,10 @@ public readonly record struct ListPaging(int? Total, int? Skip, int? Take)
         Total is { } total && Skip is { } skip ? skip + delivered < total : null;
 }
 
+/// <summary>
+/// Renders a command's result or error in one output format. Results go to stdout and errors to
+/// stderr, so a caller can parse one without the other.
+/// </summary>
 public interface IOutputWriter
 {
     /// <summary>
@@ -56,6 +66,11 @@ public interface IOutputWriter
     /// <param name="value">The value; null leaves the field out, like every other absent meta field.</param>
     void AddMeta(string key, object? value) { }
 
+    /// <summary>Writes a command's successful result.</summary>
+    /// <typeparam name="T">The result type.</typeparam>
+    /// <param name="data">The result: an object, a list or a scalar.</param>
+    /// <param name="commandName">The dotted command name for <c>meta.command</c>.</param>
+    /// <param name="durationMs">The command duration for <c>meta.durationMs</c>, or null.</param>
     void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null);
 
     /// <summary>
@@ -163,7 +178,7 @@ public interface IOutputWriter
     /// <param name="body">The request body, or null for a body-less request (e.g. DELETE).</param>
     /// <param name="commandName">The dotted command name for <c>meta.command</c>.</param>
     /// <param name="durationMs">The command duration for <c>meta.durationMs</c>, or null.</param>
-    /// <param name="then">
+    /// <param name="followUps">
     /// The requests a multi-step write would send after the first, in order (#353); null or empty
     /// for a single-request write.
     /// </param>
@@ -173,7 +188,7 @@ public interface IOutputWriter
         string? body,
         string? commandName,
         long? durationMs = null,
-        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? then = null
+        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? followUps = null
     );
 
     /// <summary>

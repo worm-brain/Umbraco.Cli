@@ -95,9 +95,9 @@ public class UmbracoAuthServiceTests
             clock
         );
 
-        await service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None);
+        await service.GetTokenAsync("https://x", "client", "secret", ct: CancellationToken.None);
         clock.Advance(elapsed);
-        await service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None);
+        await service.GetTokenAsync("https://x", "client", "secret", ct: CancellationToken.None);
 
         return handler.Requests;
     }
@@ -153,7 +153,7 @@ public class UmbracoAuthServiceTests
                 "https://localhost:45000",
                 "client",
                 "secret",
-                CancellationToken.None
+                ct: CancellationToken.None
             )
         );
         Assert.Contains("Could not reach", ex.Message);
@@ -166,7 +166,7 @@ public class UmbracoAuthServiceTests
         var service = ServiceThatThrows(new TaskCanceledException("timeout"));
 
         var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
-            service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None)
+            service.GetTokenAsync("https://x", "client", "secret", ct: CancellationToken.None)
         );
         Assert.Contains("timed out", ex.Message);
     }
@@ -180,7 +180,7 @@ public class UmbracoAuthServiceTests
         var service = ServiceThatThrows(new HttpRequestException("connection refused"));
 
         var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
-            service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None)
+            service.GetTokenAsync("https://x", "client", "secret", ct: CancellationToken.None)
         );
 
         Assert.Equal(FailureCategory.Unreachable, ex.Category);
@@ -192,7 +192,7 @@ public class UmbracoAuthServiceTests
         var service = ServiceThatThrows(new TaskCanceledException("timeout"));
 
         var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
-            service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None)
+            service.GetTokenAsync("https://x", "client", "secret", ct: CancellationToken.None)
         );
 
         Assert.Equal(FailureCategory.Timeout, ex.Category);
@@ -204,7 +204,12 @@ public class UmbracoAuthServiceTests
         var service = ServiceThatThrows(new TaskCanceledException("timeout"));
 
         var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
-            service.GetTokenAsync("https://site.test", "client", "secret", CancellationToken.None)
+            service.GetTokenAsync(
+                "https://site.test",
+                "client",
+                "secret",
+                ct: CancellationToken.None
+            )
         );
 
         Assert.Contains("https://site.test", ex.Message);
@@ -252,7 +257,7 @@ public class UmbracoAuthServiceTests
         );
 
         var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
-            service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None)
+            service.GetTokenAsync("https://x", "client", "secret", ct: CancellationToken.None)
         );
 
         Assert.Equal(FailureCategory.UnexpectedResponse, ex.Category);
@@ -280,7 +285,12 @@ public class UmbracoAuthServiceTests
         );
 
         var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
-            service.GetTokenAsync("http://example.com", "client", "secret", CancellationToken.None)
+            service.GetTokenAsync(
+                "http://example.com",
+                "client",
+                "secret",
+                ct: CancellationToken.None
+            )
         );
 
         Assert.Equal(FailureCategory.Refused, ex.Category);
@@ -300,7 +310,7 @@ public class UmbracoAuthServiceTests
         );
 
         var ex = await Assert.ThrowsAsync<UmbracoAuthException>(() =>
-            service.GetTokenAsync("https://x", "client", "secret", CancellationToken.None)
+            service.GetTokenAsync("https://x", "client", "secret", ct: CancellationToken.None)
         );
         Assert.Contains("unreadable", ex.Message);
     }
@@ -317,7 +327,7 @@ public class UmbracoAuthServiceTests
         );
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            service.GetTokenAsync("https://x", "client", "secret", cts.Token)
+            service.GetTokenAsync("https://x", "client", "secret", ct: cts.Token)
         );
     }
 
@@ -338,7 +348,7 @@ public class UmbracoAuthServiceTests
             new SingleClientFactory(new HttpClient(new StubHandler(body, status)))
         );
         return Assert.ThrowsAsync<UmbracoAuthException>(() =>
-            service.GetTokenAsync("https://x", "cid", Secret, CancellationToken.None)
+            service.GetTokenAsync("https://x", "cid", Secret, ct: CancellationToken.None)
         );
     }
 
@@ -449,7 +459,11 @@ public class UmbracoAuthServiceTests
 
         public void RemoveByPrefix(string prefix)
         {
-            foreach (var key in Entries.Keys.Where(k => k.StartsWith(prefix)).ToList())
+            foreach (
+                var key in Entries
+                    .Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+                    .ToList()
+            )
                 Entries.Remove(key);
         }
     }
@@ -522,7 +536,13 @@ public class UmbracoAuthServiceTests
         await Process(handler, cache).GetTokenAsync("https://x", "client", "secret");
 
         await Process(handler, cache)
-            .GetTokenAsync("https://x", "client", "secret", CancellationToken.None, fresh: true);
+            .GetTokenAsync(
+                "https://x",
+                "client",
+                "secret",
+                ct: CancellationToken.None,
+                fresh: true
+            );
 
         Assert.Equal(2, handler.Requests);
     }
@@ -554,6 +574,21 @@ public class UmbracoAuthServiceTests
         Assert.Equal(
             UmbracoAuthService.CacheKey("https://site.test", "c", "s"),
             UmbracoAuthService.CacheKey("https://SITE.test/", "c", "s")
+        );
+    }
+
+    [Fact]
+    public async Task Dispose_ThenGetToken_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        var service = Process(new CountingTokenHandler(299), new MemoryTokenCache());
+
+        // Act
+        service.Dispose();
+
+        // Assert
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            service.GetTokenAsync("https://x", "client", "secret")
         );
     }
 }

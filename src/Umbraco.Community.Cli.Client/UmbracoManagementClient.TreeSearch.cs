@@ -191,7 +191,7 @@ public sealed partial class UmbracoManagementClient
     /// <param name="fetchPage">Reads one page of the level.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Every item at the level, in order.</returns>
-    private async IAsyncEnumerable<TItem> EnumerateTreeLevelAsync<TItem>(
+    private static async IAsyncEnumerable<TItem> EnumerateTreeLevelAsync<TItem>(
         Guid? parent,
         FetchTreePage<TItem> fetchPage,
         [EnumeratorCancellation] CancellationToken ct
@@ -263,7 +263,7 @@ public sealed partial class UmbracoManagementClient
     /// <param name="project">Reads a node's id/name/has-children.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The matched item, or null when a segment matches nothing.</returns>
-    private async Task<TItem?> FindByPathAsync<TItem>(
+    private static async Task<TItem?> FindByPathAsync<TItem>(
         string path,
         FetchTreePage<TItem> fetchPage,
         ProjectNode<TItem> project,

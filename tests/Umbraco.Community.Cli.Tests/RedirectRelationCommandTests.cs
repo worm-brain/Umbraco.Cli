@@ -120,7 +120,7 @@ public class RedirectRelationCommandTests
         var exit = await Run(root, $"{Auth} --yes redirect tracking disable");
 
         Assert.Equal(0, exit);
-        Assert.Equal(false, Assert.Single(fake.RedirectTrackingSet));
+        Assert.False(Assert.Single(fake.RedirectTrackingSet));
     }
 
     [Fact]

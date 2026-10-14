@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Content;
 
+/// <summary>Wires the <c>content get</c> command.</summary>
 public static class ContentGetCommand
 {
+    /// <summary>Builds the <c>content get</c> command.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

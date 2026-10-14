@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Media;
@@ -54,7 +55,7 @@ public static class MediaTreeCommand
                             i.Id.ToString(),
                             i.Name,
                             i.ParentId?.ToString() ?? "",
-                            i.Depth.ToString(),
+                            i.Depth.ToString(CultureInfo.CurrentCulture),
                             i.HasChildren ? "yes" : "no",
                         },
                     ct

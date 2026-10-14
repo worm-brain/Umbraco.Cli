@@ -196,7 +196,9 @@ public class ContentUpdateMergeClientTests
         var id = Guid.NewGuid();
         var handler = new RoutingHandler()
             .When(
-                r => r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/language"),
+                r =>
+                    r.Method == HttpMethod.Get
+                    && r.RequestUri!.AbsolutePath.EndsWith("/language", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 """{ "total": 1, "items": [ { "isoCode": "da-DK", "isDefault": true } ] }"""
             )

@@ -16,7 +16,11 @@ public class SchemaBreadthTests
 {
     // ── helpers ────────────────────────────────────────────────────────────────
 
-    private static JsonNode Language(string iso, bool isDefault = false, string? fallback = null) =>
+    private static JsonObject Language(
+        string iso,
+        bool isDefault = false,
+        string? fallback = null
+    ) =>
         new JsonObject
         {
             ["isoCode"] = iso,
@@ -37,7 +41,7 @@ public class SchemaBreadthTests
             parent
         );
 
-    private static JsonNode UserGroup(Guid id, string alias, bool deletable = true) =>
+    private static JsonObject UserGroup(Guid id, string alias, bool deletable = true) =>
         new JsonObject
         {
             ["id"] = id.ToString(),

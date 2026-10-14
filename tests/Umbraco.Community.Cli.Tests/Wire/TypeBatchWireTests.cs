@@ -47,7 +47,7 @@ public class TypeBatchWireTests
         // Arrange: the batch returns only the first; the second's own read is a 404.
         var handler = new RoutingHandler()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/batch"),
+                r => r.RequestUri!.AbsolutePath.EndsWith("/batch", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 $$"""{"total":1,"items":[{{Body(First)}}]}"""
             )
@@ -80,7 +80,9 @@ public class TypeBatchWireTests
             (
                 result.IsSuccess,
                 handler.Recordings.Count,
-                handler.Recordings.Count(r => r.Uri.AbsolutePath.EndsWith("/batch"))
+                handler.Recordings.Count(r =>
+                    r.Uri.AbsolutePath.EndsWith("/batch", StringComparison.Ordinal)
+                )
             )
         );
     }
@@ -90,14 +92,18 @@ public class TypeBatchWireTests
     {
         // Arrange: Umbraco 17.0 to 17.2 route the batch path to nothing.
         var handler = new RoutingHandler()
-            .When(r => r.RequestUri!.AbsolutePath.EndsWith("/batch"), HttpStatusCode.NotFound, "")
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith($"/{First}"),
+                r => r.RequestUri!.AbsolutePath.EndsWith("/batch", StringComparison.Ordinal),
+                HttpStatusCode.NotFound,
+                ""
+            )
+            .When(
+                r => r.RequestUri!.AbsolutePath.EndsWith($"/{First}", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 Body(First)
             )
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith($"/{Second}"),
+                r => r.RequestUri!.AbsolutePath.EndsWith($"/{Second}", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 Body(Second)
             );
@@ -113,7 +119,9 @@ public class TypeBatchWireTests
             (
                 first.IsSuccess,
                 second.IsSuccess,
-                handler.Recordings.Count(r => r.Uri.AbsolutePath.EndsWith("/batch")),
+                handler.Recordings.Count(r =>
+                    r.Uri.AbsolutePath.EndsWith("/batch", StringComparison.Ordinal)
+                ),
                 handler.Recordings.Count
             )
         );

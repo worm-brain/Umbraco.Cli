@@ -17,6 +17,9 @@ public sealed class CommandExecutor
     private readonly CommandContextFactory _factory;
     private readonly IConfirmationPrompt _confirmation;
 
+    /// <summary>Creates the executor.</summary>
+    /// <param name="factory">Builds each run's context.</param>
+    /// <param name="confirmation">Asks before a destructive command runs.</param>
     public CommandExecutor(CommandContextFactory factory, IConfirmationPrompt confirmation)
     {
         _factory = factory;
@@ -542,7 +545,7 @@ public sealed class CommandExecutor
     /// <summary>
     /// Refuses, at compile time, a write that returns no data: every success has <c>data</c>
     /// (docs/conventions.md 6.2). Chain <see cref="WriteResult.Then{T}"/> or
-    /// <see cref="WriteResult.ThenRead{T}"/> onto the call to say what it returns.
+    /// <see cref="WriteResult.ThenRead{TWrite, T}"/> onto the call to say what it returns.
     /// </summary>
     /// <param name="parseResult">The parsed command line.</param>
     /// <param name="call">A write that returns nothing.</param>
@@ -810,7 +813,7 @@ public sealed class CommandExecutor
     ) => RunWholeListAsync(parseResult, call, d => d, headers, row, ct);
 
     /// <summary>
-    /// <see cref="RunCompleteListAsync{TItem}(ParseResult, string, Func{IUmbracoManagementClient, CancellationToken, Task{UmbracoResponse{IReadOnlyList{TItem}}}}, string[], Func{TItem, string[]}, CancellationToken)"/>
+    /// <see cref="RunCompleteListAsync{TItem}(ParseResult, Func{IUmbracoManagementClient, CancellationToken, Task{UmbracoResponse{IReadOnlyList{TItem}}}}, string[], Func{TItem, string[]}, CancellationToken)"/>
     /// for clients that return an <see cref="IEnumerable{T}"/> rather than a list.
     /// </summary>
     /// <typeparam name="TItem">The item type.</typeparam>

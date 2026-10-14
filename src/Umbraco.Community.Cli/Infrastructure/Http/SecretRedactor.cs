@@ -166,7 +166,8 @@ public static class SecretRedactor
     /// <summary>Whether a name is a header collection: <c>headers</c> or ends in it.</summary>
     /// <param name="name">The property name.</param>
     /// <returns>True for <c>headers</c>, <c>requestHeaders</c>, <c>response_headers</c> and so on.</returns>
-    private static bool IsHeadersName(string name) => Normalise(name).EndsWith("headers");
+    private static bool IsHeadersName(string name) =>
+        Normalise(name).EndsWith("headers", StringComparison.Ordinal);
 
     /// <summary>Hides the value of every secret-named field of a form body.</summary>
     /// <param name="text">The <c>application/x-www-form-urlencoded</c> body.</param>

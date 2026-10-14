@@ -12,7 +12,7 @@ public sealed class LiveInstanceFixture
     public bool IsReachable { get; }
 
     /// <summary>Reason shown on skipped tests when no instance is reachable.</summary>
-    public string SkipReason =>
+    public const string SkipReason =
         "No reachable Umbraco instance. Run `python3 tests/hands-on/dev-site.py test` to run the "
         + "suite against a throwaway dev site, or set UMBRACO_HOST/UMBRACO_CLIENT_ID/"
         + "UMBRACO_CLIENT_SECRET (or run `umbraco auth login`) to use an instance of your own.";
@@ -37,4 +37,4 @@ public sealed class LiveInstanceFixture
 /// runs once and is shared across all integration tests.
 /// </summary>
 [CollectionDefinition("Live")]
-public sealed class LiveCollection : ICollectionFixture<LiveInstanceFixture>;
+public sealed class LiveCollectionDefinition : ICollectionFixture<LiveInstanceFixture>;

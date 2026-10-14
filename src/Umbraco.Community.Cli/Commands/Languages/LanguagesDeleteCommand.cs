@@ -43,7 +43,7 @@ public static class LanguagesDeleteCommand
                     (client, c) =>
                         client
                             .DeleteLanguageAsync(parseResult.GetValue(isoArg)!, c)
-                            .Then(ItemRef.Of(parseResult.GetValue(isoArg))),
+                            .Then(ItemRef.Of(parseResult.GetValue(isoArg)!)),
                     "Language removed.",
                     ct
                 )

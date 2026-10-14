@@ -25,7 +25,7 @@ public interface ISchemaClient
     /// The tree contains organisational <b>folders</b> as well as document types, and document
     /// types can be nested inside folders — so this recurses through children and returns only
     /// real document-type ids (folders are descended into but never returned). This is why the
-    /// typed <see cref="GetDocumentTypesAsync"/> (a single tree-root page, folders included) is
+    /// typed <see cref="IDocumentTypeClient.GetDocumentTypesAsync"/> (a single tree-root page, folders included) is
     /// unsuitable for export.
     /// </summary>
     /// <param name="ct">Cancellation token.</param>
@@ -48,10 +48,6 @@ public interface ISchemaClient
     /// <returns>Every template id, or a mapped failure.</returns>
     Task<UmbracoResponse<IReadOnlyList<Guid>>> GetTemplateIdsAsync(CancellationToken ct = default);
 
-    /// <summary>Creates a template by POSTing a verbatim request body (<c>POST /template</c>).</summary>
-    /// <param name="body">The full template JSON body (including a client-supplied <c>id</c> and Razor <c>content</c>).</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
     /// <summary>
     /// Enumerates every media type id by walking the media-type tree (#186). Folders are skipped
     /// but descended into, as for document types.

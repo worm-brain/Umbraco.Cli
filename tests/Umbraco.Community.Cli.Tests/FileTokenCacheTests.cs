@@ -21,6 +21,12 @@ public sealed class FileTokenCacheTests : IDisposable
 
     private static readonly DateTimeOffset Now = new(2026, 9, 25, 12, 0, 0, TimeSpan.Zero);
 
+    /// <summary>How a reflection-based serializer writes the file, to compare the generated one against.</summary>
+    private static readonly System.Text.Json.JsonSerializerOptions Indented = new()
+    {
+        WriteIndented = true,
+    };
+
     private FileTokenCache Cache() => new(CachePath, new FixedClock(Now));
 
     public void Dispose()
@@ -99,7 +105,7 @@ public sealed class FileTokenCacheTests : IDisposable
         Cache().Write("key", token);
         var reflectionWritten = System.Text.Json.JsonSerializer.Serialize(
             new Dictionary<string, CachedToken> { ["key"] = token },
-            new System.Text.Json.JsonSerializerOptions { WriteIndented = true }
+            Indented
         );
 
         Assert.Equal(reflectionWritten, File.ReadAllText(CachePath));

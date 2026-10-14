@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Umbraco.Community.Cli.Client;
 
@@ -379,7 +380,7 @@ public static class SchemaReferences
                 && await RewriteAsync(
                     element[reference.Field],
                     reference.Kind,
-                    $"{where}: {reference.Array}[{Text(element["alias"]) ?? i.ToString()}].{reference.Field}",
+                    $"{where}: {reference.Array}[{Text(element["alias"]) ?? i.ToString(CultureInfo.InvariantCulture)}].{reference.Field}",
                     resolver,
                     ct
                 )

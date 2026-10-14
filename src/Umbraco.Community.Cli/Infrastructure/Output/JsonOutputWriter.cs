@@ -7,6 +7,11 @@ using Umbraco.Community.Cli.Client;
 
 namespace Umbraco.Community.Cli.Infrastructure.Output;
 
+/// <summary>
+/// The structured writer (<c>--output json</c>, the default when stdout is redirected): the
+/// <c>{status, data, meta}</c> envelope on stdout and the error envelope on stderr. The envelope is
+/// a versioned contract (<see cref="SchemaVersion"/>).
+/// </summary>
 public sealed class JsonOutputWriter : IOutputWriter
 {
     // Optional field projection (#63): when set, only these fields are kept on the data object
@@ -85,6 +90,7 @@ public sealed class JsonOutputWriter : IOutputWriter
         return meta;
     }
 
+    /// <inheritdoc />
     public void WriteSuccess<T>(T data, string? commandName = null, long? durationMs = null)
     {
         // Without --fields, serialize the value directly (no extra DOM copy). With --fields,
@@ -110,6 +116,7 @@ public sealed class JsonOutputWriter : IOutputWriter
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
+    /// <inheritdoc />
     public void WriteError(
         ExitCode exitCode,
         FailureCategory category,
@@ -145,6 +152,7 @@ public sealed class JsonOutputWriter : IOutputWriter
         Console.Error.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
+    /// <inheritdoc />
     public void WriteList(
         IReadOnlyList<object> items,
         string[] headers,
@@ -181,6 +189,7 @@ public sealed class JsonOutputWriter : IOutputWriter
         Console.WriteLine(JsonSerializer.Serialize(envelope, Options));
     }
 
+    /// <inheritdoc />
     public void WriteTable(
         string[] headers,
         IEnumerable<string[]> rows,
@@ -192,6 +201,7 @@ public sealed class JsonOutputWriter : IOutputWriter
         // keeps meta identical to object output (#137). Shared shaping with the CSV writer.
         WriteSuccess(OutputShaping.TableToRecords(headers, rows), commandName, durationMs);
 
+    /// <inheritdoc />
     public void WriteMessage(
         object data,
         string message,
@@ -246,7 +256,7 @@ public sealed class JsonOutputWriter : IOutputWriter
         string? body,
         string? commandName,
         long? durationMs = null,
-        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? then = null
+        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? followUps = null
     )
     {
         // Embed the body as parsed JSON when it is valid JSON so the preview nests cleanly
@@ -267,7 +277,7 @@ public sealed class JsonOutputWriter : IOutputWriter
                 // #353: the requests a multi-step write sends after the first, in order, each
                 // {method, url, body}. Always present (empty for a single request), so a script
                 // can walk it without a presence check.
-                then = (then ?? []).Select(r => BulkRequest.From(r.Method, r.Url, r.Body)),
+                then = (followUps ?? []).Select(r => BulkRequest.From(r.Method, r.Url, r.Body)),
             },
             // The same meta as every other envelope (docs/conventions.md, section 6).
             meta = Meta(

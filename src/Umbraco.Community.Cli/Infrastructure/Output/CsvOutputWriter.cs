@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -64,7 +65,7 @@ public sealed class CsvOutputWriter : IOutputWriter
         // category, like every error's, says why. The server version stays JSON-only.
         Console.Error.WriteLine("exitCode,httpStatus,category,message");
         Console.Error.WriteLine(
-            $"{Escape(((int)exitCode).ToString())},{Escape(httpStatus?.ToString() ?? "")},"
+            $"{Escape(((int)exitCode).ToString(CultureInfo.InvariantCulture))},{Escape(httpStatus?.ToString(CultureInfo.InvariantCulture) ?? "")},"
                 + $"{Escape(category.ToWire() ?? "")},{Escape(message)}"
         );
     }
@@ -138,13 +139,13 @@ public sealed class CsvOutputWriter : IOutputWriter
         string? body,
         string? commandName,
         long? durationMs = null,
-        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? then = null
+        IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? followUps = null
     )
     {
         // One row per request, in the order they would be sent (#353).
         Console.Out.WriteLine("method,url,body");
         Console.Out.WriteLine($"{Escape(method)},{Escape(url)},{Escape(body ?? "")}");
-        foreach (var next in then ?? [])
+        foreach (var next in followUps ?? [])
             Console.Out.WriteLine(
                 $"{Escape(next.Method)},{Escape(next.Url)},{Escape(next.Body ?? "")}"
             );

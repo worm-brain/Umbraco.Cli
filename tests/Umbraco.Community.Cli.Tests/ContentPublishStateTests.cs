@@ -10,7 +10,7 @@ namespace Umbraco.Community.Cli.Tests;
 public class ContentPublishStateTests
 {
     /// <summary>A document body whose variants are (culture, state) pairs; null culture = invariant.</summary>
-    private static JsonNode Body(params (string? Culture, string State)[] variants) =>
+    private static JsonObject Body(params (string? Culture, string State)[] variants) =>
         new JsonObject
         {
             ["variants"] = new JsonArray([

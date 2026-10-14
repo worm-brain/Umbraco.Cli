@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Dictionary;
 
+/// <summary>Wires the <c>dictionary</c> noun: translated static text.</summary>
 public static class DictionaryCommand
 {
+    /// <summary>Builds the <c>dictionary</c> noun with its verbs.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

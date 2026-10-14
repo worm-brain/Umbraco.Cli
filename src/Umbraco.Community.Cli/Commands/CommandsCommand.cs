@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using System.Text;
 using Umbraco.Community.Cli.Commands.Extensions;
 using Umbraco.Community.Cli.Infrastructure;
@@ -81,7 +82,7 @@ public static class CommandsCommand
         // examples, which would break the one-line-per-command outline.
         var firstLine = node.Description?.Split('\n')[0].Trim();
         var help = string.IsNullOrEmpty(firstLine) ? "" : $" — {firstLine}";
-        sb.AppendLine($"{indent}{node.Name}{help}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"{indent}{node.Name}{help}");
         foreach (var child in node.Commands)
             AppendNode(sb, child, depth + 1);
     }

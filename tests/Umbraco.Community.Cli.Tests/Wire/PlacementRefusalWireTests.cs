@@ -178,7 +178,11 @@ public class PlacementRefusalWireTests
         Wire.Client(
                 new RoutingHandler()
                     .When(
-                        r => r.RequestUri!.AbsolutePath.EndsWith("/original-parent"),
+                        r =>
+                            r.RequestUri!.AbsolutePath.EndsWith(
+                                "/original-parent",
+                                StringComparison.Ordinal
+                            ),
                         HttpStatusCode.OK,
                         $$"""{ "id": "{{Parent}}" }"""
                     )

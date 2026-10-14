@@ -38,6 +38,7 @@ public sealed class GlobalOptions
         });
     }
 
+    /// <summary><c>--host</c>: the instance to call; beats the profile and <c>UMBRACO_HOST</c>.</summary>
     public Option<string?> Host { get; } =
         new("--host", new[] { "-H" })
         {
@@ -45,6 +46,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--token</c>: a bearer token used as is, skipping the credential exchange.</summary>
     public Option<string?> Token { get; } =
         new("--token")
         {
@@ -53,6 +55,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--output</c>: the output format; see <see cref="OutputFormat"/>.</summary>
     public Option<string?> Output { get; } =
         new("--output", new[] { "-o" })
         {
@@ -62,6 +65,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--quiet</c>: drops a write's success output, never its errors.</summary>
     public Option<bool> Quiet { get; } =
         new("--quiet", new[] { "-q" })
         {
@@ -71,6 +75,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--verbose</c>: traces every HTTP exchange to stderr, secrets redacted.</summary>
     public Option<bool> Verbose { get; } =
         new("--verbose", new[] { "-v" })
         {
@@ -79,6 +84,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--dry-run</c>: previews a write's requests instead of sending them.</summary>
     public Option<bool> DryRun { get; } =
         new("--dry-run")
         {
@@ -89,6 +95,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--yes</c>: confirms a destructive command; required when nobody can be prompted.</summary>
     public Option<bool> Yes { get; } =
         new("--yes", new[] { "-y" })
         {
@@ -98,6 +105,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--readonly</c>: refuses every write for the run.</summary>
     public Option<bool> ReadOnly { get; } =
         new("--readonly")
         {
@@ -107,6 +115,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--fields</c>: trims structured output to these top-level fields, in this order.</summary>
     public Option<string?> Fields { get; } =
         new("--fields")
         {
@@ -116,6 +125,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--config</c>: the config file to use instead of <see cref="ConfigStore.DefaultConfigPath"/>.</summary>
     public Option<string?> Config { get; } =
         new("--config")
         {
@@ -125,6 +135,7 @@ public sealed class GlobalOptions
             Recursive = true,
         };
 
+    /// <summary><c>--profile</c>: the named credential profile to use instead of the default.</summary>
     public Option<string?> Profile { get; } =
         new("--profile", new[] { "-p" })
         {

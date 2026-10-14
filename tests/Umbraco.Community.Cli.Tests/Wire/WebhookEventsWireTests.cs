@@ -129,7 +129,11 @@ public class WebhookEventsWireTests
     {
         var handler = new RoutingHandler()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/webhook/events"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/webhook/events",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.Forbidden,
                 ""
             )
@@ -149,13 +153,17 @@ public class WebhookEventsWireTests
         var handler = new RoutingHandler()
             .When(
                 r =>
-                    r.RequestUri!.AbsolutePath.EndsWith("/webhook/events")
+                    r.RequestUri!.AbsolutePath.EndsWith("/webhook/events", StringComparison.Ordinal)
                     && r.RequestUri.Query.Contains("skip=0"),
                 HttpStatusCode.OK,
                 """{ "total": 1001, "items": [ { "alias": "Umbraco.ContentPublish" } ] }"""
             )
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/webhook/events"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/webhook/events",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 """{ "total": 1001, "items": [ { "alias": "Package.OrderPlaced" } ] }"""
             )

@@ -98,11 +98,12 @@ public class QuietOutputWriterTests
             string? body,
             string? commandName,
             long? durationMs = null,
-            IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? then = null
+            IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? followUps =
+                null
         )
         {
             DryRunCalled = true;
-            LastDryRunThen = then;
+            LastDryRunThen = followUps;
         }
 
         public IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest>? LastDryRunThen
@@ -124,7 +125,7 @@ public class QuietOutputWriterTests
             "https://x/user",
             null,
             "user.create",
-            then: [new("POST", "https://x/user/1/change-password", null)]
+            followUps: [new("POST", "https://x/user/1/change-password", null)]
         );
 
         Assert.Single(inner.LastDryRunThen!);

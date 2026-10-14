@@ -3,6 +3,14 @@ namespace Umbraco.Community.Cli.Client;
 /// <summary>Dictionary item read and create.</summary>
 public interface IDictionaryClient
 {
+    /// <summary>
+    /// Lists dictionary items by id and name. The list carries no translation text; read an item by
+    /// id for that.
+    /// </summary>
+    /// <param name="skip">How many items to skip (paging).</param>
+    /// <param name="take">The page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>One page of dictionary items, or a mapped failure.</returns>
     Task<UmbracoResponse<PagedResponse<DictionaryItemResponse>>> GetDictionaryItemsAsync(
         int skip = 0,
         int take = 20,
@@ -22,6 +30,13 @@ public interface IDictionaryClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Creates a dictionary item and reads it back. Translations for a language the site does not
+    /// have are refused before anything is sent.
+    /// </summary>
+    /// <param name="request">The name, parent and translations to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created item as <c>get</c> shows it, or a mapped failure.</returns>
     Task<UmbracoResponse<DictionaryItemResponse>> CreateDictionaryItemAsync(
         CreateDictionaryItemRequest request,
         CancellationToken ct = default
@@ -58,11 +73,6 @@ public interface IDictionaryClient
         CancellationToken ct = default
     );
 
-    /// <summary>Reparents a dictionary item under a new target (issue #110).</summary>
-    /// <param name="id">The dictionary item id to move.</param>
-    /// <param name="targetId">Target parent id; null moves the item to the dictionary root.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>An empty success response, or a mapped failure.</returns>
     /// <summary>
     /// Updates a dictionary item (#182), merging the supplied translations into the item's
     /// existing ones by ISO code. Correcting one language no longer means delete-and-recreate,
@@ -78,6 +88,11 @@ public interface IDictionaryClient
         CancellationToken ct = default
     );
 
+    /// <summary>Reparents a dictionary item under a new target (issue #110).</summary>
+    /// <param name="id">The dictionary item id to move.</param>
+    /// <param name="targetId">Target parent id; null moves the item to the dictionary root.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> MoveDictionaryItemAsync(
         Guid id,
         Guid? targetId,

@@ -202,7 +202,7 @@ public class ListRequestCountTests
         var handler = new RoutingHandler()
             .ServeTree("data-type", dataTypes)
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/batch"),
+                r => r.RequestUri!.AbsolutePath.EndsWith("/batch", StringComparison.Ordinal),
                 System.Net.HttpStatusCode.NotFound,
                 ""
             )

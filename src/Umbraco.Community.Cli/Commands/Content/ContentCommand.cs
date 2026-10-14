@@ -5,8 +5,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Content;
 
+/// <summary>Wires the <c>content</c> noun: documents in the content tree.</summary>
 public static class ContentCommand
 {
+    /// <summary>Builds the <c>content</c> noun with its verbs.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

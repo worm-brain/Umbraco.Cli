@@ -58,7 +58,7 @@ public static class MediaDiffCommand
                             c
                         ),
                     result => result.Diff?.Rows ?? [],
-                    new[] { "Change", "Id", "Parent", "Changes" },
+                    ["Change", "Id", "Parent", "Changes"],
                     change =>
                         [
                             change.Change.ToString(),

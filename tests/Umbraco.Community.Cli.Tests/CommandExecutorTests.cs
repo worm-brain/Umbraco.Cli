@@ -385,7 +385,7 @@ public class CommandExecutorTests
     /// <summary>Runs a command whose call fails as an unexpected response (#154).</summary>
     /// <param name="serverVersion">The version the fake server reports.</param>
     /// <returns>The error envelope's <c>category</c> and <c>message</c>.</returns>
-    private async Task<(string? Category, string? Message)> RunUnexpectedResponse(
+    private static async Task<(string? Category, string? Message)> RunUnexpectedResponse(
         string? serverVersion
     )
     {
@@ -1450,7 +1450,7 @@ public class CommandExecutorTests
     /// <summary>Runs a bulk publish over <paramref name="ids"/>, failing the ids in <paramref name="failing"/>.</summary>
     private static async Task<JsonElement> BulkEnvelope(
         IReadOnlyList<string> ids,
-        IReadOnlySet<Guid> failing,
+        HashSet<Guid> failing,
         string args = "--host https://example.com --token tok --output json"
     )
     {
@@ -1785,7 +1785,7 @@ public class CommandExecutorTests
         var (_, stderr, exit) = await Capture(() =>
             executor.RunObjectAsync<ContentItemResponse>(
                 parse,
-                (c, ct) => throw new NullReferenceException("boom"),
+                (c, ct) => throw new InvalidOperationException("boom"),
                 CancellationToken.None
             )
         );

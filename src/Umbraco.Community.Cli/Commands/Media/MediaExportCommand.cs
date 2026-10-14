@@ -47,7 +47,7 @@ public static class MediaExportCommand
         {
             Description = "Export only this item's subtree (root included). Omit for all media.",
         };
-        var outOpt = new Option<DirectoryInfo>("--out", new[] { "-O" })
+        var outOpt = new Option<DirectoryInfo>("--out", ["-O"])
         {
             Description = "The snapshot directory to write.",
         }.AsRequired();

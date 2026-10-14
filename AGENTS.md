@@ -47,11 +47,14 @@ dotnet test --filter "FullyQualifiedName~CommandExecutorTests"   # one test clas
 dotnet test --filter "Name=RunObject_ApiFailure_WritesErrorAndReturnsOne"  # one test
 dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -o ./nupkg        # build the tool package
 dotnet tool install --global --add-source ./nupkg Umbraco.Community.Cli --prerelease  # install locally to test
-dotnet format                                  # or CSharpier - formatting standard for this repo is CSharpier
+dotnet tool restore && dotnet csharpier format .   # format (CSharpier, pinned in .config/dotnet-tools.json)
 dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*"   # benchmarks, see its README
 ```
 
-There is no linter beyond the compiler + analyzers; formatting is CSharpier.
+There is no linter beyond the compiler + analyzers. Warnings are errors and the `latest-recommended`
+analyzer set is on (`Directory.Build.props`); a rule is relaxed only in `.editorconfig`, scoped to the
+files it does not fit and with the reason beside it. The generated Kiota client is excluded from
+analysis. Formatting is CSharpier.
 
 ### Live integration tests: use the dev site
 

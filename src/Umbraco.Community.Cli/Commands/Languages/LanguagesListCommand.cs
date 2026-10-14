@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Languages;
 
+/// <summary>Wires the <c>language list</c> command.</summary>
 public static class LanguagesListCommand
 {
+    /// <summary>Builds the <c>language list</c> command.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

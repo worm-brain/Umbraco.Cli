@@ -208,7 +208,7 @@ public static class InUseGuard
         );
 
     /// <summary>
-    /// <see cref="Protect"/> for a delete of several items at once: the references are resolved
+    /// <see cref="Protect(Command, Func{ParseResult, DeleteTarget}, string)"/> for a delete of several items at once: the references are resolved
     /// once, each item is checked (in parallel), and every reason found is reported.
     /// </summary>
     /// <param name="command">The delete command.</param>

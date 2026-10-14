@@ -5,6 +5,15 @@ namespace Umbraco.Community.Cli.Client;
 /// <summary>Document (content) CRUD plus publish/unpublish.</summary>
 public interface IContentClient
 {
+    /// <summary>
+    /// Lists one level of the content tree: the children of <paramref name="parentId"/>, or the root
+    /// documents when it is null. Tree items carry less than <see cref="GetContentByIdAsync"/> does.
+    /// </summary>
+    /// <param name="parentId">The parent document; null for the root.</param>
+    /// <param name="skip">How many items to skip (paging).</param>
+    /// <param name="take">The page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>One page of documents, or a mapped failure.</returns>
     Task<UmbracoResponse<PagedResponse<ContentItemResponse>>> GetContentAsync(
         Guid? parentId = null,
         int skip = 0,
@@ -12,11 +21,25 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Reads one document with everything <c>content get</c> shows: its variants and values, plus the
+    /// parent, public URLs and document-type alias from best-effort extra reads.
+    /// </summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The document, or a mapped failure (404 when there is none).</returns>
     Task<UmbracoResponse<ContentItemResponse>> GetContentByIdAsync(
         Guid id,
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Creates a document, resolving the document type by alias when no id is given, and reads it
+    /// back. A failed read-back still succeeds with the new id: the create itself went through.
+    /// </summary>
+    /// <param name="request">The document type, variants and values to create.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The created document, or a mapped failure.</returns>
     Task<UmbracoResponse<ContentItemResponse>> CreateContentAsync(
         CreateContentRequest request,
         CancellationToken ct = default
@@ -43,6 +66,10 @@ public interface IContentClient
         CancellationToken ct = default
     );
 
+    /// <summary>Deletes a document permanently, bypassing the recycle bin.</summary>
+    /// <param name="id">The document id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> DeleteContentAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Reads a document's culture-and-hostname bindings (#180).</summary>

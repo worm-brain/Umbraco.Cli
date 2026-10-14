@@ -3,8 +3,14 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Media;
 
+/// <summary>Wires the <c>media delete</c> command.</summary>
 public static class MediaDeleteCommand
 {
+    /// <summary>
+    /// Builds the <c>media delete</c> command: a permanent delete that skips the recycle bin, so it asks to confirm.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command("delete", "Delete a media item permanently, by id.")

@@ -28,7 +28,7 @@ public sealed partial class UmbracoManagementClient
     /// <exception cref="UnknownValuesException">A value is unknown (invalid_argument, with the unknown and known values).</exception>
     /// <exception cref="ApiException">The known set could not be read (mapped to 400).</exception>
     private static async Task GuardKnownValuesAsync(
-        IReadOnlyList<string> requested,
+        List<string> requested,
         Func<CancellationToken, Task<HashSet<string>?>> readKnown,
         string blankMessage,
         string unreadableMessage,

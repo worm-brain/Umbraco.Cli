@@ -3,8 +3,14 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Templates;
 
+/// <summary>Wires the <c>template list</c> command.</summary>
 public static class TemplatesListCommand
 {
+    /// <summary>
+    /// Builds the <c>template list</c> command: every template, including those nested under a master.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

@@ -303,7 +303,11 @@ public class ContentWireTests
         var original = Guid.NewGuid();
         var handler = new RoutingHandler()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/original-parent"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/original-parent",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 $$"""{ "id": "{{original}}" }"""
             )

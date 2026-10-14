@@ -39,7 +39,7 @@ public static class MemberGroupsCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) => client.GetMemberGroupsAsync(skip, take, c),
-                    new[] { "Id", "Name" },
+                    ["Id", "Name"],
                     g => new[] { g.Id.ToString(), g.Name },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),

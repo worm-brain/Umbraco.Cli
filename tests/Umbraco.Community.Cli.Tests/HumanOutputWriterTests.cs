@@ -44,7 +44,9 @@ public class HumanOutputWriterTests
     [Fact]
     public void WriteSuccess_NestedValue_IsShownAsCompactJson()
     {
-        var output = Render(w => w.WriteSuccess(new { Cultures = new[] { "en-US", "da-DK" } }));
+        string[] cultures = ["en-US", "da-DK"];
+
+        var output = Render(w => w.WriteSuccess(new { Cultures = cultures }));
 
         Assert.Contains("[\"en-US\",\"da-DK\"]", output);
     }

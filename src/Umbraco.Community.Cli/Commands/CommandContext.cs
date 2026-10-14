@@ -11,8 +11,13 @@ namespace Umbraco.Community.Cli.Commands;
 /// </summary>
 public sealed class CommandContext
 {
+    /// <summary>The writer for the format this run resolved to.</summary>
     public required IOutputWriter Output { get; init; }
+
+    /// <summary>The client, already pointed at the host and authenticated.</summary>
     public required IUmbracoManagementClient Client { get; init; }
+
+    /// <summary>The dotted command path for <c>meta.command</c>, e.g. <c>content.list</c>.</summary>
     public required string CommandName { get; init; }
 
     /// <summary>
@@ -44,5 +49,6 @@ public sealed class CommandContext
     public IReadOnlyList<Umbraco.Community.Cli.Infrastructure.Http.PreviewedRequest> Previewed { get; init; } =
     [];
 
+    /// <summary>Started when the context is built; its elapsed time is <c>meta.durationMs</c>.</summary>
     public Stopwatch Stopwatch { get; } = Stopwatch.StartNew();
 }

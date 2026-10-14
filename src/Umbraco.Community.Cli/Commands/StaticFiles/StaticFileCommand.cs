@@ -188,7 +188,7 @@ public static class StaticFileCommand
                             take,
                             c
                         ),
-                    new[] { "Path", "Name", "Type" },
+                    ["Path", "Name", "Type"],
                     i => new[] { i.Path, i.Name, i.IsFolder ? "folder" : "file" },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),

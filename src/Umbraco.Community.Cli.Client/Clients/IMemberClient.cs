@@ -3,6 +3,14 @@ namespace Umbraco.Community.Cli.Client;
 /// <summary>Member read, create, and delete.</summary>
 public interface IMemberClient
 {
+    /// <summary>Lists members, optionally narrowed by a free-text filter.</summary>
+    /// <param name="group">
+    /// A free-text filter Umbraco matches against member names and emails; null lists every member.
+    /// </param>
+    /// <param name="skip">How many items to skip (paging).</param>
+    /// <param name="take">The page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>One page of members, or a mapped failure.</returns>
     Task<UmbracoResponse<PagedResponse<MemberResponse>>> GetMembersAsync(
         string? group = null,
         int skip = 0,
@@ -10,6 +18,10 @@ public interface IMemberClient
         CancellationToken ct = default
     );
 
+    /// <summary>Reads one member.</summary>
+    /// <param name="id">The member id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The member, or a mapped failure (404 when there is none).</returns>
     Task<UmbracoResponse<MemberResponse>> GetMemberByIdAsync(
         Guid id,
         CancellationToken ct = default
@@ -39,5 +51,12 @@ public interface IMemberClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Deletes a member. Idempotent: a member that is already gone counts as deleted, because Umbraco
+    /// 17 answers some successful deletes with a 500 and the result is confirmed by reading back.
+    /// </summary>
+    /// <param name="id">The member id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> DeleteMemberAsync(Guid id, CancellationToken ct = default);
 }

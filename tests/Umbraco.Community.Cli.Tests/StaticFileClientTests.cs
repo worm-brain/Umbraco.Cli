@@ -460,7 +460,7 @@ public class StaticFileClientTests
             (HttpMethod.Put, true, """{"name":"main.js"}"""),
             (
                 handler.LastMethod,
-                handler.LastUri!.AbsoluteUri.EndsWith(expectedPath),
+                handler.LastUri!.AbsoluteUri.EndsWith(expectedPath, StringComparison.Ordinal),
                 handler.LastBody
             )
         );

@@ -88,7 +88,9 @@ internal static class Wire
             );
         return handler
             .When(
-                r => r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/batch"),
+                r =>
+                    r.Method == HttpMethod.Get
+                    && r.RequestUri!.AbsolutePath.EndsWith("/batch", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 r => BatchFromByIdRoutes(r, routes)
             )

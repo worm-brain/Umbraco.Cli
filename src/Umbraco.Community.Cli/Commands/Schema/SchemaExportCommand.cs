@@ -63,7 +63,7 @@ public static class SchemaExportCommand
             "umbraco schema export --no-files --out schema.json   # views deploy from git",
             "umbraco schema export | jq '.data.documentTypes | length'"
         );
-        var outOpt = new Option<FileInfo?>("--out", new[] { "-O" })
+        var outOpt = new Option<FileInfo?>("--out", ["-O"])
         {
             Description =
                 "Write the snapshot to this file (bare JSON, no envelope). "

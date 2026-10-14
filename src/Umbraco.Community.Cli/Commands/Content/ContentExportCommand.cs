@@ -40,7 +40,7 @@ public static class ContentExportCommand
             Description =
                 "Export only this document's subtree (root included). Omit for the whole tree.",
         };
-        var outOpt = new Option<FileInfo?>("--out", new[] { "-O" })
+        var outOpt = new Option<FileInfo?>("--out", ["-O"])
         {
             Description =
                 "Write the snapshot to this file (bare JSON, no envelope). "

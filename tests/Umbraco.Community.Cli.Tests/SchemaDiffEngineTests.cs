@@ -501,7 +501,7 @@ public class SchemaDiffEngineTests
     /// <param name="alias">The alias it is matched on.</param>
     /// <param name="name">The name, which is what differs between the two sides.</param>
     /// <returns>The body.</returns>
-    private static JsonNode Entity(Guid id, string alias, string name) =>
+    private static JsonObject Entity(Guid id, string alias, string name) =>
         new JsonObject
         {
             ["id"] = id.ToString(),

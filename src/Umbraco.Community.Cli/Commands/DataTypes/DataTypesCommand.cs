@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.DataTypes;
 
+/// <summary>Wires the <c>data-type</c> noun: configured property editors.</summary>
 public static class DataTypesCommand
 {
+    /// <summary>Builds the <c>data-type</c> noun with its verbs.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

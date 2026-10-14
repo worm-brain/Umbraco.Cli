@@ -3,6 +3,16 @@ namespace Umbraco.Community.Cli.Client;
 /// <summary>Data type read access.</summary>
 public interface IDataTypeClient
 {
+    /// <summary>
+    /// Lists data types, folders excluded and types nested in folders included, paged client-side
+    /// after one walk of the tree. List items carry no editor alias; <see cref="GetDataTypeByIdAsync"/>
+    /// does.
+    /// </summary>
+    /// <param name="skip">How many items to skip (paging).</param>
+    /// <param name="take">The page size.</param>
+    /// <param name="parentId">Only the direct children of this folder; null lists every data type.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>One page of data types, or a mapped failure.</returns>
     Task<UmbracoResponse<PagedResponse<DataTypeResponse>>> GetDataTypesAsync(
         int skip = 0,
         int take = 20,
@@ -10,6 +20,10 @@ public interface IDataTypeClient
         CancellationToken ct = default
     );
 
+    /// <summary>Reads one data type, with the editor aliases the list leaves out.</summary>
+    /// <param name="id">The data type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The data type, or a mapped failure (404 when there is none).</returns>
     Task<UmbracoResponse<DataTypeResponse>> GetDataTypeByIdAsync(
         Guid id,
         CancellationToken ct = default

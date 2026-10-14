@@ -118,9 +118,8 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         // few languages, so probe the list and take the first spare candidate.
         var existing = CliRunner.Run("language", "list");
         Assert.True(existing.Ok, existing.Stderr);
-        var iso = new[] { "fr-CA", "es-MX", "de-AT", "pt-BR", "en-AU", "nl-BE" }.FirstOrDefault(c =>
-            !existing.Stdout.Contains($"\"{c}\"")
-        );
+        string[] candidates = ["fr-CA", "es-MX", "de-AT", "pt-BR", "en-AU", "nl-BE"];
+        var iso = candidates.FirstOrDefault(c => !existing.Stdout.Contains($"\"{c}\""));
         Skip.If(iso is null, "No spare test culture available on this instance.");
 
         // Create (now on the generated client). The create echoes the accepted request, so
@@ -281,7 +280,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
             Assert.True(get.Ok, get.Stderr);
             Assert.Equal("clitest renamed", get.Data().GetProperty("name").GetString());
             Assert.Equal(
-                new string?[] { "nickname" },
+                ["nickname"],
                 get.Data()
                     .GetProperty("properties")
                     .EnumerateArray()
@@ -427,7 +426,7 @@ public sealed class CommandIntegrationTests(LiveInstanceFixture live) : LiveTest
         var data = result.Data();
         Skip.If(data.GetArrayLength() == 0, "No content to project.");
         foreach (var item in data.EnumerateArray())
-            Assert.Equal(1, item.EnumerateObject().Count());
+            Assert.Single(item.EnumerateObject());
     }
 
     /// <summary>

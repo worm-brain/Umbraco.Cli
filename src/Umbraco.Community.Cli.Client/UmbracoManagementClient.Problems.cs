@@ -150,7 +150,7 @@ public sealed partial class UmbracoManagementClient
     /// <param name="pd">The ProblemDetails.</param>
     /// <param name="name">The member name.</param>
     /// <returns>The non-blank strings, or an empty list when absent.</returns>
-    private static IReadOnlyList<string> AdditionalStrings(Gen.ProblemDetails pd, string name) =>
+    private static List<string> AdditionalStrings(Gen.ProblemDetails pd, string name) =>
         pd.AdditionalData?.TryGetValue(name, out var raw) is true && raw is UntypedArray array
             ? array
                 .GetValue()

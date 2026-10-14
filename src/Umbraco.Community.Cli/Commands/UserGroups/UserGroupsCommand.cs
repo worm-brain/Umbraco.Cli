@@ -45,7 +45,7 @@ public static class UserGroupsCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) => client.GetUserGroupsAsync(skip, take, c),
-                    new[] { "Id", "Alias", "Name", "Sections" },
+                    ["Id", "Alias", "Name", "Sections"],
                     g => new[] { g.Id.ToString(), g.Alias, g.Name, string.Join(",", g.Sections) },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),

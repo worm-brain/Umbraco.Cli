@@ -84,7 +84,7 @@ public static class MediaApplyCommand
                         CommandExecutor.WriteReport(
                             ctx,
                             result?.Actions ?? [],
-                            new[] { "Operation", "Id", "File", "Status" },
+                            ["Operation", "Id", "File", "Status"],
                             a =>
                                 [
                                     a.Operation.ToString().ToLowerInvariant(),

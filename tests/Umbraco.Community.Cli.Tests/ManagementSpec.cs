@@ -37,7 +37,7 @@ internal static class ManagementSpec
     {
         var segments = absolutePath.Trim('/').Split('/');
         return Operations.Value.Any(op =>
-            op.Method == method.Method.ToUpperInvariant()
+            string.Equals(op.Method, method.Method, StringComparison.OrdinalIgnoreCase)
             && op.Segments.Length == segments.Length
             && op.Segments.Zip(segments).All(pair => SegmentMatches(pair.First, pair.Second))
         );
@@ -89,7 +89,7 @@ internal static class ManagementSpec
     /// under <c>paths</c>, and a test that runs a command on client credentials sends to it.
     /// </summary>
     /// <returns>Every (method, template segments) pair the spec declares.</returns>
-    private static IReadOnlyList<(string, string[])> Load()
+    private static List<(string, string[])> Load()
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(FindSpec()));
         var ops = new List<(string, string[])>();

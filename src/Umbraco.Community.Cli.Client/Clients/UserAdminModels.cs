@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
 namespace Umbraco.Community.Cli.Client;
@@ -11,6 +12,11 @@ namespace Umbraco.Community.Cli.Client;
 /// A granular permission on one document (#111): the verbs a user group has on that node, in place
 /// of its fallback permissions.
 /// </summary>
+[SuppressMessage(
+    "Naming",
+    "CA1711:Identifiers should not have incorrect suffix",
+    Justification = "Umbraco's own name for a granular document permission; not a CAS permission."
+)]
 public record DocumentPermission
 {
     /// <summary>The document id.</summary>

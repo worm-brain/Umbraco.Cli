@@ -12,7 +12,7 @@ namespace Umbraco.Community.Cli.Tests;
 /// </summary>
 public class SchemaApplierTests
 {
-    private static JsonNode Doc(Guid id, string alias, params Guid[] compositions)
+    private static JsonObject Doc(Guid id, string alias, params Guid[] compositions)
     {
         var comps = new JsonArray();
         foreach (var c in compositions)
@@ -139,7 +139,7 @@ public class SchemaApplierTests
         );
 
         var order = fake.RawWrites.Select(w => (string?)w.Body["alias"]).ToList();
-        Assert.Equal(new[] { "base", "child" }, order);
+        Assert.Equal(["base", "child"], order);
     }
 
     [Fact]

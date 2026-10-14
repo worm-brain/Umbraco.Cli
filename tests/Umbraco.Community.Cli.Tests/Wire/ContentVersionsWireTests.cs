@@ -51,19 +51,29 @@ public class ContentVersionsWireTests
         foreach (var (culture, body) in perCulture)
             handler.When(
                 r =>
-                    r.RequestUri!.AbsolutePath.EndsWith("/document-version")
-                    && r.RequestUri.Query.Contains($"culture={culture}"),
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/document-version",
+                        StringComparison.Ordinal
+                    ) && r.RequestUri.Query.Contains($"culture={culture}"),
                 HttpStatusCode.OK,
                 body
             );
         return handler
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/document-version"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/document-version",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 unfiltered
             )
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith($"/document/{DocumentId}"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        $"/document/{DocumentId}",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 $$"""{ "id": "{{DocumentId}}", "variants": {{variants}} }"""
             );
@@ -258,12 +268,20 @@ public class ContentVersionsWireTests
     ) =>
         new RoutingHandler()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith($"/document-version/{versionId}"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        $"/document-version/{versionId}",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 $$"""{ "documentType": { "id": "{{typeId}}", "icon": "icon-document", "collection": null } }"""
             )
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith($"/document-type/{typeId}"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        $"/document-type/{typeId}",
+                        StringComparison.Ordinal
+                    ),
                 typeStatus,
                 typeStatus == HttpStatusCode.OK ? """{ "alias": "blogPost" }""" : ""
             );

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json.Nodes;
 using Umbraco.Community.Cli.Client;
@@ -63,7 +64,7 @@ public class ContentPublishWireTests
         var result = await client.PublishContentAsync(id, ct: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var entry = Assert.Single(Schedules(handler)).AsObject();
+        var entry = Assert.Single(Schedules(handler))!.AsObject();
         Assert.False(
             entry.ContainsKey("schedule"),
             "An empty schedule object makes Umbraco 17 return 200 and publish nothing (#158)."
@@ -79,7 +80,7 @@ public class ContentPublishWireTests
 
         await client.PublishContentAsync(id, ct: CancellationToken.None);
 
-        var entry = Assert.Single(Schedules(handler)).AsObject();
+        var entry = Assert.Single(Schedules(handler))!.AsObject();
         Assert.Null(entry["culture"]);
     }
 
@@ -192,7 +193,7 @@ public class ContentPublishWireTests
 
         await client.PublishContentAsync(id, ["da-DK"], ct: CancellationToken.None);
 
-        var entry = Assert.Single(Schedules(handler)).AsObject();
+        var entry = Assert.Single(Schedules(handler))!.AsObject();
         Assert.Equal("da-DK", entry["culture"]!.GetValue<string>());
     }
 
@@ -214,12 +215,15 @@ public class ContentPublishWireTests
         var id = Guid.NewGuid();
         var handler = Handler(id, "en-US");
         var client = Wire.Client(handler);
-        var publishAt = DateTimeOffset.Parse("2026-01-01T09:00:00Z");
-        var unpublishAt = DateTimeOffset.Parse("2026-02-01T18:30:00Z");
+        var publishAt = DateTimeOffset.Parse("2026-01-01T09:00:00Z", CultureInfo.InvariantCulture);
+        var unpublishAt = DateTimeOffset.Parse(
+            "2026-02-01T18:30:00Z",
+            CultureInfo.InvariantCulture
+        );
 
         await client.PublishContentAsync(id, null, publishAt, unpublishAt, CancellationToken.None);
 
-        var schedule = Assert.Single(Schedules(handler))["schedule"]!;
+        var schedule = Assert.Single(Schedules(handler))!["schedule"]!;
         Assert.Contains("2026-01-01", schedule["publishTime"]!.GetValue<string>());
         Assert.Contains("2026-02-01", schedule["unpublishTime"]!.GetValue<string>());
     }

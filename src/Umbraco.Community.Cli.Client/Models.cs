@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
@@ -102,11 +103,24 @@ public static class FailureCategoryExtensions
 /// <param name="Known">Every value the instance knows.</param>
 public sealed record UnknownValues(IReadOnlyList<string> Unknown, IReadOnlyList<string> Known);
 
+/// <summary>
+/// The result of every client call: a success with its payload, or a failure with the status,
+/// message and category. HTTP and transport failures come back as a failure, never as an
+/// exception, so the command layer maps them to an error envelope and an exit code in one place.
+/// </summary>
+/// <typeparam name="T">The payload type; <see cref="Empty"/> for a call that returns nothing.</typeparam>
 public record UmbracoResponse<T>
 {
+    /// <summary>True when <see cref="Data"/> holds the payload; false for a failure.</summary>
     public bool IsSuccess { get; init; }
+
+    /// <summary>The payload on success; default on failure.</summary>
     public T? Data { get; init; }
+
+    /// <summary>The HTTP status; 0 when no response was received (unreachable host, timeout).</summary>
     public int StatusCode { get; init; }
+
+    /// <summary>The single-line, human-readable reason for a failure; null on success.</summary>
     public string? ErrorMessage { get; init; }
 
     /// <summary>Why the call failed (#152); <see cref="FailureCategory.None"/> on success.</summary>
@@ -127,6 +141,15 @@ public record UmbracoResponse<T>
     /// </summary>
     public UnknownValues? UnknownValues { get; init; }
 
+    /// <summary>Builds a successful response.</summary>
+    /// <param name="data">The payload.</param>
+    /// <param name="code">The HTTP status the call succeeded with.</param>
+    /// <returns>A successful <see cref="UmbracoResponse{T}"/>.</returns>
+    [SuppressMessage(
+        "Design",
+        "CA1000:Do not declare static members on generic types",
+        Justification = "The factories are the envelope's one construction API, used at every call site."
+    )]
     public static UmbracoResponse<T> Success(T data, int code = 200) =>
         new()
         {
@@ -147,6 +170,11 @@ public record UmbracoResponse<T>
     /// <param name="category">The explicit failure category, or null to derive one from <paramref name="code"/>.</param>
     /// <param name="details">The error body Umbraco sent, or null when there was none.</param>
     /// <returns>A failed <see cref="UmbracoResponse{T}"/>.</returns>
+    [SuppressMessage(
+        "Design",
+        "CA1000:Do not declare static members on generic types",
+        Justification = "The factories are the envelope's one construction API, used at every call site."
+    )]
     public static UmbracoResponse<T> Failure(
         int code,
         string message,
@@ -173,6 +201,11 @@ public record UmbracoResponse<T>
     /// <param name="failed">The failed response to re-wrap.</param>
     /// <returns>The same failure, typed as <see cref="UmbracoResponse{T}"/>.</returns>
     /// <exception cref="ArgumentException"><paramref name="failed"/> is not a failure.</exception>
+    [SuppressMessage(
+        "Design",
+        "CA1000:Do not declare static members on generic types",
+        Justification = "The factories are the envelope's one construction API, used at every call site."
+    )]
     public static UmbracoResponse<T> FailureFrom<TOther>(UmbracoResponse<TOther> failed) =>
         failed.IsSuccess
             ? throw new ArgumentException(
@@ -225,20 +258,26 @@ public record UmbracoResponse<T>
 /// </summary>
 public sealed record Empty
 {
+    /// <summary>The one instance; the type carries no data.</summary>
     public static readonly Empty Value = new();
 }
 
+/// <summary>One page of a list, as the Management API pages it.</summary>
+/// <typeparam name="T">The item type.</typeparam>
 public record PagedResponse<T>
 {
+    /// <summary>How many items the whole list holds, not just this page.</summary>
     [JsonPropertyName("total")]
     public int Total { get; init; }
 
+    /// <summary>This page's items, in the server's order.</summary>
     [JsonPropertyName("items")]
     public IEnumerable<T> Items { get; init; } = [];
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
+/// <summary>The OAuth client-credentials token response; <c>expires_in</c> is in seconds.</summary>
 public record TokenResponse
 {
     [JsonPropertyName("access_token")]
@@ -251,6 +290,7 @@ public record TokenResponse
     public string TokenType { get; init; } = "Bearer";
 }
 
+/// <summary>The backoffice user a set of credentials signs in as (<c>auth whoami</c>).</summary>
 public record CurrentUserResponse
 {
     [JsonPropertyName("id")]
@@ -494,6 +534,7 @@ public record ContentTypeRef
     public ContentParentReference? Collection { get; init; }
 }
 
+/// <summary>A document, media item or dictionary item's parent, by id; null where one is used means the root.</summary>
 public record ContentParentReference
 {
     [JsonPropertyName("id")]
@@ -544,6 +585,7 @@ public record PublishDescendantsResult
     public bool IsComplete { get; init; }
 }
 
+/// <summary>One public URL of a document; <see cref="Culture"/> is null for an invariant document.</summary>
 public record UrlInfo
 {
     [JsonPropertyName("culture")]
@@ -553,6 +595,7 @@ public record UrlInfo
     public string Url { get; init; } = "";
 }
 
+/// <summary>What <c>content create</c> sends: the document type, placement, names and values.</summary>
 public record CreateContentRequest
 {
     /// <summary>
@@ -584,6 +627,7 @@ public record CreateContentRequest
     public ContentTemplateReference? Template { get; init; }
 }
 
+/// <summary>What <c>content update</c> writes; merged into the document unless the write mode is replace.</summary>
 public record UpdateContentRequest
 {
     [JsonPropertyName("values")]
@@ -629,6 +673,7 @@ public record ContentTemplateReference
             : new ContentTemplateReference { Alias = value };
 }
 
+/// <summary>One property value; null culture and segment mean an invariant value.</summary>
 public record ContentValue
 {
     [JsonPropertyName("alias")]
@@ -644,6 +689,7 @@ public record ContentValue
     public string? Segment { get; init; }
 }
 
+/// <summary>A document's name in one culture and segment; null culture means invariant.</summary>
 public record ContentVariant
 {
     [JsonPropertyName("culture")]
@@ -656,12 +702,14 @@ public record ContentVariant
     public string Name { get; init; } = "";
 }
 
+/// <summary>The body of Umbraco's publish endpoint: one schedule entry per culture to publish.</summary>
 public record PublishContentRequest
 {
     [JsonPropertyName("publishSchedules")]
     public IEnumerable<PublishSchedule> PublishSchedules { get; init; } = [];
 }
 
+/// <summary>One culture to publish; a null culture publishes an invariant document.</summary>
 public record PublishSchedule
 {
     [JsonPropertyName("culture")]
@@ -699,6 +747,7 @@ public record DocumentVersionResponse
 
 // ── Media ────────────────────────────────────────────────────────────────────
 
+/// <summary>Command-facing view of a media item, as <c>media get</c> and <c>media list</c> show it.</summary>
 public record MediaItemResponse
 {
     [JsonPropertyName("id")]
@@ -741,6 +790,10 @@ public record MediaItemResponse
 
 // ── Document Types ───────────────────────────────────────────────────────────
 
+/// <summary>
+/// Command-facing view of a document type. The list fills only what the tree carries plus the
+/// alias; a single-item read fills the rest.
+/// </summary>
 public record DocumentTypeResponse
 {
     [JsonPropertyName("id")]
@@ -1070,6 +1123,7 @@ public record CreateMediaTypeRequest
 
 // ── Data Types ───────────────────────────────────────────────────────────────
 
+/// <summary>Command-facing view of a data type: a configured property editor.</summary>
 public record DataTypeResponse
 {
     [JsonPropertyName("id")]
@@ -1154,6 +1208,7 @@ public record UpdateDataTypeRequest
 
 // ── Languages ────────────────────────────────────────────────────────────────
 
+/// <summary>Command-facing view of a language, keyed by its ISO code (languages have no id).</summary>
 public record LanguageResponse
 {
     [JsonPropertyName("isoCode")]
@@ -1172,6 +1227,7 @@ public record LanguageResponse
     public string? FallbackIsoCode { get; init; }
 }
 
+/// <summary>What <c>language create</c> sends.</summary>
 public record CreateLanguageRequest
 {
     [JsonPropertyName("isoCode")]
@@ -1218,6 +1274,7 @@ public record UpdateLanguageRequest
 
 // ── Templates ────────────────────────────────────────────────────────────────
 
+/// <summary>Command-facing view of a template; <see cref="MasterTemplate"/> is null at the top of the inheritance tree.</summary>
 public record TemplateResponse
 {
     [JsonPropertyName("id")]
@@ -1268,6 +1325,7 @@ public record UpdateTemplateRequest
 
 // ── Members ──────────────────────────────────────────────────────────────────
 
+/// <summary>Command-facing view of a front-end member.</summary>
 public record MemberResponse
 {
     [JsonPropertyName("id")]
@@ -1319,6 +1377,7 @@ public record MemberGroupRef
     public string? Name { get; init; }
 }
 
+/// <summary>What <c>member create</c> sends.</summary>
 public record CreateMemberRequest
 {
     /// <summary>
@@ -1657,6 +1716,7 @@ public record UpdateUserRequest
         || LanguageIsoCode is not null;
 }
 
+/// <summary>What <c>user invite</c> sends: who to invite and the optional message in the invitation email.</summary>
 public record InviteUserRequest
 {
     [JsonPropertyName("email")]
@@ -1682,6 +1742,7 @@ public record InviteUserRequest
     public IReadOnlyList<string> UserGroups { get; init; } = [];
 }
 
+/// <summary>A reference to another entity by id, the shape the Management API nests in request bodies.</summary>
 public record ReferenceById
 {
     [JsonPropertyName("id")]
@@ -1690,6 +1751,7 @@ public record ReferenceById
 
 // ── Dictionary ───────────────────────────────────────────────────────────────
 
+/// <summary>Command-facing view of a dictionary item and its translations.</summary>
 public record DictionaryItemResponse
 {
     [JsonPropertyName("id")]
@@ -1710,6 +1772,7 @@ public record DictionaryItemResponse
     public IEnumerable<DictionaryTranslation>? Translations { get; init; }
 }
 
+/// <summary>A dictionary item's text in one language.</summary>
 public record DictionaryTranslation
 {
     [JsonPropertyName("isoCode")]
@@ -1755,6 +1818,7 @@ public record UpdateDictionaryItemRequest
     public IEnumerable<DictionaryTranslation> Translations { get; init; } = [];
 }
 
+/// <summary>What <c>dictionary create</c> sends.</summary>
 public record CreateDictionaryItemRequest
 {
     /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>
@@ -1773,6 +1837,7 @@ public record CreateDictionaryItemRequest
 
 // ── Webhooks ──────────────────────────────────────────────────────────────────
 
+/// <summary>Command-facing view of a webhook subscription.</summary>
 public record WebhookResponse
 {
     [JsonPropertyName("id")]
@@ -1829,6 +1894,7 @@ public record WebhookEvent
     public string? Alias { get; init; }
 }
 
+/// <summary>What <c>webhook create</c> sends.</summary>
 public record CreateWebhookRequest
 {
     /// <summary>Caller-supplied id for an idempotent create (#86); a GUID is generated if null.</summary>

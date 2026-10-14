@@ -8,6 +8,14 @@ public sealed record TemplateUser(Guid DocumentTypeId, string Name);
 /// <summary>Template read access.</summary>
 public interface ITemplateClient
 {
+    /// <summary>
+    /// Lists every template with its alias, including those nested under a master template, paged
+    /// client-side.
+    /// </summary>
+    /// <param name="skip">How many items to skip (paging).</param>
+    /// <param name="take">The page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>One page of templates, or a mapped failure.</returns>
     Task<UmbracoResponse<PagedResponse<TemplateResponse>>> GetTemplatesAsync(
         int skip = 0,
         int take = 20,

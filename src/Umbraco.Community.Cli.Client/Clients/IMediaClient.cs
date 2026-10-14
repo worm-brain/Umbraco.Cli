@@ -3,6 +3,15 @@ namespace Umbraco.Community.Cli.Client;
 /// <summary>Media library read, upload, and delete.</summary>
 public interface IMediaClient
 {
+    /// <summary>
+    /// Lists one level of the media tree: the children of <paramref name="parentId"/>, or the root
+    /// items when it is null.
+    /// </summary>
+    /// <param name="parentId">The parent media item; null for the root.</param>
+    /// <param name="skip">How many items to skip (paging).</param>
+    /// <param name="take">The page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>One page of media items, or a mapped failure.</returns>
     Task<UmbracoResponse<PagedResponse<MediaItemResponse>>> GetMediaAsync(
         Guid? parentId = null,
         int skip = 0,
@@ -10,6 +19,10 @@ public interface IMediaClient
         CancellationToken ct = default
     );
 
+    /// <summary>Reads one media item.</summary>
+    /// <param name="id">The media item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The media item, or a mapped failure (404 when there is none).</returns>
     Task<UmbracoResponse<MediaItemResponse>> GetMediaByIdAsync(
         Guid id,
         CancellationToken ct = default
@@ -64,6 +77,13 @@ public interface IMediaClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Deletes a media item permanently, bypassing the recycle bin (<see cref="TrashMediaAsync"/>
+    /// is the reversible alternative).
+    /// </summary>
+    /// <param name="id">The media item id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> DeleteMediaAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>Moves a media item to the recycle bin (issue #67). Reversible via <see cref="RestoreMediaAsync"/>.</summary>

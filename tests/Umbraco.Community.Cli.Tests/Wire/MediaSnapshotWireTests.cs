@@ -76,12 +76,20 @@ public class MediaSnapshotWireTests
         var image = Guid.NewGuid();
         var handler = new RoutingHandler()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/tree/media/root"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/tree/media/root",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 $$"""{"total":1,"items":[{"id":"{{folder}}","hasChildren":true}]}"""
             )
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/tree/media/children"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/tree/media/children",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 $$"""{"total":1,"items":[{"id":"{{image}}","hasChildren":false}]}"""
             );

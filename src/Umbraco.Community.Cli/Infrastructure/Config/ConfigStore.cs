@@ -11,6 +11,10 @@ namespace Umbraco.Community.Cli.Infrastructure.Config;
 /// </summary>
 public sealed class ConfigStore
 {
+    /// <summary>
+    /// <c>Umbraco/config.json</c> under the user's application data folder (<c>%APPDATA%</c> on
+    /// Windows, <c>~/.config</c> elsewhere).
+    /// </summary>
     public static string DefaultConfigPath =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -20,6 +24,8 @@ public sealed class ConfigStore
 
     private readonly string _configPath;
 
+    /// <summary>Creates a store for one config file.</summary>
+    /// <param name="configPath">The file to read and write; <see cref="DefaultConfigPath"/> when null.</param>
     public ConfigStore(string? configPath = null)
     {
         _configPath = configPath ?? DefaultConfigPath;

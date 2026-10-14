@@ -10,7 +10,7 @@ namespace Umbraco.Community.Cli.Infrastructure.Http;
 /// run, like <see cref="MutationInterceptState"/>, so a reused state never carries the last run's
 /// credentials.
 /// </summary>
-public sealed class TokenRefreshState
+public sealed class TokenRefreshState : IDisposable
 {
     // Serialises renewals, so concurrent requests that all get a 401 cause one token request and
     // the rest retry with its result.
@@ -23,6 +23,9 @@ public sealed class TokenRefreshState
 
     /// <summary>Whether a rejected token can be renewed: false for one given with <c>--token</c>.</summary>
     public bool CanRenew => _refresh is not null;
+
+    /// <summary>Releases the lock that serialises renewals.</summary>
+    public void Dispose() => _gate.Dispose();
 
     /// <summary>Starts a run with its token and how to renew it.</summary>
     /// <param name="token">The token to send.</param>

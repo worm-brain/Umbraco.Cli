@@ -25,7 +25,7 @@ public sealed class TokenRefreshHandler(TokenRefreshState state) : DelegatingHan
     /// <inheritdoc />
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
-        CancellationToken ct
+        CancellationToken cancellationToken
     )
     {
         // The state, not the client's default header, holds the current token: after a renewal
@@ -33,19 +33,19 @@ public sealed class TokenRefreshHandler(TokenRefreshState state) : DelegatingHan
         if (state.Token is { } token)
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         if (!state.CanRenew)
-            return await base.SendAsync(request, ct);
+            return await base.SendAsync(request, cancellationToken);
 
         if (request.Content is not null)
-            await request.Content.LoadIntoBufferAsync(ct);
+            await request.Content.LoadIntoBufferAsync(cancellationToken);
         var sentWith = request.Headers.Authorization?.Parameter;
-        var response = await base.SendAsync(request, ct);
+        var response = await base.SendAsync(request, cancellationToken);
         if (response.StatusCode != HttpStatusCode.Unauthorized)
             return response;
 
         string? fresh;
         try
         {
-            fresh = await state.RenewAsync(sentWith, ct);
+            fresh = await state.RenewAsync(sentWith, cancellationToken);
         }
         catch
         {
@@ -58,6 +58,6 @@ public sealed class TokenRefreshHandler(TokenRefreshState state) : DelegatingHan
 
         response.Dispose();
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", fresh);
-        return await base.SendAsync(request, ct);
+        return await base.SendAsync(request, cancellationToken);
     }
 }

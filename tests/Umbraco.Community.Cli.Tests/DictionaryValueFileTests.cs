@@ -16,7 +16,7 @@ namespace Umbraco.Community.Cli.Tests;
 /// while two sources for one ISO code, or two reads of stdin, are refused before any request.
 /// </summary>
 [Collection("ConsoleCapture")]
-public class DictionaryValueFileTests : IDisposable
+public sealed class DictionaryValueFileTests : IDisposable
 {
     private const string Auth = "--host https://x --token t --output json";
 

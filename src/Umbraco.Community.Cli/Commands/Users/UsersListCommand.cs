@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Users;
 
+/// <summary>Wires the <c>user list</c> command.</summary>
 public static class UsersListCommand
 {
+    /// <summary>Builds the <c>user list</c> command.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command("list", "List Umbraco backoffice users.").WithExamples(

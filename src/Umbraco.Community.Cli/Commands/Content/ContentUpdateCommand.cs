@@ -5,8 +5,14 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Content;
 
+/// <summary>Wires the <c>content update</c> command.</summary>
 public static class ContentUpdateCommand
 {
+    /// <summary>
+    /// Builds the <c>content update</c> command: the body is merged into the item unless <c>--replace</c> is given.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

@@ -17,7 +17,11 @@ public class DictionaryWalkClientTests
     private static RoutingHandler TwoLevels() =>
         new RoutingHandler()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/tree/dictionary/root"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/tree/dictionary/root",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 $$"""
                 {"total":2,"items":[

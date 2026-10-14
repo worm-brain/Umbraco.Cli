@@ -5,8 +5,21 @@ using Umbraco.Community.Cli.Infrastructure.Config;
 
 namespace Umbraco.Community.Cli.Commands.Auth;
 
+/// <summary>Wires the <c>auth</c> noun: credentials, profiles and checks against an instance.</summary>
 public static class AuthCommand
 {
+    /// <summary>
+    /// Builds the <c>auth</c> noun with its verbs. Unlike the other nouns it takes the config store and
+    /// token service directly: its verbs work on the credentials themselves, not through a signed-in
+    /// client.
+    /// </summary>
+    /// <param name="global">The recursive global options.</param>
+    /// <param name="configStore">The default config store.</param>
+    /// <param name="authService">Exchanges client credentials for tokens.</param>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="httpClientFactory">Creates the HTTP clients <c>doctor</c> probes with.</param>
+    /// <param name="clientFactory">Wraps <c>doctor</c>'s HTTP client in the management client.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(
         GlobalOptions global,
         ConfigStore configStore,

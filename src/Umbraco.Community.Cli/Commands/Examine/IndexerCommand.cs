@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using Umbraco.Community.Cli.Client;
 using Umbraco.Community.Cli.Infrastructure;
 
@@ -37,13 +38,13 @@ public static class IndexerCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) => client.GetIndexersAsync(skip, take, c),
-                    new[] { "Name", "Health", "Documents", "CanRebuild" },
+                    ["Name", "Health", "Documents", "CanRebuild"],
                     i =>
                         new[]
                         {
                             i.Name,
                             i.HealthStatus ?? "",
-                            i.DocumentCount.ToString(),
+                            i.DocumentCount.ToString(CultureInfo.CurrentCulture),
                             i.CanRebuild.ToString(),
                         },
                     parseResult.GetValue(skipOpt),
@@ -86,7 +87,7 @@ public static class IndexerCommand
                     (client, c) =>
                         client
                             .RebuildIndexAsync(parseResult.GetValue(nameArg)!, c)
-                            .Then(ItemRef.Of(parseResult.GetValue(nameArg))),
+                            .Then(ItemRef.Of(parseResult.GetValue(nameArg)!)),
                     "Index rebuild triggered.",
                     ct
                 )

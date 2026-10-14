@@ -6,6 +6,7 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Content;
 
+/// <summary>Wires the <c>content create</c> command.</summary>
 public static class ContentCreateCommand
 {
     /// <summary>

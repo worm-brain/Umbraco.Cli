@@ -61,7 +61,7 @@ public static class UserDataCommand
                             take,
                             c
                         ),
-                    new[] { "Key", "Group", "Identifier", "Value" },
+                    ["Key", "Group", "Identifier", "Value"],
                     d => new[] { d.Key.ToString(), d.Group, d.Identifier, d.Value },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),

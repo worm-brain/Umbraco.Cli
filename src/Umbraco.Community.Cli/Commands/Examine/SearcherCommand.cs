@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using Umbraco.Community.Cli.Client;
 using Umbraco.Community.Cli.Infrastructure;
 
@@ -36,7 +37,7 @@ public static class SearcherCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) => client.GetSearchersAsync(skip, take, c),
-                    new[] { "Name" },
+                    ["Name"],
                     s => new[] { s.Name },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
@@ -82,8 +83,8 @@ public static class SearcherCommand
                             take,
                             c
                         ),
-                    new[] { "Id", "Score" },
-                    r => new[] { r.Id, r.Score.ToString("0.###") },
+                    ["Id", "Score"],
+                    r => new[] { r.Id, r.Score.ToString("0.###", CultureInfo.CurrentCulture) },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
                     ct

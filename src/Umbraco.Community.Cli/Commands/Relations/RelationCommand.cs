@@ -53,7 +53,7 @@ public static class RelationCommand
                             id => client.GetRelationsByTypeAsync(id, skip, take, c),
                             c
                         ),
-                    new[] { "Parent", "Child", "Comment" },
+                    ["Parent", "Child", "Comment"],
                     r => new[] { r.ParentName, r.ChildName, r.Comment ?? "" },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),

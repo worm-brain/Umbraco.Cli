@@ -106,7 +106,11 @@ public class TokenCacheRequestCountTests
         /// <inheritdoc />
         public void RemoveByPrefix(string prefix)
         {
-            foreach (var key in _entries.Keys.Where(k => k.StartsWith(prefix)).ToList())
+            foreach (
+                var key in _entries
+                    .Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+                    .ToList()
+            )
                 _entries.Remove(key);
         }
     }

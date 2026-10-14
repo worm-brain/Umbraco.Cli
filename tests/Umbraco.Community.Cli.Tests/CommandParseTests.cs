@@ -958,7 +958,8 @@ public class CommandParseTests
         );
 
         Assert.True(
-            error.Message.Contains(option) && error.Message.EndsWith($"once: {key}."),
+            error.Message.Contains(option)
+                && error.Message.EndsWith($"once: {key}.", StringComparison.Ordinal),
             $"Expected {option} and {key} named in: {error.Message}"
         );
     }

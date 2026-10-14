@@ -7,12 +7,18 @@ namespace Umbraco.Community.Cli.Tests;
 // when resolving the allow-list. Serialising with the command tests prevents that write from
 // racing a concurrent command run (which would spuriously block an allowed command).
 [Collection("ConsoleCapture")]
-public class ConfigStoreTests : IDisposable
+public sealed class ConfigStoreTests : IDisposable
 {
     private readonly string _tempPath = Path.Combine(
         Path.GetTempPath(),
         $"umbraco-cli-test-{Guid.NewGuid()}.json"
     );
+
+    /// <summary>How a reflection-based serializer writes the file, to compare the generated one against.</summary>
+    private static readonly System.Text.Json.JsonSerializerOptions Indented = new()
+    {
+        WriteIndented = true,
+    };
 
     private ConfigStore Store => new(_tempPath);
 
@@ -228,7 +234,7 @@ public class ConfigStoreTests : IDisposable
 
         Assert.Multiple(
             () => Assert.Equal("b", name),
-            () => Assert.Equal(new[] { "a" }, Store.ListProfiles().Names)
+            () => Assert.Equal(["a"], Store.ListProfiles().Names)
         );
     }
 
@@ -252,7 +258,7 @@ public class ConfigStoreTests : IDisposable
 
         Store.Logout("a");
 
-        Assert.Equal(new[] { "b" }, Store.ListProfiles().Names);
+        Assert.Equal(["b"], Store.ListProfiles().Names);
     }
 
     [Fact]
@@ -689,7 +695,7 @@ public class ConfigStoreTests : IDisposable
                     ["Staging"] = new CliConfig { Host = "https://h", ClientId = "id" },
                 },
             },
-            new System.Text.Json.JsonSerializerOptions { WriteIndented = true }
+            Indented
         );
 
         Assert.Equal(reflectionWritten, File.ReadAllText(_tempPath));

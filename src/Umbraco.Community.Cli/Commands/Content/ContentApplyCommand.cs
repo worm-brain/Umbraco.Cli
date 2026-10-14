@@ -148,15 +148,7 @@ public static class ContentApplyCommand
                         CommandExecutor.WriteReport(
                             ctx,
                             result?.Actions ?? [],
-                            new[]
-                            {
-                                "Operation",
-                                "Id",
-                                "Name",
-                                "Document Type",
-                                "Cultures",
-                                "Status",
-                            },
+                            ["Operation", "Id", "Name", "Document Type", "Cultures", "Status"],
                             a =>
                                 [
                                     a.Operation.ToString().ToLowerInvariant(),

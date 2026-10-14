@@ -62,7 +62,7 @@ public static class DocumentBlueprintCommand
                             take,
                             c
                         ),
-                    new[] { "Id", "Name", "IsFolder", "HasChildren" },
+                    ["Id", "Name", "IsFolder", "HasChildren"],
                     b =>
                         new[]
                         {

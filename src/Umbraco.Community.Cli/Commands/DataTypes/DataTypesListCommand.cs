@@ -3,8 +3,14 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.DataTypes;
 
+/// <summary>Wires the <c>data-type list</c> command.</summary>
 public static class DataTypesListCommand
 {
+    /// <summary>
+    /// Builds the <c>data-type list</c> command: each item is read in full for its editor alias, one request per 40 items.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
@@ -31,7 +37,7 @@ public static class DataTypesListCommand
                     // list carries it even though the tree items do not - the client hydrates
                     // each one. See the note in the command description about the cost.
                     ["ID", "Name", "Editor Alias"],
-                    i => new[] { i.Id.ToString(), i.Name, i.EditorAlias },
+                    i => new[] { i.Id.ToString(), i.Name, i.EditorAlias ?? "" },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
                     ct

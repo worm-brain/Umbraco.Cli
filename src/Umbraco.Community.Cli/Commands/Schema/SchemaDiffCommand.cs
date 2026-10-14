@@ -41,8 +41,7 @@ public static class SchemaDiffCommand
                             c
                         ),
                     Rows,
-                    new[]
-                    {
+                    [
                         "Kind",
                         "Change",
                         "Identity",
@@ -51,7 +50,7 @@ public static class SchemaDiffCommand
                         "Id Mismatch",
                         "Note",
                         "Changes",
-                    },
+                    ],
                     change =>
                         [
                             change.Kind,

@@ -220,7 +220,7 @@ public sealed partial class UmbracoManagementClient
     /// <param name="documentTypeId">The document type id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The aliases, in the order found, without duplicates.</returns>
-    /// <exception cref="ApiException">A type could not be read (e.g. a 404 for an unknown id).</exception>
+    /// <exception cref="Microsoft.Kiota.Abstractions.ApiException">A type could not be read (e.g. a 404 for an unknown id).</exception>
     private async Task<List<string>> DocumentTypePropertyAliasesAsync(
         Guid documentTypeId,
         CancellationToken ct

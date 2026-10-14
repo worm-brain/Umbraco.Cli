@@ -45,7 +45,11 @@ public class WebhookWireTests
     private static RoutingHandler Existing() =>
         new RoutingHandler()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/webhook/events"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "/webhook/events",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 Events
             )

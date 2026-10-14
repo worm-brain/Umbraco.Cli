@@ -40,7 +40,7 @@ public static class ContentDiffCommand
                             c
                         ),
                     diff => diff?.Rows ?? [],
-                    new[] { "Change", "Id", "Name", "Document Type", "Parent", "Changes" },
+                    ["Change", "Id", "Name", "Document Type", "Parent", "Changes"],
                     change =>
                         [
                             change.Change.ToString(),

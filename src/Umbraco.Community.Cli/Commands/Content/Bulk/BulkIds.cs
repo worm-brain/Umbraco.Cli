@@ -51,7 +51,7 @@ public static class BulkIds
     /// <summary>
     /// Whether <paramref name="file"/> means stdin: no <c>--file</c>, or <c>--file -</c>, the token
     /// every file input uses for stdin (#312). The check is on the path as typed, because
-    /// <see cref="FileInfo.FullName"/> would turn <c>-</c> into a file of that name.
+    /// <see cref="FileSystemInfo.FullName"/> would turn <c>-</c> into a file of that name.
     /// </summary>
     /// <param name="file">The <c>--file</c> value, or null.</param>
     /// <returns>True to read stdin.</returns>
@@ -68,7 +68,7 @@ public static class BulkIds
     /// <param name="text">The whole input.</param>
     /// <returns>The ids in input order.</returns>
     /// <exception cref="InvalidInputException">The input is malformed JSON or CSV.</exception>
-    private static IReadOnlyList<string> Parse(string text)
+    private static List<string> Parse(string text)
     {
         var trimmed = text.TrimStart();
         if (trimmed.StartsWith('{') || trimmed.StartsWith('['))
@@ -86,7 +86,7 @@ public static class BulkIds
     /// <exception cref="InvalidInputException">
     /// The JSON does not parse, has no <c>data</c>, or an item carries no string id.
     /// </exception>
-    private static IReadOnlyList<string> ParseJson(string json)
+    private static List<string> ParseJson(string json)
     {
         JsonNode? root;
         try
@@ -164,7 +164,7 @@ public static class BulkIds
     /// <exception cref="InvalidInputException">
     /// A quoted field is never closed, or a row has no id in the id column.
     /// </exception>
-    private static IReadOnlyList<string> ParseCsv(string text, int column)
+    private static List<string> ParseCsv(string text, int column)
     {
         if (!TryReadCsv(text, out var records))
             throw new InvalidInputException(
@@ -188,7 +188,7 @@ public static class BulkIds
     /// <summary>Reads one id per line, trimmed, skipping blank lines.</summary>
     /// <param name="text">The input.</param>
     /// <returns>The ids in input order.</returns>
-    private static IReadOnlyList<string> ParseLines(string text) =>
+    private static List<string> ParseLines(string text) =>
         text.Split('\n').Select(line => line.Trim()).Where(line => line.Length > 0).ToList();
 
     /// <summary>

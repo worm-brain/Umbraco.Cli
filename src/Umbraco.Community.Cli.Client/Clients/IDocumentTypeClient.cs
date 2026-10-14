@@ -3,12 +3,24 @@ namespace Umbraco.Community.Cli.Client;
 /// <summary>Document type (content type) read, create, and delete.</summary>
 public interface IDocumentTypeClient
 {
+    /// <summary>
+    /// Lists document types with their aliases, folders excluded and types nested in folders
+    /// included, paged client-side.
+    /// </summary>
+    /// <param name="skip">How many items to skip (paging).</param>
+    /// <param name="take">The page size.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>One page of document types, or a mapped failure.</returns>
     Task<UmbracoResponse<PagedResponse<DocumentTypeResponse>>> GetDocumentTypesAsync(
         int skip = 0,
         int take = 20,
         CancellationToken ct = default
     );
 
+    /// <summary>Reads one document type, with the description and flags the list leaves out.</summary>
+    /// <param name="id">The document type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The document type, or a mapped failure (404 when there is none).</returns>
     Task<UmbracoResponse<DocumentTypeResponse>> GetDocumentTypeByIdAsync(
         Guid id,
         CancellationToken ct = default
@@ -26,6 +38,13 @@ public interface IDocumentTypeClient
         CancellationToken ct = default
     );
 
+    /// <summary>
+    /// Deletes a document type. Checking that nothing still uses it is the caller's job (the
+    /// command's in-use guard).
+    /// </summary>
+    /// <param name="id">The document type id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An empty success response, or a mapped failure.</returns>
     Task<UmbracoResponse<Empty>> DeleteDocumentTypeAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>

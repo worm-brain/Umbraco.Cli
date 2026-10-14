@@ -366,7 +366,7 @@ public class MembersWireTests
 
         Assert.Single(
             handler.Recordings,
-            r => r.Uri.AbsolutePath.EndsWith("/tree/member-group/root")
+            r => r.Uri.AbsolutePath.EndsWith("/tree/member-group/root", StringComparison.Ordinal)
         );
     }
 

@@ -8,5 +8,8 @@ namespace Umbraco.Community.Cli.Client;
 /// </summary>
 public interface IUmbracoManagementClientFactory
 {
+    /// <summary>Creates the client a command calls the Management API through.</summary>
+    /// <param name="http">The HTTP client, with its base address and bearer token already set.</param>
+    /// <returns>The Management API client.</returns>
     IUmbracoManagementClient Create(HttpClient http);
 }

@@ -96,7 +96,13 @@ public static class LoginCommand
                 try
                 {
                     // Fresh: login exists to prove these credentials work, not that a token is cached.
-                    await authService.GetTokenAsync(host, clientId, clientSecret, ct, fresh: true);
+                    await authService.GetTokenAsync(
+                        host,
+                        clientId,
+                        clientSecret,
+                        ct: ct,
+                        fresh: true
+                    );
                 }
                 catch (UmbracoAuthException ex)
                 {

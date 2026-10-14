@@ -68,7 +68,7 @@ public static class ServerCommand
                 executor.RunCompleteListAsync(
                     parseResult,
                     (client, c) => client.GetServerTroubleshootingAsync(c),
-                    new[] { "Name", "Data" },
+                    ["Name", "Data"],
                     i => new[] { i.Name, i.Data },
                     ct
                 )

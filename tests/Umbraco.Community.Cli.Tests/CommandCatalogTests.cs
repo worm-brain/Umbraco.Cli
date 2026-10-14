@@ -19,7 +19,7 @@ public class CommandCatalogTests
         var noun = new Command("content", "manage content");
         var verb = new Command("delete", "remove an item");
         verb.Add(new Argument<Guid>("id") { Description = "the id" });
-        verb.Add(new Option<bool>("--yes", new[] { "-y" }) { Description = "skip prompt" });
+        verb.Add(new Option<bool>("--yes", ["-y"]) { Description = "skip prompt" });
         verb.Destructive(_ => "Delete it?");
         var create = new Command("create").Mutating();
         create.Add(new Option<string>("--name") { Required = true });
@@ -590,6 +590,8 @@ public class CommandCatalogTests
     [Fact]
     public void DefaultOf_Array_IsAList()
     {
-        Assert.Equal(new List<object?> { "a", "b" }, CommandCatalog.DefaultOf(new[] { "a", "b" }));
+        string[] value = ["a", "b"];
+
+        Assert.Equal(new List<object?> { "a", "b" }, CommandCatalog.DefaultOf(value));
     }
 }

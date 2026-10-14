@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using Umbraco.Community.Cli.Client;
 using Umbraco.Community.Cli.Infrastructure;
 
@@ -83,7 +84,7 @@ public static class LogViewerCommand
                         parseResult.GetValue(endOpt),
                         descending: !parseResult.GetValue(ascendingOpt)
                     ),
-                    new[] { "Timestamp", "Level", "Message" },
+                    ["Timestamp", "Level", "Message"],
                     m => new[] { m.Timestamp.ToString("u"), m.Level ?? "", m.RenderedMessage },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
@@ -153,7 +154,7 @@ public static class LogViewerCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) => client.GetLogLevelsAsync(skip, take, c),
-                    new[] { "Name", "Level" },
+                    ["Name", "Level"],
                     l => new[] { l.Name, l.Level ?? "" },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
@@ -218,8 +219,8 @@ public static class LogViewerCommand
                             parseResult.GetValue(endOpt),
                             c
                         ),
-                    new[] { "Count", "MessageTemplate" },
-                    t => new[] { t.Count.ToString(), t.MessageTemplate },
+                    ["Count", "MessageTemplate"],
+                    t => new[] { t.Count.ToString(CultureInfo.CurrentCulture), t.MessageTemplate },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
                     ct
@@ -248,7 +249,7 @@ public static class LogViewerCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) => client.GetSavedLogSearchesAsync(skip, take, c),
-                    new[] { "Name", "Query" },
+                    ["Name", "Query"],
                     s => new[] { s.Name, s.Query },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),
@@ -308,7 +309,7 @@ public static class LogViewerCommand
                     (client, c) =>
                         client
                             .DeleteSavedLogSearchAsync(parseResult.GetValue(nameArg)!, c)
-                            .Then(ItemRef.Of(parseResult.GetValue(nameArg))),
+                            .Then(ItemRef.Of(parseResult.GetValue(nameArg)!)),
                     "Saved search deleted.",
                     ct
                 )

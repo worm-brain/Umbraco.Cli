@@ -23,7 +23,7 @@ public class TemplateDeleteRequestCountTests
         var handler = new RoutingHandler().ServeTree("document-type", types);
         if (!withBatch)
             handler.When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/batch"),
+                r => r.RequestUri!.AbsolutePath.EndsWith("/batch", StringComparison.Ordinal),
                 HttpStatusCode.NotFound,
                 ""
             );

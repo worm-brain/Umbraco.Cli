@@ -24,7 +24,11 @@ public class BlueprintFromDocumentWireTests
         HttpStatusCode moveStatus = HttpStatusCode.OK
     ) =>
         new RoutingHandler()
-            .When(r => r.RequestUri!.AbsolutePath.EndsWith("/move"), moveStatus, "")
+            .When(
+                r => r.RequestUri!.AbsolutePath.EndsWith("/move", StringComparison.Ordinal),
+                moveStatus,
+                ""
+            )
             .When(
                 r => r.Method == HttpMethod.Get,
                 HttpStatusCode.OK,

@@ -67,7 +67,10 @@ public sealed class ContentBulkCultureTests : IDisposable
             .When(
                 r =>
                     r.Method == HttpMethod.Get
-                    && r.RequestUri!.AbsolutePath.EndsWith($"/document/{missing}"),
+                    && r.RequestUri!.AbsolutePath.EndsWith(
+                        $"/document/{missing}",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.NotFound,
                 """{"title":"The document could not be found"}"""
             )
@@ -92,7 +95,8 @@ public sealed class ContentBulkCultureTests : IDisposable
         var handler = new RoutingHandler()
             .ServeToken()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("/item/document"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith("/item/document", StringComparison.Ordinal),
                 HttpStatusCode.InternalServerError,
                 """{"title":"Boom"}"""
             )
@@ -144,7 +148,10 @@ public sealed class ContentBulkCultureTests : IDisposable
             .Parse(
                 handler.BodyForFirst(r =>
                     r.Method == HttpMethod.Put
-                    && r.Uri.AbsolutePath.EndsWith($"/document/{id}/{verb}")
+                    && r.Uri.AbsolutePath.EndsWith(
+                        $"/document/{id}/{verb}",
+                        StringComparison.Ordinal
+                    )
                 )
             )!
             .AsObject();

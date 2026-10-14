@@ -68,12 +68,20 @@ public class DataTypeReferencesAndParentTests
     private static RoutingHandler Tree() =>
         new RoutingHandler()
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("tree/data-type/children"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "tree/data-type/children",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 $$"""{ "total": 1, "items": [ { "id": "{{InFolder}}", "name": "In folder", "parent": { "id": "{{Folder}}" } } ] }"""
             )
             .When(
-                r => r.RequestUri!.AbsolutePath.EndsWith("tree/data-type/root"),
+                r =>
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        "tree/data-type/root",
+                        StringComparison.Ordinal
+                    ),
                 HttpStatusCode.OK,
                 $$"""{ "total": 2, "items": [ { "id": "{{Folder}}", "name": "F", "isFolder": true }, { "id": "{{AtRoot}}", "name": "At root" } ] }"""
             )

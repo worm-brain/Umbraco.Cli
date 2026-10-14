@@ -31,7 +31,7 @@ public static class CulturesCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) => client.GetCulturesAsync(skip, take, c),
-                    new[] { "ISO Code", "English Name" },
+                    ["ISO Code", "English Name"],
                     c => new[] { c.IsoCode, c.EnglishName },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),

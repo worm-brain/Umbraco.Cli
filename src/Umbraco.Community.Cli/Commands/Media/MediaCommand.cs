@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Media;
 
+/// <summary>Wires the <c>media</c> noun: the media library.</summary>
 public static class MediaCommand
 {
+    /// <summary>Builds the <c>media</c> noun with its verbs.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

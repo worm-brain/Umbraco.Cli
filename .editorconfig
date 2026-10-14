@@ -24,3 +24,22 @@ dotnet_sort_system_directives_first = true
 dotnet_diagnostic.CA1707.severity = none
 # xUnit discovers public test classes; sealing or making them static is noise here.
 dotnet_diagnostic.CA1515.severity = none
+
+[src/Umbraco.Community.Cli.Client/Generated/**.cs]
+# The Kiota client is generated from spec/management.json (scripts/regen-client.ps1) and never edited
+# by hand, so analyzers and the XML-doc check skip it rather than relaxing rules repo-wide.
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none
+dotnet_diagnostic.CS1591.severity = none
+
+[tests/Umbraco.Community.Cli.Benchmarks/**.cs]
+# BenchmarkDotNet owns the benchmark object: it calls [Benchmark] methods on an instance, so they
+# cannot be static, and disposes what [GlobalSetup] creates through [GlobalCleanup], not Dispose.
+dotnet_diagnostic.CA1822.severity = none
+dotnet_diagnostic.CA1001.severity = none
+
+[src/Umbraco.Community.Cli.Client/Models.cs]
+# Wire DTOs: each undocumented property is a JSON field named by its [JsonPropertyName], so a
+# summary would only restate the name. The types, and the fields with a format, unit or null
+# meaning, are documented; the IDE still lists the rest as suggestions.
+dotnet_diagnostic.CS1591.severity = suggestion

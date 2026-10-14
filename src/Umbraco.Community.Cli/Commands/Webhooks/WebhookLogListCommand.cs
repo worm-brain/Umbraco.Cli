@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using Umbraco.Community.Cli.Client;
 using Umbraco.Community.Cli.Infrastructure;
 
@@ -50,7 +51,7 @@ public static class WebhookLogListCommand
                             l.Date?.ToString("u") ?? "",
                             l.StatusCode ?? "",
                             l.EventAlias ?? "",
-                            l.RetryCount.ToString(),
+                            l.RetryCount.ToString(CultureInfo.CurrentCulture),
                             l.Url ?? "",
                         },
                     parseResult.GetValue(skipOpt),

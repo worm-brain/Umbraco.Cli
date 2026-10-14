@@ -5,8 +5,14 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Content;
 
+/// <summary>Wires the <c>content publish</c> command.</summary>
 public static class ContentPublishCommand
 {
+    /// <summary>
+    /// Builds the <c>content publish</c> command: now, or on a schedule, for all or some cultures.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

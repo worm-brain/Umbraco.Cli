@@ -250,7 +250,10 @@ public class HostPolicyTests
             ct: CancellationToken.None
         );
 
-        Assert.DoesNotContain(endpoint.Requests, u => u.AbsolutePath.EndsWith("/token"));
+        Assert.DoesNotContain(
+            endpoint.Requests,
+            u => u.AbsolutePath.EndsWith("/token", StringComparison.Ordinal)
+        );
     }
 
     [Fact]

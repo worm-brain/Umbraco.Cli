@@ -58,8 +58,14 @@ internal static class FakeUmbraco
             r =>
                 r.Method == HttpMethod.Get
                 && (
-                    r.RequestUri!.AbsolutePath.EndsWith($"/tree/{kind}/root")
-                    || r.RequestUri.AbsolutePath.EndsWith($"/tree/{kind}/children")
+                    r.RequestUri!.AbsolutePath.EndsWith(
+                        $"/tree/{kind}/root",
+                        StringComparison.Ordinal
+                    )
+                    || r.RequestUri.AbsolutePath.EndsWith(
+                        $"/tree/{kind}/children",
+                        StringComparison.Ordinal
+                    )
                 ),
             HttpStatusCode.OK,
             tree.Page
@@ -202,7 +208,9 @@ internal static class FakeUmbraco
         foreach (var item in items)
             collection.Add(Guid.NewGuid(), null, item);
         return handler.When(
-            r => r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith(suffix),
+            r =>
+                r.Method == HttpMethod.Get
+                && r.RequestUri!.AbsolutePath.EndsWith(suffix, StringComparison.Ordinal),
             HttpStatusCode.OK,
             collection.Page
         );

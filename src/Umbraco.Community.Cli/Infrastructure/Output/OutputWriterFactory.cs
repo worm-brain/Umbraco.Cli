@@ -1,5 +1,6 @@
 namespace Umbraco.Community.Cli.Infrastructure.Output;
 
+/// <summary>Picks the output writer for a run from <c>--output</c>, <c>--fields</c> and <c>--quiet</c>.</summary>
 public static class OutputWriterFactory
 {
     /// <summary>

@@ -3,8 +3,14 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Content;
 
+/// <summary>Wires the <c>content delete</c> command.</summary>
 public static class ContentDeleteCommand
 {
+    /// <summary>
+    /// Builds the <c>content delete</c> command: a permanent delete that skips the recycle bin, so it asks to confirm.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

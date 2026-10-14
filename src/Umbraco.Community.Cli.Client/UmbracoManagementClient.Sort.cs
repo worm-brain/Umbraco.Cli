@@ -46,7 +46,7 @@ public sealed partial class UmbracoManagementClient
     /// <param name="orderedChildIds">Child ids in the desired order (first gets sort order 0).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>An empty success response, or a mapped failure.</returns>
-    private Task<UmbracoResponse<Empty>> SortAsync(
+    private static Task<UmbracoResponse<Empty>> SortAsync(
         Func<Gen.SortingRequestModel, CancellationToken, Task> put,
         Guid? parentId,
         IReadOnlyList<Guid> orderedChildIds,

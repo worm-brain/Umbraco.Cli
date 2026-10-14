@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Webhooks;
 
+/// <summary>Wires the <c>webhook list</c> command.</summary>
 public static class WebhooksListCommand
 {
+    /// <summary>Builds the <c>webhook list</c> command.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(

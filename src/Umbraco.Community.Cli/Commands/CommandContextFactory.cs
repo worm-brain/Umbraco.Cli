@@ -8,6 +8,11 @@ using Umbraco.Community.Cli.Infrastructure.Output;
 
 namespace Umbraco.Community.Cli.Commands;
 
+/// <summary>
+/// Resolves what a command needs before its call can run - host, credentials, output format and
+/// the per-run dry-run and read-only policy - and aborts with an error when a host or credentials
+/// are missing.
+/// </summary>
 public sealed class CommandContextFactory
 {
     private readonly ConfigStore _configStore;
@@ -174,7 +179,7 @@ public sealed class CommandContextFactory
                     host,
                     config.ClientId!,
                     config.ClientSecret!,
-                    ct
+                    ct: ct
                 );
             }
             catch (UmbracoAuthException ex)
@@ -190,7 +195,7 @@ public sealed class CommandContextFactory
                 c =>
                 {
                     _authService.Invalidate(host, clientId, clientSecret);
-                    return _authService.GetTokenAsync(host, clientId, clientSecret, c);
+                    return _authService.GetTokenAsync(host, clientId, clientSecret, ct: c);
                 }
             );
         }

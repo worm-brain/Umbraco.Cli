@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Globalization;
 using Umbraco.Community.Cli.Client;
 using Umbraco.Community.Cli.Commands;
 using Umbraco.Community.Cli.Commands.Content;
@@ -109,7 +110,7 @@ public class PublishScheduleCommandTests
     {
         // #239: a scheduled publish said "Content item published." while the item stayed a draft.
         var message = ContentPublishCommand.SuccessMessage(
-            DateTimeOffset.Parse("2026-01-01T09:00:00Z"),
+            DateTimeOffset.Parse("2026-01-01T09:00:00Z", CultureInfo.InvariantCulture),
             null,
             ["en-US", "da-DK"]
         );
@@ -122,7 +123,7 @@ public class PublishScheduleCommandTests
     {
         var message = ContentPublishCommand.SuccessMessage(
             null,
-            DateTimeOffset.Parse("2026-02-01T18:30:00Z"),
+            DateTimeOffset.Parse("2026-02-01T18:30:00Z", CultureInfo.InvariantCulture),
             null
         );
 
@@ -160,11 +161,11 @@ public class PublishScheduleCommandTests
 
         Assert.Equal(0, exit);
         Assert.Equal(
-            DateTimeOffset.Parse("2026-01-01T09:00:00Z"),
+            DateTimeOffset.Parse("2026-01-01T09:00:00Z", CultureInfo.InvariantCulture),
             fake.LastPublishSchedule!.Value.PublishAt
         );
         Assert.Equal(
-            DateTimeOffset.Parse("2026-02-01T18:30:00Z"),
+            DateTimeOffset.Parse("2026-02-01T18:30:00Z", CultureInfo.InvariantCulture),
             fake.LastPublishSchedule!.Value.UnpublishAt
         );
     }

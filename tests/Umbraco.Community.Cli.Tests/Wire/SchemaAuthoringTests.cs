@@ -282,7 +282,7 @@ public class SchemaAuthoringTests
 
         var body = Umbraco.Community.Cli.Commands.RawBodyCommand.MinimalBody(kind)!.AsObject();
 
-        Assert.Empty(required.Where(r => !body.ContainsKey(r)));
+        Assert.DoesNotContain(required, r => !body.ContainsKey(r));
     }
 }
 

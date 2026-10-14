@@ -34,7 +34,7 @@ public static class RelationTypeCommand
                 executor.RunPagedAsync(
                     parseResult,
                     (client, skip, take, c) => client.GetRelationTypesAsync(skip, take, c),
-                    new[] { "Id", "Alias", "Name", "Bidirectional" },
+                    ["Id", "Alias", "Name", "Bidirectional"],
                     t => new[] { t.Id.ToString(), t.Alias, t.Name, t.IsBidirectional.ToString() },
                     parseResult.GetValue(skipOpt),
                     parseResult.GetValue(takeOpt),

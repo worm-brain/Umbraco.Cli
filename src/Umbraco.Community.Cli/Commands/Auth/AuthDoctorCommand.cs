@@ -253,7 +253,7 @@ public static class AuthDoctorCommand
                     host,
                     config.ClientId!,
                     config.ClientSecret!,
-                    ct,
+                    ct: ct,
                     fresh: true
                 );
                 checks.Add(new DoctorCheck("Authentication", "pass", "Obtained an access token."));

@@ -39,12 +39,16 @@ public class UserWireTests
     private static RoutingHandler JaneAndGroups() =>
         new RoutingHandler()
             .When(
-                r => r.Method == HttpMethod.Get && Path(r).EndsWith("/user-group"),
+                r =>
+                    r.Method == HttpMethod.Get
+                    && Path(r).EndsWith("/user-group", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 TwoGroups
             )
             .When(
-                r => r.Method == HttpMethod.Get && Path(r).EndsWith($"/user/{UserId}"),
+                r =>
+                    r.Method == HttpMethod.Get
+                    && Path(r).EndsWith($"/user/{UserId}", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 Jane
             )
@@ -116,7 +120,7 @@ public class UserWireTests
     {
         var handler = new RoutingHandler()
             .When(
-                r => Path(r).EndsWith("/user-group"),
+                r => Path(r).EndsWith("/user-group", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 $$"""{"total":1,"items":[{"id":"{{Editors}}","alias":"editor","name":"Editors","hasAccessToAllLanguages":true}]}"""
             )
@@ -132,7 +136,11 @@ public class UserWireTests
     {
         // An API user without the Users section cannot read groups; the user read must not fail.
         var handler = new RoutingHandler()
-            .When(r => Path(r).EndsWith("/user-group"), HttpStatusCode.Forbidden, "")
+            .When(
+                r => Path(r).EndsWith("/user-group", StringComparison.Ordinal),
+                HttpStatusCode.Forbidden,
+                ""
+            )
             .When(_ => true, HttpStatusCode.OK, Jane);
 
         var result = await Wire.Client(handler).GetUserByIdAsync(UserId, CancellationToken.None);
@@ -197,9 +205,13 @@ public class UserWireTests
     public async Task CreateUserAsync_PasswordRejected_DeletesTheNewUserAgain()
     {
         var handler = new RoutingHandler()
-            .When(r => Path(r).EndsWith("/user-group"), HttpStatusCode.OK, TwoGroups)
             .When(
-                r => Path(r).EndsWith("/change-password"),
+                r => Path(r).EndsWith("/user-group", StringComparison.Ordinal),
+                HttpStatusCode.OK,
+                TwoGroups
+            )
+            .When(
+                r => Path(r).EndsWith("/change-password", StringComparison.Ordinal),
                 HttpStatusCode.BadRequest,
                 WeakPassword
             )
@@ -217,9 +229,13 @@ public class UserWireTests
     public async Task CreateUserAsync_PasswordRejectedAndRollbackFails_NamesTheLeftoverUser()
     {
         var handler = new RoutingHandler()
-            .When(r => Path(r).EndsWith("/user-group"), HttpStatusCode.OK, TwoGroups)
             .When(
-                r => Path(r).EndsWith("/change-password"),
+                r => Path(r).EndsWith("/user-group", StringComparison.Ordinal),
+                HttpStatusCode.OK,
+                TwoGroups
+            )
+            .When(
+                r => Path(r).EndsWith("/change-password", StringComparison.Ordinal),
                 HttpStatusCode.BadRequest,
                 WeakPassword
             )
@@ -391,7 +407,7 @@ public class UserWireTests
     {
         var handler = new RoutingHandler()
             .When(
-                r => Path(r).EndsWith("/change-password"),
+                r => Path(r).EndsWith("/change-password", StringComparison.Ordinal),
                 HttpStatusCode.BadRequest,
                 WeakPassword
             )
@@ -440,7 +456,7 @@ public class UserWireTests
         new RoutingHandler()
             .When(r => r.Method == HttpMethod.Delete, HttpStatusCode.BadRequest, refusal)
             .When(
-                r => Path(r).EndsWith($"/user/{UserId}"),
+                r => Path(r).EndsWith($"/user/{UserId}", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 Jane.Replace(
                     "\"failedLoginAttempts\": 2,",
@@ -448,7 +464,7 @@ public class UserWireTests
                 )
             )
             .When(
-                r => Path(r).EndsWith($"/user/{Editors}"),
+                r => Path(r).EndsWith($"/user/{Editors}", StringComparison.Ordinal),
                 HttpStatusCode.OK,
                 $$"""{ "id": "{{Editors}}", "email": "never@example.com", "name": "Never" }"""
             );

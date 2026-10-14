@@ -41,7 +41,7 @@ public static class ManifestCommand
                 executor.RunCompleteListAsync(
                     parseResult,
                     (client, c) => client.GetManifestsAsync(parseResult.GetValue(scopeOpt), c),
-                    new[] { "Id", "Name", "Version", "CLI" },
+                    ["Id", "Name", "Version", "CLI"],
                     m => new[] { m.Id, m.Name, m.Version, DescribeCli(m) },
                     ct
                 )

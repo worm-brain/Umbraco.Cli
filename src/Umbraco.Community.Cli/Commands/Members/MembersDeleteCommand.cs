@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Members;
 
+/// <summary>Wires the <c>member delete</c> command.</summary>
 public static class MembersDeleteCommand
 {
+    /// <summary>Builds the <c>member delete</c> command.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command("delete", "Delete a member permanently, by id.")

@@ -62,7 +62,7 @@ public static class RedirectCommand
                                 c
                             );
                     },
-                    new[] { "Id", "OriginalUrl", "DestinationUrl", "Culture" },
+                    ["Id", "OriginalUrl", "DestinationUrl", "Culture"],
                     r =>
                         new[] { r.Id.ToString(), r.OriginalUrl, r.DestinationUrl, r.Culture ?? "" },
                     parseResult.GetValue(skipOpt),

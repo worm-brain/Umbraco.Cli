@@ -69,7 +69,7 @@ public static class ImagingCommand
                     // One row per media item rather than per URL: structured output now carries
                     // the nested { id, urls[] } shape from the DTO, which is truer than the
                     // flattened rows it used to emit, so the table joins them for reading.
-                    new[] { "Id", "Urls" },
+                    ["Id", "Urls"],
                     m =>
                         new[]
                         {

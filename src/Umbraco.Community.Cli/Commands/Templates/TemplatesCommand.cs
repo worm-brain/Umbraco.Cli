@@ -3,8 +3,12 @@ using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Commands.Templates;
 
+/// <summary>Wires the <c>template</c> noun: Razor view templates.</summary>
 public static class TemplatesCommand
 {
+    /// <summary>Builds the <c>template</c> noun with its verbs.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
     public static Command Build(CommandExecutor executor)
     {
         var cmd = new Command(
