@@ -50,7 +50,8 @@ public class ApiBodySchemaTests
         Assert.True(
             committed == actual,
             "src/Umbraco.Community.Cli/Schemas/api-bodies.json is out of date with spec/management.json. "
-                + "Run `UPDATE_API_SCHEMAS=1 dotnet test --filter ApiBodySchemaTests` and commit it."
+                + "Run `UPDATE_API_SCHEMAS=1 dotnet test --project tests/Umbraco.Community.Cli.Tests "
+                + "--filter-class *ApiBodySchemaTests` and commit it."
         );
     }
 

@@ -63,7 +63,7 @@ when you ask, and records every filed id in `ledger-history.json`.
 
 ```bash
 python3 dev-site.py test                  # create sites/dev on first use (Part A fixture content), start it, run the suite
-python3 dev-site.py test --filter "FullyQualifiedName~CommandIntegrationTests"   # extra options go to dotnet test
+python3 dev-site.py test --filter-class "*CommandIntegrationTests"   # extra options go to dotnet test
 python3 dev-site.py up | down             # start / stop it
 python3 dev-site.py env [--shell pwsh]    # host, API-user credentials and UMBRACO_TEST_CONFIG
 python3 dev-site.py reset --umbraco 17.3.5   # rebuild it, optionally on another Umbraco version

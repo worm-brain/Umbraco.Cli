@@ -25,7 +25,7 @@ They catch a command that starts making one request per item, a lost cache, or p
 than it needs. They can't see how long a request takes.
 
 ```bash
-dotnet test tests/Umbraco.Community.Cli.Tests --filter "FullyQualifiedName~RequestCount"
+dotnet test --project tests/Umbraco.Community.Cli.Tests --filter-class "*RequestCount*"
 ```
 
 They need no Umbraco, and they run as part of every `dotnet test`.

@@ -180,7 +180,7 @@ def test(a, extra):
     run_env = {k: v for k, v in os.environ.items() if not k.upper().startswith("UMBRACO_")}
     run_env["UMBRACO_TEST_CONFIG"] = str(TEST_CONFIG)
     heading("Integration tests (tests/Umbraco.Community.Cli.IntegrationTests)")
-    sys.exit(harness.run(["dotnet", "test", SUITE, *extra], cwd=REPO, env=run_env).returncode)
+    sys.exit(harness.run(["dotnet", "test", "--project", SUITE, *extra], cwd=REPO, env=run_env).returncode)
 
 
 def reset(a):
@@ -202,7 +202,7 @@ def main():
     sub.add_parser("down")
     e = sub.add_parser("env")
     e.add_argument("--shell", choices=("bash", "pwsh"), help="Print assignments for this shell")
-    # `test` passes anything it doesn't recognise straight to `dotnet test` (e.g. --filter ...).
+    # `test` passes anything it doesn't recognise straight to `dotnet test` (e.g. --filter-class ...).
     a, extra = p.parse_known_args()
     if extra and a.command != "test":
         p.error(f"unrecognised arguments: {' '.join(extra)}")

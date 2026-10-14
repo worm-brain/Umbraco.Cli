@@ -111,7 +111,7 @@ public class WebhookCommandTests
         {
             await BuildRoot(WithHook())
                 .Parse("--host https://x --token t --output json webhook get Deploy")
-                .InvokeAsync();
+                .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
         }
         finally
         {

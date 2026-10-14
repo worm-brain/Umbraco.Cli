@@ -128,7 +128,8 @@ public class DocumentBlueprintCommandTests
         var path = Path.Combine(Path.GetTempPath(), $"bp-{Guid.NewGuid()}.json");
         await File.WriteAllTextAsync(
             path,
-            """{"documentType":{"alias":"textPage"},"values":[{"alias":"title","value":"Hello"}],"variants":[{"name":"Starter"}]}"""
+            """{"documentType":{"alias":"textPage"},"values":[{"alias":"title","value":"Hello"}],"variants":[{"name":"Starter"}]}""",
+            TestContext.Current.CancellationToken
         );
 
         try

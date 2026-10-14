@@ -268,7 +268,7 @@ public class ContentExampleBodyTests
             await root.Parse(
                     "--host https://x --token t --output json content create --example --document-type blogPost"
                 )
-                .InvokeAsync();
+                .InvokeAsync(cancellationToken: TestContext.Current.CancellationToken);
         }
         finally
         {

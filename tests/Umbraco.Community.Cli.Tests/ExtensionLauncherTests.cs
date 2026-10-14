@@ -226,7 +226,8 @@ public sealed class ExtensionLauncherTests : IDisposable
         var exit = await ExtensionProcess.RunAsync(
             Dotnet(),
             ["--list-runtimes"],
-            new Dictionary<string, string>()
+            new Dictionary<string, string>(),
+            TestContext.Current.CancellationToken
         );
 
         Assert.Equal(0, exit);
@@ -238,7 +239,8 @@ public sealed class ExtensionLauncherTests : IDisposable
         var exit = await ExtensionProcess.RunAsync(
             Dotnet(),
             ["no-such-command-for-this-test"],
-            new Dictionary<string, string>()
+            new Dictionary<string, string>(),
+            TestContext.Current.CancellationToken
         );
 
         Assert.NotEqual(0, exit);

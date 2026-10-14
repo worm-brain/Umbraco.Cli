@@ -1266,7 +1266,8 @@ public class UmbracoManagementClientTests
         var result = await client.WithResolvedAsync(
             EntityKind.DictionaryItem,
             "Admin",
-            resolved => client.GetDictionaryItemByIdAsync(resolved, CancellationToken.None)
+            resolved => client.GetDictionaryItemByIdAsync(resolved, CancellationToken.None),
+            ct: TestContext.Current.CancellationToken
         );
 
         Assert.True(result.IsSuccess);

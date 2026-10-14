@@ -136,7 +136,10 @@ public class CommandContextFactoryTests
         try
         {
             await Assert.ThrowsAsync<CommandAbortedException>(() =>
-                factory.CreateAsync(root.Parse("--output json"))
+                factory.CreateAsync(
+                    root.Parse("--output json"),
+                    TestContext.Current.CancellationToken
+                )
             );
         }
         finally

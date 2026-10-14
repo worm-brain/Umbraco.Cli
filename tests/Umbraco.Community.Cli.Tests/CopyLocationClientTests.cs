@@ -63,7 +63,8 @@ public class CopyLocationClientTests
     {
         var newId = Guid.NewGuid();
 
-        var result = await Client(() => CreatedAt(newId)).CopyDataTypeAsync(Guid.NewGuid(), null);
+        var result = await Client(() => CreatedAt(newId))
+            .CopyDataTypeAsync(Guid.NewGuid(), null, TestContext.Current.CancellationToken);
 
         Assert.Equal(newId, result.Data!.Id);
     }
@@ -71,7 +72,12 @@ public class CopyLocationClientTests
     [Fact]
     public async Task CopyDataTypeAsync_Rejected_ReportsTheServersError()
     {
-        var result = await Client(Rejected).CopyDataTypeAsync(Guid.NewGuid(), Guid.NewGuid());
+        var result = await Client(Rejected)
+            .CopyDataTypeAsync(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(
             (400, "The target folder does not exist."),
@@ -82,7 +88,8 @@ public class CopyLocationClientTests
     [Fact]
     public async Task CopyContentAsync_Rejected_ReportsTheServersError()
     {
-        var result = await Client(Rejected).CopyContentAsync(Guid.NewGuid());
+        var result = await Client(Rejected)
+            .CopyContentAsync(Guid.NewGuid(), ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             (400, "The target folder does not exist."),

@@ -126,7 +126,11 @@ public sealed class ExportRequestCountTests : IDisposable
         // Arrange: a hand-written snapshot manages only the sections it has (#198, #292).
         var cli = new HttpCli(SchemaSite());
         var snapshot = Path.Combine(_dir, "document-types.json");
-        await File.WriteAllTextAsync(snapshot, """{"schemaVersion":"4","documentTypes":[]}""");
+        await File.WriteAllTextAsync(
+            snapshot,
+            """{"schemaVersion":"4","documentTypes":[]}""",
+            TestContext.Current.CancellationToken
+        );
 
         // Act
         var run = await cli.RunAsync($"schema diff {snapshot}");

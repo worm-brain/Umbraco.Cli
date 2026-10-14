@@ -168,7 +168,7 @@ public class StaticFileCommandTests
     public async Task ContentAndContentFile_Together_AreRefusedAndNothingIsCreated()
     {
         var file = Path.Combine(Path.GetTempPath(), $"sf-{Guid.NewGuid()}.js");
-        await File.WriteAllTextAsync(file, "// from file");
+        await File.WriteAllTextAsync(file, "// from file", TestContext.Current.CancellationToken);
         var fake = new FakeUmbracoManagementClient();
         var root = BuildRoot(fake);
 

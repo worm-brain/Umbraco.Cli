@@ -12,7 +12,7 @@ namespace Umbraco.Community.Cli.IntegrationTests;
 [Collection("Live")]
 public sealed class SchemaIntegrationTests(LiveInstanceFixture live) : LiveTestBase(live)
 {
-    [SkippableFact]
+    [Fact]
     public void Export_WritesSnapshotFile()
     {
         RequireLive();
@@ -37,7 +37,7 @@ public sealed class SchemaIntegrationTests(LiveInstanceFixture live) : LiveTestB
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void ExportThenDiff_AgainstSameInstance_ShowsNoDrift()
     {
         RequireLive();
@@ -62,7 +62,7 @@ public sealed class SchemaIntegrationTests(LiveInstanceFixture live) : LiveTestB
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void ExportThenApplyDryRun_AgainstSameInstance_PlansNothing()
     {
         RequireLive();

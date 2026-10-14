@@ -14,7 +14,7 @@ public class JsonBodyInputTests
     public async Task ReadAsync_FilePath_ReadsFileContents()
     {
         var path = Path.Combine(Path.GetTempPath(), $"umbraco-body-{Guid.NewGuid()}.json");
-        await File.WriteAllTextAsync(path, """{"a":1}""");
+        await File.WriteAllTextAsync(path, """{"a":1}""", TestContext.Current.CancellationToken);
         try
         {
             var body = await JsonBodyInput.ReadAsync(path, CancellationToken.None);
@@ -34,7 +34,7 @@ public class JsonBodyInputTests
         // Arrange: the same bytes saved to a file and piped to stdin (#443).
         var bytes = RedirectedStdin.Utf8("""{"name":"Søg æøå"}""", byteOrderMark);
         var path = Path.Combine(Path.GetTempPath(), $"umbraco-body-{Guid.NewGuid()}.json");
-        await File.WriteAllBytesAsync(path, bytes);
+        await File.WriteAllBytesAsync(path, bytes, TestContext.Current.CancellationToken);
         try
         {
             var fromFile = await JsonBodyInput.ReadAsync(path, CancellationToken.None);

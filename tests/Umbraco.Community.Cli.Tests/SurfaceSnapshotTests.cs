@@ -41,8 +41,9 @@ public class SurfaceSnapshotTests
         Assert.True(
             expected == actual,
             $"The CLI surface differs from docs/surface.json ({FirstDifference(expected, actual)}). "
-                + "If the change is intended, run `UPDATE_SURFACE=1 dotnet test --filter "
-                + "SurfaceSnapshotTests` and commit docs/surface.json."
+                + "If the change is intended, run `UPDATE_SURFACE=1 dotnet test --project "
+                + "tests/Umbraco.Community.Cli.Tests --filter-class *SurfaceSnapshotTests` and "
+                + "commit docs/surface.json."
         );
     }
 

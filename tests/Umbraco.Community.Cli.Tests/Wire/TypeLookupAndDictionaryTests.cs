@@ -55,7 +55,8 @@ public class TypeLookupAndDictionaryTests
         var result = await client.WithResolvedAsync(
             EntityKind.DocumentType,
             id.ToString(),
-            resolved => client.GetDocumentTypeByIdAsync(resolved, CancellationToken.None)
+            resolved => client.GetDocumentTypeByIdAsync(resolved, CancellationToken.None),
+            ct: TestContext.Current.CancellationToken
         );
 
         Assert.Equal("blogPost", result.Data!.Alias);
@@ -474,7 +475,8 @@ public class TypeLookupAndDictionaryTests
         var page = Guid.NewGuid();
         var handler = Wire.Routed(($"document-type/{page}", """{"alias":"page"}"""));
 
-        var result = await Wire.Client(handler).GetDocumentTypeAliasesAsync([page, page, page]);
+        var result = await Wire.Client(handler)
+            .GetDocumentTypeAliasesAsync([page, page, page], TestContext.Current.CancellationToken);
 
         Assert.Equal(("page", 1), (result.Data![page], handler.Requests.Count));
     }
@@ -485,7 +487,8 @@ public class TypeLookupAndDictionaryTests
         var gone = Guid.NewGuid();
         var handler = new RoutingHandler().When(_ => true, HttpStatusCode.NotFound, "{}");
 
-        var result = await Wire.Client(handler).GetDocumentTypeAliasesAsync([gone]);
+        var result = await Wire.Client(handler)
+            .GetDocumentTypeAliasesAsync([gone], TestContext.Current.CancellationToken);
 
         Assert.Empty(result.Data!);
     }

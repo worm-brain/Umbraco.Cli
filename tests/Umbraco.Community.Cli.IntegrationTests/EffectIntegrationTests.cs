@@ -29,7 +29,7 @@ namespace Umbraco.Community.Cli.IntegrationTests;
 [Collection("Live")]
 public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestBase(live)
 {
-    [SkippableFact]
+    [Fact]
     public void Publish_ThenReRead_ReportsPublished()
     {
         RequireLive();
@@ -50,7 +50,7 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
         );
     }
 
-    [SkippableFact]
+    [Fact]
     public void Unpublish_ThenReRead_ReportsNotPublished()
     {
         RequireLive();
@@ -72,7 +72,7 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
         );
     }
 
-    [SkippableFact]
+    [Fact]
     public void BulkPublish_ThenReRead_ReportsPublished()
     {
         RequireLive();
@@ -90,7 +90,7 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
         );
     }
 
-    [SkippableFact]
+    [Fact]
     public void Update_ThenExport_KeepsTheTemplate()
     {
         RequireLive();
@@ -134,7 +134,7 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
         Assert.Equal(template.Id, kept.GetProperty("id").GetString());
     }
 
-    [SkippableFact]
+    [Fact]
     public void Apply_RestoresPublishStateThenDiffAndASecondApplyFindNothing()
     {
         RequireLive();
@@ -175,7 +175,7 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void Apply_RecreatesDeletedVariantDocumentAndRestoresDriftedValues()
     {
         RequireLive();
@@ -251,7 +251,7 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
         }
     }
 
-    [SkippableFact]
+    [Fact]
     public void ApplyPrune_DeletesOnlyTheInScopeDocumentTheSnapshotLacks()
     {
         RequireLive();
@@ -356,7 +356,7 @@ public sealed class EffectIntegrationTests(LiveInstanceFixture live) : LiveTestB
     private static JsonElement Data(CliResult result) =>
         JsonDocument.Parse(result.Stdout).RootElement.GetProperty("data");
 
-    [SkippableFact]
+    [Fact]
     public void Update_ThenExport_RenamesWithoutAddingAVariant()
     {
         RequireLive();

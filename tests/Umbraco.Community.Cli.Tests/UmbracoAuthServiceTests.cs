@@ -481,10 +481,20 @@ public class UmbracoAuthServiceTests
         var handler = new CountingTokenHandler(299);
         var cache = new MemoryTokenCache();
         var auth = Process(handler, cache);
-        await auth.GetTokenAsync("https://x", "client", "secret");
+        await auth.GetTokenAsync(
+            "https://x",
+            "client",
+            "secret",
+            ct: TestContext.Current.CancellationToken
+        );
 
         auth.ForgetCachedTokens("https://x/", "client");
-        await auth.GetTokenAsync("https://x", "client", "secret");
+        await auth.GetTokenAsync(
+            "https://x",
+            "client",
+            "secret",
+            ct: TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(2, handler.Requests);
     }
@@ -495,8 +505,20 @@ public class UmbracoAuthServiceTests
         var handler = new CountingTokenHandler(299);
         var cache = new MemoryTokenCache();
 
-        await Process(handler, cache).GetTokenAsync("https://x", "client", "secret");
-        var token = await Process(handler, cache).GetTokenAsync("https://x", "client", "secret");
+        await Process(handler, cache)
+            .GetTokenAsync(
+                "https://x",
+                "client",
+                "secret",
+                ct: TestContext.Current.CancellationToken
+            );
+        var token = await Process(handler, cache)
+            .GetTokenAsync(
+                "https://x",
+                "client",
+                "secret",
+                ct: TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(("token-1", 1), (token, handler.Requests));
     }
@@ -508,8 +530,20 @@ public class UmbracoAuthServiceTests
         var handler = new CountingTokenHandler(299);
         var cache = new MemoryTokenCache();
 
-        await Process(handler, cache).GetTokenAsync("https://x", "client", "secret");
-        await Process(handler, cache).GetTokenAsync("https://x", "client", "other-secret");
+        await Process(handler, cache)
+            .GetTokenAsync(
+                "https://x",
+                "client",
+                "secret",
+                ct: TestContext.Current.CancellationToken
+            );
+        await Process(handler, cache)
+            .GetTokenAsync(
+                "https://x",
+                "client",
+                "other-secret",
+                ct: TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(2, handler.Requests);
     }
@@ -521,9 +555,21 @@ public class UmbracoAuthServiceTests
         var cache = new MemoryTokenCache();
         var clock = new ManualClock();
 
-        await Process(handler, cache, clock).GetTokenAsync("https://x", "client", "secret");
+        await Process(handler, cache, clock)
+            .GetTokenAsync(
+                "https://x",
+                "client",
+                "secret",
+                ct: TestContext.Current.CancellationToken
+            );
         clock.Advance(TimeSpan.FromSeconds(290));
-        await Process(handler, cache, clock).GetTokenAsync("https://x", "client", "secret");
+        await Process(handler, cache, clock)
+            .GetTokenAsync(
+                "https://x",
+                "client",
+                "secret",
+                ct: TestContext.Current.CancellationToken
+            );
 
         Assert.Equal(2, handler.Requests);
     }
@@ -533,7 +579,13 @@ public class UmbracoAuthServiceTests
     {
         var handler = new CountingTokenHandler(299);
         var cache = new MemoryTokenCache();
-        await Process(handler, cache).GetTokenAsync("https://x", "client", "secret");
+        await Process(handler, cache)
+            .GetTokenAsync(
+                "https://x",
+                "client",
+                "secret",
+                ct: TestContext.Current.CancellationToken
+            );
 
         await Process(handler, cache)
             .GetTokenAsync(
@@ -553,7 +605,12 @@ public class UmbracoAuthServiceTests
         var handler = new CountingTokenHandler(299);
         var cache = new MemoryTokenCache();
         var service = Process(handler, cache);
-        await service.GetTokenAsync("https://x", "client", "secret");
+        await service.GetTokenAsync(
+            "https://x",
+            "client",
+            "secret",
+            ct: TestContext.Current.CancellationToken
+        );
 
         service.Invalidate("https://x", "client", "secret");
 
@@ -588,7 +645,12 @@ public class UmbracoAuthServiceTests
 
         // Assert
         await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            service.GetTokenAsync("https://x", "client", "secret")
+            service.GetTokenAsync(
+                "https://x",
+                "client",
+                "secret",
+                ct: TestContext.Current.CancellationToken
+            )
         );
     }
 }

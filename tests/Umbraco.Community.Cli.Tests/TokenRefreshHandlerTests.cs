@@ -63,7 +63,11 @@ public class TokenRefreshHandlerTests
         var server = new Server(validToken: "fresh");
         var client = Client(server, Refreshing("fresh"));
 
-        var response = await client.PostAsync("doc", new StringContent("""{"a":1}"""));
+        var response = await client.PostAsync(
+            "doc",
+            new StringContent("""{"a":1}"""),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal([("stale", """{"a":1}"""), ("fresh", """{"a":1}""")], server.Attempts);
@@ -74,9 +78,9 @@ public class TokenRefreshHandlerTests
     {
         var server = new Server(validToken: "fresh");
         var client = Client(server, Refreshing("fresh"));
-        await client.GetAsync("one");
+        await client.GetAsync("one", TestContext.Current.CancellationToken);
 
-        await client.GetAsync("two");
+        await client.GetAsync("two", TestContext.Current.CancellationToken);
 
         Assert.Equal("fresh", server.Attempts[^1].Token);
         Assert.Equal(3, server.Attempts.Count); // stale, fresh, then fresh straight away
@@ -89,8 +93,8 @@ public class TokenRefreshHandlerTests
         var refreshes = 0;
         var client = Client(server, Refreshing("fresh", () => refreshes++));
 
-        var first = await client.GetAsync("one");
-        var second = await client.GetAsync("two");
+        var first = await client.GetAsync("one", TestContext.Current.CancellationToken);
+        var second = await client.GetAsync("two", TestContext.Current.CancellationToken);
 
         Assert.Equal(
             (HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, 1),
@@ -129,7 +133,8 @@ public class TokenRefreshHandlerTests
         var server = new Server(validToken: "fresh");
         var content = new StreamContent(new OneShotStream("""{"id":"x"}"""u8.ToArray()));
 
-        await Pipeline(server, MutationInterceptPolicy.Execute).PutAsync("document/x", content);
+        await Pipeline(server, MutationInterceptPolicy.Execute)
+            .PutAsync("document/x", content, TestContext.Current.CancellationToken);
 
         Assert.Equal([("stale", """{"id":"x"}"""), ("fresh", """{"id":"x"}""")], server.Attempts);
     }
@@ -141,7 +146,11 @@ public class TokenRefreshHandlerTests
 
         await Assert.ThrowsAsync<ReadOnlyModeException>(() =>
             Pipeline(server, MutationInterceptPolicy.Block)
-                .PostAsync("document", new StringContent("{}"))
+                .PostAsync(
+                    "document",
+                    new StringContent("{}"),
+                    TestContext.Current.CancellationToken
+                )
         );
         Assert.Empty(server.Attempts);
     }
@@ -153,7 +162,8 @@ public class TokenRefreshHandlerTests
         var state = new TokenRefreshState();
         state.Reset("stale", null);
 
-        var response = await Client(server, state).GetAsync("doc");
+        var response = await Client(server, state)
+            .GetAsync("doc", TestContext.Current.CancellationToken);
 
         Assert.Equal(
             (HttpStatusCode.Unauthorized, 1),
@@ -168,7 +178,8 @@ public class TokenRefreshHandlerTests
         var state = new TokenRefreshState();
         state.Reset("stale", _ => throw new UmbracoAuthException(401, "invalid_client"));
 
-        var response = await Client(server, state).GetAsync("doc");
+        var response = await Client(server, state)
+            .GetAsync("doc", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

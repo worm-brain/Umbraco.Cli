@@ -24,7 +24,8 @@ public class CliServicesTests
         // Act
         await client.PostAsync(
             "https://umbraco.invalid/umbraco/management/api/v1/webhook",
-            new StringContent("""{"name":"x"}""", Encoding.UTF8, "application/json")
+            new StringContent("""{"name":"x"}""", Encoding.UTF8, "application/json"),
+            TestContext.Current.CancellationToken
         );
 
         // Assert

@@ -37,7 +37,7 @@ public class FileContentInputTests
     public async Task ReadAsync_FileGiven_ReadsTheFile()
     {
         var path = Path.GetTempFileName();
-        await File.WriteAllTextAsync(path, "<p>hello</p>");
+        await File.WriteAllTextAsync(path, "<p>hello</p>", TestContext.Current.CancellationToken);
         var (parse, content, file) = Parse($"--content-file {path}");
 
         var read = await FileContentInput.ReadAsync(parse, content, file, CancellationToken.None);
@@ -56,7 +56,7 @@ public class FileContentInputTests
         // Arrange: a Danish template, saved to a file and piped to stdin as the same bytes (#443).
         var bytes = RedirectedStdin.Utf8("<h1>Søg</h1>\n<p>æøå</p>\n", byteOrderMark);
         var path = Path.GetTempFileName();
-        await File.WriteAllBytesAsync(path, bytes);
+        await File.WriteAllBytesAsync(path, bytes, TestContext.Current.CancellationToken);
         try
         {
             var (byPath, pathContent, pathFile) = Parse($"--content-file {path}");

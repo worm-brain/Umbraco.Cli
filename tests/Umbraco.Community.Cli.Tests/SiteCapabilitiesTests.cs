@@ -212,7 +212,8 @@ public class SiteCapabilitiesTests
         );
 
         // Act
-        var result = await ClientOver(handler).GetManifestsAsync();
+        var result = await ClientOver(handler)
+            .GetManifestsAsync(ct: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(
@@ -229,8 +230,8 @@ public class SiteCapabilitiesTests
         var client = ClientOver(handler);
 
         // Act
-        await client.GetSiteCapabilitiesAsync();
-        await client.GetSiteCapabilitiesAsync();
+        await client.GetSiteCapabilitiesAsync(TestContext.Current.CancellationToken);
+        await client.GetSiteCapabilitiesAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Single(handler.Requests);
@@ -243,7 +244,8 @@ public class SiteCapabilitiesTests
         var handler = new RoutingHandler().When(IsManifest, HttpStatusCode.Forbidden, "{}");
 
         // Act
-        var capabilities = await ClientOver(handler).GetSiteCapabilitiesAsync();
+        var capabilities = await ClientOver(handler)
+            .GetSiteCapabilitiesAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(

@@ -107,7 +107,11 @@ public class ContractTests
         var client = Wire.Client(Wire.Returning("""{"items":[]}"""));
 
         // Act
-        var result = await client.SendRawAsync(HttpMethod.Get, $"{Api}/my-package/items");
+        var result = await client.SendRawAsync(
+            HttpMethod.Get,
+            $"{Api}/my-package/items",
+            ct: TestContext.Current.CancellationToken
+        );
 
         // Assert
         Assert.True(result.IsSuccess, result.ErrorMessage);
@@ -121,7 +125,10 @@ public class ContractTests
         using var http = new HttpClient(Wire.Blank()) { BaseAddress = new Uri("https://x/") };
 
         // Act
-        var response = await http.GetAsync("some/other/path");
+        var response = await http.GetAsync(
+            "some/other/path",
+            TestContext.Current.CancellationToken
+        );
 
         // Assert
         Assert.True(response.IsSuccessStatusCode);
