@@ -7,7 +7,7 @@
 # located in the generated tree are dropped from the report. The generated client is
 # instead covered at the dependency/spec level - see the supply-chain lens in
 # docs/security-audit.md.
-name: "Umbraco.Cli CodeQL config"
+name: "Umbraco.Community.Cli CodeQL config"
 
 paths-ignore:
-  - "src/Umbraco.Cli.Client/Generated/**"
+  - "src/Umbraco.Community.Cli.Client/Generated/**"

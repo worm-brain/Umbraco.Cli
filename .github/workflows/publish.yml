@@ -124,7 +124,7 @@ jobs:
       # on a green run across ubuntu/windows/macos, so we never ship a broken tool.
       - name: Pack
         run: >
-          dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj
+          dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj
           --no-build -c Release
           -p:Version=${{ steps.version.outputs.version }}
           -o ./nupkg

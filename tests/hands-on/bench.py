@@ -205,7 +205,9 @@ def runtime_for(tool_dir, runtimes):
     :param runtimes: the result of `dotnet_runtimes()`.
     :returns: a version such as "9.0.20", or a description when it can't be resolved.
     """
-    config = next(iter(sorted(tool_dir.glob(".store/**/Umbraco.Cli.runtimeconfig.json"))), None)
+    # Builds before the rename to Umbraco.Community.Cli ship Umbraco.Cli.runtimeconfig.json.
+    config = next(iter(sorted(tool_dir.glob(".store/**/Umbraco.Community.Cli.runtimeconfig.json"))), None) or \
+        next(iter(sorted(tool_dir.glob(".store/**/Umbraco.Cli.runtimeconfig.json"))), None)
     if config is None:
         return None
     options = json.loads(config.read_text(encoding="utf-8"))["runtimeOptions"]

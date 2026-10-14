@@ -1,0 +1,65 @@
+using System.CommandLine;
+using Umbraco.Community.Cli.Client;
+using Umbraco.Community.Cli.Infrastructure;
+
+namespace Umbraco.Community.Cli.Commands.Relations;
+
+/// <summary>
+/// Wires the read-only <c>relation</c> noun (issue #118). The generated client lists relations only
+/// by relation-type id, so <c>list</c> requires <c>--relation-type</c>.
+/// </summary>
+public static class RelationCommand
+{
+    /// <summary>Builds the <c>relation</c> noun with its <c>list</c> verb.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command("relation", "List relations of a relation type.").WithExamples(
+            "umbraco relation list --relation-type <relation-type-id>"
+        );
+        cmd.Add(BuildList(executor));
+        return cmd;
+    }
+
+    /// <summary>
+    /// Builds <c>relation list</c>. <c>--relation-type</c> takes the id or the alias that
+    /// <c>relation-type list</c> shows (#300); it was GUID-only, so the alias was a parse error.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    private static Command BuildList(CommandExecutor executor)
+    {
+        var cmd = new Command("list", "List the relations of a relation type.").WithExamples(
+            "umbraco relation list --relation-type relateDocumentOnCopy",
+            "umbraco relation list --relation-type <relation-type-id> --take 20"
+        );
+        var typeOpt = Reference.Option(
+            "--relation-type",
+            EntityKind.RelationType,
+            "The relation type to list relations for"
+        );
+        typeOpt.Required = true;
+        cmd.Add(typeOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunPagedAsync(
+                    parseResult,
+                    (client, skip, take, c) =>
+                        typeOpt.WithResolvedAsync(
+                            parseResult,
+                            client,
+                            id => client.GetRelationsByTypeAsync(id, skip, take, c),
+                            c
+                        ),
+                    new[] { "Parent", "Child", "Comment" },
+                    r => new[] { r.ParentName, r.ChildName, r.Comment ?? "" },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
+                    ct
+                )
+        );
+        return cmd;
+    }
+}

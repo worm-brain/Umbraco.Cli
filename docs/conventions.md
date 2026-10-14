@@ -176,14 +176,14 @@ disagree, this file wins; the older document is rationale that may be out of dat
 1. The summary (first line) is imperative, at most 80 characters, and ends with a full stop.
 2. Every option and argument has help text. Help text never cites issue numbers.
 3. Every leaf command has an `Examples:` block. Examples are data: declare them with
-   `.WithExamples("umbraco ...", ...)` (`CommandExamples` in `src/Umbraco.Cli/Infrastructure`),
+   `.WithExamples("umbraco ...", ...)` (`CommandExamples` in `src/Umbraco.Community.Cli/Infrastructure`),
    which renders the block into the help and lists the lines in `umbraco commands` as `examples`.
    Never write the block into the description by hand.
 4. One term per concept: "id" in prose (`guid` is the type name), "document type",
    "backoffice", "ISO code".
 5. Every example parses. A test runs each declared example through the real parser, so an
    example must be a real command line, using only the placeholders defined in
-   `ExamplePlaceholders` (`src/Umbraco.Cli/Infrastructure/ExamplePlaceholders.cs`), the one list
+   `ExamplePlaceholders` (`src/Umbraco.Community.Cli/Infrastructure/ExamplePlaceholders.cs`), the one list
    of them. Today that is:
    - a truncated id, eight hex digits then `-...` (`3f7a8b2e-...`), for any id;
    - `<id>`, `<guid>`, `<folder-id>`, `<version-id>`, `<relation-type-id>`, `<section-id>`

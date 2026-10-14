@@ -9,7 +9,7 @@
     spec, re-run scripts/regen-client.ps1 to regenerate the typed client.
 
     The spec's info.version is just "Latest", so the tested Umbraco range is
-    declared in src/Umbraco.Cli.Client/VersionSupport.cs (MinMajor/MaxMajor).
+    declared in src/Umbraco.Community.Cli.Client/VersionSupport.cs (MinMajor/MaxMajor).
     When the spec comes from a new Umbraco major, update those constants too;
     `auth doctor` and unexpected_response errors warn outside that range.
 

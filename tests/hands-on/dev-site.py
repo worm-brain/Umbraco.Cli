@@ -8,7 +8,7 @@ to work with. After that, `up` and `down` just start and stop it.
 
   up [--umbraco <ver>] [--nuget <ver>]   create sites/dev (first time) or start it
   down                                  stop it
-  test [dotnet test options...]         run tests/Umbraco.Cli.IntegrationTests against it (starts it first)
+  test [dotnet test options...]         run tests/Umbraco.Community.Cli.IntegrationTests against it (starts it first)
   env [--shell bash|pwsh]               print its host, credentials and test config
   reset [--umbraco <ver>] [--nuget <ver>]
                                         delete it and create it again
@@ -35,7 +35,7 @@ NAME = "dev"
 SITE_DIR = SITES / NAME
 TEST_CONFIG = SITE_DIR / "test-config.json"
 REPO = ROOT.parent.parent
-SUITE = REPO / "tests" / "Umbraco.Cli.IntegrationTests" / "Umbraco.Cli.IntegrationTests.csproj"
+SUITE = REPO / "tests" / "Umbraco.Community.Cli.IntegrationTests" / "Umbraco.Community.Cli.IntegrationTests.csproj"
 PY = sys.executable
 
 # A stand-in package that declares CLI support the way a real package would (docs/extensions.md), so
@@ -179,7 +179,7 @@ def test(a, extra):
     up(a)
     run_env = {k: v for k, v in os.environ.items() if not k.upper().startswith("UMBRACO_")}
     run_env["UMBRACO_TEST_CONFIG"] = str(TEST_CONFIG)
-    heading("Integration tests (tests/Umbraco.Cli.IntegrationTests)")
+    heading("Integration tests (tests/Umbraco.Community.Cli.IntegrationTests)")
     sys.exit(harness.run(["dotnet", "test", SUITE, *extra], cwd=REPO, env=run_env).returncode)
 
 

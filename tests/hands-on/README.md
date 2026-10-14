@@ -59,7 +59,7 @@ when you ask, and records every filed id in `ledger-history.json`.
 ## The dev site (live integration tests)
 
 `dev-site.py` keeps one persistent site, `sites/dev`, for day-to-day development: the live integration suite
-(`tests/Umbraco.Cli.IntegrationTests`) and `scripts/fetch-spec.ps1` use it instead of a hand-built instance.
+(`tests/Umbraco.Community.Cli.IntegrationTests`) and `scripts/fetch-spec.ps1` use it instead of a hand-built instance.
 
 ```bash
 python3 dev-site.py test                  # create sites/dev on first use (Part A fixture content), start it, run the suite

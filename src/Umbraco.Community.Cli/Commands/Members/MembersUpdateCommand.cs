@@ -1,0 +1,121 @@
+using System.CommandLine;
+using Umbraco.Community.Cli.Client;
+using Umbraco.Community.Cli.Infrastructure;
+
+namespace Umbraco.Community.Cli.Commands.Members;
+
+/// <summary>Wires the <c>member update</c> command (issue #59).</summary>
+public static class MembersUpdateCommand
+{
+    /// <summary>
+    /// Builds the <c>member update</c> command. Only the supplied options are changed — the
+    /// client reads the current member and merges them, so groups, property values and password
+    /// are preserved (the member PUT is otherwise a full replace).
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command("update", "Update a member's email, name, or approved state by id.")
+            .WithExamples(
+                "umbraco member update 3f7a8b2e-... --name \"Jane Roe\"",
+                "umbraco member update 3f7a8b2e-... --email jane@example.com --approved"
+            )
+            .Mutating();
+        var idArg = new Argument<Guid>("id") { Description = "Member ID." };
+        var emailOpt = new Option<string?>("--email") { Description = "New email address." };
+        var nameOpt = new Option<string?>("--name") { Description = "New display name." };
+        var approvedOpt = new Option<bool?>("--approved")
+        {
+            Description = "Set the member's approved state (--approved or --approved false).",
+        };
+        var usernameOpt = new Option<string?>("--username")
+        {
+            Description = "New login name. Often the email, but they are separate fields.",
+        };
+        var groupOpt = ListOption.Strings(
+            "--group",
+            "Member groups, by name or id. They REPLACE the member's groups - omit to leave them alone."
+        );
+        var valueOpt = new Option<string[]>("--value")
+        {
+            Description =
+                "Property values as alias=value. Repeatable. Merged into the member's existing values. An empty value (alias=) clears that property.",
+            AllowMultipleArgumentsPerToken = true,
+        };
+        var passwordOpt = new Option<string?>("--new-password")
+        {
+            Description = "Set a new password. No current password is required (admin reset).",
+        };
+        var unlockOpt = new Option<bool>("--unlock")
+        {
+            Description = "Clear a lockout caused by failed logins.",
+        };
+        cmd.Add(idArg);
+        cmd.Add(emailOpt);
+        cmd.Add(nameOpt);
+        cmd.Add(approvedOpt);
+        cmd.Add(usernameOpt);
+        cmd.Add(groupOpt);
+        cmd.Add(valueOpt);
+        cmd.Add(passwordOpt);
+        cmd.Add(unlockOpt);
+        KeyValuePairs.Validate(
+            cmd,
+            valueOpt,
+            "--value must be alias=value, e.g. company=Acme",
+            KeyValuePairs.PropertyAliases
+        );
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunObjectAsync(
+                    parseResult,
+                    async (client, c) =>
+                    {
+                        // #212: --group took only GUIDs, although member list --group takes a
+                        // name. Resolve every group before writing, so a typo changes nothing.
+                        IReadOnlyList<Guid>? groups = null;
+                        if (parseResult.GetValue(groupOpt) is { Length: > 0 } references)
+                        {
+                            var resolved = await client.ResolveIdsAsync(
+                                EntityKind.MemberGroup,
+                                references,
+                                c
+                            );
+                            if (!resolved.IsSuccess)
+                                return UmbracoResponse<MemberResponse>.FailureFrom(resolved);
+                            groups = resolved.Data;
+                        }
+
+                        return await client.UpdateMemberAsync(
+                            parseResult.GetValue(idArg),
+                            new UpdateMemberRequest
+                            {
+                                Email = parseResult.GetValue(emailOpt),
+                                Name = parseResult.GetValue(nameOpt),
+                                IsApproved = parseResult.GetValue(approvedOpt),
+                                Username = parseResult.GetValue(usernameOpt),
+                                Groups = groups,
+                                Values =
+                                [
+                                    .. KeyValuePairs
+                                        .Parse(parseResult.GetValue(valueOpt))
+                                        .Select(p => new ContentValue
+                                        {
+                                            Alias = p.Key,
+                                            Value = p.Value,
+                                        }),
+                                ],
+                                NewPassword = parseResult.GetValue(passwordOpt),
+                                IsLockedOut = parseResult.GetValue(unlockOpt) ? false : null,
+                            },
+                            c
+                        );
+                    },
+                    ct
+                )
+        );
+
+        return cmd;
+    }
+}

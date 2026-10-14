@@ -1,0 +1,67 @@
+using System.CommandLine;
+using Umbraco.Community.Cli.Client;
+using Umbraco.Community.Cli.Infrastructure;
+
+namespace Umbraco.Community.Cli.Commands.MemberTypes;
+
+/// <summary>Wires <c>member-type update</c>.</summary>
+public static class MemberTypesUpdateCommand
+{
+    /// <summary>
+    /// Builds the command. The flags change the type's scalars and keep everything else; a
+    /// <c>--json-body</c> (#213) carries properties and groups too, merged into the type like
+    /// <c>document-type update</c>.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command(
+            "update",
+            "Update a member type by id or alias.\n\nOmitted fields (and the type's properties) are preserved. With --json-body, the body's top-level keys (properties and containers included) are merged into the type; --replace sends it as the whole type."
+        )
+            .WithExamples(
+                "umbraco member-type update siteMember --name \"Author\" --icon icon-user",
+                "umbraco member-type get siteMember -o json | jq .data > mt.json",
+                "umbraco member-type update siteMember --json-body mt.json"
+            )
+            .Mutating();
+        var options = RawBodyCommand.AddUpdateOptions(cmd, SchemaNoun.MemberTypes, hasFlags: true);
+        var nameOpt = new Option<string?>("--name") { Description = "New name." };
+        var aliasOpt = new Option<string?>("--alias") { Description = "New alias." };
+        var descOpt = new Option<string?>("--description") { Description = "New description." };
+        var iconOpt = new Option<string?>("--icon")
+        {
+            Description = "New backoffice icon alias (e.g. icon-user).",
+        };
+        cmd.Add(nameOpt);
+        cmd.Add(aliasOpt);
+        cmd.Add(descOpt);
+        cmd.Add(iconOpt);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                RawBodyCommand.RunUpdateAsync(
+                    executor,
+                    parseResult,
+                    SchemaNoun.MemberTypes,
+                    options,
+                    "Member type updated.",
+                    (client, id, c) =>
+                        client.UpdateMemberTypeAsync(
+                            id,
+                            new UpdateMemberTypeRequest
+                            {
+                                Name = parseResult.GetValue(nameOpt),
+                                Alias = parseResult.GetValue(aliasOpt),
+                                Description = parseResult.GetValue(descOpt),
+                                Icon = parseResult.GetValue(iconOpt),
+                            },
+                            c
+                        ),
+                    ct
+                )
+        );
+
+        return cmd;
+    }
+}

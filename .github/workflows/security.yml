@@ -136,7 +136,7 @@ jobs:
           global-json-file: global.json
 
       - name: Pack
-        run: dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj -c Release -o ./nupkg
+        run: dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -c Release -o ./nupkg
 
       # Inspects the .nupkg so no secret material or unexpected file ships to NuGet.org.
       - name: Audit package contents

@@ -11,8 +11,8 @@ export, diff and apply engines. Three layers cover those, each where it can meas
 
 | Layer | Measures | Runs | Can fail a build? |
 |---|---|---|---|
-| [Request counts](../tests/Umbraco.Cli.Tests/RequestCounts/) | HTTP requests per command, against a fake Umbraco that records every request | `dotnet test`, on every pull request | Yes: exact counts |
-| [BenchmarkDotNet](../tests/Umbraco.Cli.Benchmarks/README.md) | CPU time and allocations of the CLI's own code, on in-memory fixtures | CI: pull requests labelled `performance`, weekly on `main`, on demand | Allocations: yes, more than 10% over `main`. Timings: no |
+| [Request counts](../tests/Umbraco.Community.Cli.Tests/RequestCounts/) | HTTP requests per command, against a fake Umbraco that records every request | `dotnet test`, on every pull request | Yes: exact counts |
+| [BenchmarkDotNet](../tests/Umbraco.Community.Cli.Benchmarks/README.md) | CPU time and allocations of the CLI's own code, on in-memory fixtures | CI: pull requests labelled `performance`, weekly on `main`, on demand | Allocations: yes, more than 10% over `main`. Timings: no |
 | [hyperfine](../tests/hands-on/README.md#benchmarks-benchpy) | End-to-end time per CLI version and Umbraco version | Locally, against the test harness's dev site | No: it reports |
 
 ### Request counts
@@ -25,29 +25,29 @@ They catch a command that starts making one request per item, a lost cache, or p
 than it needs. They can't see how long a request takes.
 
 ```bash
-dotnet test tests/Umbraco.Cli.Tests --filter "FullyQualifiedName~RequestCount"
+dotnet test tests/Umbraco.Community.Cli.Tests --filter "FullyQualifiedName~RequestCount"
 ```
 
 They need no Umbraco, and they run as part of every `dotnet test`.
 
 ### BenchmarkDotNet
 
-[`tests/Umbraco.Cli.Benchmarks`](../tests/Umbraco.Cli.Benchmarks/README.md) measures startup wiring, the output
+[`tests/Umbraco.Community.Cli.Benchmarks`](../tests/Umbraco.Community.Cli.Benchmarks/README.md) measures startup wiring, the output
 writers, response parsing, and the snapshot and diff engines on fixed in-memory data. The
 [Benchmarks workflow](../.github/workflows/benchmarks.yml) runs a pull request and `main` on the same runner and
 fails when a benchmark allocates more than 10% more per operation than `main`. Timings show in the job summary
 but never fail the build.
 
 ```bash
-dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- --filter "*" --job short
+dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*" --job short
 ```
 
 To compare two builds the way the CI gate does:
 
 ```bash
-dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- --filter "*" --job short --artifacts ./bench/before
+dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*" --job short --artifacts ./bench/before
 # ...make the change...
-dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- --filter "*" --job short --artifacts ./bench/after
+dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*" --job short --artifacts ./bench/after
 pwsh ./scripts/ci/benchmark-compare.ps1 -Baseline ./bench/before -Candidate ./bench/after -BaselineLabel before -CandidateLabel after
 ```
 

@@ -202,8 +202,10 @@ def main():
         install += ["--add-source", cli_source]
     if harness.run(install, cwd=site_dir, stdout=subprocess.DEVNULL).returncode:
         die(f"Installing Umbraco.Community.Cli {cli_ver} failed.")
-    dll = next(iter(sorted(cached.glob("tools/**/Umbraco.Cli.dll"))), None) or \
-        die(f"Couldn't locate Umbraco.Cli.dll for {cli_ver} in {packages}.")
+    # Builds before the rename to Umbraco.Community.Cli ship the assembly as Umbraco.Cli.dll.
+    dll = next(iter(sorted(cached.glob("tools/**/Umbraco.Community.Cli.dll"))), None) or \
+        next(iter(sorted(cached.glob("tools/**/Umbraco.Cli.dll"))), None) or \
+        die(f"Couldn't locate the CLI assembly for {cli_ver} in {packages}.")
 
     CLI_CONFIG.parent.mkdir(parents=True, exist_ok=True)
     write_site_files(site_dir, name, host, {"CLI_VERSION": cli_ver, "CLI_DLL": dll})

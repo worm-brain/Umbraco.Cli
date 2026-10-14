@@ -89,7 +89,7 @@ jobs:
           global-json-file: global.json
 
       - name: Pack
-        run: dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj -c Release -o ./nupkg
+        run: dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -c Release -o ./nupkg
 
       - name: Upload NuGet package
         uses: actions/upload-artifact@v7

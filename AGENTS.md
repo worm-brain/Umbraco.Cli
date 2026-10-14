@@ -45,17 +45,17 @@ dotnet build                                   # build the solution
 dotnet test                                    # run all tests
 dotnet test --filter "FullyQualifiedName~CommandExecutorTests"   # one test class
 dotnet test --filter "Name=RunObject_ApiFailure_WritesErrorAndReturnsOne"  # one test
-dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj -o ./nupkg        # build the tool package
+dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -o ./nupkg        # build the tool package
 dotnet tool install --global --add-source ./nupkg Umbraco.Community.Cli --prerelease  # install locally to test
 dotnet format                                  # or CSharpier - formatting standard for this repo is CSharpier
-dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- --filter "*"   # benchmarks, see its README
+dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*"   # benchmarks, see its README
 ```
 
 There is no linter beyond the compiler + analyzers; formatting is CSharpier.
 
 ### Live integration tests: use the dev site
 
-`tests/Umbraco.Cli.IntegrationTests` runs the built CLI against a live Umbraco instance, and
+`tests/Umbraco.Community.Cli.IntegrationTests` runs the built CLI against a live Umbraco instance, and
 skips every test when there is none. Don't rely on a hand-built instance (such as
 `https://localhost:45000`): use the harness's throwaway dev site, which any machine can create.
 
@@ -82,14 +82,14 @@ never carries a version. To move to a new .NET, change `global.json` and `Target
 
 ## Architecture
 
-Three projects (`Umbraco.Cli.sln`):
+Three projects (`Umbraco.Community.Cli.slnx`):
 
-- **`src/Umbraco.Cli`** - the executable: command tree, DI wiring, config, output writers.
-- **`src/Umbraco.Cli.Client`** - the typed HTTP client for the Management API. Isolated so
+- **`src/Umbraco.Community.Cli`** - the executable: command tree, DI wiring, config, output writers.
+- **`src/Umbraco.Community.Cli.Client`** - the typed HTTP client for the Management API. Isolated so
   the generated client can be regenerated when the Umbraco API changes without touching
   command logic. The client is a Kiota-generated `UmbracoApiClient` (under `Generated/`)
   wrapped by a thin hand-written `UmbracoManagementClient` adapter.
-- **`tests/Umbraco.Cli.Tests`** - xUnit tests.
+- **`tests/Umbraco.Community.Cli.Tests`** - xUnit tests.
 
 ### The command execution pipeline (the core pattern)
 
@@ -209,7 +209,7 @@ Sources of truth, in order:
 1. [`docs/conventions.md`](docs/conventions.md) - the design rules.
 2. [`docs/surface.json`](docs/surface.json) - the current surface, generated from the command
    tree. `SurfaceSnapshotTests` fails when it is stale; regenerate it with
-   `UPDATE_SURFACE=1 dotnet test tests/Umbraco.Cli.Tests --filter SurfaceSnapshotTests` and commit
+   `UPDATE_SURFACE=1 dotnet test tests/Umbraco.Community.Cli.Tests --filter SurfaceSnapshotTests` and commit
    it with the change, so every surface change is one reviewable diff.
 3. ADRs, plans and issue bodies - history and rationale, not requirements. An issue's plan is a
    snapshot of intent from when it was written.
