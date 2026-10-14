@@ -72,9 +72,9 @@ A command resolves each setting on its own, and the first source that has a valu
 | `allowedCommands` | Optional. A comma-separated list of the commands that may run; see [Command allow-list](#command-allow-list). |
 
 - **Secrets at rest.** On Windows the client secret is encrypted with DPAPI for the current user
-  (the stored value starts with `dpapi:`), so a copied file is useless to anyone else. On macOS and Linux the
-  secret is stored as is and the file is restricted to its owner (mode 600). A plaintext secret
-  left in a file on Windows is encrypted the next time the CLI reads it.
+  (the stored value starts with `dpapi:`), so a copied file is useless to anyone else. On macOS
+  and Linux the secret is stored as is and the file is restricted to its owner (mode 600). A
+  plaintext secret left in a file on Windows is encrypted the next time the CLI reads it.
 - **A file the CLI cannot read is never overwritten.** `auth login` refuses to save into it, so a
   damaged file cannot silently cost you your other profiles. Fix or remove it, then log in again.
 - An older file with `host`, `clientId` and `clientSecret` at the top level is read as a single
