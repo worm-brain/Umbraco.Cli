@@ -5,7 +5,7 @@ one we could have caught. There are **two tiers**, and they do different jobs:
 
 | Tier | What it is | When it runs | Deterministic? | Blocks a release? |
 | --- | --- | --- | --- | --- |
-| **1 - Automated gate** | CodeQL, dependency-vuln, secret and package scanning | Every PR, every push to `main`, every release tag, weekly, on demand | Yes - clean pass/fail | Yes |
+| **1 - Automated gate** | CodeQL, dependency-vuln, secret and package scanning | Every PR, every release tag, on demand | Yes - clean pass/fail | Yes |
 | **2 - Deep audit** | Threat model + adversarial whole-repo review + validated findings | Quarterly, and before any major or RC release | No - human-triaged | Only via confirmed findings promoted into Tier 1 |
 
 The two are deliberately different. Tier 1 must be fast, reproducible and quiet when nothing
@@ -23,15 +23,15 @@ Tracking issues: [#155](https://github.com/worm-brain/Umbraco.Cli/issues/155) (T
 
 Defined in [`.github/workflows/security.yml`](../.github/workflows/security.yml). Four
 independent jobs; any one failing fails the gate. On a release tag it runs inside
-[`publish.yml`](../.github/workflows/publish.yml) as a reusable workflow, and the NuGet
-publish job `needs:` it, so a red gate stops the release. The release gate skips CodeQL
-(code scanning is not enabled on the private repo); CodeQL still runs on PRs, `main` and
-the weekly schedule.
+[`release.yml`](../.github/workflows/release.yml) as a reusable workflow, and every later job
+depends on it, so a red gate stops the release. CodeQL runs whenever the repository is public,
+the release gate included: code scanning on a private repository needs paid GitHub Advanced
+Security.
 
 | Job | Tool | Fails when | Suppress an accepted finding via |
 | --- | --- | --- | --- |
 | CodeQL (C#) | `github/codeql-action`, `security-extended` | A new code-scanning alert | Dismiss the alert in the repo **Security -> Code scanning** tab |
-| NuGet vulnerabilities | `dotnet list package --vulnerable` | A package at/above the threshold (default High) | Add the advisory to [`security/nuget-audit-allowlist.txt`](../security/nuget-audit-allowlist.txt) |
+| NuGet vulnerabilities | `dotnet list package --vulnerable --include-transitive` (the tool ships its transitive packages) | A package at/above the threshold (default High), or a restore that fails | Add the advisory to [`security/nuget-audit-allowlist.txt`](../security/nuget-audit-allowlist.txt) |
 | Secret scan | gitleaks (pinned), full history | Any unignored secret in history | Add the fingerprint to [`.gitleaksignore`](../.gitleaksignore) |
 | Package hygiene | `dotnet pack` + content inspection | A key/cert/config file or secret pattern ships in the `.nupkg` | Fix the package - do not suppress |
 
@@ -43,11 +43,10 @@ entry with no expiry quietly becomes a permanent hole.
 The parsers are PowerShell so they behave identically in CI and on a dev box:
 
 ```powershell
-dotnet restore
-./scripts/ci/nuget-audit.ps1 -Threshold High      # dependency vulnerabilities
-./scripts/ci/secret-scan.ps1                       # history secret scan (downloads gitleaks)
-dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -c Release -o ./nupkg
-./scripts/ci/package-audit.ps1                     # package contents
+./.github/scripts/nuget-audit.ps1 -Threshold High -IncludeTransitive   # dependency vulnerabilities
+./.github/scripts/secret-scan.ps1                       # history secret scan (downloads gitleaks)
+dotnet pack Umbraco.Community.Cli.slnx -c Release -o artifacts
+./.github/scripts/package-audit.ps1 -PackageDir artifacts   # package contents
 ```
 
 CodeQL runs in CI only; to reproduce locally, use the CodeQL CLI with the same config file.
@@ -59,8 +58,8 @@ CodeQL runs in CI only; to reproduce locally, use the CodeQL CLI with the same c
   artifact, not hand-written code. It is covered instead at the supply-chain level (below).
 - CodeQL uses `build-mode: none` (buildless C# extraction) to avoid build flakiness. Switch to
   `build-mode: manual` if deeper dataflow extraction is ever needed.
-- **Hardening backlog** (not blockers): pin the gitleaks binary and the `ci.yml` actions by
-  immutable digest (`publish.yml` and `security.yml` already pin actions by commit SHA);
+- **Hardening backlog** (not blockers): pin the gitleaks binary by immutable digest (the
+  workflows already pin actions by commit SHA, except `benchmarks.yml`);
   add package signing / SBOM publication; raise the dependency threshold to Moderate
   once the baseline is clean.
 
@@ -171,7 +170,7 @@ review starts from real coordinates. The copy-paste prompt spec is in the append
 5. **Untrusted server responses** (`SEC-FS`, output half) - the CLI trusts the server's JSON
    and prints it. Look for terminal-escape injection in human/rendered output, unbounded
    response handling (memory), and any future feature that writes server-named files.
-6. **CI/CD & distribution** (`SEC-CICD`) - `ci.yml`, `publish.yml`, `security.yml`, the release
+6. **CI/CD & distribution** (`SEC-CICD`) - `ci.yml`, `release.yml`, `security.yml`, the release
    OIDC/Trusted-Publishing flow, action pinning. Look for: token/permission scope creep,
    unpinned or mutable actions, artifact tampering between pack and publish.
 7. **Package / supply chain** (`SEC-PKG`) - `scripts/fetch-spec.ps1` (dev-time spec fetch, has

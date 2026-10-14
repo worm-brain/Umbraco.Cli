@@ -1,86 +1,57 @@
+# Security gate (Tier 1 of the audit in docs/security-audit.md): CodeQL, a secret scan over the whole
+# git history, a NuGet vulnerability audit and a check of what the packed .nupkg contains. It runs on
+# pull requests and on demand, and release.yml calls it as its first job, so nothing is packed or
+# published from a tag that fails it. The deep, human-triaged audit (Tier 2) runs on a cadence, not here.
+#
+# An accepted finding is suppressed where it is reported, so it does not fail later runs:
+#   - CodeQL      -> dismiss the alert in the repository's Security tab.
+#   - Secret scan -> add the finding's fingerprint to .gitleaksignore (whole paths go in .gitleaks.toml).
+#   - NuGet audit -> add the advisory URL to security/nuget-audit-allowlist.txt, with who, why and when.
 name: Security
 
-# Tier-1 of the two-tier security audit (see docs/security-audit.md).
-#
-# A deterministic, rerunnable security gate: it produces a clean pass/fail on every PR,
-# every push to main, every release tag (via publish.yml, see below), and once a week. It
-# deliberately holds ONLY the checks that are reproducible and cheap enough to sit on the
-# critical path - CodeQL, dependency vulnerabilities, secret scanning and package
-# hygiene. The deep, human-triaged
-# adversarial audit (threat model, exploit construction) is Tier-2 and runs on a cadence,
-# NOT here (issue #156).
-#
-# Each check has a documented suppression path so an accepted finding does not re-fail
-# later runs, keeping reruns a diff rather than a re-litigation:
-#   - CodeQL           -> dismiss the alert in the repo Security tab (code scanning).
-#   - Secret scan      -> add the finding fingerprint to .gitleaksignore.
-#   - Dependency scan  -> add the advisory URL / package id to
-#                         security/nuget-audit-allowlist.txt (with a reason).
-
+# No push or scheduled runs, to save Actions minutes: pull requests, manual runs and every release.
 on:
   pull_request:
-    branches: [main]
-  push:
-    branches: [main]
-  # Release tags run this gate through publish.yml, which calls this file as a reusable
-  # workflow and makes its publish job `needs:` it (SEC-CICD-002). A separate tag trigger
-  # here would only produce a second, non-blocking run of the same checks, so there is
-  # deliberately none: a standalone Security run on a tag never gated anything.
   workflow_call:
-    inputs:
-      # publish.yml passes true to keep CodeQL out of the release gate (code scanning is
-      # not enabled on this private repo, so it would block every release). CodeQL still
-      # runs on PRs, pushes to main and the weekly schedule.
-      #
-      # Deliberately a negative "skip" flag rather than "include-codeql: default true":
-      # on the non-call triggers the inputs context is empty, and in Actions expressions
-      # null == false, so a positive flag cannot tell "not called" from "called with false".
-      # `!inputs.skip-codeql` is true for both null (not called) and false.
-      skip-codeql:
-        description: Skip the CodeQL job (used by the release gate in publish.yml).
-        type: boolean
-        default: false
-  # Weekly run catches newly-disclosed CVEs and CodeQL query updates even with no commit.
-  schedule:
-    - cron: "17 4 * * 1" # Mondays 04:17 UTC
   workflow_dispatch:
 
-# A newer push to the same ref cancels the in-progress run (matches ci.yml). The group
-# includes github.workflow - which is the CALLER's name ("Release") when publish.yml runs
-# this file - so a manual Security run on a tag ref can never cancel a release's gate.
+# A newer push to the same pull request cancels the older run. When release.yml calls this file,
+# github.workflow is the caller's name ("Release"), so a manual run can never cancel a release's gate.
 concurrency:
   group: security-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Least privilege by default; the CodeQL job widens its own permissions below. When this
-# file is called from publish.yml, the caller's job permissions cap these, so the caller
-# must grant at least what the CodeQL job asks for - even when the job is skipped, because
-# GitHub checks nested-job permissions when the run starts, before any `if:` is evaluated.
+# Least privilege; the CodeQL job widens its own. A caller must grant at least what the CodeQL job asks
+# for, even when the job is skipped, because GitHub checks a called workflow's permissions before any `if:`.
 #
-# Third-party actions are pinned to full commit SHAs (tag in the trailing comment) because
-# this workflow now sits on the release path; a repointed tag must not change what runs.
+# Actions are pinned to full commit SHAs (tag in the trailing comment) because this workflow gates
+# releases: a moved tag must not change what runs. Dependabot keeps the pins current.
 permissions:
   contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
   codeql:
     name: CodeQL (C#)
+    # Code scanning on a private repository needs paid GitHub Advanced Security, so CodeQL runs only while
+    # the repository is public. In a call from release.yml, `github.event` is the caller's tag push.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
-    # Skipped only when publish.yml calls this file with skip-codeql: true (see inputs).
-    if: ${{ !inputs.skip-codeql }}
     permissions:
-      security-events: write # upload SARIF results to code scanning
+      security-events: write # upload the results to code scanning
       actions: read
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # build-mode: none uses CodeQL's buildless C# extraction - no SDK or compile step
-      # needed, which removes the main source of CodeQL job flakiness. Switch to
-      # build-mode: manual (restore + build between init and analyze) if deeper dataflow
-      # extraction is ever required; see docs/security-audit.md.
+      # build-mode none extracts C# without a build, so no SDK or restore step is needed and a broken
+      # build cannot hide the analysis. Switch to build-mode manual (restore and build between init and
+      # analyze) if deeper data-flow extraction is ever needed; see docs/security-audit.md.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           languages: csharp
           build-mode: none
@@ -88,29 +59,9 @@ jobs:
           config-file: ./.github/codeql/codeql-config.yml
 
       - name: Analyze
-        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: "/language:csharp"
-
-  dependencies:
-    name: NuGet vulnerabilities
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-
-      - name: Restore
-        run: dotnet restore
-
-      # Fails on any restored package (direct or transitive) with a known vulnerability at
-      # or above the threshold, excluding advisories accepted in the allow-list.
-      - name: Audit vulnerable packages
-        shell: pwsh
-        run: ./scripts/ci/nuget-audit.ps1 -Threshold High
 
   secrets:
     name: Secret scan
@@ -118,27 +69,46 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0 # full history for a history-wide scan
+          fetch-depth: 0 # the whole history, not just the tip
 
       - name: Scan history for secrets
         shell: pwsh
-        run: ./scripts/ci/secret-scan.ps1
+        run: ./.github/scripts/secret-scan.ps1
+
+  dependencies:
+    name: NuGet vulnerabilities
+    runs-on: ubuntu-latest
+    env:
+      # NuGet's own restore-time audit is switched off here: with warnings as errors it would stop the
+      # restore at the first advisory, before the allowlist is read. The script below makes the call.
+      NuGetAudit: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      # Transitive packages too: unlike a library's, the CLI's dependencies ship inside the tool package.
+      - name: Audit vulnerable packages
+        shell: pwsh
+        run: ./.github/scripts/nuget-audit.ps1 -Threshold High -IncludeTransitive
 
   package:
-    name: Package hygiene
+    name: Package contents
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
 
       - name: Pack
-        run: dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -c Release -o ./nupkg
+        run: dotnet pack Umbraco.Community.Cli.slnx -c Release -o artifacts
 
-      # Inspects the .nupkg so no secret material or unexpected file ships to NuGet.org.
+      # Lists every file of the .nupkg and fails on key, certificate or settings files and on
+      # secret-like text, so nothing but the tool itself reaches nuget.org.
       - name: Audit package contents
         shell: pwsh
-        run: ./scripts/ci/package-audit.ps1
+        run: ./.github/scripts/package-audit.ps1 -PackageDir artifacts

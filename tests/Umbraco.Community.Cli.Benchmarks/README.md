@@ -85,7 +85,7 @@ diff.
 - on demand (Actions, Benchmarks, Run workflow).
 
 On a pull request it checks out the PR and `main` on the same runner, runs both with `--job short`,
-and compares them with [`scripts/ci/benchmark-compare.ps1`](../../scripts/ci/benchmark-compare.ps1):
+and compares them with [`.github/scripts/benchmark-compare.ps1`](../../.github/scripts/benchmark-compare.ps1):
 
 - **Allocations gate the build.** The job fails when a benchmark's allocated bytes per operation
   rise more than **10%** over `main`. Allocations are deterministic for a given input, so this
@@ -111,7 +111,7 @@ under any job.
 dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*" --job short --artifacts ./bench/before
 # ...make the change...
 dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*" --job short --artifacts ./bench/after
-pwsh ./scripts/ci/benchmark-compare.ps1 -Baseline ./bench/before -Candidate ./bench/after -BaselineLabel before -CandidateLabel after
+pwsh ./.github/scripts/benchmark-compare.ps1 -Baseline ./bench/before -Candidate ./bench/after -BaselineLabel before -CandidateLabel after
 ```
 
 ### When the gate fails

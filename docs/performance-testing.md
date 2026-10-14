@@ -48,7 +48,7 @@ To compare two builds the way the CI gate does:
 dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*" --job short --artifacts ./bench/before
 # ...make the change...
 dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*" --job short --artifacts ./bench/after
-pwsh ./scripts/ci/benchmark-compare.ps1 -Baseline ./bench/before -Candidate ./bench/after -BaselineLabel before -CandidateLabel after
+pwsh ./.github/scripts/benchmark-compare.ps1 -Baseline ./bench/before -Candidate ./bench/after -BaselineLabel before -CandidateLabel after
 ```
 
 ### hyperfine end to end

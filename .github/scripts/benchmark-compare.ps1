@@ -47,7 +47,7 @@
     Exit code 0 when no benchmark regressed (or there was no baseline), 1 otherwise.
 
 .EXAMPLE
-    ./scripts/ci/benchmark-compare.ps1 -Baseline ./bench/main -Candidate ./bench/pr
+    ./.github/scripts/benchmark-compare.ps1 -Baseline ./bench/main -Candidate ./bench/pr
 #>
 [CmdletBinding()]
 param(
