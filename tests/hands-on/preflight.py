@@ -42,8 +42,8 @@ def main():
         sdk_majors = {int(line.split(".")[0]) for line in sdks.splitlines() if line[:1].isdigit()}
         check(any(m >= 10 for m in sdk_majors), ".NET SDK 10+ (Umbraco 17 sites)",
               ".NET SDK 10 or later is required to build Umbraco 17 sites")
-        check("Microsoft.NETCore.App 9." in runtimes, ".NET 9 runtime (the CLI targets net9.0)",
-              ".NET 9 runtime is required to run the CLI (install the .NET 9 runtime alongside SDK 10)")
+        check("Microsoft.NETCore.App 10." in runtimes, ".NET 10 runtime (the CLI targets net10.0)",
+              ".NET 10 runtime is required to run the CLI (it comes with SDK 10)")
         check("Microsoft.AspNetCore.App 10." in runtimes, "ASP.NET Core 10 runtime", "ASP.NET Core 10 runtime is missing")
         trusted = harness.run(["dotnet", "dev-certs", "https", "--check", "--trust"], capture_output=True).returncode == 0
         check(trusted, "trusted HTTPS dev certificate",

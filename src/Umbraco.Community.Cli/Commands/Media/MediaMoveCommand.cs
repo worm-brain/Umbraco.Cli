@@ -1,0 +1,46 @@
+using System.CommandLine;
+using Umbraco.Community.Cli.Infrastructure;
+
+namespace Umbraco.Community.Cli.Commands.Media;
+
+/// <summary>Wires the <c>media move</c> command (issue #67).</summary>
+public static class MediaMoveCommand
+{
+    /// <summary>Builds the <c>media move</c> command (move a media item under a new folder).</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command("move", "Move a media item under a new parent folder.")
+            .WithExamples(
+                "umbraco media move 3f7a8b2e-... --parent 1a2b3c4d-...",
+                "umbraco media move 3f7a8b2e-...   # to the media root"
+            )
+            .Mutating();
+        var idArg = new Argument<Guid>("id") { Description = "Media item ID to move." };
+        var parentOpt = new Option<Guid?>("--parent", "--target")
+        {
+            Description = "Target folder ID. Moves to the media root if omitted.",
+        };
+        cmd.Add(idArg);
+        cmd.Add(parentOpt);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunMessageAsync(
+                    parseResult,
+                    (client, c) =>
+                        client
+                            .MoveMediaAsync(
+                                parseResult.GetValue(idArg),
+                                parseResult.GetValue(parentOpt),
+                                c
+                            )
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
+                    "Media moved.",
+                    ct
+                )
+        );
+
+        return cmd;
+    }
+}

@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "tools"))
 import harness  # noqa: E402
 
 REPO = harness.ROOT.parent.parent
-PROJ = REPO / "src" / "Umbraco.Cli" / "Umbraco.Cli.csproj"
+PROJ = REPO / "src" / "Umbraco.Community.Cli" / "Umbraco.Community.Cli.csproj"
 
 
 def main():

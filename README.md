@@ -1,4 +1,4 @@
-<img src="assets/umbraco-cli.svg" alt="Umbraco CLI logo" width="96" height="96">
+<img src="assets/icon/umbraco-cli.svg" alt="Umbraco CLI logo" width="96" height="96">
 
 # Umbraco.Cli
 
@@ -31,7 +31,7 @@ It runs on Windows, macOS and Linux.
 
 ## Install
 
-You'll need the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) or later and an
+You'll need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later and an
 Umbraco 17+ site.
 
 ```bash

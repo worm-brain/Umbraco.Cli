@@ -1,0 +1,8 @@
+<Project>
+  <!--
+    The harness scaffolds throwaway Umbraco sites under sites/. MSBuild would otherwise import the
+    repo root's Directory.Build.props into them, and its warnings-as-errors fails their restore on
+    advisories in Umbraco's own dependencies. This file stops that lookup: the sites build as a
+    fresh `dotnet new umbraco` site would.
+  -->
+</Project>

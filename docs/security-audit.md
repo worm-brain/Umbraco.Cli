@@ -46,7 +46,7 @@ The parsers are PowerShell so they behave identically in CI and on a dev box:
 dotnet restore
 ./scripts/ci/nuget-audit.ps1 -Threshold High      # dependency vulnerabilities
 ./scripts/ci/secret-scan.ps1                       # history secret scan (downloads gitleaks)
-dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj -c Release -o ./nupkg
+dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -c Release -o ./nupkg
 ./scripts/ci/package-audit.ps1                     # package contents
 ```
 
@@ -54,7 +54,7 @@ CodeQL runs in CI only; to reproduce locally, use the CodeQL CLI with the same c
 
 ### Scope choices worth knowing
 
-- The generated Kiota client (`src/Umbraco.Cli.Client/Generated/**`) is excluded from CodeQL
+- The generated Kiota client (`src/Umbraco.Community.Cli.Client/Generated/**`) is excluded from CodeQL
   ([`.github/codeql/codeql-config.yml`](../.github/codeql/codeql-config.yml)): it is a build
   artifact, not hand-written code. It is covered instead at the supply-chain level (below).
 - CodeQL uses `build-mode: none` (buildless C# extraction) to avoid build flakiness. Switch to
@@ -130,7 +130,7 @@ Write (or update from last time) a short threat model capturing:
 
 Give the reviewing agent permission to inspect the **whole repository**, not individual files:
 trace execution paths end to end, read configuration and DI wiring, build and run the tests,
-and read the CI definitions. Exclude `src/Umbraco.Cli.Client/Generated/**` from line-by-line
+and read the CI definitions. Exclude `src/Umbraco.Community.Cli.Client/Generated/**` from line-by-line
 review (audit it at the dependency/spec level instead).
 
 For a **diff-scoped** review between full audits, the `/security-review` skill in Claude Code
@@ -157,7 +157,7 @@ review starts from real coordinates. The copy-paste prompt spec is in the append
    input reads, media upload, static-file commands, extension commands. **Current state:** output
    paths come only from the operator's `--out`, never from server data, so no
    traversal/zip-slip sink exists *today*. There is exactly **one** deliberate process-execution
-   sink, `ExtensionProcess.RunAsync` (`src/Umbraco.Cli/Commands/Extensions/`), which runs an
+   sink, `ExtensionProcess.RunAsync` (`src/Umbraco.Community.Cli/Commands/Extensions/`), which runs an
    extension command, `umbraco-<noun>` from PATH, under the constraints of
    [ADR 0010](adr/0010-external-extension-commands.md): an exact lower-case kebab-case noun, only
    absolute PATH entries, never a shell (on Windows an `.exe` only, never `.cmd`/`.bat`), the
@@ -244,7 +244,7 @@ test and its tracking issue, so it must not change across reruns.
 - Lens:          OAuth / token handling
 - Severity:      High
 - Confidence:    Confirmed
-- Affected path: src/Umbraco.Cli/.../File.cs:123
+- Affected path: src/Umbraco.Community.Cli/.../File.cs:123
 - Attack scenario: <who does what, to achieve what>
 - Prerequisites: <access / config / timing needed>
 - Reproduction:  <exact PoC steps, command, or test name>
@@ -274,14 +274,14 @@ Run once per lens. Fill in `{LENS}`, `{FOCUS AREAS}` from Step 3, and `{RUN FOLD
 path printed by `new-audit-run.ps1`.
 
 ```
-You are performing an adversarial security review of the Umbraco.Cli .NET 9 CLI, lens: {LENS}.
+You are performing an adversarial security review of the Umbraco.Cli .NET 10 CLI, lens: {LENS}.
 Write your raw findings to {RUN FOLDER}/raw/{LENS}.md and add confirmed/probable entries to
 {RUN FOLDER}/report.md. Never write findings anywhere git-tracked - this is a public repo.
 
 Context: this CLI holds Umbraco Management API OAuth client-credentials and a bearer token,
 talks to a server over HTTP, and runs both interactively and unattended in CI (secrets in env
 vars) and under an AI-agent allow-list guardrail. The Umbraco server is an UNTRUSTED trust
-boundary in both directions. Ignore src/Umbraco.Cli.Client/Generated/** (generated code).
+boundary in both directions. Ignore src/Umbraco.Community.Cli.Client/Generated/** (generated code).
 
 Focus areas for this lens: {FOCUS AREAS}
 

@@ -1,0 +1,6 @@
+<Project>
+  <!--
+    Keeps the repo's central package management out of the sites the harness scaffolds under
+    sites/: their template csproj pins its own package versions.
+  -->
+</Project>

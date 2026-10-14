@@ -6,7 +6,7 @@ in and check it all works. Setting it up for a script, CI or an AI agent? The
 
 ## 1. Requirements
 
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) or later.
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) or later.
 - An Umbraco **17+** instance with the Management API enabled (it is on by default).
 - An **API User** on that instance (created in step 3).
 

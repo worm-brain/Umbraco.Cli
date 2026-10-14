@@ -1,0 +1,46 @@
+using System.CommandLine;
+using Umbraco.Community.Cli.Infrastructure;
+
+namespace Umbraco.Community.Cli.Commands.Content;
+
+/// <summary>Wires the <c>content delete</c> command.</summary>
+public static class ContentDeleteCommand
+{
+    /// <summary>
+    /// Builds the <c>content delete</c> command: a permanent delete that skips the recycle bin, so it asks to confirm.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command(
+            "delete",
+            "Delete a content item permanently, by id. This cannot be undone."
+        )
+            .WithExamples(
+                "umbraco content delete 3f7a8b2e-1234-5678-abcd-ef0123456789",
+                "umbraco content delete <id> --yes"
+            )
+            .Mutating();
+        var idArg = new Argument<Guid>("id") { Description = "Content item ID." };
+        cmd.Add(idArg);
+
+        cmd.Destructive(parseResult =>
+            $"Permanently delete content item {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunMessageAsync(
+                    parseResult,
+                    (client, c) =>
+                        client
+                            .DeleteContentAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
+                    "Content item deleted.",
+                    ct
+                )
+        );
+
+        return cmd;
+    }
+}

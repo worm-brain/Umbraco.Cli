@@ -1,6 +1,6 @@
 name: Benchmarks
 
-# BenchmarkDotNet suite (tests/Umbraco.Cli.Benchmarks) with an allocation gate (#409).
+# BenchmarkDotNet suite (tests/Umbraco.Community.Cli.Benchmarks) with an allocation gate (#409).
 #
 # The PR and main are built and run on the SAME runner, one after the other, and compared:
 # numbers stored from another machine would not be comparable. The job fails when a
@@ -65,7 +65,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 9.0.x
+          global-json-file: candidate/global.json
 
       # Both runs use `--job short` (BenchmarkDotNet's ShortRun: 1 launch, 3 warm-up and 3
       # measured iterations), which keeps two full runs well inside the timeout. Its timings
@@ -82,17 +82,17 @@ jobs:
         working-directory: baseline
         continue-on-error: true
         run: |
-          if [ ! -f tests/Umbraco.Cli.Benchmarks/Umbraco.Cli.Benchmarks.csproj ]; then
+          if [ ! -f tests/Umbraco.Community.Cli.Benchmarks/Umbraco.Community.Cli.Benchmarks.csproj ]; then
             echo "::notice::main has no benchmark project yet; the allocation gate is skipped for this run."
             exit 0
           fi
-          dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- \
+          dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- \
             --filter '*' --job short --artifacts "$RUNNER_TEMP/bench/baseline"
 
       - name: Run benchmarks (${{ env.CANDIDATE_LABEL }})
         working-directory: candidate
         run: |
-          dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- \
+          dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- \
             --filter '*' --job short --artifacts "$RUNNER_TEMP/bench/candidate"
 
       - name: Compare allocations and write the job summary

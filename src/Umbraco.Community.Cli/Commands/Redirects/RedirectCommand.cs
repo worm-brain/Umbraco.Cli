@@ -1,0 +1,158 @@
+using System.CommandLine;
+using Umbraco.Community.Cli.Client;
+using Umbraco.Community.Cli.Infrastructure;
+
+namespace Umbraco.Community.Cli.Commands.Redirects;
+
+/// <summary>
+/// Wires the <c>redirect</c> noun (issue #118): list tracked URL redirects (optionally for one
+/// document or filtered), show the tracking status, delete a redirect, and toggle URL tracking.
+/// <c>delete</c> and the tracking toggle are confirmation-gated.
+/// </summary>
+public static class RedirectCommand
+{
+    /// <summary>Builds the <c>redirect</c> noun with its verbs.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command("redirect", "List and manage tracked URL redirects.").WithExamples(
+            "umbraco redirect list --filter old-page",
+            "umbraco redirect tracking status"
+        );
+        cmd.Add(BuildList(executor));
+        cmd.Add(BuildDelete(executor));
+        cmd.Add(BuildTracking(executor));
+        return cmd;
+    }
+
+    private static Command BuildList(CommandExecutor executor)
+    {
+        var cmd = new Command(
+            "list",
+            "List redirects. With --content-item, lists redirects pointing at that document."
+        ).WithExamples(
+            "umbraco redirect list",
+            "umbraco redirect list --filter old-page",
+            "umbraco redirect list --content-item <id>"
+        );
+        var contentOpt = new Option<Guid?>("--content-item")
+        {
+            Description = "List redirects for this destination document (content key).",
+        };
+        var filterOpt = new Option<string?>("--filter")
+        {
+            Description = "Filter redirects by URL text (ignored with --content-item).",
+        };
+        cmd.Add(contentOpt);
+        cmd.Add(filterOpt);
+        var (skipOpt, takeOpt) = PagingOptions.Add(cmd);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunPagedAsync(
+                    parseResult,
+                    (client, skip, take, c) =>
+                    {
+                        return parseResult.GetValue(contentOpt) is { } key
+                            ? client.GetRedirectsForContentAsync(key, skip, take, c)
+                            : client.GetRedirectsAsync(
+                                parseResult.GetValue(filterOpt),
+                                skip,
+                                take,
+                                c
+                            );
+                    },
+                    ["Id", "OriginalUrl", "DestinationUrl", "Culture"],
+                    r =>
+                        new[] { r.Id.ToString(), r.OriginalUrl, r.DestinationUrl, r.Culture ?? "" },
+                    parseResult.GetValue(skipOpt),
+                    parseResult.GetValue(takeOpt),
+                    ct
+                )
+        );
+        return cmd;
+    }
+
+    private static Command BuildStatus(CommandExecutor executor)
+    {
+        var cmd = new Command(
+            "status",
+            "Show whether automatic URL-redirect tracking is enabled."
+        ).WithExamples("umbraco redirect tracking status");
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunObjectAsync(
+                    parseResult,
+                    (client, c) => client.GetRedirectStatusAsync(c),
+                    ct
+                )
+        );
+        return cmd;
+    }
+
+    private static Command BuildDelete(CommandExecutor executor)
+    {
+        var cmd = new Command("delete", "Delete a redirect by id.")
+            .WithExamples("umbraco redirect delete 3f7a8b2e-... --yes")
+            .Mutating();
+        var idArg = new Argument<Guid>("id") { Description = "Redirect ID." };
+        cmd.Add(idArg);
+        cmd.Destructive(parseResult => $"Delete redirect {parseResult.GetValue(idArg)}?");
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunMessageAsync(
+                    parseResult,
+                    (client, c) =>
+                        client
+                            .DeleteRedirectAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
+                    "Redirect deleted.",
+                    ct
+                )
+        );
+        return cmd;
+    }
+
+    private static Command BuildTracking(CommandExecutor executor)
+    {
+        var cmd = new Command(
+            "tracking",
+            "Show, enable or disable automatic URL-redirect tracking."
+        );
+        // The tracking state is read here, beside the switches that change it.
+        cmd.Add(BuildStatus(executor));
+        cmd.Add(BuildTrackingToggle(executor, "enable", enabled: true));
+        cmd.Add(BuildTrackingToggle(executor, "disable", enabled: false));
+        return cmd;
+    }
+
+    /// <summary>Builds a tracking <c>enable</c>/<c>disable</c> verb (a site-wide, confirmation-gated toggle).</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <param name="verb">The verb name (<c>enable</c> or <c>disable</c>).</param>
+    /// <param name="enabled">The tracking state the verb sets.</param>
+    /// <returns>The configured verb command.</returns>
+    private static Command BuildTrackingToggle(CommandExecutor executor, string verb, bool enabled)
+    {
+        var cmd = new Command(verb, $"{(enabled ? "Enable" : "Disable")} URL-redirect tracking.")
+            .WithExamples($"umbraco redirect tracking {verb}{(enabled ? "" : " --yes")}")
+            .Mutating();
+        // Only disabling is gated: it stops Umbraco recording redirects site-wide, so moved pages
+        // start to 404. Enabling turns a protection on and needs no --yes (#249).
+        if (!enabled)
+            cmd.Destructive(_ => "Disable URL-redirect tracking site-wide?");
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunMessageAsync(
+                    parseResult,
+                    // No target: the data is the state the switch left, as 'redirect tracking status' shows it.
+                    (client, c) =>
+                        client
+                            .SetRedirectTrackingAsync(enabled, c)
+                            .ThenRead(() => client.GetRedirectStatusAsync(c)),
+                    $"URL-redirect tracking {(enabled ? "enabled" : "disabled")}.",
+                    ct
+                )
+        );
+        return cmd;
+    }
+}

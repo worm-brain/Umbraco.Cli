@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Umbraco.Community.Cli.Client/Umbraco.Community.Cli.Client.csproj" />
+    <Project Path="src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Umbraco.Community.Cli.Benchmarks/Umbraco.Community.Cli.Benchmarks.csproj" />
+    <Project Path="tests/Umbraco.Community.Cli.IntegrationTests/Umbraco.Community.Cli.IntegrationTests.csproj" />
+    <Project Path="tests/Umbraco.Community.Cli.Tests/Umbraco.Community.Cli.Tests.csproj" />
+  </Folder>
+</Solution>

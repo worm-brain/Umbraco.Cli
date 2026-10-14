@@ -1,0 +1,79 @@
+using System.CommandLine;
+using Umbraco.Community.Cli.Client;
+using Umbraco.Community.Cli.Infrastructure;
+
+namespace Umbraco.Community.Cli.Commands.Templates;
+
+/// <summary>Wires the <c>template create</c> command (issue #59).</summary>
+public static class TemplatesCreateCommand
+{
+    /// <summary>
+    /// Builds the <c>template create</c> command. Content is the Razor view body; it defaults
+    /// to empty and can be supplied inline with <c>--content</c> or read from a file with
+    /// <c>--content-file</c>.
+    /// </summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command("create", "Create a Razor view template.")
+            .WithExamples(
+                "umbraco template create --name \"Blog Post\" --alias blogPost",
+                "umbraco template create --name Home --alias home --content-file ./home.cshtml"
+            )
+            .Mutating();
+        var nameOpt = new Option<string>("--name")
+        {
+            Required = true,
+            Description = "Display name of the new template.",
+        };
+        var aliasOpt = new Option<string>("--alias")
+        {
+            Required = true,
+            Description = "Alias of the new template, e.g. blogPost.",
+        };
+        var (contentOpt, contentFileOpt) = FileContentInput.Options(
+            "Razor view content (inline). Give this or --content-file, not both.",
+            "Path to a file whose contents become the Razor view, or - for stdin."
+        );
+        var idOpt = new Option<Guid?>("--id")
+        {
+            Description = "Optional client-supplied id, so a retried create is idempotent.",
+        };
+        cmd.Add(nameOpt);
+        cmd.Add(aliasOpt);
+        cmd.Add(contentOpt);
+        cmd.Add(contentFileOpt);
+        cmd.Add(idOpt);
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunObjectAsync(
+                    parseResult,
+                    async (client, c) =>
+                    {
+                        // Prefer --content-file when given; else --content; else empty.
+                        var content =
+                            await FileContentInput.ReadAsync(
+                                parseResult,
+                                contentOpt,
+                                contentFileOpt,
+                                ct
+                            ) ?? "";
+                        return await client.CreateTemplateAsync(
+                            new CreateTemplateRequest
+                            {
+                                Id = parseResult.GetValue(idOpt),
+                                Name = parseResult.GetValue(nameOpt)!,
+                                Alias = parseResult.GetValue(aliasOpt)!,
+                                Content = content,
+                            },
+                            c
+                        );
+                    },
+                    ct
+                )
+        );
+
+        return cmd;
+    }
+}

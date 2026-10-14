@@ -1,0 +1,61 @@
+using System.CommandLine;
+using Umbraco.Community.Cli.Commands.Auth;
+using Umbraco.Community.Cli.Commands.Content.Bulk;
+using Umbraco.Community.Cli.Infrastructure;
+
+namespace Umbraco.Community.Cli.Commands.Content;
+
+/// <summary>Wires the <c>content</c> noun: documents in the content tree.</summary>
+public static class ContentCommand
+{
+    /// <summary>Builds the <c>content</c> noun with its verbs.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command(
+            "content",
+            "Manage Umbraco content items (create, read, update, delete, publish)."
+        ).WithExamples(
+            "umbraco content list --output json",
+            "umbraco content get <id>",
+            "umbraco content create --document-type textPage --name \"My Page\"",
+            "umbraco content publish <id>"
+        );
+        cmd.Add(ContentListCommand.Build(executor));
+        cmd.Add(ContentTreeCommand.Build(executor));
+        cmd.Add(ContentFindCommand.Build(executor));
+        cmd.Add(ContentGetCommand.Build(executor));
+        cmd.Add(ContentCreateCommand.Build(executor));
+        cmd.Add(ContentUpdateCommand.Build(executor));
+        cmd.Add(ContentDeleteCommand.Build(executor));
+        cmd.Add(ContentPublishCommand.Build(executor));
+        cmd.Add(ContentDomainsCommand.Build(executor));
+        cmd.Add(ContentUnpublishCommand.Build(executor));
+        // A content item's versions are one sub-resource, so one sub-noun (docs/conventions.md 1.4).
+        var version = new Command(
+            "version",
+            "List, inspect and roll back a content item's versions."
+        ).WithExamples(
+            "umbraco content version list <id>",
+            "umbraco content version get <version-id>",
+            "umbraco content version rollback <version-id>"
+        );
+        version.Add(ContentVersionsCommand.Build(executor));
+        version.Add(ContentVersionCommand.Build(executor));
+        version.Add(ContentRollbackCommand.Build(executor));
+        cmd.Add(version);
+        cmd.Add(ContentTrashCommand.Build(executor));
+        cmd.Add(ContentRestoreCommand.Build(executor));
+        cmd.Add(ContentEmptyRecycleBinCommand.Build(executor));
+        cmd.Add(ContentMoveCommand.Build(executor));
+        cmd.Add(ContentSortCommand.Build(executor));
+        cmd.Add(ContentCopyCommand.Build(executor));
+        cmd.Add(ContentPublishDescendantsCommand.Build(executor));
+        cmd.Add(ContentBulkCommand.Build(executor));
+        cmd.Add(ContentExportCommand.Build(executor));
+        cmd.Add(ContentDiffCommand.Build(executor));
+        cmd.Add(ContentApplyCommand.Build(executor));
+        return cmd;
+    }
+}

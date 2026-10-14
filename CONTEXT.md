@@ -68,7 +68,7 @@ rather than guessed.
 ## Talking to Umbraco
 
 - **Generated client** - the Kiota request builders and models under
-  `src/Umbraco.Cli.Client/Generated`, produced from `spec/management.json` by
+  `src/Umbraco.Community.Cli.Client/Generated`, produced from `spec/management.json` by
   `scripts/regen-client.ps1`. Every Management API call goes through it.
 - **Contract test** - a fast unit test asserting that every endpoint the CLI depends on exists
   (path + verb) in the committed OpenAPI document. Catches **endpoint drift** (an endpoint moved,

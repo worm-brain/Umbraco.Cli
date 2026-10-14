@@ -1,0 +1,61 @@
+<Project>
+  <!-- Shared build settings and package metadata for every project in the repo. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+
+    <Authors>Jack Stunell</Authors>
+    <Copyright>Copyright (c) 2026 Jack Stunell</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/worm-brain/Umbraco.Cli</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/worm-brain/Umbraco.Cli</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- SourceLink is built into the .NET SDK; these make the symbols and sources reproducible. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'"
+      >true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- Shipped code (src/) carries XML docs; packable projects ship symbols packages. -->
+  <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('$([System.IO.Path]::DirectorySeparatorChar)src$([System.IO.Path]::DirectorySeparatorChar)'))">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- nuget.org needs a PNG or JPEG icon (no SVG); 128x128 is its recommended size. -->
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="$(MSBuildProjectDirectory.Contains('$([System.IO.Path]::DirectorySeparatorChar)src$([System.IO.Path]::DirectorySeparatorChar)'))">
+    <None
+      Include="$(MSBuildThisFileDirectory)assets\icon\umbraco-cli-128.png"
+      Pack="true"
+      PackagePath="icon.png"
+      Visible="false"
+    />
+    <!--
+      nuget.org renders no raw HTML and no relative links or images, and a published readme can't be
+      fixed without a release, so the package carries its own short readme with absolute links rather
+      than the GitHub README.
+    -->
+    <None
+      Include="$(MSBuildThisFileDirectory)assets\nuget\README.md"
+      Pack="true"
+      PackagePath="README.md"
+      Visible="false"
+    />
+  </ItemGroup>
+
+  <!-- Tests and benchmarks are never packed. -->
+  <PropertyGroup Condition="!$(MSBuildProjectDirectory.Contains('$([System.IO.Path]::DirectorySeparatorChar)src$([System.IO.Path]::DirectorySeparatorChar)'))">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>

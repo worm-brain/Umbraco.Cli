@@ -1,0 +1,37 @@
+using System.CommandLine;
+using Umbraco.Community.Cli.Infrastructure;
+
+namespace Umbraco.Community.Cli.Commands.Members;
+
+/// <summary>Wires the <c>member delete</c> command.</summary>
+public static class MembersDeleteCommand
+{
+    /// <summary>Builds the <c>member delete</c> command.</summary>
+    /// <param name="executor">The shared command executor.</param>
+    /// <returns>The configured command.</returns>
+    public static Command Build(CommandExecutor executor)
+    {
+        var cmd = new Command("delete", "Delete a member permanently, by id.")
+            .WithExamples("umbraco member delete 3f7a8b2e-...")
+            .Mutating();
+        var idArg = new Argument<Guid>("id") { Description = "Member id." };
+        cmd.Add(idArg);
+        cmd.Destructive(parseResult =>
+            $"Permanently delete member {parseResult.GetValue(idArg)}? This cannot be undone."
+        );
+        cmd.SetAction(
+            (parseResult, ct) =>
+                executor.RunMessageAsync(
+                    parseResult,
+                    (client, c) =>
+                        client
+                            .DeleteMemberAsync(parseResult.GetValue(idArg), c)
+                            .Then(ItemRef.Of(parseResult.GetValue(idArg))),
+                    "Member deleted.",
+                    ct
+                )
+        );
+
+        return cmd;
+    }
+}

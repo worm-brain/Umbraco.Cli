@@ -24,7 +24,7 @@ drive-by dependency bumps) will be closed unread. The full rules, and the reason
 
 ## What this is
 
-A cross-platform .NET 9 CLI (`umbraco`) for the Umbraco 17+ Management API, shipped as a
+A cross-platform .NET 10 CLI (`umbraco`) for the Umbraco 17+ Management API, shipped as a
 NuGet global tool (`Umbraco.Community.Cli`; the command is `umbraco`). It is designed to be
 driven both by humans (Spectre.Console tables) and by AI agents/scripts (structured JSON).
 JSON is the default output whenever stdout is not a TTY.
@@ -45,17 +45,20 @@ dotnet build                                   # build the solution
 dotnet test                                    # run all tests
 dotnet test --filter "FullyQualifiedName~CommandExecutorTests"   # one test class
 dotnet test --filter "Name=RunObject_ApiFailure_WritesErrorAndReturnsOne"  # one test
-dotnet pack src/Umbraco.Cli/Umbraco.Cli.csproj -o ./nupkg        # build the tool package
+dotnet pack src/Umbraco.Community.Cli/Umbraco.Community.Cli.csproj -o ./nupkg        # build the tool package
 dotnet tool install --global --add-source ./nupkg Umbraco.Community.Cli --prerelease  # install locally to test
-dotnet format                                  # or CSharpier - formatting standard for this repo is CSharpier
-dotnet run -c Release --project tests/Umbraco.Cli.Benchmarks -- --filter "*"   # benchmarks, see its README
+dotnet tool restore && dotnet csharpier format .   # format (CSharpier, pinned in .config/dotnet-tools.json)
+dotnet run -c Release --project tests/Umbraco.Community.Cli.Benchmarks -- --filter "*"   # benchmarks, see its README
 ```
 
-There is no linter beyond the compiler + analyzers; formatting is CSharpier.
+There is no linter beyond the compiler + analyzers. Warnings are errors and the `latest-recommended`
+analyzer set is on (`Directory.Build.props`); a rule is relaxed only in `.editorconfig`, scoped to the
+files it does not fit and with the reason beside it. The generated Kiota client is excluded from
+analysis. Formatting is CSharpier.
 
 ### Live integration tests: use the dev site
 
-`tests/Umbraco.Cli.IntegrationTests` runs the built CLI against a live Umbraco instance, and
+`tests/Umbraco.Community.Cli.IntegrationTests` runs the built CLI against a live Umbraco instance, and
 skips every test when there is none. Don't rely on a hand-built instance (such as
 `https://localhost:45000`): use the harness's throwaway dev site, which any machine can create.
 
@@ -72,23 +75,24 @@ with its own CLI config (`UMBRACO_TEST_CONFIG`, a single `dev` profile), so it n
 writes your personal `umbraco` profiles. On Windows type `python` for `python3`. See
 [`tests/hands-on/README.md`](tests/hands-on/README.md).
 
-### Keep the CI SDK and target framework in sync
+### One SDK and target framework
 
-`*.csproj` target `net9.0` and the CI workflows (`ci.yml`, `publish.yml`, `security.yml`,
-`benchmarks.yml`) pin `setup-dotnet` to `9.0.x`. If you bump the target framework, bump the
-`dotnet-version` in every workflow to match - an older SDK cannot build a newer target and CI
-will fail.
+`global.json` pins the SDK band, and every workflow's `setup-dotnet` reads it
+(`global-json-file`), so CI builds with the SDK you build with. The target framework (`net10.0`),
+the shared build settings and the package metadata live in `Directory.Build.props`; every package
+version lives in `Directory.Packages.props` (central package management), so a `PackageReference`
+never carries a version. To move to a new .NET, change `global.json` and `TargetFramework` together.
 
 ## Architecture
 
-Three projects (`Umbraco.Cli.sln`):
+Three projects (`Umbraco.Community.Cli.slnx`):
 
-- **`src/Umbraco.Cli`** - the executable: command tree, DI wiring, config, output writers.
-- **`src/Umbraco.Cli.Client`** - the typed HTTP client for the Management API. Isolated so
+- **`src/Umbraco.Community.Cli`** - the executable: command tree, DI wiring, config, output writers.
+- **`src/Umbraco.Community.Cli.Client`** - the typed HTTP client for the Management API. Isolated so
   the generated client can be regenerated when the Umbraco API changes without touching
   command logic. The client is a Kiota-generated `UmbracoApiClient` (under `Generated/`)
   wrapped by a thin hand-written `UmbracoManagementClient` adapter.
-- **`tests/Umbraco.Cli.Tests`** - xUnit tests.
+- **`tests/Umbraco.Community.Cli.Tests`** - xUnit tests.
 
 ### The command execution pipeline (the core pattern)
 
@@ -208,7 +212,7 @@ Sources of truth, in order:
 1. [`docs/conventions.md`](docs/conventions.md) - the design rules.
 2. [`docs/surface.json`](docs/surface.json) - the current surface, generated from the command
    tree. `SurfaceSnapshotTests` fails when it is stale; regenerate it with
-   `UPDATE_SURFACE=1 dotnet test tests/Umbraco.Cli.Tests --filter SurfaceSnapshotTests` and commit
+   `UPDATE_SURFACE=1 dotnet test tests/Umbraco.Community.Cli.Tests --filter SurfaceSnapshotTests` and commit
    it with the change, so every surface change is one reviewable diff.
 3. ADRs, plans and issue bodies - history and rationale, not requirements. An issue's plan is a
    snapshot of intent from when it was written.
