@@ -24,7 +24,7 @@ drive-by dependency bumps) will be closed unread. The full rules, and the reason
 
 ## What this is
 
-A cross-platform .NET 9 CLI (`umbraco`) for the Umbraco 17+ Management API, shipped as a
+A cross-platform .NET 10 CLI (`umbraco`) for the Umbraco 17+ Management API, shipped as a
 NuGet global tool (`Umbraco.Community.Cli`; the command is `umbraco`). It is designed to be
 driven both by humans (Spectre.Console tables) and by AI agents/scripts (structured JSON).
 JSON is the default output whenever stdout is not a TTY.
@@ -72,12 +72,13 @@ with its own CLI config (`UMBRACO_TEST_CONFIG`, a single `dev` profile), so it n
 writes your personal `umbraco` profiles. On Windows type `python` for `python3`. See
 [`tests/hands-on/README.md`](tests/hands-on/README.md).
 
-### Keep the CI SDK and target framework in sync
+### One SDK and target framework
 
-`*.csproj` target `net9.0` and the CI workflows (`ci.yml`, `publish.yml`, `security.yml`,
-`benchmarks.yml`) pin `setup-dotnet` to `9.0.x`. If you bump the target framework, bump the
-`dotnet-version` in every workflow to match - an older SDK cannot build a newer target and CI
-will fail.
+`global.json` pins the SDK band, and every workflow's `setup-dotnet` reads it
+(`global-json-file`), so CI builds with the SDK you build with. The target framework (`net10.0`),
+the shared build settings and the package metadata live in `Directory.Build.props`; every package
+version lives in `Directory.Packages.props` (central package management), so a `PackageReference`
+never carries a version. To move to a new .NET, change `global.json` and `TargetFramework` together.
 
 ## Architecture
 

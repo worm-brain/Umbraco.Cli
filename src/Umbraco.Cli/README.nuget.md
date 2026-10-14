@@ -17,7 +17,7 @@ script or a CI pipeline.
 
 ## Install
 
-You'll need the .NET 9 SDK or later and an Umbraco 17+ site.
+You'll need the .NET 10 SDK or later and an Umbraco 17+ site.
 
 ```bash
 dotnet tool install -g Umbraco.Community.Cli --prerelease

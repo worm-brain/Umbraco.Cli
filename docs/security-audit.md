@@ -274,7 +274,7 @@ Run once per lens. Fill in `{LENS}`, `{FOCUS AREAS}` from Step 3, and `{RUN FOLD
 path printed by `new-audit-run.ps1`.
 
 ```
-You are performing an adversarial security review of the Umbraco.Cli .NET 9 CLI, lens: {LENS}.
+You are performing an adversarial security review of the Umbraco.Cli .NET 10 CLI, lens: {LENS}.
 Write your raw findings to {RUN FOLDER}/raw/{LENS}.md and add confirmed/probable entries to
 {RUN FOLDER}/report.md. Never write findings anywhere git-tracked - this is a public repo.
 

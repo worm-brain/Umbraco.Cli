@@ -13,7 +13,7 @@ it can test destructive commands too.
 - [`uv`](https://docs.astral.sh/uv/). The scripts build on [umbraco-spawn-harness](https://github.com/worm-brain/umbraco-spawn-harness)
   (scaffold, unattended install, SQLite, admin user, start/stop), pinned in `pyproject.toml`. Run them with plain
   `python3` as below: they re-run themselves through `uv run`, which installs the pinned version on first use.
-- .NET SDK 10+ (Umbraco 17) **and** the .NET 9 runtime (the CLI targets net9.0)
+- .NET SDK 10+ (Umbraco 17 sites and the CLI, which targets net10.0)
 - A trusted HTTPS dev certificate: `dotnet dev-certs https --trust`. On Linux, `--trust` isn't supported everywhere: see
   [Microsoft's Linux instructions](https://learn.microsoft.com/aspnet/core/security/enforcing-ssl#trust-https-certificate-on-linux).
 - `git`; `gh` (authenticated) only for re-tests and filing issues

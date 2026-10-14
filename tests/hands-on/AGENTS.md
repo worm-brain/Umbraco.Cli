@@ -52,9 +52,9 @@ NuGet restores) and T5, which waits for Umbraco's scheduler.
 python3 preflight.py
 ```
 
-It checks: Python 3.9+, uv, git, .NET SDK 10+, the .NET 9 runtime (the CLI targets net9.0), the ASP.NET Core 10 runtime, a
+It checks: Python 3.9+, uv, git, .NET SDK 10+, the .NET 10 runtime (the CLI targets net10.0), the ASP.NET Core 10 runtime, a
 trusted HTTPS dev certificate, access to nuget.org, and free ports 44800+. Every line must be `pass` (`note` is informational:
-it flags a missing `bash`, `jq`, `curl` or `gh`, which the snippets and re-tests need). Typical fixes: `dotnet dev-certs https --trust`; install the .NET 9 runtime alongside SDK 10.
+it flags a missing `bash`, `jq`, `curl` or `gh`, which the snippets and re-tests need). Typical fix: `dotnet dev-certs https --trust`.
 
 ## Step 1 · Set up the round
 

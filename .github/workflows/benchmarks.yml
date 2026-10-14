@@ -65,7 +65,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 9.0.x
+          global-json-file: candidate/global.json
 
       # Both runs use `--job short` (BenchmarkDotNet's ShortRun: 1 launch, 3 warm-up and 3
       # measured iterations), which keeps two full runs well inside the timeout. Its timings

@@ -1,0 +1,34 @@
+<Project>
+  <!-- Central package management: every package version is declared once, here. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup Label="CLI">
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.9" />
+    <PackageVersion Include="Spectre.Console" Version="0.57.0" />
+    <PackageVersion Include="System.CommandLine" Version="2.0.0" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Kiota">
+    <!-- The generated client (src/.../Generated) is regenerated against these; bump them together. -->
+    <PackageVersion Include="Microsoft.Kiota.Abstractions" Version="2.0.0" />
+    <PackageVersion Include="Microsoft.Kiota.Http.HttpClientLibrary" Version="2.0.0" />
+    <PackageVersion Include="Microsoft.Kiota.Serialization.Form" Version="2.0.0" />
+    <PackageVersion Include="Microsoft.Kiota.Serialization.Json" Version="2.0.0" />
+    <PackageVersion Include="Microsoft.Kiota.Serialization.Multipart" Version="2.0.0" />
+    <PackageVersion Include="Microsoft.Kiota.Serialization.Text" Version="2.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.23" />
+  </ItemGroup>
+</Project>

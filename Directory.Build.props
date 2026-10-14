@@ -1,0 +1,21 @@
+<Project>
+  <!-- Shared build settings for every project in the repo. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+
+    <!-- SourceLink is built into the .NET SDK; these make the symbols and sources reproducible. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'"
+      >true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- Tests and benchmarks are never packed. -->
+  <PropertyGroup Condition="!$(MSBuildProjectDirectory.Contains('$([System.IO.Path]::DirectorySeparatorChar)src$([System.IO.Path]::DirectorySeparatorChar)'))">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+</Project>

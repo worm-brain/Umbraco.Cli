@@ -2,7 +2,8 @@ namespace Umbraco.Cli.IntegrationTests;
 
 /// <summary>
 /// Unit tests for <see cref="CliRunner.WithTestConfig"/>, which points the suite at a test config
-/// (the dev site's) instead of the developer's own. These need no live instance.
+/// (the dev site's) instead of the developer's own, and <see cref="CliRunner.LocateCliDll"/>, which
+/// finds the CLI the suite runs. These need no live instance.
 /// </summary>
 public sealed class CliRunnerTests
 {
@@ -44,5 +45,32 @@ public sealed class CliRunnerTests
 
         // Assert
         Assert.Equal(given, args);
+    }
+
+    [Fact]
+    public void LocateCliDll_FromThisTestOutput_FindsTheBuiltCli()
+    {
+        // Act
+        var path = CliRunner.LocateCliDll(AppContext.BaseDirectory);
+
+        // Assert
+        Assert.True(File.Exists(path), path);
+    }
+
+    [Fact]
+    public void LocateCliDll_OutsideTheRepo_Throws()
+    {
+        // Arrange
+        var outside = Directory.CreateTempSubdirectory().FullName;
+
+        try
+        {
+            // Act + Assert
+            Assert.Throws<FileNotFoundException>(() => CliRunner.LocateCliDll(outside));
+        }
+        finally
+        {
+            Directory.Delete(outside);
+        }
     }
 }

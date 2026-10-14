@@ -35,7 +35,9 @@ public sealed record CliResult(int ExitCode, string Stdout, string Stderr)
 /// </summary>
 public static class CliRunner
 {
-    private static readonly Lazy<string> CliDllPath = new(LocateCliDll);
+    private static readonly Lazy<string> CliDllPath = new(() =>
+        LocateCliDll(AppContext.BaseDirectory)
+    );
 
     /// <summary>
     /// Environment variable naming a CLI config file for the suite to use instead of the
@@ -132,18 +134,21 @@ public static class CliRunner
     /// to the repo root. The build configuration THIS test assembly was compiled in is tried
     /// first, so <c>dotnet test</c> (Debug) exercises the freshly-built Debug CLI rather than a
     /// possibly-stale Release build (and vice-versa) — otherwise a leftover Release binary
-    /// silently shadows the code under test.
+    /// silently shadows the code under test. Both projects share one target framework
+    /// (Directory.Build.props), so the CLI's output folder is named like this assembly's.
     /// </summary>
+    /// <param name="outputDirectory">This test assembly's output folder, whose name is the target framework.</param>
     /// <returns>The absolute path to the CLI assembly.</returns>
     /// <exception cref="FileNotFoundException">If no built CLI assembly is found.</exception>
-    private static string LocateCliDll()
+    internal static string LocateCliDll(string outputDirectory)
     {
 #if DEBUG
         var configs = new[] { "Debug", "Release" };
 #else
         var configs = new[] { "Release", "Debug" };
 #endif
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        var dir = new DirectoryInfo(outputDirectory);
+        var targetFramework = dir.Name;
         while (dir is not null)
         {
             foreach (var config in configs)
@@ -154,7 +159,7 @@ public static class CliRunner
                     "Umbraco.Cli",
                     "bin",
                     config,
-                    "net9.0",
+                    targetFramework,
                     "Umbraco.Cli.dll"
                 );
                 if (File.Exists(candidate))

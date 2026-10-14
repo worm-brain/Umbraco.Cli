@@ -1,3 +1,10 @@
+# Keep LF in the working tree for text files, so a Windows checkout matches CI.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.ico binary
+
 # Kiota-generated Management API client. Committed so CI/contributors do not
 # need a live Umbraco instance to build (see GitHub issue #50). Marked generated
 # so GitHub collapses it in diffs and excludes it from language stats. Regenerate

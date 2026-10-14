@@ -78,7 +78,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: 9.0.x
+          global-json-file: global.json
 
       - name: Restore
         run: dotnet restore
@@ -106,7 +106,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: 9.0.x
+          global-json-file: global.json
 
       # Derive the package version from the tag: strip the leading `v`.
       # `v1.2.3` -> `1.2.3`, `v1.2.3-rc.1` -> `1.2.3-rc.1`.
