@@ -30,17 +30,21 @@ namespace Umbraco.Community.Cli.Commands;
 /// </summary>
 public static class RawBodyCommand
 {
-    /// <summary>Adds the <c>--json-body</c> / <c>--schema</c> / <c>--example</c> options used by the raw schema verbs.</summary>
+    /// <summary>
+    /// Adds the <c>--json-body</c> / <c>--schema</c> / <c>--example</c> /
+    /// <c>--allow-unknown-keys</c> options used by the raw schema verbs.
+    /// </summary>
     /// <param name="cmd">The command to add them to.</param>
     /// <returns>The body option handle.</returns>
     public static JsonBodyOption AddBodyOptions(Command cmd)
     {
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) containing the Management API body. --schema "
-                + "prints its JSON Schema; --example prints a real one to start from.",
+                + "prints its JSON Schema; --example prints a real one to start from. A key the "
+                + "schema does not define fails the command.",
             "Print an existing item of this kind from the instance, as a worked example of the "
                 + "--json-body shape, and exit. Requires a host."
-        );
+        ).WithAllowUnknownKeys();
         body.AddTo(cmd);
         return body;
     }
@@ -156,7 +160,12 @@ public static class RawBodyCommand
                 parseResult,
                 async (client, c) =>
                     await CreateAsync(
-                        await ReadBodyAsync(body, parseResult, c),
+                        CheckKeys(
+                            await ReadBodyAsync(body, parseResult, c),
+                            noun,
+                            update: false,
+                            body.UnknownKeysAllowed(parseResult)
+                        ),
                         parseResult.GetValue(idOpt),
                         (json, token) => client.CreateSchemaRawAsync(noun.Kind, json, token),
                         (id, token) => client.GetSchemaRawAsync(noun.Kind, id, token),
@@ -318,7 +327,13 @@ public static class RawBodyCommand
                 parseResult,
                 async (client, c) =>
                 {
-                    var json = await ReadBodyAsync(options.Body, parseResult, c);
+                    // Checked before the reference is resolved, so a bad body sends nothing.
+                    var json = CheckKeys(
+                        await ReadBodyAsync(options.Body, parseResult, c),
+                        noun,
+                        update: true,
+                        options.Body.UnknownKeysAllowed(parseResult)
+                    );
                     return await client.WithResolvedAsync(
                         noun.Kind,
                         reference,
@@ -498,6 +513,43 @@ public static class RawBodyCommand
         ?? throw new InvalidInputException(
             "--json-body did not contain a JSON object. Run with --example to print a real one."
         );
+
+    /// <summary>
+    /// Refuses a <c>--json-body</c> with keys the verb's schema does not define, at any depth
+    /// (#460, ADR 0011). The server drops such keys without a word and reports success, so a
+    /// misspelt key or a wrong nested shape would look like a change that never happened. The
+    /// read-only keys <c>get</c> returns pass, so its output still round-trips. The check applies
+    /// to a merge and a <c>--replace</c> alike: both send the body's keys as given.
+    /// </summary>
+    /// <param name="body">The parsed body.</param>
+    /// <param name="noun">The schema noun.</param>
+    /// <param name="update">True for an update body, false for create.</param>
+    /// <param name="allowUnknownKeys">
+    /// <c>--allow-unknown-keys</c>: skip the check, for an Umbraco whose API has keys the bundled
+    /// spec lacks.
+    /// </param>
+    /// <returns><paramref name="body"/>, unchanged.</returns>
+    /// <exception cref="InvalidInputException">The body has a key the schema does not define.</exception>
+    internal static JsonNode CheckKeys(
+        JsonNode body,
+        SchemaNoun noun,
+        bool update,
+        bool allowUnknownKeys
+    )
+    {
+        if (allowUnknownKeys)
+            return body;
+        var unknown = ApiBodySchema.FindUnknownKeys(noun.Kind, update, body);
+        return unknown.Count == 0
+            ? body
+            : throw new InvalidInputException(
+                $"--json-body has {(unknown.Count == 1 ? "a key" : "keys")} the {noun.Singular} "
+                    + $"{(update ? "update" : "create")} schema does not define: "
+                    + $"{string.Join(", ", unknown)}. Umbraco would ignore "
+                    + $"{(unknown.Count == 1 ? "it" : "them")}. Run with --schema to see the "
+                    + "body's shape, or pass --allow-unknown-keys to send it as it is."
+            );
+    }
 
     /// <summary>
     /// Creates an item from a <c>--json-body</c> and returns it as saved (#204, #218, #285). The

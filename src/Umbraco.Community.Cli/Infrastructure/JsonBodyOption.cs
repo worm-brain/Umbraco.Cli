@@ -20,6 +20,7 @@ public sealed class JsonBodyOption
     private readonly Option<string?> _body;
     private readonly Option<bool> _schema;
     private readonly Option<bool>? _example;
+    private Option<bool>? _allowUnknownKeys;
 
     /// <summary>Builds the options.</summary>
     /// <param name="bodyDescription">Help text for <c>--json-body</c> (varies per verb).</param>
@@ -48,6 +49,22 @@ public sealed class JsonBodyOption
         return this;
     }
 
+    /// <summary>
+    /// Adds <c>--allow-unknown-keys</c>, for a command that checks its body's keys against the
+    /// schema before sending it (ADR 0011). Call before <see cref="AddTo"/>.
+    /// </summary>
+    /// <returns>This instance, for chaining.</returns>
+    public JsonBodyOption WithAllowUnknownKeys()
+    {
+        _allowUnknownKeys = new Option<bool>("--allow-unknown-keys")
+        {
+            Description =
+                "Send --json-body even when it has keys its --schema does not define, for an "
+                + "Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
+        };
+        return this;
+    }
+
     /// <summary>Adds the options to a command.</summary>
     /// <param name="cmd">The command to add the options to.</param>
     public void AddTo(Command cmd)
@@ -56,6 +73,19 @@ public sealed class JsonBodyOption
         cmd.Add(_schema);
         if (_example is not null)
             cmd.Add(_example);
+        if (_allowUnknownKeys is { } allow)
+        {
+            cmd.Add(allow);
+            // It only changes how a body is checked, so without one it would be silently ignored
+            // (docs/conventions.md 4.5).
+            cmd.Validators.Add(result =>
+            {
+                if (result.GetValue(allow) && !HasBody(result))
+                    result.AddError(
+                        "--allow-unknown-keys needs --json-body: it skips the body's key check."
+                    );
+            });
+        }
     }
 
     /// <summary>Whether <c>--schema</c> was given (a local describe-and-exit, like <c>--help</c>).</summary>
@@ -79,6 +109,12 @@ public sealed class JsonBodyOption
     /// <returns>True if a real item should be printed instead of running the command.</returns>
     public bool ExampleRequested(CommandResult result) =>
         _example is not null && result.GetValue(_example);
+
+    /// <summary>Whether <c>--allow-unknown-keys</c> was given; always false when the command has no such option.</summary>
+    /// <param name="result">The parsed command line.</param>
+    /// <returns>True if the body is sent without checking its keys.</returns>
+    public bool UnknownKeysAllowed(ParseResult result) =>
+        _allowUnknownKeys is not null && result.GetValue(_allowUnknownKeys);
 
     /// <summary>Whether a <c>--json-body</c> source was supplied.</summary>
     /// <param name="result">The parsed command line.</param>

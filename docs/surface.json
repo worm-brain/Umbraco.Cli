@@ -2193,7 +2193,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. A key the schema does not define fails the command.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2211,6 +2211,15 @@
               "name": "--example",
               "aliases": [],
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Send --json-body even when it has keys its --schema does not define, for an Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -2317,7 +2326,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. Required unless --schema or --example is used.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. A key the schema does not define fails the command. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2339,6 +2348,15 @@
               "name": "--example",
               "aliases": [],
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Send --json-body even when it has keys its --schema does not define, for an Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -2487,7 +2505,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. A key the schema does not define fails the command.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2505,6 +2523,15 @@
               "name": "--example",
               "aliases": [],
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Send --json-body even when it has keys its --schema does not define, for an Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -2613,7 +2640,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. Required unless --schema or --example is used.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. A key the schema does not define fails the command. Required unless --schema or --example is used.",
               "type": "string",
               "required": false,
               "hasDefault": false,
@@ -2635,6 +2662,15 @@
               "name": "--example",
               "aliases": [],
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Send --json-body even when it has keys its --schema does not define, for an Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -2791,7 +2827,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. A key the schema does not define fails the command.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2809,6 +2845,15 @@
               "name": "--example",
               "aliases": [],
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Send --json-body even when it has keys its --schema does not define, for an Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -2891,7 +2936,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. A key the schema does not define fails the command.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -2909,6 +2954,15 @@
               "name": "--example",
               "aliases": [],
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Send --json-body even when it has keys its --schema does not define, for an Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -3576,7 +3630,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. A key the schema does not define fails the command.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -3594,6 +3648,15 @@
               "name": "--example",
               "aliases": [],
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Send --json-body even when it has keys its --schema does not define, for an Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -4023,7 +4086,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. A key the schema does not define fails the command.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -4041,6 +4104,15 @@
               "name": "--example",
               "aliases": [],
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Send --json-body even when it has keys its --schema does not define, for an Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -4128,7 +4200,7 @@
             {
               "name": "--json-body",
               "aliases": [],
-              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from.",
+              "description": "Path to a JSON file (or - for stdin) containing the Management API body. --schema prints its JSON Schema; --example prints a real one to start from. A key the schema does not define fails the command.",
               "type": "string",
               "required": false,
               "hasDefault": false
@@ -4146,6 +4218,15 @@
               "name": "--example",
               "aliases": [],
               "description": "Print an existing item of this kind from the instance, as a worked example of the --json-body shape, and exit. Requires a host.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Send --json-body even when it has keys its --schema does not define, for an Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
               "type": "flag",
               "required": false,
               "hasDefault": true,

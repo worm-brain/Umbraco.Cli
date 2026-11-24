@@ -10,6 +10,12 @@ section as the GitHub Release notes.
 
 ### Changed
 
+- `create` and `update --json-body` on `document-type`, `media-type`, `member-type`, `data-type`
+  and `template` now fail with `invalid_argument` when the body has a key its `--schema` does not
+  define, at any depth, listing each key's JSON path, and send nothing. Umbraco used to drop such
+  keys and the command reported success. Edited `get` output is still accepted.
+  `--allow-unknown-keys` sends the body unchecked, for an Umbraco newer than the CLI's schema.
+
 - The CLI runs on .NET 10: install the .NET 10 SDK or runtime before updating. .NET 9 support ends
   in November 2026, and Umbraco 17 sites already run on .NET 10.
 - The tool's assembly is now `Umbraco.Community.Cli.dll`, matching the package name. The package id
