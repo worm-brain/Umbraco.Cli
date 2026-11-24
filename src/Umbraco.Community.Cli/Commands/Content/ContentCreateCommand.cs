@@ -22,7 +22,7 @@ public static class ContentCreateCommand
     /// <returns>The request.</returns>
     /// <exception cref="InvalidInputException">
     /// The body is not a JSON object, names no document type, its id contradicts <c>--id</c>, or a
-    /// value still holds an <c>--example</c> placeholder (#376).
+    /// value still holds an <c>--example</c> placeholder (#376), or a field has the wrong type (#459).
     /// </exception>
     internal static CreateContentRequest ReadCreateRequest(string json, Guid? id)
     {
@@ -53,7 +53,7 @@ public static class ContentCreateCommand
                 );
 
         var request =
-            obj.Deserialize<CreateContentRequest>()
+            JsonBodyModel.Deserialize<CreateContentRequest>(obj)
             ?? throw new InvalidInputException("Invalid JSON body.");
 
         return request with

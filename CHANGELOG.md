@@ -18,6 +18,14 @@ section as the GitHub Release notes.
 - Each release also publishes a symbols package (`.snupkg`) to nuget.org, and its GitHub Release
   notes come from this file.
 
+### Fixed
+
+- A wrong-typed field in `--json-body` on `content create` / `update`, `media update` and
+  `document-blueprint create` / `update` is now reported by its path and the shape it takes
+  (`contentType must be an object such as {"alias": "blogPost"} or {"id": "<guid>"}`), pointing
+  at `--schema`, instead of a serializer message naming an internal CLI type. A missing required
+  key (`documentType` on a blueprint) is reported the same way.
+
 ## Earlier releases
 
 The releases up to and including `0.1.0-rc.5` predate this file. Their notes are on the
