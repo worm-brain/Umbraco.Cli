@@ -55,7 +55,7 @@ public static class MediaUpdateCommand
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) with values and variants to merge; --name and "
                 + "--value are applied on top of it."
-        );
+        ).WithAllowUnknownKeys(typed: true);
         cmd.Add(idArg);
         cmd.Add(nameOpt);
         cmd.Add(valueOpt);
@@ -110,7 +110,11 @@ public static class MediaUpdateCommand
                     {
                         var request = body.HasBody(parseResult)
                             ? JsonBodyModel.Deserialize<UpdateMediaRequest>(
-                                await body.ReadAsync(parseResult, c)
+                                await body.ReadAsync(parseResult, c),
+                                body.UnknownKeysAllowed(parseResult),
+                                "the media update schema",
+                                // media get's output, edited, is a valid body (ADR 0011).
+                                typeof(MediaItemResponse)
                             ) ?? throw new InvalidInputException("Invalid JSON body.")
                             : new UpdateMediaRequest();
 

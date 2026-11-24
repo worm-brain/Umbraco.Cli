@@ -161,7 +161,7 @@ public static class DocumentBlueprintCommand
         };
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) with the full create body; the field flags go in the body instead."
-        );
+        ).WithAllowUnknownKeys(typed: true);
         var idOpt = new Option<Guid?>("--id")
         {
             Description = "Optional client-supplied id, so a retried create is idempotent.",
@@ -264,8 +264,14 @@ public static class DocumentBlueprintCommand
                         {
                             var json = await body.ReadAsync(parseResult, c);
                             request =
-                                JsonBodyModel.Deserialize<CreateDocumentBlueprintRequest>(json)
-                                ?? throw new InvalidInputException("Invalid JSON body.");
+                                JsonBodyModel.Deserialize<CreateDocumentBlueprintRequest>(
+                                    json,
+                                    body.UnknownKeysAllowed(parseResult),
+                                    "the document blueprint create schema",
+                                    // blueprint get prints the API's document shape, whose keys
+                                    // content get's shape covers position by position (ADR 0011).
+                                    typeof(ContentItemResponse)
+                                ) ?? throw new InvalidInputException("Invalid JSON body.");
                         }
                         else
                         {
@@ -328,7 +334,7 @@ public static class DocumentBlueprintCommand
         };
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) with the update body; merged into the blueprint unless --replace (overrides --name)."
-        );
+        ).WithAllowUnknownKeys(typed: true);
         // #242: content update merges and blueprint update replaced, so the same body lost fields
         // on one and not the other. Both merge now; --replace is the way to the old behaviour.
         var replaceOpt = new Option<bool>("--replace")
@@ -379,8 +385,12 @@ public static class DocumentBlueprintCommand
                         {
                             var json = await body.ReadAsync(parseResult, c);
                             request =
-                                JsonBodyModel.Deserialize<UpdateDocumentBlueprintRequest>(json)
-                                ?? throw new InvalidInputException("Invalid JSON body.");
+                                JsonBodyModel.Deserialize<UpdateDocumentBlueprintRequest>(
+                                    json,
+                                    body.UnknownKeysAllowed(parseResult),
+                                    "the document blueprint update schema",
+                                    typeof(ContentItemResponse)
+                                ) ?? throw new InvalidInputException("Invalid JSON body.");
                         }
                         else
                         {

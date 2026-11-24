@@ -542,12 +542,11 @@ public static class RawBodyCommand
         var unknown = ApiBodySchema.FindUnknownKeys(noun.Kind, update, body);
         return unknown.Count == 0
             ? body
-            : throw new InvalidInputException(
-                $"--json-body has {(unknown.Count == 1 ? "a key" : "keys")} the {noun.Singular} "
-                    + $"{(update ? "update" : "create")} schema does not define: "
-                    + $"{string.Join(", ", unknown)}. Umbraco would ignore "
-                    + $"{(unknown.Count == 1 ? "it" : "them")}. Run with --schema to see the "
-                    + "body's shape, or pass --allow-unknown-keys to send it as it is."
+            : throw JsonBodyKeys.Error(
+                unknown,
+                $"the {noun.Singular} {(update ? "update" : "create")} schema",
+                "Umbraco",
+                "send it as it is"
             );
     }
 

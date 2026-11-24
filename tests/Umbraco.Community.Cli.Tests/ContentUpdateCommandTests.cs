@@ -128,6 +128,172 @@ public class ContentUpdateCommandTests
         );
     }
 
+    // ── unknown keys in the typed bodies (#474) ───────────────────────────────
+
+    /// <summary>Runs a command line with stdout and stderr captured.</summary>
+    /// <param name="fake">The fake client.</param>
+    /// <param name="args">The command line, with <c>{body}</c> replaced by the temp file path.</param>
+    /// <param name="body">The JSON body to write.</param>
+    /// <returns>The exit code, stdout and stderr.</returns>
+    private static async Task<(int Exit, string Out, string Err)> RunCapturingAsync(
+        FakeUmbracoManagementClient fake,
+        string args,
+        string body
+    )
+    {
+        var (out_, err) = (Console.Out, Console.Error);
+        var (stdout, stderr) = (new StringWriter(), new StringWriter());
+        Console.SetOut(stdout);
+        Console.SetError(stderr);
+        try
+        {
+            var exit = await RunAsync(fake, args + " --output json", body);
+            return (exit, stdout.ToString(), stderr.ToString());
+        }
+        finally
+        {
+            Console.SetOut(out_);
+            Console.SetError(err);
+        }
+    }
+
+    [Fact]
+    public async Task Update_JsonBodyWithUnknownKeys_FailsWithTheirPathsAndSendsNothing()
+    {
+        // Arrange
+        var fake = new FakeUmbracoManagementClient();
+
+        // Act
+        var (exit, _, err) = await RunCapturingAsync(
+            fake,
+            $"content update {Id} --json-body {{body}}",
+            """{"valuez":[{"alias":"title","value":"x"}],"variants":[{"culture":null,"nmae":"x"}]}"""
+        );
+
+        // Assert
+        var error = System.Text.Json.Nodes.JsonNode.Parse(err)!;
+        Assert.Equal(
+            (1, "invalid_argument", true, true),
+            (
+                exit,
+                error["category"]!.GetValue<string>(),
+                error["message"]!
+                    .GetValue<string>()
+                    .Contains("$.valuez, $.variants[0].nmae", StringComparison.Ordinal),
+                fake.LastUpdate is null
+            )
+        );
+    }
+
+    [Fact]
+    public async Task Create_JsonBodyWithAnUnknownKey_FailsAndSendsNothing()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var (exit, _, err) = await RunCapturingAsync(
+            fake,
+            "content create --json-body {body}",
+            """{"contentType":{"alias":"blogPost"},"variants":[{"name":"P"}],"parnet":null}"""
+        );
+
+        Assert.Equal(
+            (1, true, true),
+            (exit, err.Contains("$.parnet", StringComparison.Ordinal), fake.LastCreate is null)
+        );
+    }
+
+    [Fact]
+    public async Task Update_ContentGetOutputWrittenBack_IsApplied()
+    {
+        // Arrange: a document with every key content get prints, read through content get itself.
+        var fake = new FakeUmbracoManagementClient();
+        fake.ContentById[Id] = new ContentItemResponse
+        {
+            Id = Id,
+            Name = "Home",
+            DocumentType = new ContentTypeRef
+            {
+                Id = Guid.NewGuid(),
+                Alias = "home",
+                Icon = "icon-home",
+                Collection = new ContentParentReference { Id = Guid.NewGuid() },
+            },
+            Parent = new ContentParentReference { Id = Guid.NewGuid() },
+            Urls = [new UrlInfo { Culture = "en-US", Url = "/" }],
+            IsPublished = true,
+            Flags = [new FlagResponse { Alias = "Umb.ScheduledForPublish" }],
+            UpdateDate = DateTimeOffset.UnixEpoch,
+            Values =
+            [
+                new ContentValueResponse
+                {
+                    Alias = "title",
+                    Culture = "en-US",
+                    EditorAlias = "Umbraco.TextBox",
+                    Value = "Welcome",
+                },
+            ],
+            Variants =
+            [
+                new ContentVariantResponse
+                {
+                    Culture = "en-US",
+                    Name = "Home",
+                    State = "Published",
+                    CreateDate = DateTimeOffset.UnixEpoch,
+                    UpdateDate = DateTimeOffset.UnixEpoch,
+                    PublishDate = DateTimeOffset.UnixEpoch,
+                    ScheduledPublishDate = DateTimeOffset.UnixEpoch,
+                    ScheduledUnpublishDate = DateTimeOffset.UnixEpoch,
+                    Id = Guid.NewGuid(),
+                    Flags = [new FlagResponse { Alias = "Umb.ScheduledForPublish" }],
+                },
+            ],
+            Template = new ContentTemplateReference { Id = Guid.NewGuid(), Alias = "home" },
+        };
+        var (_, got, _) = await RunCapturingAsync(fake, $"content get {Id}", "{}");
+        var edited = System.Text.Json.Nodes.JsonNode.Parse(got)!["data"]!;
+        edited["variants"]![0]!["name"] = "Start";
+
+        // Act
+        var exit = await RunAsync(
+            fake,
+            $"content update {Id} --json-body {{body}}",
+            edited.ToJsonString()
+        );
+
+        // Assert
+        Assert.Equal((0, "Start"), (exit, fake.LastUpdate!.Value.Request.Variants.Single().Name));
+    }
+
+    [Fact]
+    public async Task Update_AllowUnknownKeys_AppliesTheKnownKeysAndDropsTheRest()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(
+            fake,
+            $"content update {Id} --json-body {{body}} --allow-unknown-keys",
+            """{"valuez":[],"variants":[{"culture":null,"name":"Kept"}]}"""
+        );
+
+        Assert.Equal((0, "Kept"), (exit, fake.LastUpdate!.Value.Request.Variants.Single().Name));
+    }
+
+    [Fact]
+    public async Task Update_AllowUnknownKeysWithoutABody_IsAParseError()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var exit = await RunAsync(
+            fake,
+            $"content update {Id} --template home --allow-unknown-keys",
+            "{}"
+        );
+
+        Assert.Equal((false, true), (exit == 0, fake.LastUpdate is null));
+    }
+
     // content restore shares this harness too (#230).
 
     [Fact]

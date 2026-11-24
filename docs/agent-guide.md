@@ -48,7 +48,8 @@ everywhere: print the JSON Schema of that body and exit. It's local (no host or 
 `data-type`, `template`) the schema comes from the Management API spec. An `update` schema
 requires no key, because the body is merged. Their `create` and `update` also hold the body to
 that schema's keys: a key it doesn't define fails the command (see
-[Authoring schema](#authoring-schema)).
+[Authoring schema](#authoring-schema)). The same holds for `content`, `media` and
+`document-blueprint` bodies (see [Editing content](#editing-content)).
 
 Those nouns also take `--example`, which prints a **real** item from the instance (or a minimal
 valid body on a site that has none). It's usually the best starting point for a body you'll edit.
@@ -433,6 +434,14 @@ hold in full. The template survives `--replace` too; change it with `--template 
 
 `--dry-run` prints the body the server will receive - the quickest way to check a merge does what
 you expect.
+
+A body key that `--schema` doesn't define, at any depth, fails with `invalid_argument` before
+anything is sent, listing each one's JSON path (`$.variants[0].nmae`). This applies to
+`content create` / `update`, `media update` and `document-blueprint create` / `update`. Fix the
+key against `--schema`; don't retry the same body. The keys `get` prints are accepted, so edited
+`content get` or `media get` output, a blueprint `scaffold` and `content create --example` output
+go back as they are. `--allow-unknown-keys` ignores unknown keys instead of failing, but it
+can't send them: these commands read the body into the CLI's own request.
 
 See [commands.md](commands.md#property-value-formats-for---json-body) for the value shape each
 property editor expects.

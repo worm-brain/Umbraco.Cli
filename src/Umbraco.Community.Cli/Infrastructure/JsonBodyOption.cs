@@ -53,14 +53,21 @@ public sealed class JsonBodyOption
     /// Adds <c>--allow-unknown-keys</c>, for a command that checks its body's keys against the
     /// schema before sending it (ADR 0011). Call before <see cref="AddTo"/>.
     /// </summary>
+    /// <param name="typed">
+    /// True when the command reads the body into its own request type (content, media,
+    /// blueprints): the unknown keys cannot be sent then, so the flag only stops them failing the
+    /// command, and its help says so.
+    /// </param>
     /// <returns>This instance, for chaining.</returns>
-    public JsonBodyOption WithAllowUnknownKeys()
+    public JsonBodyOption WithAllowUnknownKeys(bool typed = false)
     {
         _allowUnknownKeys = new Option<bool>("--allow-unknown-keys")
         {
-            Description =
-                "Send --json-body even when it has keys its --schema does not define, for an "
-                + "Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
+            Description = typed
+                ? "Ignore keys in --json-body that its --schema does not define, instead of "
+                    + "failing. They are not sent: the body is read into the CLI's own request."
+                : "Send --json-body even when it has keys its --schema does not define, for an "
+                    + "Umbraco whose API is newer than this CLI. Otherwise such keys fail the command.",
         };
         return this;
     }

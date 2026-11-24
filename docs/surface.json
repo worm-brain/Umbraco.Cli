@@ -535,6 +535,15 @@
               "required": false,
               "hasDefault": true,
               "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Ignore keys in --json-body that its --schema does not define, instead of failing. They are not sent: the body is read into the CLI's own request.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
             }
           ],
           "commands": [],
@@ -599,6 +608,15 @@
               "name": "--schema",
               "aliases": [],
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Ignore keys in --json-body that its --schema does not define, instead of failing. They are not sent: the body is read into the CLI's own request.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -1748,6 +1766,15 @@
               "name": "--schema",
               "aliases": [],
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Ignore keys in --json-body that its --schema does not define, instead of failing. They are not sent: the body is read into the CLI's own request.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
@@ -7350,6 +7377,15 @@
               "default": false
             },
             {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Ignore keys in --json-body that its --schema does not define, instead of failing. They are not sent: the body is read into the CLI's own request.",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
               "name": "--id",
               "aliases": [],
               "description": "Optional client-supplied id, so a retried create is idempotent.",
@@ -7434,6 +7470,15 @@
               "name": "--schema",
               "aliases": [],
               "description": "Print the JSON Schema of the --json-body request and exit (no host needed).",
+              "type": "flag",
+              "required": false,
+              "hasDefault": true,
+              "default": false
+            },
+            {
+              "name": "--allow-unknown-keys",
+              "aliases": [],
+              "description": "Ignore keys in --json-body that its --schema does not define, instead of failing. They are not sent: the body is read into the CLI's own request.",
               "type": "flag",
               "required": false,
               "hasDefault": true,
