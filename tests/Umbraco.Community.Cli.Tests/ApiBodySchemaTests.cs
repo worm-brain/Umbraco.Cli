@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Umbraco.Community.Cli.Client;
+using Umbraco.Community.Cli.Commands;
 using Umbraco.Community.Cli.Infrastructure;
 
 namespace Umbraco.Community.Cli.Tests;
@@ -90,6 +91,184 @@ public class ApiBodySchemaTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             ApiBodySchema.For(EntityKind.Template, update: false)
         );
+    }
+
+    // ── Unknown keys (#460) ─────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("""{ "allowedTemplatez": [] }""", "$.allowedTemplatez")]
+    [InlineData(
+        """{ "allowedTemplates": [{ "template": { "id": "c17eef11-0000-0000-0000-000000000000" } }] }""",
+        "$.allowedTemplates[0].template"
+    )]
+    [InlineData(
+        """{ "properties": [{ "alias": "title", "validation": { "mandatory": true, "required": true } }] }""",
+        "$.properties[0].validation.required"
+    )]
+    [InlineData(
+        """{ "collection": { "id": "c17eef11-0000-0000-0000-000000000000", "alias": "list" } }""",
+        "$.collection.alias"
+    )]
+    [InlineData("""{ "odd key": 1 }""", "$['odd key']")]
+    public void FindUnknownKeys_DocumentTypeUpdateWithAnUnknownKey_ReturnsItsPath(
+        string body,
+        string path
+    )
+    {
+        var unknown = ApiBodySchema.FindUnknownKeys(
+            EntityKind.DocumentType,
+            update: true,
+            JsonNode.Parse(body)!
+        );
+
+        Assert.Equal([path], unknown);
+    }
+
+    [Fact]
+    public void FindUnknownKeys_SeveralUnknownKeys_ReturnsEveryPathInDocumentOrder()
+    {
+        var body = JsonNode.Parse(
+            """{ "nmae": "x", "values": [{ "alias": "a", "value": 1, "vlaue": 2 }] }"""
+        )!;
+
+        var unknown = ApiBodySchema.FindUnknownKeys(EntityKind.DataType, update: true, body);
+
+        Assert.Equal(["$.nmae", "$.values[0].vlaue"], unknown);
+    }
+
+    [Fact]
+    public void FindUnknownKeys_KnownKeysAndNulls_ReturnsNothing()
+    {
+        var body = JsonNode.Parse(
+            """
+            { "name": "Blog post", "collection": null, "allowedTemplates": [{ "id": "c17eef11-0000-0000-0000-000000000000" }],
+              "cleanup": { "preventCleanup": false, "keepAllVersionsNewerThanDays": null } }
+            """
+        )!;
+
+        var unknown = ApiBodySchema.FindUnknownKeys(EntityKind.DocumentType, update: true, body);
+
+        Assert.Empty(unknown);
+    }
+
+    [Fact]
+    public void FindUnknownKeys_DataTypeValueOfAnyShape_IsNotChecked()
+    {
+        // An editor's configuration value is free-form in the spec ("value": {}), so its keys are
+        // whatever the editor takes.
+        var body = JsonNode.Parse(
+            """{ "values": [{ "alias": "blocks", "value": [{ "contentElementTypeKey": "x", "anything": true }] }] }"""
+        )!;
+
+        var unknown = ApiBodySchema.FindUnknownKeys(EntityKind.DataType, update: true, body);
+
+        Assert.Empty(unknown);
+    }
+
+    [Fact]
+    public void FindUnknownKeys_ReadOnlyKeyFromGetAtTheTopLevel_IsAccepted()
+    {
+        var body = JsonNode.Parse(
+            """{ "id": "c17eef11-0000-0000-0000-000000000000", "isDeletable": true, "canIgnoreStartNodes": false }"""
+        )!;
+
+        var unknown = ApiBodySchema.FindUnknownKeys(EntityKind.DataType, update: true, body);
+
+        Assert.Empty(unknown);
+    }
+
+    [Fact]
+    public void FindUnknownKeys_ReadOnlyKeyNameBelowTheTopLevel_IsRejected()
+    {
+        var body = JsonNode.Parse("""{ "values": [{ "alias": "a", "isDeletable": true }] }""")!;
+
+        var unknown = ApiBodySchema.FindUnknownKeys(EntityKind.DataType, update: true, body);
+
+        Assert.Equal(["$.values[0].isDeletable"], unknown);
+    }
+
+    /// <summary>
+    /// The hands-on fixture is a schema export from a real Umbraco 17 site: every item in it is the
+    /// verbatim <c>get</c> body. Each must pass both its update and (where there is one) its create
+    /// check, or editing <c>get</c> output and writing it back would break.
+    /// </summary>
+    [Theory]
+    [InlineData("documentTypes", EntityKind.DocumentType, true)]
+    [InlineData("documentTypes", EntityKind.DocumentType, false)]
+    [InlineData("mediaTypes", EntityKind.MediaType, true)]
+    [InlineData("mediaTypes", EntityKind.MediaType, false)]
+    [InlineData("memberTypes", EntityKind.MemberType, true)]
+    [InlineData("memberTypes", EntityKind.MemberType, false)]
+    [InlineData("dataTypes", EntityKind.DataType, true)]
+    [InlineData("dataTypes", EntityKind.DataType, false)]
+    [InlineData("templates", EntityKind.Template, true)]
+    public void FindUnknownKeys_RealGetBodies_ReturnsNothing(
+        string section,
+        EntityKind kind,
+        bool update
+    )
+    {
+        // Arrange
+        var fixture = JsonNode.Parse(
+            File.ReadAllText(
+                Path.Combine(TestPaths.RepoRoot(), "tests", "hands-on", "fixtures", "schema.json")
+            )
+        )!;
+        var items = fixture[section]!.AsArray();
+
+        // Act
+        var unknown = items.SelectMany(item => ApiBodySchema.FindUnknownKeys(kind, update, item!));
+
+        // Assert
+        Assert.NotEmpty(items);
+        Assert.Empty(unknown);
+    }
+
+    [Theory]
+    [InlineData(EntityKind.DocumentType)]
+    [InlineData(EntityKind.MediaType)]
+    [InlineData(EntityKind.MemberType)]
+    [InlineData(EntityKind.DataType)]
+    public void FindUnknownKeys_MinimalExampleBody_ReturnsNothing(EntityKind kind)
+    {
+        // --example prints this on a site with no items of the kind; it must create as it is.
+        var body = RawBodyCommand.MinimalBody(kind)!;
+
+        Assert.Empty(ApiBodySchema.FindUnknownKeys(kind, update: false, body));
+    }
+
+    [Theory]
+    [InlineData(
+        EntityKind.DocumentType,
+        "DocumentTypeResponseModel",
+        "UpdateDocumentTypeRequestModel"
+    )]
+    [InlineData(EntityKind.MediaType, "MediaTypeResponseModel", "UpdateMediaTypeRequestModel")]
+    [InlineData(EntityKind.MemberType, "MemberTypeResponseModel", "UpdateMemberTypeRequestModel")]
+    [InlineData(EntityKind.DataType, "DataTypeResponseModel", "UpdateDataTypeRequestModel")]
+    [InlineData(EntityKind.Template, "TemplateResponseModel", "UpdateTemplateRequestModel")]
+    public void ReadOnlyKeys_Kind_AreTheResponseModelKeysTheUpdateModelLacks(
+        EntityKind kind,
+        string response,
+        string update
+    )
+    {
+        // Arrange
+        var schemas = JsonNode.Parse(
+            File.ReadAllText(Path.Combine(TestPaths.RepoRoot(), "spec", "management.json"))
+        )!["components"]!["schemas"]!;
+        var updateKeys = schemas[update]!["properties"]!.AsObject().Select(p => p.Key).ToHashSet();
+        var expected = schemas[response]!["properties"]!
+            .AsObject()
+            .Select(p => p.Key)
+            .Where(k => !updateKeys.Contains(k))
+            .Order(StringComparer.Ordinal);
+
+        // Act
+        var actual = ApiBodySchema.ReadOnlyKeys(kind).Order(StringComparer.Ordinal);
+
+        // Assert
+        Assert.Equal(expected, actual);
     }
 
     // ── Generation (OpenAPI 3.0 component -> JSON Schema 2020-12 document) ────────────

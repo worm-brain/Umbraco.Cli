@@ -612,8 +612,8 @@ umbraco media apply ./media-snapshot --prune --yes         # also trash what the
 umbraco media-type list
 umbraco media-type get <id|alias|name>                   # the full Management API body: properties, groups, allowed children
 umbraco media-type create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root]
-umbraco media-type create --json-body <file> [--id <guid>]
-umbraco media-type update <id|alias|name> --json-body <file> [--replace]   # merged into the type; --replace needs --yes
+umbraco media-type create --json-body <file> [--id <guid>] [--allow-unknown-keys]
+umbraco media-type update <id|alias|name> --json-body <file> [--replace] [--allow-unknown-keys]   # merged into the type; --replace needs --yes
 umbraco media-type create --schema | --example            # the body's JSON Schema (offline), or a real media type (needs a host)
 umbraco media-type delete <id|alias|name> [--force]                # deletes every media item of the type too; refused while items (recycle bin included) or compositions use it unless --force; --yes non-interactively
 ```
@@ -624,8 +624,8 @@ umbraco media-type delete <id|alias|name> [--force]                # deletes eve
 umbraco document-type list
 umbraco document-type get <alias|id>                       # the full Management API body - a valid update --json-body
 umbraco document-type create --name <name> --alias <alias> [--icon <alias>] [--is-element] [--allow-at-root] [--description <text>] [--id <guid>]
-umbraco document-type create --json-body <file> [--id <guid>]  # full Management API body: properties, groups, compositions; returns the saved type, as get prints it
-umbraco document-type update <alias|id> --json-body <file> [--replace]   # merged into the type; --replace sends the whole type and needs --yes
+umbraco document-type create --json-body <file> [--id <guid>] [--allow-unknown-keys]  # full Management API body: properties, groups, compositions; returns the saved type, as get prints it
+umbraco document-type update <alias|id> --json-body <file> [--replace] [--allow-unknown-keys]   # merged into the type; --replace sends the whole type and needs --yes
 umbraco document-type create --schema                      # the create body's JSON Schema, from the Management API spec (offline)
 umbraco document-type create --example                     # a real document type (a minimal one on an empty site) to start from (needs a host)
 umbraco document-type delete <id|alias> [--force]                # deletes every document of the type too; refused while documents (recycle bin included) or compositions use it, or for an element type, unless --force; --yes non-interactively
@@ -655,15 +655,23 @@ an `id` in the body. On a site with no document types yet, `--example` prints a 
 rather than failing. The same applies to `data-type`, `media-type`, `member-type` and
 `template`. All take the alias (or name) or the id.
 
+A body key the schema does not define fails the command before anything is sent: exit 1,
+`invalid_argument`, and the JSON path of every such key, at any depth
+(`$.allowedTemplates[0].template`, `$.allowedTemplatez`). Umbraco would otherwise ignore the key and
+report success. The read-only keys `get` prints (`id`, and `isDeletable`, `aliasCanBeChanged`,
+`canIgnoreStartNodes` or `masterTemplate` where the kind has them) are accepted, so `get` output
+still goes back as it is. Values are not checked; the server rejects a bad one. For an Umbraco
+whose API has keys newer than this CLI's schema, `--allow-unknown-keys` sends the body unchecked.
+
 ## `data-type`
 
 ```bash
 umbraco data-type list [--parent <folder>]                # includes editorAlias (one read per 40 items) and the folder as parent
 umbraco data-type get <name|id>                           # by NAME (a data type has no alias); the full body, configuration included
 umbraco data-type create --name <name> --editor-alias <alias> --editor-ui-alias <alias>
-umbraco data-type create --json-body <file> [--id <guid>]  # full body, including the editor's `values` configuration; returns the saved data type, as get prints it
+umbraco data-type create --json-body <file> [--id <guid>] [--allow-unknown-keys]  # full body, including the editor's `values` configuration; returns the saved data type, as get prints it
 umbraco data-type update <name|id> [--name <name>] [--editor-alias <alias>] [--editor-ui-alias <alias>]
-umbraco data-type update <name|id> --json-body <file> [--replace]   # merged; the only way to set `values`; --replace needs --yes
+umbraco data-type update <name|id> --json-body <file> [--replace] [--allow-unknown-keys]   # merged; the only way to set `values`; --replace needs --yes
 umbraco data-type create --schema | --example             # the body's JSON Schema (offline), or a real data type (needs a host)
 umbraco data-type delete <id|name> [--force]                  # refused while in use unless --force (deletes the properties and their values); --yes non-interactively
 umbraco data-type is-used <id|name>                       # whether any content type uses it
@@ -719,7 +727,7 @@ umbraco template list                                     # every template, nest
 umbraco template get <id|alias>                          # includes the view `content`
 umbraco template create --name <name> --alias <alias> [--content <razor> | --content-file <file>]
 umbraco template update <id|alias> [--name <name>] [--alias <alias>] [--content <razor> | --content-file <file>]   # omitted fields are kept
-umbraco template update <id|alias> --json-body <file> [--replace]   # the body `template get` prints, merged; --replace needs --yes
+umbraco template update <id|alias> --json-body <file> [--replace] [--allow-unknown-keys]   # the body `template get` prints, merged; --replace needs --yes
 umbraco template delete <id|alias> [--force]              # refused while a document type allows or defaults to it unless --force; --yes non-interactively
 ```
 
@@ -750,9 +758,9 @@ alias + culture + segment, so setting one does not clear the rest. Two exception
 umbraco member-type list
 umbraco member-type get <id|alias>                       # the full body, properties and groups included
 umbraco member-type create --name <name> --alias <alias> [--icon <alias>]
-umbraco member-type create --json-body <file> [--id <guid>]
+umbraco member-type create --json-body <file> [--id <guid>] [--allow-unknown-keys]
 umbraco member-type update <id|alias> [--name <name>] [--alias <alias>] [--description <desc>] [--icon <alias>]
-umbraco member-type update <id|alias> --json-body <file> [--replace]   # merged into the type; --replace needs --yes
+umbraco member-type update <id|alias> --json-body <file> [--replace] [--allow-unknown-keys]   # merged into the type; --replace needs --yes
 umbraco member-type delete <id|alias> [--force]               # refused while it has members unless --force (deletes them); --yes non-interactively
 ```
 

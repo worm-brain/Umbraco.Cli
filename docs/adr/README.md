@@ -18,3 +18,4 @@ something an earlier ADR decided (see [AGENTS.md](../../AGENTS.md)).
 | [0008](0008-media-export-diff-apply.md) | Media export, diff and apply pipeline | Accepted |
 | [0009](0009-package-declared-cli-capabilities.md) | Packages declare CLI support in their Umbraco manifest | Accepted |
 | [0010](0010-external-extension-commands.md) | External extension commands and the guarded API passthrough | Accepted |
+| [0011](0011-reject-unknown-json-body-keys.md) | Reject unknown keys in the schema nouns' --json-body | Accepted |

@@ -46,7 +46,9 @@ everywhere: print the JSON Schema of that body and exit. It's local (no host or 
 `--output` (you always get a bare JSON Schema document, not the envelope), and the allow-list and
 `--readonly` never block it. For the schema nouns (`document-type`, `media-type`, `member-type`,
 `data-type`, `template`) the schema comes from the Management API spec. An `update` schema
-requires no key, because the body is merged.
+requires no key, because the body is merged. Their `create` and `update` also hold the body to
+that schema's keys: a key it doesn't define fails the command (see
+[Authoring schema](#authoring-schema)).
 
 Those nouns also take `--example`, which prints a **real** item from the instance (or a minimal
 valid body on a site that has none). It's usually the best starting point for a body you'll edit.
@@ -454,6 +456,13 @@ value, and a key you send replaces it whole. Pass `--replace` (with `--yes`) to 
 the whole item. `--schema` prints the body's JSON Schema, and `--example` prints a real item from
 the instance to start from (it needs a host; on a site with none yet, it prints a minimal valid
 body). Both `update` and `create` return the resulting item.
+
+A key the body's schema doesn't define, at any depth, fails with `invalid_argument` before
+anything is sent, and the message lists each one's JSON path (`$.allowedTemplates[0].template`).
+Fix the key or the nesting against `--schema`; don't retry the same body. The read-only keys `get`
+prints (`id`, `isDeletable` and the like) are accepted, so edited `get` output goes back as it is.
+Only if the site runs a newer Umbraco whose API has a key the CLI's schema lacks, pass
+`--allow-unknown-keys` to send the body unchecked.
 
 A blueprint's scaffold is a valid content body:
 `document-blueprint scaffold <id> | umbraco content create --json-body -` creates a new item from

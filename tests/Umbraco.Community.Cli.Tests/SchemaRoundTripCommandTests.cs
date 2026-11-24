@@ -78,18 +78,34 @@ public class SchemaRoundTripCommandTests
         string body = "{}"
     )
     {
+        var (exit, output, _) = await RunCapturingErrors(fake, args, body);
+        return (exit, output);
+    }
+
+    /// <summary>As <see cref="Run"/>, also returning stderr, where the error envelope goes.</summary>
+    /// <param name="fake">The fake client.</param>
+    /// <param name="args">The command line.</param>
+    /// <param name="body">The JSON body for <c>{body}</c>.</param>
+    /// <returns>The exit code, stdout and stderr.</returns>
+    private static async Task<(int Exit, string Out, string Err)> RunCapturingErrors(
+        FakeUmbracoManagementClient fake,
+        string args,
+        string body = "{}"
+    )
+    {
         var path = Path.Combine(Path.GetTempPath(), $"body-{Guid.NewGuid()}.json");
         await File.WriteAllTextAsync(path, body);
         var (out_, err) = (Console.Out, Console.Error);
         var sw = new StringWriter();
+        var ew = new StringWriter();
         Console.SetOut(sw);
-        Console.SetError(new StringWriter());
+        Console.SetError(ew);
         try
         {
             var exit = await BuildRoot(fake)
                 .Parse($"--host https://x --token t --output json {args.Replace("{body}", path)}")
                 .InvokeAsync();
-            return (exit, sw.ToString());
+            return (exit, sw.ToString(), ew.ToString());
         }
         finally
         {
@@ -199,6 +215,161 @@ public class SchemaRoundTripCommandTests
                 fake.LastSchemaMerge.Value.Mode
             )
         );
+    }
+
+    // ── unknown keys are refused before anything is sent (#460) ──────────────
+
+    [Theory]
+    [InlineData(
+        """{"allowedTemplates":[{"template":{"id":"c17eef11-0000-0000-0000-000000000000"}}]}""",
+        "$.allowedTemplates[0].template"
+    )]
+    [InlineData("""{"allowedTemplatez":[]}""", "$.allowedTemplatez")]
+    public async Task Update_BodyWithAnUnknownKey_FailsWithItsPathAndSendsNothing(
+        string body,
+        string path
+    )
+    {
+        // Arrange
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.DocumentType, "probe")] = Id;
+
+        // Act
+        var (exit, _, err) = await RunCapturingErrors(
+            fake,
+            "document-type update probe --json-body {body}",
+            body
+        );
+
+        // Assert
+        var error = JsonNode.Parse(err)!;
+        Assert.Equal(
+            (1, "invalid_argument", true, 0),
+            (
+                exit,
+                error["category"]!.GetValue<string>(),
+                error["message"]!.GetValue<string>().Contains(path, StringComparison.Ordinal),
+                fake.RawWrites.Count
+            )
+        );
+    }
+
+    [Fact]
+    public async Task Update_ReplaceWithAnUnknownKey_FailsAndSendsNothing()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.Template, "home")] = Id;
+
+        var (exit, _) = await Run(
+            fake,
+            "template update home --json-body {body} --replace --yes",
+            """{ "name": "Home", "contnet": "@inherits X" }"""
+        );
+
+        Assert.Equal((1, 0), (exit, fake.RawWrites.Count));
+    }
+
+    [Fact]
+    public async Task Create_BodyWithAnUnknownKey_FailsAndSendsNothing()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var (exit, _, err) = await RunCapturingErrors(
+            fake,
+            "data-type create --json-body {body}",
+            """{ "name": "Text", "editorAlias": "Umbraco.TextBox", "editorUiAlias": "Umb.PropertyEditorUi.TextBox", "values": [], "configuration": {} }"""
+        );
+
+        Assert.Equal(
+            (1, true, 0),
+            (exit, err.Contains("$.configuration", StringComparison.Ordinal), fake.RawWrites.Count)
+        );
+    }
+
+    [Fact]
+    public async Task Update_BodyRoundTrippedFromGet_IsApplied()
+    {
+        // Arrange: get prints the verbatim body, read-only keys (id, isDeletable,
+        // aliasCanBeChanged) included; editing it and writing it back must still work.
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.MediaType, "brochure")] = Id;
+        fake.MediaTypeRaw[Id] = JsonNode.Parse(
+            $$"""
+            { "id": "{{Id}}", "alias": "brochure", "name": "Brochure", "icon": "icon-pdf",
+              "isDeletable": true, "aliasCanBeChanged": true, "collection": null,
+              "allowedMediaTypes": [], "compositions": [], "containers": [],
+              "properties": [{ "id": "{{Id}}", "container": null, "sortOrder": 0, "alias": "file",
+                "name": "File", "description": null, "dataType": { "id": "{{Id}}" },
+                "variesByCulture": false, "variesBySegment": false,
+                "validation": { "mandatory": false, "mandatoryMessage": null, "regEx": null, "regExMessage": null },
+                "appearance": { "labelOnTop": false } }] }
+            """
+        )!;
+        var (_, got) = await Run(fake, "media-type get brochure");
+        var edited = JsonNode.Parse(got)!["data"]!;
+        edited["name"] = "Leaflet";
+
+        // Act
+        var (exit, _) = await Run(
+            fake,
+            "media-type update brochure --json-body {body}",
+            edited.ToJsonString()
+        );
+
+        // Assert
+        Assert.Equal(
+            (0, "Leaflet"),
+            (exit, fake.LastSchemaMerge!.Value.Body["name"]!.GetValue<string>())
+        );
+    }
+
+    [Fact]
+    public async Task Update_AllowUnknownKeys_SendsTheBodyAsItIs()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.DocumentType, "probe")] = Id;
+
+        var (exit, _) = await Run(
+            fake,
+            "document-type update probe --json-body {body} --allow-unknown-keys",
+            """{ "newerUmbracoKey": true }"""
+        );
+
+        Assert.Equal(
+            (0, true),
+            (exit, fake.LastSchemaMerge!.Value.Body["newerUmbracoKey"]!.GetValue<bool>())
+        );
+    }
+
+    [Fact]
+    public async Task Create_AllowUnknownKeys_SendsTheBodyAsItIs()
+    {
+        var fake = new FakeUmbracoManagementClient();
+
+        var (exit, _) = await Run(
+            fake,
+            "member-type create --json-body {body} --allow-unknown-keys",
+            """{ "alias": "author", "name": "Author", "newerUmbracoKey": 1 }"""
+        );
+
+        Assert.Equal(
+            (0, 1),
+            (exit, Assert.Single(fake.RawWrites).Body["newerUmbracoKey"]!.GetValue<int>())
+        );
+    }
+
+    [Fact]
+    public async Task Update_AllowUnknownKeysWithoutABody_IsAParseError()
+    {
+        var fake = new FakeUmbracoManagementClient();
+        fake.References[(EntityKind.DataType, "Textstring")] = Id;
+
+        var (exit, _) = await Run(
+            fake,
+            "data-type update Textstring --name Text --allow-unknown-keys"
+        );
+
+        Assert.Equal((false, 0), (exit == 0, fake.DataTypeUpdates.Count));
     }
 
     [Fact]
