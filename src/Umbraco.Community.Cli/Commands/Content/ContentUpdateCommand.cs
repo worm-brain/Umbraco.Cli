@@ -101,7 +101,7 @@ public static class ContentUpdateCommand
                         // No body means a template-only change: an empty request merges as
                         // "change nothing", so only the --template below takes effect.
                         var request = body.HasBody(parseResult)
-                            ? JsonSerializer.Deserialize<UpdateContentRequest>(
+                            ? JsonBodyModel.Deserialize<UpdateContentRequest>(
                                 await body.ReadAsync(parseResult, c)
                             ) ?? throw new InvalidInputException("Invalid JSON body.")
                             : new UpdateContentRequest();

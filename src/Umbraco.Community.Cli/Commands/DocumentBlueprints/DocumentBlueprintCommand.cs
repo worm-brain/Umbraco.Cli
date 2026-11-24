@@ -264,7 +264,7 @@ public static class DocumentBlueprintCommand
                         {
                             var json = await body.ReadAsync(parseResult, c);
                             request =
-                                JsonSerializer.Deserialize<CreateDocumentBlueprintRequest>(json)
+                                JsonBodyModel.Deserialize<CreateDocumentBlueprintRequest>(json)
                                 ?? throw new InvalidInputException("Invalid JSON body.");
                         }
                         else
@@ -379,7 +379,7 @@ public static class DocumentBlueprintCommand
                         {
                             var json = await body.ReadAsync(parseResult, c);
                             request =
-                                JsonSerializer.Deserialize<UpdateDocumentBlueprintRequest>(json)
+                                JsonBodyModel.Deserialize<UpdateDocumentBlueprintRequest>(json)
                                 ?? throw new InvalidInputException("Invalid JSON body.");
                         }
                         else

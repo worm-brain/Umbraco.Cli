@@ -85,6 +85,49 @@ public class ContentUpdateCommandTests
 
     private static readonly Guid Id = Guid.Parse("3f7a8b2e-1234-5678-abcd-ef0123456789");
 
+    // content create's body errors share this harness too (#459).
+
+    [Fact]
+    public async Task Create_JsonBodyWithAStringContentType_ExplainsTheShapeWithoutTypeNames()
+    {
+        // Arrange
+        var fake = new FakeUmbracoManagementClient();
+        var (out_, err) = (Console.Out, Console.Error);
+        var stderr = new StringWriter();
+        Console.SetOut(new StringWriter());
+        Console.SetError(stderr);
+
+        // Act
+        int exit;
+        try
+        {
+            exit = await RunAsync(
+                fake,
+                "content create --json-body {body} --output json",
+                """{"contentType":"probe","variants":[{"name":"P1"}]}"""
+            );
+        }
+        finally
+        {
+            Console.SetOut(out_);
+            Console.SetError(err);
+        }
+
+        // Assert
+        var message = System.Text.Json.Nodes.JsonNode.Parse(stderr.ToString())![
+            "message"
+        ]!.GetValue<string>();
+        Assert.Equal(
+            (1, true, true, false),
+            (
+                exit,
+                message.Contains("contentType must be", StringComparison.Ordinal),
+                message.Contains("""{"alias": "blogPost"}""", StringComparison.Ordinal),
+                message.Contains("Umbraco.", StringComparison.Ordinal)
+            )
+        );
+    }
+
     // content restore shares this harness too (#230).
 
     [Fact]

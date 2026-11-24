@@ -109,7 +109,7 @@ public static class MediaUpdateCommand
                     async (client, c) =>
                     {
                         var request = body.HasBody(parseResult)
-                            ? JsonSerializer.Deserialize<UpdateMediaRequest>(
+                            ? JsonBodyModel.Deserialize<UpdateMediaRequest>(
                                 await body.ReadAsync(parseResult, c)
                             ) ?? throw new InvalidInputException("Invalid JSON body.")
                             : new UpdateMediaRequest();
