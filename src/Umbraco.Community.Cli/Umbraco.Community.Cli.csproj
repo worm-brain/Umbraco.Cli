@@ -12,12 +12,11 @@
     <PackageId>Umbraco.Community.Cli</PackageId>
     <!-- Base version used for local `dotnet pack`. The release workflow overrides
          this with the full version (incl. prerelease suffix) taken from the git tag,
-         e.g. `-p:Version=0.1.0-alpha.1`, so tag and package version never drift. -->
-    <VersionPrefix>0.1.0</VersionPrefix>
+         e.g. `-p:Version=1.1.0-rc.1`, so tag and package version never drift. -->
+    <VersionPrefix>1.0.0</VersionPrefix>
     <Title>Umbraco CLI</Title>
     <Description>A command-line tool for Umbraco CMS 17+. Manage content, media, document types and more from a terminal, a script or a CI pipeline, and move schema, media and content between sites. Every command can print JSON or CSV.</Description>
     <PackageTags>umbraco;cms;cli;dotnet-tool;ai;management-api;content-management</PackageTags>
-    <PackageReleaseNotes>Release candidate. Commands and output may still change before 1.0.0.</PackageReleaseNotes>
     <!-- The tool package ships the publish output. Nobody compiles against a tool, so the XML docs
          (several MB for the generated client) stay out of it. -->
     <PublishDocumentationFile>false</PublishDocumentationFile>
