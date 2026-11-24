@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Schema;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Umbraco.Community.Cli.Infrastructure;
 
@@ -20,9 +21,22 @@ public static class JsonBodySchema
     // Treat the root as non-nullable: the command rejects a literal `null` body, so the schema
     // must not advertise `"type": ["object", "null"]` (that would let a `null` body pass a
     // validator yet fail the command).
+    // Every record is closed (additionalProperties: false): a key the record does not define fails
+    // the command (ADR 0011), and the schema says so. A free-form value (object, JsonNode) stays
+    // open, as it has no properties.
     private static readonly JsonSchemaExporterOptions ExporterOptions = new()
     {
         TreatNullObliviousAsNonNullable = true,
+        TransformSchemaNode = (context, node) =>
+        {
+            if (
+                context.TypeInfo.Kind == JsonTypeInfoKind.Object
+                && node is JsonObject schema
+                && schema.ContainsKey("properties")
+            )
+                schema["additionalProperties"] = false;
+            return node;
+        },
     };
 
     private static readonly JsonSerializerOptions IndentedOptions = new() { WriteIndented = true };
@@ -32,8 +46,16 @@ public static class JsonBodySchema
     /// </summary>
     /// <typeparam name="TBody">The <c>--json-body</c> request type.</typeparam>
     /// <returns>The schema as a <see cref="JsonNode"/>.</returns>
-    public static JsonNode For<TBody>() =>
-        JsonSchemaExporter.GetJsonSchemaAsNode(BodyOptions, typeof(TBody), ExporterOptions);
+    public static JsonNode For<TBody>() => For(typeof(TBody));
+
+    /// <summary>
+    /// Builds the JSON Schema node for <paramref name="type"/>: a request type, or a read type
+    /// whose output is also accepted as a body (<see cref="JsonBodyModel"/>).
+    /// </summary>
+    /// <param name="type">The type.</param>
+    /// <returns>The schema as a <see cref="JsonNode"/>.</returns>
+    public static JsonNode For(Type type) =>
+        JsonSchemaExporter.GetJsonSchemaAsNode(BodyOptions, type, ExporterOptions);
 
     /// <summary>
     /// Prints the JSON Schema for <typeparamref name="TBody"/> to stdout as an indented JSON

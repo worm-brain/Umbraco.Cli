@@ -15,7 +15,13 @@ section as the GitHub Release notes.
   define, at any depth, listing each key's JSON path, and send nothing. Umbraco used to drop such
   keys and the command reported success. Edited `get` output is still accepted.
   `--allow-unknown-keys` sends the body unchecked, for an Umbraco newer than the CLI's schema.
-
+- `content create` / `update`, `media update` and `document-blueprint create` / `update` now also
+  fail with `invalid_argument` on a `--json-body` key their `--schema` does not define, at any
+  depth, listing each key's JSON path, and send nothing. The CLI used to drop such keys while
+  reporting success. Edited `get` output, a blueprint `scaffold` and `content create --example`
+  output are still accepted. On these commands `--allow-unknown-keys` ignores the unknown keys
+  instead of failing; it cannot send them. Their `--schema` now marks every object
+  `additionalProperties: false`.
 - The CLI runs on .NET 10: install the .NET 10 SDK or runtime before updating. .NET 9 support ends
   in November 2026, and Umbraco 17 sites already run on .NET 10.
 - The tool's assembly is now `Umbraco.Community.Cli.dll`, matching the package name. The package id

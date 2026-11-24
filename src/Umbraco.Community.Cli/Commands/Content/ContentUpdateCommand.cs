@@ -38,7 +38,9 @@ public static class ContentUpdateCommand
         // A --template change needs no body (#208), so --template is an alternative too.
         var body = new JsonBodyOption(
             "Path to a JSON file (or - for stdin) containing the update request body."
-        ).BodyRequiredUnless("--schema", "--template");
+        )
+            .BodyRequiredUnless("--schema", "--template")
+            .WithAllowUnknownKeys(typed: true);
         var replaceOpt = new Option<bool>("--replace")
         {
             Description =
@@ -102,7 +104,11 @@ public static class ContentUpdateCommand
                         // "change nothing", so only the --template below takes effect.
                         var request = body.HasBody(parseResult)
                             ? JsonBodyModel.Deserialize<UpdateContentRequest>(
-                                await body.ReadAsync(parseResult, c)
+                                await body.ReadAsync(parseResult, c),
+                                body.UnknownKeysAllowed(parseResult),
+                                "the content update schema",
+                                // content get's output, edited, is a valid body (ADR 0011).
+                                typeof(ContentItemResponse)
                             ) ?? throw new InvalidInputException("Invalid JSON body.")
                             : new UpdateContentRequest();
 

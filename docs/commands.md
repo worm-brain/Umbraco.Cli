@@ -221,9 +221,9 @@ umbraco content tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; 
 umbraco content find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco content get <id>                                   # every field of GET /document/{id} (documentType, values, variants, schedule dates, isTrashed, flags) plus name, parent, urls
 umbraco content create --document-type <alias> --name <name> [--culture <code>] [--parent <id>] [--id <guid>] [--template <alias|id>]   # no --culture on a variant type: the default language
-umbraco content create --json-body <file> [--id <guid>] [--template <alias|id>]   # the body carries type, name, parent and culture
+umbraco content create --json-body <file> [--id <guid>] [--template <alias|id>] [--allow-unknown-keys]   # the body carries type, name, parent and culture
 umbraco content create --example --document-type <alias> [--name <name>] [--culture <code>]   # prints a create body with a value per property; needs a host
-umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>]   # merges by default; --replace needs --yes
+umbraco content update <id> [--json-body <file>] [--replace] [--template <alias|id>] [--allow-unknown-keys]   # merges by default; --replace needs --yes
 umbraco content delete <id>                                # permanent; needs --yes non-interactively
 umbraco content publish <id> [--culture <csv>] [--publish-at <ts>] [--unpublish-at <ts>]   # ISO 8601 to schedule; no --culture publishes every culture the item has
 umbraco content unpublish <id> [--culture <csv>]          # takes offline; needs --yes; no --culture = every culture; data.cultures lists the ones that were live (null if invariant)
@@ -318,6 +318,17 @@ replaced wholesale and anything absent is cleared. The template still survives `
 To change only the template, pass `--template` on its own - no body is needed, and every value
 is left as it is: `umbraco content update <id> --template blogPost`. (`--replace` still needs a
 body, since an empty one would clear every value.)
+
+### Unknown keys in a content, media or blueprint body
+
+`content create` / `update`, `media update` and `document-blueprint create` / `update` refuse a
+body key that their `--schema` does not define, at any depth (`$.valuez`,
+`$.variants[0].nmae`): exit 1, `invalid_argument`, every such path listed, nothing sent. The CLI
+reads these bodies into its own request, so such a key used to be dropped without a word. The
+keys `get` prints are accepted where `get` prints them (`content get` for the document bodies,
+`media get` for media), so edited `get` output, a blueprint `scaffold` and `content create
+--example` output all go back as they are. `--allow-unknown-keys` ignores the unknown keys
+instead of failing. It cannot send them, because the request has nowhere to put them.
 
 ### Known sharp edges on `content` (Umbraco 17.x)
 
@@ -522,8 +533,8 @@ umbraco document-blueprint list [--parent <folder>] [--skip <n>] [--take <n>] [-
 umbraco document-blueprint get <id>                        # raw JSON (full fidelity) plus top-level name and parent
 umbraco document-blueprint scaffold <id>                   # pre-filled create body; pipe it into content create --json-body -
 umbraco document-blueprint create --document-type <alias|id> --name <name> [--culture <code>] [--parent <folder>] [--id <guid>]
-umbraco document-blueprint create --json-body <file>        # the whole request; --schema prints its JSON Schema
-umbraco document-blueprint update <id> [--name <name> [--culture <code>]] [--json-body <file>] [--replace]   # merges; --replace needs --yes
+umbraco document-blueprint create --json-body <file> [--allow-unknown-keys]   # the whole request; --schema prints its JSON Schema
+umbraco document-blueprint update <id> [--name <name> [--culture <code>]] [--json-body <file>] [--replace] [--allow-unknown-keys]   # merges; --replace needs --yes
 umbraco document-blueprint delete <id>                     # needs --yes non-interactively
 umbraco document-blueprint create --from-document <id> --name <name> [--parent <folder>] [--id <guid>]   # copies a document; --name applies to every culture
 umbraco document-blueprint move <id> [--parent <folder>]   # omit --parent to move to the root; --target works too
@@ -543,7 +554,7 @@ umbraco media tree [--parent <id>] [--recursive] [--depth <n>]   # flat walk; ea
 umbraco media find --name <text> | --path <a/b/c> [--parent <id>] # locate by name (server search) or by name path
 umbraco media get <id>                                     # includes urls[] and file metadata in values[]; mediaType.alias is the real alias
 umbraco media upload <file> [--parent <id>] [--name <name>] [--media-type <id|alias|name>] [--id <guid>] [--value alias=value]...  # staged via temporary-file
-umbraco media update <id> [--name <name>] [--value alias=value]... [--json-body <file>] [--replace]   # merged like content update; the file is kept
+umbraco media update <id> [--name <name>] [--value alias=value]... [--json-body <file>] [--replace] [--allow-unknown-keys]   # merged like content update; the file is kept
 # --id keeps the item's GUID across instances (content references media by id);
 # --value sets other properties, e.g. a custom media type's required fields
 umbraco media delete <id>                                  # permanent; needs --yes

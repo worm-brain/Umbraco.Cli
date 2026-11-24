@@ -80,4 +80,4 @@ without one it is a parse error rather than a silently ignored flag (docs/conven
 - `schema apply` is unchanged: it writes bodies the CLI exported itself, through the client
   directly.
 - The typed `--json-body` commands (`content`, `media`, `document-blueprint`) drop unknown keys in
-  the CLI's own deserialiser. They are tracked separately in #474.
+  the CLI's own deserialiser. They are tracked separately in #474, decided in ADR 0012.

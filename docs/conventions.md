@@ -68,7 +68,7 @@ disagree, this file wins; the older document is rationale that may be out of dat
    | A type reference | `--document-type`, `--media-type`, `--member-type`, `--relation-type`; `--type` only where any kind of type is accepted |
    | Paging | `--skip` (default 0), `--take` (default 100), `--all` (every page) |
    | Idempotent create | `--id <guid>` |
-   | Request body | `--json-body <file\|->`, with `--schema` (its JSON Schema) and, where a schema cannot say enough, `--example` (a real one from the instance, or one built from it: `content create --example --document-type <alias>`). Where a body is checked against its schema, `--allow-unknown-keys` sends keys the schema lacks |
+   | Request body | `--json-body <file\|->`, with `--schema` (its JSON Schema) and, where a schema cannot say enough, `--example` (a real one from the instance, or one built from it: `content create --example --document-type <alias>`). A body key its schema does not define fails the command; `--allow-unknown-keys` skips that check (the keys are sent where the body goes to Umbraco as written, and dropped where the CLI reads it into its own request) |
    | Output file | `--out` / `-O` |
    | Inline file text vs file | `--content <text>` / `--content-file <file\|->` |
    | Inline pair value vs file | `--value key=value` / `--value-file key=<file\|->` |

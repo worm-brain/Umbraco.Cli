@@ -19,15 +19,33 @@ public static class ContentCreateCommand
     /// </summary>
     /// <param name="json">The body text.</param>
     /// <param name="id">The <c>--id</c> value, or null.</param>
+    /// <param name="allowUnknownKeys">
+    /// <c>--allow-unknown-keys</c>: ignore keys the schema does not define instead of failing.
+    /// </param>
     /// <returns>The request.</returns>
     /// <exception cref="InvalidInputException">
     /// The body is not a JSON object, names no document type, its id contradicts <c>--id</c>, or a
-    /// value still holds an <c>--example</c> placeholder (#376), or a field has the wrong type (#459).
+    /// value still holds an <c>--example</c> placeholder (#376), or a field has the wrong type (#459),
+    /// or it has a key that neither the create schema nor <c>content get</c>'s output defines (#474).
     /// </exception>
-    internal static CreateContentRequest ReadCreateRequest(string json, Guid? id)
+    internal static CreateContentRequest ReadCreateRequest(
+        string json,
+        Guid? id,
+        bool allowUnknownKeys = false
+    )
     {
         if (JsonNode.Parse(json) is not JsonObject obj)
             throw new InvalidInputException("--json-body did not contain a JSON object.");
+
+        // Checked before documentType is renamed, so a path names the key as the caller wrote it.
+        // content get's shape is accepted too: it is a superset, position by position, of what
+        // blueprint scaffold prints (the API's document shape), and of the --example output.
+        if (!allowUnknownKeys)
+            JsonBodyModel.CheckKeys<CreateContentRequest>(
+                obj,
+                "the content create schema",
+                typeof(ContentItemResponse)
+            );
 
         // The Management API (and scaffold) shape names the type documentType; the CLI's names it
         // contentType. Only a body without the CLI key is translated, so nothing is overridden.
@@ -115,7 +133,7 @@ public static class ContentCreateCommand
             "Print an example --json-body for --document-type, with one values[] entry per "
                 + "property filled in for its editor, and exit. --name and --culture fill the "
                 + "variant. Requires a host."
-        );
+        ).WithAllowUnknownKeys(typed: true);
         var templateOpt = new Option<string?>("--template")
         {
             Description =
@@ -218,7 +236,8 @@ public static class ContentCreateCommand
                         {
                             request = ReadCreateRequest(
                                 await body.ReadAsync(parseResult, c),
-                                parseResult.GetValue(idOpt)
+                                parseResult.GetValue(idOpt),
+                                body.UnknownKeysAllowed(parseResult)
                             );
                         }
                         else

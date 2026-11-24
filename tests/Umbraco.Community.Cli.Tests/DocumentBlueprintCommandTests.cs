@@ -146,6 +146,37 @@ public class DocumentBlueprintCommandTests
         }
     }
 
+    [Theory]
+    [InlineData(
+        "create",
+        """{"documentType":{"alias":"textPage"},"variants":[{"name":"Starter","nmae":"x"}]}"""
+    )]
+    [InlineData("update 3f7a8b2e-1234-5678-abcd-ef0123456789", """{"valuez":[]}""")]
+    public async Task JsonBodyWithAnUnknownKey_FailsAndSendsNothing(string verb, string body)
+    {
+        // Arrange (#474)
+        var fake = new FakeUmbracoManagementClient();
+        var root = BuildRoot(fake);
+        var path = Path.Combine(Path.GetTempPath(), $"bp-{Guid.NewGuid()}.json");
+        await File.WriteAllTextAsync(path, body, TestContext.Current.CancellationToken);
+
+        try
+        {
+            // Act
+            var exit = await Run(root, $"{Auth} document-blueprint {verb} --json-body {path}");
+
+            // Assert
+            Assert.Equal(
+                (1, 0, 0),
+                (exit, fake.BlueprintsCreated.Count, fake.BlueprintsUpdated.Count)
+            );
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public async Task Create_Schema_PrintsAndExitsWithoutCalling()
     {

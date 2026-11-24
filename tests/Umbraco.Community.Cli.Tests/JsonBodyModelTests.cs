@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Umbraco.Community.Cli.Client;
 using Umbraco.Community.Cli.Commands;
 using Umbraco.Community.Cli.Infrastructure;
@@ -128,5 +129,191 @@ public class JsonBodyModelTests
         );
 
         Assert.DoesNotMatch(@"Umbraco\.|System\.", ex.Message);
+    }
+
+    // ── Unknown keys (#474) ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void Deserialize_UnknownKeysAtAnyDepth_ListsEveryPathInDocumentOrder()
+    {
+        var ex = Assert.Throws<InvalidInputException>(() =>
+            JsonBodyModel.Deserialize<UpdateContentRequest>(
+                """{ "valuez": [], "variants": [{ "nmae": "x" }], "template": { "alais": "home" } }""",
+                allowUnknownKeys: false,
+                "the content update schema",
+                typeof(ContentItemResponse)
+            )
+        );
+
+        Assert.Contains(
+            "does not define: $.valuez, $.variants[0].nmae, $.template.alais.",
+            ex.Message,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
+    public void Deserialize_UnknownKeyAllowed_ReadsTheRestAndDropsIt()
+    {
+        var request = JsonBodyModel.Deserialize<UpdateContentRequest>(
+            """{ "valuez": [], "variants": [{ "name": "Kept", "nmae": "x" }] }""",
+            allowUnknownKeys: true,
+            "the content update schema",
+            typeof(ContentItemResponse)
+        )!;
+
+        Assert.Equal("Kept", request.Variants.Single().Name);
+    }
+
+    [Fact]
+    public void Deserialize_ValueOfAnyShape_IsNotChecked()
+    {
+        // A block editor's value has whatever keys its editor takes.
+        var request = JsonBodyModel.Deserialize<UpdateMediaRequest>(
+            """{ "values": [{ "alias": "blocks", "value": { "layout": {}, "anything": [1] } }] }""",
+            allowUnknownKeys: false,
+            "the media update schema",
+            typeof(MediaItemResponse)
+        )!;
+
+        Assert.Equal("blocks", request.Values.Single().Alias);
+    }
+
+    [Fact]
+    public void Deserialize_ReadOnlyKeyOfGetAtTheWrongPosition_IsRejected()
+    {
+        // "urls" is a top-level key of content get, not a variant key.
+        var ex = Assert.Throws<InvalidInputException>(() =>
+            JsonBodyModel.Deserialize<UpdateContentRequest>(
+                """{ "variants": [{ "name": "x", "urls": [] }] }""",
+                allowUnknownKeys: false,
+                "the content update schema",
+                typeof(ContentItemResponse)
+            )
+        );
+
+        Assert.Contains("$.variants[0].urls", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Deserialize_FullMediaGetOutput_IsAValidMediaUpdateBody()
+    {
+        // Every key media get can print, nulls included, as its output carries them.
+        var get = System.Text.Json.JsonSerializer.Serialize(
+            new MediaItemResponse
+            {
+                Id = Guid.NewGuid(),
+                Name = "Logo",
+                MediaType = new ContentTypeRef
+                {
+                    Id = Guid.NewGuid(),
+                    Alias = "image",
+                    Icon = "icon-picture",
+                    Collection = new ContentParentReference { Id = Guid.NewGuid() },
+                },
+                Parent = new ContentParentReference { Id = Guid.NewGuid() },
+                UpdateDate = DateTimeOffset.UnixEpoch,
+                Values =
+                [
+                    new ContentValueResponse
+                    {
+                        Alias = "umbracoFile",
+                        EditorAlias = "Umbraco.ImageCropper",
+                        Value = JsonNode.Parse("""{ "src": "/media/logo.png", "crops": [] }"""),
+                    },
+                ],
+                Urls = [new UrlInfo { Culture = null, Url = "/media/logo.png" }],
+            }
+        );
+
+        var request = JsonBodyModel.Deserialize<UpdateMediaRequest>(
+            get,
+            allowUnknownKeys: false,
+            "the media update schema",
+            typeof(MediaItemResponse)
+        )!;
+
+        Assert.Equal("umbracoFile", request.Values.Single().Alias);
+    }
+
+    /// <summary>
+    /// <c>document-blueprint get</c> and <c>scaffold</c> print the Management API's
+    /// <c>DocumentBlueprintResponseModel</c> verbatim, and the docs pipe them into
+    /// <c>content create</c> and back into the blueprint verbs. A body with every key that model
+    /// has, at every depth, built from the spec, must pass each of those checks.
+    /// </summary>
+    [Fact]
+    public void CheckKeys_EveryKeyOfTheApisBlueprintShape_PassesTheDocumentBodies()
+    {
+        // Arrange
+        var schemas = JsonNode.Parse(
+            File.ReadAllText(Path.Combine(TestPaths.RepoRoot(), "spec", "management.json"))
+        )!["components"]!["schemas"]!.AsObject();
+        var body = Instance(schemas, schemas["DocumentBlueprintResponseModel"]!)!;
+
+        // Act
+        var failures = new (string Verb, Action Check)[]
+        {
+            (
+                "content create",
+                () =>
+                    JsonBodyModel.CheckKeys<CreateContentRequest>(
+                        body,
+                        "s",
+                        typeof(ContentItemResponse)
+                    )
+            ),
+            (
+                "document-blueprint create",
+                () =>
+                    JsonBodyModel.CheckKeys<CreateDocumentBlueprintRequest>(
+                        body,
+                        "s",
+                        typeof(ContentItemResponse)
+                    )
+            ),
+            (
+                "document-blueprint update",
+                () =>
+                    JsonBodyModel.CheckKeys<UpdateDocumentBlueprintRequest>(
+                        body,
+                        "s",
+                        typeof(ContentItemResponse)
+                    )
+            ),
+        }
+            .Select(c => (c.Verb, Error: Record.Exception(c.Check)?.Message))
+            .Where(r => r.Error is not null)
+            .ToList();
+
+        // Assert
+        Assert.Empty(failures);
+    }
+
+    /// <summary>
+    /// Builds a JSON value with every property a spec component defines, recursively: each object
+    /// gets all its keys, each array one item, each scalar a string.
+    /// </summary>
+    private static JsonNode? Instance(JsonObject schemas, JsonNode schema)
+    {
+        var reference =
+            schema["$ref"]?.GetValue<string>()
+            ?? schema["oneOf"]
+                ?.AsArray()
+                .Select(o => o!["$ref"]?.GetValue<string>())
+                .FirstOrDefault(r => r is not null)
+            ?? schema["allOf"]
+                ?.AsArray()
+                .Select(o => o!["$ref"]?.GetValue<string>())
+                .FirstOrDefault(r => r is not null);
+        if (reference is not null)
+            return Instance(schemas, schemas[reference.Split('/')[^1]]!);
+        if (schema["properties"] is JsonObject properties)
+            return new JsonObject(
+                properties.Select(p => KeyValuePair.Create(p.Key, Instance(schemas, p.Value!)))
+            );
+        if (schema["type"]?.GetValue<string>() == "array")
+            return new JsonArray(Instance(schemas, schema["items"]!));
+        return "x";
     }
 }

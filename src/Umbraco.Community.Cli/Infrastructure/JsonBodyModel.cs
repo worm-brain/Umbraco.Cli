@@ -68,6 +68,57 @@ public static partial class JsonBodyModel
     }
 
     /// <summary>
+    /// Parses a <c>--json-body</c>, checks its keys (<see cref="CheckKeys{T}"/>) unless
+    /// <paramref name="allowUnknownKeys"/>, and reads it as <typeparamref name="T"/>.
+    /// </summary>
+    /// <typeparam name="T">The request type.</typeparam>
+    /// <param name="json">The body text.</param>
+    /// <param name="allowUnknownKeys"><c>--allow-unknown-keys</c>: skip the key check.</param>
+    /// <param name="schema">Names the schema in the message, e.g. <c>the content update schema</c>.</param>
+    /// <param name="readShapes">The types whose output is also accepted as this body.</param>
+    /// <returns>The request, or null for a literal <c>null</c> body.</returns>
+    /// <exception cref="JsonException">The text is not valid JSON.</exception>
+    /// <exception cref="InvalidInputException">A key is unknown, a field has the wrong type, or a required key is missing.</exception>
+    public static T? Deserialize<T>(
+        string json,
+        bool allowUnknownKeys,
+        string schema,
+        params Type[] readShapes
+    )
+    {
+        var body = JsonNode.Parse(json);
+        if (body is not null && !allowUnknownKeys)
+            CheckKeys<T>(body, schema, readShapes);
+        return Deserialize<T>(body);
+    }
+
+    /// <summary>
+    /// Fails on any key in <paramref name="body"/> that <typeparamref name="T"/>'s schema (what
+    /// <c>--schema</c> prints) does not define, at any depth (#474, ADR 0011). The CLI reads the
+    /// body into <typeparamref name="T"/>, and System.Text.Json drops a key the record lacks, so
+    /// a misspelt key used to be lost before anything was sent while the command reported
+    /// success. Keys <paramref name="readShapes"/> define at the same position are accepted too,
+    /// so the output of <c>get</c>, edited and written back, still reads; they are ignored, as
+    /// before.
+    /// </summary>
+    /// <typeparam name="T">The request type the body is read as.</typeparam>
+    /// <param name="body">The parsed body.</param>
+    /// <param name="schema">Names the schema in the message, e.g. <c>the content update schema</c>.</param>
+    /// <param name="readShapes">The types whose output is also accepted as this body, e.g. what <c>get</c> prints.</param>
+    /// <exception cref="InvalidInputException">The body has a key no accepted shape defines.</exception>
+    public static void CheckKeys<T>(JsonNode body, string schema, params Type[] readShapes)
+    {
+        var unknown = JsonBodyKeys.FindUnknown(
+            body,
+            [JsonBodySchema.For<T>(), .. readShapes.Select(JsonBodySchema.For)]
+        );
+        if (unknown.Count > 0)
+            // The body never reaches Umbraco as JSON, so --allow-unknown-keys cannot send these
+            // keys: it only restores the old behaviour of dropping them.
+            throw JsonBodyKeys.Error(unknown, schema, "The CLI", "ignore them instead");
+    }
+
+    /// <summary>
     /// Explains a deserialisation failure at <paramref name="path"/> in user terms: a required key
     /// missing there, or the value there having the wrong type.
     /// </summary>
