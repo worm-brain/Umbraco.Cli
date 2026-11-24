@@ -13,18 +13,18 @@ in and check it all works. Setting it up for a script, CI or an AI agent? The
 ## 2. Install
 
 The package is `Umbraco.Community.Cli` on NuGet.org, and the command it installs is
-`umbraco`. Keep `--prerelease` until 1.0 is out.
+`umbraco`.
 
 ```bash
 # Global tool (available everywhere as `umbraco`)
-dotnet tool install -g Umbraco.Community.Cli --prerelease
+dotnet tool install -g Umbraco.Community.Cli
 ```
 
 Or pin it to a repository as a local tool:
 
 ```bash
 dotnet new tool-manifest        # once per repo
-dotnet tool install Umbraco.Community.Cli --prerelease
+dotnet tool install Umbraco.Community.Cli
 ```
 
 Check it's on your PATH:

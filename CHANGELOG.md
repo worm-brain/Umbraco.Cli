@@ -10,6 +10,9 @@ section as the GitHub Release notes.
 
 ### Changed
 
+- 1.0.0 is the first stable release: install and update without `--prerelease`. From here the
+  commands, flags, JSON output and exit codes follow semantic versioning, so a breaking change
+  needs a new major version.
 - The CLI runs on .NET 10: install the .NET 10 SDK or runtime before updating. .NET 9 support ends
   in November 2026, and Umbraco 17 sites already run on .NET 10.
 - The tool's assembly is now `Umbraco.Community.Cli.dll`, matching the package name. The package id

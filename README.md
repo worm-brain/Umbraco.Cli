@@ -10,7 +10,7 @@ script or a CI pipeline.
 [![CI](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml/badge.svg)](https://github.com/worm-brain/Umbraco.Cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> Release candidate. Works with Umbraco 17 and later.
+> Works with Umbraco 17 and later.
 
 ## What it does
 
@@ -35,10 +35,10 @@ You'll need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 Umbraco 17+ site.
 
 ```bash
-dotnet tool install -g Umbraco.Community.Cli --prerelease
+dotnet tool install -g Umbraco.Community.Cli
 ```
 
-That gives you the `umbraco` command. Keep `--prerelease` until 1.0 is out.
+That gives you the `umbraco` command.
 
 Tab completion for bash, zsh and PowerShell is built in: run `umbraco completion <bash|zsh|pwsh>`
 and load the output from your shell's startup file
